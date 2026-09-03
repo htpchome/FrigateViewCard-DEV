@@ -1,7 +1,6 @@
 # FrigateViewCard
 
 [![Latest release](https://img.shields.io/github/v/release/htpchome/FrigateViewCard?display_name=tag&sort=semver&style=flat-square)](https://github.com/htpchome/FrigateViewCard/releases)
-[![Downloads](https://img.shields.io/github/downloads/htpchome/FrigateViewCard/total?style=flat-square)](https://github.com/htpchome/FrigateViewCard/releases)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square&logo=homeassistant&logoColor=white)](#hacs-recommended)
 [![License: MIT](https://img.shields.io/github/license/htpchome/FrigateViewCard?style=flat-square)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home_Assistant-Compatible-41BDF5?style=flat-square&logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
