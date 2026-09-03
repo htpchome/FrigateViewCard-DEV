@@ -9,6 +9,27 @@ import {
 import { CleanupController } from "../../shared/cleanup.js";
 import { MediaOverlayControlsController } from "../../shared/media/overlay-controls.ctrl.js";
 
+let activeKeyboardPlaybackController = null;
+
+const isEditableKeyboardTarget = (target) => {
+  const tagName = String(target?.tagName || "").toLowerCase();
+  if (
+    target?.isContentEditable ||
+    tagName === "textarea" ||
+    tagName === "select"
+  ) {
+    return true;
+  }
+  if (tagName !== "input") return false;
+  const inputType = String(target?.type || "text").toLowerCase();
+  return !["button", "checkbox", "radio", "range", "reset", "submit"].includes(
+    inputType,
+  );
+};
+
+const isSpaceKey = (event) =>
+  event?.code === "Space" || event?.key === " " || event?.key === "Spacebar";
+
 export class PopupMediaControlsController {
   constructor({
     controls,
@@ -160,6 +181,7 @@ export class PopupMediaControlsSurfaceController {
     isAutoHideActive = () => false,
     isMobileTabletViewport = () => false,
     isVideoMediaType = () => false,
+    keyboardScope = null,
     onClearPictureInPicture = () => {},
     onSyncPlaybackTargetButtons = () => {},
     onSyncPictureInPictureButtons = () => {},
@@ -179,6 +201,7 @@ export class PopupMediaControlsSurfaceController {
     this._isAutoHideActive = isAutoHideActive;
     this._isMobileTabletViewport = isMobileTabletViewport;
     this._isVideoMediaType = isVideoMediaType;
+    this._keyboardScope = keyboardScope;
     this._onClearPictureInPicture = onClearPictureInPicture;
     this._onSyncPlaybackTargetButtons = onSyncPlaybackTargetButtons;
     this._onSyncPictureInPictureButtons = onSyncPictureInPictureButtons;
@@ -195,6 +218,8 @@ export class PopupMediaControlsSurfaceController {
     this._hideTimer = null;
     this._playbackOverlayController = null;
     this._playbackOverlayHideTimer = null;
+    this._keyboardPlaybackActive = false;
+    this._keyboardPlaybackCleanup = null;
   }
 
   video() {
@@ -248,6 +273,7 @@ export class PopupMediaControlsSurfaceController {
         this.update(video, { updateProgress: !progressDragging }),
     });
     this._binding.bind();
+    this._bindKeyboardPlayback(video);
     return controlsPlan;
   }
 
@@ -464,6 +490,20 @@ export class PopupMediaControlsSurfaceController {
     return false;
   }
 
+  hideForOutsideVideoClick(target) {
+    const controls = this._query?.("#popup-media-controls");
+    if (
+      !controls ||
+      controls.hidden ||
+      !controls.classList?.contains?.("desktop-overlay-layout") ||
+      target?.closest?.("#viewer") ||
+      target?.closest?.("#popup-media-controls")
+    ) {
+      return false;
+    }
+    return this.hideNow();
+  }
+
   showNow() {
     const controls = this._query?.("#popup-media-controls");
     if (!controls || controls.hidden) return;
@@ -485,18 +525,112 @@ export class PopupMediaControlsSurfaceController {
     }, this._hideDelayMs);
   }
 
+  hideNow() {
+    const controls = this._query?.("#popup-media-controls");
+    if (!controls || controls.hidden) return false;
+    this._clearHideTimer();
+    controls.classList.add("is-hidden");
+    return true;
+  }
+
+  setKeyboardPlaybackActive(active) {
+    if (active) {
+      if (
+        activeKeyboardPlaybackController &&
+        activeKeyboardPlaybackController !== this
+      ) {
+        activeKeyboardPlaybackController._keyboardPlaybackActive = false;
+      }
+      activeKeyboardPlaybackController = this;
+      this._keyboardPlaybackActive = true;
+      return;
+    }
+    this._keyboardPlaybackActive = false;
+    if (activeKeyboardPlaybackController === this) {
+      activeKeyboardPlaybackController = null;
+    }
+  }
+
+  handleKeyboardPlayback(event) {
+    if (
+      !isSpaceKey(event) ||
+      event?.altKey ||
+      event?.ctrlKey ||
+      event?.metaKey ||
+      event?.defaultPrevented
+    ) {
+      return false;
+    }
+    const path = Array.isArray(event?.composedPath?.())
+      ? event.composedPath()
+      : [];
+    const target = path[0] || event?.target;
+    if (isEditableKeyboardTarget(target)) return false;
+
+    const popup = this._query?.("#myPopup");
+    const video = this.video();
+    if (!popup?.classList?.contains?.("is-open") || !video) return false;
+
+    if (!this._keyboardPlaybackActive) {
+      if (
+        path.includes(this._keyboardScope) ||
+        this._keyboardScope?.contains?.(target)
+      ) {
+        event?.preventDefault?.();
+      }
+      return false;
+    }
+
+    event?.preventDefault?.();
+    if (!event?.repeat) this.togglePlay();
+    return true;
+  }
+
   dispose() {
     this._disposeMediaBinding();
     this._disposePlaybackOverlayVisibility();
+    this.setKeyboardPlaybackActive(false);
   }
 
   _disposeMediaBinding() {
     this._clearHideTimer();
+    this._disposeKeyboardPlayback();
     this._binding?.dispose?.();
     this._binding = null;
     this._video = null;
     this._query?.("#popup-media-controls")?.classList?.remove?.("is-hidden");
   }
+
+  _bindKeyboardPlayback(video) {
+    this._disposeKeyboardPlayback();
+    if (!video || !this._document?.addEventListener) return;
+    this._keyboardPlaybackCleanup = new CleanupController();
+    this._keyboardPlaybackCleanup.addEventListener(
+      this._document,
+      "keydown",
+      this._onKeyboardPlaybackKeyDown,
+      { capture: true },
+    );
+    this._keyboardPlaybackCleanup.addEventListener(
+      video,
+      "pointerenter",
+      this._onPopupVideoPointerEnter,
+      { passive: true },
+    );
+  }
+
+  _disposeKeyboardPlayback() {
+    this._keyboardPlaybackCleanup?.dispose?.();
+    this._keyboardPlaybackCleanup = null;
+  }
+
+  _onKeyboardPlaybackKeyDown = (event) => {
+    this.handleKeyboardPlayback(event);
+  };
+
+  _onPopupVideoPointerEnter = () => {
+    this.setKeyboardPlaybackActive(true);
+  };
 
   _bindPlaybackOverlayVisibility(viewer, mobileTablet) {
     this._disposePlaybackOverlayVisibility();

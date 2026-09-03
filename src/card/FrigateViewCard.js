@@ -983,6 +983,7 @@ export class FrigateViewCard extends HTMLElement {
         isMobileTabletViewport: () => this._isMobileTabletViewport(),
         isVideoMediaType: (mediaType) =>
           this._isPopupVideoMediaType(mediaType),
+        keyboardScope: this,
         onClearPictureInPicture: (scope) =>
           this._clearPictureInPictureButtonController(scope),
         onSyncPlaybackTargetButtons: () =>
@@ -1300,10 +1301,13 @@ export class FrigateViewCard extends HTMLElement {
       this._onEditorPreviewDraft,
     );
     this._onDocumentPointerDown = (event) => {
-      if (!this._mobileCamSwitcherOpen) return;
       const path =
         typeof event?.composedPath === "function" ? event.composedPath() : [];
-      if (Array.isArray(path) && path.includes(this)) return;
+      const insideCard = Array.isArray(path) && path.includes(this);
+      this._popupMediaControlsController?.setKeyboardPlaybackActive?.(
+        insideCard,
+      );
+      if (!this._mobileCamSwitcherOpen || insideCard) return;
       this._mobileCamSwitcherController?.close();
     };
     document.addEventListener("pointerdown", this._onDocumentPointerDown, {
@@ -5551,6 +5555,7 @@ export class FrigateViewCard extends HTMLElement {
 
   _click(e) {
     const target = e.target;
+    this._popupMediaControlsController?.hideForOutsideVideoClick?.(target);
     if (this._linkedLightController?.handleClick?.(e, target)) return;
     if (this._mobileCamSwitcherController.handleClickTarget(target)) return;
     this._mobileCamSwitcherController.closeIfOutside(target);

@@ -1840,6 +1840,14 @@ test("popup media controls and visibility are owned by the popup feature", () =>
     true,
   );
   assert.equal(
+    popupMediaControlsControllerSource.includes("handleKeyboardPlayback(event)"),
+    true,
+  );
+  assert.equal(
+    cardSource.includes("setKeyboardPlaybackActive?.("),
+    true,
+  );
+  assert.equal(
     popupMediaLoaderControllerSource.includes(
       "this._mediaControlsController?.initialize(",
     ),

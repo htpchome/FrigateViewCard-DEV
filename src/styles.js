@@ -1073,10 +1073,10 @@ export const STYLES = `
   .popup-media-controls.mobile-tablet-layout #popup-media-fs,
   .popup-media-controls.mobile-tablet-layout #popup-media-airplay,
   .popup-media-controls.mobile-tablet-layout #popup-media-volume{display:none !important;}
-  .popup-media-controls.desktop-overlay-layout {position:relative;z-index:8;grid-template-columns:46px minmax(0,1fr) auto 34px minmax(68px,94px) 34px 34px;grid-template-areas:"play progress time mute volume fs airplay";align-self:center;width:min(100%,var(--popup-media-max-width,124.444dvh));height:42px;margin-top:-50px;padding:2px 6px;column-gap:5px;row-gap:0;color:var(--c-text-rev);background:color-mix(in srgb,var(--c-bg-deep) 74%,transparent);border:1px solid color-mix(in srgb,var(--c-border2) 55%,transparent);border-radius:5px;box-shadow:none;opacity:.94;transition:opacity .18s ease;}
+  .popup-media-controls.desktop-overlay-layout {position:relative;z-index:8;grid-template-columns:46px minmax(0,1fr) auto 34px minmax(68px,94px) 34px 34px;grid-template-areas:"play progress time mute volume fs airplay";align-self:center;width:min(100%,var(--popup-media-max-width,124.444dvh));height:42px;margin-top:-50px;margin-inline:0;padding:2px 6px;column-gap:5px;row-gap:0;color:var(--c-text-rev);background:color-mix(in srgb,var(--c-bg-deep) 74%,transparent);border:0;border-radius:0;box-shadow:0 -2px 8px rgba(0,0,0,.35);opacity:.94;transition:opacity .18s ease;}
   .popup-media-controls.desktop-overlay-layout:hover,
   .popup-media-controls.desktop-overlay-layout:focus-within {opacity:1;}
-  .popup-media-controls.desktop-overlay-layout.is-hidden:not(:hover):not(:focus-within) {opacity:0;pointer-events:none;}
+  .popup-media-controls.desktop-overlay-layout.is-hidden {opacity:0;pointer-events:none;}
   .popup-media-controls.desktop-overlay-layout .popup-media-controls-spacer {display:none;}
   .popup-media-controls.desktop-overlay-layout .popup-media-btn {width:34px;height:34px;padding:3px;border:0;border-radius:0;color:var(--c-text-rev);background:transparent;box-shadow:none;}
   .popup-media-controls.desktop-overlay-layout .popup-media-btn#popup-media-play {width:46px;height:38px;margin-left:-5px;padding:5px;}

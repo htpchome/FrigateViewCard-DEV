@@ -36,7 +36,7 @@ test("popup shell uses precomputed anchor geometry without metadata resizing", (
 test("desktop popup playback controls overlay the video without a blur filter", () => {
   assert.match(
     STYLES,
-    /\.popup-media-controls\.desktop-overlay-layout \{[^}]*width:min\(100%,var\(--popup-media-max-width,124\.444dvh\)\);[^}]*height:42px;[^}]*margin-top:-50px;[^}]*background:color-mix\(in srgb,var\(--c-bg-deep\) 74%,transparent\);/,
+    /\.popup-media-controls\.desktop-overlay-layout \{[^}]*width:min\(100%,var\(--popup-media-max-width,124\.444dvh\)\);[^}]*height:42px;[^}]*margin-top:-50px;[^}]*margin-inline:0;[^}]*background:color-mix\(in srgb,var\(--c-bg-deep\) 74%,transparent\);[^}]*border:0;[^}]*border-radius:0;[^}]*box-shadow:0 -2px 8px rgba\(0,0,0,\.35\);/,
   );
   assert.match(
     STYLES,
@@ -48,7 +48,7 @@ test("desktop popup playback controls overlay the video without a blur filter", 
   assert.doesNotMatch(desktopRule || "", /backdrop-filter/);
   assert.match(
     STYLES,
-    /\.popup-media-controls\.desktop-overlay-layout\.is-hidden:not\(:hover\):not\(:focus-within\) \{opacity:0;pointer-events:none;\}/,
+    /\.popup-media-controls\.desktop-overlay-layout\.is-hidden \{opacity:0;pointer-events:none;\}/,
   );
   assert.match(
     STYLES,
