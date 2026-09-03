@@ -579,6 +579,10 @@ test("the configuration editor is excluded from the startup bundle", () => {
   assert.equal(indexSource.includes("FrigateViewCardEditor"), false);
   assert.equal(source.includes("FrigateViewCardEditor"), false);
   assert.equal(editorBundleSource.includes("editor-choice-field"), true);
+  assert.match(
+    cardSource,
+    /editorUrl\.searchParams\.set\("fvc-version", VERSION\);/,
+  );
   assert.match(cardSource, /await import\(editorUrl\.href\);/);
 });
 

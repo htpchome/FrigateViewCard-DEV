@@ -1527,6 +1527,7 @@ export class FrigateViewCard extends HTMLElement {
         "./frigate-view-card-editor.js",
         import.meta.url,
       );
+      editorUrl.searchParams.set("fvc-version", VERSION);
       await import(editorUrl.href);
     }
     return document.createElement(editorTag);
