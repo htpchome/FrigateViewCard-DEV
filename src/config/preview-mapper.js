@@ -46,6 +46,7 @@ export const createEditorPreviewDraft = (config) => ({
   display_title: config.display_title,
   display_subtitle: config.display_subtitle,
   display_logo: config.display_logo,
+  display_version: config.display_version,
   cameras: Array.isArray(config.cameras)
     ? config.cameras.map((camera) => ({
         ...camera,
@@ -155,6 +156,7 @@ export const applyEditorPreviewDraftToCardConfig = ({
     display_title: previewConfig.display_title !== false,
     display_subtitle: previewConfig.display_subtitle !== false,
     display_logo: previewConfig.display_logo !== false,
+    display_version: previewConfig.display_version !== false,
     cameras: Array.isArray(previewConfig.cameras)
       ? previewConfig.cameras
       : base.cameras,

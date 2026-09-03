@@ -145,6 +145,25 @@ test("preview view renders the version at the right of its footer", () => {
   );
 });
 
+test("page footers retain a hidden version target when version display is disabled", () => {
+  const standardFooter = buildFooterMarkup({
+    icons: { frigateView: "Logo" },
+    version: "",
+  });
+  const previewFooter = buildPreviewLayoutShellMarkup({
+    previewShellHeader: "Header",
+    previewFooterIcon: "Logo",
+    version: "",
+  });
+  const wideFooter = buildWideViewMainLayoutShellMarkup({
+    regions: { ...regions, footerVersion: "" },
+  });
+
+  [standardFooter, previewFooter, wideFooter].forEach((markup) => {
+    assert.match(markup, /class="footer-version" hidden><\/div>/);
+  });
+});
+
 test("preview view can remove its footer from layout for the bottom HA navbar", () => {
   const markup = buildPreviewLayoutShellMarkup({
     previewShellHeader: "Header",

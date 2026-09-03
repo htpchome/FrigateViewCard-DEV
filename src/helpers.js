@@ -706,6 +706,7 @@ export const buildEditorConfigFromDom = ({
   const displayTitle = root.querySelector("#display_title");
   const displaySubtitle = root.querySelector("#display_subtitle");
   const displayLogo = root.querySelector("#display_logo");
+  const displayVersion = root.querySelector("#display_version");
   nextConfig.display_title = displayTitle
     ? resolveSwitchChecked(displayTitle)
     : baseConfig?.display_title !== false;
@@ -715,6 +716,9 @@ export const buildEditorConfigFromDom = ({
   nextConfig.display_logo = displayLogo
     ? resolveSwitchChecked(displayLogo)
     : baseConfig?.display_logo !== false;
+  nextConfig.display_version = displayVersion
+    ? resolveSwitchChecked(displayVersion)
+    : baseConfig?.display_version !== false;
 
   nextConfig.window_days = normalizePositiveInteger(
     root.querySelector("#window_days")?.dataset.value ||

@@ -217,6 +217,12 @@ export const compactEditorConfigForYaml = (
     source.display_logo !== false,
     true,
   );
+  addIfNotDefault(
+    compact,
+    "display_version",
+    source.display_version !== false,
+    true,
+  );
 
   const windowDays = normalizePositiveInteger(source.window_days, 3);
   addIfNotDefault(compact, "window_days", windowDays, 3);

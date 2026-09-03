@@ -74,9 +74,7 @@ export function buildFooterMarkup({
   if (!includeFrigateView) return "";
   const frigateView = `<div><div class="frigate-view">${displayFrigateView ? icons.frigateView || "" : ""}</div></div>`;
   const normalizedVersion = String(version || "").trim();
-  const footerVersion = normalizedVersion
-    ? `<div class="footer-version" aria-label="FrigateView version ${escapeHtmlAttribute(normalizedVersion)}">v${escapeHtml(normalizedVersion)}</div>`
-    : "";
+  const footerVersion = `<div class="footer-version" ${normalizedVersion ? `aria-label="FrigateView version ${escapeHtmlAttribute(normalizedVersion)}"` : "hidden"}>${normalizedVersion ? `v${escapeHtml(normalizedVersion)}` : ""}</div>`;
   return `<div class="footer" data-fvc-region="footer">
               ${frigateView}
               ${footerVersion}

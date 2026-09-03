@@ -102,6 +102,7 @@ export const normalizeCardConfig = (config) => {
   src.display_title = src.display_title !== false;
   src.display_subtitle = src.display_subtitle !== false;
   src.display_logo = src.display_logo !== false;
+  src.display_version = src.display_version !== false;
 
   src.theme = src.theme === "custom" ? "custom" : "default";
   src.theme_custom = normalizeThemeCustomConfig(src.theme_custom);

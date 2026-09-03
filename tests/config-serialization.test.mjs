@@ -113,6 +113,10 @@ test("card runtime preserves editor-backed favorite and alert hold settings", ()
   );
   assert.match(
     setConfigSource,
+    /display_version:\s*config\.display_version !== false/,
+  );
+  assert.match(
+    setConfigSource,
     /mobile_view_ha_navbar_bottom:\s*config\.mobile_view_ha_navbar_bottom === true/,
   );
   assert.match(
@@ -559,7 +563,7 @@ test("compact YAML omits the camera token only when it is the subtitle default",
   assert.equal(config.subtitle, undefined);
 });
 
-test("title, subtitle, and footer logo defaults normalize and hidden states serialize", () => {
+test("title, subtitle, logo, and version defaults normalize and hidden states serialize", () => {
   const defaults = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
   });
@@ -570,6 +574,7 @@ test("title, subtitle, and footer logo defaults normalize and hidden states seri
     display_title: false,
     display_subtitle: false,
     display_logo: false,
+    display_version: false,
   });
 
   assert.equal(defaults.title, "FrigateView");
@@ -577,12 +582,14 @@ test("title, subtitle, and footer logo defaults normalize and hidden states seri
   assert.equal(defaults.display_title, true);
   assert.equal(defaults.display_subtitle, true);
   assert.equal(defaults.display_logo, true);
+  assert.equal(defaults.display_version, true);
   assert.deepEqual(defaults.hidden_tabs, ["snapshot"]);
   assert.deepEqual(compact, {
     cameras: [{ entity: "camera.front_door" }],
     display_title: false,
     display_subtitle: false,
     display_logo: false,
+    display_version: false,
   });
 });
 
@@ -1346,12 +1353,13 @@ test("buildEditorConfigFromDom reads the mixed favorites switch", () => {
   assert.equal(result.favorites_mixed_cameras, false);
 });
 
-test("buildEditorConfigFromDom reads title and subtitle display checkboxes", () => {
+test("buildEditorConfigFromDom reads title, subtitle, logo, and version visibility controls", () => {
   const root = {
     querySelector: (selector) => {
       if (selector === "#display_title") return { checked: false };
       if (selector === "#display_subtitle") return { checked: true };
       if (selector === "#display_logo") return { checked: false };
+      if (selector === "#display_version") return { checked: false };
       return null;
     },
     querySelectorAll: () => [],
@@ -1367,6 +1375,7 @@ test("buildEditorConfigFromDom reads title and subtitle display checkboxes", () 
   assert.equal(result.display_title, false);
   assert.equal(result.display_subtitle, true);
   assert.equal(result.display_logo, false);
+  assert.equal(result.display_version, false);
 });
 
 test("compact YAML keeps normalized hidden tabs when non-default", () => {
@@ -1421,6 +1430,7 @@ test("preview draft carries hidden tabs and page routes", () => {
     display_title: false,
     display_subtitle: true,
     display_logo: false,
+    display_version: false,
   });
 
   assert.equal(draft.mobile_view_page_enabled, true);
@@ -1460,6 +1470,7 @@ test("preview draft carries hidden tabs and page routes", () => {
   assert.equal(draft.display_title, false);
   assert.equal(draft.display_subtitle, true);
   assert.equal(draft.display_logo, false);
+  assert.equal(draft.display_version, false);
 
   const previewConfig = applyEditorPreviewDraftToCardConfig({
     baseConfig: {},
@@ -1476,6 +1487,7 @@ test("preview draft carries hidden tabs and page routes", () => {
   assert.equal(previewConfig.ha_dashboard_swipe_include_other_cards, true);
   assert.equal(previewConfig.ha_dashboard_swipe_include_subviews, true);
   assert.equal(previewConfig.ha_dashboard_swipe_mouse_enabled, true);
+  assert.equal(previewConfig.display_version, false);
   assert.deepEqual(previewConfig.ha_dashboard_swipe_pages, [
     PAGE_IDS.preview,
     PAGE_IDS.singleView,
@@ -2040,10 +2052,16 @@ test("editor presents general, layout, and Mobile View controls in their request
   assert.doesNotMatch(generalSource, /id="mobile_poll_battery_saver"/);
 
   assert.match(layoutSource, /id="display_logo"/);
+  assert.match(layoutSource, /id="display_version"/);
   assert.ok(
     layoutSource.indexOf('id="display_logo"') >
       layoutSource.indexOf('id="rounded_corners"'),
   );
+  assert.ok(
+    layoutSource.indexOf('id="display_version"') >
+      layoutSource.indexOf('id="display_logo"'),
+  );
+  assert.match(generalSource, /id="card-version-status"/);
   assert.match(mobileSource, /id="mobile_poll_battery_saver"/);
   const mobilePageIndex = mobileSource.indexOf(
     'id="mobile_view_page_enabled"',

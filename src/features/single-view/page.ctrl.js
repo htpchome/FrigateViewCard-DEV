@@ -365,6 +365,7 @@ export class SingleViewPageController {
     this._host._renderCamSwitcher();
     this.applyStyleLayoutForCurrentRoute();
     this._host._syncFooterLogo();
+    this._host._syncFooterVersion?.();
     if (this._host._isPreviewPageActive?.()) {
       this._host._renderPreviewPage();
       return;

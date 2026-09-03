@@ -93,6 +93,7 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
 
   assert.match(markup, /data-fvc-region="card-view-activity"/);
   assert.match(markup, /data-card-view-drawer/);
+  assert.match(markup, /class="footer-version" hidden><\/div>/);
   assert.equal(
     (markup.match(/data-card-view-drawer-toggle/g) || []).length,
     2,

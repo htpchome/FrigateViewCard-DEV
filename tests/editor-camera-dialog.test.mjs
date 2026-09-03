@@ -958,6 +958,69 @@ test("editor dispatch announces a draft through config-changed", () => {
   }
 });
 
+test("editor version badge follows the HACS update entity", () => {
+  const editor = new FrigateViewCardEditor();
+  const badge = { dataset: {} };
+  const status = { textContent: "" };
+  const link = { dataset: {}, hidden: true };
+  editor._hass = {
+    states: {
+      "update.frigateview_card_update": {
+        state: "on",
+        attributes: {
+          title: "FrigateView Card",
+          latest_version: "1.2.0",
+        },
+      },
+    },
+  };
+  editor.querySelector = (selector) =>
+    ({
+      "#card-version-status": badge,
+      "#card-version-update-status": status,
+      "#card-version-update-link": link,
+    })[selector] || null;
+
+  editor._syncCardVersionStatus();
+
+  assert.equal(badge.dataset.updateStatus, "available");
+  assert.equal(status.textContent, "Update available: v1.2.0");
+  assert.equal(link.hidden, false);
+  assert.equal(link.dataset.entityId, "update.frigateview_card_update");
+});
+
+test("editor update link opens the Home Assistant update entity dialog", () => {
+  const editor = new FrigateViewCardEditor();
+  const events = [];
+  const originalCustomEvent = globalThis.CustomEvent;
+  globalThis.CustomEvent = class {
+    constructor(type, init) {
+      this.type = type;
+      this.detail = init?.detail;
+      this.bubbles = init?.bubbles === true;
+      this.composed = init?.composed === true;
+    }
+  };
+  editor.dispatchEvent = (event) => events.push(event);
+
+  try {
+    editor._openCardUpdateDialog("update.frigateview_card_update");
+
+    assert.equal(events[0].type, "hass-more-info");
+    assert.deepEqual(events[0].detail, {
+      entityId: "update.frigateview_card_update",
+    });
+    assert.equal(events[0].bubbles, true);
+    assert.equal(events[0].composed, true);
+  } finally {
+    if (originalCustomEvent === undefined) {
+      delete globalThis.CustomEvent;
+    } else {
+      globalThis.CustomEvent = originalCustomEvent;
+    }
+  }
+});
+
 test("HA-direct camera PTZ detection uses Frigate capability information", async () => {
   const editor = new FrigateViewCardEditor();
   const requests = [];

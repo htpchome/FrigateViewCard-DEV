@@ -89,6 +89,7 @@ import {
 } from "../features/ptz/index.js";
 import { hasTwoWayTalkCapability } from "../features/two-way-talk/index.js";
 import { hasHaCameraWebRtcPlaybackCapability } from "../integrations/home-assistant/camera-capabilities.js";
+import { resolveFrigateViewCardUpdateStatus } from "../integrations/home-assistant/card-update-status.js";
 import {
   findHomeAssistantLovelacePanel,
   resolveCurrentHomeAssistantViewName,
@@ -907,6 +908,64 @@ export class FrigateViewCardEditor extends HTMLElement {
     reminder.hidden = this._hasConfigDraft !== true;
   }
 
+  _syncCardVersionStatus() {
+    const badge = this.querySelector?.("#card-version-status");
+    const statusText = this.querySelector?.("#card-version-update-status");
+    const updateLink = this.querySelector?.("#card-version-update-link");
+    if (!badge || !statusText || !updateLink) return;
+
+    const states = this._hass?.states;
+    if (this._cardUpdateEntityId && states && !states[this._cardUpdateEntityId]) {
+      this._cardUpdateEntityId = "";
+      this._cardUpdateEntityLookupComplete = false;
+    }
+    let updateStatus;
+    if (this._cardUpdateEntityId && states?.[this._cardUpdateEntityId]) {
+      updateStatus = resolveFrigateViewCardUpdateStatus({
+        states: {
+          [this._cardUpdateEntityId]: states[this._cardUpdateEntityId],
+        },
+      });
+    } else if (this._cardUpdateEntityLookupComplete) {
+      updateStatus = {
+        entityId: "",
+        status: "unavailable",
+        label: "Update status unavailable",
+      };
+    } else {
+      updateStatus = resolveFrigateViewCardUpdateStatus({ states });
+      if (states) {
+        this._cardUpdateEntityLookupComplete = true;
+        this._cardUpdateEntityId = updateStatus.entityId;
+      }
+    }
+
+    if (badge.dataset.updateStatus !== updateStatus.status) {
+      badge.dataset.updateStatus = updateStatus.status;
+    }
+    if (statusText.textContent !== updateStatus.label) {
+      statusText.textContent = updateStatus.label;
+    }
+    const showUpdateLink =
+      updateStatus.status === "available" && Boolean(updateStatus.entityId);
+    updateLink.hidden = !showUpdateLink;
+    if (updateLink.dataset.entityId !== updateStatus.entityId) {
+      updateLink.dataset.entityId = updateStatus.entityId;
+    }
+  }
+
+  _openCardUpdateDialog(entityId) {
+    const normalizedEntityId = String(entityId || "").trim();
+    if (!normalizedEntityId) return;
+    this.dispatchEvent(
+      new CustomEvent("hass-more-info", {
+        bubbles: true,
+        composed: true,
+        detail: { entityId: normalizedEntityId },
+      }),
+    );
+  }
+
   setConfig(config) {
     this._sourceConfig = config;
     const normalized = this._normalizeConfig(config);
@@ -957,6 +1016,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       this._lastEntityKey = key;
       if (this._rendered) this._render();
     }
+    this._syncCardVersionStatus();
     this._scheduleEditorPreviewLayoutSync();
   }
 
@@ -2087,6 +2147,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#display_title",
       "#display_subtitle",
       "#display_logo",
+      "#display_version",
       "#window_days",
       "#alerts_reviews_days",
       "#realtime_poll_seconds",
@@ -2687,6 +2748,14 @@ export class FrigateViewCardEditor extends HTMLElement {
           </span>
         </div>
         <div class="field-helper timezone-helper">Timezones are determined by the Home Assistant User Profile Timezone Setting. The setting can be adjusted in the user's <a href="/profile/general" target="_blank" rel="noopener noreferrer">Home Assistant Profile</a>.</div>
+      </div>
+      <div class="card-version-status" id="card-version-status" data-update-status="unavailable">
+        <ha-icon icon="mdi:package-variant-closed-check" aria-hidden="true"></ha-icon>
+        <div class="card-version-copy">
+          <strong>FrigateView Card</strong>
+          <span>Version v${escapeHtml(VERSION)} <span aria-hidden="true">•</span> <span id="card-version-update-status" role="status" aria-live="polite">Update status unavailable</span></span>
+        </div>
+        <button class="card-version-update-link" id="card-version-update-link" type="button" hidden>Open update</button>
       </div>`;
 
     const themePanelContent = `
@@ -2781,11 +2850,18 @@ export class FrigateViewCardEditor extends HTMLElement {
         </div>
       </div>
       <div class="section">
-        <div class="layout-row" style="justify-content:flex-start;gap:8px">
+        <div class="layout-row">
           <span class="field-label" style="margin:0">Display FrigateView Logo</span>
           <ha-switch id="display_logo" ${this._config?.display_logo !== false ? "checked" : ""}></ha-switch>
         </div>
         <div class="field-helper">Shows FrigateView branding in page footers, or in the mobile Preview header when the HA navbar is at the bottom.</div>
+      </div>
+      <div class="section">
+        <div class="layout-row">
+          <span class="field-label" style="margin:0">Display Version Number</span>
+          <ha-switch id="display_version" ${this._config?.display_version !== false ? "checked" : ""}></ha-switch>
+        </div>
+        <div class="field-helper">Shows the installed FrigateView Card version in page footers. The version remains visible here in General Settings.</div>
       </div>`;
     const slideshowPanelContent = `
       <div class="section">
@@ -3184,6 +3260,12 @@ export class FrigateViewCardEditor extends HTMLElement {
             .config-save-reminder{box-sizing:border-box;width:100%;min-height:30px;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:1px solid color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 12%,var(--editor-card-bg));color:var(--warning-color, var(--c-accent, var(--editor-primary)));font-size:12px;font-weight:600;line-height:1.2;text-align:center;pointer-events:none;}
             .config-save-reminder[hidden]{display:none;}
             .config-save-reminder ha-icon{--mdc-icon-size:17px;flex:0 0 auto;}
+            .card-version-status{box-sizing:border-box;width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-text));font-size:12px;line-height:1.3;cursor:default;}
+            .card-version-status > ha-icon{--mdc-icon-size:20px;flex:0 0 auto;}
+            .card-version-copy{display:flex;min-width:0;flex:1 1 auto;flex-direction:column;gap:1px;}
+            .card-version-update-link{appearance:none;flex:0 0 auto;padding:2px 0;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+            .card-version-update-link[hidden]{display:none;}
+            .card-version-update-link:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:2px;}
             .settings-panel{
                 border:1px solid var(--c-border2, var(--editor-border));
                 border-radius:16px;
@@ -4031,6 +4113,12 @@ export class FrigateViewCardEditor extends HTMLElement {
     this._wireEditorDialogActions();
     this._wireLivePreviewUpdates();
     this._wireStandaloneLandingPageTransition(scheduleUpdate);
+    this.querySelector("#card-version-update-link")?.addEventListener(
+      "click",
+      (event) =>
+        this._openCardUpdateDialog(event.currentTarget?.dataset?.entityId),
+    );
+    this._syncCardVersionStatus();
 
     this.querySelector("#ha_dashboard_swipe_navigation_owner")
       ?.addEventListener("change", () => {
@@ -4102,6 +4190,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         "display_title",
         "display_subtitle",
         "display_logo",
+        "display_version",
         "wide_view_page_enabled",
         "wide_view_live_cameras",
         "wide_view_alert_takeover",

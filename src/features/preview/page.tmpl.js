@@ -167,9 +167,7 @@ export function buildPreviewLayoutShellMarkup({
   hideFooter = false,
 }) {
   const normalizedVersion = String(version || "").trim();
-  const footerVersion = normalizedVersion
-    ? `<div class="footer-version" aria-label="FrigateView version ${escapeHtmlAttribute(normalizedVersion)}">v${escapeHtml(normalizedVersion)}</div>`
-    : "";
+  const footerVersion = `<div class="footer-version" ${normalizedVersion ? `aria-label="FrigateView version ${escapeHtmlAttribute(normalizedVersion)}"` : "hidden"}>${normalizedVersion ? `v${escapeHtml(normalizedVersion)}` : ""}</div>`;
   return `${previewShellHeader}
           <div class="preview-shell" id="preview-shell"></div>
           <div class="preview-shell-footer" id="preview-shell-footer" ${hideFooter ? "hidden" : ""}>

@@ -1610,6 +1610,7 @@ export class FrigateViewCard extends HTMLElement {
       display_title: config.display_title !== false,
       display_subtitle: config.display_subtitle !== false,
       display_logo: config.display_logo !== false,
+      display_version: config.display_version !== false,
       window_days:
         normalizePositiveInteger(config.window_days, null) ||
         (Number.isFinite(legacyWindowHours) && legacyWindowHours > 0
@@ -1849,6 +1850,7 @@ export class FrigateViewCard extends HTMLElement {
       }
     }
     this._syncVisualStyleToggles();
+    this._syncFooterVersion();
     this._haPageBackgroundController?.sync?.();
     this._previewPageController?.syncBottomNavbarPreviewChrome?.();
     this._browseOpen = this._config.browse_expanded;
@@ -4150,12 +4152,14 @@ export class FrigateViewCard extends HTMLElement {
     const shellCapabilities = resolvePageCapabilities(shellProfile);
     const isWideViewPage = this._pageId === PAGE_IDS.wideView;
     const displayLogo = this._config.display_logo !== false;
+    const displayVersion = this._config.display_version !== false;
+    const footerVersion = displayVersion ? VERSION : "";
     const infoRow = resolvePageInfoRowMarkup(shellProfile, {
       title,
       subtitle,
       displayTitle,
       displaySubtitle,
-      version: VERSION,
+      version: footerVersion,
       host: this,
       buildDefaultInfoRowMarkup: ({
         title,
@@ -4220,7 +4224,7 @@ export class FrigateViewCard extends HTMLElement {
         icons: ICONS,
         includeFrigateView: !isWideViewPage,
         displayFrigateView: displayLogo,
-        version: VERSION,
+        version: footerVersion,
       }),
       wideFooterIcon:
         isWideViewPage && displayLogo ? ICONS.frigateView : "",
@@ -4234,7 +4238,7 @@ export class FrigateViewCard extends HTMLElement {
       cardViewActivity: "",
       calendarPanel: "",
       footerLogo: displayLogo ? ICONS.frigateView : "",
-      footerVersion: VERSION,
+      footerVersion,
       drawerHandleIcon: ICONS.chevron,
       calendarIcon: ICONS.calendar,
       linkedEntities: this._buildLinkedLightControlMarkup({
@@ -4351,6 +4355,19 @@ export class FrigateViewCard extends HTMLElement {
     this._syncFullscreenButtonsVisibility();
     this._syncPictureInPictureButtons();
     this._linkedLightController?.sync?.();
+  }
+
+  _syncFooterVersion() {
+    const displayVersion = this._config?.display_version !== false;
+    const label = `FrigateView version ${VERSION}`;
+    this.shadowRoot
+      ?.querySelectorAll?.("#card .footer-version")
+      ?.forEach((element) => {
+        element.hidden = !displayVersion;
+        element.textContent = displayVersion ? `v${VERSION}` : "";
+        if (displayVersion) element.setAttribute("aria-label", label);
+        else element.removeAttribute("aria-label");
+      });
   }
 
   _shouldRenderTwoWayTalkButtonForActiveCamera() {

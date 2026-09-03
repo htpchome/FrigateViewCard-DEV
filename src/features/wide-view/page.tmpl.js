@@ -58,9 +58,7 @@ export function buildWideViewMainLayoutShellMarkup({
     layoutProfile.resizeHandleClass,
   );
   const normalizedFooterVersion = String(regions.footerVersion || "").trim();
-  const footerVersion = normalizedFooterVersion
-    ? `<div class="footer-version" aria-label="FrigateView version ${escapeHtmlAttribute(normalizedFooterVersion)}">v${escapeHtml(normalizedFooterVersion)}</div>`
-    : "";
+  const footerVersion = `<div class="footer-version" ${normalizedFooterVersion ? `aria-label="FrigateView version ${escapeHtmlAttribute(normalizedFooterVersion)}"` : "hidden"}>${normalizedFooterVersion ? `v${escapeHtml(normalizedFooterVersion)}` : ""}</div>`;
 
   return `<div class="${layoutClassName}" id="layout">
           <div class="${leftColumnClassName}" id="col-left">

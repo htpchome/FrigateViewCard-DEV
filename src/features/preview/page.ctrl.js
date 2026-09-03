@@ -147,7 +147,8 @@ export class PreviewPageController {
     return buildPreviewLayoutShellMarkup({
       previewShellHeader,
       previewFooterIcon: previewLogo,
-      version: VERSION,
+      version:
+        this._host._config.display_version !== false ? VERSION : "",
       hideFooter: useBottomNavbarChrome,
     });
   }

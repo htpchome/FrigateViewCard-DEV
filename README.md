@@ -198,6 +198,7 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `display_title` | boolean | `true` | Displays the title when enabled. |
 | `display_subtitle` | boolean | `true` | Displays the subtitle when enabled. |
 | `display_logo` | boolean | `true` | Displays the FrigateView logo in page footers. The footer keeps its normal height when disabled. |
+| `display_version` | boolean | `true` | Displays the FrigateView version number in page footers. The editor always shows the running version. |
 | `window_days` | number | `3` | Number of recent days containing event data to load for event-media browsing. The editor offers 1–15. |
 | `alerts_reviews_days` | number | `window_days` | Number of recent days containing qualifying Alerts/Reviews to load and count. The editor offers 1–15. |
 | `realtime_poll_seconds` | number | `5` | How often the card checks for new alerts and reviews when realtime notifications are delayed or missed. Valid values: `2`, `5`, `10`, `15`, `30`, `60`. |
