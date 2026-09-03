@@ -316,7 +316,7 @@ test("popup playback controls delegate to native PiP and AirPlay", () => {
   );
   assert.equal(
     stylesSource.includes(
-      "grid-template-areas:\"sp1 play progress mute sp2\"",
+      'grid-template-areas:"play progress mute" ". time ."',
     ),
     true,
   );
