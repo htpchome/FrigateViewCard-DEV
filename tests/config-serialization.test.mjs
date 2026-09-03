@@ -307,12 +307,45 @@ test("editor choice chips avoid native fieldsets while retaining group semantics
   );
 });
 
-test("Card View settings panel reuses the page-navigation icon", () => {
+test("page settings panels use clear names and the requested order", () => {
   assert.match(
     editorSource,
-    /id: "cardview", title: "Card View", icon: ICONS\.cardView/,
+    /id: "cardview", title: "Card View Page", icon: ICONS\.cardView/,
   );
-  assert.doesNotMatch(editorSource, /title: "Card View", icon: "mdi:card-outline"/);
+  assert.match(
+    editorSource,
+    /id: "gridview", title: "Grid Mode Settings", icon: "mdi:view-grid-outline"/,
+  );
+  assert.match(
+    editorSource,
+    /id: "mobileview", title: "Mobile View Page", icon: "mdi:cellphone"/,
+  );
+  assert.doesNotMatch(
+    editorSource,
+    /title: "Card View Page", icon: "mdi:card-outline"/,
+  );
+
+  const settingsStart = editorSource.indexOf("const settingsPanelsMarkup");
+  const settingsEnd = editorSource.indexOf(
+    "const configSaveReminderMarkup",
+    settingsStart,
+  );
+  const settingsSource = editorSource.slice(settingsStart, settingsEnd);
+  const wideIndex = settingsSource.indexOf('id: "wideview"');
+  const cardIndex = settingsSource.indexOf('id: "cardview"');
+  const mobileIndex = settingsSource.indexOf('id: "mobileview"');
+  assert.ok(wideIndex >= 0 && wideIndex < cardIndex);
+  assert.ok(cardIndex < mobileIndex);
+});
+
+test("Grid, Card View, and Slideshow enable controls explain their behavior", () => {
+  assert.match(editorSource, />Enable Grid Mode<\/span>/);
+  assert.match(editorSource, />Enable Card View Page<\/span>/);
+  assert.match(editorSource, />Enable Slideshow Mode<\/span>/);
+  assert.match(
+    editorSource,
+    /Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation\./,
+  );
 });
 
 test("custom theme background rows use the requested order and defaults", () => {

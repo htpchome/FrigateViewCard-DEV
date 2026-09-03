@@ -2868,10 +2868,10 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
           <div style="display:flex;flex-direction:column;gap:6px;max-width:420px">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="field-label" style="margin:0">Slideshow Rotation</span>
+              <span class="field-label" style="margin:0">Enable Slideshow Mode</span>
               <ha-switch id="slideshow_rotation_enabled" ${this._config?.slideshow_rotation_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Allow the live camera view to rotate at a fixed interval. This is not available on mobile phone devices.</div>
+            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation. This is not available on mobile phone devices.</div>
           </div>
           <div id="slideshow_rotation_row" style="display:${this._config?.slideshow_rotation_enabled ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
             <div class="editor-choice-field editor-choice-field--single-row" id="slideshow_rotation_seconds" role="radiogroup" aria-label="Slideshow Rotation Frequency">
@@ -3080,7 +3080,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     const cardViewPanelContent = `
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Enable Card View</span>
+          <span class="field-label" style="margin:0">Enable Card View Page</span>
           <ha-switch id="card_view_page_enabled" ${this._config?.card_view_page_enabled ? "checked" : ""}></ha-switch>
         </div>
         <div class="field-helper">Adds a naturally sized live-camera card view for desktop and tablet dashboards. Card Height Limit does not apply to this view.</div>
@@ -3122,7 +3122,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
           <div style="display:flex;flex-direction:column;gap:6px;max-width:420px">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="field-label" style="margin:0">Grid Mode</span>
+              <span class="field-label" style="margin:0">Enable Grid Mode</span>
               <ha-switch id="grid_mode_enabled" ${this._config?.grid_mode_enabled ? "checked" : ""}></ha-switch>
             </div>
             <div class="field-helper">Enable a 2x2 camera grid. This is not available on mobile phone devices and requires at least 2 cameras.</div>
@@ -3190,12 +3190,12 @@ export class FrigateViewCardEditor extends HTMLElement {
         ${this._renderSettingsPanel({ id: "theme", title: "Theme Settings", icon: "mdi:palette", content: themePanelContent, active: activeSettingsPanel === "theme" })}
         ${this._renderSettingsPanel({ id: "layout", title: "Layout Settings", icon: "mdi:angle-right", content: layoutPanelContent, active: activeSettingsPanel === "layout" })}
         ${this._renderSettingsPanel({ id: "slideshow", title: "Slideshow Settings", icon: "mdi:presentation-play", content: slideshowPanelContent, active: activeSettingsPanel === "slideshow" })}
-        ${this._renderSettingsPanel({ id: "gridview", title: "Grid View", icon: "mdi:view-grid-outline", content: gridviewPanelContent, active: activeSettingsPanel === "gridview" })}
+        ${this._renderSettingsPanel({ id: "gridview", title: "Grid Mode Settings", icon: "mdi:view-grid-outline", content: gridviewPanelContent, active: activeSettingsPanel === "gridview" })}
         ${this._renderSettingsPanel({ id: "preview", title: "Preview Page", icon: "mdi:view-grid", content: previewPanelContent, active: activeSettingsPanel === "preview" })}
         ${this._renderSettingsPanel({ id: "wideview", title: "Wide View Page", icon: "mdi:view-split-vertical", content: wideViewPanelContent, active: activeSettingsPanel === "wideview" })}
-        ${this._renderSettingsPanel({ id: "mobileview", title: "Mobile View", icon: "mdi:cellphone", content: mobileViewPanelContent, active: activeSettingsPanel === "mobileview" })}
+        ${this._renderSettingsPanel({ id: "cardview", title: "Card View Page", icon: ICONS.cardView, content: cardViewPanelContent, active: activeSettingsPanel === "cardview" })}
+        ${this._renderSettingsPanel({ id: "mobileview", title: "Mobile View Page", icon: "mdi:cellphone", content: mobileViewPanelContent, active: activeSettingsPanel === "mobileview" })}
         ${this._renderSettingsPanel({ id: "swipenavigation", title: "Swipe Navigation", icon: "mdi:gesture-swipe-horizontal", content: swipeNavigationPanelContent, active: activeSettingsPanel === "swipenavigation" })}
-        ${this._renderSettingsPanel({ id: "cardview", title: "Card View", icon: ICONS.cardView, content: cardViewPanelContent, active: activeSettingsPanel === "cardview" })}
         ${this._renderSettingsPanel({ id: "landing", title: "Landing Page", icon: "mdi:home-import-outline", content: landingPanelContent, active: activeSettingsPanel === "landing" })}
       </div>`;
 
