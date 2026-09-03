@@ -335,15 +335,12 @@ test("desktop popup controls hide immediately when clicking outside the video", 
   assert.equal(controls.classList.contains("is-hidden"), false);
 });
 
-test("popup Space key controls playback only while the card is active", async () => {
+test("popup Space key always controls playback while popup video is open", async () => {
   const controls = createTarget();
   controls.hidden = true;
   const documentTarget = createTarget();
   const popup = createTarget();
   popup.classList.add("is-open");
-  const keyboardScope = {
-    contains: (target) => target?.insideCard === true,
-  };
   const playButton = { innerHTML: "" };
   const video = createTarget();
   video.paused = true;
@@ -366,16 +363,13 @@ test("popup Space key controls playback only while the card is active", async ()
   const controller = new PopupMediaControlsSurfaceController({
     query: (selector) => elements.get(selector) || null,
     shouldUseCustomControls: () => true,
-    keyboardScope,
     documentObj: documentTarget,
   });
-  const makeSpaceEvent = ({ target = {}, repeat = false } = {}) => {
+  const makeSpaceEvent = ({ repeat = false } = {}) => {
     let prevented = false;
     return {
       code: "Space",
-      target,
       repeat,
-      composedPath: () => [target, keyboardScope],
       preventDefault: () => {
         prevented = true;
       },
@@ -383,7 +377,6 @@ test("popup Space key controls playback only while the card is active", async ()
     };
   };
 
-  controller.setKeyboardPlaybackActive(true);
   controller.initialize(video, "clip");
 
   const playEvent = makeSpaceEvent();
@@ -397,34 +390,23 @@ test("popup Space key controls playback only while the card is active", async ()
   assert.equal(pauseEvent.wasPrevented(), true);
   assert.equal(video.paused, true);
 
-  controller.setKeyboardPlaybackActive(false);
-  const inactiveEvent = makeSpaceEvent({ target: { insideCard: true } });
-  documentTarget.dispatch("keydown", inactiveEvent);
-  assert.equal(inactiveEvent.wasPrevented(), true);
-  assert.equal(video.paused, true);
-
-  video.dispatch("pointerenter");
-  const hoverActivatedEvent = makeSpaceEvent();
-  documentTarget.dispatch("keydown", hoverActivatedEvent);
-  await Promise.resolve();
-  assert.equal(video.paused, false);
-
   const repeatEvent = makeSpaceEvent({ repeat: true });
   documentTarget.dispatch("keydown", repeatEvent);
   assert.equal(repeatEvent.wasPrevented(), true);
-  assert.equal(video.paused, false);
+  assert.equal(video.paused, true);
 
-  const textInput = { tagName: "INPUT", type: "text" };
-  const textInputEvent = makeSpaceEvent({ target: textInput });
-  documentTarget.dispatch("keydown", textInputEvent);
-  assert.equal(textInputEvent.wasPrevented(), false);
-  assert.equal(video.paused, false);
+  popup.classList.remove("is-open");
+  const closedEvent = makeSpaceEvent();
+  documentTarget.dispatch("keydown", closedEvent);
+  assert.equal(closedEvent.wasPrevented(), false);
+  assert.equal(video.paused, true);
 
+  popup.classList.add("is-open");
   controller.dispose();
   const disposedEvent = makeSpaceEvent();
   documentTarget.dispatch("keydown", disposedEvent);
   assert.equal(disposedEvent.wasPrevented(), false);
-  assert.equal(video.paused, false);
+  assert.equal(video.paused, true);
 });
 
 test("popup media controls surface renders snapshot, PiP, and AirPlay buttons", () => {

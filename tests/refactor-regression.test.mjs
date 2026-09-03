@@ -1845,7 +1845,11 @@ test("popup media controls and visibility are owned by the popup feature", () =>
   );
   assert.equal(
     cardSource.includes("setKeyboardPlaybackActive?.("),
-    true,
+    false,
+  );
+  assert.match(
+    cardSource,
+    /this\._fullscreen\(viewer\?\.closest\?\.\("\.popup-body"\) \|\| viewer\);/,
   );
   assert.equal(
     popupMediaLoaderControllerSource.includes(

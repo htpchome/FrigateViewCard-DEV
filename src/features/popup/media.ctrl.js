@@ -9,24 +9,6 @@ import {
 import { CleanupController } from "../../shared/cleanup.js";
 import { MediaOverlayControlsController } from "../../shared/media/overlay-controls.ctrl.js";
 
-let activeKeyboardPlaybackController = null;
-
-const isEditableKeyboardTarget = (target) => {
-  const tagName = String(target?.tagName || "").toLowerCase();
-  if (
-    target?.isContentEditable ||
-    tagName === "textarea" ||
-    tagName === "select"
-  ) {
-    return true;
-  }
-  if (tagName !== "input") return false;
-  const inputType = String(target?.type || "text").toLowerCase();
-  return !["button", "checkbox", "radio", "range", "reset", "submit"].includes(
-    inputType,
-  );
-};
-
 const isSpaceKey = (event) =>
   event?.code === "Space" || event?.key === " " || event?.key === "Spacebar";
 
@@ -181,7 +163,6 @@ export class PopupMediaControlsSurfaceController {
     isAutoHideActive = () => false,
     isMobileTabletViewport = () => false,
     isVideoMediaType = () => false,
-    keyboardScope = null,
     onClearPictureInPicture = () => {},
     onSyncPlaybackTargetButtons = () => {},
     onSyncPictureInPictureButtons = () => {},
@@ -201,7 +182,6 @@ export class PopupMediaControlsSurfaceController {
     this._isAutoHideActive = isAutoHideActive;
     this._isMobileTabletViewport = isMobileTabletViewport;
     this._isVideoMediaType = isVideoMediaType;
-    this._keyboardScope = keyboardScope;
     this._onClearPictureInPicture = onClearPictureInPicture;
     this._onSyncPlaybackTargetButtons = onSyncPlaybackTargetButtons;
     this._onSyncPictureInPictureButtons = onSyncPictureInPictureButtons;
@@ -218,7 +198,6 @@ export class PopupMediaControlsSurfaceController {
     this._hideTimer = null;
     this._playbackOverlayController = null;
     this._playbackOverlayHideTimer = null;
-    this._keyboardPlaybackActive = false;
     this._keyboardPlaybackCleanup = null;
   }
 
@@ -533,54 +512,11 @@ export class PopupMediaControlsSurfaceController {
     return true;
   }
 
-  setKeyboardPlaybackActive(active) {
-    if (active) {
-      if (
-        activeKeyboardPlaybackController &&
-        activeKeyboardPlaybackController !== this
-      ) {
-        activeKeyboardPlaybackController._keyboardPlaybackActive = false;
-      }
-      activeKeyboardPlaybackController = this;
-      this._keyboardPlaybackActive = true;
-      return;
-    }
-    this._keyboardPlaybackActive = false;
-    if (activeKeyboardPlaybackController === this) {
-      activeKeyboardPlaybackController = null;
-    }
-  }
-
   handleKeyboardPlayback(event) {
-    if (
-      !isSpaceKey(event) ||
-      event?.altKey ||
-      event?.ctrlKey ||
-      event?.metaKey ||
-      event?.defaultPrevented
-    ) {
-      return false;
-    }
-    const path = Array.isArray(event?.composedPath?.())
-      ? event.composedPath()
-      : [];
-    const target = path[0] || event?.target;
-    if (isEditableKeyboardTarget(target)) return false;
-
+    if (!isSpaceKey(event)) return false;
     const popup = this._query?.("#myPopup");
     const video = this.video();
     if (!popup?.classList?.contains?.("is-open") || !video) return false;
-
-    if (!this._keyboardPlaybackActive) {
-      if (
-        path.includes(this._keyboardScope) ||
-        this._keyboardScope?.contains?.(target)
-      ) {
-        event?.preventDefault?.();
-      }
-      return false;
-    }
-
     event?.preventDefault?.();
     if (!event?.repeat) this.togglePlay();
     return true;
@@ -589,7 +525,6 @@ export class PopupMediaControlsSurfaceController {
   dispose() {
     this._disposeMediaBinding();
     this._disposePlaybackOverlayVisibility();
-    this.setKeyboardPlaybackActive(false);
   }
 
   _disposeMediaBinding() {
@@ -611,12 +546,6 @@ export class PopupMediaControlsSurfaceController {
       this._onKeyboardPlaybackKeyDown,
       { capture: true },
     );
-    this._keyboardPlaybackCleanup.addEventListener(
-      video,
-      "pointerenter",
-      this._onPopupVideoPointerEnter,
-      { passive: true },
-    );
   }
 
   _disposeKeyboardPlayback() {
@@ -626,10 +555,6 @@ export class PopupMediaControlsSurfaceController {
 
   _onKeyboardPlaybackKeyDown = (event) => {
     this.handleKeyboardPlayback(event);
-  };
-
-  _onPopupVideoPointerEnter = () => {
-    this.setKeyboardPlaybackActive(true);
   };
 
   _bindPlaybackOverlayVisibility(viewer, mobileTablet) {

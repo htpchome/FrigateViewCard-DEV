@@ -85,6 +85,21 @@ test("desktop popup playback controls overlay the video without a blur filter", 
   assert.match(STYLES, /\.popup-media-volume \{[^}]*grid-area:volume;/);
 });
 
+test("popup fullscreen keeps the custom media controls with the video", () => {
+  assert.match(
+    STYLES,
+    /\.popup-body:fullscreen #viewer,\s*\.popup-body:-webkit-full-screen #viewer\{[^}]*width:100%;height:100%;[^}]*max-height:none;[^}]*background:#000;/,
+  );
+  assert.match(
+    STYLES,
+    /\.popup-body:fullscreen #popup-media-controls,\s*\.popup-body:-webkit-full-screen #popup-media-controls\{[^}]*position:absolute;[^}]*bottom:0;[^}]*width:100%;[^}]*margin:0;/,
+  );
+  assert.match(
+    STYLES,
+    /\.popup-body:fullscreen > :not\(#viewer\):not\(#popup-media-controls\),\s*\.popup-body:-webkit-full-screen > :not\(#viewer\):not\(#popup-media-controls\)\{display:none !important;\}/,
+  );
+});
+
 test("desktop popup metadata resize handle is centered and enlarged", () => {
   assert.match(
     STYLES,

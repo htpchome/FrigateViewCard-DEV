@@ -983,7 +983,6 @@ export class FrigateViewCard extends HTMLElement {
         isMobileTabletViewport: () => this._isMobileTabletViewport(),
         isVideoMediaType: (mediaType) =>
           this._isPopupVideoMediaType(mediaType),
-        keyboardScope: this,
         onClearPictureInPicture: (scope) =>
           this._clearPictureInPictureButtonController(scope),
         onSyncPlaybackTargetButtons: () =>
@@ -1301,13 +1300,10 @@ export class FrigateViewCard extends HTMLElement {
       this._onEditorPreviewDraft,
     );
     this._onDocumentPointerDown = (event) => {
+      if (!this._mobileCamSwitcherOpen) return;
       const path =
         typeof event?.composedPath === "function" ? event.composedPath() : [];
-      const insideCard = Array.isArray(path) && path.includes(this);
-      this._popupMediaControlsController?.setKeyboardPlaybackActive?.(
-        insideCard,
-      );
-      if (!this._mobileCamSwitcherOpen || insideCard) return;
+      if (Array.isArray(path) && path.includes(this)) return;
       this._mobileCamSwitcherController?.close();
     };
     document.addEventListener("pointerdown", this._onDocumentPointerDown, {
@@ -5721,7 +5717,8 @@ export class FrigateViewCard extends HTMLElement {
     }
     if (this._popupMediaControlsController.handleClick(target)) return true;
     if (target.closest("#popup-media-fs, #popup-mobile-fs-btn")) {
-      this._fullscreen(this._$("#viewer"));
+      const viewer = this._$("#viewer");
+      this._fullscreen(viewer?.closest?.(".popup-body") || viewer);
       this._popupMediaControlsController.showTemporarily();
       return true;
     }
