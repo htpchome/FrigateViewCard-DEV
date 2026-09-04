@@ -360,8 +360,14 @@ test("popup carousel navigation uses fixed glass geometry and hides on mobile de
     STYLES,
     /\.popup-carousel-nav svg \{[^}]*width:22px;height:32px;[^}]*scale\(1\.15,1\.25\)/,
   );
-  assert.match(STYLES, /\.popup-carousel-nav\.left \{[^}]*border-radius:7px/);
-  assert.match(STYLES, /\.popup-carousel-nav\.right \{[^}]*border-radius:7px/);
+  assert.match(
+    STYLES,
+    /\.popup-carousel-nav\.left \{left:0;[^}]*border-radius:7px/,
+  );
+  assert.match(
+    STYLES,
+    /\.popup-carousel-nav\.right \{right:0;[^}]*border-radius:7px/,
+  );
   assert.match(
     STYLES,
     /\.popup-carousel-wrap\.mobile-device \.popup-carousel-nav \{display:none !important;\}/,

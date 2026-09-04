@@ -1179,8 +1179,8 @@ export const STYLES = `
   .popup-carousel-nav:hover {background:rgba(255,255,255,.3);background:color-mix(in srgb,var(--c-bg-panel) 48%,transparent);color:var(--c-primary-d);border-color:var(--c-primary-d);box-shadow:0 9px 22px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.5);}
   .popup-carousel-nav:active {background:rgba(255,255,255,.38);box-shadow:0 3px 10px rgba(0,0,0,.22),inset 0 1px 4px rgba(0,0,0,.18);}
   .popup-carousel-nav:focus-visible {outline:2px solid var(--c-primary-d);outline-offset:2px;}
-  .popup-carousel-nav.left {left:4px;border-radius:7px;}
-  .popup-carousel-nav.right {right:4px;border-radius:7px;}
+  .popup-carousel-nav.left {left:0;border-radius:7px;}
+  .popup-carousel-nav.right {right:0;border-radius:7px;}
   .popup-carousel-wrap.mobile-device .popup-carousel-nav {display:none !important;}
   .popup-carousel-wrap.mobile-device .popup-carousel {touch-action:pan-y;}
   .popup-carousel.is-swiping,.popup-carousel.is-settling {scroll-snap-type:none;scroll-behavior:auto;-webkit-overflow-scrolling:auto;}
