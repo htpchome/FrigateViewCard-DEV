@@ -93,7 +93,19 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   const root = createElement();
   const panel = createElement();
   const handle = createElement();
-  const heading = createElement();
+  const typeTabs = [
+    CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,
+    CARD_VIEW_MEDIA_DRAWER_TYPES.clips,
+    CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots,
+  ].map((mediaType) => ({
+    ...createElement(),
+    dataset: { cardViewMediaDrawerType: mediaType },
+    tabIndex: 0,
+  }));
+  const tabs = {
+    ...createElement(),
+    querySelectorAll: () => typeTabs,
+  };
   const up = createElement();
   const down = createElement();
   const scrollCalls = [];
@@ -120,7 +132,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
     ["[data-card-view-media-drawer]", root],
     ["[data-card-view-media-drawer-panel]", panel],
     ["[data-card-view-media-drawer-toggle]", handle],
-    ["[data-card-view-media-drawer-heading]", heading],
+    ["[data-card-view-media-drawer-tabs]", tabs],
     ["[data-card-view-media-drawer-scroller]", scroller],
     ['[data-card-view-media-drawer-scroll="-1"]', up],
     ['[data-card-view-media-drawer-scroll="1"]', down],
@@ -128,6 +140,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   let enabled = true;
   let configuredType = CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots;
   let eventReads = 0;
+  const eventTypes = [];
   const selections = [];
   const controller = new CardViewMediaDrawerController({
     query: (selector) => elements.get(selector) || null,
@@ -135,7 +148,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
     getConfiguredType: () => configuredType,
     getEvents: (mediaType) => {
       eventReads += 1;
-      assert.equal(mediaType, "snapshot");
+      eventTypes.push(mediaType);
       return [
         {
           id: "event-1",
@@ -174,7 +187,11 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   assert.equal(controller.isOpen(), true);
   assert.equal(root.classList.classes.has("is-open"), true);
   assert.equal(handle.attributes.get("aria-expanded"), "true");
-  assert.equal(heading.textContent, "Snapshots");
+  assert.equal(tabs.hidden, false);
+  assert.deepEqual(
+    typeTabs.map((tab) => tab.attributes.get("aria-selected")),
+    ["false", "false", "true"],
+  );
   assert.match(scroller.innerHTML, /data-card-view-media-event="event-1"/);
   assert.match(scroller.innerHTML, /src="\/front_door\/event-1\/thumbnail.jpg"/);
   assert.equal(up.hidden, true);
@@ -194,14 +211,26 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   assert.deepEqual(selections, [["event-1", "snapshot"]]);
   assert.equal(controller.isOpen(), true);
 
+  const clipsTab = typeTabs[1];
+  controller.handleClick(interactionEvent, {
+    closest: (selector) =>
+      selector === "[data-card-view-media-drawer-type]" ? clipsTab : null,
+  });
+  assert.deepEqual(eventTypes, ["snapshot", "clip"]);
+  assert.match(scroller.innerHTML, /data-card-view-media-type="clip"/);
+  assert.deepEqual(
+    typeTabs.map((tab) => tab.attributes.get("aria-selected")),
+    ["false", "true", "false"],
+  );
+
   controller.scroll(1);
   assert.deepEqual(scrollCalls, [{ top: 200, behavior: "smooth" }]);
 
-  configuredType = CARD_VIEW_MEDIA_DRAWER_TYPES.clips;
+  configuredType = CARD_VIEW_MEDIA_DRAWER_TYPES.alerts;
   controller.setOpen(false);
   controller.render();
   assert.equal(scroller.innerHTML, "");
-  assert.equal(eventReads, 1);
+  assert.equal(eventReads, 2);
 
   enabled = false;
   controller.syncState();

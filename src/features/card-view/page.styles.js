@@ -148,9 +148,18 @@ export const CARD_VIEW_PAGE_STYLES = `
     transition:transform 180ms cubic-bezier(.22,.61,.36,1);pointer-events:none;
   }
   .card.card-view-active.card-view-standalone .card-view-media-drawer.is-open .card-view-media-drawer-panel {transform:translateX(0);pointer-events:auto;}
-  .card.card-view-active.card-view-standalone .card-view-media-drawer-heading {
-    min-width:0;padding:2px 24px 2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    color:var(--fvc-media-overlay-text);font-size:.68rem;font-weight:750;line-height:1.25;text-transform:uppercase;
+  .card.card-view-active.card-view-standalone .card-view-media-drawer-tabs {
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;min-width:0;
+  }
+  .card.card-view-active.card-view-standalone .card-view-media-drawer-tabs[hidden] {display:none;}
+  .card.card-view-active.card-view-standalone .card-view-media-drawer-tab {
+    appearance:none;-webkit-appearance:none;min-width:0;height:23px;margin:0;padding:2px 1px;overflow:hidden;
+    border:1px solid var(--fvc-media-overlay-border);border-radius:5px;color:var(--fvc-media-overlay-text-muted);
+    background:var(--fvc-media-overlay-option-bg);font:inherit;font-size:.5rem;font-weight:700;line-height:1;
+    text-overflow:ellipsis;white-space:nowrap;cursor:pointer;touch-action:manipulation;
+  }
+  .card.card-view-active.card-view-standalone .card-view-media-drawer-tab.active {
+    color:var(--fvc-media-overlay-text);border-color:var(--fvc-media-overlay-active-border);background:var(--fvc-media-overlay-active-bg);
   }
   .card.card-view-active.card-view-standalone .card-view-media-drawer-scroller {
     display:flex;flex-direction:column;gap:6px;min-height:0;padding:1px;overflow-x:hidden;overflow-y:auto;
@@ -200,16 +209,16 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-media-drawer-handle svg {width:19px;height:19px;transform:rotate(-90deg);transition:transform 180ms ease;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-media-drawer.is-open .card-view-media-drawer-handle svg {transform:rotate(90deg);}
   .card.card-view-active.card-view-standalone .card-view-media-drawer-nav {
-    position:absolute;z-index:2;right:8px;width:23px;height:23px;border-radius:6px;pointer-events:auto;
+    position:absolute;z-index:2;right:auto;left:50%;width:min(72px,58%);height:22px;border-radius:6px;transform:translateX(-50%);pointer-events:auto;
   }
   .card.card-view-active.card-view-standalone .card-view-media-drawer-nav[hidden] {display:none;}
-  .card.card-view-active.card-view-standalone .card-view-media-drawer-nav--up {top:5px;}
+  .card.card-view-active.card-view-standalone .card-view-media-drawer-nav--up {top:34px;}
   .card.card-view-active.card-view-standalone .card-view-media-drawer-nav--down {bottom:5px;}
   .card.card-view-active.card-view-standalone .card-view-media-drawer-nav svg {width:16px;height:16px;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-media-drawer-nav--up svg {transform:rotate(180deg);}
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-standalone .card-view-media-drawer-item:hover,
-    .card.card-view-active.card-view-standalone :is(.card-view-media-drawer-handle,.card-view-media-drawer-nav):hover {
+    .card.card-view-active.card-view-standalone :is(.card-view-media-drawer-handle,.card-view-media-drawer-nav,.card-view-media-drawer-tab):hover {
       background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
     }
   }
@@ -307,6 +316,19 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-light-controls .linked-light-position-slot,
   .card.card-view-active.card-view-standalone .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .linked-light-position-slot,
   .card.card-view-active.card-view-standalone .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
+  @media (hover:hover) and (pointer:fine) {
+    .card.card-view-active.card-view-standalone.card-view-hide-camera-name .card-view-live-panel:hover .mobile-cam-picker,
+    .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-mode-button {
+      opacity:1;pointer-events:auto;transform:none;
+    }
+    .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-linked-overlay {opacity:1;pointer-events:auto;}
+    .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:auto;}
+  }
+  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) :is(.mobile-cam-picker,.card-view-standalone-mode-button) {
+    opacity:0;pointer-events:none;transform:translateY(-3px);
+  }
+  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-linked-overlay {opacity:0;pointer-events:none;}
+  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn),
   .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn):hover:not(:disabled) {
     color:var(--fvc-media-overlay-text);background:transparent;background-image:none;border-color:transparent;box-shadow:none;
@@ -323,7 +345,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   @container card-view-live (max-width:440px) {
     .card.card-view-active.card-view-standalone.card-view-media-drawer-enabled .card-view-media-drawer:not([hidden]) {width:clamp(110px,34%,132px);}
     .card.card-view-active.card-view-standalone .card-view-media-drawer-panel {padding:5px 4px 4px;}
-    .card.card-view-active.card-view-standalone .card-view-media-drawer-heading {font-size:.62rem;}
+    .card.card-view-active.card-view-standalone .card-view-media-drawer-tab {font-size:.46rem;}
     .card.card-view-active.card-view-standalone .card-view-media-drawer-item {gap:3px;padding:3px;}
     .card.card-view-active.card-view-standalone .card-view-media-drawer-meta {font-size:.56rem;}
     .card.card-view-active.card-view-standalone .linked-light-dimmer {width:72px;bottom:calc(100% + 6px);}

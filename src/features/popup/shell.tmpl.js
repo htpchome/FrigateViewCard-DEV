@@ -6,6 +6,9 @@ export function buildPopupShellMarkup({ icons, version }) {
             <div class="popup-header"></div>
             <div class="popup-body">
               <div class="viewer" id="viewer" style="display:none"></div>
+              <div class="popup-card-view-label" id="popup-card-view-label" aria-live="polite" hidden></div>
+              <div class="popup-card-view-actions" id="popup-card-view-actions" aria-label="Media actions" hidden></div>
+              <div class="popup-card-view-resize-host" id="popup-card-view-resize-host" hidden></div>
               <div class="popup-media-controls" id="popup-media-controls" hidden>
                 <span class="popup-media-controls-spacer" aria-hidden="true"></span>
                 <button class="popup-media-btn" id="popup-media-play" type="button" title="Play/Pause" aria-label="Play/Pause">${icons.play}</button>

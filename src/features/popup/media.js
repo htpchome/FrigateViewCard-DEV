@@ -1,5 +1,16 @@
 import { resolvePopupMediaControlsInitPlan } from "../../shared/media/controls.js";
 
+export const POPUP_PRESENTATION_CARD_VIEW_DRAWER = "card-view-drawer";
+
+export const isCardViewDrawerPopupPresentation = (value = "") =>
+  String(value || "").toLowerCase() ===
+  POPUP_PRESENTATION_CARD_VIEW_DRAWER;
+
+const popupPresentationOptions = (options = {}) =>
+  options.presentation
+    ? { presentation: String(options.presentation) }
+    : {};
+
 export const resolvePopupMediaRenderPlan = ({
   infoOpts = null,
   mediaType = "",
@@ -24,13 +35,15 @@ export const resolvePopupMediaPostRenderPlan = ({
   activeId = "",
   hasVideo = false,
   compact = false,
+  presentation = "",
 }) => ({
   shouldEnsureAirPlayButton: true,
   airPlayMediaType: popupMediaType,
   shouldRenderInfo: true,
   shouldInitPopupMediaControls: Boolean(hasVideo),
   shouldResetControlsWithoutVideo: !hasVideo,
-  shouldRenderCarousel: compact !== true,
+  shouldRenderCarousel:
+    compact !== true && !isCardViewDrawerPopupPresentation(presentation),
   carouselMediaType: popupMediaType,
   carouselActiveId: activeId,
   shouldScheduleRotateOverlay: true,
@@ -60,6 +73,7 @@ export const buildPopupClipRenderPlan = ({
             ? { displayMediaType: opts.displayMediaType }
             : {}),
           ...(opts.compact === true ? { compact: true } : {}),
+          ...popupPresentationOptions(opts),
         }
       : {
           mediaType,
@@ -67,6 +81,7 @@ export const buildPopupClipRenderPlan = ({
             ? { displayMediaType: opts.displayMediaType }
             : {}),
           ...(opts.compact === true ? { compact: true } : {}),
+          ...popupPresentationOptions(opts),
         },
   };
 };
@@ -83,6 +98,7 @@ export const buildPopupSnapshotRenderPlan = ({ event = null, opts = {} }) => {
         ? { displayMediaType: opts.displayMediaType }
         : {}),
       ...(opts.compact === true ? { compact: true } : {}),
+      ...popupPresentationOptions(opts),
     },
   };
 };
@@ -192,6 +208,7 @@ export const resolvePopupRecordingLoadOutcomePlan = ({
   carouselMediaType = "recording",
   carouselActiveId = "",
   compact = false,
+  presentation = "",
 }) => {
   if (!playable) {
     return {
@@ -219,7 +236,9 @@ export const resolvePopupRecordingLoadOutcomePlan = ({
     shouldEnsureAirPlayButton: true,
     shouldScheduleRotateOverlay: true,
     shouldInitPopupMediaControls: true,
-    shouldRenderCarousel: compact !== true,
+    shouldRenderCarousel:
+      compact !== true &&
+      !isCardViewDrawerPopupPresentation(presentation),
     shouldShowPopupControls: true,
     popupMediaType,
     airPlayMediaType: popupMediaType,

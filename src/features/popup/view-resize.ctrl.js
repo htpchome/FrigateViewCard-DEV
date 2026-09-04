@@ -75,25 +75,33 @@ const heightRatioToMaxWidth = (heightRatio) =>
     Math.round((POPUP_VIEW_MAX_HEIGHT_DVH / heightRatio) * 1000) / 1000
   }dvh`;
 
-export function resolvePopupViewResizeBounds({ mediaWidth, mediaHeight }) {
+export function resolvePopupViewResizeBounds({
+  mediaWidth,
+  mediaHeight,
+  initialHeightRatio = 0,
+}) {
   const width = positiveNumber(mediaWidth);
   const height = positiveNumber(mediaHeight);
   const naturalHeightRatio = width > 0 && height > 0 ? height / width : 0;
-  const minHeightRatio = Math.min(
+  const naturalInitialHeightRatio = Math.min(
     naturalHeightRatio,
     POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
   );
-  const maxHeightRatio =
+  const requestedInitialHeightRatio = positiveNumber(initialHeightRatio);
+  const minHeightRatio =
+    requestedInitialHeightRatio || naturalInitialHeightRatio;
+  const naturalMaxHeightRatio =
     naturalHeightRatio <= POPUP_VIEW_NEAR_WIDE_HEIGHT_RATIO + RATIO_EPSILON
       ? naturalHeightRatio * 1.5
       : naturalHeightRatio;
+  const maxHeightRatio = Math.max(minHeightRatio, naturalMaxHeightRatio);
 
   return {
     eligible:
       naturalHeightRatio > 0 &&
       maxHeightRatio - minHeightRatio > RATIO_EPSILON,
     initialHeightCapped:
-      naturalHeightRatio > POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
+      naturalHeightRatio > minHeightRatio,
     naturalHeightRatio,
     minHeightRatio,
     maxHeightRatio,
@@ -124,19 +132,30 @@ export const placePopupViewResizeGrip = ({
   media,
   grip,
   metadataHost = null,
+  overlayHost = null,
   mobileTablet = false,
 } = {}) => {
   if (!viewer || !grip) return "none";
   const isVideo = String(media?.tagName || "").toLowerCase() === "video";
+  const placeInOverlay = Boolean(overlayHost);
   const placeInMetadata = Boolean(
-    isVideo && !mobileTablet && metadataHost,
+    !placeInOverlay && isVideo && !mobileTablet && metadataHost,
   );
   grip.classList?.toggle?.(
     "popup-view-resize-grip--metadata",
     placeInMetadata,
   );
-  (placeInMetadata ? metadataHost : viewer).appendChild?.(grip);
-  return placeInMetadata ? "metadata" : "media";
+  grip.classList?.toggle?.(
+    "popup-view-resize-grip--card-view",
+    placeInOverlay,
+  );
+  (placeInOverlay ? overlayHost : placeInMetadata ? metadataHost : viewer)
+    .appendChild?.(grip);
+  return placeInOverlay
+    ? "card-view-overlay"
+    : placeInMetadata
+      ? "metadata"
+      : "media";
 };
 
 export class PopupViewResizeController {
@@ -146,6 +165,7 @@ export class PopupViewResizeController {
     grip,
     controls = null,
     zoomController = null,
+    initialHeightRatio = 0,
     getAvailableMaxHeight = null,
     getComputedStyle = (element) =>
       globalThis.getComputedStyle?.(element) || null,
@@ -155,6 +175,7 @@ export class PopupViewResizeController {
     this._grip = grip;
     this._controls = controls;
     this._zoomController = zoomController;
+    this._initialHeightRatio = positiveNumber(initialHeightRatio);
     this._getAvailableMaxHeight = getAvailableMaxHeight;
     this._getComputedStyle = getComputedStyle;
     this._bounds = null;
@@ -196,6 +217,7 @@ export class PopupViewResizeController {
     const nextBounds = resolvePopupViewResizeBounds({
       mediaWidth: width,
       mediaHeight: height,
+      initialHeightRatio: this._initialHeightRatio,
     });
     this._viewer.classList?.toggle?.(
       "popup-media-height-capped",

@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 
 import { PopupInfoController } from "../src/features/popup/info.ctrl.js";
 import {
+  buildCardViewPopupOverlayMarkup,
   buildPopupInfoDownloadActions,
   buildPopupInfoMarkup,
   buildPopupInfoModel,
 } from "../src/features/popup/info.js";
+import { POPUP_PRESENTATION_CARD_VIEW_DRAWER } from "../src/features/popup/media.js";
 import { STYLES } from "../src/styles.js";
 
 test("popup body scrolls instead of shrinking its content sections", () => {
@@ -30,6 +32,37 @@ test("popup shell uses precomputed anchor geometry without metadata resizing", (
   assert.match(
     STYLES,
     /\.popup-content\.popup-content--compact \{[^}]*border-radius:var\(--fvc-border-radius,15px\);/,
+  );
+});
+
+test("Card View drawer popup overlays the live footprint with focused controls", () => {
+  assert.match(
+    STYLES,
+    /\.popup-content\.popup-content--card-view-drawer \{[\s\S]*?top:var\(--popup-shell-top,0px\);[\s\S]*?min-height:var\(--popup-shell-stage-height,0px\);/,
+  );
+  assert.match(
+    STYLES,
+    /popup-content--card-view-drawer :is\(#popup-info,#popup-carousel-wrap,#recording-scrub,#recording-segment-manager\) \{display:none !important;\}/,
+  );
+  assert.match(
+    STYLES,
+    /popup-content--card-view-drawer \.close-btn \{[\s\S]*?width:30px;height:30px;[\s\S]*?background:var\(--fvc-media-overlay-bg\);/,
+  );
+  assert.match(
+    STYLES,
+    /popup-content--card-view-drawer \.viewer \{[\s\S]*?aspect-ratio:var\(--popup-card-view-stage-aspect-ratio,16 \/ 9\);/,
+  );
+  assert.match(
+    STYLES,
+    /popup-content--card-view-drawer \.viewer\.popup-media-resized \{[\s\S]*?aspect-ratio:var\(--popup-media-aspect-ratio/,
+  );
+  assert.match(
+    STYLES,
+    /\.popup-card-view-actions \{[\s\S]*?top:50%;left:7px;[\s\S]*?flex-direction:column;/,
+  );
+  assert.match(
+    STYLES,
+    /\.popup-view-resize-grip\.popup-view-resize-grip--card-view \{[\s\S]*?bottom:0;[\s\S]*?height:20px;/,
   );
 });
 
@@ -268,6 +301,37 @@ test("popup info model derives event details and download actions", () => {
       },
     ],
   });
+});
+
+test("Card View drawer popup reuses contextual actions in a compact date overlay", () => {
+  const event = {
+    id: "event-1",
+    camera: "front_door",
+    start_time: 100,
+    has_clip: true,
+    has_snapshot: true,
+  };
+  const model = buildPopupInfoModel({
+    event,
+    options: { mediaType: "clip" },
+    formatTime: () => "8:44 pm",
+  });
+  const overlay = buildCardViewPopupOverlayMarkup({
+    model,
+    fullDate: "Tue, May 2, 2026",
+    icons: {
+      download: "<download />",
+      snapshot: "<snapshot />",
+    },
+  });
+
+  assert.equal(
+    overlay.labelText,
+    "Front door 8:44pm - Tue, May 2, 2026",
+  );
+  assert.match(overlay.actionsHtml, /data-dl-file="clip\.mp4"/);
+  assert.match(overlay.actionsHtml, /data-popup-media-target="snapshot"/);
+  assert.equal((overlay.actionsHtml.match(/<button/g) || []).length, 2);
 });
 
 test("popup custom tags use the same compact pill treatment as event rows", () => {
@@ -524,4 +588,50 @@ test("popup info controller owns rendering, hiding, and popup actions", () => {
   assert.equal(info.hidden, true);
   assert.equal(info.innerHTML, "");
   assert.deepEqual(calls.slice(-2), [["resetScrub"], ["camera", ""]]);
+});
+
+test("popup info controller replaces metadata with Card View drawer overlays", () => {
+  const info = { innerHTML: "old metadata", hidden: false };
+  const label = { textContent: "", hidden: true };
+  const actions = { innerHTML: "", hidden: true };
+  const elements = new Map([
+    ["#popup-info", info],
+    ["#popup-card-view-label", label],
+    ["#popup-card-view-actions", actions],
+  ]);
+  const controller = new PopupInfoController({
+    query: (selector) => elements.get(selector) || null,
+    getActiveCamera: () => "front_door",
+    formatTime: () => "8:44 pm",
+    formatWeekday: () => "Tue",
+    formatMonthDay: () => "May 2",
+    formatFullDate: () => "Tue, May 2, 2026",
+    formatEventDuration: () => 6,
+  });
+
+  controller.render(
+    {
+      id: "event-1",
+      camera: "front_door",
+      start_time: 100,
+      has_clip: true,
+      has_snapshot: true,
+    },
+    {
+      mediaType: "clip",
+      presentation: POPUP_PRESENTATION_CARD_VIEW_DRAWER,
+    },
+  );
+
+  assert.equal(info.hidden, true);
+  assert.equal(info.innerHTML, "");
+  assert.equal(label.hidden, false);
+  assert.equal(label.textContent, "Front door 8:44pm - Tue, May 2, 2026");
+  assert.equal(actions.hidden, false);
+  assert.match(actions.innerHTML, /data-dl-file="clip\.mp4"/);
+  assert.match(actions.innerHTML, /data-popup-media-target="snapshot"/);
+
+  controller.hide();
+  assert.equal(label.hidden, true);
+  assert.equal(actions.hidden, true);
 });

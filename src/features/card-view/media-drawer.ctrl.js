@@ -127,6 +127,8 @@ export class CardViewMediaDrawerController {
     this._resizeObserver = null;
     this._scroller = null;
     this._open = false;
+    this._selectedDrawerType = "";
+    this._configuredDrawerType = "";
     this._contentKey = "";
     this._popupMediaType = "";
     this._navigationToken = 0;
@@ -156,6 +158,8 @@ export class CardViewMediaDrawerController {
   dispose() {
     this._disposeBindings();
     this._open = false;
+    this._selectedDrawerType = "";
+    this._configuredDrawerType = "";
     this._contentKey = "";
     this._popupMediaType = "";
   }
@@ -195,6 +199,8 @@ export class CardViewMediaDrawerController {
     root.classList?.toggle?.("is-closed", !open);
     const panel = this._query("[data-card-view-media-drawer-panel]");
     panel?.setAttribute?.("aria-hidden", String(!open));
+    const tabs = this._query("[data-card-view-media-drawer-tabs]");
+    if (tabs) tabs.hidden = !open;
     const handle = this._query("[data-card-view-media-drawer-toggle]");
     if (handle) {
       const label = open ? "Close media drawer" : "Open media drawer";
@@ -215,12 +221,9 @@ export class CardViewMediaDrawerController {
       return null;
     }
 
-    const drawerType = normalizeCardViewMediaDrawerType(
-      this._getConfiguredType(),
-    );
+    const drawerType = this._syncSelectedDrawerType();
     const popupMediaType = resolveCardViewMediaDrawerPopupType(drawerType);
-    const heading = this._query("[data-card-view-media-drawer-heading]");
-    if (heading) heading.textContent = DRAWER_LABELS[drawerType];
+    this._syncTabs(drawerType);
 
     if (!this._open) {
       if (this._popupMediaType && this._popupMediaType !== popupMediaType) {
@@ -262,6 +265,42 @@ export class CardViewMediaDrawerController {
       count: events.length,
       deferred: false,
     };
+  }
+
+  selectType(value) {
+    const drawerType = normalizeCardViewMediaDrawerType(value);
+    if (drawerType === this._selectedDrawerType) return false;
+    this._selectedDrawerType = drawerType;
+    this._resetContent();
+    this.render({ force: true });
+    return true;
+  }
+
+  _syncSelectedDrawerType() {
+    const configuredType = normalizeCardViewMediaDrawerType(
+      this._getConfiguredType(),
+    );
+    if (
+      !this._selectedDrawerType ||
+      configuredType !== this._configuredDrawerType
+    ) {
+      this._selectedDrawerType = configuredType;
+      this._configuredDrawerType = configuredType;
+    }
+    return this._selectedDrawerType;
+  }
+
+  _syncTabs(activeType) {
+    const tabs = this._query("[data-card-view-media-drawer-tabs]");
+    if (tabs) tabs.hidden = !this.isOpen();
+    for (const tab of tabs?.querySelectorAll?.(
+      "[data-card-view-media-drawer-type]",
+    ) || []) {
+      const active = tab.dataset.cardViewMediaDrawerType === activeType;
+      tab.classList?.toggle?.("active", active);
+      tab.setAttribute?.("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+    }
   }
 
   _eventMarkup(event, drawerType) {
@@ -339,6 +378,13 @@ export class CardViewMediaDrawerController {
       event?.preventDefault?.();
       event?.stopPropagation?.();
       this.toggle();
+      return true;
+    }
+    const typeTab = target.closest("[data-card-view-media-drawer-type]");
+    if (typeTab) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      this.selectType(typeTab.dataset.cardViewMediaDrawerType);
       return true;
     }
     const navigation = target.closest(

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   PopupLifecycleController,
   resolvePopupShellGeometry,
+  resolvePopupStageGeometry,
 } from "../src/features/popup/lifecycle.ctrl.js";
 
 const createClassList = () => {
@@ -196,6 +197,76 @@ test("popup shell geometry rejects off-card anchors and clips to the card", () =
     }),
     null,
   );
+});
+
+test("Card View drawer popup matches the live-stage rectangle", () => {
+  const values = new Map();
+  const popup = {
+    classList: createClassList(),
+    style: {
+      setProperty: (name, value) => values.set(name, value),
+      removeProperty: (name) => values.delete(name),
+    },
+  };
+  const card = {
+    clientLeft: 1,
+    clientTop: 2,
+    clientWidth: 598,
+    clientHeight: 496,
+    getBoundingClientRect: () => ({
+      left: 100,
+      right: 700,
+      top: 50,
+      bottom: 550,
+      width: 600,
+      height: 500,
+    }),
+  };
+  const stage = {
+    getBoundingClientRect: () => ({
+      left: 101,
+      right: 699,
+      top: 72,
+      bottom: 408,
+      width: 598,
+      height: 336,
+    }),
+  };
+  const resizeHost = { hidden: true };
+  const elements = new Map([
+    ["#myPopup", popup],
+    ["#card", card],
+    ["#live-stage", stage],
+    ["#popup-card-view-resize-host", resizeHost],
+  ]);
+  const controller = new PopupLifecycleController({
+    query: (selector) => elements.get(selector) || null,
+  });
+
+  assert.deepEqual(resolvePopupStageGeometry({ card, stage }), {
+    left: 0,
+    width: 598,
+    top: 20,
+    height: 336,
+  });
+
+  controller.setPresentation("card-view-drawer");
+  assert.equal(controller.presentation(), "card-view-drawer");
+  assert.equal(
+    popup.classList.contains("popup-content--card-view-drawer"),
+    true,
+  );
+  assert.equal(resizeHost.hidden, false);
+  assert.equal(values.get("--popup-shell-top"), "20px");
+  assert.equal(values.get("--popup-shell-stage-height"), "336px");
+  assert.equal(
+    values.get("--popup-card-view-stage-aspect-ratio"),
+    "598 / 336",
+  );
+
+  controller.setPresentation("");
+  assert.equal(resizeHost.hidden, true);
+  assert.equal(values.has("--popup-shell-top"), false);
 });
 
 test("popup lifecycle preserves Firefox source-drop delay and can cancel it", () => {

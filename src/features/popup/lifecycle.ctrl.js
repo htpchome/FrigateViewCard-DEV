@@ -1,4 +1,8 @@
 import { PopupDragController } from "./drag.ctrl.js";
+import {
+  isCardViewDrawerPopupPresentation,
+  POPUP_PRESENTATION_CARD_VIEW_DRAWER,
+} from "./media.js";
 
 const POPUP_SHELL_MIN_ANCHOR_WIDTH = 16;
 
@@ -33,6 +37,47 @@ export const resolvePopupShellGeometry = ({ card = null, anchor = null } = {}) =
   return {
     left: visibleLeft - containingLeft,
     width,
+  };
+};
+
+export const resolvePopupStageGeometry = ({ card = null, stage = null } = {}) => {
+  const horizontal = resolvePopupShellGeometry({ card, anchor: stage });
+  const cardRect = card?.getBoundingClientRect?.();
+  const stageRect = stage?.getBoundingClientRect?.();
+  if (!horizontal || !cardRect || !stageRect) return null;
+
+  const cardTop = Number(cardRect.top);
+  const cardHeight = Number(cardRect.height);
+  const stageTop = Number(stageRect.top);
+  const stageBottom = Number(stageRect.bottom);
+  const stageHeight = Number(stageRect.height);
+  if (
+    ![cardTop, cardHeight, stageTop, stageBottom, stageHeight].every(
+      Number.isFinite,
+    ) ||
+    cardHeight <= 0 ||
+    stageHeight <= 0
+  ) {
+    return null;
+  }
+
+  const clientTop = Math.max(0, Number(card?.clientTop) || 0);
+  const clientHeight = Number(card?.clientHeight);
+  const containingTop = cardTop + clientTop;
+  const containingHeight =
+    Number.isFinite(clientHeight) && clientHeight > 0
+      ? clientHeight
+      : cardHeight;
+  const cardBottom = containingTop + containingHeight;
+  const visibleTop = Math.max(containingTop, stageTop);
+  const visibleBottom = Math.min(cardBottom, stageBottom);
+  const height = visibleBottom - visibleTop;
+  if (height <= 0) return null;
+
+  return {
+    ...horizontal,
+    top: visibleTop - containingTop,
+    height,
   };
 };
 
@@ -90,6 +135,7 @@ export class PopupLifecycleController {
     this._playing = null;
     this._mediaCamera = "";
     this._compact = false;
+    this._presentation = "";
   }
 
   setMediaState({ mediaType = "", playing = null } = {}) {
@@ -123,6 +169,31 @@ export class PopupLifecycleController {
 
   isCompact() {
     return this._compact;
+  }
+
+  setPresentation(presentation = "") {
+    this._presentation = isCardViewDrawerPopupPresentation(presentation)
+      ? POPUP_PRESENTATION_CARD_VIEW_DRAWER
+      : "";
+    const popup = this._query?.("#myPopup");
+    popup?.classList?.toggle?.(
+      "popup-content--card-view-drawer",
+      this._presentation === POPUP_PRESENTATION_CARD_VIEW_DRAWER,
+    );
+    const resizeHost = this._query?.("#popup-card-view-resize-host");
+    if (resizeHost) resizeHost.hidden = !this._presentation;
+    this._syncShellGeometry(popup);
+  }
+
+  presentation() {
+    return this._presentation;
+  }
+
+  syncShellGeometry() {
+    const popup = this._query?.("#myPopup");
+    if (!popup) return false;
+    this._syncShellGeometry(popup);
+    return true;
   }
 
   enter() {
@@ -238,6 +309,28 @@ export class PopupLifecycleController {
   _syncShellGeometry(popup) {
     if (!popup?.style || this._compact) return;
     const card = this._query?.("#card");
+    if (isCardViewDrawerPopupPresentation(this._presentation)) {
+      const geometry = resolvePopupStageGeometry({
+        card,
+        stage: this._query?.("#live-stage"),
+      });
+      if (!geometry) return;
+      popup.style.setProperty?.("--popup-shell-left", `${geometry.left}px`);
+      popup.style.setProperty?.("--popup-shell-width", `${geometry.width}px`);
+      popup.style.setProperty?.("--popup-shell-top", `${geometry.top}px`);
+      popup.style.setProperty?.(
+        "--popup-shell-stage-height",
+        `${geometry.height}px`,
+      );
+      popup.style.setProperty?.(
+        "--popup-card-view-stage-aspect-ratio",
+        `${geometry.width} / ${geometry.height}`,
+      );
+      return;
+    }
+    popup.style.removeProperty?.("--popup-shell-top");
+    popup.style.removeProperty?.("--popup-shell-stage-height");
+    popup.style.removeProperty?.("--popup-card-view-stage-aspect-ratio");
     const anchors = ["#col-left", "#live-stage", "#layout"];
     const geometry = anchors.reduce((resolved, selector) => {
       if (resolved) return resolved;

@@ -932,6 +932,15 @@ export class FrigateViewCard extends HTMLElement {
       formatWeekday: (timestamp) => this._weekday(timestamp),
       formatMonthDay: (timestamp, options) =>
         this._monthDay(timestamp, options),
+      formatFullDate: (timestamp) =>
+        timestamp
+          ? this._dateFormatter("popup-card-view-date", "en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }).format(new Date(timestamp * 1000))
+          : "-",
       formatEventDuration: (event) => this._dur(event),
       onResetRecordingScrub: () =>
         this._popupRecordingScrubController.teardown(),
@@ -942,7 +951,15 @@ export class FrigateViewCard extends HTMLElement {
         this._popupMediaLoaderController?.showCarouselEventById(
           id,
           mediaType,
-          { compact: this._popupLifecycleController?.isCompact?.() === true },
+          {
+            compact: this._popupLifecycleController?.isCompact?.() === true,
+            ...(this._popupLifecycleController?.presentation?.()
+              ? {
+                  presentation:
+                    this._popupLifecycleController.presentation(),
+                }
+              : {}),
+          },
         ),
       onDownloadEvent: (id, file) =>
         void this._frigateMediaDownloadController.downloadEvent(id, file),
@@ -5589,6 +5606,7 @@ export class FrigateViewCard extends HTMLElement {
       this._syncBrowseHeadModeClass();
       this._applyCardStyle();
       this._applyBrowse();
+      this._popupLifecycleController?.syncShellGeometry?.();
       this._scheduleRotateOverlayUpdate();
       this._wideViewPageController.syncColHeightIfWideView();
     });

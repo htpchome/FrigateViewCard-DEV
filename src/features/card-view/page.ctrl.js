@@ -9,6 +9,7 @@ import { parseRealtimeAlertMessage } from "../../data/realtime-alert.js";
 import { CleanupController } from "../../shared/cleanup.js";
 import { resolveCameraAwareText } from "../../shared/page-text.js";
 import { canCameraUsePtz } from "../ptz/index.js";
+import { POPUP_PRESENTATION_CARD_VIEW_DRAWER } from "../popup/media.js";
 import { resolveRecordingsDayBounds } from "../recordings/utils/day.js";
 import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycle.js";
 import { buildCameraPickerMarkup } from "../navigation/camera-picker.tmpl.js";
@@ -149,6 +150,7 @@ export class CardViewPageController {
         this._host._popupMediaLoaderController?.showCarouselEventById?.(
           id,
           mediaType,
+          { presentation: POPUP_PRESENTATION_CARD_VIEW_DRAWER },
         );
       },
       icons: ICONS,

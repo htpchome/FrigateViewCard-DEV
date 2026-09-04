@@ -178,7 +178,7 @@ export const buildPopupInfoModel = ({
   };
 };
 
-const buildPopupInfoDownloadButtonMarkup = (action, icons) => {
+export const buildPopupInfoDownloadButtonMarkup = (action, icons) => {
   const icon = icons[action.icon] || icons.download;
   const label = escapeHtmlAttribute(action.label);
   if (action.kind === "recording-segment") {
@@ -191,6 +191,24 @@ const buildPopupInfoDownloadButtonMarkup = (action, icons) => {
     return `<button class="popup-action" data-popup-event-id="${escapeHtmlAttribute(action.id)}" data-popup-media-target="${escapeHtmlAttribute(action.targetMediaType)}" type="button" title="${label}" aria-label="${label}">${icon}</button>`;
   }
   return `<button class="popup-action" data-dl="${escapeHtmlAttribute(action.id)}" data-dl-file="${escapeHtmlAttribute(action.file)}" type="button" title="${label}" aria-label="${label}">${icon}</button>`;
+};
+
+export const buildCardViewPopupOverlayMarkup = ({
+  model,
+  fullDate = "-",
+  icons = ICONS,
+} = {}) => {
+  if (!model) return { labelText: "", actionsHtml: "" };
+  const compactTime = String(model.time || "-")
+    .toLowerCase()
+    .replace(/\s+(am|pm)$/i, "$1");
+  const camera = cap(String(model.camera || "-").toLowerCase());
+  const labelText = `${camera} ${compactTime} - ${String(fullDate || "-")}`;
+  const actionsHtml = (model.downloadActions || [])
+    .slice(0, 2)
+    .map((action) => buildPopupInfoDownloadButtonMarkup(action, icons))
+    .join("");
+  return { labelText, actionsHtml };
 };
 
 export const buildPopupInfoMarkup = ({

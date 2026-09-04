@@ -17,6 +17,7 @@ import {
   buildPopupRecordingScrubInitPlan,
   buildPopupRecordingSourceAttemptPlan,
   buildPopupSnapshotRenderPlan,
+  isCardViewDrawerPopupPresentation,
   resolvePopupMediaPostRenderPlan,
   resolvePopupMediaRenderPlan,
   resolvePopupRecordingLoadOutcomePlan,
@@ -174,6 +175,7 @@ export class PopupMediaLoaderController {
       grip,
       controls,
       zoomController,
+      initialHeightRatio: this._cardViewPopupInitialHeightRatio(),
       getAvailableMaxHeight: () =>
         this._resolveAvailableViewResizeHeight(viewer),
     });
@@ -183,6 +185,16 @@ export class PopupMediaLoaderController {
 
   _resolveAvailableViewResizeHeight(viewer) {
     if (this._host._isCardViewPageActive?.() !== true) return 0;
+    if (this._isCardViewDrawerPresentation()) {
+      const viewerRect = viewer?.getBoundingClientRect?.() || null;
+      const cardRect =
+        this._host._$?.("#card")?.getBoundingClientRect?.() || null;
+      const top = Number(viewerRect?.top);
+      const bottom = Number(cardRect?.bottom);
+      return Number.isFinite(top) && Number.isFinite(bottom)
+        ? Math.max(0, bottom - top)
+        : 0;
+    }
     const body = viewer?.closest?.(".popup-body") || null;
     const metadata = this._host._$?.("#popup-info-head") || null;
     const viewerRect = viewer?.getBoundingClientRect?.() || null;
@@ -202,8 +214,27 @@ export class PopupMediaLoaderController {
       media,
       grip,
       metadataHost: this._host._$?.("#popup-info-head") || null,
+      overlayHost: this._isCardViewDrawerPresentation()
+        ? this._host._$?.("#popup-card-view-resize-host") || null
+        : null,
       mobileTablet: this._deps.isMobileTabletViewport?.() === true,
     });
+  }
+
+  _isCardViewDrawerPresentation() {
+    return isCardViewDrawerPopupPresentation(
+      this._lifecycleController?.presentation?.(),
+    );
+  }
+
+  _cardViewPopupInitialHeightRatio() {
+    if (!this._isCardViewDrawerPresentation()) return 0;
+    const rect = this._host._$?.("#live-stage")?.getBoundingClientRect?.();
+    const width = Number(rect?.width);
+    const height = Number(rect?.height);
+    return Number.isFinite(width) && width > 0 && Number.isFinite(height)
+      ? height / width
+      : 0;
   }
 
   renderPopupMedia({
@@ -216,10 +247,14 @@ export class PopupMediaLoaderController {
     onMediaError = null,
   }) {
     const compact = infoOpts?.compact === true;
+    const presentation = infoOpts?.presentation || "";
+    this._lifecycleController?.setPresentation?.(presentation);
     this._lifecycleController?.setCompact?.(compact);
     this._lifecycleController?.clearMediaCleanup();
     const token = this._nextPlaybackToken();
-    if (compact) this._carouselController?.clear?.();
+    if (compact || isCardViewDrawerPopupPresentation(presentation)) {
+      this._carouselController?.clear?.();
+    }
     this._lifecycleController?.enter();
     const isElement =
       typeof Element !== "undefined" && mediaElement instanceof Element;
@@ -282,6 +317,7 @@ export class PopupMediaLoaderController {
       activeId: playingId || "",
       hasVideo: !!video,
       compact,
+      presentation,
     });
     if (postRenderPlan.shouldEnsureAirPlayButton) {
       this._mediaControlsController?.ensurePlaybackButtons(
@@ -528,11 +564,17 @@ export class PopupMediaLoaderController {
       this.showSnapshot(event, {
         mediaType: selectionPlan.mediaType,
         compact: opts.compact === true,
+        ...(opts.presentation
+          ? { presentation: opts.presentation }
+          : {}),
       });
     } else {
       this.showClip(event, {
         mediaType: selectionPlan.mediaType,
         compact: opts.compact === true,
+        ...(opts.presentation
+          ? { presentation: opts.presentation }
+          : {}),
       });
     }
     return true;
@@ -651,6 +693,8 @@ export class PopupMediaLoaderController {
       compact = fallbackOpts?.compact === true,
     } = {},
   ) {
+    const presentation = fallbackOpts?.presentation || "";
+    this._lifecycleController?.setPresentation?.(presentation);
     this._lifecycleController?.setCompact?.(compact);
     this._lifecycleController?.clearMediaCleanup();
     const token = this._nextPlaybackToken();
@@ -692,7 +736,11 @@ export class PopupMediaLoaderController {
     const sourceAttemptPlan = buildPopupRecordingSourceAttemptPlan({
       sourceCandidates: renderPlan.sourceCandidates,
     });
-    if (event && !compact) {
+    if (
+      event &&
+      !compact &&
+      !isCardViewDrawerPopupPresentation(presentation)
+    ) {
       this._carouselController?.render(
         renderPlan.carouselMediaType,
         renderPlan.carouselActiveId,
@@ -845,6 +893,7 @@ export class PopupMediaLoaderController {
           carouselMediaType: renderPlan.carouselMediaType,
           carouselActiveId: renderPlan.carouselActiveId,
           compact,
+          presentation,
         });
         runMediaCleanup();
         if (outcomePlan.shouldShowError) {
@@ -872,6 +921,7 @@ export class PopupMediaLoaderController {
       carouselMediaType: renderPlan.carouselMediaType,
       carouselActiveId: renderPlan.carouselActiveId,
       compact,
+      presentation,
     });
     if (outcomePlan.shouldEnsureAirPlayButton) {
       this._mediaControlsController?.syncPlaybackButtons?.();

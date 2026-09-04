@@ -119,6 +119,11 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /data-card-view-media-drawer-scroller/);
   assert.match(markup, /data-card-view-media-drawer-scroll="-1"/);
   assert.match(markup, /data-card-view-media-drawer-scroll="1"/);
+  assert.match(markup, /data-card-view-media-drawer-tabs[^>]*hidden/);
+  assert.match(markup, /data-card-view-media-drawer-type="alerts"/);
+  assert.match(markup, /data-card-view-media-drawer-type="clips"/);
+  assert.match(markup, /data-card-view-media-drawer-type="snapshots"/);
+  assert.doesNotMatch(markup, /card-view-media-drawer-heading/);
   assert.match(markup, /media-chevron/);
   assert.match(markup, /data-card-view-standalone-linked-overlay/);
   assert.match(markup, /media-linked-controls-overlay/);
@@ -490,6 +495,10 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-nav \{[\s\S]*?left:50%;[\s\S]*?width:min\(72px,58%\);[\s\S]*?transform:translateX\(-50%\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-live-panel \{[^}]*container-name:card-view-live;/,
   );
   assert.match(
@@ -497,9 +506,21 @@ test("standalone Card View styles keep overlays on the existing rounded video st
     /@container card-view-live \(max-width:440px\) \{[\s\S]*?linked-light-dimmer-panel \{width:72px;[\s\S]*?linked-light-brightness-track \{width:38px;height:70px;/,
   );
   assert.equal((CARD_VIEW_PAGE_STYLES.match(/top:45px/g) || []).length, 0);
-  assert.doesNotMatch(
+  assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-(?:panel|stage)[^,{]*:hover[^,{]*:is\([^)]*card-view-standalone|card-view-live-(?:panel|stage)[^,{]*:hover[^,{]*card-view-standalone/,
+    /card-view-live-panel:hover \.card-view-standalone-mode-button[^{]*\{[\s\S]*?opacity:1;pointer-events:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel:hover \.card-view-standalone-linked-overlay \{opacity:1;pointer-events:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel:has\(\.fvc-video-zoomed\) :is\(\.mobile-cam-picker,\.card-view-standalone-mode-button\)[^{]*\{[\s\S]*?opacity:0;pointer-events:none;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel:has\(\.fvc-video-zoomed\) \.card-view-standalone-linked-overlay \{opacity:0;pointer-events:none;/,
   );
 });
 
@@ -1397,5 +1418,35 @@ test("Card View opens media in the standard full-width popup", async () => {
     ["clip", event, { mediaType: "alert" }],
     ["carousel", event.id, "snapshot"],
     ["recording", 100, 200],
+  ]);
+});
+
+test("standalone media drawer opens the focused Card View popup", () => {
+  const calls = [];
+  const host = {
+    _pageId: "card-view",
+    _config: {
+      card_view_standalone: true,
+      card_view_media_drawer_enabled: true,
+    },
+    _pauseSlideshowForInteraction: () => calls.push(["pause"]),
+    _popupMediaLoaderController: {
+      showCarouselEventById: (...args) => calls.push(["popup", ...args]),
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  controller._mediaDrawerController._onSelectEvent("event-1", "clip");
+
+  assert.deepEqual(calls, [
+    ["pause"],
+    [
+      "popup",
+      "event-1",
+      "clip",
+      { presentation: "card-view-drawer" },
+    ],
   ]);
 });

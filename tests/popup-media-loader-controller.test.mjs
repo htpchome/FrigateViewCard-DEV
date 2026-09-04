@@ -484,6 +484,64 @@ test("compact popup clears stale carousel DOM without rendering replacement data
   assert.equal(body.scrollTop, 0);
 });
 
+test("Card View drawer popup selects its focused presentation and clears the carousel", () => {
+  const calls = [];
+  const viewer = {
+    innerHTML: "stale media",
+    style: {},
+    querySelector: () => null,
+  };
+  const host = {
+    _playSeq: 0,
+    _$: (selector) => {
+      if (selector === "#viewer") return viewer;
+      if (selector === "#myPopup") {
+        return { querySelector: () => ({ scrollTop: 10 }) };
+      }
+      return null;
+    },
+    _popupInfoController: {
+      render: (_event, options) => calls.push(["info", options.presentation]),
+    },
+    _popupCarouselController: {
+      clear: () => calls.push(["carousel", "clear"]),
+      render: () => calls.push(["carousel", "render"]),
+    },
+    _popupMediaControlsController: {
+      ensurePlaybackButtons: () => {},
+      resetWithoutVideo: () => {},
+      showTemporarily: () => {},
+    },
+    _popupLifecycleController: {
+      setPresentation: (value) => calls.push(["presentation", value]),
+      presentation: () => "card-view-drawer",
+      setCompact: () => {},
+      clearMediaCleanup: () => {},
+      enter: () => {},
+      setMediaState: () => {},
+      setMediaCleanup: () => {},
+    },
+    _scheduleRotateOverlayUpdate: () => {},
+  };
+  const controller = new PopupMediaLoaderController(host);
+
+  controller.renderPopupMedia({
+    playingId: "event-1",
+    html: '<div class="popup-media-unavailable"></div>',
+    mediaType: "alert",
+    infoOpts: {
+      mediaType: "alert",
+      presentation: "card-view-drawer",
+    },
+  });
+
+  assert.deepEqual(calls, [
+    ["presentation", "card-view-drawer"],
+    ["carousel", "clear"],
+    ["info", "card-view-drawer"],
+  ]);
+});
+
 test("standard popup media preserves carousel content before rendering its next state", () => {
   const carouselCalls = [];
   const viewer = {
@@ -797,10 +855,20 @@ test("carousel selections preserve alert and snapshot popup media types", () => 
   const controller = new PopupMediaLoaderController(host);
   const calls = [];
   controller.showClip = (selectedEvent, opts) => {
-    calls.push(["clip", selectedEvent.id, opts.mediaType]);
+    calls.push([
+      "clip",
+      selectedEvent.id,
+      opts.mediaType,
+      opts.presentation,
+    ]);
   };
   controller.showSnapshot = (selectedEvent, opts) => {
-    calls.push(["snapshot", selectedEvent.id, opts.mediaType]);
+    calls.push([
+      "snapshot",
+      selectedEvent.id,
+      opts.mediaType,
+      opts.presentation,
+    ]);
   };
 
   assert.equal(controller.showCarouselEventById("event-1", "alert"), true);
@@ -808,9 +876,16 @@ test("carousel selections preserve alert and snapshot popup media types", () => 
     controller.showCarouselEventById("event-1", "snapshot"),
     true,
   );
+  assert.equal(
+    controller.showCarouselEventById("event-1", "clip", {
+      presentation: "card-view-drawer",
+    }),
+    true,
+  );
   assert.deepEqual(calls, [
-    ["clip", "event-1", "alert"],
-    ["snapshot", "event-1", "snapshot"],
+    ["clip", "event-1", "alert", undefined],
+    ["snapshot", "event-1", "snapshot", undefined],
+    ["clip", "event-1", "clip", "card-view-drawer"],
   ]);
 });
 

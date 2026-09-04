@@ -46,7 +46,11 @@ export function buildCardViewMainLayoutShellMarkup({
         ${buildLivePlaybackControlsMarkup(regions)}
         <aside class="card-view-media-drawer is-closed" data-card-view-media-drawer data-media-overlay-ignore hidden>
           <div class="card-view-media-drawer-panel" id="card-view-media-drawer-panel" data-card-view-media-drawer-panel aria-hidden="true">
-            <div class="card-view-media-drawer-heading" data-card-view-media-drawer-heading>Alerts</div>
+            <div class="card-view-media-drawer-tabs" data-card-view-media-drawer-tabs role="tablist" aria-label="Drawer media" hidden>
+              <button class="card-view-media-drawer-tab active" type="button" data-card-view-media-drawer-type="alerts" role="tab" aria-selected="true">Alerts</button>
+              <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="clips" role="tab" aria-selected="false">Clips</button>
+              <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="snapshots" role="tab" aria-selected="false">Snapshots</button>
+            </div>
             <button class="card-view-media-drawer-nav card-view-media-drawer-nav--up" type="button" data-card-view-media-drawer-scroll="-1" title="Previous media" aria-label="Previous media" hidden>${regions.mediaDrawerHandleIcon}</button>
             <div class="card-view-media-drawer-scroller" data-card-view-media-drawer-scroller></div>
             <button class="card-view-media-drawer-nav card-view-media-drawer-nav--down" type="button" data-card-view-media-drawer-scroll="1" title="More media" aria-label="More media" hidden>${regions.mediaDrawerHandleIcon}</button>

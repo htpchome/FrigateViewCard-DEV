@@ -149,6 +149,19 @@ test("popup resize bounds use the initial render as the minimum", () => {
   assert.equal(portrait.eligible, true);
 });
 
+test("Card View popup can begin at the live-stage ratio", () => {
+  const bounds = resolvePopupViewResizeBounds({
+    mediaWidth: 640,
+    mediaHeight: 480,
+    initialHeightRatio: 9 / 16,
+  });
+
+  assert.equal(bounds.minHeightRatio, 9 / 16);
+  assert.equal(bounds.maxHeightRatio, 3 / 4);
+  assert.equal(bounds.initialHeightCapped, true);
+  assert.equal(bounds.eligible, true);
+});
+
 test("popup resize stops at the rendered height ceiling without narrowing", () => {
   assert.equal(
     resolvePopupViewRenderedMaxHeightRatio({
@@ -334,6 +347,12 @@ test("desktop video uses the metadata handle while mobile video and snapshots st
       this.appended.push(node);
     },
   };
+  const overlayHost = {
+    appended: [],
+    appendChild(node) {
+      this.appended.push(node);
+    },
+  };
   const grip = { classList: createClassList() };
   const video = { tagName: "VIDEO" };
 
@@ -376,5 +395,21 @@ test("desktop video uses the metadata handle while mobile video and snapshots st
       metadataHost,
     }),
     "media",
+  );
+
+  assert.equal(
+    placePopupViewResizeGrip({
+      viewer,
+      media: video,
+      grip,
+      metadataHost,
+      overlayHost,
+    }),
+    "card-view-overlay",
+  );
+  assert.equal(overlayHost.appended.at(-1), grip);
+  assert.equal(
+    grip.classList.values.has("popup-view-resize-grip--card-view"),
+    true,
   );
 });

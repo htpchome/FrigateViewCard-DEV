@@ -1,4 +1,9 @@
-import { buildPopupInfoMarkup, buildPopupInfoModel } from "./info.js";
+import {
+  buildCardViewPopupOverlayMarkup,
+  buildPopupInfoMarkup,
+  buildPopupInfoModel,
+} from "./info.js";
+import { isCardViewDrawerPopupPresentation } from "./media.js";
 
 export class PopupInfoController {
   constructor({
@@ -7,6 +12,7 @@ export class PopupInfoController {
     formatTime,
     formatWeekday,
     formatMonthDay,
+    formatFullDate = () => "-",
     formatEventDuration,
     onResetRecordingScrub,
     onMediaCameraChange,
@@ -19,6 +25,7 @@ export class PopupInfoController {
     this._formatTime = formatTime;
     this._formatWeekday = formatWeekday;
     this._formatMonthDay = formatMonthDay;
+    this._formatFullDate = formatFullDate;
     this._formatEventDuration = formatEventDuration;
     this._onResetRecordingScrub = onResetRecordingScrub;
     this._onMediaCameraChange = onMediaCameraChange;
@@ -50,6 +57,30 @@ export class PopupInfoController {
       this._onResetRecordingScrub?.();
     }
 
+    if (isCardViewDrawerPopupPresentation(options.presentation)) {
+      info.innerHTML = "";
+      info.hidden = true;
+      const overlay = buildCardViewPopupOverlayMarkup({
+        model,
+        fullDate: this._formatFullDate?.(
+          options.startTime ?? event?.start_time,
+        ),
+      });
+      const label = this._query?.("#popup-card-view-label");
+      if (label) {
+        label.textContent = overlay.labelText;
+        label.hidden = false;
+      }
+      const actions = this._query?.("#popup-card-view-actions");
+      if (actions) {
+        actions.innerHTML = overlay.actionsHtml;
+        actions.hidden = !overlay.actionsHtml;
+      }
+      return model;
+    }
+
+    this._clearCardViewOverlay();
+
     const markup = buildPopupInfoMarkup({ event, model });
     info.innerHTML = markup.infoHtml;
     info.hidden = false;
@@ -63,6 +94,20 @@ export class PopupInfoController {
     if (info) {
       info.innerHTML = "";
       info.hidden = true;
+    }
+    this._clearCardViewOverlay();
+  }
+
+  _clearCardViewOverlay() {
+    const label = this._query?.("#popup-card-view-label");
+    if (label) {
+      label.textContent = "";
+      label.hidden = true;
+    }
+    const actions = this._query?.("#popup-card-view-actions");
+    if (actions) {
+      actions.innerHTML = "";
+      actions.hidden = true;
     }
   }
 

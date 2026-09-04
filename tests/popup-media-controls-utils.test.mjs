@@ -16,6 +16,7 @@ import {
   buildPopupRecordingScrubInitPlan,
   buildPopupRecordingSourceAttemptPlan,
   buildPopupSnapshotRenderPlan,
+  POPUP_PRESENTATION_CARD_VIEW_DRAWER,
   resolvePopupMediaPostRenderPlan,
   resolvePopupMediaRenderPlan,
   resolvePopupRecordingSeekListenerPlan,
@@ -184,6 +185,41 @@ test("compact popup media suppresses carousel rendering", () => {
   assert.equal(plan.shouldRenderCarousel, false);
   assert.equal(plan.shouldRenderInfo, true);
   assert.equal(plan.shouldInitPopupMediaControls, true);
+});
+
+test("Card View drawer presentation suppresses only the legacy carousel", () => {
+  const presentation = POPUP_PRESENTATION_CARD_VIEW_DRAWER;
+  const postRender = resolvePopupMediaPostRenderPlan({
+    popupMediaType: "alert",
+    activeId: "event-1",
+    hasVideo: true,
+    presentation,
+  });
+  assert.equal(postRender.shouldRenderCarousel, false);
+  assert.equal(postRender.shouldRenderInfo, true);
+  assert.equal(postRender.shouldInitPopupMediaControls, true);
+
+  assert.equal(
+    buildPopupClipRenderPlan({
+      id: "event-1",
+      opts: { presentation },
+    }).infoOpts.presentation,
+    presentation,
+  );
+  assert.equal(
+    buildPopupSnapshotRenderPlan({
+      event: { id: "event-1" },
+      opts: { presentation },
+    }).infoOpts.presentation,
+    presentation,
+  );
+  assert.equal(
+    resolvePopupRecordingLoadOutcomePlan({
+      playable: true,
+      presentation,
+    }).shouldRenderCarousel,
+    false,
+  );
 });
 
 test("buildPopupClipRenderPlan resolves clip defaults and iOS media file selection", () => {
