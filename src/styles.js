@@ -101,6 +101,24 @@ export const STYLES = `
         --c-bg-scrub:  #c2f2c1;
         --c-bg-alert:  var(--error-color);
         --c-bg-detect: var(--warning-color);
+        --fvc-media-overlay-bg: rgb(20 20 20 / 80%);
+        --fvc-media-overlay-bg-soft: rgb(15 15 15 / 72%);
+        --fvc-media-overlay-bg-strong: rgb(15 15 15 / 92%);
+        --fvc-media-overlay-bg-hover: rgb(45 45 45 / 95%);
+        --fvc-media-overlay-option-bg: rgb(255 255 255 / 8%);
+        --fvc-media-overlay-text: #f5f5f5;
+        --fvc-media-overlay-text-muted: #f2f2f2;
+        --fvc-media-overlay-border: rgb(255 255 255 / 15%);
+        --fvc-media-overlay-border-strong: rgb(255 255 255 / 18%);
+        --fvc-media-overlay-border-hover: rgb(255 255 255 / 45%);
+        --fvc-media-overlay-shadow: 0 3px 10px rgb(0 0 0 / 34%);
+        --fvc-media-overlay-shadow-strong: 0 7px 20px rgb(0 0 0 / 42%);
+        --fvc-media-overlay-active-bg: var(--c-primary-d, var(--c-primary));
+        --fvc-media-overlay-active-border: var(--c-primary);
+        --fvc-media-overlay-track-bg: rgb(255 255 255 / 18%);
+        --fvc-media-overlay-scrim: rgb(0 0 0 / 48%);
+        --fvc-media-overlay-live-halo: rgb(74 222 128 / 24%);
+        --fvc-media-overlay-offline-halo: rgb(252 165 165 / 24%);
     }
   /* ── responsive layout    ── */
   ha-card {
@@ -541,9 +559,9 @@ export const STYLES = `
     width: 36px;
     height: 36px;
     padding: 0;
-    color: var(--c-text-rev);
-    background: rgb(20 20 20 / 80%);
-    border: 1px solid rgb(255 255 255 / 15%);
+    color: var(--fvc-media-overlay-text);
+    background: var(--fvc-media-overlay-bg);
+    border: 1px solid var(--fvc-media-overlay-border);
     border-radius: 4px;
     cursor: pointer;
     appearance: none;
@@ -552,7 +570,7 @@ export const STYLES = `
       border-color 120ms ease,
       transform 80ms ease;
     }
-  .square-btn:hover{background: rgb(45 45 45 / 95%);border-color: rgb(255 255 255 / 45%);}
+  .square-btn:hover{background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
   .square-btn svg{width: 24px;height: 24px;fill: currentColor;pointer-events: none;}
   .live-playback-controls,.popup-playback-controls{position:absolute;top:50%;right:clamp(.75rem,2vw,1.125rem);bottom:auto;z-index:7;display:flex;flex-direction:column;gap:.5rem;opacity:0;pointer-events:none;transform:translateY(-50%);transition:opacity .16s ease;}
   .live-playback-controls > button,.popup-playback-controls > button{position:relative;inset:auto;width:36px;height:36px;flex:0 0 36px;opacity:1;}
@@ -727,18 +745,18 @@ export const STYLES = `
   .preview-light-overlay .linked-light-position-slot{pointer-events:auto;}
   .preview-light-overlay .linked-light-dimmer{top:auto;bottom:calc(100% + 8px);}
   .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn){
-    color:#f5f5f5;background-color:rgb(20 20 20 / 80%);background-image:none;
-    border:1px solid rgb(255 255 255 / 15%);box-shadow:0 3px 10px rgb(0 0 0 / 34%);
+    color:var(--fvc-media-overlay-text);background-color:var(--fvc-media-overlay-bg);background-image:none;
+    border:1px solid var(--fvc-media-overlay-border);box-shadow:var(--fvc-media-overlay-shadow);
   }
   .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn) svg{color:currentColor;opacity:1;}
-  .media-linked-controls-overlay .info-row-mic-btn.round-btn.active{color:#4ade80;background-color:rgb(20 20 20 / 88%);border-color:rgb(74 222 128 / 55%);}
+  .media-linked-controls-overlay .info-row-mic-btn.round-btn.active{color:var(--c-on);background-color:var(--fvc-media-overlay-bg-strong);border-color:var(--c-on);}
   .media-linked-controls-overlay .info-row-mic-btn.round-btn.active.microphone-muted{color:var(--c-text-rev);background-color:var(--c-accent);border-color:var(--c-accent);}
-  .media-linked-controls-overlay .linked-light-button.icon-btn.is-on::before{background:rgb(20 20 20 / 88%);}
+  .media-linked-controls-overlay .linked-light-button.icon-btn.is-on::before{background:var(--fvc-media-overlay-bg-strong);}
   .media-linked-controls-overlay .two-way-talk-soundwave{
     background:radial-gradient(circle at 48% 50%,rgba(155,92,255,.22),transparent 60%),linear-gradient(135deg,rgba(34,211,238,.07),rgba(255,60,172,.08)),rgb(15 15 15 / 72%);
   }
   @media (hover:hover) and (pointer:fine){
-    .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn):hover:not(:disabled){background-color:rgb(45 45 45 / 95%);border-color:rgb(255 255 255 / 45%);}
+    .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn):hover:not(:disabled){background-color:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
   }
   .preview-cam-buttons{display:flex;flex-wrap:wrap;gap:6px;padding: 10px 0px}
   .preview-cam-btn{}

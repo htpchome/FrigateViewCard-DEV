@@ -105,6 +105,10 @@ export class VideoZoomController {
     this._host = options.host || video?.parentElement || null;
     this._interactionTarget = options.interactionTarget || video || null;
     this._nativeCoverPanEnabled = options.nativeCoverPan === true;
+    this._onInteractionStart =
+      typeof options.onInteractionStart === "function"
+        ? options.onInteractionStart
+        : null;
     this._maxScale = Math.max(
       VIDEO_ZOOM_DOUBLE_TAP,
       Number(options.maxScale) || VIDEO_ZOOM_MAX,
@@ -554,6 +558,7 @@ export class VideoZoomController {
   }
 
   _startPan(point, mode = "transform") {
+    this._notifyInteractionStart();
     this._pan = {
       mode,
       pointerId: point.pointerId,
@@ -575,6 +580,7 @@ export class VideoZoomController {
       (point) => point.pointerType === "touch",
     );
     if (points.length < 2) return;
+    this._notifyInteractionStart();
     const first = points[0];
     const second = points[1];
     const midpoint = midpointBetween(first, second);
@@ -608,6 +614,7 @@ export class VideoZoomController {
     }
     event.preventDefault?.();
     if (nextScale === this._scale) return;
+    this._notifyInteractionStart();
     this.zoomTo(nextScale, event.clientX, event.clientY);
   };
 
@@ -616,6 +623,7 @@ export class VideoZoomController {
     if (!this._isMediaInteractionStart(event)) return;
     if (Date.now() - this._lastTouchZoomAt < 500) return;
     event.preventDefault?.();
+    this._notifyInteractionStart();
     this.toggleDoubleZoom(event.clientX, event.clientY);
   };
 
@@ -786,6 +794,7 @@ export class VideoZoomController {
         event.preventDefault?.();
         this._lastTap = null;
         this._lastTouchZoomAt = now;
+        this._notifyInteractionStart();
         this.toggleDoubleZoom(currentTap.clientX, currentTap.clientY);
       } else {
         this._lastTap = currentTap;
@@ -825,6 +834,12 @@ export class VideoZoomController {
     if (!this._presentationInterrupted) return;
     this._refreshPresentationAfterNextVideoFrame();
   };
+
+  _notifyInteractionStart() {
+    try {
+      this._onInteractionStart?.();
+    } catch (_) {}
+  }
 
   _isMediaInteractionStart(event) {
     const path = event?.composedPath?.();

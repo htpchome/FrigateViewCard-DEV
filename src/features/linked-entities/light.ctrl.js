@@ -342,6 +342,19 @@ export class LinkedLightController {
     this.closeDimmers();
   }
 
+  handleDocumentPointerDown(event) {
+    const path =
+      typeof event?.composedPath === "function" ? event.composedPath() : [];
+    const target = event?.target;
+    const insideHost =
+      (Array.isArray(path) && path.includes(this.host)) ||
+      target === this.host ||
+      this.host?.contains?.(target) === true;
+    if (insideHost) return false;
+    this.cancelInteractions();
+    return true;
+  }
+
   _openDimmer(control) {
     this.closeDimmers(control);
     const dimmer = control?.querySelector("[data-linked-light-dimmer]");

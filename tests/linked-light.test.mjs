@@ -382,10 +382,15 @@ test("linked light markup can target an individual Preview camera", () => {
   assert.doesNotMatch(markup, /light\.porch/);
 });
 
-test("linked light dimmer uses a translucent token-based panel", () => {
+test("linked light dimmer uses shared dark media-overlay tokens", () => {
   assert.match(
     LINKED_LIGHT_STYLES,
-    /\.linked-light-dimmer-panel\{[^}]*background:color-mix\(in srgb,var\(--c-bg-panel\) 94%,transparent\)/,
+    /\.linked-light-dimmer-panel\{[^}]*background:var\(--fvc-media-overlay-bg-strong\)/,
+  );
+  assert.doesNotMatch(LINKED_LIGHT_STYLES, /color-mix\(/);
+  assert.match(
+    STYLES,
+    /--fvc-media-overlay-bg-strong: rgb\(15 15 15 \/ 92%\);/,
   );
   assert.match(LINKED_LIGHT_STYLES, /\.linked-light-dimmer\{[^}]*width:93px/);
   assert.match(
@@ -560,4 +565,35 @@ test("dimmer power control restores the light through Home Assistant without clo
     ["light", "turn_on", { entity_id: "light.porch" }],
   ]);
   assert.equal(classes.has("is-pending"), false);
+});
+
+test("a pointer press outside the card closes every linked-light dimmer", () => {
+  const dimmer = { hidden: false };
+  const host = {
+    contains: () => false,
+    shadowRoot: {
+      addEventListener: () => {},
+      querySelectorAll: () => [dimmer],
+    },
+  };
+  const controller = new LinkedLightController(host);
+
+  assert.equal(
+    controller.handleDocumentPointerDown({
+      target: {},
+      composedPath: () => [{}, globalThis.document],
+    }),
+    true,
+  );
+  assert.equal(dimmer.hidden, true);
+
+  dimmer.hidden = false;
+  assert.equal(
+    controller.handleDocumentPointerDown({
+      target: host,
+      composedPath: () => [host],
+    }),
+    false,
+  );
+  assert.equal(dimmer.hidden, false);
 });

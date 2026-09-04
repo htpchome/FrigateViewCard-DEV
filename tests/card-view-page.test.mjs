@@ -17,6 +17,7 @@ import {
 import { CARD_VIEW_PAGE_STYLES } from "../src/features/card-view/page.styles.js";
 import { CARD_VIEW_START_MODES } from "../src/features/card-view/config.js";
 import { CAMERA_PICKER_STYLES } from "../src/features/navigation/camera-picker.styles.js";
+import { GRID_ALERT_HOLD_MS } from "../src/constants.js";
 
 test("Card View uses independent alert and recording page widths", () => {
   assert.equal(resolveCardViewColumnCount({ width: 500, mode: "alerts" }), 1);
@@ -188,7 +189,7 @@ test("standalone mode controls are not disabled by Card View alert takeover", ()
   );
 });
 
-test("active standalone Grid indicator expires after 30 seconds", () => {
+test("active standalone Grid indicator uses the shared ten-second Grid hold", () => {
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
   const classes = new Set();
@@ -228,7 +229,7 @@ test("active standalone Grid indicator expires after 30 seconds", () => {
     controller.renderStandaloneModeControls();
 
     assert.equal(classes.has("card-view-grid-indicator-visible"), true);
-    assert.equal(scheduled?.delay, 30_000);
+    assert.equal(scheduled?.delay, GRID_ALERT_HOLD_MS);
     scheduled.callback();
     assert.equal(classes.has("card-view-grid-indicator-visible"), false);
 
@@ -465,6 +466,14 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-live-stage:has\(#stream-loading:not\(\[hidden\]\)\) \.card-view-live-badge \{display:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel \{[^}]*container-name:card-view-live;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /@container card-view-live \(max-width:440px\) \{[\s\S]*?linked-light-dimmer-panel \{width:72px;[\s\S]*?linked-light-brightness-track \{width:38px;height:70px;/,
   );
   assert.equal((CARD_VIEW_PAGE_STYLES.match(/top:45px/g) || []).length, 0);
   assert.doesNotMatch(
@@ -897,6 +906,40 @@ test("standalone presentation-only config changes do not reload activity data", 
   });
 
   assert.equal(refreshes, 0);
+});
+
+test("enabling standalone Video Panel Only reapplies the configured Grid start", () => {
+  const modeChanges = [];
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "single",
+    _slideshowActive: false,
+    _config: {
+      card_view_standalone: true,
+      card_view_start_mode: CARD_VIEW_START_MODES.grid,
+      card_view_video_panel_only: true,
+    },
+    _isGridModeAvailable: () => true,
+    _isSlideshowRotationAvailable: () => false,
+    _setViewMode: (mode) => {
+      modeChanges.push(mode);
+      host._viewMode = mode;
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  controller.syncCardViewPageMarkup = () => {};
+  controller.renderCamSwitcher = () => {};
+  controller.renderToolbar = () => {};
+
+  controller.applyConfigUpdate({ videoPanelOnlyChanged: true });
+  assert.deepEqual(modeChanges, ["grid"]);
+
+  host._config.card_view_video_panel_only = false;
+  host._viewMode = "single";
+  controller.applyConfigUpdate({ videoPanelOnlyChanged: true });
+  assert.deepEqual(modeChanges, ["grid"]);
 });
 
 test("Card View alert tiles retain media actions but omit favorite actions", () => {

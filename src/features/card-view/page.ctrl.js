@@ -1,6 +1,10 @@
 import { cap, camDisplayName } from "../../helpers.js";
 import { ICONS } from "../../icons.js";
-import { DEFAULT_SUBTITLE, DEFAULT_TITLE } from "../../constants.js";
+import {
+  DEFAULT_SUBTITLE,
+  DEFAULT_TITLE,
+  GRID_ALERT_HOLD_MS,
+} from "../../constants.js";
 import { parseRealtimeAlertMessage } from "../../data/realtime-alert.js";
 import { CleanupController } from "../../shared/cleanup.js";
 import { resolveCameraAwareText } from "../../shared/page-text.js";
@@ -24,7 +28,7 @@ import {
 } from "./config.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
-const STANDALONE_GRID_INDICATOR_DURATION_MS = 30_000;
+const STANDALONE_GRID_INDICATOR_DURATION_MS = GRID_ALERT_HOLD_MS;
 const STANDALONE_GRID_INDICATOR_VISIBLE_CLASS =
   "card-view-grid-indicator-visible";
 
@@ -1130,7 +1134,10 @@ export class CardViewPageController {
     }
     if (!this.isActive()) return;
 
-    if (standaloneChanged || startModeChanged) {
+    const videoPanelOnlyEnabled =
+      videoPanelOnlyChanged &&
+      this._host._config?.card_view_video_panel_only === true;
+    if (standaloneChanged || startModeChanged || videoPanelOnlyEnabled) {
       this._startModeApplied = false;
       this.applyConfiguredStartMode({ force: true });
     }

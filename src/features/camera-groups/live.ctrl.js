@@ -417,7 +417,10 @@ export class CameraGroupLiveController {
       null;
     if (video) {
       this._secondaryZoom?.dispose?.();
-      this._secondaryZoom = attachVideoZoom(video);
+      this._secondaryZoom = attachVideoZoom(video, {
+        onInteractionStart: () =>
+          this._host._dismissLinkedLightDimmers?.(),
+      });
       this._mediaState.cleanup.push(() => {
         this._secondaryZoom?.dispose?.();
         this._secondaryZoom = null;

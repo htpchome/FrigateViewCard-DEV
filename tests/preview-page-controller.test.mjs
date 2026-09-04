@@ -232,7 +232,7 @@ test("Preview linked lights render in metadata or over media when metadata is hi
   );
   assert.match(
     STYLES,
-    /\.media-linked-controls-overlay :is\([^}]*background-color:rgb\(20 20 20 \/ 80%\);background-image:none;/,
+    /\.media-linked-controls-overlay :is\([^}]*background-color:var\(--fvc-media-overlay-bg\);background-image:none;/,
   );
   assert.match(
     STYLES,

@@ -80,6 +80,7 @@ function createZoomFixture({
   hostHeight = 200,
   nativeCoverPan = false,
   objectFit = "",
+  onInteractionStart = null,
 } = {}) {
   const host = {
     style: new FakeStyle(),
@@ -144,6 +145,7 @@ function createZoomFixture({
   const controller = new VideoZoomController(video, {
     interactionTarget,
     nativeCoverPan,
+    onInteractionStart,
   }).bind();
   return { controller, host, interactionTarget, video };
 }
@@ -250,6 +252,29 @@ test("wheel zoom is pointer-focused, capped at 3x, and releases outward page scr
   const outward = video.dispatch("wheel", { deltaY: 100 });
   assert.equal(outward.defaultPrevented, false);
   assert.deepEqual(controller.state, { scale: 1, x: 0, y: 0 });
+});
+
+test("accepted zoom and pan gestures notify their shared interaction owner", () => {
+  let starts = 0;
+  const { controller, video } = createZoomFixture({
+    onInteractionStart: () => {
+      starts += 1;
+    },
+  });
+
+  video.dispatch("wheel", { deltaY: 100 });
+  assert.equal(starts, 0);
+
+  video.dispatch("wheel", { deltaY: -100 });
+  assert.equal(starts, 1);
+
+  video.dispatch("pointerdown", { pointerId: 7 });
+  assert.equal(starts, 2);
+  video.dispatch("pointerup", { pointerId: 7 });
+
+  controller.reset();
+  video.dispatch("dblclick");
+  assert.equal(starts, 3);
 });
 
 test("letterbox space is excluded from the zoom cursor and interaction zone", () => {

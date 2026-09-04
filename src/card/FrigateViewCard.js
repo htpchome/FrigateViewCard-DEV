@@ -1301,6 +1301,7 @@ export class FrigateViewCard extends HTMLElement {
       this._onEditorPreviewDraft,
     );
     this._onDocumentPointerDown = (event) => {
+      this._linkedLightController?.handleDocumentPointerDown?.(event);
       if (!this._mobileCamSwitcherOpen) return;
       const path =
         typeof event?.composedPath === "function" ? event.composedPath() : [];
@@ -1308,6 +1309,7 @@ export class FrigateViewCard extends HTMLElement {
       this._mobileCamSwitcherController?.close();
     };
     document.addEventListener("pointerdown", this._onDocumentPointerDown, {
+      capture: true,
       passive: true,
     });
   }
@@ -2219,7 +2221,11 @@ export class FrigateViewCard extends HTMLElement {
       );
     }
     if (this._onDocumentPointerDown) {
-      document.removeEventListener("pointerdown", this._onDocumentPointerDown);
+      document.removeEventListener(
+        "pointerdown",
+        this._onDocumentPointerDown,
+        true,
+      );
     }
     if (this._rotateOverlayRaf) cancelAnimationFrame(this._rotateOverlayRaf);
     this._rotateOverlayRaf = 0;
@@ -2490,7 +2496,9 @@ export class FrigateViewCard extends HTMLElement {
         return;
       }
       this._clearLiveVideoZoom();
-      this._liveVideoZoomController = attachVideoZoom(video);
+      this._liveVideoZoomController = attachVideoZoom(video, {
+        onInteractionStart: () => this._dismissLinkedLightDimmers(),
+      });
       this._syncLiveRotateZoomPresentation();
       this._syncPictureInPictureButtons();
       return;
@@ -2526,6 +2534,7 @@ export class FrigateViewCard extends HTMLElement {
       host: viewer || video?.parentElement,
       interactionTarget: viewer || video,
       nativeCoverPan: true,
+      onInteractionStart: () => this._dismissLinkedLightDimmers(),
     });
     return this._popupVideoZoomController;
   }
@@ -2533,6 +2542,10 @@ export class FrigateViewCard extends HTMLElement {
   _clearPopupVideoZoom() {
     this._popupVideoZoomController?.dispose?.();
     this._popupVideoZoomController = null;
+  }
+
+  _dismissLinkedLightDimmers() {
+    this._linkedLightController?.closeDimmers?.();
   }
 
   _cleanupEngine(options = {}) {
