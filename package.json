@@ -5,14 +5,27 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "npm run build && node --check dist/frigate-view-card.js",
-    "test": "npm run build && node --test tests/*.test.mjs"
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:compat": "npm run test:compat:api && npm run test:compat:bundle && npm run test:compat:browsers",
+    "test:compat:api": "eslint src",
+    "test:compat:bundle": "node scripts/check-browser-syntax.mjs",
+    "test:compat:browsers": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "esbuild": "^0.25.0",
+    "eslint": "10.9.1",
+    "eslint-plugin-compat": "7.0.1",
     "hls.js": "1.5.17"
   },
   "dependencies": {
     "ffmpeg": "^0.0.4",
     "fluent-ffmpeg": "^2.1.3"
-  }
+  },
+  "browserslist": [
+    "chrome >= 111",
+    "firefox >= 113",
+    "safari >= 16.4",
+    "ios_saf >= 16.4"
+  ]
 }
