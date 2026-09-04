@@ -35,8 +35,8 @@ import {
 } from "../features/wide-view/config.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
 import {
-  normalizeCardViewMediaDrawerType,
   normalizeCardViewStartMode,
+  normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
 
 const normalizePositiveInteger = (value, fallback) => {
@@ -121,12 +121,16 @@ export const createEditorPreviewDraft = (config) => ({
   wide_view_timeline_default_scale: config.wide_view_timeline_default_scale,
   card_view_page_enabled: config.card_view_page_enabled,
   card_view_alert_takeover: config.card_view_alert_takeover,
-  card_view_drawer_default_open: config.card_view_drawer_default_open,
   card_view_standalone: config.card_view_standalone,
   card_view_media_drawer_enabled: config.card_view_media_drawer_enabled,
-  card_view_media_drawer_type: config.card_view_media_drawer_type,
   card_view_start_mode: config.card_view_start_mode,
-  card_view_video_panel_only: config.card_view_video_panel_only,
+  card_view_view_mode: normalizeCardViewViewMode(
+    config.card_view_view_mode,
+    {
+      legacyDrawerDefaultOpen: config.card_view_drawer_default_open,
+      legacyVideoPanelOnly: config.card_view_video_panel_only,
+    },
+  ),
   card_view_hide_camera_name: config.card_view_hide_camera_name,
   landing_page: config.landing_page,
   mobile_page: config.mobile_page,
@@ -292,21 +296,23 @@ export const applyEditorPreviewDraftToCardConfig = ({
     card_view_page_enabled: previewConfig.card_view_page_enabled === true,
     card_view_alert_takeover:
       previewConfig.card_view_alert_takeover === true,
-    card_view_drawer_default_open:
-      previewConfig.card_view_drawer_default_open !== false,
     card_view_standalone:
       previewConfig.card_view_page_enabled === true &&
       previewConfig.card_view_standalone === true,
     card_view_media_drawer_enabled:
       previewConfig.card_view_media_drawer_enabled === true,
-    card_view_media_drawer_type: normalizeCardViewMediaDrawerType(
-      previewConfig.card_view_media_drawer_type,
-    ),
     card_view_start_mode: normalizeCardViewStartMode(
       previewConfig.card_view_start_mode,
     ),
-    card_view_video_panel_only:
-      previewConfig.card_view_video_panel_only === true,
+    card_view_view_mode: normalizeCardViewViewMode(
+      previewConfig.card_view_view_mode,
+      {
+        legacyDrawerDefaultOpen:
+          previewConfig.card_view_drawer_default_open,
+        legacyVideoPanelOnly:
+          previewConfig.card_view_video_panel_only,
+      },
+    ),
     card_view_hide_camera_name:
       previewConfig.card_view_hide_camera_name === true,
     landing_page: normalizePageRoute(previewConfig.landing_page),
@@ -344,5 +350,8 @@ export const applyEditorPreviewDraftToCardConfig = ({
       applied,
       DEVICE_ROUTE_BUCKETS.desktop,
     );
+  delete applied.card_view_drawer_default_open;
+  delete applied.card_view_media_drawer_type;
+  delete applied.card_view_video_panel_only;
   return applied;
 };

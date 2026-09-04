@@ -218,10 +218,10 @@ export class EditorPreviewContextController {
       nextConfig,
       "card_view_alert_takeover",
     );
-    const cardDrawerChanged = previewKeysChanged(
+    const cardViewModeChanged = previewKeysChanged(
       previousConfig,
       nextConfig,
-      "card_view_drawer_default_open",
+      "card_view_view_mode",
     );
     const cardStandaloneChanged = previewKeysChanged(
       previousConfig,
@@ -233,20 +233,10 @@ export class EditorPreviewContextController {
       nextConfig,
       "card_view_media_drawer_enabled",
     );
-    const cardMediaDrawerTypeChanged = previewKeysChanged(
-      previousConfig,
-      nextConfig,
-      "card_view_media_drawer_type",
-    );
     const cardStartModeChanged = previewKeysChanged(
       previousConfig,
       nextConfig,
       "card_view_start_mode",
-    );
-    const cardVideoPanelOnlyChanged = previewKeysChanged(
-      previousConfig,
-      nextConfig,
-      "card_view_video_panel_only",
     );
     const cardHideCameraNameChanged = previewKeysChanged(
       previousConfig,
@@ -255,22 +245,18 @@ export class EditorPreviewContextController {
     );
     if (
       cardTakeoverChanged ||
-      cardDrawerChanged ||
+      cardViewModeChanged ||
       cardStandaloneChanged ||
       cardMediaDrawerEnabledChanged ||
-      cardMediaDrawerTypeChanged ||
       cardStartModeChanged ||
-      cardVideoPanelOnlyChanged ||
       cardHideCameraNameChanged
     ) {
       this._host._cardViewPageController?.applyConfigUpdate?.({
         takeoverDefaultChanged: cardTakeoverChanged,
-        drawerDefaultChanged: cardDrawerChanged,
+        viewModeChanged: cardViewModeChanged,
         standaloneChanged: cardStandaloneChanged,
         mediaDrawerEnabledChanged: cardMediaDrawerEnabledChanged,
-        mediaDrawerTypeChanged: cardMediaDrawerTypeChanged,
         startModeChanged: cardStartModeChanged,
-        videoPanelOnlyChanged: cardVideoPanelOnlyChanged,
         hideCameraNameChanged: cardHideCameraNameChanged,
       });
     }

@@ -65,8 +65,8 @@ import {
 } from "./features/camera-groups/model.js";
 import { normalizeLinkedEntitiesConfig } from "./features/linked-entities/config.js";
 import {
-  normalizeCardViewMediaDrawerType,
   normalizeCardViewStartMode,
+  normalizeCardViewViewMode,
 } from "./features/card-view/config.js";
 
 export function detectDeviceProfile() {
@@ -919,30 +919,27 @@ export const buildEditorConfigFromDom = ({
   nextConfig.card_view_alert_takeover = resolveSwitchChecked(
     root.querySelector("#card_view_alert_takeover"),
   );
-  const cardViewDrawerDefaultOpen = root.querySelector(
-    "#card_view_drawer_default_open",
-  );
-  nextConfig.card_view_drawer_default_open = cardViewDrawerDefaultOpen
-    ? resolveSwitchChecked(cardViewDrawerDefaultOpen)
-    : baseConfig?.card_view_drawer_default_open !== false;
   nextConfig.card_view_standalone = resolveSwitchChecked(
     root.querySelector("#card_view_standalone"),
   );
   nextConfig.card_view_media_drawer_enabled = resolveSwitchChecked(
     root.querySelector("#card_view_media_drawer_enabled"),
   );
-  nextConfig.card_view_media_drawer_type = normalizeCardViewMediaDrawerType(
-    root.querySelector(
-      '[name="card_view_media_drawer_type"]:checked',
-    )?.value || baseConfig?.card_view_media_drawer_type,
-  );
   nextConfig.card_view_start_mode = normalizeCardViewStartMode(
     root.querySelector('[name="card_view_start_mode"]:checked')?.value ||
       baseConfig?.card_view_start_mode,
   );
-  nextConfig.card_view_video_panel_only = resolveSwitchChecked(
-    root.querySelector("#card_view_video_panel_only"),
+  nextConfig.card_view_view_mode = normalizeCardViewViewMode(
+    root.querySelector('[name="card_view_view_mode"]:checked')?.value ||
+      baseConfig?.card_view_view_mode,
+    {
+      legacyDrawerDefaultOpen: baseConfig?.card_view_drawer_default_open,
+      legacyVideoPanelOnly: baseConfig?.card_view_video_panel_only,
+    },
   );
+  delete nextConfig.card_view_drawer_default_open;
+  delete nextConfig.card_view_media_drawer_type;
+  delete nextConfig.card_view_video_panel_only;
   nextConfig.card_view_hide_camera_name = resolveSwitchChecked(
     root.querySelector("#card_view_hide_camera_name"),
   );

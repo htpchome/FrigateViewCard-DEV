@@ -43,8 +43,8 @@ import {
 import { limitCameraConfigsByPhysicalCount } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
 import {
-  normalizeCardViewMediaDrawerType,
   normalizeCardViewStartMode,
+  normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
 
 export const DEFAULT_CAMERA_ENTITY = "camera.doorbell";
@@ -205,20 +205,23 @@ export const normalizeCardConfig = (config) => {
   );
   src.card_view_page_enabled = src.card_view_page_enabled === true;
   src.card_view_alert_takeover = src.card_view_alert_takeover === true;
-  src.card_view_drawer_default_open =
-    src.card_view_drawer_default_open !== false;
   src.card_view_standalone =
     src.card_view_page_enabled && src.card_view_standalone === true;
   src.card_view_media_drawer_enabled =
     src.card_view_media_drawer_enabled === true;
-  src.card_view_media_drawer_type = normalizeCardViewMediaDrawerType(
-    src.card_view_media_drawer_type,
-  );
   src.card_view_start_mode = normalizeCardViewStartMode(
     src.card_view_start_mode,
   );
-  src.card_view_video_panel_only =
-    src.card_view_video_panel_only === true;
+  src.card_view_view_mode = normalizeCardViewViewMode(
+    src.card_view_view_mode,
+    {
+      legacyDrawerDefaultOpen: src.card_view_drawer_default_open,
+      legacyVideoPanelOnly: src.card_view_video_panel_only,
+    },
+  );
+  delete src.card_view_drawer_default_open;
+  delete src.card_view_media_drawer_type;
+  delete src.card_view_video_panel_only;
   src.card_view_hide_camera_name =
     src.card_view_hide_camera_name === true;
 

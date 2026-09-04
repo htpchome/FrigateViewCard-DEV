@@ -24,8 +24,10 @@ import {
   buildCardViewToolbarMarkup,
 } from "./page.tmpl.js";
 import {
+  CARD_VIEW_VIEW_MODES,
   CARD_VIEW_START_MODES,
   normalizeCardViewStartMode,
+  normalizeCardViewViewMode,
 } from "./config.js";
 import { CardViewMediaDrawerController } from "./media-drawer.ctrl.js";
 
@@ -135,8 +137,6 @@ export class CardViewPageController {
       isEnabled: () =>
         this.isStandalone() &&
         this._host._config?.card_view_media_drawer_enabled === true,
-      getConfiguredType: () =>
-        this._host._config?.card_view_media_drawer_type,
       getEvents: (mediaType) =>
         this._host._popupCarouselController?.eventsForMediaType?.(mediaType) ||
         [],
@@ -352,7 +352,10 @@ export class CardViewPageController {
 
   _ensureDrawerState() {
     if (this._drawerInitialized) return;
-    this._drawerOpen = this._host._config?.card_view_drawer_default_open !== false;
+    this._drawerOpen =
+      normalizeCardViewViewMode(
+        this._host._config?.card_view_view_mode,
+      ) === CARD_VIEW_VIEW_MODES.bottomPanelOpen;
     this._drawerInitialized = true;
   }
 
@@ -1150,39 +1153,40 @@ export class CardViewPageController {
 
   applyConfigUpdate({
     takeoverDefaultChanged = false,
-    drawerDefaultChanged = false,
     standaloneChanged = false,
     mediaDrawerEnabledChanged = false,
-    mediaDrawerTypeChanged = false,
     startModeChanged = false,
-    videoPanelOnlyChanged = false,
+    viewModeChanged = false,
     hideCameraNameChanged = false,
   } = {}) {
     if (takeoverDefaultChanged) {
       this._alertTakeoverEnabled = null;
       this._yieldAlertTakeoverToActiveMode();
     }
-    if (drawerDefaultChanged) {
+    if (viewModeChanged) {
       this._drawerInitialized = true;
       this._drawerOpen =
-        this._host._config?.card_view_drawer_default_open !== false;
+        normalizeCardViewViewMode(
+          this._host._config?.card_view_view_mode,
+        ) === CARD_VIEW_VIEW_MODES.bottomPanelOpen;
       this.syncDrawerState();
     }
     if (!this.isActive()) return;
 
-    const videoPanelOnlyEnabled =
-      videoPanelOnlyChanged &&
-      this._host._config?.card_view_video_panel_only === true;
-    if (standaloneChanged || startModeChanged || videoPanelOnlyEnabled) {
+    const videoOnlyEnabled =
+      viewModeChanged &&
+      normalizeCardViewViewMode(
+        this._host._config?.card_view_view_mode,
+      ) === CARD_VIEW_VIEW_MODES.videoOnly;
+    if (standaloneChanged || startModeChanged || videoOnlyEnabled) {
       this._startModeApplied = false;
       this.applyConfiguredStartMode({ force: true });
     }
     if (
       standaloneChanged ||
       mediaDrawerEnabledChanged ||
-      mediaDrawerTypeChanged ||
       startModeChanged ||
-      videoPanelOnlyChanged ||
+      viewModeChanged ||
       hideCameraNameChanged
     ) {
       this.syncCardViewPageMarkup();
@@ -1190,11 +1194,10 @@ export class CardViewPageController {
     }
     if (
       standaloneChanged ||
-      mediaDrawerEnabledChanged ||
-      mediaDrawerTypeChanged
+      mediaDrawerEnabledChanged
     ) {
       this._mediaDrawerController.syncState();
-      this.renderMediaDrawer({ force: mediaDrawerTypeChanged });
+      this.renderMediaDrawer();
     }
     this.renderToolbar();
     if (takeoverDefaultChanged) {

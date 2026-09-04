@@ -181,9 +181,9 @@ Card View is a desktop/tablet layout designed to sit beside other cards in a Hom
 
 <img src="images/card-view.jpg" alt="Card View" width="400">
 
-Its activity drawer sits between the live view and footer. Either footer handle can open or close it by click, touch, or swipe, and `card_view_drawer_default_open` controls its initial state. The drawer can switch between horizontally paged Alerts and active-camera Recordings. Alerts can be scoped to the active camera or mixed across all configured cameras, and the calendar is available in both activity modes. PTZ temporarily replaces the activity row when active.
+Its activity panel sits between the live view and footer. Either footer handle can open or close it by click, touch, or swipe, while `card_view_view_mode` chooses whether Card View starts with only video or with the bottom panel open or closed. The panel can switch between horizontally paged Alerts and active-camera Recordings. Alerts can be scoped to the active camera or mixed across all configured cameras, and the calendar is available in both activity modes. PTZ temporarily replaces the activity row when active.
 
-Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked lights, compact media popups, and conditional footer navigation. With `card_view_standalone` enabled, it becomes the only desktop/tablet view while the phone landing flow remains independently configurable.
+Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked lights, compact media popups, and conditional footer navigation. Standalone Card View can add a left-side media drawer whose tabs switch between Alerts, Clips, and Snapshots. With `card_view_standalone` enabled, Card View becomes the only FrigateView page on every device.
 
 ## YAML configuration
 
@@ -244,8 +244,11 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `wide_view_timeline_default_scale` | number | `12` | Sets the Timeline's initial time range in hours. Supported values are `1`, `6`, `12`, and `24`. |
 | `card_view_page_enabled` | boolean | `false` | Enables naturally sized Card View on desktop and tablet. |
 | `card_view_alert_takeover` | boolean | `false` | Initial state of the Card View alert-takeover control. |
-| `card_view_drawer_default_open` | boolean | `true` | Starts Card View with its Alerts/Recordings drawer open. Footer handles can open or close it at runtime. |
-| `card_view_standalone` | boolean | `false` | Makes Card View the only desktop/tablet view and forces it as that device class's landing page. |
+| `card_view_view_mode` | string | `bottom-panel-open` | Initial Card View layout: `video-only`, `bottom-panel-open`, or `bottom-panel-closed`. |
+| `card_view_standalone` | boolean | `false` | Makes Card View the only FrigateView page and landing page on every device. |
+| `card_view_start_mode` | string | `live` | Initial standalone video mode: `live`, `slideshow`, or `grid`. |
+| `card_view_media_drawer_enabled` | boolean | `false` | Adds the tabbed Alerts, Clips, and Snapshots drawer to the left side of standalone Card View. |
+| `card_view_hide_camera_name` | boolean | `false` | Hides the standalone camera picker until hover or touch reveals the center controls. |
 | `landing_page` | string | `single-view` | Desktop/tablet landing page. Choices are limited to enabled, supported views. |
 | `mobile_page` | string | `single-view` | Phone landing flow: `mobile-view`, `preview-mobile-view`, `preview-single-view`, or `single-view`. Choices requiring Mobile or Preview are available only when those pages are enabled. |
 

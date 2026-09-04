@@ -53,8 +53,8 @@ import {
   normalizeGridOrderConfig,
 } from "../features/grid/config.js";
 import {
-  normalizeCardViewMediaDrawerType,
   normalizeCardViewStartMode,
+  normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
 
 const normalizePositiveInteger = (value, fallback) => {
@@ -510,12 +510,6 @@ export const compactEditorConfigForYaml = (
   );
   addIfNotDefault(
     compact,
-    "card_view_drawer_default_open",
-    source.card_view_drawer_default_open !== false,
-    true,
-  );
-  addIfNotDefault(
-    compact,
     "card_view_standalone",
     source.card_view_page_enabled === true &&
       source.card_view_standalone === true,
@@ -529,21 +523,18 @@ export const compactEditorConfigForYaml = (
   );
   addIfNotDefault(
     compact,
-    "card_view_media_drawer_type",
-    normalizeCardViewMediaDrawerType(source.card_view_media_drawer_type),
-    "alerts",
-  );
-  addIfNotDefault(
-    compact,
     "card_view_start_mode",
     normalizeCardViewStartMode(source.card_view_start_mode),
     "live",
   );
   addIfNotDefault(
     compact,
-    "card_view_video_panel_only",
-    source.card_view_video_panel_only === true,
-    false,
+    "card_view_view_mode",
+    normalizeCardViewViewMode(source.card_view_view_mode, {
+      legacyDrawerDefaultOpen: source.card_view_drawer_default_open,
+      legacyVideoPanelOnly: source.card_view_video_panel_only,
+    }),
+    "bottom-panel-open",
   );
   addIfNotDefault(
     compact,

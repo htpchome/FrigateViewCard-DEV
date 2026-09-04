@@ -157,29 +157,25 @@ test("standalone Card View draft controls reach its lightweight config updater",
     previousConfig: {
       card_view_standalone: false,
       card_view_media_drawer_enabled: false,
-      card_view_media_drawer_type: "alerts",
       card_view_start_mode: "live",
-      card_view_video_panel_only: false,
+      card_view_view_mode: "bottom-panel-open",
       card_view_hide_camera_name: false,
     },
     nextConfig: {
       card_view_standalone: true,
       card_view_media_drawer_enabled: true,
-      card_view_media_drawer_type: "snapshots",
       card_view_start_mode: "grid",
-      card_view_video_panel_only: true,
+      card_view_view_mode: "video-only",
       card_view_hide_camera_name: true,
     },
   });
 
   assert.deepEqual(cardUpdate, {
     takeoverDefaultChanged: false,
-    drawerDefaultChanged: false,
+    viewModeChanged: true,
     standaloneChanged: true,
     mediaDrawerEnabledChanged: true,
-    mediaDrawerTypeChanged: true,
     startModeChanged: true,
-    videoPanelOnlyChanged: true,
     hideCameraNameChanged: true,
   });
 });

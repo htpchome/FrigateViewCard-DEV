@@ -334,6 +334,10 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-mode-button {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-linked-overlay {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:none;}
+  .card.card-view-active.card-view-standalone:has(.card-view-media-drawer.is-open) .card-view-camera-row,
+  .card.card-view-active.card-view-standalone:has(.card-view-media-drawer.is-open) .card-view-standalone-linked-overlay {
+    opacity:0;visibility:hidden;pointer-events:none;
+  }
   .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn),
   .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn):hover:not(:disabled) {
     color:var(--fvc-media-overlay-text);background:transparent;background-image:none;border-color:transparent;box-shadow:none;

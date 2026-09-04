@@ -10,6 +10,12 @@ export const CARD_VIEW_MEDIA_DRAWER_TYPES = Object.freeze({
   snapshots: "snapshots",
 });
 
+export const CARD_VIEW_VIEW_MODES = Object.freeze({
+  videoOnly: "video-only",
+  bottomPanelOpen: "bottom-panel-open",
+  bottomPanelClosed: "bottom-panel-closed",
+});
+
 const CARD_VIEW_START_MODE_SET = new Set(
   Object.values(CARD_VIEW_START_MODES),
 );
@@ -19,6 +25,30 @@ export const normalizeCardViewStartMode = (value) => {
   return CARD_VIEW_START_MODE_SET.has(mode)
     ? mode
     : CARD_VIEW_START_MODES.live;
+};
+
+const CARD_VIEW_VIEW_MODE_SET = new Set(
+  Object.values(CARD_VIEW_VIEW_MODES),
+);
+
+export const normalizeCardViewViewMode = (
+  value,
+  {
+    legacyDrawerDefaultOpen,
+    legacyVideoPanelOnly,
+  } = {},
+) => {
+  const mode = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+  if (CARD_VIEW_VIEW_MODE_SET.has(mode)) return mode;
+  if (legacyVideoPanelOnly === true) {
+    return CARD_VIEW_VIEW_MODES.videoOnly;
+  }
+  return legacyDrawerDefaultOpen === false
+    ? CARD_VIEW_VIEW_MODES.bottomPanelClosed
+    : CARD_VIEW_VIEW_MODES.bottomPanelOpen;
 };
 
 const CARD_VIEW_MEDIA_DRAWER_TYPE_ALIASES = Object.freeze({

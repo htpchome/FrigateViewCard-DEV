@@ -15,7 +15,10 @@ import {
   buildCardViewToolbarMarkup,
 } from "../src/features/card-view/page.tmpl.js";
 import { CARD_VIEW_PAGE_STYLES } from "../src/features/card-view/page.styles.js";
-import { CARD_VIEW_START_MODES } from "../src/features/card-view/config.js";
+import {
+  CARD_VIEW_START_MODES,
+  CARD_VIEW_VIEW_MODES,
+} from "../src/features/card-view/config.js";
 import { CAMERA_PICKER_STYLES } from "../src/features/navigation/camera-picker.styles.js";
 import { GRID_ALERT_HOLD_MS } from "../src/constants.js";
 
@@ -315,7 +318,7 @@ test("standalone Card View markup reflects video-only, hidden-name, and active m
     _config: {
       card_view_standalone: true,
       card_view_media_drawer_enabled: true,
-      card_view_video_panel_only: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
       card_view_hide_camera_name: true,
     },
     classList: classList(hostClasses),
@@ -550,6 +553,12 @@ test("standalone Card View styles keep overlays on the existing rounded video st
     CARD_VIEW_PAGE_STYLES,
     /card-view-live-panel:has\(\.fvc-video-zoomed\) \.card-view-standalone-linked-overlay \{opacity:0;pointer-events:none;/,
   );
+  const openMediaDrawerRule = CARD_VIEW_PAGE_STYLES.match(
+    /card-view-standalone:has\(\.card-view-media-drawer\.is-open\) \.card-view-camera-row,[\s\S]*?\{[^}]*visibility:hidden;[^}]*\}/,
+  )?.[0];
+  assert.ok(openMediaDrawerRule);
+  assert.match(openMediaDrawerRule, /card-view-standalone-linked-overlay/);
+  assert.doesNotMatch(openMediaDrawerRule, /live-playback-controls/);
 });
 
 test("Card View toolbar exposes shared Grid and Slideshow mode states", () => {
@@ -730,7 +739,9 @@ test("Card View drawer follows its configured starting state and toggles without
   const controller = new CardViewPageController(
     {
       _pageId: "card-view",
-      _config: { card_view_drawer_default_open: false },
+      _config: {
+        card_view_view_mode: CARD_VIEW_VIEW_MODES.bottomPanelClosed,
+      },
       shadowRoot,
     },
     { PAGE_IDS: { cardView: "card-view" } },
@@ -971,14 +982,14 @@ test("standalone presentation-only config changes do not reload activity data", 
   };
 
   controller.applyConfigUpdate({
-    videoPanelOnlyChanged: true,
+    viewModeChanged: true,
     hideCameraNameChanged: true,
   });
 
   assert.equal(refreshes, 0);
 });
 
-test("enabling standalone Video Panel Only reapplies the configured Grid start", () => {
+test("switching Card View to Video Only reapplies the configured Grid start", () => {
   const modeChanges = [];
   const host = {
     _pageId: "card-view",
@@ -987,7 +998,7 @@ test("enabling standalone Video Panel Only reapplies the configured Grid start",
     _config: {
       card_view_standalone: true,
       card_view_start_mode: CARD_VIEW_START_MODES.grid,
-      card_view_video_panel_only: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
     },
     _isGridModeAvailable: () => true,
     _isSlideshowRotationAvailable: () => false,
@@ -1003,12 +1014,12 @@ test("enabling standalone Video Panel Only reapplies the configured Grid start",
   controller.renderCamSwitcher = () => {};
   controller.renderToolbar = () => {};
 
-  controller.applyConfigUpdate({ videoPanelOnlyChanged: true });
+  controller.applyConfigUpdate({ viewModeChanged: true });
   assert.deepEqual(modeChanges, ["grid"]);
 
-  host._config.card_view_video_panel_only = false;
+  host._config.card_view_view_mode = CARD_VIEW_VIEW_MODES.bottomPanelOpen;
   host._viewMode = "single";
-  controller.applyConfigUpdate({ videoPanelOnlyChanged: true });
+  controller.applyConfigUpdate({ viewModeChanged: true });
   assert.deepEqual(modeChanges, ["grid"]);
 });
 

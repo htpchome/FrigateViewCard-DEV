@@ -1,5 +1,9 @@
 import { buildLivePlaybackControlsMarkup } from "../live/view.tmpl.js";
 import { escapeHtml } from "../../shared/html.js";
+import {
+  CARD_VIEW_VIEW_MODES,
+  normalizeCardViewViewMode,
+} from "./config.js";
 
 const normalizeRegions = (regions = {}) => ({
   live: "",
@@ -217,8 +221,11 @@ export function buildCardViewPtzMarkup({ icons = {} } = {}) {
 export function applyCardViewPageMarkup({ host, pageIds } = {}) {
   const active = host?._pageId === pageIds?.cardView;
   const standalone = active && host?._config?.card_view_standalone === true;
+  const viewMode = normalizeCardViewViewMode(
+    host?._config?.card_view_view_mode,
+  );
   const videoPanelOnly =
-    standalone && host?._config?.card_view_video_panel_only === true;
+    active && viewMode === CARD_VIEW_VIEW_MODES.videoOnly;
   const hideCameraName =
     standalone && host?._config?.card_view_hide_camera_name === true;
   const mediaDrawerEnabled =

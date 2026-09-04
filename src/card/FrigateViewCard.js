@@ -111,8 +111,8 @@ import {
 } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
 import {
-  normalizeCardViewMediaDrawerType,
   normalizeCardViewStartMode,
+  normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
 import { applyEditorPreviewDraftToCardConfig } from "../config/preview-mapper.js";
 import {
@@ -1735,14 +1735,17 @@ export class FrigateViewCard extends HTMLElement {
         config.card_view_standalone === true,
       card_view_media_drawer_enabled:
         config.card_view_media_drawer_enabled === true,
-      card_view_media_drawer_type: normalizeCardViewMediaDrawerType(
-        config.card_view_media_drawer_type,
-      ),
       card_view_start_mode: normalizeCardViewStartMode(
         config.card_view_start_mode,
       ),
-      card_view_video_panel_only:
-        config.card_view_video_panel_only === true,
+      card_view_view_mode: normalizeCardViewViewMode(
+        config.card_view_view_mode,
+        {
+          legacyDrawerDefaultOpen:
+            config.card_view_drawer_default_open,
+          legacyVideoPanelOnly: config.card_view_video_panel_only,
+        },
+      ),
       card_view_hide_camera_name:
         config.card_view_hide_camera_name === true,
       landing_page: normalizePageRoute(config.landing_page),
@@ -1838,10 +1841,6 @@ export class FrigateViewCard extends HTMLElement {
       !!prevConfig &&
       prevConfig.card_view_alert_takeover !==
         nextConfig.card_view_alert_takeover;
-    const cardViewDrawerDefaultChanged =
-      !!prevConfig &&
-      prevConfig.card_view_drawer_default_open !==
-        nextConfig.card_view_drawer_default_open;
     const cardViewStandaloneChanged =
       !!prevConfig &&
       prevConfig.card_view_standalone !== nextConfig.card_view_standalone;
@@ -1849,17 +1848,12 @@ export class FrigateViewCard extends HTMLElement {
       !!prevConfig &&
       prevConfig.card_view_media_drawer_enabled !==
         nextConfig.card_view_media_drawer_enabled;
-    const cardViewMediaDrawerTypeChanged =
-      !!prevConfig &&
-      prevConfig.card_view_media_drawer_type !==
-        nextConfig.card_view_media_drawer_type;
     const cardViewStartModeChanged =
       !!prevConfig &&
       prevConfig.card_view_start_mode !== nextConfig.card_view_start_mode;
-    const cardViewVideoPanelOnlyChanged =
+    const cardViewViewModeChanged =
       !!prevConfig &&
-      prevConfig.card_view_video_panel_only !==
-        nextConfig.card_view_video_panel_only;
+      prevConfig.card_view_view_mode !== nextConfig.card_view_view_mode;
     const cardViewHideCameraNameChanged =
       !!prevConfig &&
       prevConfig.card_view_hide_camera_name !==
@@ -1926,12 +1920,10 @@ export class FrigateViewCard extends HTMLElement {
       });
       this._cardViewPageController.applyConfigUpdate({
         takeoverDefaultChanged: cardViewTakeoverDefaultChanged,
-        drawerDefaultChanged: cardViewDrawerDefaultChanged,
         standaloneChanged: cardViewStandaloneChanged,
         mediaDrawerEnabledChanged: cardViewMediaDrawerEnabledChanged,
-        mediaDrawerTypeChanged: cardViewMediaDrawerTypeChanged,
         startModeChanged: cardViewStartModeChanged,
-        videoPanelOnlyChanged: cardViewVideoPanelOnlyChanged,
+        viewModeChanged: cardViewViewModeChanged,
         hideCameraNameChanged: cardViewHideCameraNameChanged,
       });
     }
