@@ -8,7 +8,9 @@ export const PAGE_IDS = Object.freeze({
 
 export const MOBILE_PAGE_MODES = Object.freeze({
   mobile: PAGE_IDS.mobileView,
+  card: PAGE_IDS.cardView,
   previewMobile: "preview-mobile-view",
+  previewCard: "preview-card-view",
   previewSingle: "preview-single-view",
   single: PAGE_IDS.singleView,
 });
@@ -69,9 +71,13 @@ export const normalizeMobilePageMode = (value) => {
     .replace(/[_+\s]+/g, "-");
   if (mode === "preview") return MOBILE_PAGE_MODES.previewSingle;
   if (mode === "preview-mobile") return MOBILE_PAGE_MODES.previewMobile;
+  if (mode === "preview-card") return MOBILE_PAGE_MODES.previewCard;
   if (mode === "preview-single") return MOBILE_PAGE_MODES.previewSingle;
   if (mode === "mobile" || mode === "mobile-view") {
     return MOBILE_PAGE_MODES.mobile;
+  }
+  if (mode === "card" || mode === "card-view") {
+    return MOBILE_PAGE_MODES.card;
   }
   if (mode === "single" || mode === "single-view") {
     return MOBILE_PAGE_MODES.single;
@@ -129,7 +135,7 @@ export const isPageEnabled = (config, pageId) => {
 };
 
 export const isPageSupportedOnDevice = (pageId, deviceBucket) => {
-  if (pageId === PAGE_IDS.wideView || pageId === PAGE_IDS.cardView) {
+  if (pageId === PAGE_IDS.wideView) {
     return deviceBucket !== DEVICE_ROUTE_BUCKETS.mobile;
   }
   return true;
@@ -152,7 +158,9 @@ export const getEnabledPageRoutes = (config, deviceBucket) => {
 
 export const getMobilePageModes = () => [
   MOBILE_PAGE_MODES.mobile,
+  MOBILE_PAGE_MODES.card,
   MOBILE_PAGE_MODES.previewMobile,
+  MOBILE_PAGE_MODES.previewCard,
   MOBILE_PAGE_MODES.previewSingle,
   MOBILE_PAGE_MODES.single,
 ];
@@ -162,10 +170,19 @@ export const getEnabledMobilePageModes = (config) =>
     if (mode === MOBILE_PAGE_MODES.mobile) {
       return isPageEnabled(config, PAGE_IDS.mobileView);
     }
+    if (mode === MOBILE_PAGE_MODES.card) {
+      return isPageEnabled(config, PAGE_IDS.cardView);
+    }
     if (mode === MOBILE_PAGE_MODES.previewMobile) {
       return (
         isPageEnabled(config, PAGE_IDS.preview) &&
         isPageEnabled(config, PAGE_IDS.mobileView)
+      );
+    }
+    if (mode === MOBILE_PAGE_MODES.previewCard) {
+      return (
+        isPageEnabled(config, PAGE_IDS.preview) &&
+        isPageEnabled(config, PAGE_IDS.cardView)
       );
     }
     if (mode === MOBILE_PAGE_MODES.previewSingle) {
@@ -185,6 +202,7 @@ export const resolveMobilePageEntryRoute = (value) => {
   const mode = normalizeMobilePageMode(value);
   if (
     mode === MOBILE_PAGE_MODES.previewMobile ||
+    mode === MOBILE_PAGE_MODES.previewCard ||
     mode === MOBILE_PAGE_MODES.previewSingle
   ) {
     return PAGE_IDS.preview;
@@ -195,6 +213,7 @@ export const resolveMobilePageEntryRoute = (value) => {
 export const resolveMobilePreviewDestination = (value) => {
   const mode = normalizeMobilePageMode(value);
   if (mode === MOBILE_PAGE_MODES.previewMobile) return PAGE_IDS.mobileView;
+  if (mode === MOBILE_PAGE_MODES.previewCard) return PAGE_IDS.cardView;
   if (mode === MOBILE_PAGE_MODES.previewSingle) return PAGE_IDS.singleView;
   return "";
 };
@@ -213,6 +232,12 @@ export const resolveDeepLinkPageRoute = (config, deviceBucket) => {
     mode === MOBILE_PAGE_MODES.previewMobile
   ) {
     return PAGE_IDS.mobileView;
+  }
+  if (
+    mode === MOBILE_PAGE_MODES.card ||
+    mode === MOBILE_PAGE_MODES.previewCard
+  ) {
+    return PAGE_IDS.cardView;
   }
   return PAGE_IDS.singleView;
 };
@@ -299,11 +324,18 @@ export const resolvePageSwipeOrder = (config, deviceBucket) => {
   }
   if (deviceBucket === DEVICE_ROUTE_BUCKETS.mobile) {
     const mobileMode = normalizeMobilePageMode(config?.mobile_page);
-    const pairedPage =
+    let pairedPage = PAGE_IDS.singleView;
+    if (
       mobileMode === MOBILE_PAGE_MODES.mobile ||
       mobileMode === MOBILE_PAGE_MODES.previewMobile
-        ? PAGE_IDS.mobileView
-        : PAGE_IDS.singleView;
+    ) {
+      pairedPage = PAGE_IDS.mobileView;
+    } else if (
+      mobileMode === MOBILE_PAGE_MODES.card ||
+      mobileMode === MOBILE_PAGE_MODES.previewCard
+    ) {
+      pairedPage = PAGE_IDS.cardView;
+    }
     append(PAGE_IDS.preview);
     append(pairedPage);
     return ordered;

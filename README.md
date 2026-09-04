@@ -177,7 +177,7 @@ Preview can keep every tile live, or use refreshed snapshots to deliver a fast o
 
 ### Card View
 
-Card View is a desktop/tablet layout designed to sit beside other cards in a Home Assistant dashboard. It uses its content and live-video aspect ratio to determine its natural height, so the global Card Height Limit does not apply.
+Card View is a naturally sized layout designed to sit beside other cards in a Home Assistant dashboard on desktop, tablet, or phone. It uses its content and live-video aspect ratio to determine its natural height, so the global Card Height Limit does not apply.
 
 <img src="images/card-view.jpg" alt="Card View" width="400">
 
@@ -242,17 +242,17 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `wide_view_timeline_enabled` | boolean | `false` | Enables the collapsible active-camera Timeline beside the Wide View browse area. |
 | `wide_view_timeline_default_open` | boolean | `false` | Opens the Wide View Timeline when the view starts instead of leaving it collapsed behind its drawer handle. |
 | `wide_view_timeline_default_scale` | number | `12` | Sets the Timeline's initial time range in hours. Supported values are `1`, `6`, `12`, and `24`. |
-| `card_view_page_enabled` | boolean | `false` | Enables naturally sized Card View on desktop and tablet. |
+| `card_view_page_enabled` | boolean | `false` | Enables naturally sized Card View on desktop, tablet, and phone. |
 | `card_view_alert_takeover` | boolean | `false` | Initial state of the Card View alert-takeover control. |
 | `card_view_view_mode` | string | `bottom-panel-open` | Initial Card View layout: `video-only`, `bottom-panel-open`, or `bottom-panel-closed`. |
 | `card_view_standalone` | boolean | `false` | Makes Card View the only FrigateView page and landing page on every device. |
 | `card_view_start_mode` | string | `live` | Initial standalone video mode: `live`, `slideshow`, or `grid`. |
-| `card_view_media_drawer_enabled` | boolean | `false` | Adds the tabbed Alerts, Clips, and Snapshots drawer to the left side of standalone Card View. |
-| `card_view_hide_camera_name` | boolean | `false` | Hides the standalone camera picker until hover or touch reveals the center controls. |
+| `card_view_media_drawer_enabled` | boolean | `false` | Adds the tabbed Alerts, Clips, and Snapshots drawer to the left side of Card View in Video Only mode. |
+| `card_view_hide_camera_name` | boolean | `false` | In Card View Video Only mode, hides the camera picker until hover or touch reveals the center controls. |
 | `landing_page` | string | `single-view` | Desktop/tablet landing page. Choices are limited to enabled, supported views. |
-| `mobile_page` | string | `single-view` | Phone landing flow: `mobile-view`, `preview-mobile-view`, `preview-single-view`, or `single-view`. Choices requiring Mobile or Preview are available only when those pages are enabled. |
+| `mobile_page` | string | `single-view` | Phone landing flow: `mobile-view`, `card-view`, `preview-mobile-view`, `preview-card-view`, `preview-single-view`, or `single-view`. Choices requiring Mobile, Card View, or Preview are available only when those pages are enabled. |
 
-For `preview-mobile-view` and `preview-single-view`, the phone opens Preview first. Selecting a Preview camera then opens Mobile View or Single View with that camera active.
+For `preview-mobile-view`, `preview-card-view`, and `preview-single-view`, the phone opens Preview first. Selecting a Preview camera then opens Mobile View, Card View, or Single View with that camera active.
 
 ### Grid ordering
 

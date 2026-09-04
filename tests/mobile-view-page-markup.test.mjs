@@ -288,6 +288,17 @@ test("mobile view centers the camera picker between equal side tracks", () => {
   );
 });
 
+test("mobile Single View scrolling does not claim the Card View camera row", () => {
+  assert.match(
+    STYLES,
+    /\.card\.mobile-client \.layout--single-view \.cam-switcher \{[\s\S]*?overflow-x: auto;/,
+  );
+  assert.doesNotMatch(
+    STYLES,
+    /\.card\.mobile-client:not\(\.mobile-view-active\) \.cam-switcher/,
+  );
+});
+
 test("mobile view keeps the shared fixed-height footer inside mobile-bottom", () => {
   const markup = buildMobileViewMainLayoutShellMarkup({
     regions: {

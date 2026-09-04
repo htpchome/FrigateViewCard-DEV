@@ -2579,7 +2579,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       .map((pageId) => ({ value: pageId, label: pageRouteLabel(pageId) }));
     const mobilePageLabels = {
       [MOBILE_PAGE_MODES.mobile]: "Mobile",
+      [MOBILE_PAGE_MODES.card]: "Card View",
       [MOBILE_PAGE_MODES.previewMobile]: "Preview + Mobile",
+      [MOBILE_PAGE_MODES.previewCard]: "Preview + Card View",
       [MOBILE_PAGE_MODES.previewSingle]: "Preview + Single View",
       [MOBILE_PAGE_MODES.single]: "Single View",
     };
@@ -2924,7 +2926,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Slideshow Mode</span>
               <ha-switch id="slideshow_rotation_enabled" ${this._config?.slideshow_rotation_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation. On phones, it is available only when Card View is used as a standalone view.</div>
+            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation. On phones, it is available when Card View is standalone or uses Video Only mode.</div>
           </div>
           <div id="slideshow_rotation_row" style="display:${this._config?.slideshow_rotation_enabled ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
             <div class="editor-choice-field editor-choice-field--single-row" id="slideshow_rotation_seconds" role="radiogroup" aria-label="Slideshow Rotation Frequency">
@@ -3136,7 +3138,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Enable Card View Page</span>
           <ha-switch id="card_view_page_enabled" ${this._config?.card_view_page_enabled ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Adds a naturally sized live-camera card view for desktop and tablet dashboards. Card Height Limit does not apply to this view.</div>
+        <div class="field-helper">Adds a naturally sized live-camera card view for desktop, tablet, and phone dashboards. Card Height Limit does not apply to this view.</div>
       </div>
       <div class="card-view-page-options" id="card-view-page-options" style="${this._config?.card_view_page_enabled ? "" : "display:none"}">
         <div class="section">
@@ -3165,21 +3167,21 @@ export class FrigateViewCardEditor extends HTMLElement {
             <div class="field-label">Start Card View</div>
             <div class="theme-scope-seg card-view-start-seg">${cardViewStartModeControl}</div>
           </div>
-          <div class="field-helper">Choose the initial standalone video mode. Slideshow and Grid must also be enabled in their own settings.</div>
+          <div class="field-helper">Choose the initial Video Only live mode. Slideshow and Grid must also be enabled in their own settings.</div>
         </div>
         <div class="section">
           <div class="layout-row">
             <span class="field-label" style="margin:0">Enable Media Drawer</span>
             <ha-switch id="card_view_media_drawer_enabled" ${this._config?.card_view_media_drawer_enabled ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">Adds a vertical media drawer over the left side of standalone Card View.</div>
+          <div class="field-helper">Adds a vertical media drawer over the left side of Card View in Video Only mode.</div>
         </div>
         <div class="section">
           <div class="layout-row">
             <span class="field-label" style="margin:0">Hide Camera Name</span>
             <ha-switch id="card_view_hide_camera_name" ${this._config?.card_view_hide_camera_name ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">In standalone Card View, hides the camera picker until the video is hovered or touched, including in Grid mode.</div>
+          <div class="field-helper">In Card View Video Only mode, hides the camera picker until the video is hovered or touched, including in Grid mode.</div>
         </div>
       </div>`;
     const landingPanelContent = `
@@ -3191,7 +3193,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       <div class="section">
         <span class="field-label">Mobile Page</span>
         <ha-selector id="mobile_page" style="width:220px" ${this._config?.card_view_standalone ? "disabled" : ""}></ha-selector>
-        <div class="field-helper">Choose the phone starting flow. Preview combinations open Preview first, then send a selected camera to Mobile or Single View. Options involving Mobile or Preview require those pages to be enabled.</div>
+        <div class="field-helper">Choose the phone starting flow. Preview combinations open Preview first, then send a selected camera to Mobile, Card View, or Single View. Options involving Mobile, Card View, or Preview require those pages to be enabled.</div>
         ${this._config?.card_view_standalone ? '<div class="field-helper standalone-mobile-note">Mobile Page is unavailable while Card View is standalone because phones use the same Card View landing page as desktop and tablet.</div>' : ""}
       </div>`;
     const gridviewPanelContent = `
@@ -3202,7 +3204,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Grid Mode</span>
               <ha-switch id="grid_mode_enabled" ${this._config?.grid_mode_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enable a 2x2 camera grid. It requires at least 2 cameras and is available on phones only when Card View is used as a standalone view.</div>
+            <div class="field-helper">Enable a 2x2 camera grid. It requires at least 2 cameras and is available on phones when Card View is standalone or uses Video Only mode.</div>
           </div>
           <div id="grid_order_row" class="grid-order-config" style="display:${this._config?.grid_mode_enabled ? "flex" : "none"}">
             <span class="field-label" style="margin:0">Grid Order</span>

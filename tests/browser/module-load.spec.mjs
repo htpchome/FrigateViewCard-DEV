@@ -116,20 +116,24 @@ test.describe("touch input", () => {
           { entity: "camera.back", name: "Back" },
         ],
         card_view_page_enabled: true,
-        card_view_standalone: true,
+        mobile_page: "card-view",
         card_view_view_mode: "video-only",
       });
-      card._pageId = "card-view";
+      card._pageNavigationController.prepareConfiguredLandingPageShell();
       card._switchCamera = async (index) => {
         card.dataset.selectedCamera = String(index);
         card._activeCamIdx = index;
         card._mobileCamSwitcherOpen = false;
         card._renderCamSwitcher();
       };
-      card._renderShell();
     });
 
     const card = page.locator("frigate-view-card");
+    await expect(card.locator("#card")).toHaveClass(/card-view-active/);
+    await expect(card.locator(".card-view-camera-row")).toHaveCSS(
+      "overflow-x",
+      "visible",
+    );
     const trigger = card.locator("[data-mobile-cam-trigger]");
     await expect(trigger).toBeVisible();
     await trigger.tap();
@@ -138,6 +142,56 @@ test.describe("touch input", () => {
     const secondCamera = card.locator('[data-mobile-camidx="1"]');
     await expect(secondCamera).toBeVisible();
     await secondCamera.tap();
+    await expect(card).toHaveAttribute("data-selected-camera", "1");
+    await expect(card.locator("[data-mobile-cam-trigger]")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("opens and selects from the routed Card View header camera picker", async ({
+    page,
+  }) => {
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+
+    await page.goto(baseUrl);
+    await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [
+          { entity: "camera.front", name: "Front" },
+          { entity: "camera.back", name: "Back" },
+        ],
+        card_view_page_enabled: true,
+        mobile_page: "card-view",
+        card_view_view_mode: "bottom-panel-open",
+      });
+      card._pageNavigationController.prepareConfiguredLandingPageShell();
+      card._switchCamera = async (index) => {
+        card.dataset.selectedCamera = String(index);
+        card._activeCamIdx = index;
+        card._mobileCamSwitcherOpen = false;
+        card._renderCamSwitcher();
+      };
+    });
+
+    const card = page.locator("frigate-view-card");
+    await expect(card.locator("#card")).toHaveClass(/card-view-active/);
+    await expect(card.locator(".card-view-camera-row")).toHaveCSS(
+      "overflow-x",
+      "visible",
+    );
+    const trigger = card.locator("[data-mobile-cam-trigger]");
+    await expect(trigger).toBeVisible();
+    await trigger.tap();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await card.locator('[data-mobile-camidx="1"]').tap();
     await expect(card).toHaveAttribute("data-selected-camera", "1");
     await expect(card.locator("[data-mobile-cam-trigger]")).toHaveAttribute(
       "aria-expanded",

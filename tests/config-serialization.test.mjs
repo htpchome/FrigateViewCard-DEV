@@ -2393,7 +2393,7 @@ test("changing the desktop landing page immediately replaces the locked swipe pa
   ]);
 });
 
-test("phone landing flow defaults to Single View and preserves enabled preview combinations", () => {
+test("phone landing flow defaults to Single View and preserves enabled page combinations", () => {
   const defaults = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
   });
@@ -2406,10 +2406,23 @@ test("phone landing flow defaults to Single View and preserves enabled preview c
     cameras: [{ entity: "camera.front_door" }],
     mobile_page: "preview-mobile-view",
   });
+  const cardView = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    card_view_page_enabled: true,
+    mobile_page: "card-view",
+  });
+  const previewCardView = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    preview_page_enabled: true,
+    card_view_page_enabled: true,
+    mobile_page: "preview-card-view",
+  });
 
   assert.equal(defaults.mobile_page, "single-view");
   assert.equal(legacyPreview.mobile_page, "preview-single-view");
   assert.equal(compact.mobile_page, "preview-mobile-view");
+  assert.equal(cardView.mobile_page, "card-view");
+  assert.equal(previewCardView.mobile_page, "preview-card-view");
 });
 
 test("disabled landing pages fall back to Single View", () => {

@@ -12,7 +12,7 @@ import {
 } from "../src/features/single-view/page.tmpl.js";
 import { STYLES } from "../src/styles.js";
 
-test("standard camera switcher wraps on desktop and scrolls on phone and tablet devices", () => {
+test("Single View camera switcher wraps on desktop and scrolls on phone and tablet devices", () => {
   const start = STYLES.indexOf("/* ── camera switcher ── */");
   const end = STYLES.indexOf("/* ── timeline ── */", start);
   const cameraSwitcherStyles = STYLES.slice(start, end);
@@ -23,11 +23,11 @@ test("standard camera switcher wraps on desktop and scrolls on phone and tablet 
   assert.match(cameraSwitcherStyles, /box-sizing:\s*border-box/);
   assert.match(
     cameraSwitcherStyles,
-    /\.card\.mobile-client:not\(\.mobile-view-active\) \.cam-switcher\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/,
+    /\.card\.mobile-client \.layout--single-view \.cam-switcher\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/,
   );
   assert.match(
     cameraSwitcherStyles,
-    /\.card\.mobile-client:not\(\.mobile-view-active\) \.cam-switcher > \*\s*\{[^}]*flex:\s*0 0 auto;/,
+    /\.card\.mobile-client \.layout--single-view \.cam-switcher > \*\s*\{[^}]*flex:\s*0 0 auto;/,
   );
   assert.doesNotMatch(cameraSwitcherStyles, /@media/);
 });

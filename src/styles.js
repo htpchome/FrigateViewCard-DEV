@@ -839,7 +839,7 @@ export const STYLES = `
     padding: 6px 12px;
   }
 
-  .card.mobile-client:not(.mobile-view-active) .cam-switcher {
+  .card.mobile-client .layout--single-view .cam-switcher {
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
@@ -848,10 +848,10 @@ export const STYLES = `
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  .card.mobile-client:not(.mobile-view-active) .cam-switcher::-webkit-scrollbar {
+  .card.mobile-client .layout--single-view .cam-switcher::-webkit-scrollbar {
     display: none;
   }
-  .card.mobile-client:not(.mobile-view-active) .cam-switcher > * {
+  .card.mobile-client .layout--single-view .cam-switcher > * {
     flex: 0 0 auto;
   }
 

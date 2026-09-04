@@ -103,6 +103,34 @@ test("phone swipe routes stay inside the configured landing pair", () => {
   );
 });
 
+test("phone Card View landing flows use Card View as their paired page", () => {
+  const enabled = {
+    mobile_view_page_enabled: true,
+    preview_page_enabled: true,
+    card_view_page_enabled: true,
+  };
+
+  for (const mobilePage of [
+    MOBILE_PAGE_MODES.card,
+    MOBILE_PAGE_MODES.previewCard,
+  ]) {
+    const config = { ...enabled, mobile_page: mobilePage };
+    assert.deepEqual(
+      resolvePageSwipeOrder(config, DEVICE_ROUTE_BUCKETS.mobile),
+      [PAGE_IDS.preview, PAGE_IDS.cardView],
+    );
+    assert.equal(
+      resolveAdjacentPageSwipeRoute({
+        config,
+        deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+        currentPageId: PAGE_IDS.preview,
+        direction: "next",
+      }),
+      PAGE_IDS.cardView,
+    );
+  }
+});
+
 test("swipe navigation modes control dashboard reach and internal stops", () => {
   const base = {
     mobile_view_page_enabled: true,
@@ -432,7 +460,9 @@ test("page swipe order has hard ends and never wraps", () => {
 test("phone landing modes use the configured editor order", () => {
   assert.deepEqual(getMobilePageModes(), [
     MOBILE_PAGE_MODES.mobile,
+    MOBILE_PAGE_MODES.card,
     MOBILE_PAGE_MODES.previewMobile,
+    MOBILE_PAGE_MODES.previewCard,
     MOBILE_PAGE_MODES.previewSingle,
     MOBILE_PAGE_MODES.single,
   ]);
@@ -440,6 +470,11 @@ test("phone landing modes use the configured editor order", () => {
   assert.equal(
     normalizeMobilePageMode("preview"),
     MOBILE_PAGE_MODES.previewSingle,
+  );
+  assert.equal(normalizeMobilePageMode("card"), MOBILE_PAGE_MODES.card);
+  assert.equal(
+    normalizeMobilePageMode("preview-card"),
+    MOBILE_PAGE_MODES.previewCard,
   );
 });
 
@@ -466,8 +501,22 @@ test("phone landing modes only include enabled page combinations", () => {
     getEnabledMobilePageModes({
       mobile_view_page_enabled: true,
       preview_page_enabled: true,
+      card_view_page_enabled: true,
     }),
     getMobilePageModes(),
+  );
+  assert.deepEqual(
+    getEnabledMobilePageModes({
+      mobile_view_page_enabled: false,
+      preview_page_enabled: true,
+      card_view_page_enabled: true,
+    }),
+    [
+      MOBILE_PAGE_MODES.card,
+      MOBILE_PAGE_MODES.previewCard,
+      MOBILE_PAGE_MODES.previewSingle,
+      MOBILE_PAGE_MODES.single,
+    ],
   );
 });
 
@@ -539,11 +588,11 @@ test("mobile landing page excludes wide-view even when enabled", () => {
   );
 });
 
-test("Card View is a desktop/tablet landing route and is never a phone route", () => {
+test("Card View is available as a route and landing page on every device", () => {
   const config = {
     card_view_page_enabled: true,
     landing_page: PAGE_IDS.cardView,
-    mobile_page: MOBILE_PAGE_MODES.single,
+    mobile_page: MOBILE_PAGE_MODES.card,
   };
 
   assert.deepEqual(getEnabledPageRoutes(config, DEVICE_ROUTE_BUCKETS.desktop), [
@@ -559,6 +608,7 @@ test("Card View is a desktop/tablet landing route and is never a phone route", (
   assert.deepEqual(getEnabledPageRoutes(config, DEVICE_ROUTE_BUCKETS.mobile), [
     PAGE_IDS.singleView,
     PAGE_IDS.mobileView,
+    PAGE_IDS.cardView,
   ]);
   assert.equal(
     resolveStartupPageRoute({
@@ -568,9 +618,13 @@ test("Card View is a desktop/tablet landing route and is never a phone route", (
     PAGE_IDS.cardView,
   );
   assert.equal(
-    getEnabledMobilePageModes(config).includes(PAGE_IDS.cardView),
-    false,
+    resolveStartupPageRoute({
+      config,
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+    }),
+    PAGE_IDS.cardView,
   );
+  assert.equal(getEnabledMobilePageModes(config).includes(PAGE_IDS.cardView), true);
 });
 
 test("standalone Card View is the only route and landing page on every device", () => {
@@ -645,10 +699,13 @@ test("phone deep links use the final page from the configured mobile flow", () =
   const baseConfig = {
     mobile_view_page_enabled: true,
     preview_page_enabled: true,
+    card_view_page_enabled: true,
   };
   const expectations = [
     [MOBILE_PAGE_MODES.mobile, PAGE_IDS.mobileView],
+    [MOBILE_PAGE_MODES.card, PAGE_IDS.cardView],
     [MOBILE_PAGE_MODES.previewMobile, PAGE_IDS.mobileView],
+    [MOBILE_PAGE_MODES.previewCard, PAGE_IDS.cardView],
     [MOBILE_PAGE_MODES.previewSingle, PAGE_IDS.singleView],
     [MOBILE_PAGE_MODES.single, PAGE_IDS.singleView],
   ];
@@ -724,6 +781,7 @@ test("phone preview combinations start on Preview and resolve their camera desti
   const config = {
     mobile_view_page_enabled: true,
     preview_page_enabled: true,
+    card_view_page_enabled: true,
     mobile_page: MOBILE_PAGE_MODES.previewMobile,
   };
 
@@ -737,6 +795,10 @@ test("phone preview combinations start on Preview and resolve their camera desti
   assert.equal(
     resolveMobilePreviewDestination(MOBILE_PAGE_MODES.previewMobile),
     PAGE_IDS.mobileView,
+  );
+  assert.equal(
+    resolveMobilePreviewDestination(MOBILE_PAGE_MODES.previewCard),
+    PAGE_IDS.cardView,
   );
   assert.equal(
     resolveMobilePreviewDestination(MOBILE_PAGE_MODES.previewSingle),
