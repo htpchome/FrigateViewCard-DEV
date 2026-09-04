@@ -556,21 +556,19 @@ export class PopupMediaLoaderController {
       mediaType,
     });
     if (!selectionPlan) return false;
+    const presentation =
+      opts.presentation || this._lifecycleController?.presentation?.() || "";
     if (selectionPlan.kind === "snapshot") {
       this.showSnapshot(event, {
         mediaType: selectionPlan.mediaType,
         compact: opts.compact === true,
-        ...(opts.presentation
-          ? { presentation: opts.presentation }
-          : {}),
+        ...(presentation ? { presentation } : {}),
       });
     } else {
       this.showClip(event, {
         mediaType: selectionPlan.mediaType,
         compact: opts.compact === true,
-        ...(opts.presentation
-          ? { presentation: opts.presentation }
-          : {}),
+        ...(presentation ? { presentation } : {}),
       });
     }
     return true;

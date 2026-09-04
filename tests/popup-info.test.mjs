@@ -62,6 +62,14 @@ test("Card View drawer popup overlays the live footprint with focused controls",
   );
   assert.match(
     STYLES,
+    /popup-card-view-controls-hidden \.popup-card-view-actions \{opacity:0;pointer-events:none;\}/,
+  );
+  assert.match(
+    STYLES,
+    /popup-content--card-view-drawer \.popup-media-controls\.mobile-tablet-layout\.is-hidden \{opacity:0;pointer-events:none;\}/,
+  );
+  assert.match(
+    STYLES,
     /\.popup-view-resize-grip\.popup-view-resize-grip--card-view \{[\s\S]*?bottom:0;[\s\S]*?height:20px;/,
   );
 });
@@ -116,6 +124,17 @@ test("desktop popup playback controls overlay the video without a blur filter", 
     /\.popup-media-btn svg \{[^}]*pointer-events:none;/,
   );
   assert.match(STYLES, /\.popup-media-volume \{[^}]*grid-area:volume;/);
+});
+
+test("only the Card View drawer popup rounds the media viewer bottom corners", () => {
+  assert.match(
+    STYLES,
+    /\.viewer\{[^}]*border-radius:7px 7px 0 0;/,
+  );
+  assert.match(
+    STYLES,
+    /popup-content--card-view-drawer \.viewer \{[\s\S]*?border-radius:var\(--fvc-border-radius,15px\);/,
+  );
 });
 
 test("mobile popup controls sit flush below video and stay touch safe", () => {
@@ -590,7 +609,7 @@ test("popup info controller owns rendering, hiding, and popup actions", () => {
   assert.deepEqual(calls.slice(-2), [["resetScrub"], ["camera", ""]]);
 });
 
-test("popup info controller replaces metadata with Card View drawer overlays", () => {
+test("popup info controller replaces metadata and preserves Card View media navigation", () => {
   const info = { innerHTML: "old metadata", hidden: false };
   const label = { textContent: "", hidden: true };
   const actions = { innerHTML: "", hidden: true };
@@ -599,6 +618,7 @@ test("popup info controller replaces metadata with Card View drawer overlays", (
     ["#popup-card-view-label", label],
     ["#popup-card-view-actions", actions],
   ]);
+  const navigationCalls = [];
   const controller = new PopupInfoController({
     query: (selector) => elements.get(selector) || null,
     getActiveCamera: () => "front_door",
@@ -607,6 +627,8 @@ test("popup info controller replaces metadata with Card View drawer overlays", (
     formatMonthDay: () => "May 2",
     formatFullDate: () => "Tue, May 2, 2026",
     formatEventDuration: () => 6,
+    onNavigateEventMedia: (id, mediaType, options) =>
+      navigationCalls.push([id, mediaType, options]),
   });
 
   controller.render(
@@ -630,6 +652,28 @@ test("popup info controller replaces metadata with Card View drawer overlays", (
   assert.equal(actions.hidden, false);
   assert.match(actions.innerHTML, /data-dl-file="clip\.mp4"/);
   assert.match(actions.innerHTML, /data-popup-media-target="snapshot"/);
+
+  controller.handleClick(
+    { stopPropagation() {} },
+    {
+      closest: (selector) =>
+        selector === ".popup-action[data-popup-media-target]"
+          ? {
+              dataset: {
+                popupEventId: "event-1",
+                popupMediaTarget: "snapshot",
+              },
+            }
+          : null,
+    },
+  );
+  assert.deepEqual(navigationCalls, [
+    [
+      "event-1",
+      "snapshot",
+      { presentation: POPUP_PRESENTATION_CARD_VIEW_DRAWER },
+    ],
+  ]);
 
   controller.hide();
   assert.equal(label.hidden, true);

@@ -8,6 +8,8 @@ export class MobileCamSwitcherController {
       typeof options.renderCamSwitcher === "function"
         ? options.renderCamSwitcher
         : () => {};
+    this._getPicker =
+      typeof options.getPicker === "function" ? options.getPicker : () => null;
     this._pauseSlideshowForInteraction =
       typeof options.pauseSlideshowForInteraction === "function"
         ? options.pauseSlideshowForInteraction
@@ -31,8 +33,9 @@ export class MobileCamSwitcherController {
   _activateTarget(target) {
     const trigger = target?.closest?.("[data-mobile-cam-trigger]");
     if (trigger) {
-      this._setOpen(!this._isOpen());
-      this._renderCamSwitcher();
+      const open = !this._isOpen();
+      this._setOpen(open);
+      if (!this._syncOpenState(open)) this._renderCamSwitcher();
       return true;
     }
 
@@ -40,6 +43,7 @@ export class MobileCamSwitcherController {
     if (option) {
       const idx = Number(option.dataset.mobileCamidx);
       this._setOpen(false);
+      this._syncOpenState(false);
       if (Number.isInteger(idx) && idx >= 0) {
         this._pauseSlideshowForInteraction();
         void this._switchCamera(idx);
@@ -54,14 +58,21 @@ export class MobileCamSwitcherController {
 
   handleClickTarget(target) {
     const action = this._actionForTarget(target);
-    if (!action) return false;
+    const suppressed = this._suppressedClick;
+    const suppressionActive =
+      suppressed && Date.now() <= suppressed.until;
+    const retargetedInsideSwitcher =
+      !action &&
+      target?.closest?.("[data-mobile-cam-switcher-content]");
     if (
-      this._suppressedClick?.action === action &&
-      Date.now() <= this._suppressedClick.until
+      suppressionActive &&
+      (suppressed.action === action || retargetedInsideSwitcher)
     ) {
       this._suppressedClick = null;
       return true;
     }
+    if (suppressed && !suppressionActive) this._suppressedClick = null;
+    if (!action) return false;
     this._suppressedClick = null;
     return this._activateTarget(target);
   }
@@ -113,6 +124,17 @@ export class MobileCamSwitcherController {
   close() {
     if (!this._isOpen()) return;
     this._setOpen(false);
-    this._renderCamSwitcher();
+    if (!this._syncOpenState(false)) this._renderCamSwitcher();
+  }
+
+  _syncOpenState(open) {
+    const picker = this._getPicker();
+    const trigger = picker?.querySelector?.("[data-mobile-cam-trigger]");
+    const panel = picker?.querySelector?.("[data-mobile-cam-panel]");
+    if (!picker || !trigger || !panel) return false;
+    picker.classList?.toggle?.("is-open", open === true);
+    trigger.setAttribute?.("aria-expanded", open ? "true" : "false");
+    panel.hidden = open !== true;
+    return true;
   }
 }

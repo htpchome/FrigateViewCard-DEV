@@ -35,6 +35,50 @@ test("mobile cam switcher controller toggles open on trigger click", () => {
   assert.equal(renderCalls, 1);
 });
 
+test("mobile cam switcher toggles its existing DOM without replacing the touched button", () => {
+  let open = false;
+  let renderCalls = 0;
+  const classes = new Set();
+  const attributes = new Map();
+  const panel = { hidden: true };
+  const pickerTrigger = {
+    setAttribute: (name, value) => attributes.set(name, value),
+  };
+  const picker = {
+    classList: {
+      toggle: (name, enabled) => {
+        if (enabled) classes.add(name);
+        else classes.delete(name);
+      },
+    },
+    querySelector: (selector) => {
+      if (selector === "[data-mobile-cam-trigger]") return pickerTrigger;
+      if (selector === "[data-mobile-cam-panel]") return panel;
+      return null;
+    },
+  };
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+    getPicker: () => picker,
+    renderCamSwitcher: () => {
+      renderCalls += 1;
+    },
+  });
+
+  controller.handleClickTarget(
+    createTarget({ "[data-mobile-cam-trigger]": pickerTrigger }),
+  );
+
+  assert.equal(open, true);
+  assert.equal(classes.has("is-open"), true);
+  assert.equal(attributes.get("aria-expanded"), "true");
+  assert.equal(panel.hidden, false);
+  assert.equal(renderCalls, 0);
+});
+
 test("mobile cam switcher controller activates a stationary touch without double toggling on click", () => {
   let open = false;
   let renderCalls = 0;
@@ -87,6 +131,47 @@ test("mobile cam switcher controller activates a stationary touch without double
   assert.equal(controller.handleClickTarget(target), true);
   assert.equal(open, true);
   assert.equal(renderCalls, 1);
+});
+
+test("mobile cam switcher consumes a synthesized click retargeted after its touch render", () => {
+  let open = false;
+  const trigger = {};
+  const triggerTarget = createTarget({
+    "[data-mobile-cam-trigger]": trigger,
+  });
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+    renderCamSwitcher: () => {},
+  });
+
+  controller.handlePointerDown(
+    {
+      pointerId: 8,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 20,
+    },
+    triggerTarget,
+  );
+  controller.handlePointerUp(
+    {
+      pointerId: 8,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 20,
+      preventDefault() {},
+    },
+    triggerTarget,
+  );
+
+  const retargetedClick = createTarget({
+    "[data-mobile-cam-switcher-content]": {},
+  });
+  assert.equal(controller.handleClickTarget(retargetedClick), true);
+  assert.equal(open, true);
 });
 
 test("mobile cam switcher controller does not activate a dragged touch", () => {

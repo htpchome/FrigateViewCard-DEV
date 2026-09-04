@@ -569,7 +569,11 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone-linked-overlay:has\(#two-way-talk-btn\.active\) \.card-view-standalone-light-controls \{display:none;\}/,
+    /two-way-talk-active \.card-view-standalone-linked-overlay,/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /two-way-talk-active \.card-view-standalone-light-controls,[\s\S]*?card-view-standalone-linked-overlay:has\(#two-way-talk-btn\.active\) \.card-view-standalone-light-controls \{display:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -657,7 +661,11 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlay-presentation:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-media-drawer-handle,[\s\S]*?top:auto;bottom:max\(8px,env\(safe-area-inset-bottom,0px\)\);left:50%;width:56px;height:30px;/,
+    /card-view-overlay-presentation:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle \{[\s\S]*?top:auto;bottom:max\(8px,env\(safe-area-inset-bottom,0px\)\);left:50%;width:56px;height:30px;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer\.is-open \.card-view-media-drawer-handle \{left:calc\(100% - 1px\);\}/,
   );
   assert.equal((CARD_VIEW_PAGE_STYLES.match(/top:45px/g) || []).length, 0);
   assert.match(

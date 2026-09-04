@@ -642,6 +642,11 @@ export class FrigateViewCard extends HTMLElement {
         this._mobileCamSwitcherOpen = open === true;
       },
       renderCamSwitcher: () => this._renderCamSwitcher(),
+      getPicker: () =>
+        this._pageShellRegionElement?.(
+          "cameraSwitcher",
+          "[data-mobile-cam-picker]",
+        ) || null,
       pauseSlideshowForInteraction: () => this._pauseSlideshowForInteraction(),
       switchCamera: (idx) => this._switchCamera(idx),
     });
@@ -964,20 +969,20 @@ export class FrigateViewCard extends HTMLElement {
       onMediaCameraChange: (camera) => {
         this._popupLifecycleController.setMediaCamera(camera);
       },
-      onNavigateEventMedia: (id, mediaType) =>
-        this._popupMediaLoaderController?.showCarouselEventById(
+      onNavigateEventMedia: (id, mediaType, navigationOptions = {}) => {
+        const presentation =
+          navigationOptions.presentation ||
+          this._popupLifecycleController?.presentation?.() ||
+          "";
+        return this._popupMediaLoaderController?.showCarouselEventById(
           id,
           mediaType,
           {
             compact: this._popupLifecycleController?.isCompact?.() === true,
-            ...(this._popupLifecycleController?.presentation?.()
-              ? {
-                  presentation:
-                    this._popupLifecycleController.presentation(),
-                }
-              : {}),
+            ...(presentation ? { presentation } : {}),
           },
-        ),
+        );
+      },
       onDownloadEvent: (id, file) =>
         void this._frigateMediaDownloadController.downloadEvent(id, file),
       onDownloadRecording: (start, end) => {
@@ -1016,6 +1021,7 @@ export class FrigateViewCard extends HTMLElement {
         shouldUseCustomControls: (mediaType) =>
           this._usePopupCustomControls(mediaType),
         isAutoHideActive: () =>
+          Boolean(this._popupLifecycleController?.presentation?.()) ||
           this._rotateOverlayMode === "popup" ||
           !this._isMobileTabletViewport(),
         isMobileTabletViewport: () => this._isMobileTabletViewport(),
@@ -4691,6 +4697,8 @@ export class FrigateViewCard extends HTMLElement {
     const button = this._pageShellRegionElement("twoWayTalk", "#two-way-talk-btn");
     const visible = this._shouldRenderTwoWayTalkButtonForActiveCamera();
     const active = this._twoWayTalkActiveForCurrentCamera();
+    this._$("#card")?.classList?.toggle?.("two-way-talk-active", active);
+    if (active) this._dismissLinkedLightDimmers();
     const microphoneMuted = this._twoWayTalkMicrophoneMutedForCurrentCamera();
     const label = active
       ? microphoneMuted

@@ -86,6 +86,7 @@ export const MOBILE_VIEW_PAGE_STYLES = `
   .card.mobile-view-active .mobile-microphone-row .mobile-view-inline-mute-btn:only-child{grid-column:2;}
   .card.mobile-view-active .mobile-video-controls-right-row{grid-area:video-controls-right;}
   .card.mobile-view-active :is(.mobile-video-controls-left-row,.mobile-video-controls-right-row):not([hidden]){justify-self:stretch;justify-content:center;min-width:40px;}
+  .card.mobile-view-active.two-way-talk-active :is(.mobile-video-controls-left-row,.mobile-video-controls-right-row){display:none !important;}
   .card.mobile-view-active .mobile-tab-container{
   display:grid;grid-template-columns:max-content auto minmax(0, 1fr);grid-template-areas:"tabs middle tools";align-items:center;gap:10px;padding:0px 8px;margin:3px;border-radius:8px;background-color:var(--c-bg-panel);container-type:inline-size;
   }

@@ -275,6 +275,10 @@ test("mobile view centers the microphone independently of the mute button", () =
     MOBILE_VIEW_PAGE_STYLES,
     /:is\(\.mobile-video-controls-left-row,\.mobile-video-controls-right-row\):not\(\[hidden\]\)\{justify-self:stretch;justify-content:center;min-width:40px;\}/,
   );
+  assert.match(
+    MOBILE_VIEW_PAGE_STYLES,
+    /two-way-talk-active :is\(\.mobile-video-controls-left-row,\.mobile-video-controls-right-row\)\{display:none !important;\}/,
+  );
 });
 
 test("mobile view centers the camera picker between equal side tracks", () => {

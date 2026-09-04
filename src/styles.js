@@ -648,7 +648,7 @@ export const STYLES = `
   .popup-body:fullscreen #popup-media-controls{position:absolute;left:0;right:0;bottom:0;width:100%;max-width:none;margin:0;align-self:auto;}
   .popup-body:-webkit-full-screen #popup-media-controls{position:absolute;left:0;right:0;bottom:0;width:100%;max-width:none;margin:0;align-self:auto;}
   .viewer{width:min(100%,var(--popup-media-max-width,124.444dvh));aspect-ratio:var(--popup-media-aspect-ratio,16/9);min-height:0;max-height:70dvh;align-self:center;flex:0 0 auto;
-    background:var(--c-bg-deep);display:flex;align-items:center;justify-content:center;z-index:2;position:relative;overflow:hidden;border-radius:7px;}
+    background:var(--c-bg-deep);display:flex;align-items:center;justify-content:center;z-index:2;position:relative;overflow:hidden;border-radius:7px 7px 0 0;}
   .viewer video,.viewer img.snap{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;
     background:var(--c-bg-deep);}
   .viewer.popup-media-loading video{visibility:hidden;}
@@ -1231,6 +1231,7 @@ export const STYLES = `
   }
   .popup-card-view-actions {
     position:absolute;z-index:15;top:50%;left:7px;display:flex;flex-direction:column;gap:5px;transform:translateY(-50%);
+    transition:opacity .18s ease;
   }
   .popup-card-view-actions .popup-action {
     width:34px;height:34px;min-width:34px;min-height:34px;padding:4px;border:1px solid var(--fvc-media-overlay-border);border-radius:7px;
@@ -1252,6 +1253,8 @@ export const STYLES = `
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-strong);border:0;border-radius:0;box-shadow:0 -2px 8px rgb(0 0 0 / 35%);
   }
   .popup-content.popup-content--card-view-drawer .popup-media-controls.is-hidden {opacity:0;pointer-events:none;}
+  .card:not(.mobile-rotate-popup):not(.mobile-rotate-popup-exit) .popup-content.popup-content--card-view-drawer .popup-media-controls.mobile-tablet-layout.is-hidden {opacity:0;pointer-events:none;}
+  .popup-content.popup-content--card-view-drawer.popup-card-view-controls-hidden .popup-card-view-actions {opacity:0;pointer-events:none;}
   @media (hover:hover) and (pointer:fine) {
     .popup-content.popup-content--card-view-drawer :is(.close-btn,.popup-action):hover {
       color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);

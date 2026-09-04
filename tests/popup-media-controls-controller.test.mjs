@@ -22,6 +22,13 @@ function createTarget() {
       remove: (...tokens) =>
         tokens.forEach((token) => hiddenClasses.delete(token)),
       contains: (token) => hiddenClasses.has(token),
+      toggle: (token, force) => {
+        const enabled =
+          force === undefined ? !hiddenClasses.has(token) : force === true;
+        if (enabled) hiddenClasses.add(token);
+        else hiddenClasses.delete(token);
+        return enabled;
+      },
     },
     style: {
       values: new Map(),
@@ -235,6 +242,50 @@ test("popup media controls surface owns custom controls, actions, and auto-hide"
   controller.dispose();
   assert.equal(controls.classList.contains("is-hidden"), false);
   assert.equal(clearedTimers.length > 0, true);
+});
+
+test("Card View popup auto-hide covers its mobile control bar and media actions", () => {
+  const controls = createTarget();
+  controls.hidden = false;
+  const popup = createTarget();
+  popup.classList.remove("is-hidden");
+  popup.classList.add("popup-content--card-view-drawer");
+  const elements = new Map([
+    ["#popup-media-controls", controls],
+    ["#myPopup", popup],
+  ]);
+  const timers = [];
+  const controller = new PopupMediaControlsSurfaceController({
+    query: (selector) => elements.get(selector) || null,
+    isAutoHideActive: () => true,
+    setTimer: (callback, delay) => {
+      timers.push([callback, delay]);
+      return timers.length;
+    },
+    clearTimer() {},
+  });
+
+  controller.showTemporarily();
+  assert.equal(controls.classList.contains("is-hidden"), false);
+  assert.equal(
+    popup.classList.contains("popup-card-view-controls-hidden"),
+    false,
+  );
+  assert.equal(timers.at(-1)[1], 2200);
+
+  timers.at(-1)[0]();
+  assert.equal(controls.classList.contains("is-hidden"), true);
+  assert.equal(
+    popup.classList.contains("popup-card-view-controls-hidden"),
+    true,
+  );
+
+  controls.hidden = true;
+  controller.showNow();
+  assert.equal(
+    popup.classList.contains("popup-card-view-controls-hidden"),
+    false,
+  );
 });
 
 test("popup media controls surface enables native controls and resets snapshots", () => {

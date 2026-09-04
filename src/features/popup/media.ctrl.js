@@ -485,14 +485,16 @@ export class PopupMediaControlsSurfaceController {
 
   showNow() {
     const controls = this._query?.("#popup-media-controls");
-    if (!controls || controls.hidden) return;
     this._clearHideTimer();
+    this._setCardViewOverlayControlsHidden(false);
+    if (!controls || controls.hidden) return;
     controls.classList.remove("is-hidden");
   }
 
   showTemporarily() {
     const controls = this._query?.("#popup-media-controls");
-    if (!controls || controls.hidden) return;
+    const hasCardViewOverlays = this._isCardViewDrawerPresentation();
+    if ((!controls || controls.hidden) && !hasCardViewOverlays) return;
     this.showNow();
     if (!this._isAutoHideActive() || !this._setTimer) return;
     this._hideTimer = this._setTimer(() => {
@@ -501,13 +503,16 @@ export class PopupMediaControlsSurfaceController {
       if (nextControls && !nextControls.hidden) {
         nextControls.classList.add("is-hidden");
       }
+      this._setCardViewOverlayControlsHidden(true);
     }, this._hideDelayMs);
   }
 
   hideNow() {
     const controls = this._query?.("#popup-media-controls");
-    if (!controls || controls.hidden) return false;
     this._clearHideTimer();
+    const hidCardViewOverlays =
+      this._setCardViewOverlayControlsHidden(true);
+    if (!controls || controls.hidden) return hidCardViewOverlays;
     controls.classList.add("is-hidden");
     return true;
   }
@@ -525,6 +530,7 @@ export class PopupMediaControlsSurfaceController {
   dispose() {
     this._disposeMediaBinding();
     this._disposePlaybackOverlayVisibility();
+    this._setCardViewOverlayControlsHidden(false);
   }
 
   _disposeMediaBinding() {
@@ -562,9 +568,13 @@ export class PopupMediaControlsSurfaceController {
     if (!viewer || !mobileTablet) return;
     this._playbackOverlayController = this._createOverlayControls({
       surface: viewer,
-      show: () => viewer.classList?.add?.("popup-controls-visible"),
+      show: () => {
+        viewer.classList?.add?.("popup-controls-visible");
+        if (this._isCardViewDrawerPresentation()) this.showNow();
+      },
       hideNow: () => {
         viewer.classList?.remove?.("popup-controls-visible");
+        if (this._isCardViewDrawerPresentation()) this.hideNow();
         this._clearPlaybackOverlayHideTimer();
       },
       hideSoon: (delayMs) => {
@@ -573,6 +583,7 @@ export class PopupMediaControlsSurfaceController {
         this._playbackOverlayHideTimer = this._setTimer(() => {
           this._playbackOverlayHideTimer = null;
           viewer.classList?.remove?.("popup-controls-visible");
+          if (this._isCardViewDrawerPresentation()) this.hideNow();
         }, delayMs);
       },
       revealDurationMs: 1800,
@@ -598,5 +609,27 @@ export class PopupMediaControlsSurfaceController {
       this._clearTimer(this._hideTimer);
     }
     this._hideTimer = null;
+  }
+
+  _isCardViewDrawerPresentation() {
+    return (
+      this._query?.("#myPopup")?.classList?.contains?.(
+        "popup-content--card-view-drawer",
+      ) === true
+    );
+  }
+
+  _setCardViewOverlayControlsHidden(hidden) {
+    const popup = this._query?.("#myPopup");
+    if (!popup?.classList) return false;
+    if (!this._isCardViewDrawerPresentation()) {
+      popup.classList.remove?.("popup-card-view-controls-hidden");
+      return false;
+    }
+    popup.classList.toggle?.(
+      "popup-card-view-controls-hidden",
+      hidden === true,
+    );
+    return true;
   }
 }

@@ -923,6 +923,32 @@ test("carousel selections preserve alert and snapshot popup media types", () => 
   ]);
 });
 
+test("popup media navigation inherits the active Card View presentation", () => {
+  const event = {
+    id: "event-1",
+    has_clip: true,
+    has_snapshot: true,
+  };
+  const controller = new PopupMediaLoaderController(
+    { _findEventById: () => event },
+    {
+      lifecycleController: {
+        presentation: () => "card-view-drawer",
+      },
+    },
+  );
+  let selectedOptions = null;
+  controller.showSnapshot = (_event, options) => {
+    selectedOptions = options;
+  };
+
+  assert.equal(
+    controller.showCarouselEventById("event-1", "snapshot"),
+    true,
+  );
+  assert.equal(selectedOptions.presentation, "card-view-drawer");
+});
+
 test("snapshot popup media attaches the shared zoom controller", () => {
   const snapshot = { id: "snapshot-image" };
   const body = { scrollTop: 12 };

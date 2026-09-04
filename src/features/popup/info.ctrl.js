@@ -32,6 +32,7 @@ export class PopupInfoController {
     this._onNavigateEventMedia = onNavigateEventMedia;
     this._onDownloadEvent = onDownloadEvent;
     this._onDownloadRecording = onDownloadRecording;
+    this._navigationPresentation = "";
   }
 
   render(event = null, options = {}) {
@@ -58,6 +59,7 @@ export class PopupInfoController {
     }
 
     if (isCardViewDrawerPopupPresentation(options.presentation)) {
+      this._navigationPresentation = options.presentation;
       info.innerHTML = "";
       info.hidden = true;
       const overlay = buildCardViewPopupOverlayMarkup({
@@ -79,6 +81,7 @@ export class PopupInfoController {
       return model;
     }
 
+    this._navigationPresentation = "";
     this._clearCardViewOverlay();
 
     const markup = buildPopupInfoMarkup({ event, model });
@@ -95,6 +98,7 @@ export class PopupInfoController {
       info.innerHTML = "";
       info.hidden = true;
     }
+    this._navigationPresentation = "";
     this._clearCardViewOverlay();
   }
 
@@ -120,6 +124,9 @@ export class PopupInfoController {
       this._onNavigateEventMedia?.(
         mediaNavigationAction.dataset.popupEventId,
         mediaNavigationAction.dataset.popupMediaTarget,
+        this._navigationPresentation
+          ? { presentation: this._navigationPresentation }
+          : {},
       );
       return true;
     }

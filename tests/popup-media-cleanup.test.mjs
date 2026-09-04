@@ -299,6 +299,45 @@ test("touching the microphone mute control toggles it and releases focus", () =>
   assert.deepEqual(calls, ["toggle-microphone", "blur"]);
 });
 
+test("active two-way talk publishes exclusive-control state and dismisses light controls", () => {
+  const classes = new Set();
+  let active = true;
+  let dismissed = 0;
+  const card = {
+    classList: {
+      toggle: (name, enabled) => {
+        if (enabled) classes.add(name);
+        else classes.delete(name);
+      },
+    },
+  };
+  const ctx = {
+    _$: (selector) => (selector === "#card" ? card : null),
+    _syncTwoWayTalkActionSlot() {},
+    _syncMobileViewTwoWayTalkSlot() {},
+    _pageShellRegionElement: () => null,
+    _shouldRenderTwoWayTalkButtonForActiveCamera: () => true,
+    _twoWayTalkActiveForCurrentCamera: () => active,
+    _twoWayTalkMicrophoneMutedForCurrentCamera: () => false,
+    _dismissLinkedLightDimmers: () => {
+      dismissed += 1;
+    },
+    shadowRoot: { querySelectorAll: () => [] },
+    _syncTwoWayTalkSoundwaveSurface() {},
+    _renderMuteButton() {},
+    _syncToolbarButtons() {},
+  };
+
+  FrigateViewCard.prototype._syncTwoWayTalkButton.call(ctx);
+  assert.equal(classes.has("two-way-talk-active"), true);
+  assert.equal(dismissed, 1);
+
+  active = false;
+  FrigateViewCard.prototype._syncTwoWayTalkButton.call(ctx);
+  assert.equal(classes.has("two-way-talk-active"), false);
+  assert.equal(dismissed, 1);
+});
+
 test("HA-direct talk unmute does not replace the active full-duplex peer", () => {
   let remountCalls = 0;
   const ctx = {
