@@ -137,7 +137,6 @@ export const isPageSupportedOnDevice = (pageId, deviceBucket) => {
 
 export const getEnabledPageRoutes = (config, deviceBucket) => {
   if (
-    deviceBucket !== DEVICE_ROUTE_BUCKETS.mobile &&
     config?.card_view_page_enabled === true &&
     config?.card_view_standalone === true
   ) {
@@ -201,6 +200,12 @@ export const resolveMobilePreviewDestination = (value) => {
 };
 
 export const resolveDeepLinkPageRoute = (config, deviceBucket) => {
+  if (
+    config?.card_view_page_enabled === true &&
+    config?.card_view_standalone === true
+  ) {
+    return PAGE_IDS.cardView;
+  }
   if (deviceBucket !== DEVICE_ROUTE_BUCKETS.mobile) return PAGE_IDS.singleView;
   const mode = normalizeMobilePageMode(config?.mobile_page);
   if (
@@ -213,6 +218,12 @@ export const resolveDeepLinkPageRoute = (config, deviceBucket) => {
 };
 
 export const resolveConfiguredLandingPage = (config, deviceBucket) => {
+  if (
+    config?.card_view_page_enabled === true &&
+    config?.card_view_standalone === true
+  ) {
+    return PAGE_IDS.cardView;
+  }
   if (deviceBucket === DEVICE_ROUTE_BUCKETS.mobile) {
     return resolveMobilePageEntryRoute(config?.mobile_page);
   }

@@ -35,6 +35,8 @@ export function buildCameraPickerMarkup({
   streamType = "--",
   online = true,
   pickerOpen = false,
+  activeCameraName: suppliedActiveCameraName = "",
+  showStatus = true,
 }) {
   const cameraList = Array.isArray(cameras) ? cameras : [];
   const safeActiveIdx =
@@ -44,9 +46,9 @@ export function buildCameraPickerMarkup({
       ? activeCamIdx
       : 0;
   const activeCamera = cameraList[safeActiveIdx] || cameraList[0] || null;
-  const activeCameraName = activeCamera
-    ? getCameraName(activeCamera)
-    : "Camera";
+  const activeCameraName =
+    String(suppliedActiveCameraName || "").trim() ||
+    (activeCamera ? getCameraName(activeCamera) : "Camera");
   const cameraOptions = cameraList
     .map((camera, index) =>
       buildCameraOptionMarkup({
@@ -59,7 +61,7 @@ export function buildCameraPickerMarkup({
       }),
     )
     .join("");
-  return `<div class="mobile-cam-picker${pickerOpen ? " is-open" : ""}" data-mobile-cam-picker>
+  return `<div class="mobile-cam-picker${pickerOpen ? " is-open" : ""}" data-mobile-cam-picker data-media-overlay-ignore>
       <button
         class="mobile-cam-picker__trigger"
         type="button"
@@ -77,11 +79,11 @@ export function buildCameraPickerMarkup({
         ${cameraOptions}
       </div>
     </div>
-    <div class="mobile-cam-picker__status" aria-label="Live status">
+    ${showStatus ? `<div class="mobile-cam-picker__status" aria-label="Live status">
       <div class="mobile-cam-picker__stream">
         <div class="sv stream-type" id="stream-type">${escapeHtml(streamType || "--")}</div>
         <div class="sl">Stream</div>
       </div>
       <div class="sv mobile-cam-picker__dot" id="on-dot" style="color:${online ? "var(--c-on)" : "var(--c-off)"}">●</div>
-    </div>`;
+    </div>` : ""}`;
 }

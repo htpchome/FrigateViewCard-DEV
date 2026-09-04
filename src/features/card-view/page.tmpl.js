@@ -32,13 +32,21 @@ export function buildCardViewMainLayoutShellMarkup({
     .filter(Boolean)
     .join(" ");
   return `<div class="${layoutClass}" id="layout">
-    <div class="card-view-camera-row cam-switcher" id="cam-switcher" data-fvc-region="camera-switcher">
-      <div class="card-view-back-slot mobile-cam-picker__back-slot">${regions.mobileBackButton}</div>
-      <div class="card-view-camera-picker mobile-cam-switcher__content" data-mobile-cam-switcher-content>${regions.cameraSwitcherMarkup}</div>
-    </div>
-    <div class="live-stage live-stage--overlay card-view-live-stage" id="live-stage">
-      ${regions.live}
-      ${buildLivePlaybackControlsMarkup(regions)}
+    <div class="card-view-live-panel">
+      <div class="card-view-camera-row cam-switcher" id="cam-switcher" data-fvc-region="camera-switcher">
+        <div class="card-view-back-slot mobile-cam-picker__back-slot">${regions.mobileBackButton}</div>
+        <div class="card-view-camera-picker mobile-cam-switcher__content" data-mobile-cam-switcher-content>${regions.cameraSwitcherMarkup}</div>
+        <div class="card-view-standalone-mode-controls" data-card-view-standalone-mode-controls></div>
+      </div>
+      <div class="live-stage live-stage--overlay card-view-live-stage" id="live-stage">
+        ${regions.live}
+        ${buildLivePlaybackControlsMarkup(regions)}
+        <div class="card-view-live-badge" data-card-view-live-badge aria-label="Live camera">
+          <span class="card-view-live-badge-dot" aria-hidden="true"></span>
+          <span>Live</span>
+        </div>
+        <div class="card-view-standalone-linked-controls" data-card-view-standalone-linked-controls></div>
+      </div>
     </div>
     <div class="card-view-drawer is-open" data-card-view-drawer data-drawer-state="open">
       <div class="card-view-drawer-inner">
@@ -67,6 +75,46 @@ export function buildCardViewMainLayoutShellMarkup({
         <div class="footer-version" ${regions.footerVersion ? `aria-label="FrigateView version ${escapeHtml(regions.footerVersion)}"` : "hidden"}>${regions.footerVersion ? `v${escapeHtml(regions.footerVersion)}` : ""}</div>
       </div>
     </footer>
+  </div>`;
+}
+
+export function buildCardViewStandaloneModeControlsMarkup({
+  icons = {},
+  gridAvailable = false,
+  gridActive = false,
+  gridDisabled = false,
+  slideshowAvailable = false,
+  slideshowActive = false,
+  slideshowDisabled = false,
+  slideshowRemainingSeconds = 0,
+} = {}) {
+  const gridLabel = gridActive ? "Stop grid mode" : "Start grid mode";
+  const slideshowLabel = slideshowActive
+    ? "Stop slideshow rotation"
+    : "Start slideshow rotation";
+  const remaining = Math.max(
+    0,
+    Math.ceil(Number(slideshowRemainingSeconds) || 0),
+  );
+  return `${gridAvailable ? `<button class="card-view-standalone-mode-button${gridActive ? " active" : ""}" type="button" data-card-view-standalone-grid data-media-overlay-ignore aria-pressed="${gridActive}" title="${gridLabel}" aria-label="${gridLabel}"${gridDisabled ? " disabled" : ""}>${icons.grid || ""}</button>` : ""}
+    ${slideshowAvailable ? `<button class="card-view-standalone-mode-button card-view-standalone-slideshow-button${slideshowActive ? " active" : ""}" type="button" data-card-view-standalone-slideshow data-media-overlay-ignore aria-pressed="${slideshowActive}" title="${slideshowLabel}" aria-label="${slideshowLabel}"${slideshowDisabled ? " disabled" : ""}>${slideshowActive ? icons.presentationPlayActive || icons.presentationPlay || "" : icons.presentationPlay || ""}${slideshowActive ? `<span class="card-view-standalone-countdown" data-card-view-slideshow-countdown>${remaining}s</span>` : ""}</button>` : ""}`;
+}
+
+export function buildCardViewStandaloneLinkedControlsMarkup({
+  linkedLightLeftMarkup = "",
+  linkedLightRightMarkup = "",
+  microphoneMarkup = "",
+} = {}) {
+  const hasControls = Boolean(
+    linkedLightLeftMarkup || linkedLightRightMarkup || microphoneMarkup,
+  );
+  if (!hasControls) return "";
+  return `<div class="card-view-standalone-linked-controls-inner" data-media-overlay-ignore>
+    <div class="linked-light-region card-view-standalone-linked-light" data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">
+      <div class="linked-light-position-slot" data-linked-light-position-slot="left" ${linkedLightLeftMarkup ? "" : "hidden"}>${linkedLightLeftMarkup}</div>
+      <div class="linked-light-position-slot" data-linked-light-position-slot="right" ${linkedLightRightMarkup ? "" : "hidden"}>${linkedLightRightMarkup}</div>
+    </div>
+    ${microphoneMarkup ? `<div class="card-view-standalone-microphone-slot">${microphoneMarkup}</div>` : ""}
   </div>`;
 }
 
@@ -161,6 +209,23 @@ export function buildCardViewPtzMarkup({ icons = {} } = {}) {
 
 export function applyCardViewPageMarkup({ host, pageIds } = {}) {
   const active = host?._pageId === pageIds?.cardView;
+  const standalone = active && host?._config?.card_view_standalone === true;
+  const videoPanelOnly =
+    standalone && host?._config?.card_view_video_panel_only === true;
+  const hideCameraName =
+    standalone && host?._config?.card_view_hide_camera_name === true;
   host?.classList?.toggle(CARD_VIEW_HOST_CLASS, active);
-  host?._$("#card")?.classList?.toggle(CARD_VIEW_ACTIVE_CLASS, active);
+  const card = host?._$?.("#card");
+  card?.classList?.toggle(CARD_VIEW_ACTIVE_CLASS, active);
+  card?.classList?.toggle("card-view-standalone", standalone);
+  card?.classList?.toggle("card-view-video-panel-only", videoPanelOnly);
+  card?.classList?.toggle("card-view-hide-camera-name", hideCameraName);
+  card?.classList?.toggle(
+    "card-view-grid-mode",
+    standalone && host?._viewMode === "grid",
+  );
+  card?.classList?.toggle(
+    "card-view-slideshow-mode",
+    standalone && host?._slideshowActive === true,
+  );
 }

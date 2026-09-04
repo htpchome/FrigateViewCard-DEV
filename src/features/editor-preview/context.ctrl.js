@@ -223,10 +223,41 @@ export class EditorPreviewContextController {
       nextConfig,
       "card_view_drawer_default_open",
     );
-    if (cardTakeoverChanged || cardDrawerChanged) {
+    const cardStandaloneChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "card_view_standalone",
+    );
+    const cardStartModeChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "card_view_start_mode",
+    );
+    const cardVideoPanelOnlyChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "card_view_video_panel_only",
+    );
+    const cardHideCameraNameChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "card_view_hide_camera_name",
+    );
+    if (
+      cardTakeoverChanged ||
+      cardDrawerChanged ||
+      cardStandaloneChanged ||
+      cardStartModeChanged ||
+      cardVideoPanelOnlyChanged ||
+      cardHideCameraNameChanged
+    ) {
       this._host._cardViewPageController?.applyConfigUpdate?.({
         takeoverDefaultChanged: cardTakeoverChanged,
         drawerDefaultChanged: cardDrawerChanged,
+        standaloneChanged: cardStandaloneChanged,
+        startModeChanged: cardStartModeChanged,
+        videoPanelOnlyChanged: cardVideoPanelOnlyChanged,
+        hideCameraNameChanged: cardHideCameraNameChanged,
       });
     }
 

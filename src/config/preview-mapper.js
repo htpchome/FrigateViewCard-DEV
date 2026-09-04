@@ -34,6 +34,7 @@ import {
   normalizeWideTimelineScale,
 } from "../features/wide-view/config.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
+import { normalizeCardViewStartMode } from "../features/card-view/config.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -119,6 +120,9 @@ export const createEditorPreviewDraft = (config) => ({
   card_view_alert_takeover: config.card_view_alert_takeover,
   card_view_drawer_default_open: config.card_view_drawer_default_open,
   card_view_standalone: config.card_view_standalone,
+  card_view_start_mode: config.card_view_start_mode,
+  card_view_video_panel_only: config.card_view_video_panel_only,
+  card_view_hide_camera_name: config.card_view_hide_camera_name,
   landing_page: config.landing_page,
   mobile_page: config.mobile_page,
   grid_rotation_seconds: config.grid_rotation_seconds,
@@ -288,6 +292,13 @@ export const applyEditorPreviewDraftToCardConfig = ({
     card_view_standalone:
       previewConfig.card_view_page_enabled === true &&
       previewConfig.card_view_standalone === true,
+    card_view_start_mode: normalizeCardViewStartMode(
+      previewConfig.card_view_start_mode,
+    ),
+    card_view_video_panel_only:
+      previewConfig.card_view_video_panel_only === true,
+    card_view_hide_camera_name:
+      previewConfig.card_view_hide_camera_name === true,
     landing_page: normalizePageRoute(previewConfig.landing_page),
     mobile_page: normalizeMobilePageMode(previewConfig.mobile_page),
     col_left_width_pct: normalizeWideLeftWidth(

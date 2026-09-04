@@ -142,6 +142,10 @@ import {
   normalizeGridOrderConfig,
 } from "../features/grid/config.js";
 import {
+  CARD_VIEW_START_MODES,
+  normalizeCardViewStartMode,
+} from "../features/card-view/config.js";
+import {
   LINKED_LIGHT_POSITIONS,
   linkedLightsForCamera,
   normalizeLinkedEntitiesConfig,
@@ -2186,6 +2190,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#card_view_page_enabled",
       "#card_view_alert_takeover",
       "#card_view_drawer_default_open",
+      '[name="card_view_start_mode"]',
+      "#card_view_video_panel_only",
+      "#card_view_hide_camera_name",
       "#landing_page",
       "#mobile_page",
       "#stream_height",
@@ -2511,6 +2518,9 @@ export class FrigateViewCardEditor extends HTMLElement {
     )
       ? Number(this._config.grid_rotation_seconds)
       : 30;
+    const cardViewStartMode = normalizeCardViewStartMode(
+      this._config?.card_view_start_mode,
+    );
     const pageRouteLabel = (pageId) => {
       if (pageId === PAGE_IDS.mobileView) return "Mobile";
       if (pageId === PAGE_IDS.preview) return "Preview";
@@ -2871,7 +2881,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Slideshow Mode</span>
               <ha-switch id="slideshow_rotation_enabled" ${this._config?.slideshow_rotation_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation. This is not available on mobile phone devices.</div>
+            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation. On phones, it is available only when Card View is used as a standalone view.</div>
           </div>
           <div id="slideshow_rotation_row" style="display:${this._config?.slideshow_rotation_enabled ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
             <div class="editor-choice-field editor-choice-field--single-row" id="slideshow_rotation_seconds" role="radiogroup" aria-label="Slideshow Rotation Frequency">
@@ -3104,7 +3114,48 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Use Card View as a Standalone View</span>
           <ha-switch id="card_view_standalone" ${this._config?.card_view_standalone ? "checked" : ""} ${this._config?.card_view_page_enabled ? "" : "disabled"}></ha-switch>
         </div>
-        <div class="field-helper">When enabled, Card View becomes the only available view on desktop and tablet: links to other views and the Card View back button are removed, and the desktop/tablet landing page is set to Card View. Phone landing behavior remains independently configurable because Card View is not available on phones.</div>
+        <div class="field-helper">When enabled, Card View becomes the only available FrigateView page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
+      </div>
+      <div id="card-view-standalone-options" style="${this._config?.card_view_standalone ? "" : "display:none"}">
+        <div class="section">
+          <div class="editor-choice-field editor-choice-field--single-row" role="radiogroup" aria-label="Start Card View">
+            <div class="field-label">Start Card View</div>
+            ${buildEditorChoiceChipsMarkup({
+              name: "card_view_start_mode",
+              options: [
+                { value: CARD_VIEW_START_MODES.live, label: "Live" },
+                {
+                  value: CARD_VIEW_START_MODES.slideshow,
+                  label: "Slideshow",
+                  disabled:
+                    this._config?.slideshow_rotation_enabled !== true,
+                },
+                {
+                  value: CARD_VIEW_START_MODES.grid,
+                  label: "Grid",
+                  disabled: this._config?.grid_mode_enabled !== true,
+                },
+              ],
+              selectedValue: cardViewStartMode,
+              compact: true,
+            })}
+          </div>
+          <div class="field-helper">Choose the initial standalone video mode. Slideshow and Grid must also be enabled in their own settings.</div>
+        </div>
+        <div class="section">
+          <div class="layout-row">
+            <span class="field-label" style="margin:0">Video Panel Only</span>
+            <ha-switch id="card_view_video_panel_only" ${this._config?.card_view_video_panel_only ? "checked" : ""}></ha-switch>
+          </div>
+          <div class="field-helper">Shows only the live video panel and its overlay controls, without the activity drawer or footer.</div>
+        </div>
+        <div class="section">
+          <div class="layout-row">
+            <span class="field-label" style="margin:0">Hide Camera Name</span>
+            <ha-switch id="card_view_hide_camera_name" ${this._config?.card_view_hide_camera_name ? "checked" : ""}></ha-switch>
+          </div>
+          <div class="field-helper">Hides the camera picker until Grid mode is active. Grid always displays its picker so cameras remain selectable.</div>
+        </div>
       </div>`;
     const landingPanelContent = `
       <div class="section">
@@ -3114,8 +3165,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       </div>
       <div class="section">
         <span class="field-label">Mobile Page</span>
-        <ha-selector id="mobile_page" style="width:220px"></ha-selector>
+        <ha-selector id="mobile_page" style="width:220px" ${this._config?.card_view_standalone ? "disabled" : ""}></ha-selector>
         <div class="field-helper">Choose the phone starting flow. Preview combinations open Preview first, then send a selected camera to Mobile or Single View. Options involving Mobile or Preview require those pages to be enabled.</div>
+        ${this._config?.card_view_standalone ? '<div class="field-helper standalone-mobile-note">Mobile Page is unavailable while Card View is standalone because phones use the same Card View landing page as desktop and tablet.</div>' : ""}
       </div>`;
     const gridviewPanelContent = `
       <div class="section">
@@ -3125,7 +3177,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Grid Mode</span>
               <ha-switch id="grid_mode_enabled" ${this._config?.grid_mode_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enable a 2x2 camera grid. This is not available on mobile phone devices and requires at least 2 cameras.</div>
+            <div class="field-helper">Enable a 2x2 camera grid. It requires at least 2 cameras and is available on phones only when Card View is used as a standalone view.</div>
           </div>
           <div id="grid_order_row" class="grid-order-config" style="display:${this._config?.grid_mode_enabled ? "flex" : "none"}">
             <span class="field-label" style="margin:0">Grid Order</span>
@@ -3258,6 +3310,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             }
             .settings-container{display:flex;flex-direction:column;gap:6px;}
             .config-save-reminder{box-sizing:border-box;width:100%;min-height:30px;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:1px solid color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 12%,var(--editor-card-bg));color:var(--warning-color, var(--c-accent, var(--editor-primary)));font-size:12px;font-weight:600;line-height:1.2;text-align:center;pointer-events:none;}
+            .standalone-mobile-note{box-sizing:border-box;width:100%;margin-top:8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 42%,var(--editor-card-bg));color:var(--c-primary-d, var(--editor-text));font-weight:650;line-height:1.3;}
             .config-save-reminder[hidden]{display:none;}
             .config-save-reminder ha-icon{--mdc-icon-size:17px;flex:0 0 auto;}
             .card-version-status{box-sizing:border-box;width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-text));font-size:12px;line-height:1.3;cursor:default;}
@@ -3858,6 +3911,11 @@ export class FrigateViewCardEditor extends HTMLElement {
       normalize: (value) => normalizeMobilePageMode(value),
       onChange: () => update(),
     });
+    const mobilePageSelector = this.querySelector("#mobile_page");
+    if (mobilePageSelector) {
+      mobilePageSelector.disabled =
+        this._config?.card_view_standalone === true;
+    }
 
     setupEntitySelector({
       element: this.querySelector("#camera-modal-entity"),
@@ -4199,6 +4257,8 @@ export class FrigateViewCardEditor extends HTMLElement {
         "card_view_page_enabled",
         "card_view_alert_takeover",
         "card_view_drawer_default_open",
+        "card_view_video_panel_only",
+        "card_view_hide_camera_name",
         "mobile_view_page_enabled",
         "mobile_view_rotate_to_fullscreen",
         "mobile_view_outer_border",
@@ -4244,6 +4304,16 @@ export class FrigateViewCardEditor extends HTMLElement {
         const gridOrderRow = this.querySelector("#grid_order_row");
         const gridEnabled =
           this.querySelector("#grid_mode_enabled")?.checked === true;
+        const cardViewSlideshowStart = this.querySelector(
+          '[name="card_view_start_mode"][value="slideshow"]',
+        );
+        const cardViewGridStart = this.querySelector(
+          '[name="card_view_start_mode"][value="grid"]',
+        );
+        if (cardViewSlideshowStart) {
+          cardViewSlideshowStart.disabled = !enabled;
+        }
+        if (cardViewGridStart) cardViewGridStart.disabled = !gridEnabled;
         if (slideshowRow)
           slideshowRow.style.display = enabled ? "flex" : "none";
         if (gridStartRow)

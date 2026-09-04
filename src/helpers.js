@@ -64,6 +64,7 @@ import {
   normalizeCameraGroupConfig,
 } from "./features/camera-groups/model.js";
 import { normalizeLinkedEntitiesConfig } from "./features/linked-entities/config.js";
+import { normalizeCardViewStartMode } from "./features/card-view/config.js";
 
 export function detectDeviceProfile() {
   const nav = typeof navigator !== "undefined" ? navigator : {};
@@ -923,6 +924,16 @@ export const buildEditorConfigFromDom = ({
     : baseConfig?.card_view_drawer_default_open !== false;
   nextConfig.card_view_standalone = resolveSwitchChecked(
     root.querySelector("#card_view_standalone"),
+  );
+  nextConfig.card_view_start_mode = normalizeCardViewStartMode(
+    root.querySelector('[name="card_view_start_mode"]:checked')?.value ||
+      baseConfig?.card_view_start_mode,
+  );
+  nextConfig.card_view_video_panel_only = resolveSwitchChecked(
+    root.querySelector("#card_view_video_panel_only"),
+  );
+  nextConfig.card_view_hide_camera_name = resolveSwitchChecked(
+    root.querySelector("#card_view_hide_camera_name"),
   );
   nextConfig.grid_rotation_seconds = GRID_ROTATION_OPTIONS_SECONDS.includes(
     Number(

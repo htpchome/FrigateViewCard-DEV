@@ -9,10 +9,14 @@ import {
   resolveCardViewPageScrollTarget,
 } from "../src/features/card-view/page.ctrl.js";
 import {
+  applyCardViewPageMarkup,
   buildCardViewMainLayoutShellMarkup,
+  buildCardViewStandaloneLinkedControlsMarkup,
+  buildCardViewStandaloneModeControlsMarkup,
   buildCardViewToolbarMarkup,
 } from "../src/features/card-view/page.tmpl.js";
 import { CARD_VIEW_PAGE_STYLES } from "../src/features/card-view/page.styles.js";
+import { CARD_VIEW_START_MODES } from "../src/features/card-view/config.js";
 import { CAMERA_PICKER_STYLES } from "../src/features/navigation/camera-picker.styles.js";
 
 test("Card View uses independent alert and recording page widths", () => {
@@ -105,6 +109,113 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /card-view-footer-end[\s\S]*card-view-calendar-panel/);
   assert.match(markup, /data-card-view-calendar[^>]*hidden/);
   assert.match(markup, /card-view-footer/);
+  assert.match(markup, /data-card-view-standalone-mode-controls/);
+  assert.match(markup, /data-card-view-live-badge/);
+  assert.match(markup, /data-card-view-standalone-linked-controls/);
+});
+
+test("standalone Card View controls expose active Grid and Slideshow states", () => {
+  const markup = buildCardViewStandaloneModeControlsMarkup({
+    icons: {
+      grid: "grid-icon",
+      presentationPlay: "slideshow-icon",
+      presentationPlayActive: "slideshow-active-icon",
+    },
+    gridAvailable: true,
+    gridActive: true,
+    slideshowAvailable: true,
+    slideshowActive: true,
+    slideshowRemainingSeconds: 7,
+  });
+
+  assert.match(markup, /data-card-view-standalone-grid/);
+  assert.match(markup, /data-card-view-standalone-grid[^>]*aria-pressed="true"/);
+  assert.match(markup, /data-card-view-standalone-slideshow/);
+  assert.match(markup, /slideshow-active-icon/);
+  assert.match(markup, /data-card-view-slideshow-countdown>7s/);
+
+  const linkedMarkup = buildCardViewStandaloneLinkedControlsMarkup({
+    linkedLightLeftMarkup: "left-light",
+    linkedLightRightMarkup: "right-light",
+    microphoneMarkup: "microphone",
+  });
+  assert.match(
+    linkedMarkup,
+    /data-linked-light-position-slot="left"[^>]*>left-light/,
+  );
+  assert.match(
+    linkedMarkup,
+    /data-linked-light-position-slot="right"[^>]*>right-light/,
+  );
+  assert.match(linkedMarkup, /card-view-standalone-microphone-slot/);
+});
+
+test("standalone Card View talk controls omit incoming audio mute", () => {
+  const container = { innerHTML: "" };
+  let talkOptions = null;
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "single",
+    _config: { card_view_standalone: true },
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "[data-card-view-standalone-linked-controls]"
+          ? container
+          : null,
+    },
+    _shouldRenderTwoWayTalkButtonForActiveCamera: () => true,
+    _buildTwoWayTalkControlRowMarkup: (options) => {
+      talkOptions = options;
+      return "talk-controls";
+    },
+    _buildLinkedLightControlMarkup: () => "",
+    _syncTwoWayTalkSoundwaveSurface: () => {},
+    _linkedLightController: { sync: () => {} },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  controller.renderStandaloneLinkedControls();
+
+  assert.deepEqual(talkOptions, { includeIncomingMute: false });
+  assert.match(container.innerHTML, /talk-controls/);
+});
+
+test("standalone Card View markup reflects video-only, hidden-name, and active mode state", () => {
+  const hostClasses = new Set();
+  const cardClasses = new Set();
+  const classList = (classes) => ({
+    toggle: (name, enabled) => {
+      if (enabled) classes.add(name);
+      else classes.delete(name);
+    },
+  });
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "grid",
+    _slideshowActive: false,
+    _config: {
+      card_view_standalone: true,
+      card_view_video_panel_only: true,
+      card_view_hide_camera_name: true,
+    },
+    classList: classList(hostClasses),
+    _$: (selector) =>
+      selector === "#card" ? { classList: classList(cardClasses) } : null,
+  };
+
+  applyCardViewPageMarkup({
+    host,
+    pageIds: { cardView: "card-view" },
+  });
+
+  assert.equal(hostClasses.has("card-view-natural-height"), true);
+  assert.equal(cardClasses.has("card-view-standalone"), true);
+  assert.equal(cardClasses.has("card-view-video-panel-only"), true);
+  assert.equal(cardClasses.has("card-view-hide-camera-name"), true);
+  assert.equal(cardClasses.has("card-view-grid-mode"), true);
+  assert.equal(cardClasses.has("card-view-slideshow-mode"), false);
 });
 
 test("Card View toolbar swaps alert and recording controls without a day heading", () => {
@@ -162,6 +273,37 @@ test("Card View toolbar progressively stacks then hides both compact labels", ()
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /\.card-view-toolbar-center \{[^}]*gap:12px/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /\.card-view-toolbar-center \{[^}]*display:grid;[^}]*grid-template-columns:minmax\(36px,1fr\) auto minmax\(36px,1fr\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /\.card-view-toolbar-center > \.card-view-microphone-slot \{grid-column:2;grid-row:1;\}/,
+  );
+});
+
+test("standalone Card View styles keep overlays on the existing rounded video stage", () => {
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.card-view-live-stage[\s\S]*?border-radius:var\(--fvc-border-radius,0px\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only \.card-view-drawer,[\s\S]*?card-view-video-panel-only \.card-view-footer \{display:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-grid-mode \.live-playback-controls \{display:none !important;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.slideshow-next-chip \{display:none !important;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-microphone-slot \{grid-column:2;grid-row:1;/,
   );
 });
 
@@ -233,6 +375,38 @@ test("Card View shares the Mobile View camera picker and uses a two-state drawer
     CARD_VIEW_PAGE_STYLES,
     /card-view-drawer-handle \{[^}]*width:min\(100%,80px\);[^}]*min-width:44px/,
   );
+});
+
+test("standalone Grid keeps the camera picker visible and labels it Grid", () => {
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "grid",
+    _activeCamIdx: 0,
+    _activeCam: { entity: "camera.doorbell", name: "Doorbell" },
+    _activeStreamType: "grid",
+    _config: {
+      card_view_standalone: true,
+      cameras: [
+        { entity: "camera.doorbell", name: "Doorbell" },
+        { entity: "camera.driveway", name: "Driveway" },
+      ],
+    },
+    _hass: {
+      states: {
+        "camera.doorbell": { state: "streaming" },
+        "camera.driveway": { state: "streaming" },
+      },
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  const markup = controller.camSwitcherMarkup();
+
+  assert.match(markup, /mobile-cam-picker__label">Grid</);
+  assert.match(markup, /data-mobile-camidx="0"/);
+  assert.match(markup, /data-mobile-camidx="1"/);
+  assert.doesNotMatch(markup, /mobile-cam-picker__status/);
 });
 
 test("Card View drawer swipes settle fully open or closed", () => {
@@ -391,6 +565,109 @@ test("Card View alert takeover yields to active shared modes", () => {
   assert.equal(controller.alertTakeoverEnabled(), false);
   assert.equal(controller.toggleAlertTakeover(), false);
   assert.equal(toolbarSyncs, 1);
+});
+
+test("standalone Card View applies its configured starting mode", () => {
+  const modeChanges = [];
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "single",
+    _slideshowActive: false,
+    _config: {
+      card_view_page_enabled: true,
+      card_view_standalone: true,
+      card_view_alert_takeover: true,
+      card_view_start_mode: CARD_VIEW_START_MODES.grid,
+    },
+    _isGridModeAvailable: () => true,
+    _isSlideshowRotationAvailable: () => true,
+    _setViewMode: (mode) => {
+      modeChanges.push(mode);
+      host._viewMode = mode;
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  assert.equal(controller.applyConfiguredStartMode(), true);
+  assert.deepEqual(modeChanges, ["grid"]);
+  assert.equal(controller.alertTakeoverEnabled(), false);
+
+  host._config.card_view_start_mode = CARD_VIEW_START_MODES.slideshow;
+  host._viewMode = "grid";
+  let slideshowStarts = 0;
+  host._startSlideshowRotation = () => {
+    slideshowStarts += 1;
+    host._slideshowActive = true;
+  };
+  controller.applyConfiguredStartMode({ force: true });
+  assert.deepEqual(modeChanges, ["grid", "single"]);
+  assert.equal(slideshowStarts, 1);
+});
+
+test("standalone Card View mode buttons use the existing Grid and Slideshow controllers", () => {
+  let gridToggles = 0;
+  let slideshowToggles = 0;
+  let prevented = 0;
+  const host = {
+    _pageId: "card-view",
+    _toggleGridMode: () => {
+      gridToggles += 1;
+    },
+    _toggleSlideshowRotation: () => {
+      slideshowToggles += 1;
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  const event = {
+    preventDefault: () => {
+      prevented += 1;
+    },
+  };
+
+  controller.handleClick(event, {
+    closest: (selector) =>
+      selector === "[data-card-view-standalone-grid]"
+        ? { disabled: false }
+        : null,
+  });
+  controller.handleClick(event, {
+    closest: (selector) =>
+      selector === "[data-card-view-standalone-slideshow]"
+        ? { disabled: false }
+        : null,
+  });
+
+  assert.equal(gridToggles, 1);
+  assert.equal(slideshowToggles, 1);
+  assert.equal(prevented, 2);
+});
+
+test("standalone presentation-only config changes do not reload activity data", () => {
+  const host = {
+    _pageId: "card-view",
+    _config: { card_view_standalone: true },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  let refreshes = 0;
+  controller.syncCardViewPageMarkup = () => {};
+  controller.renderCamSwitcher = () => {};
+  controller.renderToolbar = () => {};
+  controller.refreshActiveContent = async () => {
+    refreshes += 1;
+  };
+
+  controller.applyConfigUpdate({
+    videoPanelOnlyChanged: true,
+    hideCameraNameChanged: true,
+  });
+
+  assert.equal(refreshes, 0);
 });
 
 test("Card View alert tiles retain media actions but omit favorite actions", () => {

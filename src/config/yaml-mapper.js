@@ -52,6 +52,7 @@ import {
   GRID_ORDER_MODES,
   normalizeGridOrderConfig,
 } from "../features/grid/config.js";
+import { normalizeCardViewStartMode } from "../features/card-view/config.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -515,6 +516,24 @@ export const compactEditorConfigForYaml = (
     "card_view_standalone",
     source.card_view_page_enabled === true &&
       source.card_view_standalone === true,
+    false,
+  );
+  addIfNotDefault(
+    compact,
+    "card_view_start_mode",
+    normalizeCardViewStartMode(source.card_view_start_mode),
+    "live",
+  );
+  addIfNotDefault(
+    compact,
+    "card_view_video_panel_only",
+    source.card_view_video_panel_only === true,
+    false,
+  );
+  addIfNotDefault(
+    compact,
+    "card_view_hide_camera_name",
+    source.card_view_hide_camera_name === true,
     false,
   );
   addIfNotDefault(

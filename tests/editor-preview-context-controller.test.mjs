@@ -140,6 +140,44 @@ test("config drafts update preview chrome without rebuilding media or lists", ()
   assert.equal(calls.some(([name]) => name === "render-list"), false);
 });
 
+test("standalone Card View draft controls reach its lightweight config updater", () => {
+  let cardUpdate = null;
+  const host = {
+    _pageId: "card-view",
+    _pageNavigationController: { isPageRouteAvailable: () => true },
+    _cardViewPageController: {
+      applyConfigUpdate: (options) => {
+        cardUpdate = options;
+      },
+    },
+  };
+  const controller = new EditorPreviewContextController(host);
+
+  controller.applyConfigDraft({
+    previousConfig: {
+      card_view_standalone: false,
+      card_view_start_mode: "live",
+      card_view_video_panel_only: false,
+      card_view_hide_camera_name: false,
+    },
+    nextConfig: {
+      card_view_standalone: true,
+      card_view_start_mode: "grid",
+      card_view_video_panel_only: true,
+      card_view_hide_camera_name: true,
+    },
+  });
+
+  assert.deepEqual(cardUpdate, {
+    takeoverDefaultChanged: false,
+    drawerDefaultChanged: false,
+    standaloneChanged: true,
+    startModeChanged: true,
+    videoPanelOnlyChanged: true,
+    hideCameraNameChanged: true,
+  });
+});
+
 test("camera drafts resync linked lights and two-way talk without rebuilding media", () => {
   const calls = [];
   const host = {

@@ -573,7 +573,7 @@ test("Card View is a desktop/tablet landing route and is never a phone route", (
   );
 });
 
-test("standalone Card View is the only desktop/tablet route and leaves phone routes unchanged", () => {
+test("standalone Card View is the only route and landing page on every device", () => {
   const config = {
     mobile_view_page_enabled: true,
     preview_page_enabled: true,
@@ -591,9 +591,7 @@ test("standalone Card View is the only desktop/tablet route and leaves phone rou
     PAGE_IDS.cardView,
   ]);
   assert.deepEqual(getEnabledPageRoutes(config, DEVICE_ROUTE_BUCKETS.mobile), [
-    PAGE_IDS.singleView,
-    PAGE_IDS.mobileView,
-    PAGE_IDS.preview,
+    PAGE_IDS.cardView,
   ]);
   assert.equal(
     resolveStartupPageRoute({
@@ -608,7 +606,19 @@ test("standalone Card View is the only desktop/tablet route and leaves phone rou
       config,
       deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
     }),
-    PAGE_IDS.preview,
+    PAGE_IDS.cardView,
+  );
+  assert.equal(
+    resolveStartupPageRoute({
+      config,
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      hasPendingDeepLinkTarget: true,
+    }),
+    PAGE_IDS.cardView,
+  );
+  assert.equal(
+    resolveDeepLinkPageRoute(config, DEVICE_ROUTE_BUCKETS.mobile),
+    PAGE_IDS.cardView,
   );
 });
 

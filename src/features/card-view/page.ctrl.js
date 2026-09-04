@@ -15,8 +15,14 @@ import {
 import {
   applyCardViewPageMarkup,
   buildCardViewPtzMarkup,
+  buildCardViewStandaloneLinkedControlsMarkup,
+  buildCardViewStandaloneModeControlsMarkup,
   buildCardViewToolbarMarkup,
 } from "./page.tmpl.js";
+import {
+  CARD_VIEW_START_MODES,
+  normalizeCardViewStartMode,
+} from "./config.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
 
@@ -110,16 +116,78 @@ export class CardViewPageController {
     this._drawerPointerGesture = null;
     this._suppressDrawerClick = false;
     this._drawerClickResetTimer = null;
+    this._startModeApplied = false;
+    this._standaloneStageHeight = 0;
+    this._standaloneModeControlsMarkup = "";
+    this._standaloneLinkedControlsMarkup = "";
   }
 
   isActive() {
     return this._host._pageId === this._constants.PAGE_IDS.cardView;
   }
 
+  isStandalone() {
+    return (
+      this.isActive() &&
+      this._host._config?.card_view_standalone === true
+    );
+  }
+
+  applyConfiguredStartMode({ force = false } = {}) {
+    if (!this.isStandalone()) return false;
+    if (this._startModeApplied && !force) return false;
+    this._startModeApplied = true;
+
+    const configuredMode = normalizeCardViewStartMode(
+      this._host._config?.card_view_start_mode,
+    );
+    const startGrid =
+      configuredMode === CARD_VIEW_START_MODES.grid &&
+      this._host._isGridModeAvailable?.() === true;
+    const startSlideshow =
+      configuredMode === CARD_VIEW_START_MODES.slideshow &&
+      this._host._isSlideshowRotationAvailable?.() === true;
+
+    if (startGrid || startSlideshow) {
+      this._alertTakeoverEnabled = false;
+    }
+    if (startGrid) {
+      if (this._host._viewMode !== "grid") {
+        this._host._setViewMode?.("grid");
+      }
+      return true;
+    }
+
+    if (this._host._viewMode === "grid") {
+      this._host._setViewMode?.("single");
+    }
+    if (startSlideshow) {
+      if (this._host._slideshowActive !== true) {
+        this._host._startSlideshowRotation?.("card-view-start");
+      }
+      return true;
+    }
+    if (this._host._slideshowActive === true) {
+      this._host._stopSlideshowRotation?.("card-view-start-live");
+    }
+    return true;
+  }
+
   activateCardViewPageRoute(context = {}) {
+    this._startModeApplied = false;
+    const routeContext = this.isStandalone()
+      ? {
+          ...context,
+          startInGrid:
+            normalizeCardViewStartMode(
+              this._host._config?.card_view_start_mode,
+            ) === CARD_VIEW_START_MODES.grid &&
+            this._host._isGridModeAvailable?.() === true,
+        }
+      : context;
     activateStandardPageRouteLifecycle({
       host: this._host,
-      context,
+      context: routeContext,
       previewPageId: this._constants.PAGE_IDS.preview,
       applyRouteFrame: () => {
         this._host._applyPreviewShellVisibility();
@@ -133,11 +201,13 @@ export class CardViewPageController {
 
   async start() {
     if (!this.isActive()) return;
+    this.applyConfiguredStartMode();
     this._ensureDrawerState();
     this.syncDrawerState();
     this._yieldAlertTakeoverToActiveMode();
     this._syncAlertsFromCache();
     this.renderToolbar();
+    this.syncStandalonePresentation();
     this.renderActivity();
     void this._discoverPtzSupport();
     await this.refreshActiveContent({ force: true });
@@ -157,6 +227,10 @@ export class CardViewPageController {
       clearTimeout(this._drawerClickResetTimer);
     }
     this._drawerClickResetTimer = null;
+    this._startModeApplied = false;
+    this._standaloneStageHeight = 0;
+    this._standaloneModeControlsMarkup = "";
+    this._standaloneLinkedControlsMarkup = "";
     this._haSeverityByEntity.clear();
     this._activityContent = null;
     this._activityMarkup = "";
@@ -171,6 +245,21 @@ export class CardViewPageController {
     this._cleanup = new CleanupController();
     this._boundScroller = null;
     this._cancelScrollControlsSync();
+    const liveStage = this._host._$?.("#live-stage");
+    if (liveStage && typeof ResizeObserver === "function") {
+      const stageObserver = new ResizeObserver((entries) => {
+        const stageEntry = entries?.[0];
+        const observedHeight = Number(
+          stageEntry?.borderBoxSize?.[0]?.blockSize ??
+            stageEntry?.contentRect?.height,
+        );
+        if (!Number.isFinite(observedHeight) || observedHeight <= 0) return;
+        this._standaloneStageHeight = observedHeight;
+        this.syncStandalonePickerPanelSize();
+      });
+      stageObserver.observe(liveStage);
+      this._cleanup.addCleanup(() => stageObserver.disconnect());
+    }
     const content = this._host._pageShellRegion?.("cardViewActivity");
     if (!content) return;
 
@@ -364,6 +453,11 @@ export class CardViewPageController {
       streamType: this._host._activeStreamType || "--",
       online: activeState ? activeState.state !== "unavailable" : true,
       pickerOpen: this._host._mobileCamSwitcherOpen === true,
+      activeCameraName:
+        this.isStandalone() && this._host._viewMode === "grid"
+          ? "Grid"
+          : "",
+      showStatus: !this.isStandalone(),
     });
   }
 
@@ -373,6 +467,21 @@ export class CardViewPageController {
       "[data-mobile-cam-switcher-content]",
     );
     if (content) content.innerHTML = this.camSwitcherMarkup();
+    this.syncStandalonePickerPanelSize();
+  }
+
+  syncStandalonePickerPanelSize() {
+    if (!this.isStandalone()) return;
+    const panel = this._host.shadowRoot?.querySelector?.(
+      ".card-view-camera-row .mobile-cam-picker__panel",
+    );
+    if (!panel) return;
+    const stageHeight = Number(this._standaloneStageHeight) || 0;
+    if (stageHeight <= 0) return;
+    panel.style.maxHeight = `${Math.max(
+      64,
+      stageHeight - 56,
+    )}px`;
   }
 
   syncStatus() {
@@ -385,6 +494,15 @@ export class CardViewPageController {
       statusDot.style.color = state?.state === "unavailable"
         ? "var(--c-off)"
         : "var(--c-on)";
+    }
+    const liveBadge = this._host.shadowRoot?.querySelector?.(
+      "[data-card-view-live-badge]",
+    );
+    if (liveBadge) {
+      liveBadge.classList?.toggle?.(
+        "is-offline",
+        state?.state === "unavailable",
+      );
     }
   }
 
@@ -436,6 +554,95 @@ export class CardViewPageController {
     this.renderActivity();
   }
 
+  renderStandaloneModeControls(buttonStates = null) {
+    const container = this._host.shadowRoot?.querySelector?.(
+      "[data-card-view-standalone-mode-controls]",
+    );
+    if (!container) return;
+    if (!this.isStandalone()) {
+      container.innerHTML = "";
+      this._standaloneModeControlsMarkup = "";
+      return;
+    }
+    const resolvedButtonStates =
+      buttonStates || this._host._toolbarButtonStates?.() || {};
+    const markup = buildCardViewStandaloneModeControlsMarkup({
+      icons: ICONS,
+      gridAvailable: this._host._isGridModeAvailable?.() === true,
+      gridActive: this._host._viewMode === "grid",
+      gridDisabled: resolvedButtonStates.gridDisabled === true,
+      slideshowAvailable:
+        this._host._isSlideshowRotationAvailable?.() === true,
+      slideshowActive: this._host._slideshowActive === true,
+      slideshowDisabled: resolvedButtonStates.slideshowDisabled === true,
+      slideshowRemainingSeconds: 0,
+    });
+    if (markup !== this._standaloneModeControlsMarkup) {
+      container.innerHTML = markup;
+      this._standaloneModeControlsMarkup = markup;
+    }
+    this.syncStandaloneSlideshowCountdown();
+  }
+
+  syncStandaloneSlideshowCountdown() {
+    if (!this.isStandalone()) return;
+    const countdown = this._host.shadowRoot?.querySelector?.(
+      "[data-card-view-slideshow-countdown]",
+    );
+    if (!countdown) return;
+    const remainingMs = Math.max(
+      0,
+      Number(this._host._slideshowNextSwitchAtMs || 0) - Date.now(),
+    );
+    countdown.textContent = `${Math.max(0, Math.ceil(remainingMs / 1000))}s`;
+  }
+
+  renderStandaloneLinkedControls() {
+    const container = this._host.shadowRoot?.querySelector?.(
+      "[data-card-view-standalone-linked-controls]",
+    );
+    if (!container) return;
+    if (!this.isStandalone()) {
+      container.innerHTML = "";
+      this._standaloneLinkedControlsMarkup = "";
+      return;
+    }
+    const showMicrophone =
+      this._host._shouldRenderTwoWayTalkButtonForActiveCamera?.() === true;
+    const markup = buildCardViewStandaloneLinkedControlsMarkup({
+      linkedLightLeftMarkup:
+        this._host._buildLinkedLightControlMarkup?.({
+          buttonClass: "icon-btn",
+          position: "left",
+        }) || "",
+      linkedLightRightMarkup:
+        this._host._buildLinkedLightControlMarkup?.({
+          buttonClass: "icon-btn",
+          position: "right",
+        }) || "",
+      microphoneMarkup: showMicrophone
+        ? this._host._buildTwoWayTalkControlRowMarkup?.({
+            includeIncomingMute: false,
+          }) || ""
+        : "",
+    });
+    if (markup !== this._standaloneLinkedControlsMarkup) {
+      container.innerHTML = markup;
+      this._standaloneLinkedControlsMarkup = markup;
+    }
+    this._host._syncTwoWayTalkSoundwaveSurface?.();
+    this._host._linkedLightController?.sync?.();
+  }
+
+  syncStandalonePresentation(buttonStates = null) {
+    this.syncCardViewPageMarkup();
+    if (!this.isActive()) return;
+    this.renderStandaloneModeControls(buttonStates);
+    this.renderStandaloneLinkedControls();
+    this.syncStatus();
+    this.syncStandalonePickerPanelSize();
+  }
+
   renderToolbar(buttonStates = null) {
     if (!this.isActive()) return;
     const toolbar = this._host.shadowRoot?.querySelector(
@@ -444,6 +651,7 @@ export class CardViewPageController {
     if (!toolbar) return;
     const showMicrophone =
       this._host._shouldRenderTwoWayTalkButtonForActiveCamera?.() === true;
+    const standalone = this.isStandalone();
     const resolvedButtonStates =
       buttonStates || this._host._toolbarButtonStates?.() || {};
     const toolbarMarkup = buildCardViewToolbarMarkup({
@@ -456,27 +664,31 @@ export class CardViewPageController {
         resolvedButtonStates.wideAlertTakeoverDisabled === true,
       showPtz: this._canUseActiveCameraPtz(),
       ptzDisabled: resolvedButtonStates.controlsDisabled === true,
-      gridAvailable: this._host._isGridModeAvailable?.() === true,
+      gridAvailable:
+        !standalone && this._host._isGridModeAvailable?.() === true,
       gridActive: this._host._viewMode === "grid",
       gridDisabled: resolvedButtonStates.gridDisabled === true,
       slideshowAvailable:
+        !standalone &&
         this._host._isSlideshowRotationAvailable?.() === true,
       slideshowActive: this._host._slideshowActive === true,
       slideshowDisabled: resolvedButtonStates.slideshowDisabled === true,
-      showMicrophone,
-      microphoneMarkup: showMicrophone
+      showMicrophone: !standalone && showMicrophone,
+      microphoneMarkup: !standalone && showMicrophone
         ? this._host._buildTwoWayTalkControlRowMarkup?.() || ""
         : "",
-      linkedLightLeftMarkup:
-        this._host._buildLinkedLightControlMarkup?.({
-          buttonClass: "icon-btn",
-          position: "left",
-        }) || "",
-      linkedLightRightMarkup:
-        this._host._buildLinkedLightControlMarkup?.({
-          buttonClass: "icon-btn",
-          position: "right",
-        }) || "",
+      linkedLightLeftMarkup: !standalone
+        ? this._host._buildLinkedLightControlMarkup?.({
+            buttonClass: "icon-btn",
+            position: "left",
+          }) || ""
+        : "",
+      linkedLightRightMarkup: !standalone
+        ? this._host._buildLinkedLightControlMarkup?.({
+            buttonClass: "icon-btn",
+            position: "right",
+          }) || ""
+        : "",
     });
     if (
       toolbar !== this._toolbarContent ||
@@ -488,6 +700,7 @@ export class CardViewPageController {
     }
     this._host._syncTwoWayTalkSoundwaveSurface?.();
     this._host._linkedLightController?.sync?.();
+    this.syncStandalonePresentation(resolvedButtonStates);
     this.syncFooterControls(resolvedButtonStates);
   }
 
@@ -861,6 +1074,10 @@ export class CardViewPageController {
   applyConfigUpdate({
     takeoverDefaultChanged = false,
     drawerDefaultChanged = false,
+    standaloneChanged = false,
+    startModeChanged = false,
+    videoPanelOnlyChanged = false,
+    hideCameraNameChanged = false,
   } = {}) {
     if (takeoverDefaultChanged) {
       this._alertTakeoverEnabled = null;
@@ -872,9 +1089,23 @@ export class CardViewPageController {
         this._host._config?.card_view_drawer_default_open !== false;
       this.syncDrawerState();
     }
-    if (this.isActive()) {
-      if (drawerDefaultChanged && !takeoverDefaultChanged) return;
-      this.renderToolbar();
+    if (!this.isActive()) return;
+
+    if (standaloneChanged || startModeChanged) {
+      this._startModeApplied = false;
+      this.applyConfiguredStartMode({ force: true });
+    }
+    if (
+      standaloneChanged ||
+      startModeChanged ||
+      videoPanelOnlyChanged ||
+      hideCameraNameChanged
+    ) {
+      this.syncCardViewPageMarkup();
+      this.renderCamSwitcher();
+    }
+    this.renderToolbar();
+    if (takeoverDefaultChanged) {
       void this.refreshActiveContent({ force: true });
     }
   }
@@ -1239,6 +1470,24 @@ export class CardViewPageController {
 
   handleClick(event, target) {
     if (!this.isActive()) return false;
+    const standaloneGrid = target.closest?.(
+      "[data-card-view-standalone-grid]",
+    );
+    if (standaloneGrid) {
+      event?.preventDefault?.();
+      if (!standaloneGrid.disabled) this._host._toggleGridMode?.();
+      return true;
+    }
+    const standaloneSlideshow = target.closest?.(
+      "[data-card-view-standalone-slideshow]",
+    );
+    if (standaloneSlideshow) {
+      event?.preventDefault?.();
+      if (!standaloneSlideshow.disabled) {
+        this._host._toggleSlideshowRotation?.();
+      }
+      return true;
+    }
     if (target.closest?.("[data-card-view-drawer-toggle]")) {
       if (this._suppressDrawerClick) {
         this._suppressDrawerClick = false;

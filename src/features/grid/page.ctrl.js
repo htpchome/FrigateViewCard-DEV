@@ -1,5 +1,9 @@
 import { GRID_ROTATION_OPTIONS_SECONDS } from "../../constants.js";
 import { DEVICE_PROFILE } from "../../helpers.js";
+import {
+  CARD_VIEW_START_MODES,
+  normalizeCardViewStartMode,
+} from "../card-view/config.js";
 import { resolveGridCameras } from "./config.js";
 
 export class GridPageController {
@@ -70,11 +74,20 @@ export class GridPageController {
     return hasReturnLiveTarget;
   }
 
+  _isStandaloneCardView() {
+    return (
+      this._host._config?.card_view_page_enabled === true &&
+      this._host._config?.card_view_standalone === true
+    );
+  }
+
   isGridModeAvailable() {
+    const allowPhone = this._isStandaloneCardView();
     return (
       this._host._config?.grid_mode_enabled === true &&
-      !DEVICE_PROFILE.isPhone &&
-      !this._host._isMobilePhoneViewport() &&
+      (allowPhone ||
+        (!DEVICE_PROFILE.isPhone &&
+          !this._host._isMobilePhoneViewport())) &&
       this._displayCameras().length > 1
     );
   }
@@ -124,8 +137,13 @@ export class GridPageController {
   }
 
   shouldStartInGridMode() {
+    const configuredToStartInGrid = this._isStandaloneCardView()
+      ? normalizeCardViewStartMode(
+          this._host._config?.card_view_start_mode,
+        ) === CARD_VIEW_START_MODES.grid
+      : this._host._config?.grid_start_in_grid_enabled === true;
     return (
-      this._host._config?.grid_start_in_grid_enabled === true &&
+      configuredToStartInGrid &&
       this.isGridModeAvailable()
     );
   }

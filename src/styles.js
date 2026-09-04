@@ -660,7 +660,7 @@ export const STYLES = `
   .ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--c-text2);background:linear-gradient(145deg,#1a2540,#0d1520);}
   .ph svg{width:40px;height:40px;opacity:.35;}
   .live-grid{width:100%;height:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:6px;padding:6px;box-sizing:border-box;}
-  .live-grid-cell{position:relative;border:1px solid var(--c-text3) !important;box-sizing:border-box;background:var(--c-bg-deep);border-radius:calc(var(--fvc-border-radius, 0px) / 2) !important;overflow:hidden;}
+  .live-grid-cell{position:relative;border:1px solid var(--c-text3) !important;box-sizing:border-box;background:var(--c-bg-deep);border-radius:calc(var(--fvc-border-radius, 0px) / 2) !important;overflow:hidden;cursor:pointer;touch-action:manipulation;}
   .live-grid-cell.grid-alert{border-color:var(--c-bg-alert, var(--error-color));box-shadow:inset 0 0 0 1px varvar(--c-bg-alert, var(--error-color));cursor:pointer;}
   .live-grid-cell.grid-detection{border-color:var(--c-bg-detect,var(--warning-color));box-shadow:inset 0 0 0 1px var(--c-bg-detect,var(--warning-color));}
   .live-grid-cell.empty{display:flex;align-items:center;justify-content:center;cursor:default;}
@@ -764,6 +764,7 @@ export const STYLES = `
   .info-row-action-slot{text-align: center;align-self: stretch; display: flex; align-items: center; justify-content: center;}
   .two-way-talk-control-row{display:grid;grid-template-columns:40px;align-items:center;justify-content:center;justify-items:center;gap:6px;}
   .two-way-talk-control-row.has-inline-mute{grid-template-columns:40px 40px 40px;}
+  .two-way-talk-control-row.has-inline-mute.without-incoming-mute{grid-template-columns:40px 40px;}
   .two-way-talk-control-row .info-row-mic-btn{grid-column:1;}
   .two-way-talk-control-row.has-inline-mute .info-row-mic-btn{grid-column:2;}
   .two-way-talk-control-row .two-way-talk-microphone-mute-btn{grid-column:1;}

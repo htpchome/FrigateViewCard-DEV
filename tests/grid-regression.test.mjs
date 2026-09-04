@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { GridMediaController } from "../src/features/grid/media.ctrl.js";
+import { GridPageController } from "../src/features/grid/page.ctrl.js";
 
 const source = fs.readFileSync(
   new URL("../dist/frigate-view-card.js", import.meta.url),
@@ -196,12 +197,38 @@ test("Grid startup and its toolbar button use the same view-mode activation", ()
   );
 });
 
+test("standalone Card View permits Grid on phones and owns its start mode", () => {
+  const host = {
+    _config: {
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+      grid_mode_enabled: true,
+      grid_start_in_grid_enabled: true,
+      card_view_page_enabled: true,
+      card_view_standalone: false,
+      card_view_start_mode: "live",
+    },
+    _isMobilePhoneViewport: () => true,
+  };
+  const controller = new GridPageController(host);
+
+  assert.equal(controller.isGridModeAvailable(), false);
+  host._config.card_view_standalone = true;
+  assert.equal(controller.isGridModeAvailable(), true);
+  assert.equal(controller.shouldStartInGridMode(), false);
+  host._config.card_view_start_mode = "grid";
+  assert.equal(controller.shouldStartInGridMode(), true);
+});
+
 test("Grid cells own their border and rounded clipping directly", () => {
   const cellRule =
     stylesSource.match(/\.live-grid-cell\{(?<declarations>[^}]*)\}/)?.groups
       ?.declarations || "";
   assert.match(cellRule, /overflow:hidden;/);
   assert.match(cellRule, /box-sizing:border-box;/);
+  assert.match(cellRule, /touch-action:manipulation;/);
   assert.match(
     cellRule,
     /border:1px solid var\(--c-text3\)\s*!important;/,

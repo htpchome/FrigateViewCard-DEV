@@ -110,6 +110,7 @@ import {
   limitCameraConfigsByPhysicalCount,
 } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
+import { normalizeCardViewStartMode } from "../features/card-view/config.js";
 import { applyEditorPreviewDraftToCardConfig } from "../config/preview-mapper.js";
 import {
   DEFAULT_CAMERA_ENTITY,
@@ -1710,6 +1711,13 @@ export class FrigateViewCard extends HTMLElement {
       card_view_standalone:
         config.card_view_page_enabled === true &&
         config.card_view_standalone === true,
+      card_view_start_mode: normalizeCardViewStartMode(
+        config.card_view_start_mode,
+      ),
+      card_view_video_panel_only:
+        config.card_view_video_panel_only === true,
+      card_view_hide_camera_name:
+        config.card_view_hide_camera_name === true,
       landing_page: normalizePageRoute(config.landing_page),
       mobile_page: normalizeMobilePageMode(config.mobile_page),
       deep_link_enabled: config.deep_link_enabled !== false,
@@ -1810,6 +1818,17 @@ export class FrigateViewCard extends HTMLElement {
     const cardViewStandaloneChanged =
       !!prevConfig &&
       prevConfig.card_view_standalone !== nextConfig.card_view_standalone;
+    const cardViewStartModeChanged =
+      !!prevConfig &&
+      prevConfig.card_view_start_mode !== nextConfig.card_view_start_mode;
+    const cardViewVideoPanelOnlyChanged =
+      !!prevConfig &&
+      prevConfig.card_view_video_panel_only !==
+        nextConfig.card_view_video_panel_only;
+    const cardViewHideCameraNameChanged =
+      !!prevConfig &&
+      prevConfig.card_view_hide_camera_name !==
+        nextConfig.card_view_hide_camera_name;
     const displayLogoChanged =
       !!prevConfig && prevConfig.display_logo !== nextConfig.display_logo;
     const previewVisualChanged =
@@ -1873,6 +1892,10 @@ export class FrigateViewCard extends HTMLElement {
       this._cardViewPageController.applyConfigUpdate({
         takeoverDefaultChanged: cardViewTakeoverDefaultChanged,
         drawerDefaultChanged: cardViewDrawerDefaultChanged,
+        standaloneChanged: cardViewStandaloneChanged,
+        startModeChanged: cardViewStartModeChanged,
+        videoPanelOnlyChanged: cardViewVideoPanelOnlyChanged,
+        hideCameraNameChanged: cardViewHideCameraNameChanged,
       });
     }
 
@@ -3172,10 +3195,13 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _isSlideshowRotationAvailable() {
+    const allowPhone =
+      this._config?.card_view_page_enabled === true &&
+      this._config?.card_view_standalone === true;
     return (
       this._config?.slideshow_rotation_enabled === true &&
-      !DEVICE_PROFILE.isPhone &&
-      !this._isMobilePhoneViewport() &&
+      (allowPhone ||
+        (!DEVICE_PROFILE.isPhone && !this._isMobilePhoneViewport())) &&
       Array.isArray(this._config?.cameras) &&
       flattenCameraMembers(this._config.cameras).length > 1
     );
@@ -3207,30 +3233,33 @@ export class FrigateViewCard extends HTMLElement {
     if (this._slideshowCountdownT) clearInterval(this._slideshowCountdownT);
     this._slideshowCountdownT = null;
     const chip = this._$("#slideshow-next-chip");
-    if (!chip) return;
-    chip.hidden = true;
-    chip.textContent = "Next Slide: 0s";
+    if (chip) {
+      chip.hidden = true;
+      chip.textContent = "Next Slide: 0s";
+    }
+    this._cardViewPageController?.syncStandaloneSlideshowCountdown?.();
   }
 
   _syncSlideshowCountdownOverlay() {
     const chip = this._$("#slideshow-next-chip");
-    if (!chip) return;
     const show =
       this._slideshowActive &&
       this._viewMode === "single" &&
       this._isSlideshowRotationAvailable() &&
       !this._slideshowPopupPaused;
-    if (!show) {
+    if (chip && !show) {
       chip.hidden = true;
-      return;
     }
-    const remainingMs = Math.max(
-      0,
-      Number(this._slideshowNextSwitchAtMs || 0) - Date.now(),
-    );
-    const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
-    chip.textContent = `Next Slide: ${remainingSec}s`;
-    chip.hidden = false;
+    if (chip && show) {
+      const remainingMs = Math.max(
+        0,
+        Number(this._slideshowNextSwitchAtMs || 0) - Date.now(),
+      );
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+      chip.textContent = `Next Slide: ${remainingSec}s`;
+      chip.hidden = false;
+    }
+    this._cardViewPageController?.syncStandaloneSlideshowCountdown?.();
   }
 
   _setSlideshowCountdown(waitMs) {
@@ -4426,17 +4455,17 @@ export class FrigateViewCard extends HTMLElement {
     });
   }
 
-  _buildTwoWayTalkControlRowMarkup() {
+  _buildTwoWayTalkControlRowMarkup({ includeIncomingMute = true } = {}) {
     const active = this._twoWayTalkActiveForCurrentCamera();
     const muted = this._resolveLiveMuteControlMuted();
     const soundwaveEnabled =
       this._shouldRenderTwoWayTalkSoundwave?.() === true;
     const soundwaveActive = active && soundwaveEnabled;
-    return `<div class="two-way-talk-control-row${active ? " has-inline-mute" : ""}${soundwaveActive ? " has-soundwave" : ""}">
+    return `<div class="two-way-talk-control-row${active ? " has-inline-mute" : ""}${soundwaveActive ? " has-soundwave" : ""}${includeIncomingMute ? "" : " without-incoming-mute"}">
       ${soundwaveEnabled ? buildTwoWayTalkSoundwaveMarkup({ active: soundwaveActive }) : ""}
       ${this._buildTwoWayTalkMicrophoneMuteButtonMarkup()}
       ${this._buildTwoWayTalkButtonMarkup()}
-      ${buildLiveMuteControlMarkup({
+      ${includeIncomingMute ? buildLiveMuteControlMarkup({
         icons: ICONS,
         streamMuted: muted,
         buttonClass: "icon-btn",
@@ -4445,7 +4474,7 @@ export class FrigateViewCard extends HTMLElement {
         extraClass: `two-way-talk-inline-mute-btn${active && !muted ? " talk-audio-active" : ""}`,
         pressed: !muted,
         hidden: !active,
-      })}
+      }) : ""}
     </div>`;
   }
 
@@ -4473,8 +4502,10 @@ export class FrigateViewCard extends HTMLElement {
 
   _shouldRenderTwoWayTalkSoundwave() {
     return (
-      DEVICE_PROFILE.isDesktop === true &&
-      !this._isMobileTabletViewport()
+      (this._isCardViewPageActive?.() === true &&
+        this._config?.card_view_standalone === true) ||
+      (DEVICE_PROFILE.isDesktop === true &&
+        !this._isMobileTabletViewport())
     );
   }
 
@@ -4830,11 +4861,14 @@ export class FrigateViewCard extends HTMLElement {
       this._liveOverlayControlsController = null;
     }
     if (!wrap.classList.contains("live-stage--overlay")) return;
+    const card = this._$("#card");
     const show = () => {
       wrap.classList.add("live-controls-visible");
+      card?.classList?.add("card-view-overlays-visible");
     };
     const hideNow = () => {
       wrap.classList.remove("live-controls-visible");
+      card?.classList?.remove("card-view-overlays-visible");
       if (this._liveControlsHideTimer) {
         clearTimeout(this._liveControlsHideTimer);
         this._liveControlsHideTimer = null;
@@ -4845,6 +4879,7 @@ export class FrigateViewCard extends HTMLElement {
         clearTimeout(this._liveControlsHideTimer);
       this._liveControlsHideTimer = setTimeout(() => {
         wrap.classList.remove("live-controls-visible");
+        card?.classList?.remove("card-view-overlays-visible");
         this._liveControlsHideTimer = null;
       }, ms);
     };
@@ -6473,11 +6508,13 @@ export class FrigateViewCard extends HTMLElement {
     const wrap = this._$("#live-stage.live-stage--overlay");
     if (!wrap) return;
     wrap.classList.add("live-controls-visible");
+    this._$("#card")?.classList?.add("card-view-overlays-visible");
     if (this._liveControlsHideTimer) clearTimeout(this._liveControlsHideTimer);
     this._liveControlsHideTimer = setTimeout(
       () => {
         const nextWrap = this._$("#live-stage.live-stage--overlay");
         nextWrap?.classList.remove("live-controls-visible");
+        this._$("#card")?.classList?.remove("card-view-overlays-visible");
         this._liveControlsHideTimer = null;
       },
       Math.max(500, Number(ms) || 2200),
