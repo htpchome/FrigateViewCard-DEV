@@ -87,3 +87,62 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   expect(await page.evaluate(() => typeof window.Hls)).toBe("function");
   expect(pageErrors).toEqual([]);
 });
+
+test.describe("touch input", () => {
+  test.use({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) " +
+      "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 " +
+      "Mobile/15E148 Safari/604.1",
+    viewport: { width: 390, height: 844 },
+  });
+
+  test("opens and selects from the Card View video-overlay camera picker", async ({
+    page,
+  }) => {
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+
+    await page.goto(baseUrl);
+    await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [
+          { entity: "camera.front", name: "Front" },
+          { entity: "camera.back", name: "Back" },
+        ],
+        card_view_page_enabled: true,
+        card_view_standalone: false,
+        card_view_view_mode: "video-only",
+      });
+      card._pageId = "card-view";
+      card._switchCamera = async (index) => {
+        card.dataset.selectedCamera = String(index);
+        card._activeCamIdx = index;
+        card._mobileCamSwitcherOpen = false;
+        card._renderCamSwitcher();
+      };
+      card._renderShell();
+    });
+
+    const card = page.locator("frigate-view-card");
+    const trigger = card.locator("[data-mobile-cam-trigger]");
+    await expect(trigger).toBeVisible();
+    await trigger.tap();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    const secondCamera = card.locator('[data-mobile-camidx="1"]');
+    await expect(secondCamera).toBeVisible();
+    await secondCamera.tap();
+    await expect(card).toHaveAttribute("data-selected-camera", "1");
+    await expect(card.locator("[data-mobile-cam-trigger]")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(pageErrors).toEqual([]);
+  });
+});
