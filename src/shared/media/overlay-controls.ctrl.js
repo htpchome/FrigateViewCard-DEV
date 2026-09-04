@@ -10,6 +10,7 @@ export class MediaOverlayControlsController {
     hideNow,
     hideSoon,
     revealDurationMs = 1300,
+    touchRevealDurationMs = revealDurationMs,
     autoHideMouse = false,
   }) {
     this._surface = surface || wrap;
@@ -17,6 +18,10 @@ export class MediaOverlayControlsController {
     this._hideNow = hideNow;
     this._hideSoon = hideSoon;
     this._revealDurationMs = Math.max(0, Number(revealDurationMs) || 0);
+    this._touchRevealDurationMs = Math.max(
+      0,
+      Number(touchRevealDurationMs) || 0,
+    );
     this._autoHideMouse = autoHideMouse === true;
     this._lastMouseRevealAt = 0;
     this._cleanup = new CleanupController();
@@ -122,7 +127,7 @@ export class MediaOverlayControlsController {
     this._pointers.delete(event.pointerId);
     if (!pointer || pointer.moved) return;
     this._show?.();
-    this._hideSoon?.(this._revealDurationMs);
+    this._hideSoon?.(this._touchRevealDurationMs);
   };
 
   _onPointerCancel = (event) => {

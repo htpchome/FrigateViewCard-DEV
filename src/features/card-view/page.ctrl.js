@@ -135,7 +135,7 @@ export class CardViewPageController {
     this._mediaDrawerController = new CardViewMediaDrawerController({
       query: (selector) => this._host.shadowRoot?.querySelector?.(selector),
       isEnabled: () =>
-        this.isStandalone() &&
+        this.usesOverlayPresentation() &&
         this._host._config?.card_view_media_drawer_enabled === true,
       getEvents: (mediaType) =>
         this._host._popupCarouselController?.eventsForMediaType?.(mediaType) ||
@@ -168,8 +168,18 @@ export class CardViewPageController {
     );
   }
 
+  usesOverlayPresentation() {
+    if (!this.isActive()) return false;
+    return (
+      this.isStandalone() ||
+      normalizeCardViewViewMode(
+        this._host._config?.card_view_view_mode,
+      ) === CARD_VIEW_VIEW_MODES.videoOnly
+    );
+  }
+
   applyConfiguredStartMode({ force = false } = {}) {
-    if (!this.isStandalone()) return false;
+    if (!this.usesOverlayPresentation()) return false;
     if (this._startModeApplied && !force) return false;
     this._startModeApplied = true;
 
@@ -216,7 +226,7 @@ export class CardViewPageController {
 
   activateCardViewPageRoute(context = {}) {
     this._startModeApplied = false;
-    const routeContext = this.isStandalone()
+    const routeContext = this.usesOverlayPresentation()
       ? {
           ...context,
           startInGrid:
@@ -501,10 +511,10 @@ export class CardViewPageController {
       online: activeState ? activeState.state !== "unavailable" : true,
       pickerOpen: this._host._mobileCamSwitcherOpen === true,
       activeCameraName:
-        this.isStandalone() && this._host._viewMode === "grid"
+        this.usesOverlayPresentation() && this._host._viewMode === "grid"
           ? "Grid"
           : "",
-      showStatus: !this.isStandalone(),
+      showStatus: !this.usesOverlayPresentation(),
     });
   }
 
@@ -518,7 +528,7 @@ export class CardViewPageController {
   }
 
   syncStandalonePickerPanelSize() {
-    if (!this.isStandalone()) return;
+    if (!this.usesOverlayPresentation()) return;
     const panel = this._host.shadowRoot?.querySelector?.(
       ".card-view-camera-row .mobile-cam-picker__panel",
     );
@@ -610,7 +620,7 @@ export class CardViewPageController {
       "[data-card-view-standalone-mode-controls]",
     );
     if (!container) return;
-    if (!this.isStandalone()) {
+    if (!this.usesOverlayPresentation()) {
       container.innerHTML = "";
       this._standaloneModeControlsMarkup = "";
       this._resetStandaloneGridIndicator(container);
@@ -675,7 +685,7 @@ export class CardViewPageController {
   }
 
   syncStandaloneSlideshowCountdown() {
-    if (!this.isStandalone()) return;
+    if (!this.usesOverlayPresentation()) return;
     const countdown = this._host.shadowRoot?.querySelector?.(
       "[data-card-view-slideshow-countdown]",
     );
@@ -692,7 +702,7 @@ export class CardViewPageController {
       "[data-card-view-standalone-talk-overlay]",
     );
     if (!container) return;
-    if (!this.isStandalone()) {
+    if (!this.usesOverlayPresentation()) {
       container.innerHTML = "";
       this._standaloneTalkMarkup = "";
       return;
@@ -701,7 +711,7 @@ export class CardViewPageController {
       this._host._shouldRenderTwoWayTalkButtonForActiveCamera?.() === true;
     const markup = showMicrophone
       ? this._host._buildTwoWayTalkControlRowMarkup?.({
-          includeIncomingAudioMute: false,
+          includeIncomingAudioMute: true,
         }) || ""
       : "";
     if (markup !== this._standaloneTalkMarkup) {
@@ -729,7 +739,7 @@ export class CardViewPageController {
     if (!toolbar) return;
     const showMicrophone =
       this._host._shouldRenderTwoWayTalkButtonForActiveCamera?.() === true;
-    const standalone = this.isStandalone();
+    const overlayPresentation = this.usesOverlayPresentation();
     const resolvedButtonStates =
       buttonStates || this._host._toolbarButtonStates?.() || {};
     const toolbarMarkup = buildCardViewToolbarMarkup({
@@ -743,31 +753,32 @@ export class CardViewPageController {
       showPtz: this._canUseActiveCameraPtz(),
       ptzDisabled: resolvedButtonStates.controlsDisabled === true,
       gridAvailable:
-        !standalone && this._host._isGridModeAvailable?.() === true,
+        !overlayPresentation &&
+        this._host._isGridModeAvailable?.() === true,
       gridActive: this._host._viewMode === "grid",
       gridDisabled: resolvedButtonStates.gridDisabled === true,
       slideshowAvailable:
-        !standalone &&
+        !overlayPresentation &&
         this._host._isSlideshowRotationAvailable?.() === true,
       slideshowActive: this._host._slideshowActive === true,
       slideshowDisabled: resolvedButtonStates.slideshowDisabled === true,
-      showMicrophone: !standalone && showMicrophone,
-      microphoneMarkup: !standalone && showMicrophone
+      showMicrophone: !overlayPresentation && showMicrophone,
+      microphoneMarkup: !overlayPresentation && showMicrophone
         ? this._host._buildTwoWayTalkControlRowMarkup?.() || ""
         : "",
-      linkedLightLeftMarkup: !standalone
+      linkedLightLeftMarkup: !overlayPresentation
         ? this._host._buildLinkedLightControlMarkup?.({
             buttonClass: "icon-btn",
             position: "left",
           }) || ""
         : "",
-      linkedLightRightMarkup: !standalone
+      linkedLightRightMarkup: !overlayPresentation
         ? this._host._buildLinkedLightControlMarkup?.({
             buttonClass: "icon-btn",
             position: "right",
           }) || ""
         : "",
-      showCenterControls: !standalone,
+      showCenterControls: !overlayPresentation,
     });
     if (
       toolbar !== this._toolbarContent ||
@@ -1192,9 +1203,13 @@ export class CardViewPageController {
       this.syncCardViewPageMarkup();
       this.renderCamSwitcher();
     }
+    if (standaloneChanged || viewModeChanged) {
+      this._host._initLiveOverlayControls?.();
+    }
     if (
       standaloneChanged ||
-      mediaDrawerEnabledChanged
+      mediaDrawerEnabledChanged ||
+      viewModeChanged
     ) {
       this._mediaDrawerController.syncState();
       this.renderMediaDrawer();

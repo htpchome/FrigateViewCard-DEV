@@ -77,6 +77,8 @@ export const CAMERA_PICKER_STYLES = `
     background:var(--c-bg-primary);
     color:var(--c-text);
     cursor:pointer;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
   }
 
   :is(.card.mobile-view-active,.card.card-view-active) .mobile-cam-picker__trigger-content {
@@ -154,6 +156,8 @@ export const CAMERA_PICKER_STYLES = `
 
   :is(.card.mobile-view-active,.card.card-view-active) .mobile-cam-picker__option {
     appearance:none;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
     width:100%;
     box-sizing:border-box;
     display:flex;

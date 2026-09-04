@@ -109,6 +109,10 @@ export class VideoZoomController {
       typeof options.onInteractionStart === "function"
         ? options.onInteractionStart
         : null;
+    this._onZoomStateChange =
+      typeof options.onZoomStateChange === "function"
+        ? options.onZoomStateChange
+        : null;
     this._maxScale = Math.max(
       VIDEO_ZOOM_DOUBLE_TAP,
       Number(options.maxScale) || VIDEO_ZOOM_MAX,
@@ -136,6 +140,7 @@ export class VideoZoomController {
     this._presentationSuspended = false;
     this._presentationRefreshFrame = 0;
     this._presentationVideoFrameCallback = null;
+    this._zoomed = false;
   }
 
   get video() {
@@ -512,6 +517,7 @@ export class VideoZoomController {
       this._video?.style?.setProperty?.("transform", "none", "important");
       this._video?.style?.setProperty?.("cursor", "default");
       this._video?.classList?.toggle?.("fvc-video-zoomed", false);
+      this._setZoomed(false);
       return;
     }
     const transform =
@@ -527,10 +533,18 @@ export class VideoZoomController {
       );
     }
     this._applyCursor();
-    this._video?.classList?.toggle?.(
-      "fvc-video-zoomed",
-      this._scale > VIDEO_ZOOM_MIN + EPSILON,
-    );
+    const zoomed = this._scale > VIDEO_ZOOM_MIN + EPSILON;
+    this._video?.classList?.toggle?.("fvc-video-zoomed", zoomed);
+    this._setZoomed(zoomed);
+  }
+
+  _setZoomed(zoomed) {
+    const next = zoomed === true;
+    if (next === this._zoomed) return;
+    this._zoomed = next;
+    try {
+      this._onZoomStateChange?.(next);
+    } catch (_) {}
   }
 
   _applyCursor() {

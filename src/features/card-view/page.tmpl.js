@@ -228,14 +228,21 @@ export function applyCardViewPageMarkup({ host, pageIds } = {}) {
   );
   const videoPanelOnly =
     active && viewMode === CARD_VIEW_VIEW_MODES.videoOnly;
+  const overlayPresentation = standalone || videoPanelOnly;
   const hideCameraName =
-    standalone && host?._config?.card_view_hide_camera_name === true;
+    overlayPresentation &&
+    host?._config?.card_view_hide_camera_name === true;
   const mediaDrawerEnabled =
-    standalone && host?._config?.card_view_media_drawer_enabled === true;
+    overlayPresentation &&
+    host?._config?.card_view_media_drawer_enabled === true;
   host?.classList?.toggle(CARD_VIEW_HOST_CLASS, active);
   const card = host?._$?.("#card");
   card?.classList?.toggle(CARD_VIEW_ACTIVE_CLASS, active);
   card?.classList?.toggle("card-view-standalone", standalone);
+  card?.classList?.toggle(
+    "card-view-overlay-presentation",
+    overlayPresentation,
+  );
   card?.classList?.toggle("card-view-video-panel-only", videoPanelOnly);
   card?.classList?.toggle("card-view-hide-camera-name", hideCameraName);
   card?.classList?.toggle(
@@ -244,10 +251,10 @@ export function applyCardViewPageMarkup({ host, pageIds } = {}) {
   );
   card?.classList?.toggle(
     "card-view-grid-mode",
-    standalone && host?._viewMode === "grid",
+    overlayPresentation && host?._viewMode === "grid",
   );
   card?.classList?.toggle(
     "card-view-slideshow-mode",
-    standalone && host?._slideshowActive === true,
+    overlayPresentation && host?._slideshowActive === true,
   );
 }

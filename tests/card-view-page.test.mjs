@@ -302,9 +302,60 @@ test("standalone Card View reuses the shared two-way-talk controls", () => {
 
   controller.renderStandaloneLinkedControls();
 
-  assert.deepEqual(talkOptions, { includeIncomingAudioMute: false });
+  assert.deepEqual(talkOptions, { includeIncomingAudioMute: true });
   assert.equal(container.innerHTML, "shared-talk-controls");
   assert.equal(lightSyncs, 1);
+});
+
+test("non-standalone Video Only renders picker and center controls as overlays", () => {
+  const modeControls = { innerHTML: "" };
+  const talkControls = { innerHTML: "" };
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "single",
+    _slideshowActive: false,
+    _activeCamIdx: 0,
+    _activeCam: { entity: "camera.doorbell", name: "Doorbell" },
+    _config: {
+      card_view_standalone: false,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+      cameras: [{ entity: "camera.doorbell", name: "Doorbell" }],
+    },
+    _hass: {
+      states: { "camera.doorbell": { state: "streaming" } },
+    },
+    shadowRoot: {
+      querySelector: (selector) => {
+        if (selector === "[data-card-view-standalone-mode-controls]") {
+          return modeControls;
+        }
+        if (selector === "[data-card-view-standalone-talk-overlay]") {
+          return talkControls;
+        }
+        return null;
+      },
+    },
+    _isGridModeAvailable: () => true,
+    _isSlideshowRotationAvailable: () => true,
+    _shouldRenderTwoWayTalkButtonForActiveCamera: () => true,
+    _buildTwoWayTalkControlRowMarkup: () => "overlay-microphone",
+    _syncTwoWayTalkSoundwaveSurface: () => {},
+    _linkedLightController: { sync: () => {} },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  assert.equal(controller.usesOverlayPresentation(), true);
+  assert.doesNotMatch(
+    controller.camSwitcherMarkup(),
+    /mobile-cam-picker__status/,
+  );
+  controller.renderStandaloneModeControls();
+  controller.renderStandaloneLinkedControls();
+  assert.match(modeControls.innerHTML, /data-card-view-standalone-grid/);
+  assert.match(modeControls.innerHTML, /data-card-view-standalone-slideshow/);
+  assert.equal(talkControls.innerHTML, "overlay-microphone");
 });
 
 test("standalone Card View markup reflects video-only, hidden-name, and active mode state", () => {
@@ -338,11 +389,51 @@ test("standalone Card View markup reflects video-only, hidden-name, and active m
 
   assert.equal(hostClasses.has("card-view-natural-height"), true);
   assert.equal(cardClasses.has("card-view-standalone"), true);
+  assert.equal(cardClasses.has("card-view-overlay-presentation"), true);
   assert.equal(cardClasses.has("card-view-video-panel-only"), true);
   assert.equal(cardClasses.has("card-view-hide-camera-name"), true);
   assert.equal(cardClasses.has("card-view-media-drawer-enabled"), true);
   assert.equal(cardClasses.has("card-view-grid-mode"), true);
   assert.equal(cardClasses.has("card-view-slideshow-mode"), false);
+});
+
+test("non-standalone Video Only uses the complete in-video overlay presentation", () => {
+  const cardClasses = new Set();
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "grid",
+    _slideshowActive: false,
+    _config: {
+      card_view_standalone: false,
+      card_view_media_drawer_enabled: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+      card_view_hide_camera_name: true,
+    },
+    classList: { toggle: () => {} },
+    _$: (selector) =>
+      selector === "#card"
+        ? {
+            classList: {
+              toggle: (name, enabled) => {
+                if (enabled) cardClasses.add(name);
+                else cardClasses.delete(name);
+              },
+            },
+          }
+        : null,
+  };
+
+  applyCardViewPageMarkup({
+    host,
+    pageIds: { cardView: "card-view" },
+  });
+
+  assert.equal(cardClasses.has("card-view-standalone"), false);
+  assert.equal(cardClasses.has("card-view-overlay-presentation"), true);
+  assert.equal(cardClasses.has("card-view-video-panel-only"), true);
+  assert.equal(cardClasses.has("card-view-hide-camera-name"), true);
+  assert.equal(cardClasses.has("card-view-media-drawer-enabled"), true);
+  assert.equal(cardClasses.has("card-view-grid-mode"), true);
 });
 
 test("Card View toolbar swaps alert and recording controls without a day heading", () => {
@@ -411,10 +502,10 @@ test("Card View toolbar progressively stacks then hides both compact labels", ()
   );
 });
 
-test("standalone Card View styles keep overlays on the existing rounded video stage", () => {
+test("Card View overlay presentation keeps controls on the rounded video stage", () => {
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.card-view-live-stage[\s\S]*?border-radius:var\(--fvc-border-radius,0px\)/,
+    /card-view-overlay-presentation \.card-view-live-stage[\s\S]*?border-radius:var\(--fvc-border-radius,0px\)/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -426,23 +517,23 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.slideshow-next-chip \{display:none !important;\}/,
+    /card-view-overlay-presentation \.slideshow-next-chip \{display:none !important;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(112px,38%,200px\) minmax\(0,1fr\)/,
+    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(112px,38%,200px\) minmax\(0,1fr\)/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.mobile-cam-picker \{[\s\S]*?grid-column:2;grid-row:1;/,
+    /card-view-overlay-presentation \.mobile-cam-picker \{[\s\S]*?grid-column:2;grid-row:1;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.card-view-standalone-slideshow-button \{grid-column:1;justify-self:end;/,
+    /card-view-overlay-presentation \.card-view-standalone-slideshow-button \{grid-column:1;justify-self:end;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \[data-card-view-standalone-grid\] \{grid-column:3;justify-self:start;/,
+    /card-view-overlay-presentation \[data-card-view-standalone-grid\] \{grid-column:3;justify-self:start;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -478,6 +569,10 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-linked-overlay:has\(#two-way-talk-btn\.active\) \.card-view-standalone-light-controls \{display:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-standalone-talk-overlay \.two-way-talk-control-row :is\(\.two-way-talk-microphone-mute-btn,\.two-way-talk-inline-mute-btn\)[\s\S]*?background:transparent;[\s\S]*?box-shadow:none;/,
   );
   assert.match(
@@ -487,6 +582,10 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-standalone-slideshow-button\.active \{[\s\S]*?opacity:\.68;pointer-events:auto;animation:card-view-slideshow-button-settle 3\.2s ease-out forwards;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /\[data-card-view-standalone-grid\]\.active \{[\s\S]*?opacity:\.68;pointer-events:auto;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -502,7 +601,7 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.two-way-talk-result-bubble \{top:50%;bottom:auto;transform:translate\(-50%,-50%\);\}/,
+    /card-view-overlay-presentation \.two-way-talk-result-bubble \{top:50%;bottom:auto;transform:translate\(-50%,-50%\);\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -546,11 +645,19 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.card-view-live-panel \{[\s\S]*?min-height:var\(--popup-card-view-media-height,0px\);/,
+    /card-view-overlay-presentation \.card-view-live-panel \{[\s\S]*?min-height:var\(--popup-card-view-media-height,0px\);/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /@container card-view-live \(max-width:440px\) \{[\s\S]*?linked-light-dimmer-panel \{width:72px;[\s\S]*?linked-light-brightness-track \{width:38px;height:70px;/,
+    /card-view-overlay-presentation \.linked-light-dimmer-panel \{width:80px;gap:4px;padding:6px 5px;\}[\s\S]*?linked-light-brightness-track \{width:44px;height:92px;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlay-presentation:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-camera-row \{[\s\S]*?position:fixed;z-index:1500;[\s\S]*?safe-area-inset-left/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlay-presentation:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-media-drawer-handle,[\s\S]*?top:auto;bottom:max\(8px,env\(safe-area-inset-bottom,0px\)\);left:50%;width:56px;height:30px;/,
   );
   assert.equal((CARD_VIEW_PAGE_STYLES.match(/top:45px/g) || []).length, 0);
   assert.match(
@@ -563,19 +670,19 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:has\(\.fvc-video-zoomed\) \.mobile-cam-picker\[data-mobile-cam-picker\],[\s\S]*?card-view-live-panel:has\(\.fvc-video-zoomed\) \.card-view-standalone-mode-button \{opacity:0;pointer-events:none;/,
+    /card-view-video-zoomed \.mobile-cam-picker\[data-mobile-cam-picker\],[\s\S]*?card-view-video-zoomed \.card-view-standalone-mode-button,[\s\S]*?\{opacity:0;pointer-events:none;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.mobile-cam-picker \{[\s\S]*?transition:opacity \.16s ease;/,
+    /card-view-overlay-presentation \.mobile-cam-picker \{[\s\S]*?transition:opacity \.16s ease;/,
   );
   assert.doesNotMatch(CARD_VIEW_PAGE_STYLES, /translateY\(-3px\)/);
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:has\(\.fvc-video-zoomed\) \.card-view-standalone-linked-overlay \{opacity:0;pointer-events:none;/,
+    /card-view-video-zoomed \.card-view-standalone-linked-overlay:not\(:has\(#two-way-talk-btn\.active\)\),[\s\S]*?\{opacity:0;pointer-events:none;/,
   );
   const openMediaDrawerRule = CARD_VIEW_PAGE_STYLES.match(
-    /card-view-standalone:has\(\.card-view-media-drawer\.is-open\) \.card-view-camera-row,[\s\S]*?\{[^}]*visibility:hidden;[^}]*\}/,
+    /card-view-overlay-presentation:has\(\.card-view-media-drawer\.is-open\) \.card-view-camera-row,[\s\S]*?\{[^}]*visibility:hidden;[^}]*\}/,
   )?.[0];
   assert.ok(openMediaDrawerRule);
   assert.match(openMediaDrawerRule, /card-view-standalone-linked-overlay/);
@@ -1053,14 +1160,15 @@ test("standalone presentation-only config changes do not reload activity data", 
   assert.equal(refreshes, 0);
 });
 
-test("switching Card View to Video Only reapplies the configured Grid start", () => {
+test("switching non-standalone Card View to Video Only applies its overlay and configured Grid start", () => {
   const modeChanges = [];
+  let overlayRebinds = 0;
   const host = {
     _pageId: "card-view",
     _viewMode: "single",
     _slideshowActive: false,
     _config: {
-      card_view_standalone: true,
+      card_view_standalone: false,
       card_view_start_mode: CARD_VIEW_START_MODES.grid,
       card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
     },
@@ -1069,6 +1177,9 @@ test("switching Card View to Video Only reapplies the configured Grid start", ()
     _setViewMode: (mode) => {
       modeChanges.push(mode);
       host._viewMode = mode;
+    },
+    _initLiveOverlayControls: () => {
+      overlayRebinds += 1;
     },
   };
   const controller = new CardViewPageController(host, {
@@ -1080,11 +1191,13 @@ test("switching Card View to Video Only reapplies the configured Grid start", ()
 
   controller.applyConfigUpdate({ viewModeChanged: true });
   assert.deepEqual(modeChanges, ["grid"]);
+  assert.equal(overlayRebinds, 1);
 
   host._config.card_view_view_mode = CARD_VIEW_VIEW_MODES.bottomPanelOpen;
   host._viewMode = "single";
   controller.applyConfigUpdate({ viewModeChanged: true });
   assert.deepEqual(modeChanges, ["grid"]);
+  assert.equal(overlayRebinds, 2);
 });
 
 test("Card View alert tiles retain media actions but omit favorite actions", () => {

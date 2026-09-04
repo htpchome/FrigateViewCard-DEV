@@ -81,6 +81,7 @@ function createZoomFixture({
   nativeCoverPan = false,
   objectFit = "",
   onInteractionStart = null,
+  onZoomStateChange = null,
 } = {}) {
   const host = {
     style: new FakeStyle(),
@@ -146,6 +147,7 @@ function createZoomFixture({
     interactionTarget,
     nativeCoverPan,
     onInteractionStart,
+    onZoomStateChange,
   }).bind();
   return { controller, host, interactionTarget, video };
 }
@@ -275,6 +277,19 @@ test("accepted zoom and pan gestures notify their shared interaction owner", () 
   controller.reset();
   video.dispatch("dblclick");
   assert.equal(starts, 3);
+});
+
+test("zoom state changes are reported outside nested media DOM", () => {
+  const states = [];
+  const { controller } = createZoomFixture({
+    onZoomStateChange: (zoomed) => states.push(zoomed),
+  });
+
+  controller.zoomBy(0.2);
+  controller.zoomBy(0.2);
+  controller.reset();
+
+  assert.deepEqual(states, [true, false]);
 });
 
 test("letterbox space is excluded from the zoom cursor and interaction zone", () => {

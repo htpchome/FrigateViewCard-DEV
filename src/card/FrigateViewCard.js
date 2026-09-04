@@ -111,6 +111,7 @@ import {
 } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
 import {
+  CARD_VIEW_VIEW_MODES,
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
@@ -395,10 +396,26 @@ export class FrigateViewCard extends HTMLElement {
       void this._handleCirclePadPtzEvent(event, "release");
     };
     this._onPtzControlPointerDown = (event) => {
+      this._mobileCamSwitcherController?.handlePointerDown?.(
+        event,
+        event.target,
+      );
       if (this._linkedLightController?.handlePointerDown?.(event)) return;
       void this._handlePtzControlPointerDown(event);
     };
     this._onPtzControlPointerStop = (event) => {
+      if (event.type === "pointerup") {
+        if (
+          this._mobileCamSwitcherController?.handlePointerUp?.(
+            event,
+            event.target,
+          )
+        ) {
+          return;
+        }
+      } else {
+        this._mobileCamSwitcherController?.cancelPointer?.();
+      }
       this._linkedLightController?.handlePointerStop?.(event);
       void this._handlePtzControlPointerStop(event);
     };
@@ -2525,6 +2542,12 @@ export class FrigateViewCard extends HTMLElement {
       this._clearLiveVideoZoom();
       this._liveVideoZoomController = attachVideoZoom(video, {
         onInteractionStart: () => this._dismissLinkedLightDimmers(),
+        onZoomStateChange: (zoomed) => {
+          this._$("#card")?.classList?.toggle?.(
+            "card-view-video-zoomed",
+            zoomed,
+          );
+        },
       });
       this._syncLiveRotateZoomPresentation();
       this._syncPictureInPictureButtons();
@@ -2776,7 +2799,8 @@ export class FrigateViewCard extends HTMLElement {
     }
     this.classList.toggle(
       MOBILE_VIEW_ROTATE_COVER_CLASS,
-      card.classList.contains(MOBILE_VIEW_ACTIVE_CLASS) &&
+      (card.classList.contains(MOBILE_VIEW_ACTIVE_CLASS) ||
+        card.classList.contains("card-view-overlay-presentation")) &&
         uiPlan.retainViewportCover,
     );
     this._rotateOverlayActive = uiPlan.active;
@@ -3237,7 +3261,10 @@ export class FrigateViewCard extends HTMLElement {
   _isSlideshowRotationAvailable() {
     const allowPhone =
       this._config?.card_view_page_enabled === true &&
-      this._config?.card_view_standalone === true;
+      (this._config?.card_view_standalone === true ||
+        normalizeCardViewViewMode(
+          this._config?.card_view_view_mode,
+        ) === CARD_VIEW_VIEW_MODES.videoOnly);
     return (
       this._config?.slideshow_rotation_enabled === true &&
       (allowPhone ||
@@ -4547,7 +4574,7 @@ export class FrigateViewCard extends HTMLElement {
   _shouldRenderTwoWayTalkSoundwave() {
     return (
       (this._isCardViewPageActive?.() === true &&
-        this._config?.card_view_standalone === true) ||
+        this._cardViewPageController?.usesOverlayPresentation?.() === true) ||
       (DEVICE_PROFILE.isDesktop === true &&
         !this._isMobileTabletViewport())
     );
@@ -4906,10 +4933,10 @@ export class FrigateViewCard extends HTMLElement {
     }
     if (!wrap.classList.contains("live-stage--overlay")) return;
     const card = this._$("#card");
-    const standaloneCardView =
+    const overlayCardView =
       this._isCardViewPageActive() &&
-      this._config?.card_view_standalone === true;
-    const interactionSurface = standaloneCardView
+      this._cardViewPageController?.usesOverlayPresentation?.() === true;
+    const interactionSurface = overlayCardView
       ? this._$(".card-view-live-panel") || wrap
       : wrap;
     const show = () => {
@@ -4939,7 +4966,8 @@ export class FrigateViewCard extends HTMLElement {
       show,
       hideNow,
       hideSoon,
-      autoHideMouse: standaloneCardView,
+      touchRevealDurationMs: 2300,
+      autoHideMouse: overlayCardView,
     });
     this._liveOverlayControlsController.bind();
   }

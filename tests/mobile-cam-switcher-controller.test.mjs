@@ -35,6 +35,97 @@ test("mobile cam switcher controller toggles open on trigger click", () => {
   assert.equal(renderCalls, 1);
 });
 
+test("mobile cam switcher controller activates a stationary touch without double toggling on click", () => {
+  let open = false;
+  let renderCalls = 0;
+  let prevented = 0;
+  const trigger = {};
+  const target = createTarget({
+    "[data-mobile-cam-trigger]": trigger,
+  });
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+    renderCamSwitcher: () => {
+      renderCalls += 1;
+    },
+  });
+
+  assert.equal(
+    controller.handlePointerDown(
+      {
+        pointerId: 4,
+        pointerType: "touch",
+        clientX: 40,
+        clientY: 20,
+      },
+      target,
+    ),
+    true,
+  );
+  assert.equal(
+    controller.handlePointerUp(
+      {
+        pointerId: 4,
+        pointerType: "touch",
+        clientX: 42,
+        clientY: 21,
+        preventDefault: () => {
+          prevented += 1;
+        },
+      },
+      target,
+    ),
+    true,
+  );
+  assert.equal(open, true);
+  assert.equal(renderCalls, 1);
+  assert.equal(prevented, 1);
+
+  assert.equal(controller.handleClickTarget(target), true);
+  assert.equal(open, true);
+  assert.equal(renderCalls, 1);
+});
+
+test("mobile cam switcher controller does not activate a dragged touch", () => {
+  let open = false;
+  const trigger = {};
+  const target = createTarget({
+    "[data-mobile-cam-trigger]": trigger,
+  });
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+  });
+
+  controller.handlePointerDown(
+    {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 10,
+      clientY: 10,
+    },
+    target,
+  );
+  assert.equal(
+    controller.handlePointerUp(
+      {
+        pointerId: 7,
+        pointerType: "touch",
+        clientX: 10,
+        clientY: 30,
+      },
+      target,
+    ),
+    false,
+  );
+  assert.equal(open, false);
+});
+
 test("mobile cam switcher controller switches camera on option click", async () => {
   let open = true;
   let paused = 0;

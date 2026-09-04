@@ -93,6 +93,42 @@ test("LiveOverlayControlsController reveals controls after a stationary touch ta
   assert.deepEqual(calls, ["show", ["hideSoon", 1300]]);
 });
 
+test("LiveOverlayControlsController can keep touch controls visible longer than mouse controls", () => {
+  const wrap = createTarget();
+  const calls = [];
+  const controller = new LiveOverlayControlsController({
+    wrap,
+    show: () => calls.push("show"),
+    hideNow: () => calls.push("hideNow"),
+    hideSoon: (ms) => calls.push(["hideSoon", ms]),
+    revealDurationMs: 1300,
+    touchRevealDurationMs: 2300,
+    autoHideMouse: true,
+  });
+
+  controller.bind();
+  wrap.dispatch("pointerenter", { pointerType: "mouse" });
+  wrap.dispatch("pointerdown", {
+    pointerId: 1,
+    pointerType: "touch",
+    clientX: 100,
+    clientY: 80,
+  });
+  wrap.dispatch("pointerup", {
+    pointerId: 1,
+    pointerType: "touch",
+    clientX: 100,
+    clientY: 80,
+  });
+
+  assert.deepEqual(calls, [
+    "show",
+    ["hideSoon", 1300],
+    "show",
+    ["hideSoon", 2300],
+  ]);
+});
+
 test("LiveOverlayControlsController leaves zoom pans and pinches alone", () => {
   const wrap = createTarget();
   const calls = [];
