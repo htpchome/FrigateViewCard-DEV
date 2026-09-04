@@ -190,7 +190,7 @@ test("standalone mode controls are not disabled by Card View alert takeover", ()
 
 test("standalone Card View reuses the shared two-way-talk controls", () => {
   const container = { innerHTML: "" };
-  let talkArgumentCount = -1;
+  let talkOptions = null;
   let lightSyncs = 0;
   const host = {
     _pageId: "card-view",
@@ -203,8 +203,8 @@ test("standalone Card View reuses the shared two-way-talk controls", () => {
           : null,
     },
     _shouldRenderTwoWayTalkButtonForActiveCamera: () => true,
-    _buildTwoWayTalkControlRowMarkup: (...args) => {
-      talkArgumentCount = args.length;
+    _buildTwoWayTalkControlRowMarkup: (options) => {
+      talkOptions = options;
       return "shared-talk-controls";
     },
     _syncTwoWayTalkSoundwaveSurface: () => {},
@@ -220,7 +220,7 @@ test("standalone Card View reuses the shared two-way-talk controls", () => {
 
   controller.renderStandaloneLinkedControls();
 
-  assert.equal(talkArgumentCount, 0);
+  assert.deepEqual(talkOptions, { includeIncomingAudioMute: false });
   assert.equal(container.innerHTML, "shared-talk-controls");
   assert.equal(lightSyncs, 1);
 });
@@ -350,7 +350,7 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.mobile-cam-picker \{[\s\S]*?grid-column:2;/,
+    /card-view-standalone \.mobile-cam-picker \{[\s\S]*?grid-column:2;grid-row:1;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -362,7 +362,15 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-hide-camera-name:not\(\.card-view-grid-mode\) \.mobile-cam-picker \{opacity:0;pointer-events:none;/,
+    /card-view-hide-camera-name \.mobile-cam-picker \{opacity:0;pointer-events:none;/,
+  );
+  assert.doesNotMatch(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-grid-mode \.mobile-cam-picker/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /mobile-cam-picker__panel \{[\s\S]*?overflow-y:auto;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -379,6 +387,18 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-standalone-talk-overlay \{[\s\S]*?grid-column:2;grid-row:1;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-linked-overlay:has\(#two-way-talk-btn\.active\)[^{]*\{opacity:1;pointer-events:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-talk-overlay :is\(\.two-way-talk-microphone-mute-btn,\.two-way-talk-inline-mute-btn\)[\s\S]*?background:transparent;[\s\S]*?box-shadow:none;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.two-way-talk-result-bubble \{top:50%;bottom:auto;transform:translate\(-50%,-50%\);\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -470,7 +490,7 @@ test("Card View shares the Mobile View camera picker and uses a two-state drawer
   );
 });
 
-test("standalone Grid keeps the camera picker visible and labels it Grid", () => {
+test("standalone Grid labels the camera picker Grid", () => {
   const host = {
     _pageId: "card-view",
     _viewMode: "grid",
@@ -500,6 +520,28 @@ test("standalone Grid keeps the camera picker visible and labels it Grid", () =>
   assert.match(markup, /data-mobile-camidx="0"/);
   assert.match(markup, /data-mobile-camidx="1"/);
   assert.doesNotMatch(markup, /mobile-cam-picker__status/);
+});
+
+test("standalone camera picker panel stays within the live stage", () => {
+  const panel = { style: {} };
+  const host = {
+    _pageId: "card-view",
+    _config: { card_view_standalone: true },
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === ".card-view-camera-row .mobile-cam-picker__panel"
+          ? panel
+          : null,
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  controller._standaloneStageHeight = 280;
+
+  controller.syncStandalonePickerPanelSize();
+
+  assert.equal(panel.style.maxHeight, "224px");
 });
 
 test("Card View drawer swipes settle fully open or closed", () => {

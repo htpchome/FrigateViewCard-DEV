@@ -404,6 +404,13 @@ test("desktop talk controls keep the microphone centered and reveal synchronized
     ),
   );
   assert.doesNotMatch(mutedMarkup, /talk-audio-active/);
+
+  const standaloneMarkup = ctx._buildTwoWayTalkControlRowMarkup({
+    includeIncomingAudioMute: false,
+  });
+  assert.match(standaloneMarkup, /two-way-talk-microphone-mute-btn/);
+  assert.doesNotMatch(standaloneMarkup, /two-way-talk-inline-mute-btn/);
+  assert.doesNotMatch(standaloneMarkup, /id="two-way-talk-mute-btn"/);
 });
 
 test("Grid mode suppresses the active camera two-way-talk control", () => {

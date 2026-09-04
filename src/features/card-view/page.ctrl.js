@@ -617,7 +617,9 @@ export class CardViewPageController {
     const showMicrophone =
       this._host._shouldRenderTwoWayTalkButtonForActiveCamera?.() === true;
     const markup = showMicrophone
-      ? this._host._buildTwoWayTalkControlRowMarkup?.() || ""
+      ? this._host._buildTwoWayTalkControlRowMarkup?.({
+          includeIncomingAudioMute: false,
+        }) || ""
       : "";
     if (markup !== this._standaloneTalkMarkup) {
       container.innerHTML = markup;

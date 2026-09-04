@@ -4455,7 +4455,9 @@ export class FrigateViewCard extends HTMLElement {
     });
   }
 
-  _buildTwoWayTalkControlRowMarkup() {
+  _buildTwoWayTalkControlRowMarkup({
+    includeIncomingAudioMute = true,
+  } = {}) {
     const active = this._twoWayTalkActiveForCurrentCamera();
     const muted = this._resolveLiveMuteControlMuted();
     const soundwaveEnabled =
@@ -4465,7 +4467,7 @@ export class FrigateViewCard extends HTMLElement {
       ${soundwaveEnabled ? buildTwoWayTalkSoundwaveMarkup({ active: soundwaveActive }) : ""}
       ${this._buildTwoWayTalkMicrophoneMuteButtonMarkup()}
       ${this._buildTwoWayTalkButtonMarkup()}
-      ${buildLiveMuteControlMarkup({
+      ${includeIncomingAudioMute ? buildLiveMuteControlMarkup({
         icons: ICONS,
         streamMuted: muted,
         buttonClass: "icon-btn",
@@ -4474,7 +4476,7 @@ export class FrigateViewCard extends HTMLElement {
         extraClass: `two-way-talk-inline-mute-btn${active && !muted ? " talk-audio-active" : ""}`,
         pressed: !muted,
         hidden: !active,
-      })}
+      }) : ""}
     </div>`;
   }
 
