@@ -4455,17 +4455,17 @@ export class FrigateViewCard extends HTMLElement {
     });
   }
 
-  _buildTwoWayTalkControlRowMarkup({ includeIncomingMute = true } = {}) {
+  _buildTwoWayTalkControlRowMarkup() {
     const active = this._twoWayTalkActiveForCurrentCamera();
     const muted = this._resolveLiveMuteControlMuted();
     const soundwaveEnabled =
       this._shouldRenderTwoWayTalkSoundwave?.() === true;
     const soundwaveActive = active && soundwaveEnabled;
-    return `<div class="two-way-talk-control-row${active ? " has-inline-mute" : ""}${soundwaveActive ? " has-soundwave" : ""}${includeIncomingMute ? "" : " without-incoming-mute"}">
+    return `<div class="two-way-talk-control-row${active ? " has-inline-mute" : ""}${soundwaveActive ? " has-soundwave" : ""}">
       ${soundwaveEnabled ? buildTwoWayTalkSoundwaveMarkup({ active: soundwaveActive }) : ""}
       ${this._buildTwoWayTalkMicrophoneMuteButtonMarkup()}
       ${this._buildTwoWayTalkButtonMarkup()}
-      ${includeIncomingMute ? buildLiveMuteControlMarkup({
+      ${buildLiveMuteControlMarkup({
         icons: ICONS,
         streamMuted: muted,
         buttonClass: "icon-btn",
@@ -4474,7 +4474,7 @@ export class FrigateViewCard extends HTMLElement {
         extraClass: `two-way-talk-inline-mute-btn${active && !muted ? " talk-audio-active" : ""}`,
         pressed: !muted,
         hidden: !active,
-      }) : ""}
+      })}
     </div>`;
   }
 

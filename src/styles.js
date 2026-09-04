@@ -764,7 +764,6 @@ export const STYLES = `
   .info-row-action-slot{text-align: center;align-self: stretch; display: flex; align-items: center; justify-content: center;}
   .two-way-talk-control-row{display:grid;grid-template-columns:40px;align-items:center;justify-content:center;justify-items:center;gap:6px;}
   .two-way-talk-control-row.has-inline-mute{grid-template-columns:40px 40px 40px;}
-  .two-way-talk-control-row.has-inline-mute.without-incoming-mute{grid-template-columns:40px 40px;}
   .two-way-talk-control-row .info-row-mic-btn{grid-column:1;}
   .two-way-talk-control-row.has-inline-mute .info-row-mic-btn{grid-column:2;}
   .two-way-talk-control-row .two-way-talk-microphone-mute-btn{grid-column:1;}

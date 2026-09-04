@@ -45,7 +45,11 @@ export function buildCardViewMainLayoutShellMarkup({
           <span class="card-view-live-badge-dot" aria-hidden="true"></span>
           <span>Live</span>
         </div>
-        <div class="card-view-standalone-linked-controls" data-card-view-standalone-linked-controls></div>
+        <div class="linked-light-region preview-light-overlay card-view-standalone-light-overlay" data-card-view-standalone-light-overlay data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">
+          <div class="linked-light-position-slot" data-linked-light-position-slot="left" hidden></div>
+          <div class="linked-light-position-slot" data-linked-light-position-slot="right" hidden></div>
+        </div>
+        <div class="card-view-standalone-talk-overlay" data-card-view-standalone-talk-overlay></div>
       </div>
     </div>
     <div class="card-view-drawer is-open" data-card-view-drawer data-drawer-state="open">
@@ -100,24 +104,6 @@ export function buildCardViewStandaloneModeControlsMarkup({
     ${slideshowAvailable ? `<button class="card-view-standalone-mode-button card-view-standalone-slideshow-button${slideshowActive ? " active" : ""}" type="button" data-card-view-standalone-slideshow data-media-overlay-ignore aria-pressed="${slideshowActive}" title="${slideshowLabel}" aria-label="${slideshowLabel}"${slideshowDisabled ? " disabled" : ""}>${slideshowActive ? icons.presentationPlayActive || icons.presentationPlay || "" : icons.presentationPlay || ""}${slideshowActive ? `<span class="card-view-standalone-countdown" data-card-view-slideshow-countdown>${remaining}s</span>` : ""}</button>` : ""}`;
 }
 
-export function buildCardViewStandaloneLinkedControlsMarkup({
-  linkedLightLeftMarkup = "",
-  linkedLightRightMarkup = "",
-  microphoneMarkup = "",
-} = {}) {
-  const hasControls = Boolean(
-    linkedLightLeftMarkup || linkedLightRightMarkup || microphoneMarkup,
-  );
-  if (!hasControls) return "";
-  return `<div class="card-view-standalone-linked-controls-inner" data-media-overlay-ignore>
-    <div class="linked-light-region card-view-standalone-linked-light" data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">
-      <div class="linked-light-position-slot" data-linked-light-position-slot="left" ${linkedLightLeftMarkup ? "" : "hidden"}>${linkedLightLeftMarkup}</div>
-      <div class="linked-light-position-slot" data-linked-light-position-slot="right" ${linkedLightRightMarkup ? "" : "hidden"}>${linkedLightRightMarkup}</div>
-    </div>
-    ${microphoneMarkup ? `<div class="card-view-standalone-microphone-slot">${microphoneMarkup}</div>` : ""}
-  </div>`;
-}
-
 export function buildCardViewToolbarMarkup({
   icons = {},
   mode = "alerts",
@@ -138,6 +124,7 @@ export function buildCardViewToolbarMarkup({
   linkedLightMarkup = "",
   linkedLightLeftMarkup = "",
   linkedLightRightMarkup = "",
+  showCenterControls = true,
 } = {}) {
   const recordingsActive = mode === "recordings";
   const ptzActive = mode === "ptz";
@@ -171,7 +158,9 @@ export function buildCardViewToolbarMarkup({
   const microphoneControl = showMicrophone
     ? `<div class="card-view-microphone-slot" data-fvc-region="two-way-talk">${microphoneMarkup}</div>`
     : "";
-  const centerControls = `${lightControl}${microphoneControl}`;
+  const centerControls = showCenterControls
+    ? `${lightControl}${microphoneControl}`
+    : "";
   return `<div class="card-view-toolbar-start">
       <div class="card-view-activity-heading">${heading}</div>
       <button class="card-view-mode-switch icon-btn" type="button" data-card-view-swap title="${swapLabel}" aria-label="${swapLabel}">

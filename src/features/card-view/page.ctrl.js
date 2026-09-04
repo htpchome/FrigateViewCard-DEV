@@ -15,7 +15,6 @@ import {
 import {
   applyCardViewPageMarkup,
   buildCardViewPtzMarkup,
-  buildCardViewStandaloneLinkedControlsMarkup,
   buildCardViewStandaloneModeControlsMarkup,
   buildCardViewToolbarMarkup,
 } from "./page.tmpl.js";
@@ -119,7 +118,7 @@ export class CardViewPageController {
     this._startModeApplied = false;
     this._standaloneStageHeight = 0;
     this._standaloneModeControlsMarkup = "";
-    this._standaloneLinkedControlsMarkup = "";
+    this._standaloneTalkMarkup = "";
   }
 
   isActive() {
@@ -230,7 +229,7 @@ export class CardViewPageController {
     this._startModeApplied = false;
     this._standaloneStageHeight = 0;
     this._standaloneModeControlsMarkup = "";
-    this._standaloneLinkedControlsMarkup = "";
+    this._standaloneTalkMarkup = "";
     this._haSeverityByEntity.clear();
     this._activityContent = null;
     this._activityMarkup = "";
@@ -554,7 +553,7 @@ export class CardViewPageController {
     this.renderActivity();
   }
 
-  renderStandaloneModeControls(buttonStates = null) {
+  renderStandaloneModeControls(_buttonStates = null) {
     const container = this._host.shadowRoot?.querySelector?.(
       "[data-card-view-standalone-mode-controls]",
     );
@@ -564,17 +563,19 @@ export class CardViewPageController {
       this._standaloneModeControlsMarkup = "";
       return;
     }
-    const resolvedButtonStates =
-      buttonStates || this._host._toolbarButtonStates?.() || {};
+    const modeSwitchLocked =
+      this._mode === "ptz" ||
+      this._host._twoWayTalkStarting === true ||
+      this._host._twoWayTalkActiveForCurrentCamera?.() === true;
     const markup = buildCardViewStandaloneModeControlsMarkup({
       icons: ICONS,
       gridAvailable: this._host._isGridModeAvailable?.() === true,
       gridActive: this._host._viewMode === "grid",
-      gridDisabled: resolvedButtonStates.gridDisabled === true,
+      gridDisabled: modeSwitchLocked,
       slideshowAvailable:
         this._host._isSlideshowRotationAvailable?.() === true,
       slideshowActive: this._host._slideshowActive === true,
-      slideshowDisabled: resolvedButtonStates.slideshowDisabled === true,
+      slideshowDisabled: modeSwitchLocked,
       slideshowRemainingSeconds: 0,
     });
     if (markup !== this._standaloneModeControlsMarkup) {
@@ -599,36 +600,22 @@ export class CardViewPageController {
 
   renderStandaloneLinkedControls() {
     const container = this._host.shadowRoot?.querySelector?.(
-      "[data-card-view-standalone-linked-controls]",
+      "[data-card-view-standalone-talk-overlay]",
     );
     if (!container) return;
     if (!this.isStandalone()) {
       container.innerHTML = "";
-      this._standaloneLinkedControlsMarkup = "";
+      this._standaloneTalkMarkup = "";
       return;
     }
     const showMicrophone =
       this._host._shouldRenderTwoWayTalkButtonForActiveCamera?.() === true;
-    const markup = buildCardViewStandaloneLinkedControlsMarkup({
-      linkedLightLeftMarkup:
-        this._host._buildLinkedLightControlMarkup?.({
-          buttonClass: "icon-btn",
-          position: "left",
-        }) || "",
-      linkedLightRightMarkup:
-        this._host._buildLinkedLightControlMarkup?.({
-          buttonClass: "icon-btn",
-          position: "right",
-        }) || "",
-      microphoneMarkup: showMicrophone
-        ? this._host._buildTwoWayTalkControlRowMarkup?.({
-            includeIncomingMute: false,
-          }) || ""
-        : "",
-    });
-    if (markup !== this._standaloneLinkedControlsMarkup) {
+    const markup = showMicrophone
+      ? this._host._buildTwoWayTalkControlRowMarkup?.() || ""
+      : "";
+    if (markup !== this._standaloneTalkMarkup) {
       container.innerHTML = markup;
-      this._standaloneLinkedControlsMarkup = markup;
+      this._standaloneTalkMarkup = markup;
     }
     this._host._syncTwoWayTalkSoundwaveSurface?.();
     this._host._linkedLightController?.sync?.();
@@ -689,6 +676,7 @@ export class CardViewPageController {
             position: "right",
           }) || ""
         : "",
+      showCenterControls: !standalone,
     });
     if (
       toolbar !== this._toolbarContent ||
@@ -1475,7 +1463,18 @@ export class CardViewPageController {
     );
     if (standaloneGrid) {
       event?.preventDefault?.();
-      if (!standaloneGrid.disabled) this._host._toggleGridMode?.();
+      if (!standaloneGrid.disabled) {
+        if (this._host._viewMode !== "grid") {
+          this._alertTakeoverEnabled = false;
+          if (this._host._slideshowActive === true) {
+            this._host._stopSlideshowRotation?.(
+              "card-view-grid-switch",
+              false,
+            );
+          }
+        }
+        this._host._toggleGridMode?.();
+      }
       return true;
     }
     const standaloneSlideshow = target.closest?.(
@@ -1484,6 +1483,12 @@ export class CardViewPageController {
     if (standaloneSlideshow) {
       event?.preventDefault?.();
       if (!standaloneSlideshow.disabled) {
+        if (this._host._slideshowActive !== true) {
+          this._alertTakeoverEnabled = false;
+          if (this._host._viewMode === "grid") {
+            this._host._setViewMode?.("single");
+          }
+        }
         this._host._toggleSlideshowRotation?.();
       }
       return true;

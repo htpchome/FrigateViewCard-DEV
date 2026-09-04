@@ -11,7 +11,6 @@ import {
 import {
   applyCardViewPageMarkup,
   buildCardViewMainLayoutShellMarkup,
-  buildCardViewStandaloneLinkedControlsMarkup,
   buildCardViewStandaloneModeControlsMarkup,
   buildCardViewToolbarMarkup,
 } from "../src/features/card-view/page.tmpl.js";
@@ -111,7 +110,9 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /card-view-footer/);
   assert.match(markup, /data-card-view-standalone-mode-controls/);
   assert.match(markup, /data-card-view-live-badge/);
-  assert.match(markup, /data-card-view-standalone-linked-controls/);
+  assert.match(markup, /data-card-view-standalone-light-overlay/);
+  assert.match(markup, /preview-light-overlay/);
+  assert.match(markup, /data-card-view-standalone-talk-overlay/);
 });
 
 test("standalone Card View controls expose active Grid and Slideshow states", () => {
@@ -133,44 +134,70 @@ test("standalone Card View controls expose active Grid and Slideshow states", ()
   assert.match(markup, /data-card-view-standalone-slideshow/);
   assert.match(markup, /slideshow-active-icon/);
   assert.match(markup, /data-card-view-slideshow-countdown>7s/);
-
-  const linkedMarkup = buildCardViewStandaloneLinkedControlsMarkup({
-    linkedLightLeftMarkup: "left-light",
-    linkedLightRightMarkup: "right-light",
-    microphoneMarkup: "microphone",
-  });
-  assert.match(
-    linkedMarkup,
-    /data-linked-light-position-slot="left"[^>]*>left-light/,
-  );
-  assert.match(
-    linkedMarkup,
-    /data-linked-light-position-slot="right"[^>]*>right-light/,
-  );
-  assert.match(linkedMarkup, /card-view-standalone-microphone-slot/);
 });
 
-test("standalone Card View talk controls omit incoming audio mute", () => {
+test("standalone mode controls are not disabled by Card View alert takeover", () => {
   const container = { innerHTML: "" };
-  let talkOptions = null;
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "single",
+    _slideshowActive: false,
+    _config: {
+      card_view_standalone: true,
+      card_view_alert_takeover: true,
+    },
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "[data-card-view-standalone-mode-controls]"
+          ? container
+          : null,
+    },
+    _isGridModeAvailable: () => true,
+    _isSlideshowRotationAvailable: () => true,
+    _toolbarButtonStates: () => ({
+      gridDisabled: true,
+      slideshowDisabled: true,
+    }),
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  controller.renderStandaloneModeControls(host._toolbarButtonStates());
+
+  assert.match(container.innerHTML, /data-card-view-standalone-grid/);
+  assert.match(container.innerHTML, /data-card-view-standalone-slideshow/);
+  assert.doesNotMatch(
+    container.innerHTML,
+    /data-card-view-standalone-(?:grid|slideshow)[^>]* disabled/,
+  );
+});
+
+test("standalone Card View reuses the shared two-way-talk controls", () => {
+  const container = { innerHTML: "" };
+  let talkArgumentCount = -1;
+  let lightSyncs = 0;
   const host = {
     _pageId: "card-view",
     _viewMode: "single",
     _config: { card_view_standalone: true },
     shadowRoot: {
       querySelector: (selector) =>
-        selector === "[data-card-view-standalone-linked-controls]"
+        selector === "[data-card-view-standalone-talk-overlay]"
           ? container
           : null,
     },
     _shouldRenderTwoWayTalkButtonForActiveCamera: () => true,
-    _buildTwoWayTalkControlRowMarkup: (options) => {
-      talkOptions = options;
-      return "talk-controls";
+    _buildTwoWayTalkControlRowMarkup: (...args) => {
+      talkArgumentCount = args.length;
+      return "shared-talk-controls";
     },
-    _buildLinkedLightControlMarkup: () => "",
     _syncTwoWayTalkSoundwaveSurface: () => {},
-    _linkedLightController: { sync: () => {} },
+    _linkedLightController: {
+      sync: () => {
+        lightSyncs += 1;
+      },
+    },
   };
   const controller = new CardViewPageController(host, {
     PAGE_IDS: { cardView: "card-view" },
@@ -178,8 +205,9 @@ test("standalone Card View talk controls omit incoming audio mute", () => {
 
   controller.renderStandaloneLinkedControls();
 
-  assert.deepEqual(talkOptions, { includeIncomingMute: false });
-  assert.match(container.innerHTML, /talk-controls/);
+  assert.equal(talkArgumentCount, 0);
+  assert.equal(container.innerHTML, "shared-talk-controls");
+  assert.equal(lightSyncs, 1);
 });
 
 test("standalone Card View markup reflects video-only, hidden-name, and active mode state", () => {
@@ -303,7 +331,19 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone-microphone-slot \{grid-column:2;grid-row:1;/,
+    /card-view-standalone \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(112px,42vw,240px\) minmax\(0,1fr\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.mobile-cam-picker \{[\s\S]*?grid-column:2;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-hide-camera-name:not\(\.card-view-grid-mode\) \.mobile-cam-picker \{opacity:0;pointer-events:none;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-light-overlay[\s\S]*?card-view-standalone-talk-overlay/,
   );
 });
 
@@ -329,6 +369,15 @@ test("Card View toolbar exposes shared Grid and Slideshow mode states", () => {
   assert.match(markup, /id="slideshow-btn"[^>]* disabled/);
   assert.match(markup, /data-card-view-takeover[^>]* disabled/);
   assert.match(markup, /data-card-view-ptz[^>]* disabled/);
+
+  const standaloneMarkup = buildCardViewToolbarMarkup({
+    showMicrophone: true,
+    microphoneMarkup: "duplicate-talk-control",
+    linkedLightRightMarkup: "duplicate-light-control",
+    showCenterControls: false,
+  });
+  assert.doesNotMatch(standaloneMarkup, /duplicate-talk-control/);
+  assert.doesNotMatch(standaloneMarkup, /duplicate-light-control/);
 });
 
 test("Card View shares the Mobile View camera picker and uses a two-state drawer", () => {
@@ -609,11 +658,27 @@ test("standalone Card View applies its configured starting mode", () => {
 test("standalone Card View mode buttons use the existing Grid and Slideshow controllers", () => {
   let gridToggles = 0;
   let slideshowToggles = 0;
+  let slideshowStops = 0;
+  const viewModeChanges = [];
   let prevented = 0;
   const host = {
     _pageId: "card-view",
+    _viewMode: "single",
+    _slideshowActive: true,
+    _config: {
+      card_view_standalone: true,
+      card_view_alert_takeover: true,
+    },
+    _stopSlideshowRotation: () => {
+      slideshowStops += 1;
+      host._slideshowActive = false;
+    },
     _toggleGridMode: () => {
       gridToggles += 1;
+    },
+    _setViewMode: (mode) => {
+      viewModeChanges.push(mode);
+      host._viewMode = mode;
     },
     _toggleSlideshowRotation: () => {
       slideshowToggles += 1;
@@ -634,6 +699,7 @@ test("standalone Card View mode buttons use the existing Grid and Slideshow cont
         ? { disabled: false }
         : null,
   });
+  host._viewMode = "grid";
   controller.handleClick(event, {
     closest: (selector) =>
       selector === "[data-card-view-standalone-slideshow]"
@@ -642,7 +708,10 @@ test("standalone Card View mode buttons use the existing Grid and Slideshow cont
   });
 
   assert.equal(gridToggles, 1);
+  assert.equal(slideshowStops, 1);
   assert.equal(slideshowToggles, 1);
+  assert.deepEqual(viewModeChanges, ["single"]);
+  assert.equal(controller.alertTakeoverEnabled(), false);
   assert.equal(prevented, 2);
 });
 

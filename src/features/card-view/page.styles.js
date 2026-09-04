@@ -129,21 +129,22 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active .card-view-calendar-panel[hidden] {display:none;}
   .card.card-view-active .card-view-standalone-mode-controls,
   .card.card-view-active .card-view-live-badge,
-  .card.card-view-active .card-view-standalone-linked-controls {display:none;}
+  .card.card-view-active .card-view-standalone-light-overlay,
+  .card.card-view-active .card-view-standalone-talk-overlay {display:none;}
   .card.card-view-active.card-view-standalone .card-view-live-panel {padding:0;box-sizing:border-box;}
   .card.card-view-active.card-view-standalone .card-view-live-stage,
   .card.card-view-active.card-view-standalone .card-view-live-stage #eng-wrap {border-radius:var(--fvc-border-radius,0px);}
   .card.card-view-active.card-view-standalone .card-view-live-stage {position:relative;overflow:hidden;background:var(--c-bg-deep);}
   .card.card-view-active.card-view-standalone .card-view-camera-row {
-    position:absolute;z-index:24;top:8px;left:8px;right:62px;width:auto;min-width:0;padding:0;
-    grid-template-columns:minmax(112px,240px) auto;justify-content:start;align-items:start;gap:6px;
+    position:absolute;z-index:24;top:8px;left:8px;right:8px;width:auto;min-width:0;padding:0;
+    grid-template-columns:minmax(0,1fr) clamp(112px,42vw,240px) minmax(0,1fr);align-items:start;gap:6px;
     background:transparent;pointer-events:none;
   }
   .card.card-view-active.card-view-standalone .card-view-back-slot {display:none;}
   .card.card-view-active.card-view-standalone .card-view-camera-picker {display:contents;}
   .card.card-view-active.card-view-standalone .mobile-cam-picker {
-    justify-self:start;width:min(42vw,240px);min-width:112px;opacity:0;pointer-events:none;
-    transform:translateY(-3px);transition:opacity .15s ease,transform .15s ease;
+    grid-column:2;justify-self:stretch;width:100%;min-width:0;opacity:1;pointer-events:auto;
+    transform:none;transition:opacity .15s ease,transform .15s ease;
   }
   .card.card-view-active.card-view-standalone .mobile-cam-picker__trigger {
     min-height:32px;padding:5px 29px 5px 9px;border:1px solid rgb(255 255 255 / 16%);border-radius:7px;
@@ -167,7 +168,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     border-color:color-mix(in srgb,var(--c-primary) 72%,white);background:color-mix(in srgb,var(--c-primary-d) 68%,transparent);
     box-shadow:none;color:#fff;
   }
-  .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls {display:flex;align-items:center;gap:5px;pointer-events:none;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls {grid-column:3;display:flex;align-items:center;justify-self:start;gap:5px;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-button {
     position:relative;display:grid;place-items:center;min-width:32px;width:32px;height:32px;padding:4px;border:1px solid rgb(255 255 255 / 16%);
     border-radius:7px;color:#f5f5f5;background:rgb(15 15 15 / 82%);box-shadow:0 3px 10px rgb(0 0 0 / 34%);
@@ -180,17 +181,15 @@ export const CARD_VIEW_PAGE_STYLES = `
     border-color:color-mix(in srgb,var(--c-primary) 72%,white);background:color-mix(in srgb,var(--c-primary-d) 74%,transparent);
   }
   .card.card-view-active.card-view-standalone .card-view-standalone-countdown {min-width:18px;font-size:.62rem;font-weight:750;line-height:1;font-variant-numeric:tabular-nums;}
-  .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode) .mobile-cam-picker {display:none;}
-  .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode) .card-view-camera-row {grid-template-columns:auto;justify-content:end;}
+  .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode) .mobile-cam-picker {opacity:0;pointer-events:none;transform:translateY(-3px);}
   .card.card-view-active.card-view-standalone.card-view-grid-mode .mobile-cam-picker,
-  .card.card-view-active.card-view-standalone .mobile-cam-picker.is-open,
-  .card.card-view-active.card-view-standalone.card-view-overlays-visible .mobile-cam-picker,
+  .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode) .mobile-cam-picker.is-open,
+  .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode).card-view-overlays-visible .mobile-cam-picker,
   .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-mode-button {
     opacity:1;pointer-events:auto;transform:none;
   }
-  .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-camera-row {right:8px;}
   @media (hover:hover) and (pointer:fine) {
-    .card.card-view-active.card-view-standalone .card-view-live-panel:hover .mobile-cam-picker,
+    .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode) .card-view-live-panel:hover .mobile-cam-picker,
     .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-mode-button {
       opacity:1;pointer-events:auto;transform:none;
     }
@@ -206,30 +205,25 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-live-badge-dot {width:7px;height:7px;border-radius:50%;background:var(--c-on);box-shadow:0 0 0 2px color-mix(in srgb,var(--c-on) 24%,transparent);}
   .card.card-view-active.card-view-standalone .card-view-live-badge.is-offline .card-view-live-badge-dot {background:var(--c-off);box-shadow:0 0 0 2px color-mix(in srgb,var(--c-off) 24%,transparent);}
   .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-live-badge {display:none;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-controls {
-    position:absolute;z-index:21;left:50%;bottom:27px;display:flex;align-items:center;justify-content:center;
-    max-width:calc(100% - 24px);transform:translateX(-50%);pointer-events:auto;
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay {
+    z-index:23;display:flex;opacity:0;pointer-events:none;transition:opacity .15s ease;
   }
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-controls:empty {display:none;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-controls-inner {
-    display:grid;grid-template-columns:minmax(36px,1fr) auto minmax(36px,1fr);align-items:center;gap:7px;
-    min-height:42px;padding:3px 7px;border:1px solid rgb(255 255 255 / 14%);border-radius:999px;
-    color:#f5f5f5;background:rgb(15 15 15 / 62%);box-shadow:0 4px 12px rgb(0 0 0 / 34%);
-    backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay .linked-light-position-slot {pointer-events:none;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay {
+    position:absolute;z-index:23;left:50%;bottom:27px;display:flex;align-items:center;justify-content:center;
+    max-width:calc(100% - 24px);transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .15s ease;
   }
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-light {display:contents;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-light [data-linked-light-position-slot="left"] {grid-column:1;justify-self:end;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-light [data-linked-light-position-slot="right"] {grid-column:3;justify-self:start;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-microphone-slot {grid-column:2;grid-row:1;display:flex;align-items:center;justify-content:center;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-controls .icon-btn,
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-controls .info-row-mic-btn {background:color-mix(in srgb,var(--c-bg-panel) 70%,transparent);}
-  .card.card-view-active.card-view-standalone .card-view-standalone-linked-controls .two-way-talk-soundwave {
-    background:
-      radial-gradient(circle at 48% 50%,rgba(155,92,255,.22),transparent 60%),
-      linear-gradient(135deg,rgba(34,211,238,.07),rgba(255,60,172,.08)),
-      color-mix(in srgb,var(--c-bg-list) 68%,transparent);
+  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay:empty {display:none;}
+  .card.card-view-active.card-view-standalone.card-view-overlays-visible :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay),
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay:has([data-linked-light-dimmer]:not([hidden])) {opacity:1;pointer-events:auto;}
+  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-light-overlay .linked-light-position-slot,
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
+  .card.card-view-active.card-view-standalone .card-view-live-stage:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"]:not([hidden])) .card-view-live-badge {top:45px;}
+  @media (hover:hover) and (pointer:fine) {
+    .card.card-view-active.card-view-standalone .card-view-live-panel:hover :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay) {opacity:1;pointer-events:auto;}
+    .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-light-overlay .linked-light-position-slot {pointer-events:auto;}
   }
-  .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-standalone-linked-controls,
+  .card.card-view-active.card-view-standalone.card-view-grid-mode :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay),
   .card.card-view-active.card-view-standalone.card-view-grid-mode .live-playback-controls {display:none !important;}
   .card.card-view-active.card-view-standalone .slideshow-next-chip {display:none !important;}
   .card.card-view-active.card-view-video-panel-only .card-view-drawer,

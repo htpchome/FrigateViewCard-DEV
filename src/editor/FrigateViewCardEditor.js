@@ -2521,6 +2521,26 @@ export class FrigateViewCardEditor extends HTMLElement {
     const cardViewStartMode = normalizeCardViewStartMode(
       this._config?.card_view_start_mode,
     );
+    const cardViewStartModeControl = [
+      { value: CARD_VIEW_START_MODES.live, label: "Live" },
+      {
+        value: CARD_VIEW_START_MODES.slideshow,
+        label: "Slideshow",
+        disabled: this._config?.slideshow_rotation_enabled !== true,
+      },
+      {
+        value: CARD_VIEW_START_MODES.grid,
+        label: "Grid",
+        disabled: this._config?.grid_mode_enabled !== true,
+      },
+    ]
+      .map(
+        ({ value, label, disabled = false }) => `<label class="theme-scope-opt card-view-start-opt">
+          <input class="card-view-start-input" type="radio" name="card_view_start_mode" value="${value}" ${cardViewStartMode === value ? "checked" : ""} ${disabled ? "disabled" : ""}>
+          <span>${label}</span>
+        </label>`,
+      )
+      .join("");
     const pageRouteLabel = (pageId) => {
       if (pageId === PAGE_IDS.mobileView) return "Mobile";
       if (pageId === PAGE_IDS.preview) return "Preview";
@@ -3118,27 +3138,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       </div>
       <div id="card-view-standalone-options" style="${this._config?.card_view_standalone ? "" : "display:none"}">
         <div class="section">
-          <div class="editor-choice-field editor-choice-field--single-row" role="radiogroup" aria-label="Start Card View">
+          <div class="editor-choice-field" role="radiogroup" aria-label="Start Card View">
             <div class="field-label">Start Card View</div>
-            ${buildEditorChoiceChipsMarkup({
-              name: "card_view_start_mode",
-              options: [
-                { value: CARD_VIEW_START_MODES.live, label: "Live" },
-                {
-                  value: CARD_VIEW_START_MODES.slideshow,
-                  label: "Slideshow",
-                  disabled:
-                    this._config?.slideshow_rotation_enabled !== true,
-                },
-                {
-                  value: CARD_VIEW_START_MODES.grid,
-                  label: "Grid",
-                  disabled: this._config?.grid_mode_enabled !== true,
-                },
-              ],
-              selectedValue: cardViewStartMode,
-              compact: true,
-            })}
+            <div class="theme-scope-seg card-view-start-seg">${cardViewStartModeControl}</div>
           </div>
           <div class="field-helper">Choose the initial standalone video mode. Slideshow and Grid must also be enabled in their own settings.</div>
         </div>
@@ -3528,6 +3530,13 @@ export class FrigateViewCardEditor extends HTMLElement {
             .theme-scope-opt:active{transform:scale(.98);}
             .theme-scope-opt:focus-visible{outline:2px solid var(--c-primary, var(--editor-primary));outline-offset:1px;}
             @media (hover:hover){.theme-scope-opt:not(.active):hover{background:color-mix(in srgb,var(--c-bg-primary, var(--editor-card-bg)) 66%,transparent);color:var(--c-text, var(--editor-text));}}
+            .card-view-start-seg{width:min(100%,280px);margin:0;padding:3px;gap:2px;}
+            .card-view-start-opt{position:relative;min-height:32px;padding:5px 9px;flex-direction:row;font-size:11px;}
+            .card-view-start-input{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+            .card-view-start-opt:has(.card-view-start-input:checked){background:var(--c-bg-primary, var(--editor-card-bg));color:var(--c-primary, var(--editor-primary));box-shadow:0 2px 8px rgba(0,0,0,.16),inset 0 0 0 1px color-mix(in srgb,var(--c-primary, var(--editor-primary)) 26%,transparent);}
+            .card-view-start-opt:has(.card-view-start-input:disabled){opacity:.48;cursor:not-allowed;}
+            .card-view-start-opt:has(.card-view-start-input:focus-visible){outline:2px solid var(--c-primary, var(--editor-primary));outline-offset:1px;}
+            @media (hover:hover){.card-view-start-opt:not(:has(.card-view-start-input:checked)):not(:has(.card-view-start-input:disabled)):hover{background:color-mix(in srgb,var(--c-bg-primary, var(--editor-card-bg)) 66%,transparent);color:var(--c-text, var(--editor-text));}}
             .theme-custom-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--c-border2, var(--editor-border));}
             .theme-custom-scope + .theme-custom-row{border-top:none;}
             .theme-custom-label{display:flex;flex-direction:column;gap:2px;min-width:0;}
