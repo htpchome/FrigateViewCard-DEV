@@ -151,6 +151,12 @@ export class CardViewPageController {
       this._alertTakeoverEnabled = false;
     }
     if (startGrid) {
+      if (this._host._slideshowActive === true) {
+        this._host._stopSlideshowRotation?.(
+          "card-view-start-grid",
+          false,
+        );
+      }
       if (this._host._viewMode !== "grid") {
         this._host._setViewMode?.("grid");
       }

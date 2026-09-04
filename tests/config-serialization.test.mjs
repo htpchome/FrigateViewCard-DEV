@@ -1832,6 +1832,11 @@ test("standalone Card View forces the desktop landing page and serializes explic
 });
 
 test("standalone Card View editor exposes start and video controls and disables Mobile Page", () => {
+  assert.match(editorSource, /class="card-view-standalone-options"/);
+  assert.match(
+    editorSource,
+    /\.card-view-standalone-options\{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid/,
+  );
   assert.match(editorSource, /theme-scope-seg card-view-start-seg/);
   assert.match(editorSource, /name="card_view_start_mode"/);
   assert.match(editorSource, /id="card_view_video_panel_only"/);

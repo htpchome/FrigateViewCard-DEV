@@ -331,7 +331,7 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(112px,42vw,240px\) minmax\(0,1fr\)/,
+    /card-view-standalone \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(112px,38%,200px\) minmax\(0,1fr\)/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -344,6 +344,18 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-standalone-light-overlay[\s\S]*?card-view-standalone-talk-overlay/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-stage:has\(#stream-loading:not\(\[hidden\]\)\) \.card-view-live-badge \{display:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel:has\(\.card-view-live-stage:hover\) \.card-view-standalone-mode-button/,
+  );
+  assert.doesNotMatch(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel:hover \.card-view-standalone-mode-button/,
   );
 });
 
@@ -653,6 +665,18 @@ test("standalone Card View applies its configured starting mode", () => {
   controller.applyConfiguredStartMode({ force: true });
   assert.deepEqual(modeChanges, ["grid", "single"]);
   assert.equal(slideshowStarts, 1);
+
+  host._config.card_view_start_mode = CARD_VIEW_START_MODES.grid;
+  host._viewMode = "single";
+  host._slideshowActive = true;
+  let slideshowStops = 0;
+  host._stopSlideshowRotation = () => {
+    slideshowStops += 1;
+    host._slideshowActive = false;
+  };
+  controller.applyConfiguredStartMode({ force: true });
+  assert.equal(slideshowStops, 1);
+  assert.deepEqual(modeChanges, ["grid", "single", "grid"]);
 });
 
 test("standalone Card View mode buttons use the existing Grid and Slideshow controllers", () => {

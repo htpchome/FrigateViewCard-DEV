@@ -3136,7 +3136,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         </div>
         <div class="field-helper">When enabled, Card View becomes the only available FrigateView page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
       </div>
-      <div id="card-view-standalone-options" style="${this._config?.card_view_standalone ? "" : "display:none"}">
+      <div class="card-view-standalone-options" id="card-view-standalone-options" style="${this._config?.card_view_standalone ? "" : "display:none"}">
         <div class="section">
           <div class="editor-choice-field" role="radiogroup" aria-label="Start Card View">
             <div class="field-label">Start Card View</div>
@@ -3156,7 +3156,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             <span class="field-label" style="margin:0">Hide Camera Name</span>
             <ha-switch id="card_view_hide_camera_name" ${this._config?.card_view_hide_camera_name ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">Hides the camera picker until Grid mode is active. Grid always displays its picker so cameras remain selectable.</div>
+          <div class="field-helper">Hides the camera picker until the video is hovered or touched. Grid always keeps the picker visible so cameras remain selectable.</div>
         </div>
       </div>`;
     const landingPanelContent = `
@@ -3373,6 +3373,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             .setting-content > .section:first-child{border-top:none;}
             .timeline-dependent-section,
             .ha-navbar-dependent-section{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid var(--c-primary, var(--editor-primary));}
+            .card-view-standalone-options{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid var(--c-primary, var(--editor-primary));}
             .editor-choice-field{display:block;min-width:0;margin:0;padding:0;border:0;}
             .editor-choice-field--fit{flex:1 1 420px;max-width:560px;}
             .editor-choice-field .field-label{margin:0 0 8px;}

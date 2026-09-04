@@ -137,7 +137,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-live-stage {position:relative;overflow:hidden;background:var(--c-bg-deep);}
   .card.card-view-active.card-view-standalone .card-view-camera-row {
     position:absolute;z-index:24;top:8px;left:8px;right:8px;width:auto;min-width:0;padding:0;
-    grid-template-columns:minmax(0,1fr) clamp(112px,42vw,240px) minmax(0,1fr);align-items:start;gap:6px;
+    grid-template-columns:minmax(0,1fr) clamp(112px,38%,200px) minmax(0,1fr);align-items:start;gap:6px;
     background:transparent;pointer-events:none;
   }
   .card.card-view-active.card-view-standalone .card-view-back-slot {display:none;}
@@ -190,7 +190,8 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode) .card-view-live-panel:hover .mobile-cam-picker,
-    .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-mode-button {
+    .card.card-view-active.card-view-standalone .card-view-live-panel:has(.card-view-live-stage:hover) .card-view-standalone-mode-button,
+    .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls:has(.card-view-standalone-mode-button:hover) .card-view-standalone-mode-button {
       opacity:1;pointer-events:auto;transform:none;
     }
     .card.card-view-active.card-view-standalone .card-view-standalone-mode-button:hover {background:rgb(45 45 45 / 95%);border-color:rgb(255 255 255 / 45%);}
@@ -204,6 +205,9 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-standalone .card-view-live-badge-dot {width:7px;height:7px;border-radius:50%;background:var(--c-on);box-shadow:0 0 0 2px color-mix(in srgb,var(--c-on) 24%,transparent);}
   .card.card-view-active.card-view-standalone .card-view-live-badge.is-offline .card-view-live-badge-dot {background:var(--c-off);box-shadow:0 0 0 2px color-mix(in srgb,var(--c-off) 24%,transparent);}
+  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-live-badge,
+  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.card-view-standalone-mode-button.active) .card-view-live-badge {top:45px;}
+  .card.card-view-active.card-view-standalone .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-live-badge {display:none;}
   .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-live-badge {display:none;}
   .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay {
     z-index:23;display:flex;opacity:0;pointer-events:none;transition:opacity .15s ease;
@@ -220,8 +224,9 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
   .card.card-view-active.card-view-standalone .card-view-live-stage:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"]:not([hidden])) .card-view-live-badge {top:45px;}
   @media (hover:hover) and (pointer:fine) {
-    .card.card-view-active.card-view-standalone .card-view-live-panel:hover :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay) {opacity:1;pointer-events:auto;}
-    .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-light-overlay .linked-light-position-slot {pointer-events:auto;}
+    .card.card-view-active.card-view-standalone .card-view-live-stage:hover :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay) {opacity:1;pointer-events:auto;}
+    .card.card-view-active.card-view-standalone .card-view-live-stage:hover .card-view-standalone-light-overlay .linked-light-position-slot {pointer-events:auto;}
+    .card.card-view-active.card-view-standalone .card-view-live-panel:has(.card-view-live-stage:hover,.card-view-standalone-mode-button:hover) .card-view-live-badge {top:45px;}
   }
   .card.card-view-active.card-view-standalone.card-view-grid-mode :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay),
   .card.card-view-active.card-view-standalone.card-view-grid-mode .live-playback-controls {display:none !important;}
