@@ -171,11 +171,18 @@ export class CardViewPageController {
   usesOverlayPresentation() {
     if (!this.isActive()) return false;
     return (
-      this.isStandalone() ||
       normalizeCardViewViewMode(
         this._host._config?.card_view_view_mode,
       ) === CARD_VIEW_VIEW_MODES.videoOnly
     );
+  }
+
+  shouldUseNativeCameraPickerClick(event, target = event?.target) {
+    if (!this.usesOverlayPresentation()) return false;
+    if (String(event?.pointerType || "").toLowerCase() === "mouse") {
+      return false;
+    }
+    return Boolean(target?.closest?.("[data-mobile-cam-picker]"));
   }
 
   applyConfiguredStartMode({ force = false } = {}) {

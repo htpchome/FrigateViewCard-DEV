@@ -175,7 +175,7 @@ test("standalone Card View controls expose active Grid and Slideshow states", ()
   );
 });
 
-test("standalone mode controls are not disabled by Card View alert takeover", () => {
+test("Video Only mode controls are not disabled by Card View alert takeover", () => {
   const container = { innerHTML: "" };
   const host = {
     _pageId: "card-view",
@@ -183,6 +183,7 @@ test("standalone mode controls are not disabled by Card View alert takeover", ()
     _slideshowActive: false,
     _config: {
       card_view_standalone: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
       card_view_alert_takeover: true,
     },
     shadowRoot: {
@@ -212,7 +213,7 @@ test("standalone mode controls are not disabled by Card View alert takeover", ()
   );
 });
 
-test("active standalone Grid indicator uses the shared ten-second Grid hold", () => {
+test("active Video Only Grid indicator uses the shared ten-second Grid hold", () => {
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
   const classes = new Set();
@@ -234,7 +235,10 @@ test("active standalone Grid indicator uses the shared ten-second Grid hold", ()
       _pageId: "card-view",
       _viewMode: "grid",
       _slideshowActive: false,
-      _config: { card_view_standalone: true },
+      _config: {
+        card_view_standalone: true,
+        card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+      },
       shadowRoot: {
         querySelector: (selector) =>
           selector === "[data-card-view-standalone-mode-controls]"
@@ -270,14 +274,17 @@ test("active standalone Grid indicator uses the shared ten-second Grid hold", ()
   }
 });
 
-test("standalone Card View reuses the shared two-way-talk controls", () => {
+test("Video Only reuses the shared two-way-talk controls on its overlay", () => {
   const container = { innerHTML: "" };
   let talkOptions = null;
   let lightSyncs = 0;
   const host = {
     _pageId: "card-view",
     _viewMode: "single",
-    _config: { card_view_standalone: true },
+    _config: {
+      card_view_standalone: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+    },
     shadowRoot: {
       querySelector: (selector) =>
         selector === "[data-card-view-standalone-talk-overlay]"
@@ -356,6 +363,82 @@ test("non-standalone Video Only renders picker and center controls as overlays",
   assert.match(modeControls.innerHTML, /data-card-view-standalone-grid/);
   assert.match(modeControls.innerHTML, /data-card-view-standalone-slideshow/);
   assert.equal(talkControls.innerHTML, "overlay-microphone");
+});
+
+test("View Mode alone determines whether Card View uses the video overlay presentation", () => {
+  for (const standalone of [false, true]) {
+    for (const viewMode of Object.values(CARD_VIEW_VIEW_MODES)) {
+      const cardClasses = new Set();
+      const host = {
+        _pageId: "card-view",
+        _viewMode: "single",
+        _slideshowActive: false,
+        _activeCamIdx: 0,
+        _activeCam: { entity: "camera.doorbell", name: "Doorbell" },
+        _config: {
+          card_view_standalone: standalone,
+          card_view_view_mode: viewMode,
+          card_view_hide_camera_name: true,
+          card_view_media_drawer_enabled: true,
+          cameras: [{ entity: "camera.doorbell", name: "Doorbell" }],
+        },
+        _hass: {
+          states: { "camera.doorbell": { state: "streaming" } },
+        },
+        classList: { toggle: () => {} },
+        _$: (selector) =>
+          selector === "#card"
+            ? {
+                classList: {
+                  toggle: (name, enabled) => {
+                    if (enabled) cardClasses.add(name);
+                    else cardClasses.delete(name);
+                  },
+                },
+              }
+            : null,
+      };
+      const controller = new CardViewPageController(host, {
+        PAGE_IDS: { cardView: "card-view" },
+      });
+      const videoOnly = viewMode === CARD_VIEW_VIEW_MODES.videoOnly;
+
+      applyCardViewPageMarkup({
+        host,
+        pageIds: { cardView: "card-view" },
+      });
+
+      assert.equal(controller.usesOverlayPresentation(), videoOnly);
+      assert.equal(
+        cardClasses.has("card-view-overlay-presentation"),
+        videoOnly,
+      );
+      assert.equal(cardClasses.has("card-view-video-panel-only"), videoOnly);
+      assert.equal(cardClasses.has("card-view-standalone"), standalone);
+      const pickerTarget = {
+        closest: (selector) =>
+          selector === "[data-mobile-cam-picker]" ? {} : null,
+      };
+      assert.equal(
+        controller.shouldUseNativeCameraPickerClick(
+          { pointerType: "touch" },
+          pickerTarget,
+        ),
+        videoOnly,
+      );
+      assert.equal(
+        controller.shouldUseNativeCameraPickerClick(
+          { pointerType: "mouse" },
+          pickerTarget,
+        ),
+        false,
+      );
+      assert.equal(
+        controller.camSwitcherMarkup().includes("mobile-cam-picker__status"),
+        !videoOnly,
+      );
+    }
+  }
 });
 
 test("standalone Card View markup reflects video-only, hidden-name, and active mode state", () => {
@@ -816,7 +899,7 @@ test("Card View shares the Mobile View camera picker and uses a two-state drawer
   );
 });
 
-test("standalone Grid labels the camera picker Grid", () => {
+test("Video Only Grid labels the camera picker Grid", () => {
   const host = {
     _pageId: "card-view",
     _viewMode: "grid",
@@ -825,6 +908,7 @@ test("standalone Grid labels the camera picker Grid", () => {
     _activeStreamType: "grid",
     _config: {
       card_view_standalone: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
       cameras: [
         { entity: "camera.doorbell", name: "Doorbell" },
         { entity: "camera.driveway", name: "Driveway" },
@@ -848,11 +932,14 @@ test("standalone Grid labels the camera picker Grid", () => {
   assert.doesNotMatch(markup, /mobile-cam-picker__status/);
 });
 
-test("standalone camera picker panel stays within the live stage", () => {
+test("Video Only camera picker panel stays within the live stage", () => {
   const panel = { style: {} };
   const host = {
     _pageId: "card-view",
-    _config: { card_view_standalone: true },
+    _config: {
+      card_view_standalone: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+    },
     shadowRoot: {
       querySelector: (selector) =>
         selector === ".card-view-camera-row .mobile-cam-picker__panel"
@@ -1030,7 +1117,7 @@ test("Card View alert takeover yields to active shared modes", () => {
   assert.equal(toolbarSyncs, 1);
 });
 
-test("standalone Card View applies its configured starting mode", () => {
+test("Video Only Card View applies its configured starting mode", () => {
   const modeChanges = [];
   const host = {
     _pageId: "card-view",
@@ -1039,6 +1126,7 @@ test("standalone Card View applies its configured starting mode", () => {
     _config: {
       card_view_page_enabled: true,
       card_view_standalone: true,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
       card_view_alert_takeover: true,
       card_view_start_mode: CARD_VIEW_START_MODES.grid,
     },

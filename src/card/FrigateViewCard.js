@@ -396,10 +396,17 @@ export class FrigateViewCard extends HTMLElement {
       void this._handleCirclePadPtzEvent(event, "release");
     };
     this._onPtzControlPointerDown = (event) => {
-      this._mobileCamSwitcherController?.handlePointerDown?.(
-        event,
-        event.target,
-      );
+      const pickerUsesNativeClick =
+        this._cardViewPageController?.shouldUseNativeCameraPickerClick?.(
+          event,
+          event.target,
+        ) === true;
+      if (!pickerUsesNativeClick) {
+        this._mobileCamSwitcherController?.handlePointerDown?.(
+          event,
+          event.target,
+        );
+      }
       if (this._linkedLightController?.handlePointerDown?.(event)) return;
       void this._handlePtzControlPointerDown(event);
     };

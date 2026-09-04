@@ -116,7 +116,7 @@ test.describe("touch input", () => {
           { entity: "camera.back", name: "Back" },
         ],
         card_view_page_enabled: true,
-        card_view_standalone: false,
+        card_view_standalone: true,
         card_view_view_mode: "video-only",
       });
       card._pageId = "card-view";
@@ -144,5 +144,50 @@ test.describe("touch input", () => {
       "false",
     );
     expect(pageErrors).toEqual([]);
+  });
+
+  test("keeps the normal Card View header in standalone Bottom Panel mode", async ({
+    page,
+  }) => {
+    await page.goto(baseUrl);
+    const state = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.append(card);
+      card.setConfig({
+        cameras: [
+          { entity: "camera.front", name: "Front" },
+          { entity: "camera.back", name: "Back" },
+        ],
+        card_view_page_enabled: true,
+        card_view_standalone: true,
+        card_view_view_mode: "bottom-panel-open",
+      });
+      card._pageId = "card-view";
+      card._renderShell();
+      const cardRoot = card.shadowRoot.querySelector("#card");
+      const cameraRow = card.shadowRoot.querySelector(
+        ".card-view-camera-row",
+      );
+      return {
+        standalone: cardRoot.classList.contains("card-view-standalone"),
+        overlay: cardRoot.classList.contains(
+          "card-view-overlay-presentation",
+        ),
+        videoOnly: cardRoot.classList.contains("card-view-video-panel-only"),
+        cameraRowPosition: getComputedStyle(cameraRow).position,
+        cameraStatusVisible: Boolean(
+          cameraRow.querySelector(".mobile-cam-picker__status"),
+        ),
+      };
+    });
+
+    expect(state).toEqual({
+      standalone: true,
+      overlay: false,
+      videoOnly: false,
+      cameraRowPosition: "relative",
+      cameraStatusVisible: true,
+    });
   });
 });

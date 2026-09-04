@@ -61,13 +61,13 @@ export class MobileCamSwitcherController {
     const suppressed = this._suppressedClick;
     const suppressionActive =
       suppressed && Date.now() <= suppressed.until;
-    const insideSwitcher =
-      target?.closest?.("[data-mobile-cam-picker]") ||
-      target?.closest?.("[data-mobile-cam-switcher-content]") ||
-      target?.closest?.('[data-fvc-region="camera-switcher"]');
+    const retargetedInsideSwitcher =
+      !action &&
+      (target?.closest?.("[data-mobile-cam-switcher-content]") ||
+        target?.closest?.('[data-fvc-region="camera-switcher"]'));
     if (
       suppressionActive &&
-      (suppressed.action === action || insideSwitcher)
+      (suppressed.action === action || retargetedInsideSwitcher)
     ) {
       this._suppressedClick = null;
       return true;
@@ -80,7 +80,6 @@ export class MobileCamSwitcherController {
 
   handlePointerDown(event, target = event?.target) {
     if (String(event?.pointerType || "").toLowerCase() === "mouse") {
-      this._suppressedClick = null;
       return false;
     }
     const action = this._actionForTarget(target);

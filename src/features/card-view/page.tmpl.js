@@ -228,7 +228,7 @@ export function applyCardViewPageMarkup({ host, pageIds } = {}) {
   );
   const videoPanelOnly =
     active && viewMode === CARD_VIEW_VIEW_MODES.videoOnly;
-  const overlayPresentation = standalone || videoPanelOnly;
+  const overlayPresentation = videoPanelOnly;
   const hideCameraName =
     overlayPresentation &&
     host?._config?.card_view_hide_camera_name === true;
