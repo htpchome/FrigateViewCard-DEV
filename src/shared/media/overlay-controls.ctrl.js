@@ -10,12 +10,15 @@ export class MediaOverlayControlsController {
     hideNow,
     hideSoon,
     revealDurationMs = 1300,
+    autoHideMouse = false,
   }) {
     this._surface = surface || wrap;
     this._show = show;
     this._hideNow = hideNow;
     this._hideSoon = hideSoon;
     this._revealDurationMs = Math.max(0, Number(revealDurationMs) || 0);
+    this._autoHideMouse = autoHideMouse === true;
+    this._lastMouseRevealAt = 0;
     this._cleanup = new CleanupController();
     this._pointers = new Map();
   }
@@ -67,7 +70,12 @@ export class MediaOverlayControlsController {
   }
 
   _onPointerEnter = (event) => {
-    if (event?.pointerType === "mouse") this._show?.();
+    if (event?.pointerType !== "mouse") return;
+    this._show?.();
+    if (this._autoHideMouse) {
+      this._lastMouseRevealAt = Date.now();
+      this._hideSoon?.(this._revealDurationMs);
+    }
   };
 
   _onPointerLeave = (event) => {
@@ -91,6 +99,15 @@ export class MediaOverlayControlsController {
   };
 
   _onPointerMove = (event) => {
+    if (event?.pointerType === "mouse") {
+      if (!this._autoHideMouse || Number(event?.buttons) > 0) return;
+      const now = Date.now();
+      if (now - this._lastMouseRevealAt < 100) return;
+      this._lastMouseRevealAt = now;
+      this._show?.();
+      this._hideSoon?.(this._revealDurationMs);
+      return;
+    }
     const pointer = this._pointers.get(event.pointerId);
     if (!pointer || pointer.moved) return;
     const distance = Math.hypot(

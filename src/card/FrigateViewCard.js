@@ -4862,6 +4862,12 @@ export class FrigateViewCard extends HTMLElement {
     }
     if (!wrap.classList.contains("live-stage--overlay")) return;
     const card = this._$("#card");
+    const standaloneCardView =
+      this._isCardViewPageActive() &&
+      this._config?.card_view_standalone === true;
+    const interactionSurface = standaloneCardView
+      ? this._$(".card-view-live-panel") || wrap
+      : wrap;
     const show = () => {
       wrap.classList.add("live-controls-visible");
       card?.classList?.add("card-view-overlays-visible");
@@ -4884,10 +4890,12 @@ export class FrigateViewCard extends HTMLElement {
       }, ms);
     };
     this._liveOverlayControlsController = new LiveOverlayControlsController({
+      surface: interactionSurface,
       wrap,
       show,
       hideNow,
       hideSoon,
+      autoHideMouse: standaloneCardView,
     });
     this._liveOverlayControlsController.bind();
   }

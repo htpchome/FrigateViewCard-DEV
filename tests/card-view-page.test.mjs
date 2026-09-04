@@ -112,8 +112,9 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /card-view-footer/);
   assert.match(markup, /data-card-view-standalone-mode-controls/);
   assert.match(markup, /data-card-view-live-badge/);
+  assert.match(markup, /data-card-view-standalone-linked-overlay/);
+  assert.match(markup, /media-linked-controls-overlay/);
   assert.match(markup, /data-card-view-standalone-light-overlay/);
-  assert.match(markup, /preview-light-overlay/);
   assert.match(
     markup,
     /data-linked-light-position-slot="left"[^>]*>left-light-control/,
@@ -365,23 +366,28 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone-light-overlay[\s\S]*?card-view-standalone-talk-overlay/,
+    /card-view-standalone-linked-overlay \{[\s\S]*?grid-template-columns:minmax\(36px,1fr\) auto minmax\(36px,1fr\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /data-linked-light-position-slot="left"\] \{grid-column:1;justify-self:end;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /data-linked-light-position-slot="right"\] \{grid-column:3;justify-self:start;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-talk-overlay \{[\s\S]*?grid-column:2;grid-row:1;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-live-stage:has\(#stream-loading:not\(\[hidden\]\)\) \.card-view-live-badge \{display:none;\}/,
   );
+  assert.equal((CARD_VIEW_PAGE_STYLES.match(/top:45px/g) || []).length, 0);
   assert.doesNotMatch(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlays-visible \.card-view-live-badge/,
-  );
-  assert.match(
-    CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:has\(\.card-view-live-stage:hover\) \.card-view-standalone-mode-button/,
-  );
-  assert.doesNotMatch(
-    CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:hover \.card-view-standalone-mode-button/,
+    /card-view-live-(?:panel|stage)[^,{]*:hover[^,{]*:is\([^)]*card-view-standalone|card-view-live-(?:panel|stage)[^,{]*:hover[^,{]*card-view-standalone/,
   );
 });
 

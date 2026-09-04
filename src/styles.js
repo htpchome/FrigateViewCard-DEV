@@ -723,9 +723,23 @@ export const STYLES = `
   .preview-meta-light .linked-light-position-slot[data-linked-light-position-slot="left"]{justify-self:start;}
   .preview-meta-light .linked-light-position-slot[data-linked-light-position-slot="right"]{justify-self:end;}
   .preview-meta-light .linked-light-button,.preview-light-overlay .linked-light-button{width:30px;height:30px;min-width:30px;min-height:30px;}
-  .preview-light-overlay{position:absolute;z-index:5;top:7px;right:7px;left:7px;display:flex;align-items:flex-start;justify-content:space-between;pointer-events:none;}
+  .preview-light-overlay{position:absolute;z-index:5;right:7px;bottom:7px;left:7px;display:flex;align-items:flex-end;justify-content:space-between;pointer-events:none;}
   .preview-light-overlay .linked-light-position-slot{pointer-events:auto;}
-  .preview-light-overlay .linked-light-dimmer{top:calc(100% + 8px);bottom:auto;}
+  .preview-light-overlay .linked-light-dimmer{top:auto;bottom:calc(100% + 8px);}
+  .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn){
+    color:#f5f5f5;background-color:rgb(20 20 20 / 80%);background-image:none;
+    border:1px solid rgb(255 255 255 / 15%);box-shadow:0 3px 10px rgb(0 0 0 / 34%);
+  }
+  .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn) svg{color:currentColor;opacity:1;}
+  .media-linked-controls-overlay .info-row-mic-btn.round-btn.active{color:#4ade80;background-color:rgb(20 20 20 / 88%);border-color:rgb(74 222 128 / 55%);}
+  .media-linked-controls-overlay .info-row-mic-btn.round-btn.active.microphone-muted{color:var(--c-text-rev);background-color:var(--c-accent);border-color:var(--c-accent);}
+  .media-linked-controls-overlay .linked-light-button.icon-btn.is-on::before{background:rgb(20 20 20 / 88%);}
+  .media-linked-controls-overlay .two-way-talk-soundwave{
+    background:radial-gradient(circle at 48% 50%,rgba(155,92,255,.22),transparent 60%),linear-gradient(135deg,rgba(34,211,238,.07),rgba(255,60,172,.08)),rgb(15 15 15 / 72%);
+  }
+  @media (hover:hover) and (pointer:fine){
+    .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn):hover:not(:disabled){background-color:rgb(45 45 45 / 95%);border-color:rgb(255 255 255 / 45%);}
+  }
   .preview-cam-buttons{display:flex;flex-wrap:wrap;gap:6px;padding: 10px 0px}
   .preview-cam-btn{}
   .card .layout--wide-view{flex:1 1 0;height:auto;min-height:0;}

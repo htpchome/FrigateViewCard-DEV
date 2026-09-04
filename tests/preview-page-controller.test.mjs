@@ -217,11 +217,22 @@ test("Preview linked lights render in metadata or over media when metadata is hi
     metaMarkup: "",
   });
   assert.match(cell, /class="preview-media-frame"/);
-  assert.match(cell, /class="linked-light-region preview-light-overlay"/);
+  assert.match(
+    cell,
+    /class="linked-light-region preview-light-overlay media-linked-controls-overlay"/,
+  );
   assert.match(cell, /data-linked-light-position-slot="left"/);
   assert.match(
     STYLES,
-    /\.preview-light-overlay\{[^}]*right:7px;left:7px;[^}]*justify-content:space-between/,
+    /\.preview-light-overlay\{[^}]*right:7px;bottom:7px;left:7px;[^}]*align-items:flex-end;justify-content:space-between/,
+  );
+  assert.match(
+    STYLES,
+    /\.preview-light-overlay \.linked-light-dimmer\{top:auto;bottom:calc\(100% \+ 8px\);\}/,
+  );
+  assert.match(
+    STYLES,
+    /\.media-linked-controls-overlay :is\([^}]*background-color:rgb\(20 20 20 \/ 80%\);background-image:none;/,
   );
   assert.match(
     STYLES,

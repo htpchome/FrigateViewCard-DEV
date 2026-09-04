@@ -129,8 +129,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active .card-view-calendar-panel[hidden] {display:none;}
   .card.card-view-active .card-view-standalone-mode-controls,
   .card.card-view-active .card-view-live-badge,
-  .card.card-view-active .card-view-standalone-light-overlay,
-  .card.card-view-active .card-view-standalone-talk-overlay {display:none;}
+  .card.card-view-active .card-view-standalone-linked-overlay {display:none;}
   .card.card-view-active.card-view-standalone .card-view-live-panel {padding:0;box-sizing:border-box;}
   .card.card-view-active.card-view-standalone .card-view-live-stage,
   .card.card-view-active.card-view-standalone .card-view-live-stage #eng-wrap {border-radius:var(--fvc-border-radius,0px);}
@@ -194,11 +193,6 @@ export const CARD_VIEW_PAGE_STYLES = `
     opacity:1;pointer-events:auto;transform:none;
   }
   @media (hover:hover) and (pointer:fine) {
-    .card.card-view-active.card-view-standalone.card-view-hide-camera-name:not(.card-view-grid-mode) .card-view-live-panel:hover .mobile-cam-picker,
-    .card.card-view-active.card-view-standalone .card-view-live-panel:has(.card-view-live-stage:hover) .card-view-standalone-mode-button,
-    .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls:has(.card-view-standalone-mode-button:hover) .card-view-standalone-mode-button {
-      opacity:1;pointer-events:auto;transform:none;
-    }
     .card.card-view-active.card-view-standalone .card-view-standalone-mode-button:hover {background:rgb(45 45 45 / 95%);border-color:rgb(255 255 255 / 45%);}
   }
   .card.card-view-active.card-view-standalone .card-view-live-badge {
@@ -212,27 +206,26 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-live-badge.is-offline .card-view-live-badge-dot {background:var(--c-off);box-shadow:0 0 0 2px color-mix(in srgb,var(--c-off) 24%,transparent);}
   .card.card-view-active.card-view-standalone .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-live-badge {display:none;}
   .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-live-badge {display:none;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay {
-    z-index:23;display:flex;opacity:0;pointer-events:none;transition:opacity .15s ease;
+  .card.card-view-active.card-view-standalone .card-view-standalone-linked-overlay {
+    position:absolute;z-index:23;left:50%;bottom:27px;display:grid;
+    grid-template-columns:minmax(36px,1fr) auto minmax(36px,1fr);align-items:center;gap:6px;
+    width:min(240px,calc(100% - 24px));transform:translateX(-50%);opacity:0;pointer-events:none;
+    transition:opacity .15s ease;
   }
-  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay .linked-light-position-slot {pointer-events:none;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-controls {display:contents;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-controls .linked-light-position-slot {grid-row:1;pointer-events:none;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-controls [data-linked-light-position-slot="left"] {grid-column:1;justify-self:end;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-controls [data-linked-light-position-slot="right"] {grid-column:3;justify-self:start;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-light-controls .linked-light-button {width:30px;height:30px;min-width:30px;min-height:30px;}
   .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay {
-    position:absolute;z-index:23;left:50%;bottom:27px;display:flex;align-items:center;justify-content:center;
-    max-width:calc(100% - 24px);transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .15s ease;
+    grid-column:2;grid-row:1;display:flex;align-items:center;justify-content:center;min-width:0;
   }
   .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay:empty {display:none;}
-  .card.card-view-active.card-view-standalone.card-view-overlays-visible :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay),
-  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay:has([data-linked-light-dimmer]:not([hidden])) {opacity:1;pointer-events:auto;}
-  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-light-overlay .linked-light-position-slot,
-  .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
-  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-live-stage:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"]:not([hidden])) .card-view-live-badge,
-  .card.card-view-active.card-view-standalone .card-view-live-stage:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"] [data-linked-light-dimmer]:not([hidden])) .card-view-live-badge {top:45px;}
-  @media (hover:hover) and (pointer:fine) {
-    .card.card-view-active.card-view-standalone .card-view-live-stage:hover :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay) {opacity:1;pointer-events:auto;}
-    .card.card-view-active.card-view-standalone .card-view-live-stage:hover .card-view-standalone-light-overlay .linked-light-position-slot {pointer-events:auto;}
-    .card.card-view-active.card-view-standalone .card-view-live-stage:hover:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"]:not([hidden])) .card-view-live-badge {top:45px;}
-  }
-  .card.card-view-active.card-view-standalone.card-view-grid-mode :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay),
+  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-linked-overlay,
+  .card.card-view-active.card-view-standalone .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) {opacity:1;pointer-events:auto;}
+  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-light-controls .linked-light-position-slot,
+  .card.card-view-active.card-view-standalone .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
+  .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-standalone-linked-overlay,
   .card.card-view-active.card-view-standalone.card-view-grid-mode .live-playback-controls {display:none !important;}
   .card.card-view-active.card-view-standalone .slideshow-next-chip {display:none !important;}
   .card.card-view-active.card-view-video-panel-only .card-view-drawer,

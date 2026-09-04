@@ -47,11 +47,13 @@ export function buildCardViewMainLayoutShellMarkup({
           <span class="card-view-live-badge-dot" aria-hidden="true"></span>
           <span>Live</span>
         </div>
-        <div class="linked-light-region preview-light-overlay card-view-standalone-light-overlay" data-card-view-standalone-light-overlay data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">
-          <div class="linked-light-position-slot" data-linked-light-position-slot="left" ${regions.linkedEntitiesLeft ? "" : "hidden"}>${regions.linkedEntitiesLeft}</div>
-          <div class="linked-light-position-slot" data-linked-light-position-slot="right" ${regions.linkedEntitiesRight ? "" : "hidden"}>${regions.linkedEntitiesRight}</div>
+        <div class="card-view-standalone-linked-overlay media-linked-controls-overlay" data-card-view-standalone-linked-overlay data-media-overlay-ignore>
+          <div class="linked-light-region card-view-standalone-light-controls" data-card-view-standalone-light-overlay data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">
+            <div class="linked-light-position-slot" data-linked-light-position-slot="left" ${regions.linkedEntitiesLeft ? "" : "hidden"}>${regions.linkedEntitiesLeft}</div>
+            <div class="linked-light-position-slot" data-linked-light-position-slot="right" ${regions.linkedEntitiesRight ? "" : "hidden"}>${regions.linkedEntitiesRight}</div>
+          </div>
+          <div class="card-view-standalone-talk-overlay" data-card-view-standalone-talk-overlay></div>
         </div>
-        <div class="card-view-standalone-talk-overlay" data-card-view-standalone-talk-overlay></div>
       </div>
     </div>
     <div class="card-view-drawer is-open" data-card-view-drawer data-drawer-state="open">

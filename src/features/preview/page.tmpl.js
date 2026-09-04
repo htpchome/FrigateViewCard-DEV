@@ -37,7 +37,7 @@ export function buildPreviewLightRegionMarkup({
     linkedLightRightMarkup ||
     (legacyPosition === "right" ? linkedLightMarkup : "");
   if (!leftMarkup && !rightMarkup) return "";
-  return `<div class="linked-light-region ${overlay ? "preview-light-overlay" : "preview-meta-light"}" data-fvc-region="linked-entities" data-linked-light-variant="icon-btn" data-linked-light-camera="${escapeHtmlAttribute(cameraEntity)}">
+  return `<div class="linked-light-region ${overlay ? "preview-light-overlay media-linked-controls-overlay" : "preview-meta-light"}" data-fvc-region="linked-entities" data-linked-light-variant="icon-btn" data-linked-light-camera="${escapeHtmlAttribute(cameraEntity)}">
     <div class="linked-light-position-slot" data-linked-light-position-slot="left" ${leftMarkup ? "" : "hidden"}>${leftMarkup}</div>
     <div class="linked-light-position-slot" data-linked-light-position-slot="right" ${rightMarkup ? "" : "hidden"}>${rightMarkup}</div>
   </div>`;
