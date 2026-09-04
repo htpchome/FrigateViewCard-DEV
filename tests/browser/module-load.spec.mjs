@@ -146,6 +146,125 @@ test.describe("touch input", () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test("does not let the Video Only camera row block grouped-camera controls", async ({
+    page,
+  }) => {
+    await page.goto(baseUrl);
+    const hitTarget = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [
+          {
+            entity: "camera.front",
+            name: "Front / Back",
+            group: {
+              secondary_entity: "camera.back",
+              layout: "stacked",
+            },
+          },
+        ],
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
+      });
+      card._pageId = "card-view";
+      card._renderShell();
+
+      const root = card.shadowRoot;
+      const wrap = root.querySelector("#eng-wrap");
+      const secondaryPane = root.querySelector(
+        '.camera-group-live-pane[data-camera-group-member="B"]',
+      );
+      wrap.classList.remove("camera-group-mobile-member");
+      wrap.classList.add("camera-group-live", "camera-group-live--stacked");
+      secondaryPane.hidden = false;
+      secondaryPane.classList.add("is-ready");
+      card._cameraGroupLiveController.setActiveAudioMember = (member) => {
+        card.dataset.selectedAudioMember = member;
+      };
+      card._cameraGroupLiveController.toggleFocusedMember = (member) => {
+        card.dataset.focusedMember = member;
+        return true;
+      };
+
+      return [
+        '[data-camera-group-audio="A"]',
+        '[data-camera-group-focus="A"]',
+      ].map((selector) => {
+        const button = root.querySelector(selector);
+        const rect = button.getBoundingClientRect();
+        const hit = root.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        return hit?.closest?.(selector) === button;
+      });
+    });
+
+    expect(hitTarget).toEqual([true, true]);
+    const card = page.locator("frigate-view-card");
+    await card.locator('[data-camera-group-audio="A"]').tap();
+    await expect(card).toHaveAttribute("data-selected-audio-member", "A");
+    await card.locator('[data-camera-group-focus="A"]').tap();
+    await expect(card).toHaveAttribute("data-focused-member", "A");
+  });
+
+  test("keeps the Mobile View grouped-camera toggle on the touch surface", async ({
+    page,
+  }) => {
+    await page.goto(baseUrl);
+    const hitTarget = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [
+          {
+            entity: "camera.front",
+            name: "Front / Back",
+            group: { secondary_entity: "camera.back" },
+          },
+        ],
+        mobile_view_page_enabled: true,
+      });
+      card._pageId = "mobile-view";
+      card._renderShell();
+
+      const root = card.shadowRoot;
+      const wrap = root.querySelector("#eng-wrap");
+      wrap.classList.add("camera-group-mobile-member");
+      card._cameraGroupLiveController.toggleMobileMember = () => {
+        card.dataset.mobileGroupToggled = "true";
+        return true;
+      };
+      const button = root.querySelector("[data-camera-group-mobile-toggle]");
+      const rect = button.getBoundingClientRect();
+      const hit = root.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      return {
+        visible: rect.width > 0 && rect.height > 0,
+        hitToggle: Boolean(
+          hit?.closest?.("[data-camera-group-mobile-toggle]"),
+        ),
+        hitClass: hit?.className || "",
+      };
+    });
+
+    expect(hitTarget).toEqual({
+      visible: true,
+      hitToggle: true,
+      hitClass: expect.any(String),
+    });
+    const card = page.locator("frigate-view-card");
+    await card.locator("[data-camera-group-mobile-toggle]").tap();
+    await expect(card).toHaveAttribute("data-mobile-group-toggled", "true");
+  });
+
   test("keeps the normal Card View header in standalone Bottom Panel mode", async ({
     page,
   }) => {

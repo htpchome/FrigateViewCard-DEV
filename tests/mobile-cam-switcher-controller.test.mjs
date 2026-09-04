@@ -215,6 +215,106 @@ test("mobile cam switcher consumes a synthesized click retargeted to the Card Vi
   assert.equal(open, true);
 });
 
+test("mobile cam switcher ignores a compatibility click retargeted inside its replaced DOM", async () => {
+  let open = false;
+  let switchedIdx = null;
+  const trigger = {};
+  const triggerTarget = createTarget({
+    "[data-mobile-cam-trigger]": trigger,
+  });
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+    renderCamSwitcher: () => {},
+    switchCamera: async (idx) => {
+      switchedIdx = idx;
+    },
+  });
+
+  controller.handlePointerDown(
+    {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 20,
+    },
+    triggerTarget,
+  );
+  controller.handlePointerUp(
+    {
+      pointerId: 11,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 20,
+      preventDefault() {},
+    },
+    triggerTarget,
+  );
+
+  const revealedOption = {
+    dataset: { mobileCamidx: "1" },
+  };
+  const retargetedClick = createTarget({
+    "[data-mobile-camidx]": revealedOption,
+    "[data-mobile-cam-picker]": {},
+  });
+  assert.equal(controller.handleClickTarget(retargetedClick), true);
+  await Promise.resolve();
+  assert.equal(open, true);
+  assert.equal(switchedIdx, null);
+});
+
+test("mobile cam switcher ignores an option tap's compatibility click on the replacement trigger", async () => {
+  let open = true;
+  let switchedIdx = null;
+  const option = { dataset: { mobileCamidx: "1" } };
+  const optionTarget = createTarget({
+    "[data-mobile-camidx]": option,
+  });
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+    renderCamSwitcher: () => {},
+    switchCamera: async (idx) => {
+      switchedIdx = idx;
+    },
+  });
+
+  controller.handlePointerDown(
+    {
+      pointerId: 12,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 60,
+    },
+    optionTarget,
+  );
+  controller.handlePointerUp(
+    {
+      pointerId: 12,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 60,
+      preventDefault() {},
+    },
+    optionTarget,
+  );
+
+  const replacementTrigger = {};
+  const retargetedClick = createTarget({
+    "[data-mobile-cam-trigger]": replacementTrigger,
+    "[data-mobile-cam-picker]": {},
+  });
+  assert.equal(controller.handleClickTarget(retargetedClick), true);
+  await Promise.resolve();
+  assert.equal(open, false);
+  assert.equal(switchedIdx, 1);
+});
+
 test("mobile cam switcher completes a stationary touch whose pointerup is retargeted", () => {
   let open = false;
   let prevented = 0;

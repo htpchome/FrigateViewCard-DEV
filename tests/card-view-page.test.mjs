@@ -415,24 +415,6 @@ test("View Mode alone determines whether Card View uses the video overlay presen
       );
       assert.equal(cardClasses.has("card-view-video-panel-only"), videoOnly);
       assert.equal(cardClasses.has("card-view-standalone"), standalone);
-      const pickerTarget = {
-        closest: (selector) =>
-          selector === "[data-mobile-cam-picker]" ? {} : null,
-      };
-      assert.equal(
-        controller.shouldUseNativeCameraPickerClick(
-          { pointerType: "touch" },
-          pickerTarget,
-        ),
-        videoOnly,
-      );
-      assert.equal(
-        controller.shouldUseNativeCameraPickerClick(
-          { pointerType: "mouse" },
-          pickerTarget,
-        ),
-        false,
-      );
       assert.equal(
         controller.camSwitcherMarkup().includes("mobile-cam-picker__status"),
         !videoOnly,
@@ -612,7 +594,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?pointer-events:auto;/,
+    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?pointer-events:none;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

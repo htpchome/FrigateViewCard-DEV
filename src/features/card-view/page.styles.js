@@ -30,6 +30,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back svg {width:20px;height:20px;color:currentColor;fill:currentColor;opacity:1;pointer-events:none;}
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-back-slot {display:none;}
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) #eng-wrap:is(.camera-group-live,.camera-group-mobile-member) .camera-group-live-pane--primary .camera-group-pane-controls {left:48px;}
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back:hover {
       background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
@@ -246,7 +247,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-camera-row {
     position:absolute;z-index:24;top:8px;left:8px;right:8px;width:auto;min-width:0;padding:0;
     grid-template-columns:minmax(0,1fr) clamp(112px,38%,200px) minmax(0,1fr);align-items:start;gap:6px;
-    background:transparent;pointer-events:auto;
+    background:transparent;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-back-slot {display:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-camera-picker {display:contents;}
