@@ -52,7 +52,10 @@ import {
   GRID_ORDER_MODES,
   normalizeGridOrderConfig,
 } from "../features/grid/config.js";
-import { normalizeCardViewStartMode } from "../features/card-view/config.js";
+import {
+  normalizeCardViewMediaDrawerType,
+  normalizeCardViewStartMode,
+} from "../features/card-view/config.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -517,6 +520,18 @@ export const compactEditorConfigForYaml = (
     source.card_view_page_enabled === true &&
       source.card_view_standalone === true,
     false,
+  );
+  addIfNotDefault(
+    compact,
+    "card_view_media_drawer_enabled",
+    source.card_view_media_drawer_enabled === true,
+    false,
+  );
+  addIfNotDefault(
+    compact,
+    "card_view_media_drawer_type",
+    normalizeCardViewMediaDrawerType(source.card_view_media_drawer_type),
+    "alerts",
   );
   addIfNotDefault(
     compact,

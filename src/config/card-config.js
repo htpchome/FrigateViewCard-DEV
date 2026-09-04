@@ -42,7 +42,10 @@ import {
 } from "../features/wide-view/config.js";
 import { limitCameraConfigsByPhysicalCount } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
-import { normalizeCardViewStartMode } from "../features/card-view/config.js";
+import {
+  normalizeCardViewMediaDrawerType,
+  normalizeCardViewStartMode,
+} from "../features/card-view/config.js";
 
 export const DEFAULT_CAMERA_ENTITY = "camera.doorbell";
 export const PREFERRED_DEFAULT_CAMERA_ENTITIES = Object.freeze([
@@ -206,6 +209,11 @@ export const normalizeCardConfig = (config) => {
     src.card_view_drawer_default_open !== false;
   src.card_view_standalone =
     src.card_view_page_enabled && src.card_view_standalone === true;
+  src.card_view_media_drawer_enabled =
+    src.card_view_media_drawer_enabled === true;
+  src.card_view_media_drawer_type = normalizeCardViewMediaDrawerType(
+    src.card_view_media_drawer_type,
+  );
   src.card_view_start_mode = normalizeCardViewStartMode(
     src.card_view_start_mode,
   );

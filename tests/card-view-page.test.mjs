@@ -94,6 +94,7 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
       pageNavigation:
         '<div data-fvc-region="page-navigation"></div>',
       drawerHandleIcon: "chevron",
+      mediaDrawerHandleIcon: "media-chevron",
     },
   });
 
@@ -113,6 +114,12 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /card-view-footer/);
   assert.match(markup, /data-card-view-standalone-mode-controls/);
   assert.match(markup, /data-card-view-live-badge/);
+  assert.match(markup, /data-card-view-media-drawer/);
+  assert.match(markup, /data-card-view-media-drawer-toggle/);
+  assert.match(markup, /data-card-view-media-drawer-scroller/);
+  assert.match(markup, /data-card-view-media-drawer-scroll="-1"/);
+  assert.match(markup, /data-card-view-media-drawer-scroll="1"/);
+  assert.match(markup, /media-chevron/);
   assert.match(markup, /data-card-view-standalone-linked-overlay/);
   assert.match(markup, /media-linked-controls-overlay/);
   assert.match(markup, /data-card-view-standalone-light-overlay/);
@@ -299,6 +306,7 @@ test("standalone Card View markup reflects video-only, hidden-name, and active m
     _slideshowActive: false,
     _config: {
       card_view_standalone: true,
+      card_view_media_drawer_enabled: true,
       card_view_video_panel_only: true,
       card_view_hide_camera_name: true,
     },
@@ -316,6 +324,7 @@ test("standalone Card View markup reflects video-only, hidden-name, and active m
   assert.equal(cardClasses.has("card-view-standalone"), true);
   assert.equal(cardClasses.has("card-view-video-panel-only"), true);
   assert.equal(cardClasses.has("card-view-hide-camera-name"), true);
+  assert.equal(cardClasses.has("card-view-media-drawer-enabled"), true);
   assert.equal(cardClasses.has("card-view-grid-mode"), true);
   assert.equal(cardClasses.has("card-view-slideshow-mode"), false);
 });
@@ -466,6 +475,18 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-live-stage:has\(#stream-loading:not\(\[hidden\]\)\) \.card-view-live-badge \{display:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-enabled \.card-view-media-drawer:not\(\[hidden\]\) \{[\s\S]*?z-index:40;[\s\S]*?width:clamp\(118px,30%,156px\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-panel \{[\s\S]*?background:var\(--fvc-media-overlay-bg-strong\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-scroller \{[\s\S]*?overflow-y:auto;[\s\S]*?touch-action:pan-y/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

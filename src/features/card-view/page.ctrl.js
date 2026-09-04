@@ -26,6 +26,7 @@ import {
   CARD_VIEW_START_MODES,
   normalizeCardViewStartMode,
 } from "./config.js";
+import { CardViewMediaDrawerController } from "./media-drawer.ctrl.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
 const STANDALONE_GRID_INDICATOR_DURATION_MS = GRID_ALERT_HOLD_MS;
@@ -128,6 +129,30 @@ export class CardViewPageController {
     this._standaloneGridModeActive = false;
     this._standaloneGridIndicatorTimer = null;
     this._standaloneTalkMarkup = "";
+    this._mediaDrawerController = new CardViewMediaDrawerController({
+      query: (selector) => this._host.shadowRoot?.querySelector?.(selector),
+      isEnabled: () =>
+        this.isStandalone() &&
+        this._host._config?.card_view_media_drawer_enabled === true,
+      getConfiguredType: () =>
+        this._host._config?.card_view_media_drawer_type,
+      getEvents: (mediaType) =>
+        this._host._popupCarouselController?.eventsForMediaType?.(mediaType) ||
+        [],
+      mediaUrl: (id, file, camera = "") =>
+        this._host._mediaForCamera?.(id, file, camera) || "",
+      formatDateTime: (timestamp) =>
+        this._host._dateTimeLabel?.(timestamp) || "",
+      formatTime: (timestamp) => this._host._time?.(timestamp) || "",
+      onSelectEvent: (id, mediaType) => {
+        this._host._pauseSlideshowForInteraction?.();
+        this._host._popupMediaLoaderController?.showCarouselEventById?.(
+          id,
+          mediaType,
+        );
+      },
+      icons: ICONS,
+    });
   }
 
   isActive() {
@@ -246,6 +271,7 @@ export class CardViewPageController {
     this._standaloneModeControlsMarkup = "";
     this._resetStandaloneGridIndicator();
     this._standaloneTalkMarkup = "";
+    this._mediaDrawerController.dispose();
     this._haSeverityByEntity.clear();
     this._activityContent = null;
     this._activityMarkup = "";
@@ -275,6 +301,7 @@ export class CardViewPageController {
       stageObserver.observe(liveStage);
       this._cleanup.addCleanup(() => stageObserver.disconnect());
     }
+    this._mediaDrawerController.bind();
     const content = this._host._pageShellRegion?.("cardViewActivity");
     if (!content) return;
 
@@ -569,6 +596,10 @@ export class CardViewPageController {
     this.renderActivity();
   }
 
+  renderMediaDrawer(options = {}) {
+    return this._mediaDrawerController.render(options);
+  }
+
   renderStandaloneModeControls(_buttonStates = null) {
     const container = this._host.shadowRoot?.querySelector?.(
       "[data-card-view-standalone-mode-controls]",
@@ -776,6 +807,7 @@ export class CardViewPageController {
 
   renderActivity() {
     if (!this.isActive()) return;
+    this.renderMediaDrawer();
     const content = this._host._pageShellRegion?.("cardViewActivity");
     if (!content) return;
     const columnValue = String(this._columns);
@@ -1118,6 +1150,8 @@ export class CardViewPageController {
     takeoverDefaultChanged = false,
     drawerDefaultChanged = false,
     standaloneChanged = false,
+    mediaDrawerEnabledChanged = false,
+    mediaDrawerTypeChanged = false,
     startModeChanged = false,
     videoPanelOnlyChanged = false,
     hideCameraNameChanged = false,
@@ -1143,12 +1177,22 @@ export class CardViewPageController {
     }
     if (
       standaloneChanged ||
+      mediaDrawerEnabledChanged ||
+      mediaDrawerTypeChanged ||
       startModeChanged ||
       videoPanelOnlyChanged ||
       hideCameraNameChanged
     ) {
       this.syncCardViewPageMarkup();
       this.renderCamSwitcher();
+    }
+    if (
+      standaloneChanged ||
+      mediaDrawerEnabledChanged ||
+      mediaDrawerTypeChanged
+    ) {
+      this._mediaDrawerController.syncState();
+      this.renderMediaDrawer({ force: mediaDrawerTypeChanged });
     }
     this.renderToolbar();
     if (takeoverDefaultChanged) {
@@ -1175,6 +1219,7 @@ export class CardViewPageController {
     }
     this._syncAlertsFromCache();
     this.renderToolbar();
+    this.renderMediaDrawer({ force: true });
     void this._discoverPtzSupport();
     if (this._mode === "recordings") await this.loadRecordings();
     else if (this._mode === "alerts") this.renderActivity();
@@ -1516,6 +1561,7 @@ export class CardViewPageController {
 
   handleClick(event, target) {
     if (!this.isActive()) return false;
+    if (this._mediaDrawerController.handleClick(event, target)) return true;
     const standaloneGrid = target.closest?.(
       "[data-card-view-standalone-grid]",
     );
@@ -1640,5 +1686,6 @@ export class CardViewPageController {
       host: this._host,
       pageIds: this._constants.PAGE_IDS,
     });
+    this._mediaDrawerController.syncState();
   }
 }

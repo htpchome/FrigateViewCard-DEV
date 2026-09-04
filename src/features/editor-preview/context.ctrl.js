@@ -228,6 +228,16 @@ export class EditorPreviewContextController {
       nextConfig,
       "card_view_standalone",
     );
+    const cardMediaDrawerEnabledChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "card_view_media_drawer_enabled",
+    );
+    const cardMediaDrawerTypeChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "card_view_media_drawer_type",
+    );
     const cardStartModeChanged = previewKeysChanged(
       previousConfig,
       nextConfig,
@@ -247,6 +257,8 @@ export class EditorPreviewContextController {
       cardTakeoverChanged ||
       cardDrawerChanged ||
       cardStandaloneChanged ||
+      cardMediaDrawerEnabledChanged ||
+      cardMediaDrawerTypeChanged ||
       cardStartModeChanged ||
       cardVideoPanelOnlyChanged ||
       cardHideCameraNameChanged
@@ -255,6 +267,8 @@ export class EditorPreviewContextController {
         takeoverDefaultChanged: cardTakeoverChanged,
         drawerDefaultChanged: cardDrawerChanged,
         standaloneChanged: cardStandaloneChanged,
+        mediaDrawerEnabledChanged: cardMediaDrawerEnabledChanged,
+        mediaDrawerTypeChanged: cardMediaDrawerTypeChanged,
         startModeChanged: cardStartModeChanged,
         videoPanelOnlyChanged: cardVideoPanelOnlyChanged,
         hideCameraNameChanged: cardHideCameraNameChanged,

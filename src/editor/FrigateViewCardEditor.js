@@ -142,7 +142,9 @@ import {
   normalizeGridOrderConfig,
 } from "../features/grid/config.js";
 import {
+  CARD_VIEW_MEDIA_DRAWER_TYPES,
   CARD_VIEW_START_MODES,
+  normalizeCardViewMediaDrawerType,
   normalizeCardViewStartMode,
 } from "../features/card-view/config.js";
 import {
@@ -2191,6 +2193,8 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#card_view_alert_takeover",
       "#card_view_drawer_default_open",
       '[name="card_view_start_mode"]',
+      "#card_view_media_drawer_enabled",
+      '[name="card_view_media_drawer_type"]',
       "#card_view_video_panel_only",
       "#card_view_hide_camera_name",
       "#landing_page",
@@ -2537,6 +2541,24 @@ export class FrigateViewCardEditor extends HTMLElement {
       .map(
         ({ value, label, disabled = false }) => `<label class="theme-scope-opt card-view-start-opt">
           <input class="card-view-start-input" type="radio" name="card_view_start_mode" value="${value}" ${cardViewStartMode === value ? "checked" : ""} ${disabled ? "disabled" : ""}>
+          <span>${label}</span>
+        </label>`,
+      )
+      .join("");
+    const cardViewMediaDrawerType = normalizeCardViewMediaDrawerType(
+      this._config?.card_view_media_drawer_type,
+    );
+    const cardViewMediaDrawerTypeControl = [
+      { value: CARD_VIEW_MEDIA_DRAWER_TYPES.alerts, label: "Alerts" },
+      { value: CARD_VIEW_MEDIA_DRAWER_TYPES.clips, label: "Clips" },
+      {
+        value: CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots,
+        label: "Snapshots",
+      },
+    ]
+      .map(
+        ({ value, label }) => `<label class="theme-scope-opt card-view-start-opt">
+          <input class="card-view-start-input" type="radio" name="card_view_media_drawer_type" value="${value}" ${cardViewMediaDrawerType === value ? "checked" : ""}>
           <span>${label}</span>
         </label>`,
       )
@@ -3137,6 +3159,19 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="field-helper">When enabled, Card View becomes the only available FrigateView page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
       </div>
       <div class="card-view-standalone-options" id="card-view-standalone-options" style="${this._config?.card_view_standalone ? "" : "display:none"}">
+        <div class="section">
+          <div class="layout-row">
+            <span class="field-label" style="margin:0">Enable Media Drawer</span>
+            <ha-switch id="card_view_media_drawer_enabled" ${this._config?.card_view_media_drawer_enabled ? "checked" : ""}></ha-switch>
+          </div>
+          <div class="field-helper">Adds a vertical media drawer over the left side of standalone Card View.</div>
+        </div>
+        <div class="section" id="card-view-media-drawer-type-section" style="${this._config?.card_view_media_drawer_enabled ? "" : "display:none"}">
+          <div class="editor-choice-field" role="radiogroup" aria-label="Which Media will load in Drawer">
+            <div class="field-label">Which Media will load in Drawer</div>
+            <div class="theme-scope-seg card-view-start-seg">${cardViewMediaDrawerTypeControl}</div>
+          </div>
+        </div>
         <div class="section">
           <div class="editor-choice-field" role="radiogroup" aria-label="Start Card View">
             <div class="field-label">Start Card View</div>
@@ -4267,6 +4302,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         "card_view_page_enabled",
         "card_view_alert_takeover",
         "card_view_drawer_default_open",
+        "card_view_media_drawer_enabled",
         "card_view_video_panel_only",
         "card_view_hide_camera_name",
         "mobile_view_page_enabled",
@@ -4314,6 +4350,17 @@ export class FrigateViewCardEditor extends HTMLElement {
         const gridOrderRow = this.querySelector("#grid_order_row");
         const gridEnabled =
           this.querySelector("#grid_mode_enabled")?.checked === true;
+        const mediaDrawerTypeSection = this.querySelector(
+          "#card-view-media-drawer-type-section",
+        );
+        if (mediaDrawerTypeSection) {
+          mediaDrawerTypeSection.style.display =
+            resolveSwitchChecked(
+              this.querySelector("#card_view_media_drawer_enabled"),
+            ) === true
+              ? ""
+              : "none";
+        }
         const cardViewSlideshowStart = this.querySelector(
           '[name="card_view_start_mode"][value="slideshow"]',
         );

@@ -34,7 +34,10 @@ import {
   normalizeWideTimelineScale,
 } from "../features/wide-view/config.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
-import { normalizeCardViewStartMode } from "../features/card-view/config.js";
+import {
+  normalizeCardViewMediaDrawerType,
+  normalizeCardViewStartMode,
+} from "../features/card-view/config.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -120,6 +123,8 @@ export const createEditorPreviewDraft = (config) => ({
   card_view_alert_takeover: config.card_view_alert_takeover,
   card_view_drawer_default_open: config.card_view_drawer_default_open,
   card_view_standalone: config.card_view_standalone,
+  card_view_media_drawer_enabled: config.card_view_media_drawer_enabled,
+  card_view_media_drawer_type: config.card_view_media_drawer_type,
   card_view_start_mode: config.card_view_start_mode,
   card_view_video_panel_only: config.card_view_video_panel_only,
   card_view_hide_camera_name: config.card_view_hide_camera_name,
@@ -292,6 +297,11 @@ export const applyEditorPreviewDraftToCardConfig = ({
     card_view_standalone:
       previewConfig.card_view_page_enabled === true &&
       previewConfig.card_view_standalone === true,
+    card_view_media_drawer_enabled:
+      previewConfig.card_view_media_drawer_enabled === true,
+    card_view_media_drawer_type: normalizeCardViewMediaDrawerType(
+      previewConfig.card_view_media_drawer_type,
+    ),
     card_view_start_mode: normalizeCardViewStartMode(
       previewConfig.card_view_start_mode,
     ),

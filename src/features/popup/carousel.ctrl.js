@@ -223,6 +223,10 @@ export class PopupCarouselController {
     row.scrollBy(this._scrollPlan(row, dir));
   }
 
+  eventsForMediaType(mediaType) {
+    return this._events(mediaType);
+  }
+
   _events(mediaType) {
     return buildPopupCarouselEvents({
       mediaType,

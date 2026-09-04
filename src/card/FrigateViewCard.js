@@ -110,7 +110,10 @@ import {
   limitCameraConfigsByPhysicalCount,
 } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
-import { normalizeCardViewStartMode } from "../features/card-view/config.js";
+import {
+  normalizeCardViewMediaDrawerType,
+  normalizeCardViewStartMode,
+} from "../features/card-view/config.js";
 import { applyEditorPreviewDraftToCardConfig } from "../config/preview-mapper.js";
 import {
   DEFAULT_CAMERA_ENTITY,
@@ -1713,6 +1716,11 @@ export class FrigateViewCard extends HTMLElement {
       card_view_standalone:
         config.card_view_page_enabled === true &&
         config.card_view_standalone === true,
+      card_view_media_drawer_enabled:
+        config.card_view_media_drawer_enabled === true,
+      card_view_media_drawer_type: normalizeCardViewMediaDrawerType(
+        config.card_view_media_drawer_type,
+      ),
       card_view_start_mode: normalizeCardViewStartMode(
         config.card_view_start_mode,
       ),
@@ -1820,6 +1828,14 @@ export class FrigateViewCard extends HTMLElement {
     const cardViewStandaloneChanged =
       !!prevConfig &&
       prevConfig.card_view_standalone !== nextConfig.card_view_standalone;
+    const cardViewMediaDrawerEnabledChanged =
+      !!prevConfig &&
+      prevConfig.card_view_media_drawer_enabled !==
+        nextConfig.card_view_media_drawer_enabled;
+    const cardViewMediaDrawerTypeChanged =
+      !!prevConfig &&
+      prevConfig.card_view_media_drawer_type !==
+        nextConfig.card_view_media_drawer_type;
     const cardViewStartModeChanged =
       !!prevConfig &&
       prevConfig.card_view_start_mode !== nextConfig.card_view_start_mode;
@@ -1895,6 +1911,8 @@ export class FrigateViewCard extends HTMLElement {
         takeoverDefaultChanged: cardViewTakeoverDefaultChanged,
         drawerDefaultChanged: cardViewDrawerDefaultChanged,
         standaloneChanged: cardViewStandaloneChanged,
+        mediaDrawerEnabledChanged: cardViewMediaDrawerEnabledChanged,
+        mediaDrawerTypeChanged: cardViewMediaDrawerTypeChanged,
         startModeChanged: cardViewStartModeChanged,
         videoPanelOnlyChanged: cardViewVideoPanelOnlyChanged,
         hideCameraNameChanged: cardViewHideCameraNameChanged,
@@ -4282,6 +4300,7 @@ export class FrigateViewCard extends HTMLElement {
       footerLogo: displayLogo ? ICONS.frigateView : "",
       footerVersion,
       drawerHandleIcon: ICONS.chevron,
+      mediaDrawerHandleIcon: ICONS.chevron,
       calendarIcon: ICONS.calendar,
       linkedEntities: this._buildLinkedLightControlMarkup({
         buttonClass: "icon-btn",

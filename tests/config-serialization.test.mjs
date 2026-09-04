@@ -1415,9 +1415,13 @@ test("buildEditorConfigFromDom reads standalone Card View presentation controls"
   const nodes = {
     "#card_view_page_enabled": { checked: true },
     "#card_view_standalone": { checked: true },
+    "#card_view_media_drawer_enabled": { checked: true },
     "#card_view_video_panel_only": { checked: true },
     "#card_view_hide_camera_name": { checked: true },
     '[name="card_view_start_mode"]:checked': { value: "grid" },
+    '[name="card_view_media_drawer_type"]:checked': {
+      value: "snapshots",
+    },
   };
   const root = {
     querySelector: (selector) => nodes[selector] || null,
@@ -1433,6 +1437,8 @@ test("buildEditorConfigFromDom reads standalone Card View presentation controls"
 
   assert.equal(result.card_view_page_enabled, true);
   assert.equal(result.card_view_standalone, true);
+  assert.equal(result.card_view_media_drawer_enabled, true);
+  assert.equal(result.card_view_media_drawer_type, "snapshots");
   assert.equal(result.card_view_start_mode, "grid");
   assert.equal(result.card_view_video_panel_only, true);
   assert.equal(result.card_view_hide_camera_name, true);
@@ -1489,6 +1495,8 @@ test("preview draft carries hidden tabs and page routes", () => {
     wide_view_timeline_default_scale: 24,
     card_view_page_enabled: true,
     card_view_standalone: true,
+    card_view_media_drawer_enabled: true,
+    card_view_media_drawer_type: "clips",
     card_view_start_mode: "grid",
     card_view_video_panel_only: true,
     card_view_hide_camera_name: true,
@@ -1532,6 +1540,8 @@ test("preview draft carries hidden tabs and page routes", () => {
   assert.equal(draft.wide_view_timeline_enabled, true);
   assert.equal(draft.wide_view_timeline_default_open, true);
   assert.equal(draft.wide_view_timeline_default_scale, 24);
+  assert.equal(draft.card_view_media_drawer_enabled, true);
+  assert.equal(draft.card_view_media_drawer_type, "clips");
   assert.equal(draft.card_view_start_mode, "grid");
   assert.equal(draft.card_view_video_panel_only, true);
   assert.equal(draft.card_view_hide_camera_name, true);
@@ -1556,6 +1566,8 @@ test("preview draft carries hidden tabs and page routes", () => {
   assert.equal(previewConfig.ha_dashboard_swipe_include_subviews, true);
   assert.equal(previewConfig.ha_dashboard_swipe_mouse_enabled, true);
   assert.equal(previewConfig.display_version, false);
+  assert.equal(previewConfig.card_view_media_drawer_enabled, true);
+  assert.equal(previewConfig.card_view_media_drawer_type, "clips");
   assert.equal(previewConfig.card_view_start_mode, "grid");
   assert.equal(previewConfig.card_view_video_panel_only, true);
   assert.equal(previewConfig.card_view_hide_camera_name, true);
@@ -1768,6 +1780,8 @@ test("Card View settings normalize and serialize only when enabled", () => {
     card_view_page_enabled: true,
     card_view_alert_takeover: true,
     card_view_drawer_default_open: false,
+    card_view_media_drawer_enabled: true,
+    card_view_media_drawer_type: "snapshot",
     card_view_start_mode: "grid",
     card_view_video_panel_only: true,
     card_view_hide_camera_name: true,
@@ -1778,6 +1792,8 @@ test("Card View settings normalize and serialize only when enabled", () => {
   assert.equal(defaults.card_view_alert_takeover, false);
   assert.equal(defaults.card_view_drawer_default_open, true);
   assert.equal(defaults.card_view_standalone, false);
+  assert.equal(defaults.card_view_media_drawer_enabled, false);
+  assert.equal(defaults.card_view_media_drawer_type, "alerts");
   assert.equal(defaults.card_view_start_mode, "live");
   assert.equal(defaults.card_view_video_panel_only, false);
   assert.equal(defaults.card_view_hide_camera_name, false);
@@ -1786,6 +1802,8 @@ test("Card View settings normalize and serialize only when enabled", () => {
     card_view_page_enabled: true,
     card_view_alert_takeover: true,
     card_view_drawer_default_open: false,
+    card_view_media_drawer_enabled: true,
+    card_view_media_drawer_type: "snapshots",
     card_view_start_mode: "grid",
     card_view_video_panel_only: true,
     card_view_hide_camera_name: true,
@@ -1796,6 +1814,10 @@ test("Card View settings normalize and serialize only when enabled", () => {
     true,
   );
   assert.equal(createEditorPreviewDraft(defaults).card_view_start_mode, "live");
+  assert.equal(
+    createEditorPreviewDraft(defaults).card_view_media_drawer_type,
+    "alerts",
+  );
 });
 
 test("standalone Card View forces the desktop landing page and serializes explicitly", () => {
@@ -1803,6 +1825,8 @@ test("standalone Card View forces the desktop landing page and serializes explic
     cameras: [{ entity: "camera.front_door" }],
     card_view_page_enabled: true,
     card_view_standalone: true,
+    card_view_media_drawer_enabled: true,
+    card_view_media_drawer_type: "clips",
     card_view_start_mode: "slideshow",
     card_view_video_panel_only: true,
     card_view_hide_camera_name: true,
@@ -1814,10 +1838,14 @@ test("standalone Card View forces the desktop landing page and serializes explic
 
   assert.equal(normalized.landing_page, "card-view");
   assert.equal(normalized.mobile_page, "preview-single-view");
+  assert.equal(normalized.card_view_media_drawer_enabled, true);
+  assert.equal(normalized.card_view_media_drawer_type, "clips");
   assert.equal(normalized.card_view_start_mode, "slideshow");
   assert.equal(normalized.card_view_video_panel_only, true);
   assert.equal(normalized.card_view_hide_camera_name, true);
   assert.equal(compact.card_view_standalone, true);
+  assert.equal(compact.card_view_media_drawer_enabled, true);
+  assert.equal(compact.card_view_media_drawer_type, "clips");
   assert.equal(compact.card_view_start_mode, "slideshow");
   assert.equal(compact.card_view_video_panel_only, true);
   assert.equal(compact.card_view_hide_camera_name, true);
@@ -1831,13 +1859,16 @@ test("standalone Card View forces the desktop landing page and serializes explic
   assert.equal(disabled.landing_page, "single-view");
 });
 
-test("standalone Card View editor exposes start and video controls and disables Mobile Page", () => {
+test("standalone Card View editor exposes media drawer, start, and video controls and disables Mobile Page", () => {
   assert.match(editorSource, /class="card-view-standalone-options"/);
   assert.match(
     editorSource,
     /\.card-view-standalone-options\{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid/,
   );
   assert.match(editorSource, /theme-scope-seg card-view-start-seg/);
+  assert.match(editorSource, /id="card_view_media_drawer_enabled"/);
+  assert.match(editorSource, /name="card_view_media_drawer_type"/);
+  assert.match(editorSource, /Which Media will load in Drawer/);
   assert.match(editorSource, /name="card_view_start_mode"/);
   assert.match(editorSource, /id="card_view_video_panel_only"/);
   assert.match(editorSource, /id="card_view_hide_camera_name"/);

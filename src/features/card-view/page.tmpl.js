@@ -18,6 +18,7 @@ const normalizeRegions = (regions = {}) => ({
   footerLogo: "",
   footerVersion: "",
   drawerHandleIcon: "",
+  mediaDrawerHandleIcon: "",
   calendarIcon: "",
   ...regions,
 });
@@ -43,6 +44,15 @@ export function buildCardViewMainLayoutShellMarkup({
       <div class="live-stage live-stage--overlay card-view-live-stage" id="live-stage">
         ${regions.live}
         ${buildLivePlaybackControlsMarkup(regions)}
+        <aside class="card-view-media-drawer is-closed" data-card-view-media-drawer data-media-overlay-ignore hidden>
+          <div class="card-view-media-drawer-panel" id="card-view-media-drawer-panel" data-card-view-media-drawer-panel aria-hidden="true">
+            <div class="card-view-media-drawer-heading" data-card-view-media-drawer-heading>Alerts</div>
+            <button class="card-view-media-drawer-nav card-view-media-drawer-nav--up" type="button" data-card-view-media-drawer-scroll="-1" title="Previous media" aria-label="Previous media" hidden>${regions.mediaDrawerHandleIcon}</button>
+            <div class="card-view-media-drawer-scroller" data-card-view-media-drawer-scroller></div>
+            <button class="card-view-media-drawer-nav card-view-media-drawer-nav--down" type="button" data-card-view-media-drawer-scroll="1" title="More media" aria-label="More media" hidden>${regions.mediaDrawerHandleIcon}</button>
+          </div>
+          <button class="card-view-media-drawer-handle" type="button" data-card-view-media-drawer-toggle aria-controls="card-view-media-drawer-panel" aria-expanded="false" title="Open media drawer" aria-label="Open media drawer">${regions.mediaDrawerHandleIcon}</button>
+        </aside>
         <div class="card-view-live-badge" data-card-view-live-badge aria-label="Live camera">
           <span class="card-view-live-badge-dot" aria-hidden="true"></span>
           <span>Live</span>
@@ -207,12 +217,18 @@ export function applyCardViewPageMarkup({ host, pageIds } = {}) {
     standalone && host?._config?.card_view_video_panel_only === true;
   const hideCameraName =
     standalone && host?._config?.card_view_hide_camera_name === true;
+  const mediaDrawerEnabled =
+    standalone && host?._config?.card_view_media_drawer_enabled === true;
   host?.classList?.toggle(CARD_VIEW_HOST_CLASS, active);
   const card = host?._$?.("#card");
   card?.classList?.toggle(CARD_VIEW_ACTIVE_CLASS, active);
   card?.classList?.toggle("card-view-standalone", standalone);
   card?.classList?.toggle("card-view-video-panel-only", videoPanelOnly);
   card?.classList?.toggle("card-view-hide-camera-name", hideCameraName);
+  card?.classList?.toggle(
+    "card-view-media-drawer-enabled",
+    mediaDrawerEnabled,
+  );
   card?.classList?.toggle(
     "card-view-grid-mode",
     standalone && host?._viewMode === "grid",
