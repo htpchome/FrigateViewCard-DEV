@@ -24,6 +24,9 @@ import {
 } from "./config.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
+const STANDALONE_GRID_INDICATOR_DURATION_MS = 30_000;
+const STANDALONE_GRID_INDICATOR_VISIBLE_CLASS =
+  "card-view-grid-indicator-visible";
 
 export const resolveCardViewColumnCount = ({
   width = 0,
@@ -118,6 +121,8 @@ export class CardViewPageController {
     this._startModeApplied = false;
     this._standaloneStageHeight = 0;
     this._standaloneModeControlsMarkup = "";
+    this._standaloneGridModeActive = false;
+    this._standaloneGridIndicatorTimer = null;
     this._standaloneTalkMarkup = "";
   }
 
@@ -235,6 +240,7 @@ export class CardViewPageController {
     this._startModeApplied = false;
     this._standaloneStageHeight = 0;
     this._standaloneModeControlsMarkup = "";
+    this._resetStandaloneGridIndicator();
     this._standaloneTalkMarkup = "";
     this._haSeverityByEntity.clear();
     this._activityContent = null;
@@ -567,6 +573,7 @@ export class CardViewPageController {
     if (!this.isStandalone()) {
       container.innerHTML = "";
       this._standaloneModeControlsMarkup = "";
+      this._resetStandaloneGridIndicator(container);
       return;
     }
     const modeSwitchLocked =
@@ -588,7 +595,43 @@ export class CardViewPageController {
       container.innerHTML = markup;
       this._standaloneModeControlsMarkup = markup;
     }
+    this._syncStandaloneGridIndicator(container);
     this.syncStandaloneSlideshowCountdown();
+  }
+
+  _syncStandaloneGridIndicator(container) {
+    const gridActive = this._host._viewMode === "grid";
+    if (!gridActive) {
+      this._resetStandaloneGridIndicator(container);
+      return;
+    }
+    if (this._standaloneGridModeActive) {
+      if (this._standaloneGridIndicatorTimer) {
+        container?.classList?.add(STANDALONE_GRID_INDICATOR_VISIBLE_CLASS);
+      }
+      return;
+    }
+    this._standaloneGridModeActive = true;
+    container?.classList?.add(STANDALONE_GRID_INDICATOR_VISIBLE_CLASS);
+    this._standaloneGridIndicatorTimer = setTimeout(() => {
+      this._standaloneGridIndicatorTimer = null;
+      const currentContainer = this._host.shadowRoot?.querySelector?.(
+        "[data-card-view-standalone-mode-controls]",
+      );
+      currentContainer?.classList?.remove(
+        STANDALONE_GRID_INDICATOR_VISIBLE_CLASS,
+      );
+    }, STANDALONE_GRID_INDICATOR_DURATION_MS);
+    this._standaloneGridIndicatorTimer?.unref?.();
+  }
+
+  _resetStandaloneGridIndicator(container = null) {
+    if (this._standaloneGridIndicatorTimer) {
+      clearTimeout(this._standaloneGridIndicatorTimer);
+    }
+    this._standaloneGridIndicatorTimer = null;
+    this._standaloneGridModeActive = false;
+    container?.classList?.remove(STANDALONE_GRID_INDICATOR_VISIBLE_CLASS);
   }
 
   syncStandaloneSlideshowCountdown() {

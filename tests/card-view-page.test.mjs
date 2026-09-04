@@ -188,6 +188,64 @@ test("standalone mode controls are not disabled by Card View alert takeover", ()
   );
 });
 
+test("active standalone Grid indicator expires after 30 seconds", () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const classes = new Set();
+  const container = {
+    innerHTML: "",
+    classList: {
+      add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
+    },
+  };
+  let scheduled = null;
+  globalThis.setTimeout = (callback, delay) => {
+    scheduled = { callback, delay, unref() {} };
+    return scheduled;
+  };
+  globalThis.clearTimeout = () => {};
+  try {
+    const host = {
+      _pageId: "card-view",
+      _viewMode: "grid",
+      _slideshowActive: false,
+      _config: { card_view_standalone: true },
+      shadowRoot: {
+        querySelector: (selector) =>
+          selector === "[data-card-view-standalone-mode-controls]"
+            ? container
+            : null,
+      },
+      _isGridModeAvailable: () => true,
+      _isSlideshowRotationAvailable: () => true,
+      _twoWayTalkActiveForCurrentCamera: () => false,
+    };
+    const controller = new CardViewPageController(host, {
+      PAGE_IDS: { cardView: "card-view" },
+    });
+
+    controller.renderStandaloneModeControls();
+
+    assert.equal(classes.has("card-view-grid-indicator-visible"), true);
+    assert.equal(scheduled?.delay, 30_000);
+    scheduled.callback();
+    assert.equal(classes.has("card-view-grid-indicator-visible"), false);
+
+    controller.renderStandaloneModeControls();
+    assert.equal(classes.has("card-view-grid-indicator-visible"), false);
+
+    host._viewMode = "single";
+    controller.renderStandaloneModeControls();
+    host._viewMode = "grid";
+    controller.renderStandaloneModeControls();
+    assert.equal(classes.has("card-view-grid-indicator-visible"), true);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
 test("standalone Card View reuses the shared two-way-talk controls", () => {
   const container = { innerHTML: "" };
   let talkOptions = null;
@@ -394,7 +452,11 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone-talk-overlay :is\(\.two-way-talk-microphone-mute-btn,\.two-way-talk-inline-mute-btn\)[\s\S]*?background:transparent;[\s\S]*?box-shadow:none;/,
+    /card-view-standalone-talk-overlay \.two-way-talk-control-row :is\(\.two-way-talk-microphone-mute-btn,\.two-way-talk-inline-mute-btn\)[\s\S]*?background:transparent;[\s\S]*?box-shadow:none;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-slideshow-button\.active,[\s\S]*?card-view-grid-indicator-visible \[data-card-view-standalone-grid\]\.active,[\s\S]*?opacity:1;pointer-events:auto;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

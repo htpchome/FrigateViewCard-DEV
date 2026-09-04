@@ -181,13 +181,15 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone [data-card-view-standalone-grid] {grid-column:3;justify-self:start;}
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-button svg {width:21px;height:21px;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-button.active {
-    width:auto;min-width:32px;grid-auto-flow:column;gap:3px;padding-inline:5px;opacity:1;pointer-events:auto;transform:none;
+    width:auto;min-width:32px;grid-auto-flow:column;gap:3px;padding-inline:5px;
     border-color:color-mix(in srgb,var(--c-primary) 72%,white);background:color-mix(in srgb,var(--c-primary-d) 74%,transparent);
   }
   .card.card-view-active.card-view-standalone .card-view-standalone-countdown {min-width:18px;font-size:.62rem;font-weight:750;line-height:1;font-variant-numeric:tabular-nums;}
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name .mobile-cam-picker {opacity:0;pointer-events:none;transform:translateY(-3px);}
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name .mobile-cam-picker.is-open,
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name.card-view-overlays-visible .mobile-cam-picker,
+  .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button.active,
+  .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls.card-view-grid-indicator-visible [data-card-view-standalone-grid].active,
   .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-mode-button {
     opacity:1;pointer-events:auto;transform:none;
   }
@@ -226,11 +228,11 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-light-controls .linked-light-position-slot,
   .card.card-view-active.card-view-standalone .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .linked-light-position-slot,
   .card.card-view-active.card-view-standalone .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
-  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn),
-  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn):hover:not(:disabled) {
+  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn),
+  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn):hover:not(:disabled) {
     color:#f5f5f5;background:transparent;background-image:none;border-color:transparent;box-shadow:none;
   }
-  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn) svg {color:#f5f5f5;opacity:1;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn) svg {color:#f5f5f5;fill:currentColor;opacity:1;}
   .card.card-view-active.card-view-standalone .two-way-talk-result-bubble {top:50%;bottom:auto;transform:translate(-50%,-50%);}
   .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-standalone-linked-overlay,
   .card.card-view-active.card-view-standalone.card-view-grid-mode .live-playback-controls {display:none !important;}
