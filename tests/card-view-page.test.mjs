@@ -529,6 +529,18 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?pointer-events:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlay-presentation \.mobile-cam-picker \{[\s\S]*?z-index:2;[\s\S]*?pointer-events:auto;touch-action:manipulation;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlay-presentation \.card-view-standalone-mode-controls \{[\s\S]*?z-index:1;[\s\S]*?pointer-events:none;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-overlay-presentation \.card-view-standalone-slideshow-button \{grid-column:1;justify-self:end;/,
   );
   assert.match(
@@ -577,6 +589,18 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /two-way-talk-active\.card-view-overlays-visible \.card-view-standalone-light-controls \{display:contents;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /two-way-talk-active \.card-view-standalone-linked-overlay:has\(\[data-linked-light-dimmer\]:not\(\[hidden\]\)\) \.card-view-standalone-light-controls,[\s\S]*?\{display:contents;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /two-way-talk-active \.card-view-live-panel:hover \.card-view-standalone-light-controls \{display:contents;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-standalone-talk-overlay \.two-way-talk-control-row :is\(\.two-way-talk-microphone-mute-btn,\.two-way-talk-inline-mute-btn\)[\s\S]*?background:transparent;[\s\S]*?box-shadow:none;/,
   );
   assert.match(
@@ -602,6 +626,14 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-video-panel-only:not\(\.card-view-standalone\) \.card-view-video-only-back \{[\s\S]*?position:absolute;z-index:25;top:8px;left:8px;[\s\S]*?border-radius:50%;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-only-back \{[\s\S]*?background:var\(--fvc-media-overlay-bg\);background-image:none;[\s\S]*?opacity:1;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-only-back svg \{[^}]*color:currentColor;fill:currentColor;opacity:1;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -682,6 +714,10 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-video-zoomed \.card-view-camera-row,[\s\S]*?\.fvc-video-zoomed\) \.card-view-camera-row \{pointer-events:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-overlay-presentation \.mobile-cam-picker \{[\s\S]*?transition:opacity \.16s ease;/,
   );
   assert.doesNotMatch(CARD_VIEW_PAGE_STYLES, /translateY\(-3px\)/);
@@ -695,6 +731,10 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   assert.ok(openMediaDrawerRule);
   assert.match(openMediaDrawerRule, /card-view-standalone-linked-overlay/);
   assert.doesNotMatch(openMediaDrawerRule, /live-playback-controls/);
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /\.card\.firefox-client\.card-view-active\.card-view-overlay-presentation :is\([\s\S]*?\.mobile-cam-picker__trigger,[\s\S]*?\.card-view-live-badge,[\s\S]*?\) \{[\s\S]*?backdrop-filter:none;[\s\S]*?-webkit-backdrop-filter:none;/,
+  );
 });
 
 test("Card View toolbar exposes shared Grid and Slideshow mode states", () => {

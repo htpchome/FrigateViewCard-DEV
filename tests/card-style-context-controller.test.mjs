@@ -45,6 +45,18 @@ test("cardStateClassNames distinguishes phones from tablets", () => {
   assert.equal(controller.cardStateClassNames(), "mobile-client");
 });
 
+test("cardStateClassNames marks Firefox for compositor-safe styles", () => {
+  const controller = new CardStyleContextController({
+    _config: {},
+    _isPreviewPageActive: () => false,
+    _isLikelyMobileClient: () => false,
+    _isLikelyPhoneClient: () => false,
+    _isFirefox: () => true,
+  });
+
+  assert.equal(controller.cardStateClassNames(), "firefox-client");
+});
+
 test("mobile Single View keeps filter and calendar panels inside the card", () => {
   assert.match(
     STYLES,
@@ -262,6 +274,7 @@ test("syncVisualStyleToggles updates card classes and host outer styles", () => 
     ["borders-off", false],
     ["corners-off", true],
     ["mobile-view-outer-border-off", false],
+    ["firefox-client", false],
   ]);
   assert.deepEqual(hostToggles, [
     ["outer-shadows-off", false],

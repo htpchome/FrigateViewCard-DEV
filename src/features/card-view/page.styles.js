@@ -23,11 +23,12 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active .card-view-video-only-back {display:none;}
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back {
     position:absolute;z-index:25;top:8px;left:8px;display:inline-flex;align-items:center;justify-content:center;
-    width:32px;height:32px;min-width:32px;min-height:32px;padding:0;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;
-    color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);
+    width:32px;height:32px;min-width:32px;min-height:32px;margin:0;padding:4px;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;
+    color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);background-image:none;box-shadow:var(--fvc-media-overlay-shadow);
+    opacity:1;appearance:none;-webkit-appearance:none;
     backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
   }
-  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back svg {width:20px;height:20px;pointer-events:none;}
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back svg {width:20px;height:20px;color:currentColor;fill:currentColor;opacity:1;pointer-events:none;}
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-back-slot {display:none;}
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back:hover {
@@ -245,18 +246,18 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-camera-row {
     position:absolute;z-index:24;top:8px;left:8px;right:8px;width:auto;min-width:0;padding:0;
     grid-template-columns:minmax(0,1fr) clamp(112px,38%,200px) minmax(0,1fr);align-items:start;gap:6px;
-    background:transparent;pointer-events:none;
+    background:transparent;pointer-events:auto;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-back-slot {display:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-camera-picker {display:contents;}
   .card.card-view-active.card-view-overlay-presentation .mobile-cam-picker {
-    grid-column:2;grid-row:1;justify-self:stretch;width:100%;min-width:0;opacity:1;pointer-events:auto;
+    position:relative;z-index:2;isolation:isolate;grid-column:2;grid-row:1;justify-self:stretch;width:100%;min-width:0;opacity:1;pointer-events:auto;touch-action:manipulation;
     transition:opacity .16s ease;
   }
   .card.card-view-active.card-view-overlay-presentation .mobile-cam-picker__trigger {
     min-height:32px;padding:5px 29px 5px 9px;border:1px solid var(--fvc-media-overlay-border);border-radius:7px;
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);
-    font-size:.78rem;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    font-size:.78rem;pointer-events:auto;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
   }
   .card.card-view-active.card-view-overlay-presentation .mobile-cam-picker__trigger-content {gap:5px;}
   .card.card-view-active.card-view-overlay-presentation .mobile-cam-picker__chev {right:6px;width:18px;height:26px;}
@@ -276,7 +277,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     box-shadow:none;color:var(--fvc-media-overlay-text);
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-controls {
-    grid-column:1 / -1;grid-row:1;display:grid;width:100%;min-width:0;
+    position:relative;z-index:1;grid-column:1 / -1;grid-row:1;display:grid;width:100%;min-width:0;
     grid-template-columns:minmax(0,1fr) clamp(112px,38%,200px) minmax(0,1fr);align-items:start;gap:6px;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button {
@@ -358,6 +359,10 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) {opacity:1;pointer-events:auto;}
   .card.card-view-active.card-view-overlay-presentation.two-way-talk-active .card-view-standalone-light-controls,
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .card-view-standalone-light-controls {display:none;}
+  .card.card-view-active.card-view-overlay-presentation.two-way-talk-active.card-view-overlays-visible .card-view-standalone-light-controls {display:contents;}
+  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .card-view-standalone-light-controls {display:contents;}
+  .card.card-view-active.card-view-overlay-presentation.two-way-talk-active .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .card-view-standalone-light-controls,
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active):has([data-linked-light-dimmer]:not([hidden])) .card-view-standalone-light-controls {display:contents;}
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-light-controls .linked-light-position-slot,
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .linked-light-position-slot,
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
@@ -368,7 +373,11 @@ export const CARD_VIEW_PAGE_STYLES = `
     }
     .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-standalone-linked-overlay {opacity:1;pointer-events:auto;}
     .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:auto;}
+    .card.card-view-active.card-view-overlay-presentation.two-way-talk-active .card-view-live-panel:hover .card-view-standalone-light-controls {display:contents;}
+    .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .card-view-standalone-light-controls {display:contents;}
   }
+  .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-camera-row,
+  .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-camera-row {pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .mobile-cam-picker[data-mobile-cam-picker],
   .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .mobile-cam-picker[data-mobile-cam-picker],
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-standalone-mode-button,
@@ -405,6 +414,19 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-video-panel-only .card-view-footer {display:none;}
   .card.card-view-active.card-view-video-panel-only .card-view-layout {background:transparent;}
   .card.card-view-active.card-view-video-panel-only .card-view-live-panel {border-radius:var(--fvc-border-radius,0px);}
+  .card.firefox-client.card-view-active.card-view-overlay-presentation :is(
+    .card-view-video-only-back,
+    .mobile-cam-picker__trigger,
+    .mobile-cam-picker__panel,
+    .card-view-media-drawer-panel,
+    .card-view-live-badge,
+    .linked-light-dimmer-panel,
+    .snapshot-result-bubble,
+    .two-way-talk-result-bubble
+  ) {
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+  }
   @container card-view-live (max-width:440px) {
     .card.card-view-active.card-view-overlay-presentation.card-view-media-drawer-enabled .card-view-media-drawer:not([hidden]) {width:clamp(110px,34%,132px);}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-panel {padding:5px 4px 4px;}

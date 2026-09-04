@@ -174,6 +174,90 @@ test("mobile cam switcher consumes a synthesized click retargeted after its touc
   assert.equal(open, true);
 });
 
+test("mobile cam switcher consumes a synthesized click retargeted to the Card View camera row", () => {
+  let open = false;
+  const trigger = {};
+  const triggerTarget = createTarget({
+    "[data-mobile-cam-trigger]": trigger,
+  });
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+    renderCamSwitcher: () => {},
+  });
+
+  controller.handlePointerDown(
+    {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 20,
+    },
+    triggerTarget,
+  );
+  controller.handlePointerUp(
+    {
+      pointerId: 9,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 20,
+      preventDefault() {},
+    },
+    triggerTarget,
+  );
+
+  const retargetedClick = createTarget({
+    '[data-fvc-region="camera-switcher"]': {},
+  });
+  assert.equal(controller.handleClickTarget(retargetedClick), true);
+  assert.equal(open, true);
+});
+
+test("mobile cam switcher completes a stationary touch whose pointerup is retargeted", () => {
+  let open = false;
+  let prevented = 0;
+  const trigger = {};
+  const triggerTarget = createTarget({
+    "[data-mobile-cam-trigger]": trigger,
+  });
+  const controller = new MobileCamSwitcherController({
+    isOpen: () => open,
+    setOpen: (next) => {
+      open = next;
+    },
+    renderCamSwitcher: () => {},
+  });
+
+  controller.handlePointerDown(
+    {
+      pointerId: 10,
+      pointerType: "touch",
+      clientX: 40,
+      clientY: 20,
+    },
+    triggerTarget,
+  );
+  assert.equal(
+    controller.handlePointerUp(
+      {
+        pointerId: 10,
+        pointerType: "touch",
+        clientX: 41,
+        clientY: 20,
+        preventDefault: () => {
+          prevented += 1;
+        },
+      },
+      createTarget({}),
+    ),
+    true,
+  );
+  assert.equal(open, true);
+  assert.equal(prevented, 1);
+});
+
 test("mobile cam switcher controller does not activate a dragged touch", () => {
   let open = false;
   const trigger = {};

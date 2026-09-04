@@ -63,7 +63,8 @@ export class MobileCamSwitcherController {
       suppressed && Date.now() <= suppressed.until;
     const retargetedInsideSwitcher =
       !action &&
-      target?.closest?.("[data-mobile-cam-switcher-content]");
+      (target?.closest?.("[data-mobile-cam-switcher-content]") ||
+        target?.closest?.('[data-fvc-region="camera-switcher"]'));
     if (
       suppressionActive &&
       (suppressed.action === action || retargetedInsideSwitcher)
@@ -85,6 +86,7 @@ export class MobileCamSwitcherController {
     if (!action || event?.isPrimary === false) return false;
     this._pointerGesture = {
       action,
+      target,
       pointerId: event?.pointerId,
       x: Number(event?.clientX) || 0,
       y: Number(event?.clientY) || 0,
@@ -101,13 +103,14 @@ export class MobileCamSwitcherController {
       (Number(event?.clientX) || 0) - gesture.x,
       (Number(event?.clientY) || 0) - gesture.y,
     ) > 8;
-    if (moved || action !== gesture.action) return false;
+    if (moved || (action && action !== gesture.action)) return false;
+    const activationTarget = action ? target : gesture.target;
     this._suppressedClick = {
-      action,
+      action: gesture.action,
       until: Date.now() + 800,
     };
     event?.preventDefault?.();
-    return this._activateTarget(target);
+    return this._activateTarget(activationTarget);
   }
 
   cancelPointer() {

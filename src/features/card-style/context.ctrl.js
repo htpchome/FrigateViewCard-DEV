@@ -110,6 +110,7 @@ export class CardStyleContextController {
     if (this._host._isPreviewPageActive()) classes.push("preview-active");
     if (this._host._isLikelyMobileClient?.()) classes.push("mobile-client");
     if (this._host._isLikelyPhoneClient?.()) classes.push("phone-client");
+    if (this._host._isFirefox?.() === true) classes.push("firefox-client");
     if (this.shouldHideMobileViewOuterBorder()) {
       classes.push("mobile-view-outer-border-off");
     }
@@ -166,6 +167,10 @@ export class CardStyleContextController {
       card.classList.toggle(
         "mobile-view-outer-border-off",
         this.shouldHideMobileViewOuterBorder(),
+      );
+      card.classList.toggle(
+        "firefox-client",
+        this._host._isFirefox?.() === true,
       );
     }
     this.syncHostOuterStyles();
