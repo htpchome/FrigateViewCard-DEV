@@ -81,6 +81,7 @@ export function buildToolsMarkup({
   showWideAlertTakeover = false,
   wideAlertTakeoverEnabled = false,
   wideAlertTakeoverButtonIcon = "",
+  cameraGroupMobileToggleMarkup = "",
 }) {
   const toolButtonClass =
     String(buttonClass || "tool").trim() || "tool";
@@ -88,7 +89,7 @@ export function buildToolsMarkup({
   const controlsHidden = isControlsVisible === false;
   const gridHidden = !isGridModeAvailable;
   const gridActive = viewMode === "grid";
-  const gridButton = gridHidden
+  const gridButton = gridHidden || cameraGroupMobileToggleMarkup
     ? ""
     : `<button class="${toolButtonClass}${gridActive ? " active" : ""}" id="grid-btn" aria-pressed="${gridActive ? "true" : "false"}" title="${gridActive ? "Stop grid mode" : "Start grid mode"}" aria-label="${gridActive ? "Stop grid mode" : "Start grid mode"}" ${gridDisabled ? "disabled" : ""}>${gridButtonIcon}</button>`;
   const wideAlertTakeoverLabel = wideAlertTakeoverEnabled
@@ -104,7 +105,7 @@ export function buildToolsMarkup({
     : `<button class="${toolButtonClass} slideshow-btn${slideshowActive ? " active" : ""}" id="slideshow-btn" aria-pressed="${slideshowActive ? "true" : "false"}" title="${slideshowActive ? "Stop slideshow rotation" : "Start slideshow rotation"}" aria-label="${slideshowActive ? "Stop slideshow rotation" : "Start slideshow rotation"}" ${slideshowDisabled ? "disabled" : ""}>${slideshowButtonIcon}</button><div class="divider">${icons.divider}</div>`;
   const markup = `<div class="tl-tools">
         ${controlsHidden ? "" : `<button class="${toolButtonClass}${tab === "controls" ? " active" : ""}" id="controls-btn" title="PTZ Controls" aria-label="Controls" aria-pressed="${tab === "controls" ? "true" : "false"}" ${controlsDisabled ? "disabled" : ""}>${icons.ptz}</button><div class="divider">${icons.divider}</div>`}
-        ${gridButton}
+        ${cameraGroupMobileToggleMarkup || gridButton}
         ${wideAlertTakeoverButton}
         ${slideshowButton}
         <button class="${toolButtonClass}${isFilterPanelOpen ? " active" : ""}" id="filter-btn" title="Filter" aria-pressed="${isFilterPanelOpen ? "true" : "false"}" ${resolvedFilterDisabled ? "disabled" : ""}>${icons.filter}</button>

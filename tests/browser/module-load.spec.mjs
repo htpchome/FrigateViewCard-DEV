@@ -265,58 +265,227 @@ test.describe("touch input", () => {
     await expect(card).toHaveAttribute("data-focused-member", "A");
   });
 
-  test("keeps the Mobile View grouped-camera toggle on the touch surface", async ({
+  const groupedMobileSurfaces = [
+    {
+      label: "Mobile View tools",
+      pageId: "mobile-view",
+      config: { mobile_view_page_enabled: true },
+      ancestorSelector: '[data-fvc-region="tools"]',
+    },
+    {
+      label: "Single View tools",
+      pageId: "single-view",
+      config: {},
+      ancestorSelector: '[data-fvc-region="tools"]',
+    },
+    {
+      label: "Card View Bottom Panel toolbar",
+      pageId: "card-view",
+      config: {
+        card_view_page_enabled: true,
+        card_view_view_mode: "bottom-panel-open",
+      },
+      ancestorSelector: "[data-card-view-toolbar]",
+    },
+    {
+      label: "Card View Video Only overlay",
+      pageId: "card-view",
+      config: {
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
+      },
+      ancestorSelector: "[data-card-view-standalone-mode-controls]",
+    },
+  ];
+
+  for (const surface of groupedMobileSurfaces) {
+    test(`keeps the grouped-camera A/B button touchable in ${surface.label}`, async ({
+      page,
+    }) => {
+      await page.goto(baseUrl);
+      const hitTarget = await page.evaluate(async (testSurface) => {
+        await import("/frigate-view-card.js");
+        const card = document.createElement("frigate-view-card");
+        document.body.style.margin = "0";
+        document.body.append(card);
+        card.setConfig({
+          cameras: [
+            {
+              entity: "camera.front",
+              name: "Front / Back",
+              group: { secondary_entity: "camera.back" },
+            },
+          ],
+          ...testSurface.config,
+        });
+        card._pageId = testSurface.pageId;
+        card._renderShell();
+
+        const root = card.shadowRoot;
+        root
+          .querySelector("#card")
+          ?.classList.add("card-view-overlays-visible");
+        card._cameraGroupLiveController.toggleMobileMember = () => {
+          card.dataset.mobileGroupToggled = "true";
+          return true;
+        };
+        const buttons = root.querySelectorAll(
+          "[data-camera-group-mobile-toggle]",
+        );
+        const button = buttons[0];
+        const rect = button?.getBoundingClientRect?.();
+        const hit = rect
+          ? root.elementFromPoint(
+              rect.left + rect.width / 2,
+              rect.top + rect.height / 2,
+            )
+          : null;
+        return {
+          count: buttons.length,
+          visible: Boolean(rect && rect.width > 0 && rect.height > 0),
+          square: Boolean(rect && Math.abs(rect.width - rect.height) < 0.5),
+          hitToggle: Boolean(
+            hit?.closest?.("[data-camera-group-mobile-toggle]"),
+          ),
+          inGridSlot: Boolean(button?.closest(testSurface.ancestorSelector)),
+          currentMember: button?.dataset.cameraGroupCurrentMember || "",
+          targetMember: button?.dataset.cameraGroupTargetMember || "",
+          label: button?.textContent?.trim() || "",
+        };
+      }, surface);
+
+      expect(hitTarget).toEqual({
+        count: 1,
+        visible: true,
+        square: true,
+        hitToggle: true,
+        inGridSlot: true,
+        currentMember: "A",
+        targetMember: "B",
+        label: "A",
+      });
+      const card = page.locator("frigate-view-card");
+      await card.locator("[data-camera-group-mobile-toggle]").tap();
+      await expect(card).toHaveAttribute("data-mobile-group-toggled", "true");
+    });
+  }
+
+  test("keeps rotated Card View and popup media inside both landscape safe areas", async ({
     page,
   }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
     await page.goto(baseUrl);
-    const hitTarget = await page.evaluate(async () => {
+    const state = await page.evaluate(async () => {
       await import("/frigate-view-card.js");
       const card = document.createElement("frigate-view-card");
       document.body.style.margin = "0";
       document.body.append(card);
       card.setConfig({
-        cameras: [
-          {
-            entity: "camera.front",
-            name: "Front / Back",
-            group: { secondary_entity: "camera.back" },
-          },
-        ],
-        mobile_view_page_enabled: true,
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
       });
-      card._pageId = "mobile-view";
+      card._pageId = "card-view";
       card._renderShell();
+      card.style.setProperty("--rotate-vw", "844px");
+      card.style.setProperty("--rotate-vh", "390px");
+      card.style.setProperty("--safe-area-inset-top", "0px");
+      card.style.setProperty("--safe-area-inset-left", "47px");
+      card.style.setProperty("--safe-area-inset-right", "21px");
+      card.style.setProperty("--safe-area-inset-bottom", "21px");
+      card.classList.add("mobile-view-rotate-cover");
 
       const root = card.shadowRoot;
-      const wrap = root.querySelector("#eng-wrap");
-      wrap.classList.add("camera-group-mobile-member");
-      card._cameraGroupLiveController.toggleMobileMember = () => {
-        card.dataset.mobileGroupToggled = "true";
-        return true;
-      };
-      const button = root.querySelector("[data-camera-group-mobile-toggle]");
-      const rect = button.getBoundingClientRect();
-      const hit = root.elementFromPoint(
-        rect.left + rect.width / 2,
-        rect.top + rect.height / 2,
-      );
-      return {
-        visible: rect.width > 0 && rect.height > 0,
-        hitToggle: Boolean(
-          hit?.closest?.("[data-camera-group-mobile-toggle]"),
+      const cardRoot = root.querySelector("#card");
+      cardRoot.classList.add("mobile-rotate-live");
+      const engine = root.querySelector("#engine");
+      const video = document.createElement("video");
+      engine.append(video);
+      card._applyRotateVideoFullscreenStyle(video);
+      const liveControls = root.querySelector(".live-playback-controls");
+      const liveGrip = root.querySelector(".live-resize-grip");
+      liveGrip.hidden = false;
+      const back = root.querySelector(".card-view-video-only-back");
+      const liveState = {
+        engineLeft: Math.round(parseFloat(getComputedStyle(engine).left)),
+        engineRight: Math.round(parseFloat(getComputedStyle(engine).right)),
+        controlsRight: Math.round(
+          parseFloat(getComputedStyle(liveControls).right),
         ),
-        hitClass: hit?.className || "",
+        backDisplay: getComputedStyle(back).display,
+        gripDisplay: getComputedStyle(liveGrip).display,
+        videoObjectFit: video.style.objectFit,
+        videoPosition: video.style.position,
+        videoWidth: video.style.width,
       };
+
+      cardRoot.classList.remove("mobile-rotate-live");
+      cardRoot.classList.add("mobile-rotate-popup");
+      const popupBody = root.querySelector(".popup-body");
+      const actions = root.querySelector(".popup-card-view-actions");
+      const mediaControls = root.querySelector(".popup-media-controls");
+      const popupHeader = root.querySelector(".popup-header");
+      const playbackControls = document.createElement("div");
+      playbackControls.className = "popup-playback-controls";
+      const popupGrip = document.createElement("button");
+      popupGrip.className = "popup-view-resize-grip";
+      popupBody.append(playbackControls, popupGrip);
+      actions.hidden = false;
+      mediaControls.hidden = false;
+
+      const popupState = () => ({
+        actionsLeft: Math.round(parseFloat(getComputedStyle(actions).left)),
+        playbackRight: Math.round(
+          parseFloat(getComputedStyle(playbackControls).right),
+        ),
+        mediaLeft: Math.round(parseFloat(getComputedStyle(mediaControls).left)),
+        mediaRight: Math.round(
+          parseFloat(getComputedStyle(mediaControls).right),
+        ),
+        mediaBottom: Math.round(
+          parseFloat(getComputedStyle(mediaControls).bottom),
+        ),
+        headerDisplay: getComputedStyle(popupHeader).display,
+        gripDisplay: getComputedStyle(popupGrip).display,
+      });
+      const notchLeft = popupState();
+      card.style.setProperty("--safe-area-inset-left", "21px");
+      card.style.setProperty("--safe-area-inset-right", "47px");
+      const notchRight = popupState();
+
+      return { liveState, notchLeft, notchRight };
     });
 
-    expect(hitTarget).toEqual({
-      visible: true,
-      hitToggle: true,
-      hitClass: expect.any(String),
+    expect(state).toEqual({
+      liveState: {
+        engineLeft: 47,
+        engineRight: 21,
+        controlsRight: 28,
+        backDisplay: "none",
+        gripDisplay: "none",
+        videoObjectFit: "contain",
+        videoPosition: "",
+        videoWidth: "",
+      },
+      notchLeft: {
+        actionsLeft: 54,
+        playbackRight: 28,
+        mediaLeft: 47,
+        mediaRight: 21,
+        mediaBottom: 21,
+        headerDisplay: "none",
+        gripDisplay: "none",
+      },
+      notchRight: {
+        actionsLeft: 28,
+        playbackRight: 54,
+        mediaLeft: 21,
+        mediaRight: 47,
+        mediaBottom: 21,
+        headerDisplay: "none",
+        gripDisplay: "none",
+      },
     });
-    const card = page.locator("frigate-view-card");
-    await card.locator("[data-camera-group-mobile-toggle]").tap();
-    await expect(card).toHaveAttribute("data-mobile-group-toggled", "true");
   });
 
   test("keeps the normal Card View header in standalone Bottom Panel mode", async ({

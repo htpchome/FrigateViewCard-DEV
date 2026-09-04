@@ -3382,19 +3382,27 @@ export class FrigateViewCard extends HTMLElement {
       toolsRegion &&
       this._activePageShellCapabilities().tabsVariant !== "none"
     ) {
-      const shouldShowGrid = this._isGridModeAvailable();
+      const shouldShowMobileGroupButton =
+        this._cameraGroupLiveController?.isMobileMemberMode?.() === true;
+      const shouldShowGrid =
+        !shouldShowMobileGroupButton && this._isGridModeAvailable();
       const shouldShowSlideshow = this._isSlideshowRotationAvailable();
       const shouldShowWideAlertTakeover =
         this._wideViewPageController.isWideViewPageActive();
       const controlsBtnPresent = !!this._pageShellRegionElement("tools", "#controls-btn");
       const gridBtnPresent = !!this._pageShellRegionElement("tools", "#grid-btn");
       const slideshowBtnPresent = !!this._pageShellRegionElement("tools", "#slideshow-btn");
+      const mobileGroupButtonPresent = !!this._pageShellRegionElement(
+        "tools",
+        "[data-camera-group-mobile-toggle]",
+      );
       const wideAlertTakeoverBtnPresent = !!this._pageShellRegionElement(
         "tools",
         "#wide-alert-takeover-btn",
       );
       const needsToolsRerender =
         (buttonStates.controlsVisible && !controlsBtnPresent) ||
+        mobileGroupButtonPresent !== shouldShowMobileGroupButton ||
         (shouldShowGrid && !gridBtnPresent) ||
         (shouldShowSlideshow && !slideshowBtnPresent) ||
         (shouldShowWideAlertTakeover && !wideAlertTakeoverBtnPresent);
@@ -4164,6 +4172,10 @@ export class FrigateViewCard extends HTMLElement {
       wideAlertTakeoverEnabled:
         this._wideViewPageController.companionAlertTakeoverEnabled(),
       wideAlertTakeoverButtonIcon: ICONS.alerts,
+      cameraGroupMobileToggleMarkup:
+        this._cameraGroupLiveController?.mobileMemberButtonMarkup?.({
+          buttonClass: toolsButtonClass,
+        }) || "",
     });
 
     this._tab = activeTab;
@@ -5284,12 +5296,12 @@ export class FrigateViewCard extends HTMLElement {
       this._rotateStyledVideoCssText = video.getAttribute("style") || "";
     }
     const card = this._$("#card");
-    const forceMobileViewViewportCover =
-      card?.classList?.contains("mobile-view-active") &&
+    const useStageViewport =
+      this.classList?.contains?.(MOBILE_VIEW_ROTATE_COVER_CLASS) &&
       (card.classList.contains("mobile-rotate-live") ||
         card.classList.contains("mobile-rotate-live-exit"));
     const videoStyles = resolveRotateOverlayVideoStyles({
-      useStageViewport: forceMobileViewViewportCover,
+      useStageViewport,
       visualViewport: window.visualViewport,
       innerWidth: window.innerWidth,
       innerHeight: window.innerHeight,

@@ -220,6 +220,31 @@ test("buildToolsMarkup supports custom tool button class", () => {
   assert.doesNotMatch(markup, /class="tool/);
 });
 
+test("buildToolsMarkup places the mobile camera-group member control in the Grid slot", () => {
+  const markup = buildToolsMarkup({
+    tab: "alerts",
+    viewMode: "single",
+    icons,
+    isFilterPanelOpen: false,
+    isCalendarPanelOpen: false,
+    isGridModeAvailable: true,
+    isSlideshowRotationAvailable: false,
+    isSlideshowActive: false,
+    isControlsVisible: false,
+    gridButtonIcon: "G",
+    slideshowButtonIcon: "L",
+    cameraGroupMobileToggleMarkup:
+      '<button data-camera-group-mobile-toggle>camera A</button>',
+  });
+
+  assert.match(markup, /data-camera-group-mobile-toggle/);
+  assert.doesNotMatch(markup, /id="grid-btn"/);
+  assert.ok(
+    markup.indexOf("data-camera-group-mobile-toggle") <
+      markup.indexOf('id="filter-btn"'),
+  );
+});
+
 test("buildToolsMarkup places Wide View alert takeover beside grid", () => {
   const markup = buildToolsMarkup({
     tab: "alerts",

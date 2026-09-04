@@ -226,6 +226,10 @@ test("mobile rotate overlay promotes the card host above Home Assistant chrome",
     true,
   );
   assert.doesNotMatch(mobileViewStylesSource, /214748\d+/);
+  assert.match(
+    cardSource,
+    /const useStageViewport =\s*this\.classList\?\.contains\?\.\(MOBILE_VIEW_ROTATE_COVER_CLASS\)[\s\S]*?card\.classList\.contains\("mobile-rotate-live"\)/,
+  );
 });
 
 test("mobile rotation does not expose the cached fallback snapshot", () => {

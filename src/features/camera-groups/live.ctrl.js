@@ -234,6 +234,24 @@ export class CameraGroupLiveController {
     return true;
   }
 
+  mobileMemberButtonMarkup({ buttonClass = "" } = {}) {
+    if (!this.isMobileMemberMode()) return "";
+    const showingSecondary =
+      this._host._activeGroupMemberOverride === this.secondaryEntity();
+    const currentMember = showingSecondary ? "B" : "A";
+    const targetMember = showingSecondary ? "A" : "B";
+    const classes = [
+      String(buttonClass || "").trim(),
+      "camera-group-mobile-toggle",
+      "camera-group-mobile-toggle--surface",
+      "active",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const title = `Show camera ${targetMember}`;
+    return `<button class="${classes}" type="button" data-media-overlay-ignore data-camera-group-mobile-toggle data-camera-group-current-member="${currentMember}" data-camera-group-target-member="${targetMember}" title="${title}" aria-label="${title}" aria-pressed="${showingSecondary ? "true" : "false"}">${this._icons.singleView || ""}<span aria-hidden="true">${currentMember}</span></button>`;
+  }
+
   syncAudio() {
     const active = this.isActive() ? this._activeAudioMember : "A";
     const muted = this._host._streamMuted === true;
@@ -477,19 +495,24 @@ export class CameraGroupLiveController {
   }
 
   _syncMobileMemberButton() {
-    const pane = this._host._$(
-      '.camera-group-live-pane[data-camera-group-member="A"]',
-    );
-    const button = pane?.querySelector?.("[data-camera-group-mobile-toggle]");
-    if (!button) return;
     const showingSecondary =
       this._host._activeGroupMemberOverride === this.secondaryEntity();
+    const currentMember = showingSecondary ? "B" : "A";
     const targetMember = showingSecondary ? "A" : "B";
     const title = `Show camera ${targetMember}`;
-    button.setAttribute("aria-pressed", showingSecondary ? "true" : "false");
-    button.setAttribute("aria-label", title);
-    button.setAttribute("title", title);
-    button.innerHTML = `${this._icons.singleView || ""}<span>${targetMember}</span>`;
+    const buttons = [
+      ...(this._host.shadowRoot?.querySelectorAll?.(
+        "[data-camera-group-mobile-toggle]",
+      ) || []),
+    ];
+    for (const button of buttons) {
+      button.setAttribute("aria-pressed", showingSecondary ? "true" : "false");
+      button.setAttribute("aria-label", title);
+      button.setAttribute("title", title);
+      button.setAttribute("data-camera-group-current-member", currentMember);
+      button.setAttribute("data-camera-group-target-member", targetMember);
+      button.innerHTML = `${this._icons.singleView || ""}<span aria-hidden="true">${currentMember}</span>`;
+    }
   }
 
   _refreshZoomGeometry() {

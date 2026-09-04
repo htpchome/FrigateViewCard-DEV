@@ -123,7 +123,7 @@ const createHost = () => {
   };
 };
 
-test("grouped live shell exposes audio, focus, and phone member controls", () => {
+test("grouped live shell exposes desktop and tablet pane controls", () => {
   const markup = buildLiveEngineWrapMarkup({
     icons: {
       live: "live",
@@ -137,11 +137,7 @@ test("grouped live shell exposes audio, focus, and phone member controls", () =>
   assert.match(markup, /data-camera-group-audio="A"/);
   assert.match(markup, /data-camera-group-focus="A"/);
   assert.match(markup, /data-camera-group-focus="B"/);
-  assert.match(markup, /data-camera-group-mobile-toggle/);
-  assert.match(
-    markup,
-    /data-media-overlay-ignore data-camera-group-mobile-toggle/,
-  );
+  assert.doesNotMatch(markup, /data-camera-group-mobile-toggle/);
 });
 
 test("grouped live mounts the second physical camera on tablet and desktop", () => {
@@ -231,18 +227,24 @@ test("pane focus expands one member, takes audio, and does not remount", () => {
   assert.equal(mounts.length, 1);
 });
 
-test("phones expose a one-stream A/B member switch", () => {
+test("phones expose a one-stream A/B member switch labeled with the current member", () => {
   const { host, mounts, wrap } = createHost();
   const switches = [];
   host._activeCamIdx = 3;
   host._isLikelyPhoneClient = () => true;
   host._switchCamera = (index, options) => switches.push([index, options]);
-  const controller = new CameraGroupLiveController(host);
+  const controller = new CameraGroupLiveController(host, {
+    icons: { singleView: "camera-icon" },
+  });
 
   controller.sync();
   assert.equal(controller.isActive(), false);
   assert.equal(wrap.classList.contains("camera-group-mobile-member"), true);
   assert.equal(mounts.length, 0);
+  assert.match(
+    controller.mobileMemberButtonMarkup({ buttonClass: "tool" }),
+    /class="tool camera-group-mobile-toggle camera-group-mobile-toggle--surface active"[^>]*data-camera-group-current-member="A"[^>]*data-camera-group-target-member="B"[^>]*aria-label="Show camera B"[^>]*aria-pressed="false"[^>]*>camera-icon<span aria-hidden="true">A<\/span>/,
+  );
 
   assert.equal(controller.toggleMobileMember(), true);
   assert.deepEqual(switches[0], [
@@ -254,6 +256,10 @@ test("phones expose a one-stream A/B member switch", () => {
   ]);
 
   host._activeGroupMemberOverride = "camera.package";
+  assert.match(
+    controller.mobileMemberButtonMarkup({ buttonClass: "tool" }),
+    /data-camera-group-current-member="B"[^>]*data-camera-group-target-member="A"[^>]*aria-label="Show camera A"[^>]*aria-pressed="true"[^>]*>camera-icon<span aria-hidden="true">B<\/span>/,
+  );
   controller.toggleMobileMember();
   assert.deepEqual(switches[1], [
     3,

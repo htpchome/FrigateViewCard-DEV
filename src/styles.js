@@ -49,6 +49,10 @@ export const STYLES = `
     --rotate-vh: 100dvh;
     --rotate-ox: 0px;
     --rotate-oy: 0px;
+    --fvc-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --fvc-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+    --fvc-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    --fvc-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
   }
   .card {
     --fvc-mobile-bg: var(--wa-color-neutral-fill-normal, var(--secondary-background-color));
@@ -470,7 +474,7 @@ export const STYLES = `
     .card.mobile-rotate-live .stream-loading,
     .card.mobile-rotate-live-exit .stream-loading{display:none !important;}
     .card.mobile-rotate-live .live-playback-controls,
-    .card.mobile-rotate-live-exit .live-playback-controls{z-index:7;}
+    .card.mobile-rotate-live-exit .live-playback-controls{right:max(.75rem,calc(var(--fvc-safe-area-right) + 7px));z-index:7;}
     .card.mobile-rotate-popup,
     .card.mobile-rotate-popup-exit{overflow:hidden;height:var(--rotate-vh);max-height:var(--rotate-vh);}
     .card.mobile-rotate-popup #myPopup,
@@ -499,6 +503,14 @@ export const STYLES = `
     .card.mobile-rotate-popup-exit #recording-segment-manager,
     .card.mobile-rotate-popup-exit #popup-carousel-wrap,
     .card.mobile-rotate-popup-exit #popup-shell-ver{display:none !important;}
+    .card.mobile-rotate-popup .popup-playback-controls,
+    .card.mobile-rotate-popup-exit .popup-playback-controls{right:max(.75rem,calc(var(--fvc-safe-area-right) + 7px));}
+    .card.mobile-rotate-popup .popup-card-view-actions,
+    .card.mobile-rotate-popup-exit .popup-card-view-actions{left:max(7px,calc(var(--fvc-safe-area-left) + 7px));}
+    .card.mobile-rotate-popup .popup-card-view-label,
+    .card.mobile-rotate-popup-exit .popup-card-view-label{top:max(7px,calc(var(--fvc-safe-area-top) + 7px));}
+    .card.mobile-rotate-popup .popup-view-resize-grip,
+    .card.mobile-rotate-popup-exit .popup-view-resize-grip{display:none !important;}
   #stream-fallback{position:absolute;inset:0;z-index:2;background:var(--c-bg-deep);
     pointer-events:none;line-height:0;}
   #stream-fallback[hidden]{display:block;z-index:0;}
@@ -1189,7 +1201,7 @@ export const STYLES = `
   .card:not(.mobile-rotate-popup):not(.mobile-rotate-popup-exit) .popup-media-controls.mobile-tablet-layout .popup-media-time {grid-area:progress;align-self:center;margin:14px 0 0;font-size:.7rem;line-height:1;pointer-events:none;}
   .card:not(.mobile-rotate-popup):not(.mobile-rotate-popup-exit) #viewer:has(+ .popup-media-controls.mobile-tablet-layout:not([hidden])) {border-bottom-left-radius:0;border-bottom-right-radius:0;}
   .card.mobile-rotate-popup .popup-media-controls,
-  .card.mobile-rotate-popup-exit .popup-media-controls {position:fixed;left:0;right:0;bottom:0;width:auto;margin:0;z-index:1406;}
+  .card.mobile-rotate-popup-exit .popup-media-controls {position:fixed;left:var(--fvc-safe-area-left);right:var(--fvc-safe-area-right);bottom:var(--fvc-safe-area-bottom);width:auto;margin:0;z-index:1406;}
   .card.mobile-rotate-popup .popup-media-btn#popup-media-fs,
   .card.mobile-rotate-popup-exit .popup-media-btn#popup-media-fs {display:none !important;}
   .card.mobile-rotate-popup .popup-media-controls.is-hidden,

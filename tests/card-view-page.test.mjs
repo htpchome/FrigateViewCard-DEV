@@ -15,6 +15,7 @@ import {
   buildCardViewToolbarMarkup,
 } from "../src/features/card-view/page.tmpl.js";
 import { CARD_VIEW_PAGE_STYLES } from "../src/features/card-view/page.styles.js";
+import { CAMERA_GROUP_LIVE_STYLES } from "../src/features/camera-groups/live.styles.js";
 import {
   CARD_VIEW_START_MODES,
   CARD_VIEW_VIEW_MODES,
@@ -172,6 +173,46 @@ test("standalone Card View controls expose active Grid and Slideshow states", ()
   assert.ok(
     markup.indexOf("data-card-view-standalone-slideshow") <
       markup.indexOf("data-card-view-standalone-grid"),
+  );
+});
+
+test("Card View places the mobile camera-group member control in each Grid slot", () => {
+  const mobileGroupButton =
+    '<button data-camera-group-mobile-toggle>camera A</button>';
+  const overlayMarkup = buildCardViewStandaloneModeControlsMarkup({
+    icons: { grid: "grid-icon" },
+    gridAvailable: true,
+    cameraGroupMobileToggleMarkup: mobileGroupButton,
+  });
+  const panelMarkup = buildCardViewToolbarMarkup({
+    icons: { grid: "grid-icon", alerts: "alerts-icon" },
+    gridAvailable: true,
+    cameraGroupMobileToggleMarkup: mobileGroupButton,
+  });
+
+  for (const markup of [overlayMarkup, panelMarkup]) {
+    assert.match(markup, /data-camera-group-mobile-toggle/);
+    assert.doesNotMatch(markup, /id="grid-btn"/);
+    assert.doesNotMatch(markup, /data-card-view-standalone-grid/);
+  }
+});
+
+test("grouped desktop controls are centered per pane and rotated controls respect safe areas", () => {
+  assert.match(
+    CAMERA_GROUP_LIVE_STYLES,
+    /\.camera-group-pane-controls \{[^}]*top:50%;[^}]*transform:translateY\(-50%\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /mobile-rotate-live[^}]*\.card-view-video-only-back \{display:none !important;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /mobile-rotate-live[^}]*:is\(#engine,#stream-fallback\) \{[^}]*inset:var\(--fvc-safe-area-top\) var\(--fvc-safe-area-right\) var\(--fvc-safe-area-bottom\) var\(--fvc-safe-area-left\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /camera-group-mobile-toggle--overlay\.active \{width:32px;min-width:32px;[^}]*padding:4px;/,
   );
 });
 
