@@ -166,6 +166,102 @@ test("popup carousel controller owns desktop rendering, navigation, and cleanup"
   assert.equal(calls.some(([type]) => type === "swipeBind"), false);
 });
 
+test("popup carousel controller reuses unchanged thumbnail DOM and only moves active state", () => {
+  const events = [
+    { id: "newer", label: "person", start_time: 20, has_clip: true },
+    { id: "older", label: "car", start_time: 10, has_clip: true },
+  ];
+  const makeItem = (id, offsetLeft) => {
+    const classes = new Set();
+    return {
+      dataset: { ev: id },
+      offsetLeft,
+      classes,
+      classList: {
+        toggle: (name, enabled) => {
+          if (enabled) classes.add(name);
+          else classes.delete(name);
+        },
+      },
+      getBoundingClientRect: () => ({ width: 140, height: 96 }),
+    };
+  };
+  const items = [makeItem("newer", 0), makeItem("older", 148)];
+  let markup = "";
+  let markupWrites = 0;
+  let thumbnailMarkupCalls = 0;
+  const frames = [];
+  const row = {
+    scrollLeft: 0,
+    scrollWidth: 600,
+    clientWidth: 300,
+    onscroll: null,
+    onclick: null,
+    get innerHTML() {
+      return markup;
+    },
+    set innerHTML(value) {
+      markup = value;
+      markupWrites += 1;
+    },
+    querySelector: (selector) => {
+      if (selector === ".popup-carousel-item.active") {
+        return items.find((item) => item.classes.has("active")) || null;
+      }
+      if (selector === ".popup-carousel-item") return items[0];
+      return null;
+    },
+    querySelectorAll: () => items,
+  };
+  const wrap = {
+    hidden: true,
+    classList: { toggle: () => {} },
+    style: { setProperty: () => {} },
+  };
+  const elements = new Map([
+    ["#popup-carousel-wrap", wrap],
+    ["#popup-carousel", row],
+  ]);
+  const controller = new PopupCarouselController({
+    query: (selector) => elements.get(selector) || null,
+    getDisplayEvents: () => events,
+    mediaUrl: (id, file) => {
+      thumbnailMarkupCalls += 1;
+      return `/media/${id}/${file}`;
+    },
+    resizeObserverCtor: null,
+    requestFrame: (callback) => frames.push(callback),
+  });
+
+  controller.render("clip", "newer");
+  assert.equal(markupWrites, 1);
+  assert.equal(thumbnailMarkupCalls, 2);
+  assert.equal(items[0].classes.has("active"), true);
+  assert.equal(items[1].classes.has("active"), false);
+
+  controller.render("clip", "older");
+  assert.equal(markupWrites, 1);
+  assert.equal(thumbnailMarkupCalls, 2);
+  assert.equal(items[0].classes.has("active"), false);
+  assert.equal(items[1].classes.has("active"), true);
+
+  const frameCount = frames.length;
+  controller.render("clip", "older");
+  assert.equal(markupWrites, 1);
+  assert.equal(thumbnailMarkupCalls, 2);
+  assert.equal(frames.length, frameCount);
+
+  events.push({
+    id: "newest",
+    label: "dog",
+    start_time: 30,
+    has_clip: true,
+  });
+  controller.render("clip", "older");
+  assert.equal(markupWrites, 2);
+  assert.equal(thumbnailMarkupCalls, 5);
+});
+
 test("popup carousel controller skips mobile event collection and DOM rendering", () => {
   let collectionCount = 0;
   const classes = new Map();

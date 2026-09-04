@@ -1,6 +1,7 @@
 import { cap } from "../../helpers.js";
 import { ICONS } from "../../icons.js";
 import {
+  buildPopupCarouselContentKey,
   buildPopupCarouselContentPlan,
   buildPopupCarouselEvents,
   buildPopupCarouselItemMarkup,
@@ -47,6 +48,9 @@ export class PopupCarouselController {
     this._swipeController = null;
     this._row = null;
     this._mediaType = "";
+    this._contentRow = null;
+    this._contentKey = "";
+    this._activeId = "";
     this._renderToken = 0;
   }
 
@@ -55,12 +59,10 @@ export class PopupCarouselController {
     const row = this._query?.("#popup-carousel");
     if (!wrap || !row) return null;
 
-    this.dispose();
-    this._row = row;
-    row.onscroll = null;
-    row.onclick = null;
     const isMobileDevice = this._isMobileDevice();
     if (isMobileDevice) {
+      this.dispose();
+      this._resetContent(row);
       const contentPlan = buildPopupCarouselContentPlan({
         mediaType,
         events: [],
@@ -68,55 +70,53 @@ export class PopupCarouselController {
         isTouchUi: this._isTouchUi(),
         isMobileDevice,
       });
-      row.innerHTML = "";
       wrap.hidden = true;
       wrap.classList.toggle("touch", false);
       wrap.classList.toggle("mobile-device", true);
       return contentPlan;
     }
+    const events = this._events(mediaType);
+    const contentKey = buildPopupCarouselContentKey({ mediaType, events });
+    const reuseContent =
+      this._contentRow === row && this._contentKey === contentKey;
     const contentPlan = buildPopupCarouselContentPlan({
       mediaType,
-      events: this._events(mediaType),
+      events,
       activeId,
       isTouchUi: this._isTouchUi(),
       isMobileDevice,
+      reuseContent,
       renderEvent: (event, currentActiveId) =>
         this._eventMarkup(event, currentActiveId),
     });
-    if (contentPlan.shouldClear) row.innerHTML = "";
     wrap.hidden = contentPlan.hidden;
-    if (!contentPlan.shouldRender) return contentPlan;
+    if (!contentPlan.shouldRender) {
+      this.dispose();
+      this._resetContent(row);
+      return contentPlan;
+    }
 
+    const nextActiveId = String(activeId || "");
+    const activeChanged = this._activeId !== nextActiveId;
+    if (reuseContent && this._row === row && !activeChanged) {
+      wrap.classList.toggle("touch", contentPlan.touch);
+      wrap.classList.toggle("mobile-device", contentPlan.mobile);
+      return contentPlan;
+    }
+    if (!reuseContent) {
+      this.dispose();
+      row.innerHTML = contentPlan.html;
+      row.scrollLeft = 0;
+      this._contentRow = row;
+      this._contentKey = contentKey;
+    }
     this._mediaType = String(mediaType || "").toLowerCase();
-    row.innerHTML = contentPlan.html;
-    row.scrollLeft = 0;
-    row.onclick = this._onItemClick;
+    this._activeId = nextActiveId;
+    this._syncActiveItem(row, nextActiveId);
     wrap.classList.toggle("touch", contentPlan.touch);
     wrap.classList.toggle("mobile-device", contentPlan.mobile);
-    const syncNavigation = () => this.syncNavigation(row);
-    row.onscroll = syncNavigation;
-    if (typeof this._ResizeObserver === "function") {
-      this._resizeObserver = new this._ResizeObserver(syncNavigation);
-      this._resizeObserver.observe(row);
-    }
-    if (contentPlan.mobile) {
-      this._swipeController = this._createSwipeController({
-        row,
-        getScrollPlan: (dir) => this._scrollPlan(row, dir),
-      }).bind();
-    }
-    syncNavigation();
-    const renderToken = this._renderToken;
-    this._requestFrame(() => {
-      if (renderToken !== this._renderToken || this._row !== row) return;
-      const active = row.querySelector(".popup-carousel-item.active");
-      if (active) {
-        row.scrollLeft = resolvePopupCarouselActiveScrollLeft({
-          activeOffsetLeft: active.offsetLeft,
-        });
-      }
-      syncNavigation();
-    });
+    if (this._row !== row) this._bindRow(row, contentPlan);
+    this._scheduleActiveScroll(row);
     return contentPlan;
   }
 
@@ -125,7 +125,7 @@ export class PopupCarouselController {
     const wrap = this._query?.("#popup-carousel-wrap");
     const row = this._query?.("#popup-carousel");
     if (wrap) wrap.hidden = true;
-    if (row) row.innerHTML = "";
+    this._resetContent(row);
   }
 
   dispose() {
@@ -140,6 +140,59 @@ export class PopupCarouselController {
     }
     this._row = null;
     this._mediaType = "";
+  }
+
+  _resetContent(row = this._contentRow) {
+    if (row) {
+      row.onscroll = null;
+      row.onclick = null;
+      row.innerHTML = "";
+    }
+    this._contentRow = null;
+    this._contentKey = "";
+    this._activeId = "";
+  }
+
+  _syncActiveItem(row, activeId = "") {
+    const targetId = String(activeId || "");
+    for (const item of row?.querySelectorAll?.(".popup-carousel-item") || []) {
+      item.classList?.toggle?.(
+        "active",
+        String(item.dataset?.ev || "") === targetId,
+      );
+    }
+  }
+
+  _bindRow(row, contentPlan) {
+    this._row = row;
+    row.onclick = this._onItemClick;
+    const syncNavigation = () => this.syncNavigation(row);
+    row.onscroll = syncNavigation;
+    if (typeof this._ResizeObserver === "function") {
+      this._resizeObserver = new this._ResizeObserver(syncNavigation);
+      this._resizeObserver.observe(row);
+    }
+    if (contentPlan.mobile) {
+      this._swipeController = this._createSwipeController({
+        row,
+        getScrollPlan: (dir) => this._scrollPlan(row, dir),
+      }).bind();
+    }
+    syncNavigation();
+  }
+
+  _scheduleActiveScroll(row) {
+    const renderToken = ++this._renderToken;
+    this._requestFrame(() => {
+      if (renderToken !== this._renderToken || this._row !== row) return;
+      const active = row.querySelector(".popup-carousel-item.active");
+      if (active) {
+        row.scrollLeft = resolvePopupCarouselActiveScrollLeft({
+          activeOffsetLeft: active.offsetLeft,
+        });
+      }
+      this.syncNavigation(row);
+    });
   }
 
   syncNavigation(row = this._query?.("#popup-carousel")) {

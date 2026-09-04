@@ -216,7 +216,7 @@ export class PopupMediaLoaderController {
     this._lifecycleController?.setCompact?.(compact);
     this._lifecycleController?.clearMediaCleanup();
     const token = this._nextPlaybackToken();
-    this._carouselController?.clear?.();
+    if (compact) this._carouselController?.clear?.();
     this._lifecycleController?.enter();
     const isElement =
       typeof Element !== "undefined" && mediaElement instanceof Element;
@@ -650,7 +650,6 @@ export class PopupMediaLoaderController {
     this._lifecycleController?.setCompact?.(compact);
     this._lifecycleController?.clearMediaCleanup();
     const token = this._nextPlaybackToken();
-    this._carouselController?.clear?.();
     this._lifecycleController?.enter();
     const activeContext = this._host._cc();
     const eventContext = event?.camera
@@ -689,6 +688,14 @@ export class PopupMediaLoaderController {
     const sourceAttemptPlan = buildPopupRecordingSourceAttemptPlan({
       sourceCandidates: renderPlan.sourceCandidates,
     });
+    if (event && !compact) {
+      this._carouselController?.render(
+        renderPlan.carouselMediaType,
+        renderPlan.carouselActiveId,
+      );
+    } else {
+      this._carouselController?.clear?.();
+    }
     const seekListenerPlan = resolvePopupRecordingSeekListenerPlan();
     this._lifecycleController?.setMediaState({
       mediaType: renderPlan.popupMediaType,

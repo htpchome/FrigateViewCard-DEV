@@ -4,6 +4,21 @@ import { escapeHtml, escapeHtmlAttribute } from "../../shared/html.js";
 const sortByStartTimeDesc = (items = []) =>
   [...items].sort((a, b) => (b?.start_time || 0) - (a?.start_time || 0));
 
+export const buildPopupCarouselContentKey = ({
+  mediaType = "",
+  events = [],
+  limit = 200,
+} = {}) =>
+  JSON.stringify([
+    String(mediaType || "").toLowerCase(),
+    ...(events || []).slice(0, Number(limit || 0) || 0).map((event) => [
+      String(event?.id || ""),
+      String(event?.camera || ""),
+      Number(event?.start_time) || 0,
+      String(event?.label || ""),
+    ]),
+  ]);
+
 export const buildPopupCarouselItemMarkup = ({
   event = null,
   activeId = "",
@@ -106,6 +121,7 @@ export const buildPopupCarouselContentPlan = ({
   isTouchUi = false,
   isMobileDevice = false,
   limit = 200,
+  reuseContent = false,
   renderEvent = () => "",
 }) => {
   const limitedEvents = [...(events || [])].slice(0, Number(limit || 0) || 0);
@@ -118,7 +134,7 @@ export const buildPopupCarouselContentPlan = ({
 
   return {
     ...renderPlan,
-    html: renderPlan.shouldRender
+    html: renderPlan.shouldRender && !reuseContent
       ? limitedEvents.map((event) => renderEvent(event, activeId)).join("")
       : "",
   };

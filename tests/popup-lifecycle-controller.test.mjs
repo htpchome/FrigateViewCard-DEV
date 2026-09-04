@@ -218,6 +218,27 @@ test("popup lifecycle preserves Firefox source-drop delay and can cancel it", ()
   assert.equal(viewer.innerHTML, "");
 });
 
+test("media replacement preserves the carousel until the popup stops", () => {
+  const { calls, controller } = createLifecycleFixture();
+
+  controller.clearMediaCleanup();
+  assert.equal(
+    calls.some(([kind]) => kind === "disposeCarousel"),
+    false,
+  );
+  assert.equal(calls.some(([kind]) => kind === "clearCarousel"), false);
+
+  controller.stopMedia();
+  assert.equal(
+    calls.filter(([kind]) => kind === "disposeCarousel").length,
+    1,
+  );
+  assert.equal(
+    calls.filter(([kind]) => kind === "clearCarousel").length,
+    1,
+  );
+});
+
 test("popup lifecycle owns drag binding and disposal", () => {
   const { calls, controller } = createLifecycleFixture();
   let dragOptions = null;

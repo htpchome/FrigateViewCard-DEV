@@ -1923,7 +1923,9 @@ test("popup lifecycle and recording transport cleanup are feature-owned", () => 
     true,
   );
   assert.equal(
-    popupLifecycleControllerSource.includes("clearMediaCleanup()"),
+    popupLifecycleControllerSource.includes(
+      "clearMediaCleanup({ preserveCarousel = true } = {})",
+    ),
     true,
   );
   assert.equal(

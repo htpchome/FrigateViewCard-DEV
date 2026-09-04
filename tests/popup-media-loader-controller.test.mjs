@@ -475,6 +475,53 @@ test("compact popup clears stale carousel DOM without rendering replacement data
   assert.equal(body.scrollTop, 0);
 });
 
+test("standard popup media preserves carousel content before rendering its next state", () => {
+  const carouselCalls = [];
+  const viewer = {
+    innerHTML: "stale media",
+    style: {},
+    querySelector: () => null,
+  };
+  const host = {
+    _playSeq: 0,
+    _$: (selector) => {
+      if (selector === "#viewer") return viewer;
+      if (selector === "#myPopup") {
+        return { querySelector: () => ({ scrollTop: 10 }) };
+      }
+      return null;
+    },
+    _popupInfoController: { render: () => {} },
+    _popupCarouselController: {
+      clear: () => carouselCalls.push("clear"),
+      render: (type, id) => carouselCalls.push(`render:${type}:${id}`),
+    },
+    _popupMediaControlsController: {
+      ensurePlaybackButtons: () => {},
+      resetWithoutVideo: () => {},
+      showTemporarily: () => {},
+    },
+    _popupLifecycleController: {
+      setCompact: () => {},
+      clearMediaCleanup: () => {},
+      enter: () => {},
+      setMediaState: () => {},
+      setMediaCleanup: () => {},
+    },
+    _scheduleRotateOverlayUpdate: () => {},
+  };
+  const controller = new PopupMediaLoaderController(host);
+
+  controller.renderPopupMedia({
+    playingId: "event-1",
+    html: '<div class="popup-media-unavailable"></div>',
+    mediaType: "alert",
+    infoOpts: { mediaType: "alert" },
+  });
+
+  assert.deepEqual(carouselCalls, ["render:alert:event-1"]);
+});
+
 test("enabled pre-roll and post-roll preserve Alert popup behavior", async () => {
   const calls = [];
   const viewer = { innerHTML: "", appended: null };
@@ -549,6 +596,10 @@ test("enabled pre-roll and post-roll preserve Alert popup behavior", async () =>
         path.includes("/recording/front_door/start/95/end/115"),
     ),
     true,
+  );
+  assert.ok(
+    calls.findIndex(([kind]) => kind === "carousel") <
+      calls.findIndex(([kind]) => kind === "signed"),
   );
   assert.deepEqual(
     calls.find(([kind]) => kind === "state")?.[1],

@@ -162,6 +162,24 @@ test("buildPopupCarouselContentPlan limits rendering and reuses render plan sema
   });
 });
 
+test("buildPopupCarouselContentPlan skips item markup when content is reused", () => {
+  let renderCount = 0;
+  const plan = buildPopupCarouselContentPlan({
+    mediaType: "clip",
+    events: [{ id: "one" }, { id: "two" }],
+    activeId: "two",
+    reuseContent: true,
+    renderEvent: () => {
+      renderCount += 1;
+      return "item";
+    },
+  });
+
+  assert.equal(plan.shouldRender, true);
+  assert.equal(plan.html, "");
+  assert.equal(renderCount, 0);
+});
+
 test("mobile carousel content skips item markup generation", () => {
   let renderCount = 0;
   const plan = buildPopupCarouselContentPlan({

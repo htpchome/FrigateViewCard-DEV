@@ -183,10 +183,10 @@ export class PopupLifecycleController {
     this._mediaCleanup = typeof cleanup === "function" ? cleanup : null;
   }
 
-  clearMediaCleanup() {
+  clearMediaCleanup({ preserveCarousel = true } = {}) {
     this._onClearPictureInPicture("popup");
     this._onClearVideoZoom();
-    this._onDisposeCarousel();
+    if (!preserveCarousel) this._onDisposeCarousel();
     this._onDisposeMediaControls();
     this._clearStopTimer();
 
@@ -201,7 +201,7 @@ export class PopupLifecycleController {
   }
 
   stopMedia({ forceSourceDrop = false } = {}) {
-    this.clearMediaCleanup();
+    this.clearMediaCleanup({ preserveCarousel: false });
     const viewer = this._query?.("#viewer");
     if (!viewer) return;
 
