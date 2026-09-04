@@ -13,6 +13,8 @@ const normalizeRegions = (regions = {}) => ({
   cardViewToolbar: "",
   cardViewActivity: "",
   calendarPanel: "",
+  linkedEntitiesLeft: "",
+  linkedEntitiesRight: "",
   footerLogo: "",
   footerVersion: "",
   drawerHandleIcon: "",
@@ -46,8 +48,8 @@ export function buildCardViewMainLayoutShellMarkup({
           <span>Live</span>
         </div>
         <div class="linked-light-region preview-light-overlay card-view-standalone-light-overlay" data-card-view-standalone-light-overlay data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">
-          <div class="linked-light-position-slot" data-linked-light-position-slot="left" hidden></div>
-          <div class="linked-light-position-slot" data-linked-light-position-slot="right" hidden></div>
+          <div class="linked-light-position-slot" data-linked-light-position-slot="left" ${regions.linkedEntitiesLeft ? "" : "hidden"}>${regions.linkedEntitiesLeft}</div>
+          <div class="linked-light-position-slot" data-linked-light-position-slot="right" ${regions.linkedEntitiesRight ? "" : "hidden"}>${regions.linkedEntitiesRight}</div>
         </div>
         <div class="card-view-standalone-talk-overlay" data-card-view-standalone-talk-overlay></div>
       </div>
@@ -100,8 +102,8 @@ export function buildCardViewStandaloneModeControlsMarkup({
     0,
     Math.ceil(Number(slideshowRemainingSeconds) || 0),
   );
-  return `${gridAvailable ? `<button class="card-view-standalone-mode-button${gridActive ? " active" : ""}" type="button" data-card-view-standalone-grid data-media-overlay-ignore aria-pressed="${gridActive}" title="${gridLabel}" aria-label="${gridLabel}"${gridDisabled ? " disabled" : ""}>${icons.grid || ""}</button>` : ""}
-    ${slideshowAvailable ? `<button class="card-view-standalone-mode-button card-view-standalone-slideshow-button${slideshowActive ? " active" : ""}" type="button" data-card-view-standalone-slideshow data-media-overlay-ignore aria-pressed="${slideshowActive}" title="${slideshowLabel}" aria-label="${slideshowLabel}"${slideshowDisabled ? " disabled" : ""}>${slideshowActive ? icons.presentationPlayActive || icons.presentationPlay || "" : icons.presentationPlay || ""}${slideshowActive ? `<span class="card-view-standalone-countdown" data-card-view-slideshow-countdown>${remaining}s</span>` : ""}</button>` : ""}`;
+  return `${slideshowAvailable ? `<button class="card-view-standalone-mode-button card-view-standalone-slideshow-button${slideshowActive ? " active" : ""}" type="button" data-card-view-standalone-slideshow data-media-overlay-ignore aria-pressed="${slideshowActive}" title="${slideshowLabel}" aria-label="${slideshowLabel}"${slideshowDisabled ? " disabled" : ""}>${slideshowActive ? icons.presentationPlayActive || icons.presentationPlay || "" : icons.presentationPlay || ""}${slideshowActive ? `<span class="card-view-standalone-countdown" data-card-view-slideshow-countdown>${remaining}s</span>` : ""}</button>` : ""}
+    ${gridAvailable ? `<button class="card-view-standalone-mode-button${gridActive ? " active" : ""}" type="button" data-card-view-standalone-grid data-media-overlay-ignore aria-pressed="${gridActive}" title="${gridLabel}" aria-label="${gridLabel}"${gridDisabled ? " disabled" : ""}>${icons.grid || ""}</button>` : ""}`;
 }
 
 export function buildCardViewToolbarMarkup({

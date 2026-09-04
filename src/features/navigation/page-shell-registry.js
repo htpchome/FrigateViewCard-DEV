@@ -427,8 +427,23 @@ export function registerDefaultPageShellProfiles(registry, PAGE_IDS) {
   registry.register(PAGE_IDS.cardView, {
     layoutClass: "layout--card-view",
     liveControlsPlacement: "overlay",
-    buildMainLayoutShellMarkup: ({ regions, layoutProfile }) =>
-      buildCardViewMainLayoutShellMarkup({ regions, layoutProfile }),
+    buildMainLayoutShellMarkup: ({ host, regions, layoutProfile }) =>
+      buildCardViewMainLayoutShellMarkup({
+        regions: {
+          ...(regions || {}),
+          linkedEntitiesLeft:
+            host?._buildLinkedLightControlMarkup?.({
+              buttonClass: "icon-btn",
+              position: "left",
+            }) || "",
+          linkedEntitiesRight:
+            host?._buildLinkedLightControlMarkup?.({
+              buttonClass: "icon-btn",
+              position: "right",
+            }) || "",
+        },
+        layoutProfile,
+      }),
     capabilities: {
       hasLive: true,
       hasLivePictureInPicture: true,

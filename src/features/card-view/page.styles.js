@@ -168,13 +168,18 @@ export const CARD_VIEW_PAGE_STYLES = `
     border-color:color-mix(in srgb,var(--c-primary) 72%,white);background:color-mix(in srgb,var(--c-primary-d) 68%,transparent);
     box-shadow:none;color:#fff;
   }
-  .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls {grid-column:3;display:flex;align-items:center;justify-self:start;gap:5px;pointer-events:none;}
+  .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls {
+    grid-column:1 / -1;grid-row:1;display:grid;width:100%;min-width:0;
+    grid-template-columns:minmax(0,1fr) clamp(112px,38%,200px) minmax(0,1fr);align-items:start;gap:6px;pointer-events:none;
+  }
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-button {
-    position:relative;display:grid;place-items:center;min-width:32px;width:32px;height:32px;padding:4px;border:1px solid rgb(255 255 255 / 16%);
+    position:relative;grid-row:1;display:grid;place-items:center;min-width:32px;width:32px;height:32px;padding:4px;border:1px solid rgb(255 255 255 / 16%);
     border-radius:7px;color:#f5f5f5;background:rgb(15 15 15 / 82%);box-shadow:0 3px 10px rgb(0 0 0 / 34%);
     opacity:0;pointer-events:none;transform:translateY(-3px);cursor:pointer;appearance:none;
     transition:opacity .15s ease,transform .15s ease,background-color .15s ease,border-color .15s ease;
   }
+  .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button {grid-column:1;justify-self:end;}
+  .card.card-view-active.card-view-standalone [data-card-view-standalone-grid] {grid-column:3;justify-self:start;}
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-button svg {width:21px;height:21px;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-button.active {
     width:auto;min-width:32px;grid-auto-flow:column;gap:3px;padding-inline:5px;opacity:1;pointer-events:auto;transform:none;
@@ -205,8 +210,6 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-standalone .card-view-live-badge-dot {width:7px;height:7px;border-radius:50%;background:var(--c-on);box-shadow:0 0 0 2px color-mix(in srgb,var(--c-on) 24%,transparent);}
   .card.card-view-active.card-view-standalone .card-view-live-badge.is-offline .card-view-live-badge-dot {background:var(--c-off);box-shadow:0 0 0 2px color-mix(in srgb,var(--c-off) 24%,transparent);}
-  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-live-badge,
-  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.card-view-standalone-mode-button.active) .card-view-live-badge {top:45px;}
   .card.card-view-active.card-view-standalone .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-live-badge {display:none;}
   .card.card-view-active.card-view-standalone.card-view-grid-mode .card-view-live-badge {display:none;}
   .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay {
@@ -222,11 +225,12 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay:has([data-linked-light-dimmer]:not([hidden])) {opacity:1;pointer-events:auto;}
   .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-light-overlay .linked-light-position-slot,
   .card.card-view-active.card-view-standalone .card-view-standalone-light-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
-  .card.card-view-active.card-view-standalone .card-view-live-stage:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"]:not([hidden])) .card-view-live-badge {top:45px;}
+  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-live-stage:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"]:not([hidden])) .card-view-live-badge,
+  .card.card-view-active.card-view-standalone .card-view-live-stage:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"] [data-linked-light-dimmer]:not([hidden])) .card-view-live-badge {top:45px;}
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-standalone .card-view-live-stage:hover :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay) {opacity:1;pointer-events:auto;}
     .card.card-view-active.card-view-standalone .card-view-live-stage:hover .card-view-standalone-light-overlay .linked-light-position-slot {pointer-events:auto;}
-    .card.card-view-active.card-view-standalone .card-view-live-panel:has(.card-view-live-stage:hover,.card-view-standalone-mode-button:hover) .card-view-live-badge {top:45px;}
+    .card.card-view-active.card-view-standalone .card-view-live-stage:hover:has(.card-view-standalone-light-overlay [data-linked-light-position-slot="right"]:not([hidden])) .card-view-live-badge {top:45px;}
   }
   .card.card-view-active.card-view-standalone.card-view-grid-mode :is(.card-view-standalone-light-overlay,.card-view-standalone-talk-overlay),
   .card.card-view-active.card-view-standalone.card-view-grid-mode .live-playback-controls {display:none !important;}

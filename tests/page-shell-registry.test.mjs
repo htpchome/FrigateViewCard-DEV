@@ -88,6 +88,31 @@ test("every registered page profile owns an outer layout builder", () => {
   assert.equal(new Set(builders).size, builders.length);
 });
 
+test("Card View profile seeds its standalone overlay with shared linked-light controls", () => {
+  const registry = createPageShellRegistry({
+    defaultPageId: PAGE_IDS.singleView,
+  });
+  registerDefaultPageShellProfiles(registry, PAGE_IDS);
+  const calls = [];
+  const markup = registry.resolve(PAGE_IDS.cardView).buildMainLayoutShellMarkup({
+    host: {
+      _buildLinkedLightControlMarkup: (options) => {
+        calls.push(options);
+        return `${options.position}-light-control`;
+      },
+    },
+    regions: {},
+    layoutProfile: {},
+  });
+
+  assert.deepEqual(calls, [
+    { buttonClass: "icon-btn", position: "left" },
+    { buttonClass: "icon-btn", position: "right" },
+  ]);
+  assert.match(markup, /left-light-control/);
+  assert.match(markup, /right-light-control/);
+});
+
 test("page shell capabilities honor explicit overrides", () => {
   const profile = {
     capabilities: {

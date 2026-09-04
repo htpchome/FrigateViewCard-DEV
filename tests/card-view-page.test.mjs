@@ -88,6 +88,8 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
       liveTakeSnapshot:
         '<button data-fvc-region="live-take-snapshot"></button>',
       liveMute: '<button data-fvc-region="live-mute"></button>',
+      linkedEntitiesLeft: "left-light-control",
+      linkedEntitiesRight: "right-light-control",
       pageNavigation:
         '<div data-fvc-region="page-navigation"></div>',
       drawerHandleIcon: "chevron",
@@ -112,6 +114,14 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /data-card-view-live-badge/);
   assert.match(markup, /data-card-view-standalone-light-overlay/);
   assert.match(markup, /preview-light-overlay/);
+  assert.match(
+    markup,
+    /data-linked-light-position-slot="left"[^>]*>left-light-control/,
+  );
+  assert.match(
+    markup,
+    /data-linked-light-position-slot="right"[^>]*>right-light-control/,
+  );
   assert.match(markup, /data-card-view-standalone-talk-overlay/);
 });
 
@@ -134,6 +144,10 @@ test("standalone Card View controls expose active Grid and Slideshow states", ()
   assert.match(markup, /data-card-view-standalone-slideshow/);
   assert.match(markup, /slideshow-active-icon/);
   assert.match(markup, /data-card-view-slideshow-countdown>7s/);
+  assert.ok(
+    markup.indexOf("data-card-view-standalone-slideshow") <
+      markup.indexOf("data-card-view-standalone-grid"),
+  );
 });
 
 test("standalone mode controls are not disabled by Card View alert takeover", () => {
@@ -339,6 +353,14 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.card-view-standalone-slideshow-button \{grid-column:1;justify-self:end;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \[data-card-view-standalone-grid\] \{grid-column:3;justify-self:start;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-hide-camera-name:not\(\.card-view-grid-mode\) \.mobile-cam-picker \{opacity:0;pointer-events:none;/,
   );
   assert.match(
@@ -348,6 +370,10 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-live-stage:has\(#stream-loading:not\(\[hidden\]\)\) \.card-view-live-badge \{display:none;\}/,
+  );
+  assert.doesNotMatch(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-visible \.card-view-live-badge/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
