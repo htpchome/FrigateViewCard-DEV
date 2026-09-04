@@ -3,7 +3,10 @@ import {
   createVideoElement,
   mountNodeIntoSlot,
 } from "../../shared/media/video-factory.js";
-import { buildPopupMediaUrl } from "../../shared/media/url-utils.js";
+import {
+  buildPopupMediaUrl,
+  isM3u8Url,
+} from "../../shared/media/url-utils.js";
 import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-capture.js";
 import { isIOS } from "../../helpers.js";
 import {
@@ -324,6 +327,7 @@ export class PopupMediaLoaderController {
           autoplay,
           muted,
           controls: false,
+          preload: "auto",
           src,
         },
         { scopeKey: this._host },
@@ -537,10 +541,10 @@ export class PopupMediaLoaderController {
   async tryRecordingSource(
     video,
     src,
-    { autoplay = true, timeoutMs = 9000 } = {},
+    { autoplay = true, timeoutMs = 9000, hlsCtorPromise = null } = {},
   ) {
     if (!video || !src) return false;
-    const isHlsSource = /\.m3u8(?:$|\?)/i.test(src);
+    const isHlsSource = isM3u8Url(src);
     this.clearRecordingTransport();
 
     return await new Promise((resolve) => {
@@ -593,7 +597,7 @@ export class PopupMediaLoaderController {
             return;
           }
 
-          const HlsCtor = await this._getHlsJsCtor();
+          const HlsCtor = await (hlsCtorPromise || this._getHlsJsCtor());
           if (!HlsCtor || !HlsCtor.isSupported?.()) {
             finish(false);
             return;
@@ -670,7 +674,7 @@ export class PopupMediaLoaderController {
       camera: cam,
       start,
       end,
-      preferHls: this._deps.preferRecordingHls(),
+      preferHls: event ? true : this._deps.preferRecordingHls(),
     });
     const renderPlan = event
       ? buildPopupEventRecordingRenderPlan({
@@ -712,6 +716,7 @@ export class PopupMediaLoaderController {
         {
           muted: true,
           controls: false,
+          preload: event ? "auto" : "metadata",
         },
         { scopeKey: this._host },
       ),
@@ -760,6 +765,14 @@ export class PopupMediaLoaderController {
       }
     };
     this._lifecycleController?.setMediaCleanup?.(runMediaCleanup);
+    const firstSourcePath = sourceAttemptPlan.attempts[0]?.path || "";
+    const hasNativeHls = !!video?.canPlayType?.(
+      "application/vnd.apple.mpegurl",
+    );
+    const hlsCtorPromise =
+      isM3u8Url(firstSourcePath) && !hasNativeHls
+        ? this._getHlsJsCtor()
+        : null;
     const scrubInitPlan =
       video && !event
         ? buildPopupRecordingScrubInitPlan({
@@ -813,6 +826,9 @@ export class PopupMediaLoaderController {
         if (this._host._playSeq !== token) return;
         playable = await this.tryRecordingSource(video, signed, {
           autoplay: attempt.autoplay,
+          hlsCtorPromise: isM3u8Url(attempt.path)
+            ? hlsCtorPromise
+            : null,
         });
         if (this._host._playSeq !== token) return;
         if (playable) {

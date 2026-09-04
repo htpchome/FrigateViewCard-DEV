@@ -137,6 +137,7 @@ test("showClipById routes clip loading through popup media rendering", () => {
     true,
   );
   assert.equal(rendered.mediaElement.options.controls, false);
+  assert.equal(rendered.mediaElement.options.preload, "auto");
   assert.equal(typeof rendered.onMediaError, "function");
 });
 
@@ -305,6 +306,14 @@ test("showRecording signs candidates and initializes popup recording playback on
   assert.equal(
     calls.find(([kind]) => kind === "createVideo")?.[1]?.controls,
     false,
+  );
+  assert.equal(
+    calls.find(([kind]) => kind === "createVideo")?.[1]?.preload,
+    "metadata",
+  );
+  assert.match(
+    calls.find(([kind]) => kind === "trySource")?.[1] || "",
+    /signed:\/api\/frigate\/frigate\/recording\/front_door/,
   );
   assert.ok(
     calls.findIndex(([kind]) => kind === "initControls") <
@@ -534,6 +543,7 @@ test("enabled pre-roll and post-roll preserve Alert popup behavior", async () =>
     removeEventListener: () => {},
     pause: () => {},
     play: () => Promise.resolve(),
+    canPlayType: () => "",
   };
   const host = {
     _playSeq: 0,
@@ -571,12 +581,22 @@ test("enabled pre-roll and post-roll preserve Alert popup behavior", async () =>
     isEventPrePostRollEnabled: () => true,
     preferRecordingHls: () => false,
     buildVideoOptionsForView: (_view, options) => options,
-    createVideoElement: () => video,
+    createVideoElement: (options) => {
+      calls.push(["video-options", options]);
+      return video;
+    },
     mountNodeIntoSlot: (slot, node) => {
       slot.appended = node;
     },
   });
-  controller.tryRecordingSource = async () => true;
+  controller._getHlsJsCtor = () => {
+    calls.push(["warm-hls"]);
+    return Promise.resolve({ isSupported: () => true });
+  };
+  controller.tryRecordingSource = async (_video, source, options) => {
+    calls.push(["try-source", source, options]);
+    return true;
+  };
 
   await controller.showClip(
     {
@@ -593,8 +613,21 @@ test("enabled pre-roll and post-roll preserve Alert popup behavior", async () =>
     calls.some(
       ([kind, path]) =>
         kind === "signed" &&
-        path.includes("/recording/front_door/start/95/end/115"),
+        path.includes("/vod/front_door/start/95/end/115/index.m3u8"),
     ),
+    true,
+  );
+  assert.equal(
+    calls.find(([kind]) => kind === "video-options")?.[1]?.preload,
+    "auto",
+  );
+  assert.ok(
+    calls.findIndex(([kind]) => kind === "warm-hls") <
+      calls.findIndex(([kind]) => kind === "signed"),
+  );
+  assert.equal(
+    calls.find(([kind]) => kind === "try-source")?.[2]
+      ?.hlsCtorPromise instanceof Promise,
     true,
   );
   assert.ok(
