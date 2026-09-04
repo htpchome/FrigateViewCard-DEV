@@ -49,11 +49,11 @@ export function buildCardViewMainLayoutShellMarkup({
             <button class="card-view-media-drawer-nav card-view-media-drawer-nav--up" type="button" data-card-view-media-drawer-scroll="-1" title="Previous media" aria-label="Previous media" hidden>${regions.mediaDrawerHandleIcon}</button>
             <div class="card-view-media-drawer-scroller" data-card-view-media-drawer-scroller></div>
             <button class="card-view-media-drawer-nav card-view-media-drawer-nav--down" type="button" data-card-view-media-drawer-scroll="1" title="More media" aria-label="More media" hidden>${regions.mediaDrawerHandleIcon}</button>
-          </div>
-          <div class="card-view-media-drawer-tabs" data-card-view-media-drawer-tabs role="tablist" aria-label="Drawer media" hidden>
-            <button class="card-view-media-drawer-tab active" type="button" data-card-view-media-drawer-type="alerts" role="tab" aria-selected="true">Alerts</button>
-            <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="clips" role="tab" aria-selected="false">Clips</button>
-            <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="snapshots" role="tab" aria-selected="false">Snapshots</button>
+            <div class="card-view-media-drawer-tabs" data-card-view-media-drawer-tabs role="tablist" aria-label="Drawer media" aria-hidden="true" hidden>
+              <button class="card-view-media-drawer-tab active" type="button" data-card-view-media-drawer-type="alerts" role="tab" aria-selected="true">Alerts</button>
+              <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="clips" role="tab" aria-selected="false">Clips</button>
+              <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="snapshots" role="tab" aria-selected="false">Snapshots</button>
+            </div>
           </div>
           <button class="card-view-media-drawer-handle" type="button" data-card-view-media-drawer-toggle aria-controls="card-view-media-drawer-panel" aria-expanded="false" title="Open media drawer" aria-label="Open media drawer">${regions.mediaDrawerHandleIcon}</button>
         </aside>

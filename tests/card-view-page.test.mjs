@@ -119,7 +119,10 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /data-card-view-media-drawer-scroller/);
   assert.match(markup, /data-card-view-media-drawer-scroll="-1"/);
   assert.match(markup, /data-card-view-media-drawer-scroll="1"/);
-  assert.match(markup, /data-card-view-media-drawer-tabs[^>]*hidden/);
+  assert.match(
+    markup,
+    /data-card-view-media-drawer-panel[\s\S]*data-card-view-media-drawer-tabs[^>]*aria-hidden="true"[^>]*hidden[\s\S]*card-view-media-drawer-handle/,
+  );
   assert.match(markup, /data-card-view-media-drawer-type="alerts"/);
   assert.match(markup, /data-card-view-media-drawer-type="clips"/);
   assert.match(markup, /data-card-view-media-drawer-type="snapshots"/);
@@ -487,7 +490,7 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-media-drawer-panel \{[\s\S]*?background:var\(--fvc-media-overlay-bg-strong\)/,
+    /card-view-media-drawer-panel \{[\s\S]*?overflow:visible;transform:translateX\(calc\(-100% - 2px\)\);[\s\S]*?background:var\(--fvc-media-overlay-bg-strong\)/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -499,7 +502,11 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-media-drawer-tabs \{[\s\S]*?top:8px;left:calc\(100% - 1px\);[\s\S]*?flex-direction:column;[\s\S]*?width:68px;[\s\S]*?pointer-events:auto;/,
+    /card-view-media-drawer-tabs \{[\s\S]*?top:8px;left:calc\(100% - 1px\);[\s\S]*?flex-direction:column;[\s\S]*?width:68px;[\s\S]*?visibility:hidden;pointer-events:none;transition:visibility 0s linear 180ms;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer\.is-open \.card-view-media-drawer-tabs \{[\s\S]*?visibility:visible;pointer-events:auto;transition-delay:0s;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -532,8 +539,13 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:has\(\.fvc-video-zoomed\) :is\(\.mobile-cam-picker,\.card-view-standalone-mode-button\)[^{]*\{[\s\S]*?opacity:0;pointer-events:none;/,
+    /card-view-live-panel:has\(\.fvc-video-zoomed\) \.mobile-cam-picker\[data-mobile-cam-picker\],[\s\S]*?card-view-live-panel:has\(\.fvc-video-zoomed\) \.card-view-standalone-mode-button \{opacity:0;pointer-events:none;/,
   );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.mobile-cam-picker \{[\s\S]*?transition:opacity \.16s ease;/,
+  );
+  assert.doesNotMatch(CARD_VIEW_PAGE_STYLES, /translateY\(-3px\)/);
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-live-panel:has\(\.fvc-video-zoomed\) \.card-view-standalone-linked-overlay \{opacity:0;pointer-events:none;/,

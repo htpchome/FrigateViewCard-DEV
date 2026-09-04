@@ -172,6 +172,8 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   assert.equal(eventReads, 0);
   assert.equal(root.hidden, false);
   assert.equal(controller.isOpen(), false);
+  assert.equal(tabs.hidden, false);
+  assert.equal(tabs.attributes.get("aria-hidden"), "true");
   assert.equal(scroller.innerHTML, "");
 
   const interactionEvent = {
@@ -188,6 +190,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   assert.equal(root.classList.classes.has("is-open"), true);
   assert.equal(handle.attributes.get("aria-expanded"), "true");
   assert.equal(tabs.hidden, false);
+  assert.equal(tabs.attributes.get("aria-hidden"), "false");
   assert.deepEqual(
     typeTabs.map((tab) => tab.attributes.get("aria-selected")),
     ["false", "false", "true"],
@@ -228,6 +231,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
 
   configuredType = CARD_VIEW_MEDIA_DRAWER_TYPES.alerts;
   controller.setOpen(false);
+  assert.equal(tabs.attributes.get("aria-hidden"), "true");
   controller.render();
   assert.equal(scroller.innerHTML, "");
   assert.equal(eventReads, 2);

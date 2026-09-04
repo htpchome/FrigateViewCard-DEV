@@ -143,7 +143,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-standalone .card-view-media-drawer-panel {
     position:absolute;inset:0;display:grid;grid-template-rows:minmax(0,1fr);min-height:0;
-    box-sizing:border-box;padding:7px 6px 6px;overflow:hidden;transform:translateX(calc(-100% - 2px));
+    box-sizing:border-box;padding:7px 6px 6px;overflow:visible;transform:translateX(calc(-100% - 2px));
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-strong);
     border-right:1px solid var(--fvc-media-overlay-border-strong);box-shadow:var(--fvc-media-overlay-shadow-strong);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -152,9 +152,12 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-media-drawer.is-open .card-view-media-drawer-panel {transform:translateX(0);pointer-events:auto;}
   .card.card-view-active.card-view-standalone .card-view-media-drawer-tabs {
     position:absolute;z-index:3;top:8px;left:calc(100% - 1px);display:flex;flex-direction:column;align-items:stretch;
-    gap:3px;width:68px;min-width:0;pointer-events:auto;
+    gap:3px;width:68px;min-width:0;visibility:hidden;pointer-events:none;transition:visibility 0s linear 180ms;
   }
   .card.card-view-active.card-view-standalone .card-view-media-drawer-tabs[hidden] {display:none;}
+  .card.card-view-active.card-view-standalone .card-view-media-drawer.is-open .card-view-media-drawer-tabs {
+    visibility:visible;pointer-events:auto;transition-delay:0s;
+  }
   .card.card-view-active.card-view-standalone .card-view-media-drawer-tab {
     appearance:none;-webkit-appearance:none;width:100%;min-width:0;height:27px;margin:0;padding:3px 5px;overflow:hidden;
     border:1px solid var(--fvc-media-overlay-border);border-left:0;border-radius:0 7px 7px 0;color:var(--fvc-media-overlay-text-muted);
@@ -234,7 +237,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-camera-picker {display:contents;}
   .card.card-view-active.card-view-standalone .mobile-cam-picker {
     grid-column:2;grid-row:1;justify-self:stretch;width:100%;min-width:0;opacity:1;pointer-events:auto;
-    transform:none;transition:opacity .15s ease,transform .15s ease;
+    transition:opacity .16s ease;
   }
   .card.card-view-active.card-view-standalone .mobile-cam-picker__trigger {
     min-height:32px;padding:5px 29px 5px 9px;border:1px solid var(--fvc-media-overlay-border);border-radius:7px;
@@ -265,8 +268,8 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-button {
     position:relative;grid-row:1;display:grid;place-items:center;min-width:32px;width:32px;height:32px;padding:4px;border:1px solid var(--fvc-media-overlay-border);
     border-radius:7px;color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);
-    opacity:0;pointer-events:none;transform:translateY(-3px);cursor:pointer;appearance:none;
-    transition:opacity .15s ease,transform .15s ease,background-color .15s ease,border-color .15s ease;
+    opacity:0;pointer-events:none;cursor:pointer;appearance:none;
+    transition:opacity .16s ease,background-color .15s ease,border-color .15s ease;
   }
   .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button {grid-column:1;justify-self:end;}
   .card.card-view-active.card-view-standalone [data-card-view-standalone-grid] {grid-column:3;justify-self:start;}
@@ -276,13 +279,13 @@ export const CARD_VIEW_PAGE_STYLES = `
     border-color:var(--fvc-media-overlay-active-border);background:var(--fvc-media-overlay-active-bg);
   }
   .card.card-view-active.card-view-standalone .card-view-standalone-countdown {min-width:18px;font-size:.62rem;font-weight:750;line-height:1;font-variant-numeric:tabular-nums;}
-  .card.card-view-active.card-view-standalone.card-view-hide-camera-name .mobile-cam-picker {opacity:0;pointer-events:none;transform:translateY(-3px);}
+  .card.card-view-active.card-view-standalone.card-view-hide-camera-name .mobile-cam-picker {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name .mobile-cam-picker.is-open,
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name.card-view-overlays-visible .mobile-cam-picker,
   .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button.active,
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls.card-view-grid-indicator-visible [data-card-view-standalone-grid].active,
   .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-mode-button {
-    opacity:1;pointer-events:auto;transform:none;
+    opacity:1;pointer-events:auto;
   }
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-standalone .card-view-standalone-mode-button:hover {background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
@@ -322,14 +325,13 @@ export const CARD_VIEW_PAGE_STYLES = `
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-standalone.card-view-hide-camera-name .card-view-live-panel:hover .mobile-cam-picker,
     .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-mode-button {
-      opacity:1;pointer-events:auto;transform:none;
+      opacity:1;pointer-events:auto;
     }
     .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-linked-overlay {opacity:1;pointer-events:auto;}
     .card.card-view-active.card-view-standalone .card-view-live-panel:hover .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:auto;}
   }
-  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) :is(.mobile-cam-picker,.card-view-standalone-mode-button) {
-    opacity:0;pointer-events:none;transform:translateY(-3px);
-  }
+  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .mobile-cam-picker[data-mobile-cam-picker],
+  .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-mode-button {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-linked-overlay {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:none;}
   .card.card-view-active.card-view-standalone .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn),

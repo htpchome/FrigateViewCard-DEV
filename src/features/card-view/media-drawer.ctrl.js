@@ -200,7 +200,10 @@ export class CardViewMediaDrawerController {
     const panel = this._query("[data-card-view-media-drawer-panel]");
     panel?.setAttribute?.("aria-hidden", String(!open));
     const tabs = this._query("[data-card-view-media-drawer-tabs]");
-    if (tabs) tabs.hidden = !open;
+    if (tabs) {
+      tabs.hidden = false;
+      tabs.setAttribute?.("aria-hidden", String(!open));
+    }
     const handle = this._query("[data-card-view-media-drawer-toggle]");
     if (handle) {
       const label = open ? "Close media drawer" : "Open media drawer";
@@ -292,7 +295,6 @@ export class CardViewMediaDrawerController {
 
   _syncTabs(activeType) {
     const tabs = this._query("[data-card-view-media-drawer-tabs]");
-    if (tabs) tabs.hidden = !this.isOpen();
     for (const tab of tabs?.querySelectorAll?.(
       "[data-card-view-media-drawer-type]",
     ) || []) {
