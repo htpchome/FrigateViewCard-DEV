@@ -85,7 +85,7 @@ test("desktop popup playback controls overlay the video without a blur filter", 
   assert.match(STYLES, /\.popup-media-volume \{[^}]*grid-area:volume;/);
 });
 
-test("mobile popup controls sit flush below video with the desktop surface treatment", () => {
+test("mobile popup controls sit flush below video and stay touch safe", () => {
   const mobileRule = STYLES.match(
     /\.popup-media-controls\.mobile-tablet-layout \{([^}]*)\}/,
   )?.[1] || "";
@@ -107,6 +107,27 @@ test("mobile popup controls sit flush below video with the desktop surface treat
   assert.match(
     STYLES,
     /\.popup-media-controls\.mobile-tablet-layout \.popup-media-progress \{height:5px;transform:none;background:linear-gradient/,
+  );
+
+  const portraitRule = STYLES.match(
+    /\.card:not\(\.mobile-rotate-popup\):not\(\.mobile-rotate-popup-exit\) \.popup-media-controls\.mobile-tablet-layout \{([^}]*)\}/,
+  )?.[1] || "";
+  assert.match(
+    portraitRule,
+    /height:40px;grid-template-rows:40px;grid-template-areas:"play progress mute";/,
+  );
+  assert.match(
+    portraitRule,
+    /background:color-mix\(in srgb,var\(--c-bg-deep\) 88%,transparent\);/,
+  );
+  assert.match(portraitRule, /border-radius:0 0 7px 7px;opacity:1;/);
+  assert.match(
+    STYLES,
+    /\.card:not\(\.mobile-rotate-popup\):not\(\.mobile-rotate-popup-exit\) \.popup-media-controls\.mobile-tablet-layout \.popup-media-time \{[^}]*grid-area:progress;[^}]*margin:14px 0 0;[^}]*font-size:\.7rem;/,
+  );
+  assert.match(
+    STYLES,
+    /\.card:not\(\.mobile-rotate-popup\):not\(\.mobile-rotate-popup-exit\) #viewer:has\(\+ \.popup-media-controls\.mobile-tablet-layout:not\(\[hidden\]\)\) \{border-bottom-left-radius:0;border-bottom-right-radius:0;\}/,
   );
 
   const rotateRule = STYLES.match(
