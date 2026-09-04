@@ -1894,12 +1894,15 @@ test("standalone Card View forces the desktop landing page and serializes explic
   assert.equal(disabled.landing_page, "single-view");
 });
 
-test("Card View editor exposes View Mode and ordered standalone controls", () => {
-  assert.match(editorSource, /class="card-view-standalone-options"/);
+test("Card View editor gates and orders all settings beneath the page toggle", () => {
+  const panelStart = editorSource.indexOf("const cardViewPanelContent");
+  const panelEnd = editorSource.indexOf("const landingPanelContent", panelStart);
+  const panelSource = editorSource.slice(panelStart, panelEnd);
   assert.match(
-    editorSource,
-    /\.card-view-standalone-options\{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid/,
+    panelSource,
+    /class="card-view-page-options" id="card-view-page-options" style="\$\{this\._config\?\.card_view_page_enabled \? "" : "display:none"\}"/,
   );
+  assert.doesNotMatch(editorSource, /card-view-standalone-options/);
   assert.match(editorSource, /theme-scope-seg card-view-start-seg/);
   assert.match(editorSource, /name="card_view_view_mode"/);
   assert.match(editorSource, /Video Only/);
@@ -1913,8 +1916,24 @@ test("Card View editor exposes View Mode and ordered standalone controls", () =>
   assert.doesNotMatch(editorSource, /Start with Drawer Open/);
   assert.doesNotMatch(editorSource, /id="card_view_video_panel_only"/);
   assert.ok(
-    editorSource.indexOf(">Start Card View<") <
-      editorSource.indexOf(">Enable Media Drawer<"),
+    panelSource.indexOf(">Enable Card View Page<") <
+      panelSource.indexOf(">Use Card View as a Standalone View<"),
+  );
+  assert.ok(
+    panelSource.indexOf(">Use Card View as a Standalone View<") <
+      panelSource.indexOf(">Alert Camera Takeover Default<"),
+  );
+  assert.ok(
+    panelSource.indexOf(">Start Card View<") <
+      panelSource.indexOf(">Enable Media Drawer<"),
+  );
+  assert.ok(
+    panelSource.indexOf(">Enable Media Drawer<") <
+      panelSource.indexOf(">Hide Camera Name<"),
+  );
+  assert.match(
+    editorSource,
+    /querySelector\(\s*"#card-view-page-options",\s*\)[\s\S]*?querySelector\("#card_view_page_enabled"\)/,
   );
   assert.match(
     editorSource,

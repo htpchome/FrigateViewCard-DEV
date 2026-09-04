@@ -1567,6 +1567,26 @@ export class CardViewPageController {
   handleClick(event, target) {
     if (!this.isActive()) return false;
     if (this._mediaDrawerController.handleClick(event, target)) return true;
+    if (target.closest?.("[data-card-view-video-back]")) {
+      event?.preventDefault?.();
+      const viewMode = normalizeCardViewViewMode(
+        this._host._config?.card_view_view_mode,
+      );
+      if (!this.isStandalone() && viewMode === CARD_VIEW_VIEW_MODES.videoOnly) {
+        const navigation = this._host._pageNavigationController;
+        const previewPageId = this._constants.PAGE_IDS.preview;
+        const previewAvailable =
+          this._host._config?.preview_page_enabled === true &&
+          navigation?.isPageRouteAvailable?.(previewPageId) !== false;
+        navigation?.navigateToPageRoute?.(
+          previewAvailable
+            ? previewPageId
+            : this._constants.PAGE_IDS.singleView,
+          { source: "card-view-video-back" },
+        );
+      }
+      return true;
+    }
     const standaloneGrid = target.closest?.(
       "[data-card-view-standalone-grid]",
     );

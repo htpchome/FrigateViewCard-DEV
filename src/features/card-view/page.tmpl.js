@@ -12,6 +12,7 @@ const normalizeRegions = (regions = {}) => ({
   liveTakeSnapshot: "",
   liveMute: "",
   mobileBackButton: "",
+  cardViewVideoBackIcon: "",
   cameraSwitcherMarkup: "",
   pageNavigation: "",
   cardViewToolbar: "",
@@ -47,6 +48,7 @@ export function buildCardViewMainLayoutShellMarkup({
       </div>
       <div class="live-stage live-stage--overlay card-view-live-stage" id="live-stage">
         ${regions.live}
+        <button class="round-btn card-view-video-only-back" type="button" data-card-view-video-back title="Leave Card View" aria-label="Leave Card View">${regions.cardViewVideoBackIcon}</button>
         ${buildLivePlaybackControlsMarkup(regions)}
         <aside class="card-view-media-drawer is-closed" data-card-view-media-drawer data-media-overlay-ignore hidden>
           <div class="card-view-media-drawer-panel" id="card-view-media-drawer-panel" data-card-view-media-drawer-panel aria-hidden="true">

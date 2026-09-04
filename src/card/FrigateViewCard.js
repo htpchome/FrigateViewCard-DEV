@@ -4269,6 +4269,7 @@ export class FrigateViewCard extends HTMLElement {
         streamMuted: this._streamMuted,
         buttonClass: shellProfile?.liveMuteButtonClass,
       }),
+      cardViewVideoBackIcon: ICONS.back,
       information: infoRow,
       mobileBackButton: buildMobileViewBackButtonMarkup({
         previewPageEnabled:

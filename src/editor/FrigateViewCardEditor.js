@@ -3138,28 +3138,28 @@ export class FrigateViewCardEditor extends HTMLElement {
         </div>
         <div class="field-helper">Adds a naturally sized live-camera card view for desktop and tablet dashboards. Card Height Limit does not apply to this view.</div>
       </div>
-      <div class="section">
-        <div class="layout-row">
-          <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
-          <ha-switch id="card_view_alert_takeover" ${this._config?.card_view_alert_takeover ? "checked" : ""}></ha-switch>
+      <div class="card-view-page-options" id="card-view-page-options" style="${this._config?.card_view_page_enabled ? "" : "display:none"}">
+        <div class="section">
+          <div class="layout-row">
+            <span class="field-label" style="margin:0">Use Card View as a Standalone View</span>
+            <ha-switch id="card_view_standalone" ${this._config?.card_view_standalone ? "checked" : ""}></ha-switch>
+          </div>
+          <div class="field-helper">When enabled, Card View becomes the only available FrigateView page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
         </div>
-        <div class="field-helper">Sets the initial state of the Card View control that allows a qualifying alert to switch the main live camera.</div>
-      </div>
-      <div class="section">
-        <div class="editor-choice-field" role="radiogroup" aria-label="View Mode">
-          <div class="field-label">View Mode</div>
-          <div class="theme-scope-seg card-view-start-seg card-view-mode-seg">${cardViewViewModeControl}</div>
+        <div class="section">
+          <div class="layout-row">
+            <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
+            <ha-switch id="card_view_alert_takeover" ${this._config?.card_view_alert_takeover ? "checked" : ""}></ha-switch>
+          </div>
+          <div class="field-helper">Sets the initial state of the Card View control that allows a qualifying alert to switch the main live camera.</div>
         </div>
-        <div class="field-helper">Choose whether Card View starts with only video or with its bottom activity panel open or closed.</div>
-      </div>
-      <div class="section">
-        <div class="layout-row">
-          <span class="field-label" style="margin:0">Use Card View as a Standalone View</span>
-          <ha-switch id="card_view_standalone" ${this._config?.card_view_standalone ? "checked" : ""} ${this._config?.card_view_page_enabled ? "" : "disabled"}></ha-switch>
+        <div class="section">
+          <div class="editor-choice-field" role="radiogroup" aria-label="View Mode">
+            <div class="field-label">View Mode</div>
+            <div class="theme-scope-seg card-view-start-seg card-view-mode-seg">${cardViewViewModeControl}</div>
+          </div>
+          <div class="field-helper">Choose whether Card View starts with only video or with its bottom activity panel open or closed.</div>
         </div>
-        <div class="field-helper">When enabled, Card View becomes the only available FrigateView page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
-      </div>
-      <div class="card-view-standalone-options" id="card-view-standalone-options" style="${this._config?.card_view_standalone ? "" : "display:none"}">
         <div class="section">
           <div class="editor-choice-field" role="radiogroup" aria-label="Start Card View">
             <div class="field-label">Start Card View</div>
@@ -3179,7 +3179,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             <span class="field-label" style="margin:0">Hide Camera Name</span>
             <ha-switch id="card_view_hide_camera_name" ${this._config?.card_view_hide_camera_name ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">Hides the camera picker until the video is hovered or touched, including in Grid mode.</div>
+          <div class="field-helper">In standalone Card View, hides the camera picker until the video is hovered or touched, including in Grid mode.</div>
         </div>
       </div>`;
     const landingPanelContent = `
@@ -3396,7 +3396,6 @@ export class FrigateViewCardEditor extends HTMLElement {
             .setting-content > .section:first-child{border-top:none;}
             .timeline-dependent-section,
             .ha-navbar-dependent-section{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid var(--c-primary, var(--editor-primary));}
-            .card-view-standalone-options{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid var(--c-primary, var(--editor-primary));}
             .editor-choice-field{display:block;min-width:0;margin:0;padding:0;border:0;}
             .editor-choice-field--fit{flex:1 1 420px;max-width:560px;}
             .editor-choice-field .field-label{margin:0 0 8px;}
@@ -4337,6 +4336,16 @@ export class FrigateViewCardEditor extends HTMLElement {
         const gridOrderRow = this.querySelector("#grid_order_row");
         const gridEnabled =
           this.querySelector("#grid_mode_enabled")?.checked === true;
+        const cardViewPageOptions = this.querySelector(
+          "#card-view-page-options",
+        );
+        if (cardViewPageOptions) {
+          cardViewPageOptions.style.display = resolveSwitchChecked(
+            this.querySelector("#card_view_page_enabled"),
+          )
+            ? ""
+            : "none";
+        }
         const cardViewSlideshowStart = this.querySelector(
           '[name="card_view_start_mode"][value="slideshow"]',
         );

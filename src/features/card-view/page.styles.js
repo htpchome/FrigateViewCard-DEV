@@ -20,6 +20,20 @@ export const CARD_VIEW_PAGE_STYLES = `
     z-index:20;
     background:var(--c-bg-mobile);
   }
+  .card.card-view-active .card-view-video-only-back {display:none;}
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back {
+    position:absolute;z-index:25;top:8px;left:8px;display:inline-flex;align-items:center;justify-content:center;
+    width:32px;height:32px;min-width:32px;min-height:32px;padding:0;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;
+    color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);
+    backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+  }
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back svg {width:20px;height:20px;pointer-events:none;}
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-back-slot {display:none;}
+  @media (hover:hover) and (pointer:fine) {
+    .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back:hover {
+      background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
+    }
+  }
   .card.card-view-active .card-view-live-panel {position:relative;display:flex;flex:0 0 auto;flex-direction:column;width:100%;min-width:0;container-type:inline-size;container-name:card-view-live;}
   .card.card-view-active .card-view-live-stage {width:100%;flex:0 0 auto;}
   .card.card-view-active #eng-wrap {max-height:none;}
@@ -278,17 +292,25 @@ export const CARD_VIEW_PAGE_STYLES = `
     width:auto;min-width:32px;grid-auto-flow:column;gap:3px;padding-inline:5px;
     border-color:var(--fvc-media-overlay-active-border);background:var(--fvc-media-overlay-active-bg);
   }
+  @keyframes card-view-slideshow-button-settle {
+    0%,72% {opacity:1;}
+    100% {opacity:.68;}
+  }
+  .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button.active {
+    opacity:.68;pointer-events:auto;animation:card-view-slideshow-button-settle 3.2s ease-out forwards;
+  }
   .card.card-view-active.card-view-standalone .card-view-standalone-countdown {min-width:18px;font-size:.62rem;font-weight:750;line-height:1;font-variant-numeric:tabular-nums;}
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name .mobile-cam-picker {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name .mobile-cam-picker.is-open,
   .card.card-view-active.card-view-standalone.card-view-hide-camera-name.card-view-overlays-visible .mobile-cam-picker,
-  .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button.active,
   .card.card-view-active.card-view-standalone .card-view-standalone-mode-controls.card-view-grid-indicator-visible [data-card-view-standalone-grid].active,
   .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-mode-button {
     opacity:1;pointer-events:auto;
   }
+  .card.card-view-active.card-view-standalone.card-view-overlays-visible .card-view-standalone-slideshow-button.active {animation:none;}
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-standalone .card-view-standalone-mode-button:hover {background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
+    .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button.active:hover {opacity:1;animation:none;}
   }
   .card.card-view-active.card-view-standalone .card-view-live-badge {
     position:absolute;z-index:22;top:9px;right:9px;display:inline-flex;align-items:center;gap:5px;min-height:24px;
@@ -371,6 +393,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     .card.card-view-active.card-view-standalone .linked-light-dimmer-power {width:28px;height:28px;min-width:28px;min-height:28px;}
   }
   @media (prefers-reduced-motion:reduce) {
+    .card.card-view-active.card-view-standalone .card-view-standalone-slideshow-button.active {animation:none;}
     .card.card-view-active .card-view-drawer {transition-duration:1ms;}
     .card.card-view-active .card-view-drawer.is-closed .card-view-drawer-inner {transition-delay:1ms;}
     .card.card-view-active .card-view-drawer-handle svg {transition-duration:1ms;}

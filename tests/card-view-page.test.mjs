@@ -92,6 +92,7 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
       liveTakeSnapshot:
         '<button data-fvc-region="live-take-snapshot"></button>',
       liveMute: '<button data-fvc-region="live-mute"></button>',
+      cardViewVideoBackIcon: "back-icon",
       linkedEntitiesLeft: "left-light-control",
       linkedEntitiesRight: "right-light-control",
       pageNavigation:
@@ -117,6 +118,10 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /card-view-footer/);
   assert.match(markup, /data-card-view-standalone-mode-controls/);
   assert.match(markup, /data-card-view-live-badge/);
+  assert.match(
+    markup,
+    /card-view-video-only-back[^>]*data-card-view-video-back[^>]*>back-icon</,
+  );
   assert.match(markup, /data-card-view-media-drawer/);
   assert.match(markup, /data-card-view-media-drawer-toggle/);
   assert.match(markup, /data-card-view-media-drawer-scroller/);
@@ -477,7 +482,23 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone-slideshow-button\.active,[\s\S]*?card-view-grid-indicator-visible \[data-card-view-standalone-grid\]\.active,[\s\S]*?opacity:1;pointer-events:auto;/,
+    /@keyframes card-view-slideshow-button-settle \{[\s\S]*?0%,72% \{opacity:1;\}[\s\S]*?100% \{opacity:\.68;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-slideshow-button\.active \{[\s\S]*?opacity:\.68;pointer-events:auto;animation:card-view-slideshow-button-settle 3\.2s ease-out forwards;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-visible \.card-view-standalone-slideshow-button\.active \{animation:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-grid-indicator-visible \[data-card-view-standalone-grid\]\.active,[\s\S]*?opacity:1;pointer-events:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:not\(\.card-view-standalone\) \.card-view-video-only-back \{[\s\S]*?position:absolute;z-index:25;top:8px;left:8px;[\s\S]*?border-radius:50%;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -963,6 +984,49 @@ test("standalone Card View mode buttons use the existing Grid and Slideshow cont
   assert.deepEqual(viewModeChanges, ["single"]);
   assert.equal(controller.alertTakeoverEnabled(), false);
   assert.equal(prevented, 2);
+});
+
+test("non-standalone Video Only back prefers Preview and falls back to Single View", () => {
+  const navigations = [];
+  const host = {
+    _pageId: "card-view",
+    _config: {
+      card_view_standalone: false,
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+      preview_page_enabled: true,
+    },
+    _pageNavigationController: {
+      isPageRouteAvailable: (pageId) => pageId === "preview",
+      navigateToPageRoute: (...args) => navigations.push(args),
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: {
+      cardView: "card-view",
+      preview: "preview",
+      singleView: "single-view",
+    },
+  });
+  const target = {
+    closest: (selector) =>
+      selector === "[data-card-view-video-back]" ? {} : null,
+  };
+
+  assert.equal(controller.handleClick(null, target), true);
+  assert.deepEqual(navigations, [
+    ["preview", { source: "card-view-video-back" }],
+  ]);
+
+  host._config.preview_page_enabled = false;
+  assert.equal(controller.handleClick(null, target), true);
+  assert.deepEqual(navigations.at(-1), [
+    "single-view",
+    { source: "card-view-video-back" },
+  ]);
+
+  host._config.card_view_standalone = true;
+  assert.equal(controller.handleClick(null, target), true);
+  assert.equal(navigations.length, 2);
 });
 
 test("standalone presentation-only config changes do not reload activity data", () => {
