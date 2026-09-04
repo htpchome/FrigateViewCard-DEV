@@ -172,9 +172,11 @@ export class PopupLifecycleController {
   }
 
   setPresentation(presentation = "") {
-    this._presentation = isCardViewDrawerPopupPresentation(presentation)
+    const nextPresentation = isCardViewDrawerPopupPresentation(presentation)
       ? POPUP_PRESENTATION_CARD_VIEW_DRAWER
       : "";
+    if (!nextPresentation) this.resetCardViewDrawerMediaHeight();
+    this._presentation = nextPresentation;
     const popup = this._query?.("#myPopup");
     popup?.classList?.toggle?.(
       "popup-content--card-view-drawer",
@@ -187,6 +189,33 @@ export class PopupLifecycleController {
 
   presentation() {
     return this._presentation;
+  }
+
+  setCardViewDrawerMediaHeight(height = 0) {
+    const livePanel = this._query?.(".card-view-live-panel");
+    if (!livePanel?.style) return false;
+    const nextHeight = Number(height);
+    if (
+      !isCardViewDrawerPopupPresentation(this._presentation) ||
+      !Number.isFinite(nextHeight) ||
+      nextHeight <= 0
+    ) {
+      livePanel.style.removeProperty?.(
+        "--popup-card-view-media-height",
+      );
+      return false;
+    }
+    livePanel.style.setProperty?.(
+      "--popup-card-view-media-height",
+      `${Math.ceil(nextHeight)}px`,
+    );
+    return true;
+  }
+
+  resetCardViewDrawerMediaHeight() {
+    this._query?.(".card-view-live-panel")?.style?.removeProperty?.(
+      "--popup-card-view-media-height",
+    );
   }
 
   syncShellGeometry() {
@@ -221,6 +250,7 @@ export class PopupLifecycleController {
 
   close() {
     this._onReleasePlaybackTarget("popup");
+    this.resetCardViewDrawerMediaHeight();
     const popup = this._query?.("#myPopup");
     if (!popup) return false;
     popup.classList.remove("is-open");
@@ -296,6 +326,7 @@ export class PopupLifecycleController {
   }
 
   dispose() {
+    this.resetCardViewDrawerMediaHeight();
     this.stopMedia({ forceSourceDrop: true });
     this._disposeDrag();
   }
@@ -365,6 +396,7 @@ export class PopupLifecycleController {
   }
 
   _resetSurface(viewer) {
+    this.resetCardViewDrawerMediaHeight();
     viewer.style.display = "none";
     const controls = this._query?.("#popup-media-controls");
     if (controls) {

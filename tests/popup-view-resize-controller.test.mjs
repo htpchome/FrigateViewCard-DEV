@@ -75,6 +75,7 @@ const createFixture = ({
   tagName = "VIDEO",
   viewerMaxHeight = 0,
   availableMaxHeight = 0,
+  initialHeightRatio = 0,
 } = {}) => {
   const viewer = {
     clientWidth: 400,
@@ -101,6 +102,7 @@ const createFixture = ({
   grip.releasePointerCapture = () => {};
   grip.remove = () => {};
   const zoomCalls = [];
+  const heightChanges = [];
   const zoomController = {
     zoomToCenter: (...args) => zoomCalls.push(args),
   };
@@ -110,12 +112,22 @@ const createFixture = ({
     grip,
     controls,
     zoomController,
+    initialHeightRatio,
+    onHeightChange: (change) => heightChanges.push(change),
     getAvailableMaxHeight: () => availableMaxHeight,
     getComputedStyle: () =>
       viewerMaxHeight ? { maxHeight: `${viewerMaxHeight}px` } : null,
   }).bind();
 
-  return { controller, controls, grip, media, viewer, zoomCalls };
+  return {
+    controller,
+    controls,
+    grip,
+    heightChanges,
+    media,
+    viewer,
+    zoomCalls,
+  };
 };
 
 test("popup resize bounds use the initial render as the minimum", () => {
@@ -160,6 +172,36 @@ test("Card View popup can begin at the live-stage ratio", () => {
   assert.equal(bounds.maxHeightRatio, 3 / 4);
   assert.equal(bounds.initialHeightCapped, true);
   assert.equal(bounds.eligible, true);
+});
+
+test("popup resize reports the panel height and clears it on reset", () => {
+  const fixture = createFixture({
+    width: 640,
+    height: 480,
+    initialHeightRatio: 9 / 16,
+  });
+
+  assert.deepEqual(fixture.heightChanges.at(-1), {
+    height: 225,
+    heightRatio: 9 / 16,
+    resized: false,
+  });
+
+  fixture.grip.dispatch("pointerdown", { clientY: 100 });
+  fixture.grip.dispatch("pointermove", { clientY: 500 });
+  fixture.grip.dispatch("pointerup", { clientY: 500 });
+  assert.deepEqual(fixture.heightChanges.at(-1), {
+    height: 300,
+    heightRatio: 3 / 4,
+    resized: true,
+  });
+
+  fixture.controller.reset();
+  assert.deepEqual(fixture.heightChanges.at(-1), {
+    height: 225,
+    heightRatio: 9 / 16,
+    resized: false,
+  });
 });
 
 test("popup resize stops at the rendered height ceiling without narrowing", () => {

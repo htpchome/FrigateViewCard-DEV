@@ -233,11 +233,19 @@ test("Card View drawer popup matches the live-stage rectangle", () => {
     }),
   };
   const resizeHost = { hidden: true };
+  const livePanelValues = new Map();
+  const livePanel = {
+    style: {
+      setProperty: (name, value) => livePanelValues.set(name, value),
+      removeProperty: (name) => livePanelValues.delete(name),
+    },
+  };
   const elements = new Map([
     ["#myPopup", popup],
     ["#card", card],
     ["#live-stage", stage],
     ["#popup-card-view-resize-host", resizeHost],
+    [".card-view-live-panel", livePanel],
   ]);
   const controller = new PopupLifecycleController({
     query: (selector) => elements.get(selector) || null,
@@ -262,6 +270,17 @@ test("Card View drawer popup matches the live-stage rectangle", () => {
   assert.equal(
     values.get("--popup-card-view-stage-aspect-ratio"),
     "598 / 336",
+  );
+
+  assert.equal(controller.setCardViewDrawerMediaHeight(480), true);
+  assert.equal(
+    livePanelValues.get("--popup-card-view-media-height"),
+    "480px",
+  );
+  controller.close();
+  assert.equal(
+    livePanelValues.has("--popup-card-view-media-height"),
+    false,
   );
 
   controller.setPresentation("");

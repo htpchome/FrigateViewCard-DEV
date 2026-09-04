@@ -176,6 +176,11 @@ export class PopupMediaLoaderController {
       controls,
       zoomController,
       initialHeightRatio: this._cardViewPopupInitialHeightRatio(),
+      onHeightChange: ({ height, resized }) => {
+        this._lifecycleController?.setCardViewDrawerMediaHeight?.(
+          resized ? height : 0,
+        );
+      },
       getAvailableMaxHeight: () =>
         this._resolveAvailableViewResizeHeight(viewer),
     });
@@ -185,16 +190,7 @@ export class PopupMediaLoaderController {
 
   _resolveAvailableViewResizeHeight(viewer) {
     if (this._host._isCardViewPageActive?.() !== true) return 0;
-    if (this._isCardViewDrawerPresentation()) {
-      const viewerRect = viewer?.getBoundingClientRect?.() || null;
-      const cardRect =
-        this._host._$?.("#card")?.getBoundingClientRect?.() || null;
-      const top = Number(viewerRect?.top);
-      const bottom = Number(cardRect?.bottom);
-      return Number.isFinite(top) && Number.isFinite(bottom)
-        ? Math.max(0, bottom - top)
-        : 0;
-    }
+    if (this._isCardViewDrawerPresentation()) return 0;
     const body = viewer?.closest?.(".popup-body") || null;
     const metadata = this._host._$?.("#popup-info-head") || null;
     const viewerRect = viewer?.getBoundingClientRect?.() || null;

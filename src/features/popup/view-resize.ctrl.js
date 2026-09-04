@@ -166,6 +166,7 @@ export class PopupViewResizeController {
     controls = null,
     zoomController = null,
     initialHeightRatio = 0,
+    onHeightChange = () => {},
     getAvailableMaxHeight = null,
     getComputedStyle = (element) =>
       globalThis.getComputedStyle?.(element) || null,
@@ -176,6 +177,7 @@ export class PopupViewResizeController {
     this._controls = controls;
     this._zoomController = zoomController;
     this._initialHeightRatio = positiveNumber(initialHeightRatio);
+    this._onHeightChange = onHeightChange;
     this._getAvailableMaxHeight = getAvailableMaxHeight;
     this._getComputedStyle = getComputedStyle;
     this._bounds = null;
@@ -312,10 +314,21 @@ export class PopupViewResizeController {
     );
     this._viewer.style?.setProperty("--popup-media-max-width", maxWidth);
     this._controls?.style?.setProperty?.("--popup-media-max-width", maxWidth);
+    const resized =
+      Math.abs(nextRatio - this._bounds.minHeightRatio) > RATIO_EPSILON;
     this._viewer.classList?.toggle?.(
       "popup-media-resized",
-      Math.abs(nextRatio - this._bounds.minHeightRatio) > RATIO_EPSILON,
+      resized,
     );
+    const viewerRect = this._viewer.getBoundingClientRect?.() || {};
+    const viewerWidth = positiveNumber(
+      viewerRect.width || this._viewer.clientWidth,
+    );
+    this._onHeightChange?.({
+      height: viewerWidth * nextRatio,
+      heightRatio: nextRatio,
+      resized,
+    });
 
     const value = Math.round(nextRatio * 100);
     this._grip.setAttribute?.(
@@ -351,6 +364,7 @@ export class PopupViewResizeController {
       "popup-view-resizing",
     );
     if (this._grip) this._grip.hidden = true;
+    this._onHeightChange?.({ height: 0, heightRatio: 0, resized: false });
   }
 
   _syncFromMedia = () => this.sync();

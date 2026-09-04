@@ -542,6 +542,40 @@ test("Card View drawer popup selects its focused presentation and clears the car
   ]);
 });
 
+test("Card View drawer popup resize grows its live panel without the old card ceiling", () => {
+  const heightCalls = [];
+  let resizeOptions = null;
+  const grip = { classList: { toggle() {} } };
+  const viewer = {
+    appendChild() {},
+    getBoundingClientRect: () => ({ width: 400, height: 225 }),
+  };
+  const lifecycleController = {
+    presentation: () => "card-view-drawer",
+    setCardViewDrawerMediaHeight: (height) => heightCalls.push(height),
+  };
+  const host = {
+    _isCardViewPageActive: () => true,
+    _attachPopupVideoZoom: () => null,
+    _$: () => null,
+  };
+  const controller = new PopupMediaLoaderController(host, {
+    lifecycleController,
+    createPopupViewResizeGrip: () => grip,
+    createPopupViewResizeController: (options) => {
+      resizeOptions = options;
+      return { bind() {} };
+    },
+  });
+
+  controller._bindViewResize({ viewer, media: { tagName: "VIDEO" } });
+
+  assert.equal(controller._resolveAvailableViewResizeHeight(viewer), 0);
+  resizeOptions.onHeightChange({ height: 420, resized: true });
+  resizeOptions.onHeightChange({ height: 225, resized: false });
+  assert.deepEqual(heightCalls, [420, 0]);
+});
+
 test("standard popup media preserves carousel content before rendering its next state", () => {
   const carouselCalls = [];
   const viewer = {

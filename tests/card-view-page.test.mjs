@@ -499,7 +499,23 @@ test("standalone Card View styles keep overlays on the existing rounded video st
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-tabs \{[\s\S]*?top:8px;left:calc\(100% - 1px\);[\s\S]*?flex-direction:column;[\s\S]*?width:68px;[\s\S]*?pointer-events:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-tab \{[\s\S]*?border-left:0;border-radius:0 7px 7px 0;[\s\S]*?background:var\(--fvc-media-overlay-bg\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-nav--up \{top:5px;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-live-panel \{[^}]*container-name:card-view-live;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.card-view-live-panel \{[\s\S]*?min-height:var\(--popup-card-view-media-height,0px\);/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
