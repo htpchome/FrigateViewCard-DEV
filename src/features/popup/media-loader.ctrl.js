@@ -87,14 +87,7 @@ export const bindPopupMediaSizing = ({
     }
     return true;
   };
-  const events = [
-    "loadedmetadata",
-    "loadeddata",
-    "canplay",
-    "playing",
-    "resize",
-    "load",
-  ];
+  const events = ["loadedmetadata", "resize", "load"];
   events.forEach((eventName) => media.addEventListener?.(eventName, sync));
   sync();
 

@@ -289,28 +289,6 @@ test("16:9 popup video grows toward square without calculated base zoom", () => 
   assert.equal(fixture.zoomCalls.at(-1)[0], 1);
 });
 
-test("popup sizing resyncs when the playable HLS frame replaces early metadata", () => {
-  const fixture = createFixture({ width: 5, height: 3 });
-
-  assert.equal(
-    fixture.viewer.style.getPropertyValue("--popup-media-aspect-ratio"),
-    "1.666667 / 1",
-  );
-
-  fixture.media.videoWidth = 16;
-  fixture.media.videoHeight = 9;
-  fixture.media.dispatch("loadeddata");
-
-  assert.equal(
-    fixture.viewer.style.getPropertyValue("--popup-media-aspect-ratio"),
-    "1.777778 / 1",
-  );
-  assert.equal(
-    fixture.viewer.classList.values.has("popup-media-resized"),
-    false,
-  );
-});
-
 test("popup handle cannot drag upward past the initial render", () => {
   const fixture = createFixture();
 

@@ -2589,8 +2589,7 @@ export class FrigateViewCard extends HTMLElement {
     this._popupVideoZoomController = attachVideoZoom(video, {
       host: viewer || video?.parentElement,
       interactionTarget: viewer || video,
-      nativeCoverPan: () =>
-        viewer?.classList?.contains("popup-media-resized") === true,
+      nativeCoverPan: true,
       onInteractionStart: () => this._dismissLinkedLightDimmers(),
     });
     return this._popupVideoZoomController;
