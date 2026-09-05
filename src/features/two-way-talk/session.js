@@ -105,5 +105,6 @@ export async function startHaDirectTwoWayTalkSession({
     type: "ha_direct",
     mountMicrophoneStream,
     onEnded,
+    restoreLiveOnStop: false,
   });
 }

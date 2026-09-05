@@ -204,7 +204,7 @@ test("an established go2rtc backchannel reports failure without owning live vide
   assert.equal(peerConnection.closeCalls, 1);
 });
 
-test("card routes go2rtc talk around the live engine mounter", async () => {
+test("card routes both talk transports around the live engine mounter", async () => {
   const source = await readFile(
     new URL("../src/card/FrigateViewCard.js", import.meta.url),
     "utf8",
@@ -219,15 +219,7 @@ test("card routes go2rtc talk around the live engine mounter", async () => {
   );
   assert.match(
     methodSource,
-    /liveReplacementAttempted = true;\s+const mounted = await this\._mountEngine/,
+    /return await this\._haDirectTwoWayTalkBackchannel\.connect\(/,
   );
-  const go2RtcBranchStart = methodSource.indexOf("        if (useGo2Rtc) {");
-  const go2RtcBranchEnd = methodSource.indexOf(
-    "        liveReplacementAttempted = true;",
-    go2RtcBranchStart,
-  );
-  assert.doesNotMatch(
-    methodSource.slice(go2RtcBranchStart, go2RtcBranchEnd),
-    /this\._mountEngine/,
-  );
+  assert.doesNotMatch(methodSource, /this\._mountEngine/);
 });

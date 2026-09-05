@@ -139,6 +139,7 @@ import {
 } from "../integrations/frigate/review-status.js";
 import { createGo2RtcResolver } from "../integrations/frigate/go2rtc-resolver.js";
 import { createHaDirectTwoWayTalkMounter } from "../integrations/home-assistant/two-way-talk-mounter.js";
+import { createHaDirectTwoWayTalkBackchannel } from "../integrations/home-assistant/two-way-talk-backchannel.js";
 import { createGo2RtcMounter } from "../features/live/go2rtc-mounter.js";
 import {
   invalidateMountTrackingIfActive,
@@ -534,6 +535,10 @@ export class FrigateViewCard extends HTMLElement {
       scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
       scopeKey: this,
     });
+    this._haDirectTwoWayTalkBackchannel =
+      createHaDirectTwoWayTalkBackchannel({
+        getHass: () => this._hass,
+      });
     this._go2rtcRaceMounter = createGo2RtcRaceMounter({
       mounter: this._go2rtcMounter,
       isMobile: DEVICE_PROFILE.isMobile,
@@ -4817,7 +4822,6 @@ export class FrigateViewCard extends HTMLElement {
     const entity = String(this._activeCam?.entity || "").trim();
     if (!entity || !this._activeCameraTwoWayTalkEnabled()) return;
     const useGo2Rtc = this._shouldUseGo2RtcForEntity(entity);
-    let liveReplacementAttempted = false;
     let endedDuringStart = false;
     this._twoWayTalkStarting = true;
     this._syncTwoWayTalkButton();
@@ -4847,17 +4851,11 @@ export class FrigateViewCard extends HTMLElement {
             onEnded,
           });
         }
-        liveReplacementAttempted = true;
-        const mounted = await this._mountEngine("webrtc", {
-          twoWayTalkOptions: {
-            microphoneStream: localStream,
-            onEnded,
-          },
+        return await this._haDirectTwoWayTalkBackchannel.connect({
+          entity,
+          microphoneStream: localStream,
+          onEnded,
         });
-        const engine = this._engine;
-        return mounted && engine?.microphoneStream === localStream
-          ? engine
-          : null;
       };
       const session = useGo2Rtc
         ? await startGo2RtcTwoWayTalkSession({
@@ -4892,21 +4890,6 @@ export class FrigateViewCard extends HTMLElement {
       this._twoWayTalkSession = null;
       this._twoWayTalkEntity = "";
       this._setTwoWayTalkLiveAudioActive(false);
-      if (
-        liveReplacementAttempted &&
-        String(this._activeCam?.entity || "").trim() === entity &&
-        this._viewMode !== "grid" &&
-        !this._isPreviewPageActive()
-      ) {
-        try {
-          await this._mountEngine();
-        } catch (restoreError) {
-          console.warn(
-            "[Frigate] Unable to restore live view after two-way talk start failure",
-            restoreError,
-          );
-        }
-      }
     } finally {
       this._twoWayTalkStarting = false;
       this._syncTwoWayTalkButton();

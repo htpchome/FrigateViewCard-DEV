@@ -105,7 +105,7 @@ test("ha-direct two-way talk remains an explicit mounted transport session", asy
     });
 
     assert.equal(session.type, "ha_direct");
-    assert.equal(session.restoreLiveOnStop, true);
+    assert.equal(session.restoreLiveOnStop, false);
     assert.equal(session.engine, engine);
   });
 });
