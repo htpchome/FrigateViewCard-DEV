@@ -183,6 +183,17 @@ test("grouped desktop controls are centered per pane", () => {
   );
 });
 
+test("Card View Video Only sizes and aligns the phone A/B control beside Back", () => {
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:not\(\.card-view-standalone\) #eng-wrap\.camera-group-mobile-member[^}]*\.camera-group-pane-controls \{left:47px;top:8px;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:not\(\.card-view-standalone\) #eng-wrap\.camera-group-mobile-member[^}]*\.camera-group-mobile-toggle \{[^}]*box-sizing:border-box;width:32px;height:32px;min-width:32px;min-height:32px;max-width:32px;max-height:32px;/,
+  );
+});
+
 test("Video Only mode controls are not disabled by Card View alert takeover", () => {
   const container = { innerHTML: "" };
   const host = {

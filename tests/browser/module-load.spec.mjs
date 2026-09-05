@@ -375,6 +375,72 @@ test.describe("touch input", () => {
     });
   }
 
+  test("spaces the Card View Video Only A/B control between Back and Slideshow", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(baseUrl);
+    const geometry = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      card.style.display = "block";
+      card.style.width = "390px";
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [
+          {
+            entity: "camera.front",
+            name: "Front / Back",
+            group: { secondary_entity: "camera.back" },
+          },
+        ],
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
+        slideshow_rotation_enabled: true,
+      });
+      card._pageId = "card-view";
+      card._renderShell();
+
+      const root = card.shadowRoot;
+      root
+        .querySelector("#eng-wrap")
+        ?.classList.add("camera-group-mobile-member");
+      root
+        .querySelector("#card")
+        ?.classList.add("card-view-overlays-visible");
+      const back = root.querySelector("[data-card-view-video-back]");
+      const toggle = root.querySelector("[data-camera-group-mobile-toggle]");
+      const slideshow = root.querySelector(
+        "[data-card-view-standalone-slideshow]",
+      );
+      const backRect = back?.getBoundingClientRect?.();
+      const toggleRect = toggle?.getBoundingClientRect?.();
+      const slideshowRect = slideshow?.getBoundingClientRect?.();
+      return {
+        allPresent: Boolean(backRect && toggleRect && slideshowRect),
+        toggleWidth: toggleRect?.width || 0,
+        toggleHeight: toggleRect?.height || 0,
+        alignedWithBack: Boolean(
+          backRect && toggleRect && Math.abs(toggleRect.top - backRect.top) < 0.5,
+        ),
+        backGap:
+          backRect && toggleRect ? toggleRect.left - backRect.right : -1,
+        slideshowGap:
+          toggleRect && slideshowRect
+            ? slideshowRect.left - toggleRect.right
+            : -1,
+      };
+    });
+
+    expect(geometry.allPresent).toBe(true);
+    expect(geometry.toggleWidth).toBe(32);
+    expect(geometry.toggleHeight).toBe(32);
+    expect(geometry.alignedWithBack).toBe(true);
+    expect(geometry.backGap).toBe(7);
+    expect(geometry.slideshowGap).toBeGreaterThanOrEqual(6);
+  });
+
   test("keeps the normal Card View header in standalone Bottom Panel mode", async ({
     page,
   }) => {

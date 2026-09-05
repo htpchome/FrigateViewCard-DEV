@@ -31,6 +31,15 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back svg {width:20px;height:20px;color:currentColor;fill:currentColor;opacity:1;pointer-events:none;}
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-back-slot {display:none;}
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) #eng-wrap:is(.camera-group-live,.camera-group-mobile-member) .camera-group-live-pane--primary .camera-group-pane-controls {left:48px;}
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) #eng-wrap.camera-group-mobile-member .camera-group-live-pane--primary .camera-group-pane-controls {left:47px;top:8px;}
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) #eng-wrap.camera-group-mobile-member .camera-group-live-pane--primary .camera-group-mobile-toggle {
+    box-sizing:border-box;width:32px;height:32px;min-width:32px;min-height:32px;max-width:32px;max-height:32px;padding:4px;gap:0;
+  }
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) #eng-wrap.camera-group-mobile-member .camera-group-live-pane--primary .camera-group-mobile-toggle svg {width:20px;height:20px;}
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) #eng-wrap.camera-group-mobile-member .camera-group-live-pane--primary .camera-group-mobile-toggle span {
+    position:absolute;right:1px;bottom:1px;display:grid;place-items:center;min-width:10px;height:10px;padding:0 1px;border-radius:999px;
+    color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-strong);font-size:.5rem;font-weight:800;line-height:1;
+  }
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back:hover {
       background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
