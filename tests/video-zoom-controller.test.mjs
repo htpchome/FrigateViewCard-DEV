@@ -416,6 +416,69 @@ test("a stable interaction surface captures popup pan without accepting overlay 
   assert.deepEqual(controller.state, { scale: 2, x: -200, y: -130 });
 });
 
+test("cover media does not pan before it is zoomed", () => {
+  const { controller, interactionTarget, video } = createZoomFixture({
+    separateInteractionTarget: true,
+    videoWidth: 1600,
+    videoHeight: 900,
+    hostWidth: 300,
+    hostHeight: 300,
+    objectFit: "cover",
+  });
+
+  const down = interactionTarget.dispatch(
+    "pointerdown",
+    touchEvent(11, 150, 150, { target: video }),
+  );
+  interactionTarget.dispatch(
+    "pointermove",
+    touchEvent(11, 230, 150, { target: interactionTarget }),
+  );
+
+  assert.equal(down.defaultPrevented, false);
+  assert.deepEqual(controller.state, { scale: 1, x: 0, y: 0 });
+});
+
+test("native cover pan waits until the popup has been resized", () => {
+  let resized = false;
+  const { controller, interactionTarget, video } = createZoomFixture({
+    separateInteractionTarget: true,
+    videoWidth: 1600,
+    videoHeight: 900,
+    hostWidth: 300,
+    hostHeight: 300,
+    nativeCoverPan: () => resized,
+    objectFit: "cover",
+  });
+
+  const initialDown = interactionTarget.dispatch(
+    "pointerdown",
+    touchEvent(11, 150, 150, { target: video }),
+  );
+  interactionTarget.dispatch(
+    "pointermove",
+    touchEvent(11, 230, 150, { target: interactionTarget }),
+  );
+  interactionTarget.dispatch(
+    "pointerup",
+    touchEvent(11, 230, 150, { target: interactionTarget }),
+  );
+  assert.equal(initialDown.defaultPrevented, false);
+  assert.deepEqual(controller.state, { scale: 1, x: 0, y: 0 });
+
+  resized = true;
+  const resizedDown = interactionTarget.dispatch(
+    "pointerdown",
+    touchEvent(12, 150, 150, { target: video }),
+  );
+  interactionTarget.dispatch(
+    "pointermove",
+    touchEvent(12, 230, 150, { target: interactionTarget }),
+  );
+  assert.equal(resizedDown.defaultPrevented, true);
+  assert.ok(controller.state.objectPositionX < 0.5);
+});
+
 test("pulled-down popup cover media pans on touch without transform zoom", () => {
   const { controller, interactionTarget, video } = createZoomFixture({
     separateInteractionTarget: true,

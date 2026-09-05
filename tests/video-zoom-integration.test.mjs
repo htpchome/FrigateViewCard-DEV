@@ -42,7 +42,12 @@ test("media zoom is attached through committed main-live and popup lifecycles", 
   );
   assert.equal(cardSource.includes("host: viewer || video?.parentElement"), true);
   assert.equal(cardSource.includes("interactionTarget: viewer || video"), true);
-  assert.equal(cardSource.includes("nativeCoverPan: true"), true);
+  assert.equal(
+    cardSource.includes(
+      'nativeCoverPan: () =>\n        viewer?.classList?.contains("popup-media-resized") === true',
+    ),
+    true,
+  );
   assert.equal(
     (cardSource.match(/onInteractionStart: \(\) => this\._dismissLinkedLightDimmers\(\)/g) || [])
       .length,

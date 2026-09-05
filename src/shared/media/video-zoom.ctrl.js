@@ -104,7 +104,13 @@ export class VideoZoomController {
     this._video = video;
     this._host = options.host || video?.parentElement || null;
     this._interactionTarget = options.interactionTarget || video || null;
-    this._nativeCoverPanEnabled = options.nativeCoverPan === true;
+    this._nativeCoverPanEnabled =
+      options.nativeCoverPan === true ||
+      typeof options.nativeCoverPan === "function";
+    this._nativeCoverPanAllowed =
+      typeof options.nativeCoverPan === "function"
+        ? options.nativeCoverPan
+        : () => this._nativeCoverPanEnabled;
     this._onInteractionStart =
       typeof options.onInteractionStart === "function"
         ? options.onInteractionStart
@@ -917,6 +923,14 @@ export class VideoZoomController {
 
   _refreshNativeCoverPan() {
     if (!this._nativeCoverPanEnabled) return false;
+    let nativeCoverPanAllowed = false;
+    try {
+      nativeCoverPanAllowed = this._nativeCoverPanAllowed?.() === true;
+    } catch (_) {}
+    if (!nativeCoverPanAllowed) {
+      this._coverPannable = false;
+      return false;
+    }
     const computedStyle = globalThis.getComputedStyle?.(this._video);
     const objectFit = String(
       computedStyle?.objectFit ||

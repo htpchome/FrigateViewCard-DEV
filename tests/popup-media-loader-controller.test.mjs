@@ -6,49 +6,7 @@ import {
   bindPopupMediaSizing,
   bindPopupVideoReadiness,
   resolvePopupMediaSizing,
-  shouldContainPopupVideoAtRest,
 } from "../src/features/popup/media-loader.ctrl.js";
-
-test("mobile Single View and Mobile View popup videos fit without base cropping", () => {
-  for (const pageId of ["single-view", "mobile-view", "mobile_view"]) {
-    assert.equal(
-      shouldContainPopupVideoAtRest({
-        pageId,
-        isMobileTabletViewport: true,
-        mediaTagName: "VIDEO",
-      }),
-      true,
-    );
-  }
-
-  for (const pageId of ["card-view", "preview", "wide-view"]) {
-    assert.equal(
-      shouldContainPopupVideoAtRest({
-        pageId,
-        isMobileTabletViewport: true,
-        mediaTagName: "VIDEO",
-      }),
-      false,
-    );
-  }
-
-  assert.equal(
-    shouldContainPopupVideoAtRest({
-      pageId: "single-view",
-      isMobileTabletViewport: false,
-      mediaTagName: "VIDEO",
-    }),
-    false,
-  );
-  assert.equal(
-    shouldContainPopupVideoAtRest({
-      pageId: "single-view",
-      isMobileTabletViewport: true,
-      mediaTagName: "IMG",
-    }),
-    false,
-  );
-});
 
 test("popup media sizing caps ultra-tall initial viewports at 4:3", () => {
   assert.deepEqual(
