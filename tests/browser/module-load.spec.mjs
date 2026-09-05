@@ -267,39 +267,35 @@ test.describe("touch input", () => {
 
   const groupedMobileSurfaces = [
     {
-      label: "Mobile View tools",
+      label: "Mobile View",
       pageId: "mobile-view",
       config: { mobile_view_page_enabled: true },
-      ancestorSelector: '[data-fvc-region="tools"]',
     },
     {
-      label: "Single View tools",
+      label: "Single View",
       pageId: "single-view",
       config: {},
-      ancestorSelector: '[data-fvc-region="tools"]',
     },
     {
-      label: "Card View Bottom Panel toolbar",
+      label: "Card View Bottom Panel",
       pageId: "card-view",
       config: {
         card_view_page_enabled: true,
         card_view_view_mode: "bottom-panel-open",
       },
-      ancestorSelector: "[data-card-view-toolbar]",
     },
     {
-      label: "Card View Video Only overlay",
+      label: "Card View Video Only",
       pageId: "card-view",
       config: {
         card_view_page_enabled: true,
         card_view_view_mode: "video-only",
       },
-      ancestorSelector: "[data-card-view-standalone-mode-controls]",
     },
   ];
 
   for (const surface of groupedMobileSurfaces) {
-    test(`keeps the grouped-camera A/B button touchable in ${surface.label}`, async ({
+    test(`keeps the grouped-camera A/B button on the video in ${surface.label}`, async ({
       page,
     }) => {
       await page.goto(baseUrl);
@@ -323,6 +319,9 @@ test.describe("touch input", () => {
 
         const root = card.shadowRoot;
         root
+          .querySelector("#eng-wrap")
+          ?.classList.add("camera-group-mobile-member");
+        root
           .querySelector("#card")
           ?.classList.add("card-view-overlays-visible");
         card._cameraGroupLiveController.toggleMobileMember = () => {
@@ -343,11 +342,17 @@ test.describe("touch input", () => {
         return {
           count: buttons.length,
           visible: Boolean(rect && rect.width > 0 && rect.height > 0),
-          square: Boolean(rect && Math.abs(rect.width - rect.height) < 0.5),
           hitToggle: Boolean(
             hit?.closest?.("[data-camera-group-mobile-toggle]"),
           ),
-          inGridSlot: Boolean(button?.closest(testSurface.ancestorSelector)),
+          inVideo: Boolean(
+            button?.closest(".camera-group-live-pane--primary"),
+          ),
+          inTabsOrToolbar: Boolean(
+            button?.closest(
+              '[data-fvc-region="tools"],[data-card-view-toolbar],[data-card-view-standalone-mode-controls]',
+            ),
+          ),
           currentMember: button?.dataset.cameraGroupCurrentMember || "",
           targetMember: button?.dataset.cameraGroupTargetMember || "",
           label: button?.textContent?.trim() || "",
@@ -357,9 +362,9 @@ test.describe("touch input", () => {
       expect(hitTarget).toEqual({
         count: 1,
         visible: true,
-        square: true,
         hitToggle: true,
-        inGridSlot: true,
+        inVideo: true,
+        inTabsOrToolbar: false,
         currentMember: "A",
         targetMember: "B",
         label: "A",

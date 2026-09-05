@@ -176,38 +176,10 @@ test("standalone Card View controls expose active Grid and Slideshow states", ()
   );
 });
 
-test("Card View places the mobile camera-group member control in each Grid slot", () => {
-  const mobileGroupButton =
-    '<button data-camera-group-mobile-toggle>camera A</button>';
-  const overlayMarkup = buildCardViewStandaloneModeControlsMarkup({
-    icons: { grid: "grid-icon" },
-    gridAvailable: true,
-    cameraGroupMobileToggleMarkup: mobileGroupButton,
-  });
-  const panelMarkup = buildCardViewToolbarMarkup({
-    icons: { grid: "grid-icon", alerts: "alerts-icon" },
-    gridAvailable: true,
-    cameraGroupMobileToggleMarkup: mobileGroupButton,
-  });
-
-  for (const markup of [overlayMarkup, panelMarkup]) {
-    assert.match(markup, /data-camera-group-mobile-toggle/);
-    assert.doesNotMatch(markup, /id="grid-btn"/);
-    assert.doesNotMatch(markup, /data-card-view-standalone-grid/);
-  }
-});
-
 test("grouped desktop controls are centered per pane", () => {
   assert.match(
     CAMERA_GROUP_LIVE_STYLES,
     /\.camera-group-pane-controls \{[^}]*top:50%;[^}]*transform:translateY\(-50%\);/,
-  );
-});
-
-test("Card View mobile camera-group control stays square in the overlay", () => {
-  assert.match(
-    CARD_VIEW_PAGE_STYLES,
-    /camera-group-mobile-toggle--overlay\.active \{width:32px;min-width:32px;[^}]*padding:4px;/,
   );
 });
 

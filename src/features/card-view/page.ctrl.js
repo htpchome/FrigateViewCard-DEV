@@ -629,16 +629,9 @@ export class CardViewPageController {
       this._mode === "ptz" ||
       this._host._twoWayTalkStarting === true ||
       this._host._twoWayTalkActiveForCurrentCamera?.() === true;
-    const cameraGroupMobileToggleMarkup =
-      this._host._cameraGroupLiveController?.mobileMemberButtonMarkup?.({
-        buttonClass:
-          "card-view-standalone-mode-button camera-group-mobile-toggle--overlay",
-      }) || "";
     const markup = buildCardViewStandaloneModeControlsMarkup({
       icons: ICONS,
-      gridAvailable:
-        !cameraGroupMobileToggleMarkup &&
-        this._host._isGridModeAvailable?.() === true,
+      gridAvailable: this._host._isGridModeAvailable?.() === true,
       gridActive: this._host._viewMode === "grid",
       gridDisabled: modeSwitchLocked,
       slideshowAvailable:
@@ -646,7 +639,6 @@ export class CardViewPageController {
       slideshowActive: this._host._slideshowActive === true,
       slideshowDisabled: modeSwitchLocked,
       slideshowRemainingSeconds: 0,
-      cameraGroupMobileToggleMarkup,
     });
     if (markup !== this._standaloneModeControlsMarkup) {
       container.innerHTML = markup;
@@ -749,11 +741,6 @@ export class CardViewPageController {
     const overlayPresentation = this.usesOverlayPresentation();
     const resolvedButtonStates =
       buttonStates || this._host._toolbarButtonStates?.() || {};
-    const cameraGroupMobileToggleMarkup = !overlayPresentation
-      ? this._host._cameraGroupLiveController?.mobileMemberButtonMarkup?.({
-          buttonClass: "icon-btn",
-        }) || ""
-      : "";
     const toolbarMarkup = buildCardViewToolbarMarkup({
       icons: ICONS,
       mode: this._mode,
@@ -766,7 +753,6 @@ export class CardViewPageController {
       ptzDisabled: resolvedButtonStates.controlsDisabled === true,
       gridAvailable:
         !overlayPresentation &&
-        !cameraGroupMobileToggleMarkup &&
         this._host._isGridModeAvailable?.() === true,
       gridActive: this._host._viewMode === "grid",
       gridDisabled: resolvedButtonStates.gridDisabled === true,
@@ -792,7 +778,6 @@ export class CardViewPageController {
           }) || ""
         : "",
       showCenterControls: !overlayPresentation,
-      cameraGroupMobileToggleMarkup,
     });
     if (
       toolbar !== this._toolbarContent ||

@@ -12,6 +12,7 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                     <div class="camera-group-pane-controls">
                       <button class="camera-group-pane-button camera-group-audio-select" type="button" data-media-overlay-ignore data-camera-group-audio="A" title="Use main camera audio" aria-label="Use main camera audio" aria-pressed="true">${icons.volOn}<span>A</span></button>
                       <button class="camera-group-pane-button camera-group-focus-toggle" type="button" data-media-overlay-ignore data-camera-group-focus="A" title="Focus main camera" aria-label="Focus main camera" aria-pressed="false">${icons.singleView}</button>
+                      <button class="camera-group-pane-button camera-group-mobile-toggle" type="button" data-media-overlay-ignore data-camera-group-mobile-toggle data-camera-group-current-member="A" data-camera-group-target-member="B" title="Show camera B" aria-label="Show camera B" aria-pressed="false">${icons.singleView}<span aria-hidden="true">A</span></button>
                     </div>
                   </div>
                   <div class="camera-group-live-pane camera-group-live-pane--secondary" data-camera-group-member="B" hidden>

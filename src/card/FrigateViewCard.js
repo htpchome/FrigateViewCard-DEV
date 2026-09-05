@@ -3382,27 +3382,19 @@ export class FrigateViewCard extends HTMLElement {
       toolsRegion &&
       this._activePageShellCapabilities().tabsVariant !== "none"
     ) {
-      const shouldShowMobileGroupButton =
-        this._cameraGroupLiveController?.isMobileMemberMode?.() === true;
-      const shouldShowGrid =
-        !shouldShowMobileGroupButton && this._isGridModeAvailable();
+      const shouldShowGrid = this._isGridModeAvailable();
       const shouldShowSlideshow = this._isSlideshowRotationAvailable();
       const shouldShowWideAlertTakeover =
         this._wideViewPageController.isWideViewPageActive();
       const controlsBtnPresent = !!this._pageShellRegionElement("tools", "#controls-btn");
       const gridBtnPresent = !!this._pageShellRegionElement("tools", "#grid-btn");
       const slideshowBtnPresent = !!this._pageShellRegionElement("tools", "#slideshow-btn");
-      const mobileGroupButtonPresent = !!this._pageShellRegionElement(
-        "tools",
-        "[data-camera-group-mobile-toggle]",
-      );
       const wideAlertTakeoverBtnPresent = !!this._pageShellRegionElement(
         "tools",
         "#wide-alert-takeover-btn",
       );
       const needsToolsRerender =
         (buttonStates.controlsVisible && !controlsBtnPresent) ||
-        mobileGroupButtonPresent !== shouldShowMobileGroupButton ||
         (shouldShowGrid && !gridBtnPresent) ||
         (shouldShowSlideshow && !slideshowBtnPresent) ||
         (shouldShowWideAlertTakeover && !wideAlertTakeoverBtnPresent);
@@ -4172,10 +4164,6 @@ export class FrigateViewCard extends HTMLElement {
       wideAlertTakeoverEnabled:
         this._wideViewPageController.companionAlertTakeoverEnabled(),
       wideAlertTakeoverButtonIcon: ICONS.alerts,
-      cameraGroupMobileToggleMarkup:
-        this._cameraGroupLiveController?.mobileMemberButtonMarkup?.({
-          buttonClass: toolsButtonClass,
-        }) || "",
     });
 
     this._tab = activeTab;

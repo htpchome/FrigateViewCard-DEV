@@ -234,24 +234,6 @@ export class CameraGroupLiveController {
     return true;
   }
 
-  mobileMemberButtonMarkup({ buttonClass = "" } = {}) {
-    if (!this.isMobileMemberMode()) return "";
-    const showingSecondary =
-      this._host._activeGroupMemberOverride === this.secondaryEntity();
-    const currentMember = showingSecondary ? "B" : "A";
-    const targetMember = showingSecondary ? "A" : "B";
-    const classes = [
-      String(buttonClass || "").trim(),
-      "camera-group-mobile-toggle",
-      "camera-group-mobile-toggle--surface",
-      "active",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    const title = `Show camera ${targetMember}`;
-    return `<button class="${classes}" type="button" data-media-overlay-ignore data-camera-group-mobile-toggle data-camera-group-current-member="${currentMember}" data-camera-group-target-member="${targetMember}" title="${title}" aria-label="${title}" aria-pressed="${showingSecondary ? "true" : "false"}">${this._icons.singleView || ""}<span aria-hidden="true">${currentMember}</span></button>`;
-  }
-
   syncAudio() {
     const active = this.isActive() ? this._activeAudioMember : "A";
     const muted = this._host._streamMuted === true;

@@ -289,13 +289,11 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-slideshow-button {grid-column:1;justify-self:end;}
   .card.card-view-active.card-view-overlay-presentation [data-card-view-standalone-grid] {grid-column:3;justify-self:start;}
-  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.camera-group-mobile-toggle--overlay {grid-column:3;grid-row:1;justify-self:start;width:32px;height:32px;min-width:32px;min-height:32px;max-width:32px;max-height:32px;padding:4px;}
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button svg {width:21px;height:21px;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.active {
     width:auto;min-width:32px;grid-auto-flow:column;gap:3px;padding-inline:5px;
     border-color:var(--fvc-media-overlay-active-border);background:var(--fvc-media-overlay-active-bg);
   }
-  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.camera-group-mobile-toggle--overlay.active {width:32px;min-width:32px;grid-auto-flow:row;gap:0;padding:4px;}
   @keyframes card-view-slideshow-button-settle {
     0%,72% {opacity:1;}
     100% {opacity:.68;}

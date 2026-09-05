@@ -123,7 +123,7 @@ const createHost = () => {
   };
 };
 
-test("grouped live shell exposes desktop and tablet pane controls", () => {
+test("grouped live shell keeps the phone A/B control on the video pane", () => {
   const markup = buildLiveEngineWrapMarkup({
     icons: {
       live: "live",
@@ -137,7 +137,10 @@ test("grouped live shell exposes desktop and tablet pane controls", () => {
   assert.match(markup, /data-camera-group-audio="A"/);
   assert.match(markup, /data-camera-group-focus="A"/);
   assert.match(markup, /data-camera-group-focus="B"/);
-  assert.doesNotMatch(markup, /data-camera-group-mobile-toggle/);
+  assert.match(
+    markup,
+    /camera-group-live-pane--primary[\s\S]*?data-camera-group-mobile-toggle[^>]*data-camera-group-current-member="A"[^>]*data-camera-group-target-member="B"/,
+  );
 });
 
 test("grouped live mounts the second physical camera on tablet and desktop", () => {
@@ -241,10 +244,6 @@ test("phones expose a one-stream A/B member switch labeled with the current memb
   assert.equal(controller.isActive(), false);
   assert.equal(wrap.classList.contains("camera-group-mobile-member"), true);
   assert.equal(mounts.length, 0);
-  assert.match(
-    controller.mobileMemberButtonMarkup({ buttonClass: "tool" }),
-    /class="tool camera-group-mobile-toggle camera-group-mobile-toggle--surface active"[^>]*data-camera-group-current-member="A"[^>]*data-camera-group-target-member="B"[^>]*aria-label="Show camera B"[^>]*aria-pressed="false"[^>]*>camera-icon<span aria-hidden="true">A<\/span>/,
-  );
 
   assert.equal(controller.toggleMobileMember(), true);
   assert.deepEqual(switches[0], [
@@ -256,10 +255,6 @@ test("phones expose a one-stream A/B member switch labeled with the current memb
   ]);
 
   host._activeGroupMemberOverride = "camera.package";
-  assert.match(
-    controller.mobileMemberButtonMarkup({ buttonClass: "tool" }),
-    /data-camera-group-current-member="B"[^>]*data-camera-group-target-member="A"[^>]*aria-label="Show camera A"[^>]*aria-pressed="true"[^>]*>camera-icon<span aria-hidden="true">B<\/span>/,
-  );
   controller.toggleMobileMember();
   assert.deepEqual(switches[1], [
     3,
