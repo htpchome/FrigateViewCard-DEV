@@ -95,7 +95,8 @@ test("stream readiness reports a video inside nested shadow roots", async () => 
 
 test("known ready media uses the shared live attachment path without querying", () => {
   const engine = {};
-  const video = {};
+  const host = {};
+  const video = { parentElement: host };
   const calls = [];
   const context = {
     _engine: engine,
@@ -105,6 +106,8 @@ test("known ready media uses the shared live attachment path without querying", 
     },
     _liveVideoZoomController: {
       video,
+      host,
+      interactionTarget: video,
       refresh: () => calls.push(["refresh"]),
     },
     _findFullscreenVideo: () => {

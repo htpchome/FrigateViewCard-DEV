@@ -147,6 +147,14 @@ export class VideoZoomController {
     return this._video;
   }
 
+  get host() {
+    return this._host;
+  }
+
+  get interactionTarget() {
+    return this._interactionTarget;
+  }
+
   get state() {
     const state = {
       scale: this._scale,

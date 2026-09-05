@@ -515,8 +515,13 @@ export class FrigateViewCard extends HTMLElement {
       waitForStreamStart: (streamEl, timeoutMs, opts) =>
         this._waitForStreamStart(streamEl, timeoutMs, opts),
       assignCommittedEngine: (engine) => this._assignLiveEngine(engine),
-      onCommittedMediaReady: (engine, video) =>
-        this._attachMainLiveVideoZoom(engine, video),
+      onCommittedMediaReady: (engine, video) => {
+        const liveEngineHost = this._$("#engine");
+        this._attachMainLiveVideoZoom(engine, video, {
+          host: liveEngineHost,
+          interactionTarget: liveEngineHost,
+        });
+      },
       applyResolvedStreamUiState: (streamState) =>
         this._applyResolvedStreamUiState(streamState),
       setLiveNativeControls: (enabled) => this._setLiveNativeControls(enabled),
@@ -2552,7 +2557,11 @@ export class FrigateViewCard extends HTMLElement {
     }
   }
 
-  _attachMainLiveVideoZoom(engine, readyVideo = null) {
+  _attachMainLiveVideoZoom(
+    engine,
+    readyVideo = null,
+    attachmentOptions = {},
+  ) {
     if (!engine || this._engine !== engine) return;
     const video =
       readyVideo ||
@@ -2562,13 +2571,35 @@ export class FrigateViewCard extends HTMLElement {
     if (video) {
       this._applyVideoFit(video);
       this._liveViewResizeController?.attachMedia(video);
-      if (this._liveVideoZoomController?.video === video) {
+      const currentZoomController = this._liveVideoZoomController;
+      const sameVideo = currentZoomController?.video === video;
+      const host =
+        attachmentOptions.host ||
+        (sameVideo ? currentZoomController?.host : null) ||
+        video.parentElement ||
+        null;
+      const interactionTarget =
+        attachmentOptions.interactionTarget ||
+        (sameVideo ? currentZoomController?.interactionTarget : null) ||
+        video;
+      if (!host) {
+        this._clearLiveVideoZoom();
+        this._syncPictureInPictureButtons();
+        return;
+      }
+      if (
+        sameVideo &&
+        currentZoomController?.host === host &&
+        currentZoomController?.interactionTarget === interactionTarget
+      ) {
         this._liveVideoZoomController.refresh();
         this._syncPictureInPictureButtons();
         return;
       }
       this._clearLiveVideoZoom();
       this._liveVideoZoomController = attachVideoZoom(video, {
+        host,
+        interactionTarget,
         onInteractionStart: () => this._dismissLinkedLightDimmers(),
         onZoomStateChange: (zoomed) => {
           this._$("#card")?.classList?.toggle?.(

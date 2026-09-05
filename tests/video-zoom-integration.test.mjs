@@ -74,9 +74,17 @@ test("media zoom is attached through committed main-live and popup lifecycles", 
     ),
     true,
   );
+  assert.equal(
+    cardSource.includes("host: liveEngineHost"),
+    true,
+  );
+  assert.equal(
+    cardSource.includes("interactionTarget: liveEngineHost"),
+    true,
+  );
 
   const liveMediaAttachStart = cardSource.indexOf(
-    "  _attachMainLiveVideoZoom(engine, readyVideo = null) {",
+    "  _attachMainLiveVideoZoom(",
   );
   const liveMediaAttachEnd = cardSource.indexOf(
     "  _clearLiveVideoZoom()",

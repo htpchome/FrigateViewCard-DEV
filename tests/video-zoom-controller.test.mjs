@@ -74,6 +74,8 @@ class FakeTarget {
 function createZoomFixture({
   videoFrameCallbacks = false,
   separateInteractionTarget = false,
+  detachedVideo = false,
+  explicitHost = false,
   videoWidth = 0,
   videoHeight = 0,
   hostWidth = 300,
@@ -96,7 +98,7 @@ function createZoomFixture({
   };
   const video = new FakeTarget();
   video.style = new FakeStyle();
-  video.parentElement = host;
+  video.parentElement = detachedVideo ? null : host;
   video.offsetWidth = hostWidth;
   video.offsetHeight = hostHeight;
   video.videoWidth = videoWidth;
@@ -144,6 +146,7 @@ function createZoomFixture({
   }
 
   const controller = new VideoZoomController(video, {
+    host: explicitHost ? host : undefined,
     interactionTarget,
     nativeCoverPan,
     onInteractionStart,
@@ -188,6 +191,28 @@ test("video zoom math clamps scale and pan to the default viewport", () => {
     }),
     { scale: 1, x: 0, y: 0 },
   );
+});
+
+test("video zoom accepts an explicit host for shadow-root media", () => {
+  const { controller, host, interactionTarget, video } = createZoomFixture({
+    separateInteractionTarget: true,
+    detachedVideo: true,
+    explicitHost: true,
+  });
+
+  assert.equal(controller.host, host);
+  assert.equal(controller.interactionTarget, interactionTarget);
+  controller.zoomToCenter(1.5);
+  assert.equal(
+    video.style.getPropertyValue("transform"),
+    "translate3d(-75px, -50px, 0) scale(1.5)",
+  );
+  assert.equal(
+    video.style.getPropertyValue("transform-origin"),
+    "0 0",
+  );
+
+  controller.dispose();
 });
 
 test("video zoom exposes the current capture viewport", () => {
