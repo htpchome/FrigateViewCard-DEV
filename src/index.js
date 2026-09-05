@@ -17,10 +17,3 @@ if (!window.customCards.find((c) => c.type === CARD_TAG))
     description: `Simple Frigate Camera and Events Card — v${VERSION}`,
     preview: true,
   });
-
-console.info(
-  `%c FRIGATE-VIEW-CARD %c v${VERSION} %c`,
-  "color: #f7f7f7; background: #171717; font-weight: 700; padding: 3px 7px; border-radius: 3px 0 0 3px;",
-  "color: #ffffff; background: #e64a19; font-weight: 700; padding: 3px 7px; border-radius: 0 3px 3px 0;",
-  "color: inherit; background: transparent; font-weight: normal; padding: 0;",
-);

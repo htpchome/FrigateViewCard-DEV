@@ -30,6 +30,11 @@ export function createHaDirectMounter({
     if (!binding) return;
     binding.disposed = true;
     binding.revision += 1;
+    binding.abortController.abort();
+    if (binding.stabilizedTimer != null) {
+      clearTimeout(binding.stabilizedTimer);
+      binding.stabilizedTimer = null;
+    }
     streamEl.removeEventListener?.("load", binding.reconcile, true);
     streamEl.removeEventListener?.("streams", binding.reconcile, true);
     mediaBindings.delete(streamEl);
@@ -47,6 +52,8 @@ export function createHaDirectMounter({
       disposed: false,
       revision: 0,
       reconcile: null,
+      abortController: new AbortController(),
+      stabilizedTimer: null,
     };
     binding.reconcile = () => {
       const revision = ++binding.revision;
@@ -81,14 +88,19 @@ export function createHaDirectMounter({
     streamEl.addEventListener?.("load", binding.reconcile, true);
     streamEl.addEventListener?.("streams", binding.reconcile, true);
     binding.reconcile();
+    return binding;
   };
 
-  const scheduleFollowUp = (streamEl, haDirectPlan) => {
+  const scheduleFollowUp = (streamEl, haDirectPlan, binding) => {
     void (async () => {
       const ok = await waitForStreamStart(
         streamEl,
         haDirectPlan.waitMs,
-        haDirectPlan.waitOptions,
+        {
+          ...haDirectPlan.waitOptions,
+          abortSignal: binding.abortController.signal,
+          resolveVideo: () => findActiveHaCameraStreamVideo(streamEl),
+        },
       );
       const readyState = resolveHaDirectReadyState({
         rotateOverlayActive: getRotateOverlayActive(),
@@ -100,7 +112,8 @@ export function createHaDirectMounter({
       }
     })();
 
-    setTimeout(() => {
+    binding.stabilizedTimer = setTimeout(() => {
+      binding.stabilizedTimer = null;
       const stabilizedState = resolveHaDirectStabilizedState({
         rotateOverlayActive: getRotateOverlayActive(),
         isCurrentEngine: isCurrentEngine(streamEl),
@@ -161,11 +174,11 @@ export function createHaDirectMounter({
     }
 
     assignCommittedEngine(engine);
-    bindActiveMedia(streamEl);
+    const binding = bindActiveMedia(streamEl);
     if (getRotateOverlayActive()) {
       setLiveNativeControls(true);
     }
-    scheduleFollowUp(streamEl, haDirectPlan);
+    scheduleFollowUp(streamEl, haDirectPlan, binding);
     return {
       ok: true,
       type: haDirectPlan.streamType,

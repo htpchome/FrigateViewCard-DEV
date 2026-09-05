@@ -140,6 +140,7 @@ import {
 import { createGo2RtcResolver } from "../integrations/frigate/go2rtc-resolver.js";
 import { createHaDirectTwoWayTalkMounter } from "../integrations/home-assistant/two-way-talk-mounter.js";
 import { createHaDirectTwoWayTalkBackchannel } from "../integrations/home-assistant/two-way-talk-backchannel.js";
+import { findActiveHaCameraStreamVideo } from "../integrations/home-assistant/playback.js";
 import { createGo2RtcMounter } from "../features/live/go2rtc-mounter.js";
 import {
   invalidateMountTrackingIfActive,
@@ -2691,12 +2692,40 @@ export class FrigateViewCard extends HTMLElement {
       let settled = false;
       let frameCallbackBound = false;
       let eventBound = false;
+      let boundVideo = null;
+      let frameCallbackVideo = null;
+      let frameCallbackId = null;
+      let finish = null;
       let onAbort = null;
+      let tick = null;
+      let timeout = null;
+      const clearVideoBindings = () => {
+        if (boundVideo && finish) {
+          boundVideo.removeEventListener?.("loadeddata", finish);
+          boundVideo.removeEventListener?.("canplay", finish);
+          boundVideo.removeEventListener?.("playing", finish);
+          boundVideo.removeEventListener?.("timeupdate", finish);
+        }
+        if (
+          frameCallbackVideo &&
+          frameCallbackId != null &&
+          typeof frameCallbackVideo.cancelVideoFrameCallback === "function"
+        ) {
+          frameCallbackVideo.cancelVideoFrameCallback(frameCallbackId);
+        }
+        boundVideo = null;
+        frameCallbackVideo = null;
+        frameCallbackId = null;
+        finish = null;
+        frameCallbackBound = false;
+        eventBound = false;
+      };
       const done = (ok, video = null) => {
         if (settled) return;
         settled = true;
-        clearInterval(tick);
-        clearTimeout(to);
+        if (tick != null) clearInterval(tick);
+        if (timeout != null) clearTimeout(timeout);
+        clearVideoBindings();
         if (abortSignal && onAbort) {
           try {
             abortSignal.removeEventListener("abort", onAbort);
@@ -2717,16 +2746,22 @@ export class FrigateViewCard extends HTMLElement {
         }
         abortSignal.addEventListener("abort", onAbort, { once: true });
       }
-      const tick = setInterval(() => {
-        const v = this._findVideoDeep(streamEl);
+      tick = setInterval(() => {
+        const v =
+          typeof opts.resolveVideo === "function"
+            ? opts.resolveVideo(streamEl)
+            : this._findVideoDeep(streamEl);
         if (!v) return;
+        if (boundVideo && boundVideo !== v) clearVideoBindings();
         if (!frameCallbackBound && v.requestVideoFrameCallback) {
           frameCallbackBound = true;
-          v.requestVideoFrameCallback(() => done(true, v));
+          frameCallbackVideo = v;
+          frameCallbackId = v.requestVideoFrameCallback(() => done(true, v));
         }
         if (!eventBound) {
           eventBound = true;
-          const finish = () => {
+          boundVideo = v;
+          finish = () => {
             if (!strict) done(true, v);
           };
           v.addEventListener("loadeddata", finish, { once: true });
@@ -2745,7 +2780,7 @@ export class FrigateViewCard extends HTMLElement {
           done(true, v);
         }
       }, 180);
-      const to = setTimeout(() => done(false), timeoutMs);
+      timeout = setTimeout(() => done(false), timeoutMs);
     });
   }
 
@@ -3788,13 +3823,6 @@ export class FrigateViewCard extends HTMLElement {
     }
     if ((gridChanged || gridFocused) && this._viewMode === "grid") {
       this._scheduleGridRefresh(90);
-    }
-    if (
-      activeCameraAlerted &&
-      this._viewMode !== "grid" &&
-      !this._isPreviewPageActive()
-    ) {
-      this._scheduleResumeLive("ha-review-status-alert");
     }
     this._cameraGroupLiveController?.syncAlertState?.();
     return hasActiveAlert;
@@ -5564,11 +5592,16 @@ export class FrigateViewCard extends HTMLElement {
   ) {
     const now = Date.now();
     const engineHost = this._$("#engine");
-    const v =
-      this._findVideoDeep(engineHost) ||
-      this._findVideoDeep(this._engine) ||
-      this._engine?.video ||
-      null;
+    const haDirectEngine =
+      this._engine?.tagName?.toLowerCase?.() === "ha-camera-stream"
+        ? this._engine
+        : null;
+    const v = haDirectEngine
+      ? findActiveHaCameraStreamVideo(haDirectEngine)
+      : this._findVideoDeep(engineHost) ||
+        this._findVideoDeep(this._engine) ||
+        this._engine?.video ||
+        null;
     const probeState = resolveLiveKickProbeState({ video: v });
 
     const action = resolveLiveKickIfStaleAction({

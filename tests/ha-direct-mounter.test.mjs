@@ -236,6 +236,64 @@ test("ha direct mounter follows HA's visible player and releases its listeners",
   });
 });
 
+test("ha direct mounter aborts readiness work when its engine is released", async () => {
+  await withFakeDocument(async () => {
+    const slot = {
+      innerHTML: "",
+      appendChild(node) {
+        this.lastChild = node;
+      },
+    };
+    const hass = {
+      states: {
+        "camera.front": {
+          entity_id: "camera.front",
+          attributes: {},
+        },
+      },
+    };
+    let assignedEngine = null;
+    let waitOptions = null;
+    const mounter = createHaDirectMounter({
+      getHass: () => hass,
+      getPreferredStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: (streamEl) => assignedEngine === streamEl,
+      waitForStreamStart: async (_streamEl, _waitMs, options) => {
+        waitOptions = options;
+        await new Promise((resolve) =>
+          options.abortSignal.addEventListener("abort", resolve, { once: true }),
+        );
+        return false;
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      onCommittedMediaReady: () => {},
+      applyResolvedStreamUiState: () => {},
+      setLiveNativeControls: () => {},
+    });
+
+    await mounter.tryMount(slot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    await flushAsyncWork();
+
+    const stream = assignedEngine;
+    assert.equal(waitOptions.abortSignal.aborted, false);
+    assert.equal(waitOptions.resolveVideo(), stream.firstVideo);
+
+    mounter.release(stream);
+    await flushAsyncWork();
+
+    assert.equal(waitOptions.abortSignal.aborted, true);
+    assert.equal(stream.listenerCount("load"), 0);
+    assert.equal(stream.listenerCount("streams"), 0);
+  });
+});
+
 test("ha direct mounter applies unavailable state when no camera state exists", async () => {
   const appliedStates = [];
   const mounter = createHaDirectMounter({

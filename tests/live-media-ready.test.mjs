@@ -132,3 +132,108 @@ test("known ready media uses the shared live attachment path without querying", 
     ["pip"],
   ]);
 });
+
+test("HA direct stale checks probe only the visible HA player", () => {
+  const inactiveVideo = {
+    readyState: 0,
+    ended: false,
+    paused: true,
+    currentTime: 0,
+    webkitDecodedFrameCount: 0,
+  };
+  const activeVideo = {
+    readyState: 4,
+    ended: false,
+    paused: false,
+    currentTime: 10,
+    webkitDecodedFrameCount: 20,
+  };
+  const player = (video, hidden) => ({
+    hidden,
+    classList: { contains: (name) => name === "hidden" && hidden },
+    shadowRoot: {
+      querySelector: (selector) => (selector === "video" ? video : null),
+    },
+    querySelector: () => null,
+  });
+  const engine = {
+    tagName: "HA-CAMERA-STREAM",
+    shadowRoot: {
+      querySelectorAll: () => [
+        player(inactiveVideo, true),
+        player(activeVideo, false),
+      ],
+    },
+  };
+  const mountCalls = [];
+  const context = {
+    _engine: engine,
+    _started: true,
+    _hass: {},
+    _config: {},
+    _viewMode: "single",
+    _mountInProgress: false,
+    _lastLiveKick: 0,
+    _mseConnectAt: 0,
+    _mseLastChunkAt: 0,
+    _$: () => null,
+    _findVideoDeep: () => {
+      throw new Error("HA direct must not use the generic nested-video probe");
+    },
+    _isPreviewPageActive: () => false,
+    _isCardVisible: () => true,
+    _isFirefox: () => false,
+    _mountEngine: (...args) => mountCalls.push(args),
+  };
+
+  FrigateViewCard.prototype._kickLiveIfStale.call(context);
+
+  assert.deepEqual(mountCalls, []);
+});
+
+test("stream readiness releases pending video callbacks and listeners on abort", async () => {
+  const listeners = new Map();
+  const cancelledFrames = [];
+  const video = {
+    readyState: 0,
+    ended: false,
+    paused: true,
+    currentTime: 0,
+    webkitDecodedFrameCount: 0,
+    addEventListener(type, handler) {
+      const handlers = listeners.get(type) || new Set();
+      handlers.add(handler);
+      listeners.set(type, handlers);
+    },
+    removeEventListener(type, handler) {
+      listeners.get(type)?.delete(handler);
+    },
+    requestVideoFrameCallback() {
+      return 17;
+    },
+    cancelVideoFrameCallback(id) {
+      cancelledFrames.push(id);
+    },
+  };
+  const abortController = new AbortController();
+  const pending = FrigateViewCard.prototype._waitForStreamStart.call(
+    { _findVideoDeep: () => null },
+    {},
+    1000,
+    {
+      strict: true,
+      abortSignal: abortController.signal,
+      resolveVideo: () => video,
+    },
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 220));
+  abortController.abort();
+
+  assert.equal(await pending, false);
+  assert.deepEqual(cancelledFrames, [17]);
+  assert.equal(
+    [...listeners.values()].reduce((count, handlers) => count + handlers.size, 0),
+    0,
+  );
+});
