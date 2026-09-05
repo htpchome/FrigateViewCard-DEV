@@ -68,6 +68,27 @@ test("media zoom is attached through committed main-live and popup lifecycles", 
     ),
     true,
   );
+  assert.equal(
+    cardSource.includes(
+      "onCommittedMediaReady: (engine, video) =>",
+    ),
+    true,
+  );
+
+  const liveMediaAttachStart = cardSource.indexOf(
+    "  _attachMainLiveVideoZoom(engine, readyVideo = null) {",
+  );
+  const liveMediaAttachEnd = cardSource.indexOf(
+    "  _clearLiveVideoZoom()",
+    liveMediaAttachStart,
+  );
+  const liveMediaAttachMethod = cardSource.slice(
+    liveMediaAttachStart,
+    liveMediaAttachEnd,
+  );
+  assert.notEqual(liveMediaAttachStart, -1);
+  assert.equal(liveMediaAttachMethod.includes("setTimeout"), false);
+  assert.equal(liveMediaAttachMethod.includes("this._applyVideoFit(video)"), true);
 });
 
 test("PTZ zoom actions are routed to the existing main-live zoom controller", () => {

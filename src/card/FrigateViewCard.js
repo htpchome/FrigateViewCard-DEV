@@ -514,8 +514,9 @@ export class FrigateViewCard extends HTMLElement {
       isCurrentEngine: (streamEl) => this._engine === streamEl,
       waitForStreamStart: (streamEl, timeoutMs, opts) =>
         this._waitForStreamStart(streamEl, timeoutMs, opts),
-      attachVideoFit: (streamEl) => this._attachVideoFit(streamEl),
       assignCommittedEngine: (engine) => this._assignLiveEngine(engine),
+      onCommittedMediaReady: (engine, video) =>
+        this._attachMainLiveVideoZoom(engine, video),
       applyResolvedStreamUiState: (streamState) =>
         this._applyResolvedStreamUiState(streamState),
       setLiveNativeControls: (enabled) => this._setLiveNativeControls(enabled),
@@ -2550,13 +2551,15 @@ export class FrigateViewCard extends HTMLElement {
     }
   }
 
-  _attachMainLiveVideoZoom(engine, retries = 12) {
+  _attachMainLiveVideoZoom(engine, readyVideo = null) {
     if (!engine || this._engine !== engine) return;
     const video =
+      readyVideo ||
       engine.video ||
       this._findFullscreenVideo(engine) ||
       this._findVideoDeep(engine);
     if (video) {
+      this._applyVideoFit(video);
       this._liveViewResizeController?.attachMedia(video);
       if (this._liveVideoZoomController?.video === video) {
         this._liveVideoZoomController.refresh();
@@ -2577,11 +2580,6 @@ export class FrigateViewCard extends HTMLElement {
       this._syncPictureInPictureButtons();
       return;
     }
-    if (retries <= 0) return;
-    setTimeout(() => {
-      if (this._engine !== engine) return;
-      this._attachMainLiveVideoZoom(engine, retries - 1);
-    }, 160);
   }
 
   _clearLiveVideoZoom() {
@@ -2662,7 +2660,7 @@ export class FrigateViewCard extends HTMLElement {
       let frameCallbackBound = false;
       let eventBound = false;
       let onAbort = null;
-      const done = (ok) => {
+      const done = (ok, video = null) => {
         if (settled) return;
         settled = true;
         clearInterval(tick);
@@ -2670,6 +2668,11 @@ export class FrigateViewCard extends HTMLElement {
         if (abortSignal && onAbort) {
           try {
             abortSignal.removeEventListener("abort", onAbort);
+          } catch (_) {}
+        }
+        if (ok && video && typeof opts.onVideoReady === "function") {
+          try {
+            opts.onVideoReady(video);
           } catch (_) {}
         }
         resolve(ok);
@@ -2689,12 +2692,12 @@ export class FrigateViewCard extends HTMLElement {
         if (!v) return;
         if (!frameCallbackBound && v.requestVideoFrameCallback) {
           frameCallbackBound = true;
-          v.requestVideoFrameCallback(() => done(true));
+          v.requestVideoFrameCallback(() => done(true, v));
         }
         if (!eventBound) {
           eventBound = true;
           const finish = () => {
-            if (!strict) done(true);
+            if (!strict) done(true, v);
           };
           v.addEventListener("loadeddata", finish, { once: true });
           v.addEventListener("canplay", finish, { once: true });
@@ -2708,7 +2711,9 @@ export class FrigateViewCard extends HTMLElement {
         const ready = Number(v.readyState) || 0;
         const timeOk = v.currentTime >= minCurrentTime;
         const decodeOk = decoded >= minDecodedFrames;
-        if (ready >= requireReadyState && (timeOk || decodeOk)) done(true);
+        if (ready >= requireReadyState && (timeOk || decodeOk)) {
+          done(true, v);
+        }
       }, 180);
       const to = setTimeout(() => done(false), timeoutMs);
     });

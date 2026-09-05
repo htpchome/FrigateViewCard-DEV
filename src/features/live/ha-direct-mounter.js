@@ -16,17 +16,23 @@ export function createHaDirectMounter({
   getRotateOverlayActive,
   isCurrentEngine,
   waitForStreamStart,
-  attachVideoFit,
   assignCommittedEngine,
+  onCommittedMediaReady,
   applyResolvedStreamUiState,
   setLiveNativeControls,
 }) {
   const scheduleFollowUp = (streamEl, haDirectPlan) => {
     void (async () => {
+      let readyVideo = null;
       const ok = await waitForStreamStart(
         streamEl,
         haDirectPlan.waitMs,
-        haDirectPlan.waitOptions,
+        {
+          ...haDirectPlan.waitOptions,
+          onVideoReady: (video) => {
+            readyVideo = video;
+          },
+        },
       );
       const readyState = resolveHaDirectReadyState({
         rotateOverlayActive: getRotateOverlayActive(),
@@ -34,6 +40,9 @@ export function createHaDirectMounter({
         waitSucceeded: ok,
       });
       if (readyState.shouldApply) {
+        if (readyVideo) {
+          onCommittedMediaReady?.(streamEl, readyVideo);
+        }
         applyResolvedStreamUiState(readyState);
       }
     })();
@@ -86,7 +95,6 @@ export function createHaDirectMounter({
 
     slot.innerHTML = "";
     slot.appendChild(streamEl);
-    attachVideoFit(streamEl);
 
     const engine = streamEl;
     if (!commit) {

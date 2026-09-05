@@ -63,7 +63,8 @@ test("ha direct mounter mounts and schedules follow-up without blocking", async 
         },
       };
       let assignedEngine = null;
-      let attached = 0;
+      const readyVideo = { tagName: "VIDEO" };
+      let committedMedia = null;
       const appliedStates = [];
       let waitCalls = 0;
       const mounter = createHaDirectMounter({
@@ -72,15 +73,16 @@ test("ha direct mounter mounts and schedules follow-up without blocking", async 
         getStreamMuted: () => true,
         getRotateOverlayActive: () => true,
         isCurrentEngine: (streamEl) => assignedEngine === streamEl,
-        waitForStreamStart: async () => {
+        waitForStreamStart: async (_streamEl, _waitMs, options) => {
           waitCalls += 1;
+          options.onVideoReady(readyVideo);
           return true;
-        },
-        attachVideoFit: () => {
-          attached += 1;
         },
         assignCommittedEngine: (engine) => {
           assignedEngine = engine;
+        },
+        onCommittedMediaReady: (engine, video) => {
+          committedMedia = { engine, video };
         },
         applyResolvedStreamUiState: (streamState) => {
           appliedStates.push(streamState);
@@ -98,8 +100,11 @@ test("ha direct mounter mounts and schedules follow-up without blocking", async 
       assert.equal(result?.type, "hls");
       assert.equal(slot.innerHTML, "");
       assert.equal(slot.lastChild, assignedEngine);
-      assert.equal(attached, 1);
       assert.equal(waitCalls, 1);
+      assert.deepEqual(committedMedia, {
+        engine: assignedEngine,
+        video: readyVideo,
+      });
       assert.equal(appliedStates.length >= 1, true);
     });
   });
@@ -114,8 +119,8 @@ test("ha direct mounter applies unavailable state when no camera state exists", 
     getRotateOverlayActive: () => false,
     isCurrentEngine: () => false,
     waitForStreamStart: async () => true,
-    attachVideoFit: () => {},
     assignCommittedEngine: () => {},
+    onCommittedMediaReady: () => {},
     applyResolvedStreamUiState: (streamState) => {
       appliedStates.push(streamState);
     },
