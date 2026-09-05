@@ -416,6 +416,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     right:auto;
     width:calc(var(--rotate-vw,100vw) - max(8px,env(safe-area-inset-left,0px)) - max(8px,env(safe-area-inset-right,0px)));
   }
+  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-video-only-back {display:none !important;}
   .card.card-view-active.card-view-overlay-presentation:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-media-drawer:not(.is-open) .card-view-media-drawer-handle {
     top:auto;bottom:max(8px,env(safe-area-inset-bottom,0px));left:50%;width:56px;height:30px;
     border-left:1px solid var(--fvc-media-overlay-border);border-radius:8px;transform:translateX(-50%);

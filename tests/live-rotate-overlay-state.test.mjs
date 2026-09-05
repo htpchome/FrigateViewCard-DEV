@@ -433,6 +433,31 @@ test("resolveRotateOverlayNativeControlsPlan keeps retry timing and cleanup beha
       retryDelaysMs: [120, 420, 900],
     },
   );
+
+  assert.deepEqual(
+    resolveRotateOverlayNativeControlsPlan({
+      enabled: true,
+      rotateOverlayActive: true,
+      rotateOverlayMode: "live",
+    }),
+    {
+      expectedActive: false,
+      clearAudioSyncFirst: true,
+      clearFullscreenStyleFirst: false,
+      applyFullscreenStyle: true,
+      bindAudioSync: false,
+      retryDelaysMs: [120, 420, 900],
+    },
+  );
+
+  assert.equal(
+    resolveRotateOverlayNativeControlsPlan({
+      enabled: true,
+      rotateOverlayActive: true,
+      rotateOverlayMode: "popup",
+    }).expectedActive,
+    true,
+  );
 });
 
 test("resolveRotateOverlayViewportVariables prefers visual viewport and clamps minimum size", () => {

@@ -5327,10 +5327,20 @@ export class FrigateViewCard extends HTMLElement {
     const controlsPlan = resolveRotateOverlayNativeControlsPlan({
       enabled,
       applyFullscreenStyle,
+      rotateOverlayActive: this._rotateOverlayActive,
+      rotateOverlayMode: this._rotateOverlayMode,
     });
+    const suppressNativeControlsForLiveRotate =
+      enabled && !controlsPlan.expectedActive;
     const expected = controlsPlan.expectedActive;
     const apply = () => {
       if (expected && !this._rotateOverlayActive) return;
+      if (
+        suppressNativeControlsForLiveRotate &&
+        (!this._rotateOverlayActive || this._rotateOverlayMode !== "live")
+      ) {
+        return;
+      }
       const host = this._$("#engine");
       const v =
         this._findVideoDeep(host) ||

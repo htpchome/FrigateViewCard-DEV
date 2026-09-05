@@ -221,14 +221,24 @@ export const resolveRotateOverlayExitPlan = ({ action = "idle" } = {}) => {
 export const resolveRotateOverlayNativeControlsPlan = ({
   enabled = false,
   applyFullscreenStyle = enabled,
-}) => ({
-  expectedActive: Boolean(enabled),
-  clearAudioSyncFirst: !enabled,
-  clearFullscreenStyleFirst: !applyFullscreenStyle,
-  applyFullscreenStyle: Boolean(applyFullscreenStyle),
-  bindAudioSync: Boolean(enabled),
-  retryDelaysMs: [120, 420, 900],
-});
+  rotateOverlayActive = false,
+  rotateOverlayMode = "none",
+}) => {
+  const useCustomLiveControls =
+    rotateOverlayActive && rotateOverlayMode === "live";
+  const expectedActive = Boolean(enabled && !useCustomLiveControls);
+  const shouldApplyFullscreenStyle = Boolean(
+    applyFullscreenStyle || useCustomLiveControls,
+  );
+  return {
+    expectedActive,
+    clearAudioSyncFirst: !expectedActive,
+    clearFullscreenStyleFirst: !shouldApplyFullscreenStyle,
+    applyFullscreenStyle: shouldApplyFullscreenStyle,
+    bindAudioSync: expectedActive,
+    retryDelaysMs: [120, 420, 900],
+  };
+};
 
 export const resolveRotateOverlayViewportVariables = ({
   visualViewport = null,

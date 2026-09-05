@@ -455,6 +455,118 @@ test.describe("touch input", () => {
     });
   });
 
+  test("keeps remounted live video on custom controls throughout rotation", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto(baseUrl);
+    const states = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const surfaces = [
+        { label: "Single View", pageId: "single-view", config: {} },
+        {
+          label: "Mobile View",
+          pageId: "mobile-view",
+          config: { mobile_view_page_enabled: true },
+        },
+        {
+          label: "Card View Bottom Panel",
+          pageId: "card-view",
+          config: {
+            card_view_page_enabled: true,
+            card_view_view_mode: "bottom-panel-open",
+          },
+        },
+        {
+          label: "Card View Video Only",
+          pageId: "card-view",
+          config: {
+            card_view_page_enabled: true,
+            card_view_view_mode: "video-only",
+          },
+        },
+      ];
+
+      const results = [];
+      for (const surface of surfaces) {
+        const card = document.createElement("frigate-view-card");
+        document.body.style.margin = "0";
+        document.body.append(card);
+        card.setConfig({
+          cameras: [{ entity: "camera.front", name: "Front" }],
+          mobile_view_rotate_to_fullscreen: true,
+          ...surface.config,
+        });
+        card._pageId = surface.pageId;
+        card._renderShell();
+
+        const root = card.shadowRoot;
+        const cardRoot = root.querySelector("#card");
+        cardRoot.classList.add("mobile-rotate-live");
+        card._rotateOverlayActive = true;
+        card._rotateOverlayMode = "live";
+
+        const video = document.createElement("video");
+        video.controls = true;
+        video.setAttribute("controls", "");
+        root.querySelector("#engine")?.append(video);
+
+        // Successful remount paths historically request native controls here.
+        card._setLiveNativeControls(true);
+        results.push({
+          label: surface.label,
+          controls: video.controls,
+          controlsAttribute: video.hasAttribute("controls"),
+          playsInline: video.hasAttribute("playsinline"),
+          webkitPlaysInline: video.getAttribute("webkit-playsinline"),
+          backDisplay:
+            surface.label === "Card View Video Only"
+              ? getComputedStyle(
+                  root.querySelector("[data-card-view-video-back]"),
+                ).display
+              : null,
+        });
+        card.remove();
+      }
+      return results;
+    });
+
+    expect(states).toEqual([
+      {
+        label: "Single View",
+        controls: false,
+        controlsAttribute: false,
+        playsInline: true,
+        webkitPlaysInline: "true",
+        backDisplay: null,
+      },
+      {
+        label: "Mobile View",
+        controls: false,
+        controlsAttribute: false,
+        playsInline: true,
+        webkitPlaysInline: "true",
+        backDisplay: null,
+      },
+      {
+        label: "Card View Bottom Panel",
+        controls: false,
+        controlsAttribute: false,
+        playsInline: true,
+        webkitPlaysInline: "true",
+        backDisplay: null,
+      },
+      {
+        label: "Card View Video Only",
+        controls: false,
+        controlsAttribute: false,
+        playsInline: true,
+        webkitPlaysInline: "true",
+        backDisplay: "none",
+      },
+    ]);
+  });
+
   test("spaces the Card View Video Only A/B control between Back and Slideshow", async ({
     page,
   }) => {
