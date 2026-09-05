@@ -69,11 +69,15 @@ test("Card View drawer popup overlays the live footprint with focused controls",
   );
   assert.match(
     STYLES,
-    /\.popup-card-view-actions \{[\s\S]*?top:50%;left:7px;[\s\S]*?flex-direction:column;/,
+    /\.popup-card-view-actions \{[\s\S]*?top:50%;left:7px;[\s\S]*?flex-direction:column;[\s\S]*?opacity:0;pointer-events:none;/,
   );
   assert.match(
     STYLES,
-    /popup-card-view-controls-hidden \.popup-card-view-actions \{opacity:0;pointer-events:none;\}/,
+    /popup-content--card-view-drawer #viewer\.popup-controls-visible ~ \.popup-card-view-actions \{opacity:1;pointer-events:auto;\}/,
+  );
+  assert.match(
+    STYLES,
+    /popup-content--card-view-drawer #viewer:hover ~ \.popup-card-view-actions,[\s\S]*?\.popup-card-view-actions:hover,[\s\S]*?\.popup-card-view-actions:focus-within \{opacity:1;pointer-events:auto;\}/,
   );
   assert.match(
     STYLES,

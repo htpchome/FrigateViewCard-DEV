@@ -1235,7 +1235,7 @@ export const STYLES = `
   }
   .popup-card-view-actions {
     position:absolute;z-index:15;top:50%;left:7px;display:flex;flex-direction:column;gap:5px;transform:translateY(-50%);
-    transition:opacity .18s ease;
+    opacity:0;pointer-events:none;transition:opacity .18s ease;
   }
   .popup-card-view-actions .popup-action {
     width:34px;height:34px;min-width:34px;min-height:34px;padding:4px;border:1px solid var(--fvc-media-overlay-border);border-radius:7px;
@@ -1258,8 +1258,11 @@ export const STYLES = `
   }
   .popup-content.popup-content--card-view-drawer .popup-media-controls.is-hidden {opacity:0;pointer-events:none;}
   .card:not(.mobile-rotate-popup):not(.mobile-rotate-popup-exit) .popup-content.popup-content--card-view-drawer .popup-media-controls.mobile-tablet-layout.is-hidden {opacity:0;pointer-events:none;}
-  .popup-content.popup-content--card-view-drawer.popup-card-view-controls-hidden .popup-card-view-actions {opacity:0;pointer-events:none;}
+  .popup-content.popup-content--card-view-drawer #viewer.popup-controls-visible ~ .popup-card-view-actions {opacity:1;pointer-events:auto;}
   @media (hover:hover) and (pointer:fine) {
+    .popup-content.popup-content--card-view-drawer #viewer:hover ~ .popup-card-view-actions,
+    .popup-content.popup-content--card-view-drawer .popup-card-view-actions:hover,
+    .popup-content.popup-content--card-view-drawer .popup-card-view-actions:focus-within {opacity:1;pointer-events:auto;}
     .popup-content.popup-content--card-view-drawer :is(.close-btn,.popup-action):hover {
       color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
     }

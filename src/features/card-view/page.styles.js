@@ -39,6 +39,9 @@ export const CARD_VIEW_PAGE_STYLES = `
     position:absolute;right:1px;bottom:1px;display:grid;place-items:center;min-width:10px;height:10px;padding:0 1px;border-radius:999px;
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-strong);font-size:.5rem;font-weight:800;line-height:1;
   }
+  .card.card-view-active.card-view-video-panel-only #eng-wrap.camera-group-live.camera-group-live--side-by-side .camera-group-pane-controls {
+    top:auto;bottom:48px;transform:none;
+  }
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back:hover {
       background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);

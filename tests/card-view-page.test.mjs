@@ -187,6 +187,13 @@ test("grouped desktop controls are centered per pane", () => {
   );
 });
 
+test("Card View Video Only moves side-by-side A/B controls below the video frames", () => {
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only #eng-wrap\.camera-group-live\.camera-group-live--side-by-side \.camera-group-pane-controls \{\s*top:auto;bottom:48px;transform:none;/,
+  );
+});
+
 test("Card View Video Only sizes and aligns the phone A/B control beside Back", () => {
   assert.match(
     CARD_VIEW_PAGE_STYLES,
