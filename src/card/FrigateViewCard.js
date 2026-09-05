@@ -304,6 +304,7 @@ import {
   startGo2RtcTwoWayTalkSession,
   startHaDirectTwoWayTalkSession,
 } from "../features/two-way-talk/session.js";
+import { createGo2RtcTwoWayTalkBackchannel } from "../features/two-way-talk/go2rtc-backchannel.js";
 import {
   buildTwoWayTalkSoundwaveMarkup,
   TwoWayTalkSoundwaveController,
@@ -474,6 +475,11 @@ export class FrigateViewCard extends HTMLElement {
       },
       supportsNativeHlsPlayback: () => this._supportsNativeHlsPlayback(),
     });
+    this._go2rtcTwoWayTalkBackchannel =
+      createGo2RtcTwoWayTalkBackchannel({
+        resolveWebSocketUrl: (entity) =>
+          this._go2rtcResolver.websocketUrlForEntity(entity),
+      });
     this._go2rtcMounter = createGo2RtcMounter({
       resolver: this._go2rtcResolver,
       getStreamMuted: () => this._streamMuted,
@@ -4811,7 +4817,7 @@ export class FrigateViewCard extends HTMLElement {
     const entity = String(this._activeCam?.entity || "").trim();
     if (!entity || !this._activeCameraTwoWayTalkEnabled()) return;
     const useGo2Rtc = this._shouldUseGo2RtcForEntity(entity);
-    let talkMountAttempted = false;
+    let liveReplacementAttempted = false;
     let endedDuringStart = false;
     this._twoWayTalkStarting = true;
     this._syncTwoWayTalkButton();
@@ -4834,7 +4840,14 @@ export class FrigateViewCard extends HTMLElement {
         ) {
           return null;
         }
-        talkMountAttempted = true;
+        if (useGo2Rtc) {
+          return await this._go2rtcTwoWayTalkBackchannel.connect({
+            entity,
+            microphoneStream: localStream,
+            onEnded,
+          });
+        }
+        liveReplacementAttempted = true;
         const mounted = await this._mountEngine("webrtc", {
           twoWayTalkOptions: {
             microphoneStream: localStream,
@@ -4880,7 +4893,7 @@ export class FrigateViewCard extends HTMLElement {
       this._twoWayTalkEntity = "";
       this._setTwoWayTalkLiveAudioActive(false);
       if (
-        talkMountAttempted &&
+        liveReplacementAttempted &&
         String(this._activeCam?.entity || "").trim() === entity &&
         this._viewMode !== "grid" &&
         !this._isPreviewPageActive()
@@ -4903,6 +4916,7 @@ export class FrigateViewCard extends HTMLElement {
   async _stopTwoWayTalkSession({ restoreLive = true } = {}) {
     const session = this._twoWayTalkSession;
     const sessionEntity = this._twoWayTalkEntity;
+    const restoreReplacedLive = session?.restoreLiveOnStop !== false;
     this._twoWayTalkSoundwaveController?.stop();
     this._twoWayTalkSession = null;
     this._twoWayTalkEntity = "";
@@ -4919,6 +4933,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     if (
       restoreLive &&
+      restoreReplacedLive &&
       sessionEntity &&
       String(this._activeCam?.entity || "").trim() === sessionEntity &&
       this._viewMode !== "grid" &&

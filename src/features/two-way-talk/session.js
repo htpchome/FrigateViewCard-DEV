@@ -22,6 +22,7 @@ async function startMountedTwoWayTalkSession({
   type,
   mountMicrophoneStream,
   onEnded,
+  restoreLiveOnStop = true,
 }) {
   if (typeof mountMicrophoneStream !== "function") {
     throw new Error(`Missing ${type} two-way talk mount handler`);
@@ -73,6 +74,7 @@ async function startMountedTwoWayTalkSession({
 
   return {
     type,
+    restoreLiveOnStop,
     stop,
     setMicrophoneMuted,
     engine,
@@ -91,6 +93,7 @@ export async function startGo2RtcTwoWayTalkSession({
     type: "frigate_go2rtc",
     mountMicrophoneStream,
     onEnded,
+    restoreLiveOnStop: false,
   });
 }
 

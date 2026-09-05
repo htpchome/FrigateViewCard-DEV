@@ -71,6 +71,7 @@ test("go2rtc two-way talk captures default browser audio and owns its mounted en
     assert.equal(mountedOptions.localStream, stream);
     assert.equal(typeof mountedOptions.onEnded, "function");
     assert.equal(session.type, "frigate_go2rtc");
+    assert.equal(session.restoreLiveOnStop, false);
     assert.equal(session.engine, engine);
     assert.equal(session.microphoneMuted, false);
 
@@ -104,6 +105,7 @@ test("ha-direct two-way talk remains an explicit mounted transport session", asy
     });
 
     assert.equal(session.type, "ha_direct");
+    assert.equal(session.restoreLiveOnStop, true);
     assert.equal(session.engine, engine);
   });
 });
