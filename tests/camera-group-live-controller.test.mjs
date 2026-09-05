@@ -208,6 +208,25 @@ test("A/B audio selection keeps exactly one pane audible and follows mute", () =
   assert.equal(secondaryVideo.muted, true);
 });
 
+test("group resize zoom keeps the secondary camera synchronized", () => {
+  const { host, mounts, secondaryVideo } = createHost();
+  const zoomScales = [];
+  const controller = new CameraGroupLiveController(host, {
+    attachZoom: () => ({
+      dispose() {},
+      zoomToCenter: (scale) => zoomScales.push(scale),
+    }),
+  });
+
+  controller.sync();
+  assert.equal(controller.setResizeZoomScale(1.4), true);
+  mounts[0][1].onLiveReady({ video: secondaryVideo });
+  assert.deepEqual(zoomScales, [1.4]);
+
+  controller.setResizeZoomScale(1.25);
+  assert.deepEqual(zoomScales, [1.4, 1.25]);
+});
+
 test("pane focus expands one member, takes audio, and does not remount", () => {
   const { host, mounts, primaryVideo, secondaryVideo, wrap } = createHost();
   const controller = new CameraGroupLiveController(host, {

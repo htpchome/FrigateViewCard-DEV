@@ -1205,6 +1205,7 @@ export class FrigateViewCard extends HTMLElement {
       onInteractionStart: () => this._pauseSlideshowForInteraction(),
       onZoomScaleChange: (scale) => {
         this._liveVideoZoomController?.zoomToCenter?.(scale);
+        this._cameraGroupLiveController?.setResizeZoomScale?.(scale);
       },
       getMediaDimensions: (video) => {
         if (!this._cameraGroupLiveController?.isActive?.()) return null;

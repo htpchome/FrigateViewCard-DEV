@@ -21,12 +21,14 @@ const GROUP_CLASS_NAMES = [
 ];
 
 export class CameraGroupLiveController {
-  constructor(host, { icons = {} } = {}) {
+  constructor(host, { icons = {}, attachZoom = attachVideoZoom } = {}) {
     this._host = host;
     this._icons = icons;
+    this._attachZoom = attachZoom;
     this._mediaState = null;
     this._signature = "";
     this._secondaryZoom = null;
+    this._resizeZoomScale = 1;
     this._activeAudioMember = "A";
     this._focusedMember = "";
   }
@@ -234,6 +236,20 @@ export class CameraGroupLiveController {
     return true;
   }
 
+  setResizeZoomScale(scale = 1) {
+    if (!this.isActive()) {
+      this._resizeZoomScale = 1;
+      return false;
+    }
+    const numericScale = Number(scale);
+    this._resizeZoomScale =
+      Number.isFinite(numericScale) && numericScale > 0
+        ? Math.max(1, numericScale)
+        : 1;
+    this._secondaryZoom?.zoomToCenter?.(this._resizeZoomScale);
+    return true;
+  }
+
   syncAudio() {
     const active = this.isActive() ? this._activeAudioMember : "A";
     const muted = this._host._streamMuted === true;
@@ -355,7 +371,10 @@ export class CameraGroupLiveController {
     }
     this._mediaState = null;
     this._signature = "";
-    if (resetFocus) this._focusedMember = "";
+    if (resetFocus) {
+      this._focusedMember = "";
+      this._resizeZoomScale = 1;
+    }
     const target = this._host._$("#camera-group-secondary-engine");
     if (target) target.innerHTML = "";
     this._host
@@ -417,10 +436,11 @@ export class CameraGroupLiveController {
       null;
     if (video) {
       this._secondaryZoom?.dispose?.();
-      this._secondaryZoom = attachVideoZoom(video, {
+      this._secondaryZoom = this._attachZoom(video, {
         onInteractionStart: () =>
           this._host._dismissLinkedLightDimmers?.(),
       });
+      this._secondaryZoom?.zoomToCenter?.(this._resizeZoomScale);
       this._mediaState.cleanup.push(() => {
         this._secondaryZoom?.dispose?.();
         this._secondaryZoom = null;
