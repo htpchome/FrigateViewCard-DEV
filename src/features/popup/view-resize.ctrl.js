@@ -199,7 +199,14 @@ export class PopupViewResizeController {
     for (const [eventName, listener] of Object.entries(gripListeners)) {
       this._cleanup.addEventListener(this._grip, eventName, listener);
     }
-    for (const eventName of ["loadedmetadata", "resize", "load"]) {
+    for (const eventName of [
+      "loadedmetadata",
+      "loadeddata",
+      "canplay",
+      "playing",
+      "resize",
+      "load",
+    ]) {
       this._cleanup.addEventListener(
         this._media,
         eventName,

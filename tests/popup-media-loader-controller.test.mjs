@@ -71,6 +71,12 @@ test("popup media sizing keeps the viewer and custom controls at one width", () 
   assert.equal(classes.has("popup-media-ratio-ready"), true);
   assert.equal(classes.has("popup-media-height-capped"), false);
 
+  media.videoWidth = 16;
+  media.videoHeight = 9;
+  listeners.get("loadeddata")();
+  assert.equal(values.get("--popup-media-aspect-ratio"), "16 / 9");
+  assert.equal(values.get("--popup-media-max-width"), "124.444dvh");
+
   media.videoWidth = 9;
   media.videoHeight = 16;
   listeners.get("resize")();
