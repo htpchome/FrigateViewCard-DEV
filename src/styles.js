@@ -651,6 +651,8 @@ export const STYLES = `
   .popup-body:-webkit-full-screen #popup-media-controls{position:absolute;left:0;right:0;bottom:0;width:100%;max-width:none;margin:0;align-self:auto;}
   .viewer{width:min(100%,var(--popup-media-max-width,124.444dvh));aspect-ratio:var(--popup-media-aspect-ratio,16/9);min-height:0;max-height:70dvh;align-self:center;flex:0 0 auto;
     background:var(--c-bg-deep);display:flex;align-items:center;justify-content:center;z-index:2;position:relative;overflow:hidden;border-radius:7px 7px 0 0;}
+  .card:not(.mobile-rotate-popup):not(.mobile-rotate-popup-exit) .viewer.popup-media-mobile-fixed-stage:not(.popup-media-resized){width:100%;max-width:124.444dvh;height:auto;aspect-ratio:16/9;}
+  .viewer.popup-media-mobile-fixed-stage video,.viewer.popup-media-mobile-fixed-stage img.snap{object-fit:contain !important;object-position:center center;}
   .viewer video,.viewer img.snap{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;
     background:var(--c-bg-deep);}
   .viewer.popup-media-loading video{visibility:hidden;}

@@ -19,6 +19,17 @@ test("popup body scrolls instead of shrinking its content sections", () => {
   assert.match(STYLES, /\.popup-body > \* \{flex-shrink:0;\}/);
 });
 
+test("normal mobile popup stage uses its padded width without affecting rotation", () => {
+  assert.match(
+    STYLES,
+    /\.card:not\(\.mobile-rotate-popup\):not\(\.mobile-rotate-popup-exit\) \.viewer\.popup-media-mobile-fixed-stage:not\(\.popup-media-resized\)\{width:100%;max-width:124\.444dvh;height:auto;aspect-ratio:16\/9;\}/,
+  );
+  assert.match(
+    STYLES,
+    /\.viewer\.popup-media-mobile-fixed-stage video,\.viewer\.popup-media-mobile-fixed-stage img\.snap\{object-fit:contain !important;object-position:center center;\}/,
+  );
+});
+
 test("popup shell uses precomputed anchor geometry without metadata resizing", () => {
   assert.match(
     STYLES,

@@ -277,6 +277,11 @@ export class PopupMediaLoaderController {
       playing: playingId ? { id: playingId } : null,
     });
     const viewer = this._host._$("#viewer");
+    const mobileFixedStage = this._usesMobileFixedPopupStage();
+    viewer.classList?.toggle?.(
+      "popup-media-mobile-fixed-stage",
+      mobileFixedStage,
+    );
     viewer.innerHTML = "";
     if (renderPlan.shouldAppendMediaElement) {
       viewer.appendChild(mediaElement);
@@ -316,6 +321,7 @@ export class PopupMediaLoaderController {
       viewResize?.controller?.dispose?.();
       clearMediaSizing();
       clearVideoReadiness();
+      viewer.classList?.remove?.("popup-media-mobile-fixed-stage");
       if (guardedMediaError) {
         displayedMedia?.removeEventListener?.("error", guardedMediaError);
       }
