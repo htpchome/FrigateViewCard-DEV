@@ -9,6 +9,7 @@ import {
 } from "../../shared/media/url-utils.js";
 import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-capture.js";
 import { isIOS } from "../../helpers.js";
+import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 import {
   buildPopupClipRenderPlan,
   buildPopupCarouselSelectionPlan,
@@ -40,6 +41,17 @@ const RECORDING_HLS_JS_INTEGRITY =
 
 export const resolveRecordingHlsJsUrl = (moduleUrl = import.meta.url) =>
   new URL(`./${RECORDING_HLS_JS_FILENAME}`, moduleUrl).href;
+
+export const shouldContainPopupVideoAtRest = ({
+  pageId = "",
+  isMobileTabletViewport = false,
+  mediaTagName = "",
+} = {}) => {
+  if (!isMobileTabletViewport) return false;
+  if (String(mediaTagName).toLowerCase() !== "video") return false;
+  const route = normalizePageRoute(pageId);
+  return route === PAGE_IDS.singleView || route === PAGE_IDS.mobileView;
+};
 
 export const resolvePopupMediaSizing = (media = null) => {
   const { width, height } = resolveDisplayedFrameDimensions(media);
@@ -164,6 +176,16 @@ export class PopupMediaLoaderController {
 
   _bindViewResize({ viewer, media, controls = null }) {
     if (!viewer || !media) return null;
+    const containVideoAtRest = shouldContainPopupVideoAtRest({
+      pageId: this._host._pageId,
+      isMobileTabletViewport:
+        this._deps.isMobileTabletViewport?.() === true,
+      mediaTagName: media.tagName,
+    });
+    viewer.classList?.toggle?.(
+      "popup-video-contain-at-rest",
+      containVideoAtRest,
+    );
     const zoomController =
       this._host._attachPopupVideoZoom?.(media) || null;
     const grip = this._deps.createPopupViewResizeGrip?.();

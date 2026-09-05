@@ -337,6 +337,12 @@ test("popup media keeps native cover fit before and during resize", () => {
     ),
     true,
   );
+  assert.equal(
+    STYLES.includes(
+      ".viewer.popup-video-contain-at-rest:not(.popup-media-resized) video{object-fit:contain !important;object-position:center center !important;}",
+    ),
+    true,
+  );
 });
 
 test("ultra-tall popup media starts at 4:3 and can still be pulled down", () => {
