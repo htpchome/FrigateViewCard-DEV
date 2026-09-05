@@ -1,4 +1,4 @@
-export const VERSION = "1.1.5-dev.52";
+export const VERSION = "1.1.5-dev.53";
 
 export const CARD_TAG = "frigate-view-card";
 export const DEFAULT_TITLE = "FrigateView";

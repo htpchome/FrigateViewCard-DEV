@@ -2686,9 +2686,7 @@ export class FrigateViewCard extends HTMLElement {
         abortSignal.addEventListener("abort", onAbort, { once: true });
       }
       const tick = setInterval(() => {
-        const v =
-          streamEl.querySelector("video") ||
-          streamEl.shadowRoot?.querySelector("video");
+        const v = this._findVideoDeep(streamEl);
         if (!v) return;
         if (!frameCallbackBound && v.requestVideoFrameCallback) {
           frameCallbackBound = true;
@@ -6765,14 +6763,18 @@ export class FrigateViewCard extends HTMLElement {
     const direct = root.querySelector?.("video");
     if (direct) return direct;
 
+    if (root.shadowRoot) {
+      const shadowVideo = this._findVideoDeep(
+        root.shadowRoot,
+        maxDepth - 1,
+      );
+      if (shadowVideo) return shadowVideo;
+    }
+
     const kids = root.children ? Array.from(root.children) : [];
     for (const k of kids) {
       const v = this._findVideoDeep(k, maxDepth - 1);
       if (v) return v;
-      if (k.shadowRoot) {
-        const sv = this._findVideoDeep(k.shadowRoot, maxDepth - 1);
-        if (sv) return sv;
-      }
     }
 
     return null;

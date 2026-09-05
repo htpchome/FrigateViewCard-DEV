@@ -46,21 +46,37 @@ globalThis.HTMLImageElement = globalThis.HTMLImageElement || class {};
 
 const { FrigateViewCard } = await import("../src/card/FrigateViewCard.js");
 
-test("stream readiness reports the video element it already discovered", async () => {
+test("stream readiness reports a video inside nested shadow roots", async () => {
   const video = {
     addEventListener() {},
     currentTime: 0.25,
     readyState: 2,
     webkitDecodedFrameCount: 1,
   };
-  const streamEl = {
+  const playerShadowRoot = {
+    children: [],
     querySelector: (selector) => (selector === "video" ? video : null),
-    shadowRoot: null,
+  };
+  const player = {
+    children: [],
+    querySelector: () => null,
+    shadowRoot: playerShadowRoot,
+  };
+  const streamShadowRoot = {
+    children: [player],
+    querySelector: () => null,
+  };
+  const streamEl = {
+    children: [],
+    querySelector: () => null,
+    shadowRoot: streamShadowRoot,
   };
   let readyVideo = null;
 
   const started = await FrigateViewCard.prototype._waitForStreamStart.call(
-    {},
+    {
+      _findVideoDeep: FrigateViewCard.prototype._findVideoDeep,
+    },
     streamEl,
     500,
     {
