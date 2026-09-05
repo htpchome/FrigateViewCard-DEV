@@ -219,6 +219,27 @@ export const buildEditorChoiceChipsMarkup = ({
   </div>`;
 };
 
+const buildEditorBubbleSelectorMarkup = ({
+  name,
+  options,
+  selectedValue,
+}) => {
+  const selected = String(selectedValue ?? "");
+  const safeName = escapeEditorChoiceMarkup(name);
+  return `<div class="theme-scope-seg card-view-start-seg general-duration-seg">
+    ${options
+      .map(({ value, label, disabled = false }) => {
+        const safeValue = escapeEditorChoiceMarkup(value);
+        const safeLabel = escapeEditorChoiceMarkup(label);
+        return `<label class="theme-scope-opt card-view-start-opt">
+          <input class="card-view-start-input" type="radio" name="${safeName}" value="${safeValue}" ${String(value) === selected ? "checked" : ""} ${disabled ? "disabled" : ""}>
+          <span>${safeLabel}</span>
+        </label>`;
+      })
+      .join("")}
+  </div>`;
+};
+
 export class FrigateViewCardEditor extends HTMLElement {
   connectedCallback() {
     this._requestHomeAssistantDirtyStateContext();
@@ -2710,6 +2731,14 @@ export class FrigateViewCardEditor extends HTMLElement {
       </div>`;
 
     const generalPanelContent = `
+      <div class="card-version-status" id="card-version-status" data-update-status="unavailable">
+        <ha-icon icon="mdi:package-variant-closed-check" aria-hidden="true"></ha-icon>
+        <div class="card-version-copy">
+          <strong>FrigateView Card</strong>
+          <span>Version v${escapeHtml(VERSION)} <span aria-hidden="true">•</span> <span id="card-version-update-status" role="status" aria-live="polite">Update status unavailable</span></span>
+        </div>
+        <button class="card-version-update-link" id="card-version-update-link" type="button" hidden>Open update</button>
+      </div>
       <div class="text-display-row">
         <ha-input label="Title" name="title" id="title" type="text" value="${escapeHtmlAttribute(this._config?.title || DEFAULT_TITLE)}" placeholder="${escapeHtmlAttribute(DEFAULT_TITLE)}"></ha-input>
         <label class="text-display-checkbox"><input id="display_title" type="checkbox" ${this._config?.display_title !== false ? "checked" : ""}> <span>Display</span></label>
@@ -2755,7 +2784,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
           <div class="editor-choice-field editor-choice-field--fit" id="realtime_poll_seconds" role="radiogroup" aria-label="Realtime Update Poll">
             <div class="field-label">Realtime Update Poll</div>
-            ${buildEditorChoiceChipsMarkup({
+            ${buildEditorBubbleSelectorMarkup({
               name: "realtime_poll_seconds",
               options: durationEditorChoices(REALTIME_POLL_OPTIONS_SECONDS),
               selectedValue: realtimePollSeconds,
@@ -2767,7 +2796,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div id="snapshot_update_row" style="min-width:210px;display:flex;flex-direction:column;gap:6px;width:100%">
             <div class="editor-choice-field" id="snapshot_update_seconds" role="radiogroup" aria-label="Snapshot Update Frequency">
               <div class="field-label">Snapshot Update Frequency</div>
-              ${buildEditorChoiceChipsMarkup({
+              ${buildEditorBubbleSelectorMarkup({
                 name: "snapshot_update_seconds",
                 options: durationEditorChoices(
                   SNAPSHOT_UPDATE_OPTIONS_SECONDS,
@@ -2782,7 +2811,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div id="preview_alert_live_duration_row" style="min-width:210px;display:flex;flex-direction:column;gap:6px;width:100%">
             <div class="editor-choice-field" id="preview_page_alert_live_duration_seconds" role="radiogroup" aria-label="Alert Camera Live Duration">
               <div class="field-label">Alert Camera Live Duration</div>
-              ${buildEditorChoiceChipsMarkup({
+              ${buildEditorBubbleSelectorMarkup({
                 name: "preview_page_alert_live_duration_seconds",
                 options: durationEditorChoices(
                   PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
@@ -2803,14 +2832,6 @@ export class FrigateViewCardEditor extends HTMLElement {
           </span>
         </div>
         <div class="field-helper timezone-helper">Timezones are determined by the Home Assistant User Profile Timezone Setting. The setting can be adjusted in the user's <a href="/profile/general" target="_blank" rel="noopener noreferrer">Home Assistant Profile</a>.</div>
-      </div>
-      <div class="card-version-status" id="card-version-status" data-update-status="unavailable">
-        <ha-icon icon="mdi:package-variant-closed-check" aria-hidden="true"></ha-icon>
-        <div class="card-version-copy">
-          <strong>FrigateView Card</strong>
-          <span>Version v${escapeHtml(VERSION)} <span aria-hidden="true">•</span> <span id="card-version-update-status" role="status" aria-live="polite">Update status unavailable</span></span>
-        </div>
-        <button class="card-version-update-link" id="card-version-update-link" type="button" hidden>Open update</button>
       </div>`;
 
     const themePanelContent = `
@@ -3340,7 +3361,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             .standalone-mobile-note{box-sizing:border-box;width:100%;margin-top:8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 42%,var(--editor-card-bg));color:var(--c-primary-d, var(--editor-text));font-weight:650;line-height:1.3;}
             .config-save-reminder[hidden]{display:none;}
             .config-save-reminder ha-icon{--mdc-icon-size:17px;flex:0 0 auto;}
-            .card-version-status{box-sizing:border-box;width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-text));font-size:12px;line-height:1.3;cursor:default;}
+            .card-version-status{box-sizing:border-box;width:100%;display:flex;align-items:center;gap:9px;margin-bottom:12px;padding:9px 11px;border-radius:10px;background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-text));font-size:12px;line-height:1.3;cursor:default;}
             .card-version-status > ha-icon{--mdc-icon-size:20px;flex:0 0 auto;}
             .card-version-copy{display:flex;min-width:0;flex:1 1 auto;flex-direction:column;gap:1px;}
             .card-version-update-link{appearance:none;flex:0 0 auto;padding:2px 0;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
@@ -3402,7 +3423,6 @@ export class FrigateViewCardEditor extends HTMLElement {
             .editor-choice-field--fit{flex:1 1 420px;max-width:560px;}
             .editor-choice-field .field-label{margin:0 0 8px;}
             .editor-choice-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;width:100%;min-width:0;}
-            #realtime_poll_seconds .editor-choice-chips{grid-template-columns:repeat(3,minmax(0,1fr));}
             .editor-choice-field--single-row .editor-choice-chips{grid-template-columns:repeat(4,minmax(0,1fr));}
             .editor-choice-chips--compact{display:flex;width:auto;gap:6px;}
             .editor-choice-chips--detailed{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}
@@ -3557,6 +3577,8 @@ export class FrigateViewCardEditor extends HTMLElement {
             @media (hover:hover){.theme-scope-opt:not(.active):hover{background:color-mix(in srgb,var(--c-bg-primary, var(--editor-card-bg)) 66%,transparent);color:var(--c-text, var(--editor-text));}}
             .card-view-start-seg{width:min(100%,280px);margin:0;padding:3px;gap:2px;}
             .card-view-mode-seg{width:min(100%,430px);}
+            .general-duration-seg{width:min(100%,560px);grid-template-columns:repeat(6,minmax(0,1fr));}
+            .general-duration-seg .card-view-start-opt{padding-inline:4px;white-space:nowrap;}
             .card-view-start-opt{position:relative;min-height:32px;padding:5px 9px;flex-direction:row;font-size:11px;}
             .card-view-start-input{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
             .card-view-start-opt:has(.card-view-start-input:checked){background:var(--c-bg-primary, var(--editor-card-bg));color:var(--c-primary, var(--editor-primary));box-shadow:0 2px 8px rgba(0,0,0,.16),inset 0 0 0 1px color-mix(in srgb,var(--c-primary, var(--editor-primary)) 26%,transparent);}

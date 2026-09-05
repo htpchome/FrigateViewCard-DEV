@@ -295,7 +295,7 @@ test("realtime polling offers slower choices and Battery Saver uses one minute",
   );
   assert.match(
     editorSource,
-    /#realtime_poll_seconds \.editor-choice-chips\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\);\}/,
+    /\.general-duration-seg\{width:min\(100%,560px\);grid-template-columns:repeat\(6,minmax\(0,1fr\)\);\}/,
   );
 });
 
@@ -2261,6 +2261,18 @@ test("editor presents general, layout, and Mobile View controls in their request
       layoutSource.indexOf('id="display_logo"'),
   );
   assert.match(generalSource, /id="card-version-status"/);
+  assert.ok(
+    generalSource.indexOf('id="card-version-status"') <
+      generalSource.indexOf('id="title"'),
+  );
+  assert.equal(
+    (generalSource.match(/buildEditorBubbleSelectorMarkup\(\{/g) || []).length,
+    3,
+  );
+  assert.doesNotMatch(
+    generalSource,
+    /name="(?:realtime_poll_seconds|snapshot_update_seconds|preview_page_alert_live_duration_seconds)"[\s\S]*?editor-choice-chip-body/,
+  );
   assert.match(mobileSource, /id="mobile_poll_battery_saver"/);
   const mobilePageIndex = mobileSource.indexOf(
     'id="mobile_view_page_enabled"',
