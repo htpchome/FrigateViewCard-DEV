@@ -5296,12 +5296,12 @@ export class FrigateViewCard extends HTMLElement {
       this._rotateStyledVideoCssText = video.getAttribute("style") || "";
     }
     const card = this._$("#card");
-    const useStageViewport =
-      this.classList?.contains?.(MOBILE_VIEW_ROTATE_COVER_CLASS) &&
+    const forceMobileViewViewportCover =
+      card?.classList?.contains("mobile-view-active") &&
       (card.classList.contains("mobile-rotate-live") ||
         card.classList.contains("mobile-rotate-live-exit"));
     const videoStyles = resolveRotateOverlayVideoStyles({
-      useStageViewport,
+      useStageViewport: forceMobileViewViewportCover,
       visualViewport: window.visualViewport,
       innerWidth: window.innerWidth,
       innerHeight: window.innerHeight,

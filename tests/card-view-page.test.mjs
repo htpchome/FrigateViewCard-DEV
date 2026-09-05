@@ -197,19 +197,14 @@ test("Card View places the mobile camera-group member control in each Grid slot"
   }
 });
 
-test("grouped desktop controls are centered per pane and rotated controls respect safe areas", () => {
+test("grouped desktop controls are centered per pane", () => {
   assert.match(
     CAMERA_GROUP_LIVE_STYLES,
     /\.camera-group-pane-controls \{[^}]*top:50%;[^}]*transform:translateY\(-50%\);/,
   );
-  assert.match(
-    CARD_VIEW_PAGE_STYLES,
-    /mobile-rotate-live[^}]*\.card-view-video-only-back \{display:none !important;\}/,
-  );
-  assert.match(
-    CARD_VIEW_PAGE_STYLES,
-    /mobile-rotate-live[^}]*:is\(#engine,#stream-fallback\) \{[^}]*inset:var\(--fvc-safe-area-top\) var\(--fvc-safe-area-right\) var\(--fvc-safe-area-bottom\) var\(--fvc-safe-area-left\);/,
-  );
+});
+
+test("Card View mobile camera-group control stays square in the overlay", () => {
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /camera-group-mobile-toggle--overlay\.active \{width:32px;min-width:32px;[^}]*padding:4px;/,

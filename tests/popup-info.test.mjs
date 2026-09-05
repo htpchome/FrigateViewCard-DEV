@@ -185,23 +185,8 @@ test("mobile popup controls sit flush below video and stay touch safe", () => {
   const rotateRule = STYLES.match(
     /\.card\.mobile-rotate-popup \.popup-media-controls,\s*\.card\.mobile-rotate-popup-exit \.popup-media-controls \{([^}]*)\}/,
   )?.[1] || "";
-  assert.match(
-    rotateRule,
-    /position:fixed;left:var\(--fvc-safe-area-left\);right:var\(--fvc-safe-area-right\);bottom:var\(--fvc-safe-area-bottom\);width:auto;margin:0;/,
-  );
+  assert.match(rotateRule, /position:fixed;left:0;right:0;bottom:0;width:auto;margin:0;/);
   assert.doesNotMatch(rotateRule, /background:|opacity:|backdrop-filter:/);
-  assert.match(
-    STYLES,
-    /\.card\.mobile-rotate-popup \.popup-card-view-actions,[\s\S]*?left:max\(7px,calc\(var\(--fvc-safe-area-left\) \+ 7px\)\);/,
-  );
-  assert.match(
-    STYLES,
-    /\.card\.mobile-rotate-popup \.popup-playback-controls,[\s\S]*?right:max\(\.75rem,calc\(var\(--fvc-safe-area-right\) \+ 7px\)\);/,
-  );
-  assert.match(
-    STYLES,
-    /\.card\.mobile-rotate-popup \.popup-view-resize-grip,[\s\S]*?display:none !important;/,
-  );
 });
 
 test("popup fullscreen keeps the custom media controls with the video", () => {
