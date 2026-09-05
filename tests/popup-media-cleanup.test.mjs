@@ -193,6 +193,26 @@ test("two-way talk active state unmutes live audio and inactive state remutes it
   ]);
 });
 
+test("live mute state also controls isolated HA-direct incoming audio", () => {
+  const mutedStates = [];
+  const ctx = {
+    _streamMuted: false,
+    _engine: null,
+    _twoWayTalkSession: {
+      engine: {
+        setIncomingAudioMuted(muted) {
+          mutedStates.push(muted);
+        },
+      },
+    },
+  };
+
+  FrigateViewCard.prototype._setLiveMuted.call(ctx, true);
+  FrigateViewCard.prototype._setLiveMuted.call(ctx, false);
+
+  assert.deepEqual(mutedStates, [true, false]);
+});
+
 test("live mute controls only pause and resume incoming two-way-talk audio", () => {
   const calls = [];
   const session = {

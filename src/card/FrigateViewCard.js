@@ -538,6 +538,12 @@ export class FrigateViewCard extends HTMLElement {
     this._haDirectTwoWayTalkBackchannel =
       createHaDirectTwoWayTalkBackchannel({
         getHass: () => this._hass,
+        mountIncomingAudio: (audio) => {
+          if (!audio || !this.shadowRoot) return null;
+          audio.dataset.fvcTwoWayTalkAudio = "";
+          this.shadowRoot.appendChild(audio);
+          return () => audio.remove?.();
+        },
       });
     this._go2rtcRaceMounter = createGo2RtcRaceMounter({
       mounter: this._go2rtcMounter,
@@ -6168,6 +6174,9 @@ export class FrigateViewCard extends HTMLElement {
 
   _setLiveMuted(muted) {
     this._streamMuted = !!muted;
+    this._twoWayTalkSession?.engine?.setIncomingAudioMuted?.(
+      this._streamMuted,
+    );
     const eng = this._engine;
     if (!eng) return;
 

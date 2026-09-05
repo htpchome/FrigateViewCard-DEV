@@ -20,10 +20,26 @@ const normalizeError = (error, fallbackMessage) => {
   return error instanceof Error ? error : new Error(fallbackMessage);
 };
 
+const configureIncomingAudio = (audio) => {
+  if (!audio) return null;
+  audio.autoplay = true;
+  audio.controls = false;
+  audio.muted = false;
+  audio.defaultMuted = false;
+  audio.volume = 1;
+  audio.setAttribute?.("playsinline", "");
+  audio.setAttribute?.("webkit-playsinline", "");
+  audio.setAttribute?.("aria-hidden", "true");
+  return audio;
+};
+
 export function createHaDirectTwoWayTalkBackchannel({
   getHass,
   createPeerConnection = (config) => new RTCPeerConnection(config),
   createIceCandidate = (candidate) => new RTCIceCandidate(candidate),
+  createMediaStream = () => new MediaStream(),
+  createIncomingAudio = () => document.createElement("audio"),
+  mountIncomingAudio = () => null,
   connectionTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS,
 } = {}) {
   if (typeof getHass !== "function") {
@@ -47,12 +63,21 @@ export function createHaDirectTwoWayTalkBackchannel({
       entity_id: entity,
     });
     const pc = createPeerConnection(clientConfig?.configuration);
+    const incomingAudio = configureIncomingAudio(createIncomingAudio());
+    const incomingAudioStream = createMediaStream();
     const pendingCandidates = [];
+    const remoteTracks = [];
+    const transceivers = [];
     let sessionId = "";
     let subscriptionPromise = null;
-    let transceiver = null;
+    let unmountIncomingAudio = null;
+    let microphoneTransceiver = null;
+    let remoteAudioTrack = null;
     let connectionTimer = null;
     let startSettled = false;
+    let peerConnected = false;
+    let remoteAudioStarted = false;
+    let remoteMediaStarted = false;
     let connected = false;
     let destroyed = false;
     let endNotified = false;
@@ -81,6 +106,25 @@ export function createHaDirectTwoWayTalkBackchannel({
         .catch(() => {});
     };
 
+    const closeIncomingAudio = () => {
+      try {
+        incomingAudio?.pause?.();
+        if (incomingAudio) incomingAudio.srcObject = null;
+      } catch (_) {}
+      stopMediaStream(incomingAudioStream);
+      for (const track of remoteTracks) {
+        if (incomingAudioStream?.getTracks?.().includes?.(track)) continue;
+        try {
+          track.stop?.();
+        } catch (_) {}
+      }
+      remoteTracks.length = 0;
+      try {
+        unmountIncomingAudio?.();
+      } catch (_) {}
+      unmountIncomingAudio = null;
+    };
+
     const closePeerConnection = () => {
       pc.removeEventListener?.(
         "connectionstatechange",
@@ -91,10 +135,13 @@ export function createHaDirectTwoWayTalkBackchannel({
         handleIceConnectionStateChange,
       );
       pc.removeEventListener?.("icecandidate", handleIceCandidate);
+      pc.removeEventListener?.("track", handleRemoteTrack);
       microphoneTrack.removeEventListener?.("ended", handleMicrophoneEnded);
-      try {
-        transceiver?.stop?.();
-      } catch (_) {}
+      for (const transceiver of transceivers) {
+        try {
+          transceiver?.stop?.();
+        } catch (_) {}
+      }
       try {
         pc.close();
       } catch (_) {}
@@ -105,6 +152,7 @@ export function createHaDirectTwoWayTalkBackchannel({
       destroyed = true;
       clearConnectionTimer();
       unsubscribeSignaling();
+      closeIncomingAudio();
       closePeerConnection();
       if (!startSettled) {
         startSettled = true;
@@ -114,10 +162,23 @@ export function createHaDirectTwoWayTalkBackchannel({
       }
     };
 
+    const setIncomingAudioMuted = (muted) => {
+      if (!incomingAudio) return;
+      incomingAudio.muted = muted === true;
+      incomingAudio.defaultMuted = muted === true;
+      if (!incomingAudio.muted) {
+        incomingAudio.volume = 1;
+        incomingAudio.play?.().catch?.(() => {});
+      }
+    };
+
     const engine = {
       type: "ha_direct_backchannel",
       pc,
       microphoneStream,
+      incomingAudio,
+      incomingAudioStream,
+      setIncomingAudioMuted,
       destroy,
       get sessionId() {
         return sessionId;
@@ -134,6 +195,7 @@ export function createHaDirectTwoWayTalkBackchannel({
       destroyed = true;
       clearConnectionTimer();
       unsubscribeSignaling();
+      closeIncomingAudio();
       closePeerConnection();
 
       if (!startSettled) {
@@ -148,8 +210,17 @@ export function createHaDirectTwoWayTalkBackchannel({
     };
 
     const finishConnected = () => {
-      if (destroyed || startSettled) return;
-      const direction = transceiver?.currentDirection;
+      if (
+        destroyed ||
+        startSettled ||
+        !peerConnected ||
+        !remoteAudioStarted ||
+        !remoteMediaStarted ||
+        !remoteAudioTrack
+      ) {
+        return;
+      }
+      const direction = microphoneTransceiver?.currentDirection;
       if (!direction || !["sendonly", "sendrecv"].includes(direction)) {
         fail(
           new Error(
@@ -164,8 +235,21 @@ export function createHaDirectTwoWayTalkBackchannel({
       resolveStart(engine);
     };
 
+    const markRemoteMediaStarted = () => {
+      if (destroyed || remoteMediaStarted) return;
+      remoteMediaStarted = true;
+      finishConnected();
+    };
+
+    const markRemoteAudioStarted = () => {
+      if (destroyed || remoteAudioStarted) return;
+      remoteAudioStarted = true;
+      finishConnected();
+    };
+
     function handleConnectionStateChange() {
       if (pc.connectionState === "connected") {
+        peerConnected = true;
         finishConnected();
       } else if (pc.connectionState === "failed") {
         fail(new Error("Home Assistant two-way talk connection failed"));
@@ -198,6 +282,43 @@ export function createHaDirectTwoWayTalkBackchannel({
         return;
       }
       void sendCandidate(candidate);
+    }
+
+    function handleRemoteTrack(event) {
+      const track = event?.track;
+      if (!track) return;
+      if (destroyed) {
+        try {
+          track.stop?.();
+        } catch (_) {}
+        return;
+      }
+      remoteTracks.push(track);
+      if (track.kind === "audio") {
+        remoteAudioTrack = track;
+        track.addEventListener?.("unmute", markRemoteAudioStarted, {
+          once: true,
+        });
+        incomingAudioStream.addTrack?.(track);
+        if (incomingAudio) incomingAudio.srcObject = incomingAudioStream;
+        const playback = incomingAudio?.play?.();
+        playback?.catch?.((error) => {
+          fail(
+            normalizeError(
+              error,
+              "Unable to play Home Assistant two-way talk audio",
+            ),
+          );
+        });
+        if (track.muted === false) markRemoteAudioStarted();
+        finishConnected();
+        return;
+      }
+      if (track.kind !== "video") return;
+      track.addEventListener?.("unmute", markRemoteMediaStarted, {
+        once: true,
+      });
+      if (track.muted === false) markRemoteMediaStarted();
     }
 
     async function handleOfferEvent(event) {
@@ -248,26 +369,36 @@ export function createHaDirectTwoWayTalkBackchannel({
     }
 
     try {
+      unmountIncomingAudio = mountIncomingAudio(incomingAudio) || null;
       if (clientConfig?.dataChannel) {
         pc.createDataChannel(clientConfig.dataChannel);
       }
-      transceiver = pc.addTransceiver(microphoneTrack, {
+      microphoneTransceiver = pc.addTransceiver(microphoneTrack, {
         direction: "sendonly",
         streams: [microphoneStream],
       });
+      transceivers.push(
+        microphoneTransceiver,
+        pc.addTransceiver("video", { direction: "recvonly" }),
+        pc.addTransceiver("audio", { direction: "recvonly" }),
+      );
       pc.addEventListener("connectionstatechange", handleConnectionStateChange);
       pc.addEventListener(
         "iceconnectionstatechange",
         handleIceConnectionStateChange,
       );
       pc.addEventListener("icecandidate", handleIceCandidate);
+      pc.addEventListener("track", handleRemoteTrack);
       microphoneTrack.addEventListener?.("ended", handleMicrophoneEnded);
 
       connectionTimer = setTimeout(() => {
-        fail(new Error("Home Assistant two-way talk connection timed out"));
+        fail(new Error("Home Assistant two-way talk media timed out"));
       }, Math.max(1, Number(connectionTimeoutMs) || DEFAULT_CONNECTION_TIMEOUT_MS));
 
-      const offer = await pc.createOffer();
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
       await pc.setLocalDescription(offer);
       if (!destroyed) {
         subscriptionPromise = Promise.resolve(
