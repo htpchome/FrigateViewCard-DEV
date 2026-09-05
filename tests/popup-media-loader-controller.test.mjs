@@ -557,10 +557,14 @@ test("Card View drawer popup resize grows its live panel without the old card ce
   const host = {
     _isCardViewPageActive: () => true,
     _attachPopupVideoZoom: () => null,
-    _$: () => null,
+    _$: (selector) =>
+      selector === "#live-stage"
+        ? { getBoundingClientRect: () => ({ width: 400, height: 240 }) }
+        : null,
   };
   const controller = new PopupMediaLoaderController(host, {
     lifecycleController,
+    isMobileDevice: () => true,
     createPopupViewResizeGrip: () => grip,
     createPopupViewResizeController: (options) => {
       resizeOptions = options;
@@ -571,9 +575,38 @@ test("Card View drawer popup resize grows its live panel without the old card ce
   controller._bindViewResize({ viewer, media: { tagName: "VIDEO" } });
 
   assert.equal(controller._resolveAvailableViewResizeHeight(viewer), 0);
+  assert.equal(resizeOptions.initialHeightRatio, 3 / 5);
   resizeOptions.onHeightChange({ height: 420, resized: true });
   resizeOptions.onHeightChange({ height: 225, resized: false });
   assert.deepEqual(heightCalls, [420, 0]);
+});
+
+test("normal popup media starts in a 16:9 stage only on mobile devices", () => {
+  const viewer = { appendChild() {} };
+  const media = { tagName: "VIDEO" };
+  const createController = (isMobileDevice) => {
+    let resizeOptions = null;
+    const controller = new PopupMediaLoaderController(
+      {
+        _attachPopupVideoZoom: () => null,
+        _$: () => null,
+      },
+      {
+        lifecycleController: { presentation: () => "" },
+        isMobileDevice: () => isMobileDevice,
+        createPopupViewResizeGrip: () => ({ classList: { toggle() {} } }),
+        createPopupViewResizeController: (options) => {
+          resizeOptions = options;
+          return { bind() {} };
+        },
+      },
+    );
+    controller._bindViewResize({ viewer, media });
+    return resizeOptions;
+  };
+
+  assert.equal(createController(true).initialHeightRatio, 9 / 16);
+  assert.equal(createController(false).initialHeightRatio, 0);
 });
 
 test("standard popup media preserves carousel content before rendering its next state", () => {

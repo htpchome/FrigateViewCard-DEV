@@ -37,6 +37,7 @@ import {
 const RECORDING_HLS_JS_FILENAME = "frigate-view-card-hls-1.5.17.js";
 const RECORDING_HLS_JS_INTEGRITY =
   "sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni";
+const MOBILE_POPUP_STAGE_HEIGHT_RATIO = 9 / 16;
 
 export const resolveRecordingHlsJsUrl = (moduleUrl = import.meta.url) =>
   new URL(`./${RECORDING_HLS_JS_FILENAME}`, moduleUrl).href;
@@ -154,6 +155,7 @@ export class PopupMediaLoaderController {
         host._config?.event_pre_post_roll_enabled === true,
       isMobileTabletViewport: () =>
         host._isMobileTabletViewport?.() === true,
+      isMobileDevice: () => host._isLikelyMobileClient?.() === true,
       createPopupViewResizeGrip,
       createPopupViewResizeController: (options) =>
         new PopupViewResizeController(options),
@@ -175,7 +177,7 @@ export class PopupMediaLoaderController {
       grip,
       controls,
       zoomController,
-      initialHeightRatio: this._cardViewPopupInitialHeightRatio(),
+      initialHeightRatio: this._popupInitialHeightRatio(),
       onHeightChange: ({ height, resized }) => {
         this._lifecycleController?.setCardViewDrawerMediaHeight?.(
           resized ? height : 0,
@@ -223,7 +225,17 @@ export class PopupMediaLoaderController {
     );
   }
 
-  _cardViewPopupInitialHeightRatio() {
+  _usesMobileFixedPopupStage() {
+    return (
+      !this._isCardViewDrawerPresentation() &&
+      this._deps.isMobileDevice?.() === true
+    );
+  }
+
+  _popupInitialHeightRatio() {
+    if (this._usesMobileFixedPopupStage()) {
+      return MOBILE_POPUP_STAGE_HEIGHT_RATIO;
+    }
     if (!this._isCardViewDrawerPresentation()) return 0;
     const rect = this._host._$?.("#live-stage")?.getBoundingClientRect?.();
     const width = Number(rect?.width);
