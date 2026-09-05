@@ -375,6 +375,86 @@ test.describe("touch input", () => {
     });
   }
 
+  test("keeps Single View live rotation above Home Assistant chrome and alert badges", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto(baseUrl);
+    const state = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        mobile_view_rotate_to_fullscreen: true,
+      });
+      card._pageId = "single-view";
+      card._renderShell();
+      card.style.setProperty("--rotate-vw", "844px");
+      card.style.setProperty("--rotate-vh", "390px");
+
+      const root = card.shadowRoot;
+      const cardRoot = root.querySelector("#card");
+      const alertBadge = document.createElement("span");
+      alertBadge.dataset.testAlertBadge = "";
+      alertBadge.textContent = "Alert";
+      alertBadge.style.cssText =
+        "position:fixed;left:380px;top:180px;z-index:2;width:84px;height:30px;";
+      root.querySelector("#col-right")?.append(alertBadge);
+
+      const basePlan = {
+        active: true,
+        removeClasses: [],
+        disableNativeControls: false,
+        clearLiveControlsVisible: false,
+        clearLoading: false,
+        enableNativeControls: false,
+        syncFullscreenButtons: false,
+        showLiveControls: false,
+        showPopupControls: false,
+        retainViewportCover: true,
+      };
+      card._applyRotateOverlayUiPlan(cardRoot, {
+        ...basePlan,
+        mode: "live",
+        addClasses: ["mobile-rotate-live"],
+      });
+
+      const hit = root.elementFromPoint(422, 195);
+      const liveState = {
+        hostCoversViewport: card.classList.contains(
+          "mobile-view-rotate-cover",
+        ),
+        liveColumnZIndex: getComputedStyle(
+          root.querySelector(".single-view-frame > .col-left--single-view"),
+        ).zIndex,
+        alertBadgeCovered: !hit?.closest?.("[data-test-alert-badge]"),
+      };
+
+      card._applyRotateOverlayUiPlan(cardRoot, {
+        ...basePlan,
+        mode: "popup",
+        removeClasses: ["mobile-rotate-live"],
+        addClasses: ["mobile-rotate-popup"],
+      });
+
+      return {
+        ...liveState,
+        popupUsesSingleViewLiveCover: card.classList.contains(
+          "mobile-view-rotate-cover",
+        ),
+      };
+    });
+
+    expect(state).toEqual({
+      hostCoversViewport: true,
+      liveColumnZIndex: "2000",
+      alertBadgeCovered: true,
+      popupUsesSingleViewLiveCover: false,
+    });
+  });
+
   test("spaces the Card View Video Only A/B control between Back and Slideshow", async ({
     page,
   }) => {

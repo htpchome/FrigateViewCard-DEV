@@ -449,6 +449,8 @@ export const STYLES = `
     #eng-wrap.popup-covered::after{content:"";position:absolute;inset:0;background:var(--c-bg-deep);z-index:4;pointer-events:none;}
     .card.mobile-rotate-live,
     .card.mobile-rotate-live-exit{overflow:hidden;height:var(--rotate-vh);max-height:var(--rotate-vh);}
+    .card.mobile-rotate-live .single-view-frame > .col-left--single-view,
+    .card.mobile-rotate-live-exit .single-view-frame > .col-left--single-view{z-index:2000;}
     .card.mobile-rotate-live #live-stage,
     .card.mobile-rotate-live-exit #live-stage{position:fixed;top:var(--rotate-oy);left:var(--rotate-ox);z-index:1400;width:var(--rotate-vw);height:var(--rotate-vh);max-width:none;max-height:none;border-radius:0;background:#000;box-shadow:none;transform:none;}
     .card.mobile-rotate-live #eng-wrap,
