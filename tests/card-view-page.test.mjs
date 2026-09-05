@@ -179,7 +179,11 @@ test("standalone Card View controls expose active Grid and Slideshow states", ()
 test("grouped desktop controls are centered per pane", () => {
   assert.match(
     CAMERA_GROUP_LIVE_STYLES,
-    /\.camera-group-pane-controls \{[^}]*top:50%;[^}]*transform:translateY\(-50%\);/,
+    /\.camera-group-pane-controls \{[^}]*left:7px;top:50%;[^}]*transform:translateY\(-50%\);/,
+  );
+  assert.doesNotMatch(
+    CARD_VIEW_PAGE_STYLES,
+    /#eng-wrap\.camera-group-live[^}]*\.camera-group-live-pane--primary \.camera-group-pane-controls \{left:/,
   );
 });
 
