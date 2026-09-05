@@ -17,6 +17,7 @@ export function createHaCameraStreamElement({
   muted = false,
   controls = false,
   defaultMuted,
+  fitMode,
   styleText = "",
 } = {}) {
   if (!hass || !stateObj) return null;
@@ -25,6 +26,9 @@ export function createHaCameraStreamElement({
   stream.stateObj = stateObj;
   stream.controls = controls;
   stream.muted = muted;
+  if (fitMode !== undefined) {
+    stream.fitMode = fitMode;
+  }
   if (defaultMuted !== undefined) {
     stream.defaultMuted = defaultMuted;
   }
@@ -32,4 +36,28 @@ export function createHaCameraStreamElement({
     stream.style.cssText = styleText;
   }
   return stream;
+}
+
+export function findActiveHaCameraStreamPlayer(stream) {
+  const players = Array.from(
+    stream?.shadowRoot?.querySelectorAll?.(
+      "ha-web-rtc-player,ha-hls-player",
+    ) || [],
+  );
+  return (
+    players.find(
+      (player) =>
+        !player?.hidden && !player?.classList?.contains?.("hidden"),
+    ) || null
+  );
+}
+
+export function findActiveHaCameraStreamVideo(stream) {
+  const player = findActiveHaCameraStreamPlayer(stream);
+  if (!player) return null;
+  return (
+    player.shadowRoot?.querySelector?.("video") ||
+    player.querySelector?.("video") ||
+    null
+  );
 }

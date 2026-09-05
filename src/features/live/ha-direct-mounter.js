@@ -1,6 +1,8 @@
 import {
   buildHaCameraStreamState,
   createHaCameraStreamElement,
+  findActiveHaCameraStreamPlayer,
+  findActiveHaCameraStreamVideo,
 } from "../../integrations/home-assistant/playback.js";
 import {
   buildHaDirectMountPlan,
@@ -21,18 +23,72 @@ export function createHaDirectMounter({
   applyResolvedStreamUiState,
   setLiveNativeControls,
 }) {
+  const mediaBindings = new WeakMap();
+
+  const release = (streamEl) => {
+    const binding = mediaBindings.get(streamEl);
+    if (!binding) return;
+    binding.disposed = true;
+    binding.revision += 1;
+    streamEl.removeEventListener?.("load", binding.reconcile, true);
+    streamEl.removeEventListener?.("streams", binding.reconcile, true);
+    mediaBindings.delete(streamEl);
+  };
+
+  const awaitUpdate = async (element) => {
+    try {
+      await element?.updateComplete;
+    } catch (_) {}
+  };
+
+  const bindActiveMedia = (streamEl) => {
+    release(streamEl);
+    const binding = {
+      disposed: false,
+      revision: 0,
+      reconcile: null,
+    };
+    binding.reconcile = () => {
+      const revision = ++binding.revision;
+      void (async () => {
+        // Let HA schedule the player switch before awaiting its update.
+        await Promise.resolve();
+        await awaitUpdate(streamEl);
+        if (
+          binding.disposed ||
+          revision !== binding.revision ||
+          !isCurrentEngine(streamEl)
+        ) {
+          return;
+        }
+        const player = findActiveHaCameraStreamPlayer(streamEl);
+        if (!player) return;
+        await awaitUpdate(player);
+        if (
+          binding.disposed ||
+          revision !== binding.revision ||
+          !isCurrentEngine(streamEl)
+        ) {
+          return;
+        }
+        const video = findActiveHaCameraStreamVideo(streamEl);
+        if (video) {
+          onCommittedMediaReady?.(streamEl, video);
+        }
+      })();
+    };
+    mediaBindings.set(streamEl, binding);
+    streamEl.addEventListener?.("load", binding.reconcile, true);
+    streamEl.addEventListener?.("streams", binding.reconcile, true);
+    binding.reconcile();
+  };
+
   const scheduleFollowUp = (streamEl, haDirectPlan) => {
     void (async () => {
-      let readyVideo = null;
       const ok = await waitForStreamStart(
         streamEl,
         haDirectPlan.waitMs,
-        {
-          ...haDirectPlan.waitOptions,
-          onVideoReady: (video) => {
-            readyVideo = video;
-          },
-        },
+        haDirectPlan.waitOptions,
       );
       const readyState = resolveHaDirectReadyState({
         rotateOverlayActive: getRotateOverlayActive(),
@@ -40,9 +96,6 @@ export function createHaDirectMounter({
         waitSucceeded: ok,
       });
       if (readyState.shouldApply) {
-        if (readyVideo) {
-          onCommittedMediaReady?.(streamEl, readyVideo);
-        }
         applyResolvedStreamUiState(readyState);
       }
     })();
@@ -87,6 +140,7 @@ export function createHaDirectMounter({
       controls: false,
       muted: options?.muted ?? getStreamMuted(),
       defaultMuted: options.defaultMuted,
+      fitMode: "contain",
       styleText:
         options.styleText ||
         "width:100%;height:100%;display:block;background:var(--c-bg-deep)",
@@ -107,6 +161,7 @@ export function createHaDirectMounter({
     }
 
     assignCommittedEngine(engine);
+    bindActiveMedia(streamEl);
     if (getRotateOverlayActive()) {
       setLiveNativeControls(true);
     }
@@ -120,6 +175,7 @@ export function createHaDirectMounter({
   };
 
   return {
+    release,
     tryMount,
   };
 }

@@ -2540,6 +2540,7 @@ export class FrigateViewCard extends HTMLElement {
       this._syncPictureInPictureButtons();
       return;
     }
+    this._haDirectMounter?.release?.(this._engine);
     this._clearLiveVideoZoom();
     this._clearPictureInPictureButtonController("live");
     this._liveViewResizeController?.attachMedia(null);
