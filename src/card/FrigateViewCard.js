@@ -2103,21 +2103,18 @@ export class FrigateViewCard extends HTMLElement {
       return;
     }
     this._editorPreviewController.syncHassPreviewContext();
-    let haReviewAlertActive = false;
     if (shouldApplyHaReviewStatus) {
       this._lastHaReviewStatusApplyAt = nowMs;
-      haReviewAlertActive = this._applyHaReviewStatusAlerts();
+      this._applyHaReviewStatusAlerts();
     }
     if (
       !cameraStateChanged &&
       !themeChanged &&
-      !reviewStatusChanged &&
-      !haReviewAlertActive
+      !reviewStatusChanged
     )
       return;
     this._singleViewPageController.applyHassUpdateRouteFlow({
-      cameraStateChanged:
-        cameraStateChanged || reviewStatusChanged || haReviewAlertActive,
+      cameraStateChanged: cameraStateChanged || reviewStatusChanged,
       activeCameraRecovered: activeCameraAvailability.recovered,
       themeChanged,
       previewPageActive: this._isPreviewPageActive(),

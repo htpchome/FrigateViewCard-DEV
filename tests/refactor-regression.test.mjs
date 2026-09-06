@@ -21,6 +21,7 @@ const cardSource = fs.readFileSync(
 
 test("HA review polling does not schedule redundant live remount checks", () => {
   assert.equal(cardSource.includes('"ha-review-status-alert"'), false);
+  assert.equal(cardSource.includes("haReviewAlertActive"), false);
 });
 const browseListTemplateSource = fs.readFileSync(
   new URL("../src/features/browse/list.tmpl.js", import.meta.url),
