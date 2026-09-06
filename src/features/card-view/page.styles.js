@@ -47,9 +47,6 @@ export const CARD_VIEW_PAGE_STYLES = `
     top:auto;bottom:48px;transform:none;
   }
   @media (hover:hover) and (pointer:fine) {
-    .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-live-panel:hover .card-view-video-only-back {
-      opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s;
-    }
     .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back:hover {
       background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
     }
@@ -265,7 +262,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-camera-row {
     position:absolute;z-index:24;top:8px;left:8px;right:8px;width:auto;min-width:0;padding:0;
-    grid-template-columns:minmax(0,1fr) clamp(104px,34%,180px) minmax(0,1fr);align-items:start;gap:6px;
+    grid-template-columns:minmax(0,1fr) clamp(104px,34%,180px) minmax(0,1fr);align-items:start;gap:4px;
     background:transparent;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-back-slot {display:none;}
@@ -298,7 +295,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-controls {
     position:relative;z-index:1;grid-column:1 / -1;grid-row:1;display:grid;width:100%;min-width:0;
-    grid-template-columns:minmax(0,1fr) clamp(104px,34%,180px) minmax(0,1fr);align-items:start;gap:6px;pointer-events:none;
+    grid-template-columns:minmax(0,1fr) clamp(104px,34%,180px) minmax(0,1fr);align-items:start;gap:4px;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button {
     position:relative;grid-row:1;display:grid;place-items:center;min-width:32px;width:32px;height:32px;padding:4px;border:1px solid var(--fvc-media-overlay-border);
@@ -308,7 +305,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-slideshow-button {grid-column:1;justify-self:end;}
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-end {
-    grid-column:3;grid-row:1;display:flex;align-items:flex-start;justify-self:start;gap:6px;min-width:0;pointer-events:none;
+    grid-column:3;grid-row:1;display:flex;align-items:flex-start;justify-self:start;gap:4px;min-width:0;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button svg {width:21px;height:21px;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.active {
@@ -346,10 +343,9 @@ export const CARD_VIEW_PAGE_STYLES = `
   ) {opacity:1;visibility:visible;pointer-events:auto;animation:none;}
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button:hover {background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
-    .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.active:hover {opacity:1;visibility:visible;animation:none;}
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-live-status-overlay {
-    position:absolute;z-index:22;top:9px;right:9px;display:flex;align-items:center;gap:5px;pointer-events:none;
+    position:absolute;z-index:22;top:9px;right:9px;display:flex;align-items:center;gap:4px;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-live-badge,
   .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator {
@@ -376,11 +372,6 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-live-badge {display:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-source-indicator {display:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .card-view-live-badge {display:none;}
-  @media (hover:hover) and (pointer:fine) {
-    .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-source-indicator {
-      opacity:1;visibility:visible;transition-delay:0s;
-    }
-  }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay {
     position:absolute;z-index:23;left:50%;bottom:27px;display:grid;
     grid-template-columns:minmax(36px,1fr) auto minmax(36px,1fr);align-items:center;gap:6px;
@@ -420,22 +411,18 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-light-controls .linked-light-position-slot,
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .linked-light-position-slot,
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
-  @media (hover:hover) and (pointer:fine) {
-    .card.card-view-active.card-view-overlay-presentation.card-view-hide-camera-name .card-view-live-panel:hover .mobile-cam-picker,
-    .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-standalone-mode-button {
-      opacity:1;pointer-events:auto;
-    }
-    .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-standalone-linked-overlay {opacity:1;pointer-events:auto;}
-    .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:auto;}
-    .card.card-view-active.card-view-overlay-presentation.two-way-talk-active .card-view-live-panel:hover .card-view-standalone-light-controls {display:contents;}
-    .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .card-view-standalone-light-controls {display:contents;}
-  }
+  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-idle .card-view-standalone-mode-controls :is(
+    .card-view-standalone-slideshow-button.active,
+    [data-card-view-standalone-grid].active,
+    .card-view-standalone-takeover-button.active
+  ) {opacity:0;visibility:hidden;pointer-events:none;animation:none;}
+  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-idle #live-stage .live-playback-controls {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-camera-row,
   .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-camera-row {pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .mobile-cam-picker[data-mobile-cam-picker],
-  .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .mobile-cam-picker[data-mobile-cam-picker],
+  .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .mobile-cam-picker[data-mobile-cam-picker] {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-standalone-mode-button,
-  .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-mode-button {opacity:0;pointer-events:none;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-mode-button {opacity:0;visibility:hidden;pointer-events:none;animation:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn.active)),
   .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn.active)) {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-standalone-light-controls .linked-light-position-slot,

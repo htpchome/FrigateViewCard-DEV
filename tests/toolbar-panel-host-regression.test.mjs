@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { CARD_VIEW_OVERLAY_INACTIVITY_MS } from "../src/constants.js";
 
 const cardSource = fs.readFileSync(
   new URL("../src/card/FrigateViewCard.js", import.meta.url),
@@ -205,6 +206,26 @@ test("live controls keep a shared overlay with a mobile inline mute exception", 
       ":is(.mobile-view-inline-mute-btn,.mobile-view-microphone-mute-btn):not(.active):hover",
     ),
     true,
+  );
+});
+
+test("Card View overlays use one ten-second mouse and touch inactivity window", () => {
+  assert.equal(CARD_VIEW_OVERLAY_INACTIVITY_MS, 10000);
+  assert.match(
+    cardSource,
+    /revealDurationMs: overlayCardView\s*\? CARD_VIEW_OVERLAY_INACTIVITY_MS\s*: 1300,/,
+  );
+  assert.match(
+    cardSource,
+    /touchRevealDurationMs: overlayCardView\s*\? CARD_VIEW_OVERLAY_INACTIVITY_MS\s*: 2300,/,
+  );
+  assert.match(
+    cardSource,
+    /card\?\.classList\?\.remove\(CARD_VIEW_OVERLAYS_IDLE_CLASS\);/,
+  );
+  assert.match(
+    cardSource,
+    /card\?\.classList\?\.add\(CARD_VIEW_OVERLAYS_IDLE_CLASS\);/,
   );
 });
 

@@ -234,15 +234,15 @@ test("Card View source indicator follows committed stream changes", () => {
 test("Card View source indicator shares video-only overlay visibility", () => {
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-status-overlay \{[^}]*top:9px;right:9px;[^}]*display:flex;/,
+    /card-view-live-status-overlay \{[^}]*top:9px;right:9px;[^}]*display:flex;[^}]*gap:4px;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-overlays-visible \.card-view-source-indicator \{\s*opacity:1;visibility:visible;/,
   );
-  assert.match(
+  assert.doesNotMatch(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:hover \.card-view-source-indicator \{\s*opacity:1;visibility:visible;/,
+    /card-view-live-panel:hover \.card-view-source-indicator/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -729,7 +729,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(104px,34%,180px\) minmax\(0,1fr\)/,
+    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(104px,34%,180px\) minmax\(0,1fr\);align-items:start;gap:4px/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -753,7 +753,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlay-presentation \.card-view-standalone-mode-end \{[\s\S]*?grid-column:3;grid-row:1;display:flex;[\s\S]*?gap:6px;[\s\S]*?pointer-events:none;/,
+    /card-view-overlay-presentation \.card-view-standalone-mode-end \{[\s\S]*?grid-column:3;grid-row:1;display:flex;[\s\S]*?gap:4px;[\s\S]*?pointer-events:none;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -803,9 +803,9 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
     CARD_VIEW_PAGE_STYLES,
     /two-way-talk-active \.card-view-standalone-linked-overlay:has\(\[data-linked-light-dimmer\]:not\(\[hidden\]\)\) \.card-view-standalone-light-controls,[\s\S]*?\{display:contents;\}/,
   );
-  assert.match(
+  assert.doesNotMatch(
     CARD_VIEW_PAGE_STYLES,
-    /two-way-talk-active \.card-view-live-panel:hover \.card-view-standalone-light-controls \{display:contents;\}/,
+    /two-way-talk-active \.card-view-live-panel:hover \.card-view-standalone-light-controls/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -829,6 +829,14 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-idle \.card-view-standalone-mode-controls :is\([\s\S]*?card-view-standalone-slideshow-button\.active,[\s\S]*?\[data-card-view-standalone-grid\]\.active,[\s\S]*?card-view-standalone-takeover-button\.active[\s\S]*?\) \{opacity:0;visibility:hidden;pointer-events:none;animation:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-idle #live-stage \.live-playback-controls \{opacity:0;pointer-events:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-grid-indicator-visible \[data-card-view-standalone-grid\]\.active,[\s\S]*?opacity:1;pointer-events:auto;/,
   );
   assert.match(
@@ -843,9 +851,9 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
     CARD_VIEW_PAGE_STYLES,
     /card-view-video-panel-only:not\(\.card-view-standalone\)\.card-view-overlays-visible \.card-view-video-only-back \{\s*opacity:1;visibility:visible;pointer-events:auto;/,
   );
-  assert.match(
+  assert.doesNotMatch(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:hover \.card-view-video-only-back \{\s*opacity:1;visibility:visible;pointer-events:auto;/,
+    /card-view-live-panel:hover \.card-view-video-only-back/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -916,17 +924,21 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
     /card-view-media-drawer\.is-open \.card-view-media-drawer-handle \{left:calc\(100% - 1px\);\}/,
   );
   assert.equal((CARD_VIEW_PAGE_STYLES.match(/top:45px/g) || []).length, 0);
-  assert.match(
+  assert.doesNotMatch(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:hover \.card-view-standalone-mode-button[^{]*\{[\s\S]*?opacity:1;pointer-events:auto;/,
+    /card-view-live-panel:hover \.card-view-standalone-mode-button/,
+  );
+  assert.doesNotMatch(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel:hover \.card-view-standalone-linked-overlay/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-panel:hover \.card-view-standalone-linked-overlay \{opacity:1;pointer-events:auto;/,
+    /card-view-video-zoomed \.mobile-cam-picker\[data-mobile-cam-picker\],[\s\S]*?fvc-video-zoomed\) \.mobile-cam-picker\[data-mobile-cam-picker\] \{opacity:0;pointer-events:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-video-zoomed \.mobile-cam-picker\[data-mobile-cam-picker\],[\s\S]*?card-view-video-zoomed \.card-view-standalone-mode-button,[\s\S]*?\{opacity:0;pointer-events:none;/,
+    /card-view-video-zoomed \.card-view-standalone-mode-button,[\s\S]*?fvc-video-zoomed\) \.card-view-standalone-mode-button \{opacity:0;visibility:hidden;pointer-events:none;animation:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

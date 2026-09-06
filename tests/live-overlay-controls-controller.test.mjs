@@ -66,6 +66,38 @@ test("LiveOverlayControlsController can auto-hide temporary mouse overlays", () 
   assert.deepEqual(calls, ["show", ["hideSoon", 1300]]);
 });
 
+test("LiveOverlayControlsController restarts a ten-second idle window on mouse movement", () => {
+  const originalNow = Date.now;
+  const wrap = createTarget();
+  const calls = [];
+  let now = 1000;
+  Date.now = () => now;
+  try {
+    const controller = new LiveOverlayControlsController({
+      wrap,
+      show: () => calls.push("show"),
+      hideNow: () => calls.push("hideNow"),
+      hideSoon: (ms) => calls.push(["hideSoon", ms]),
+      revealDurationMs: 10000,
+      autoHideMouse: true,
+    });
+
+    controller.bind();
+    wrap.dispatch("pointerenter", { pointerType: "mouse" });
+    now += 150;
+    wrap.dispatch("pointermove", { pointerType: "mouse", buttons: 0 });
+
+    assert.deepEqual(calls, [
+      "show",
+      ["hideSoon", 10000],
+      "show",
+      ["hideSoon", 10000],
+    ]);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test("LiveOverlayControlsController reveals controls after a stationary touch tap", () => {
   const wrap = createTarget();
   const calls = [];

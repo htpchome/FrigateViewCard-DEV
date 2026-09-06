@@ -20,6 +20,7 @@ import {
   SLIDESHOW_REVIEW_WATCH_MAX_MS,
   GRID_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
+  CARD_VIEW_OVERLAY_INACTIVITY_MS,
   PREVIEW_ALERT_HOLD_MS,
   PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
   PREVIEW_ALERT_END_GRACE_MS,
@@ -374,6 +375,8 @@ import {
   extractRealtimeMessageCamera,
   extractRealtimeMessageSeverity,
 } from "../features/slideshow/routing.js";
+
+const CARD_VIEW_OVERLAYS_IDLE_CLASS = "card-view-overlays-idle";
 
 export class FrigateViewCard extends HTMLElement {
   constructor() {
@@ -5033,6 +5036,9 @@ export class FrigateViewCard extends HTMLElement {
     const show = () => {
       wrap.classList.add("live-controls-visible");
       card?.classList?.add("card-view-overlays-visible");
+      if (overlayCardView) {
+        card?.classList?.remove(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+      }
     };
     const hideNow = () => {
       wrap.classList.remove("live-controls-visible");
@@ -5048,6 +5054,9 @@ export class FrigateViewCard extends HTMLElement {
       this._liveControlsHideTimer = setTimeout(() => {
         wrap.classList.remove("live-controls-visible");
         card?.classList?.remove("card-view-overlays-visible");
+        if (overlayCardView) {
+          card?.classList?.add(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+        }
         this._liveControlsHideTimer = null;
       }, ms);
     };
@@ -5057,7 +5066,12 @@ export class FrigateViewCard extends HTMLElement {
       show,
       hideNow,
       hideSoon,
-      touchRevealDurationMs: 2300,
+      revealDurationMs: overlayCardView
+        ? CARD_VIEW_OVERLAY_INACTIVITY_MS
+        : 1300,
+      touchRevealDurationMs: overlayCardView
+        ? CARD_VIEW_OVERLAY_INACTIVITY_MS
+        : 2300,
       autoHideMouse: overlayCardView,
     });
     this._liveOverlayControlsController.bind();
@@ -6699,17 +6713,33 @@ export class FrigateViewCard extends HTMLElement {
   _showLiveControlsTemporarily(ms = 2200) {
     const wrap = this._$("#live-stage.live-stage--overlay");
     if (!wrap) return;
+    const card = this._$("#card");
+    const overlayCardView =
+      this._isCardViewPageActive() &&
+      this._cardViewPageController?.usesOverlayPresentation?.() === true;
     wrap.classList.add("live-controls-visible");
-    this._$("#card")?.classList?.add("card-view-overlays-visible");
+    card?.classList?.add("card-view-overlays-visible");
+    if (overlayCardView) {
+      card?.classList?.remove(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+    }
     if (this._liveControlsHideTimer) clearTimeout(this._liveControlsHideTimer);
     this._liveControlsHideTimer = setTimeout(
       () => {
         const nextWrap = this._$("#live-stage.live-stage--overlay");
         nextWrap?.classList.remove("live-controls-visible");
-        this._$("#card")?.classList?.remove("card-view-overlays-visible");
+        const nextCard = this._$("#card");
+        nextCard?.classList?.remove("card-view-overlays-visible");
+        if (
+          this._isCardViewPageActive() &&
+          this._cardViewPageController?.usesOverlayPresentation?.() === true
+        ) {
+          nextCard?.classList?.add(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+        }
         this._liveControlsHideTimer = null;
       },
-      Math.max(500, Number(ms) || 2200),
+      overlayCardView
+        ? CARD_VIEW_OVERLAY_INACTIVITY_MS
+        : Math.max(500, Number(ms) || 2200),
     );
   }
   _media(id, file, dl) {
