@@ -144,6 +144,88 @@ test("mse grace controller preserves current mse engine across cleanup", async (
   });
 });
 
+test("MSE adoption rebinds diagnostics and recovery to the receiving owner", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const video = {
+      style: { cssText: "" },
+      dataset: {},
+      classList: { add() {} },
+      setAttribute() {},
+      removeAttribute() {},
+      play: () => Promise.resolve(),
+    };
+    const cachedEngine = {
+      type: "frigate_go2rtc",
+      streamType: "mse",
+      video,
+      ws: { readyState: 1 },
+      recoveryHandler: null,
+      activityHandler: null,
+      activateRecovery() {},
+      setRecoveryHandler(handler) {
+        this.recoveryHandler = handler;
+      },
+      setActivityHandler(handler) {
+        this.activityHandler = handler;
+      },
+    };
+    let engine = null;
+    let diagnosticsResetAt = 0;
+    const activityTimes = [];
+    const recoveryReasons = [];
+    const controller = createMseGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "receiver" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "mse",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      scheduleResumeLive: (reason) => recoveryReasons.push(reason),
+      resetMseDiagnostics: (connectedAt) => {
+        diagnosticsResetAt = connectedAt;
+      },
+      markMseChunk: (chunkAt) => activityTimes.push(chunkAt),
+    });
+    const slot = {
+      innerHTML: "occupied",
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+
+    assert.equal(controller.isMseEngineReusable(cachedEngine), true);
+    assert.equal(controller.adoptGraceMseEngine(slot, cachedEngine), true);
+    assert.equal(engine, cachedEngine);
+    assert.equal(slot.child, video);
+    assert.equal(diagnosticsResetAt > 0, true);
+
+    cachedEngine.activityHandler(1234);
+    cachedEngine.recoveryHandler("mse-ws-closed");
+    assert.deepEqual(activityTimes, [1234]);
+    assert.deepEqual(recoveryReasons, ["mse-ws-closed"]);
+
+    cachedEngine.ws.readyState = 3;
+    assert.equal(controller.isMseEngineReusable(cachedEngine), false);
+  });
+});
+
 test("live grace controller preserves and re-adopts a WebRTC engine", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {
     const video = {

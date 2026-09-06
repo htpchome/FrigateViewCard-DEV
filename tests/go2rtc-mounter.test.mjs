@@ -620,15 +620,29 @@ test("go2rtc mounter MSE path supports ManagedMediaSource and starts playback", 
 
       assert.equal(result.ok, true);
       assert.equal(result.type, "mse");
+      assert.equal(result.engine.type, "frigate_go2rtc");
+      assert.equal(result.engine.streamType, "mse");
       assert.equal(slot.lastChild.playCalls >= 2, true);
       assert.equal(mediaSources[0].sourceBuffers.length, 1);
       assert.equal(mediaSources[0].sourceBuffers[0].appended.length, 1);
       assert.equal(markedChunks, 1);
       sockets[0].closeFromServer();
       assert.deepEqual(recoveryReasons, []);
+      const reboundRecoveryReasons = [];
+      let reboundChunks = 0;
+      result.engine.setRecoveryHandler((reason) =>
+        reboundRecoveryReasons.push(reason),
+      );
+      result.engine.setActivityHandler(() => {
+        reboundChunks += 1;
+      });
+      sockets[0].message(new ArrayBuffer(4));
+      assert.equal(markedChunks, 1);
+      assert.equal(reboundChunks, 1);
       result.engine.activateRecovery();
       sockets[0].closeFromServer();
-      assert.deepEqual(recoveryReasons, ["mse-ws-closed"]);
+      assert.deepEqual(recoveryReasons, []);
+      assert.deepEqual(reboundRecoveryReasons, ["mse-ws-closed"]);
       assert.equal(
         supportedTypeContexts.every(
           (context) => context === FakeManagedMediaSource,

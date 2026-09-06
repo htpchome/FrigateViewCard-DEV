@@ -1155,6 +1155,15 @@ export class FrigateViewCard extends HTMLElement {
       releaseHaDirectEngine: (engine) =>
         this._haDirectMounter?.release?.(engine),
       scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
+      resetMseDiagnostics: (connectedAt) => {
+        this._mseConnectAt = connectedAt;
+        this._mseLastChunkAt = 0;
+        this._mseChunkCount = 0;
+      },
+      markMseChunk: (chunkAt) => {
+        this._mseLastChunkAt = chunkAt;
+        this._mseChunkCount += 1;
+      },
     });
     this._editorLiveHandoffController =
       createEditorLiveHandoffController({
@@ -1181,7 +1190,7 @@ export class FrigateViewCard extends HTMLElement {
           this._editorPreviewController.liveHandoffContext(),
         getIdentityKey: (entity) =>
           buildEditorLiveHandoffKey({
-            config: this._committedConfig || this._config || {},
+            connectionType: this._cameraConnectionType(entity),
             entity,
             pathname: window.location?.pathname || "",
           }),
@@ -1189,19 +1198,23 @@ export class FrigateViewCard extends HTMLElement {
           this._editorPreviewController.isEditorLifecycleActive(),
         requestHandoff: (request) =>
           this._editorPreviewController.requestLiveHandoff(request),
-        isWebRtcEngineReusable: (engine) =>
-          this._mseGraceController.isWebRtcEngineReusable(engine),
+        isEngineReusable: (engine, streamType) =>
+          streamType === "mse"
+            ? this._mseGraceController.isMseEngineReusable(engine)
+            : this._mseGraceController.isWebRtcEngineReusable(engine),
         detachEngine: () =>
           this._assignLiveEngine(null, { retainPrevious: true }),
         setStreamLoading: (loading) => this._setStreamLoading(loading),
         setStreamFallbackVisible: (visible, refreshImage = false) =>
           this._setStreamFallbackVisible(visible, refreshImage),
         scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
-        adoptEngine: (engine) => {
+        adoptEngine: (engine, streamType) => {
           const slot = this._$("#engine");
           if (!slot) return false;
           const adopted =
-            this._mseGraceController.adoptGraceWebRtcEngine(slot, engine);
+            streamType === "mse"
+              ? this._mseGraceController.adoptGraceMseEngine(slot, engine)
+              : this._mseGraceController.adoptGraceWebRtcEngine(slot, engine);
           if (adopted) this._dashboardLiveGraceActive = false;
           return adopted;
         },
@@ -1246,8 +1259,8 @@ export class FrigateViewCard extends HTMLElement {
         this._setStreamFallbackVisible(visible, refreshImage),
       scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
       resolveUseGo2Rtc: (entity) => this._shouldUseGo2RtcForEntity(entity),
-      takeEditorLiveHandoff: ({ entity }) =>
-        this._editorLiveHandoffController.take(entity),
+      takeEditorLiveHandoff: ({ entity, streamType }) =>
+        this._editorLiveHandoffController.take(entity, streamType),
     });
     this._liveViewResizeController = new LiveViewResizeController({
       getLiveWrap: () => this._$("#eng-wrap"),

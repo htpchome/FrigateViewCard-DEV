@@ -61,24 +61,32 @@ class FakeCustomEvent {
   }
 }
 
-test("editor live handoff keys are stable and card-specific", () => {
+test("editor live handoff keys follow connection identity, not unrelated config", () => {
   const first = buildEditorLiveHandoffKey({
-    config: { title: "Front", cameras: [{ entity: "camera.front" }] },
+    connectionType: "frigate_go2rtc",
     entity: "camera.front",
     pathname: "/lovelace/cameras",
   });
-  const reordered = buildEditorLiveHandoffKey({
-    config: { cameras: [{ entity: "camera.front" }], title: "Front" },
+  const unchangedConnection = buildEditorLiveHandoffKey({
+    connectionType: "frigate_go2rtc",
     entity: "camera.front",
     pathname: "/lovelace/cameras",
   });
 
-  assert.equal(first, reordered);
+  assert.equal(first, unchangedConnection);
   assert.notEqual(
     first,
     buildEditorLiveHandoffKey({
-      config: { title: "Front", cameras: [{ entity: "camera.front" }] },
+      connectionType: "frigate_go2rtc",
       entity: "camera.back",
+      pathname: "/lovelace/cameras",
+    }),
+  );
+  assert.notEqual(
+    first,
+    buildEditorLiveHandoffKey({
+      connectionType: "ha_direct",
+      entity: "camera.front",
       pathname: "/lovelace/cameras",
     }),
   );

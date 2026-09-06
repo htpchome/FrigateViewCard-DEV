@@ -196,6 +196,8 @@ export function createGo2RtcMounter({
     let destroyed = false;
     let recoveryEnabled = commit;
     let recoveryScheduled = false;
+    let recoveryHandler = scheduleResumeLive;
+    let activityHandler = markMseChunk;
     resetMseDiagnostics(nowMs());
 
     let sourceBuffer = null;
@@ -250,6 +252,8 @@ export function createGo2RtcMounter({
     }
 
     const engine = {
+      type: "frigate_go2rtc",
+      streamType: "mse",
       video,
       ws,
       destroy,
@@ -259,6 +263,12 @@ export function createGo2RtcMounter({
       },
       deactivateRecovery: () => {
         recoveryEnabled = false;
+      },
+      setRecoveryHandler: (handler) => {
+        recoveryHandler = typeof handler === "function" ? handler : null;
+      },
+      setActivityHandler: (handler) => {
+        activityHandler = typeof handler === "function" ? handler : null;
       },
     };
     if (commit) assignCommittedEngine(engine);
@@ -294,7 +304,7 @@ export function createGo2RtcMounter({
         !recoveryScheduled
       ) {
         recoveryScheduled = true;
-        scheduleResumeLive("mse-ws-closed");
+        recoveryHandler?.("mse-ws-closed");
       }
     });
 
@@ -330,7 +340,7 @@ export function createGo2RtcMounter({
       }
 
       if (!(event.data instanceof ArrayBuffer)) return;
-      markMseChunk(nowMs());
+      activityHandler?.(nowMs());
       queue.push(event.data);
       appendNext();
     });
@@ -495,6 +505,7 @@ export function createGo2RtcMounter({
     let recoveryHandler = scheduleResumeLive;
     const engine = {
       type: "frigate_go2rtc",
+      streamType: "webrtc",
       video,
       pc,
       ws,
@@ -512,8 +523,7 @@ export function createGo2RtcMounter({
         recoveryEnabled = false;
       },
       setRecoveryHandler: (handler) => {
-        recoveryHandler =
-          typeof handler === "function" ? handler : scheduleResumeLive;
+        recoveryHandler = typeof handler === "function" ? handler : null;
       },
     };
     if (commit) assignCommittedEngine(engine);
@@ -538,7 +548,7 @@ export function createGo2RtcMounter({
       }
       recoveryScheduled = true;
       notifyMicrophoneSessionEnded();
-      recoveryHandler(reason);
+      recoveryHandler?.(reason);
     };
 
     microphoneTrack?.addEventListener?.("ended", () => {

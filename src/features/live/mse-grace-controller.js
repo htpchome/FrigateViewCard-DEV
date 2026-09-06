@@ -35,6 +35,8 @@ export function createMseGraceController({
   setLiveNativeControls,
   releaseHaDirectEngine,
   scheduleResumeLive,
+  resetMseDiagnostics,
+  markMseChunk,
 }) {
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
@@ -42,6 +44,11 @@ export function createMseGraceController({
   const terminalWebRtcStates = new Set(["closed", "failed", "disconnected"]);
   let graceEntrySequence = 0;
 
+  const isMseEngineReusable = (engine) => {
+    if (!engine?.video || !engine?.ws) return false;
+    const wsState = Number(engine.ws.readyState);
+    return !Number.isFinite(wsState) || wsState <= 1;
+  };
   const isWebRtcEngineReusable = (engine) => {
     if (!engine?.video || !engine?.pc || !engine?.ws) return false;
     const connectionState = String(engine.pc.connectionState || "")
@@ -315,10 +322,9 @@ export function createMseGraceController({
   };
 
   const adoptGraceMseEngine = (slot, engine) => {
-    if (!slot || !engine?.video || !engine?.ws) return false;
-    if (engine.ws.readyState > WebSocket.OPEN) {
+    if (!slot || !isMseEngineReusable(engine)) {
       try {
-        engine.destroy?.();
+        engine?.destroy?.();
       } catch (_) {}
       return false;
     }
@@ -335,6 +341,9 @@ export function createMseGraceController({
     );
     mountNodeIntoSlot(slot, engine.video);
     attachVideoFit?.(engine.video);
+    resetMseDiagnostics?.(Date.now());
+    engine.setRecoveryHandler?.((reason) => scheduleResumeLive?.(reason));
+    engine.setActivityHandler?.((chunkAt) => markMseChunk?.(chunkAt));
     engine.activateRecovery?.();
     setEngine?.(engine);
     setEngineMountedMuted?.(getStreamMuted?.());
@@ -501,6 +510,7 @@ export function createMseGraceController({
     clearGracePool,
     takeGraceMseEntry,
     adoptGraceMseEngine,
+    isMseEngineReusable,
     takeGraceWebRtcEntry,
     adoptGraceWebRtcEngine,
     isWebRtcEngineReusable,

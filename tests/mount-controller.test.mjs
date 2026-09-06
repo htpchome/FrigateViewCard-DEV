@@ -9,6 +9,7 @@ import {
 test("editor WebRTC handoff transfers and returns one established engine", () => {
   const engine = {
     type: "frigate_go2rtc",
+    streamType: "webrtc",
     deactivateRecoveryCalls: 0,
     deactivateRecovery() {
       this.deactivateRecoveryCalls += 1;
@@ -40,14 +41,16 @@ test("editor WebRTC handoff transfers and returns one established engine", () =>
     getIdentityKey: () => "matching-card",
     isEditorLifecycleActive: () => true,
     requestHandoff: () => null,
-    isWebRtcEngineReusable: (candidate) => candidate === engine,
+    isEngineReusable: (candidate, streamType) =>
+      candidate === engine && streamType === "webrtc",
     detachEngine: () => {
       donorState.engine = null;
     },
     setStreamLoading: () => {},
     setStreamFallbackVisible: () => {},
     scheduleResumeLive: () => {},
-    adoptEngine: (candidate) => {
+    adoptEngine: (candidate, streamType) => {
+      assert.equal(streamType, "webrtc");
       donorState.engine = candidate;
       return true;
     },
@@ -61,21 +64,23 @@ test("editor WebRTC handoff transfers and returns one established engine", () =>
     getIdentityKey: () => "matching-card",
     isEditorLifecycleActive: () => true,
     requestHandoff: (request) => donor.createOffer(request),
-    isWebRtcEngineReusable: (candidate) => candidate === engine,
+    isEngineReusable: (candidate, streamType) =>
+      candidate === engine && streamType === "webrtc",
     detachEngine: () => {
       receiverState.engine = null;
     },
     setStreamLoading: () => {},
     setStreamFallbackVisible: () => {},
     scheduleResumeLive: () => {},
-    adoptEngine: (candidate) => {
+    adoptEngine: (candidate, streamType) => {
+      assert.equal(streamType, "webrtc");
       receiverState.engine = candidate;
       return true;
     },
     syncLivePresentation: () => {},
   });
 
-  const transfer = receiver.take("camera.front");
+  const transfer = receiver.take("camera.front", "webrtc");
   assert.equal(transfer?.engine, engine);
   assert.equal(donorState.engine, null);
   assert.equal(donor.isSuspended(), true);
@@ -91,7 +96,7 @@ test("editor WebRTC handoff transfers and returns one established engine", () =>
   assert.equal(donorSyncCalls, 1);
 });
 
-test("editor WebRTC handoff rejects HA-direct and active talk sessions", () => {
+test("editor live handoff rejects HA-direct and active talk sessions", () => {
   const current = {
     activeStreamType: "webrtc",
     engine: { type: "ha_direct" },
@@ -110,20 +115,90 @@ test("editor WebRTC handoff rejects HA-direct and active talk sessions", () => {
     getContext: () => "preconfig",
     getIdentityKey: () => "matching-card",
     isEditorLifecycleActive: () => true,
-    isWebRtcEngineReusable: () => true,
+    isEngineReusable: () => true,
   });
   const request = {
     context: "config",
     entity: "camera.front",
     key: "matching-card",
-    type: "frigate-go2rtc-webrtc",
+    streamType: "webrtc",
+    type: "frigate-go2rtc-live",
   };
 
   assert.equal(controller.createOffer(request), null);
-  current.engine = { type: "frigate_go2rtc" };
+  current.engine = {
+    type: "frigate_go2rtc",
+    streamType: "webrtc",
+  };
   current.useGo2Rtc = true;
   current.twoWayTalkActive = true;
   assert.equal(controller.createOffer(request), null);
+});
+
+test("editor MSE handoff transfers and returns one established engine", () => {
+  const engine = {
+    type: "frigate_go2rtc",
+    streamType: "mse",
+    deactivateRecovery() {},
+  };
+  const donorState = {
+    activeStreamType: "mse",
+    engine,
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: false,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: true,
+    viewMode: "single",
+  };
+  const receiverState = { ...donorState, engine: null };
+  let donor;
+  donor = createEditorLiveHandoffController({
+    getState: () => donorState,
+    getContext: () => "preconfig",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    isEngineReusable: (candidate, streamType) =>
+      candidate === engine && streamType === "mse",
+    detachEngine: () => {
+      donorState.engine = null;
+    },
+    adoptEngine: (candidate, streamType) => {
+      assert.equal(streamType, "mse");
+      donorState.engine = candidate;
+      return true;
+    },
+  });
+  const receiver = createEditorLiveHandoffController({
+    getState: () => receiverState,
+    getContext: () => "config",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    requestHandoff: (request) => donor.createOffer(request),
+    isEngineReusable: (candidate, streamType) =>
+      candidate === engine && streamType === "mse",
+    detachEngine: () => {
+      receiverState.engine = null;
+    },
+    adoptEngine: (candidate, streamType) => {
+      assert.equal(streamType, "mse");
+      receiverState.engine = candidate;
+      return true;
+    },
+  });
+
+  const transfer = receiver.take("camera.front", "mse");
+  assert.equal(transfer?.engine, engine);
+  receiverState.engine = transfer.engine;
+  transfer.commit();
+  donorState.hostConnected = true;
+
+  assert.equal(receiver.returnIfPossible(), true);
+  assert.equal(receiverState.engine, null);
+  assert.equal(donorState.engine, engine);
 });
 
 test("grid mounts do not cancel the existing main live session", async () => {
@@ -431,8 +506,8 @@ test("live mount controller adopts an editor WebRTC handoff before starting a ra
         throw new Error("MSE reuse should not run after editor handoff");
       },
     },
-    takeEditorLiveHandoff: ({ entity }) => {
-      calls.push(["take-handoff", entity]);
+    takeEditorLiveHandoff: ({ entity, streamType }) => {
+      calls.push(["take-handoff", entity, streamType]);
       return {
         engine: handedOffEngine,
         commit: () => calls.push("commit-handoff"),
@@ -453,8 +528,69 @@ test("live mount controller adopts an editor WebRTC handoff before starting a ra
 
   assert.equal(await controller.mount({ entity: "camera.front" }), true);
   assert.deepEqual(calls, [
-    ["take-handoff", "camera.front"],
+    ["take-handoff", "camera.front", "webrtc"],
     ["adopt-handoff", slot, handedOffEngine],
+    "commit-handoff",
+  ]);
+});
+
+test("live mount controller adopts an editor MSE handoff before starting a race", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  const handedOffEngine = { video: {}, ws: { readyState: 1 } };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => ({
+      mountSeq: 1,
+      mountInProgress: false,
+      mountStartedAt: 0,
+      mountTargetEntity: "",
+    }),
+    applyMountTrackingState: () => {},
+    mountGridEngine: () => {},
+    cleanupEngine: () => calls.push("cleanup"),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    mseGraceController: {
+      takeGraceWebRtcEntry: () => null,
+      adoptGraceWebRtcEngine: () => false,
+      takeGraceMseEntry: () => null,
+      adoptGraceMseEngine: (targetSlot, engine) => {
+        calls.push(["adopt-mse-handoff", targetSlot, engine]);
+        return true;
+      },
+    },
+    takeEditorLiveHandoff: ({ entity, streamType }) => {
+      calls.push(["take-handoff", entity, streamType]);
+      if (streamType !== "mse") return null;
+      return {
+        engine: handedOffEngine,
+        commit: () => calls.push("commit-handoff"),
+      };
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("Transport race should not run after MSE handoff");
+      },
+    },
+    preferredStreamType: () => "mse",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => true,
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    ["take-handoff", "camera.front", "webrtc"],
+    ["take-handoff", "camera.front", "mse"],
+    ["adopt-mse-handoff", slot, handedOffEngine],
     "commit-handoff",
   ]);
 });

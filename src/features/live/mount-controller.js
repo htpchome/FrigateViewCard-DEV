@@ -19,7 +19,8 @@ import {
 } from "./pending-destroyers.js";
 import { resolveSnapshotFallbackState } from "./stream.state.js";
 
-const EDITOR_WEBRTC_HANDOFF_TYPE = "frigate-go2rtc-webrtc";
+const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
+const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
 
 export function createEditorLiveHandoffController({
   getState,
@@ -27,7 +28,7 @@ export function createEditorLiveHandoffController({
   getIdentityKey,
   isEditorLifecycleActive,
   requestHandoff,
-  isWebRtcEngineReusable,
+  isEngineReusable,
   detachEngine,
   setStreamLoading,
   setStreamFallbackVisible,
@@ -42,11 +43,11 @@ export function createEditorLiveHandoffController({
   const state = () => getState?.() || {};
   const identityKey = (entity) => getIdentityKey?.(entity) || "";
 
-  const claim = (engine) => {
+  const claim = (engine, streamType) => {
     const current = state();
     if (
       current.engine !== engine ||
-      isWebRtcEngineReusable?.(engine) !== true
+      isEngineReusable?.(engine, streamType) !== true
     ) {
       return null;
     }
@@ -69,9 +70,11 @@ export function createEditorLiveHandoffController({
     const current = state();
     const entity = String(current.entity || "");
     const requestContext = String(request.context || "");
+    const streamType = String(request.streamType || "").toLowerCase();
     const engine = current.engine;
     if (
-      request.type !== EDITOR_WEBRTC_HANDOFF_TYPE ||
+      request.type !== EDITOR_LIVE_HANDOFF_TYPE ||
+      !EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType) ||
       !entity ||
       request.entity !== entity ||
       request.key !== identityKey(entity) ||
@@ -83,9 +86,10 @@ export function createEditorLiveHandoffController({
       current.viewMode !== "single" ||
       current.twoWayTalkActive ||
       current.useGo2Rtc !== true ||
-      current.activeStreamType !== "webrtc" ||
+      current.activeStreamType !== streamType ||
       engine?.type !== "frigate_go2rtc" ||
-      isWebRtcEngineReusable?.(engine) !== true
+      engine?.streamType !== streamType ||
+      isEngineReusable?.(engine, streamType) !== true
     ) {
       return null;
     }
@@ -95,7 +99,8 @@ export function createEditorLiveHandoffController({
     return {
       provider: controller,
       returnTarget: nextReturnTarget,
-      claim: () => claim(engine),
+      streamType,
+      claim: () => claim(engine, streamType),
       complete: () => {
         returnTarget = null;
       },
@@ -103,17 +108,23 @@ export function createEditorLiveHandoffController({
     };
   };
 
-  const take = (entity = "") => {
+  const take = (entity = "", streamType = "") => {
+    const requestedStreamType = String(streamType || "").toLowerCase();
+    if (!EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(requestedStreamType)) {
+      return null;
+    }
     const offer = requestHandoff?.({
       context: getContext?.() || "",
       entity,
       key: identityKey(entity),
-      type: EDITOR_WEBRTC_HANDOFF_TYPE,
+      streamType: requestedStreamType,
+      type: EDITOR_LIVE_HANDOFF_TYPE,
     });
     const engine = offer?.claim?.() || null;
     if (!engine) return null;
     return {
       engine,
+      streamType: requestedStreamType,
       commit: () => {
         suspended = false;
         returnTarget = offer.returnTarget || null;
@@ -123,7 +134,7 @@ export function createEditorLiveHandoffController({
     };
   };
 
-  const canAcceptReturn = ({ entity, key, engine } = {}) => {
+  const canAcceptReturn = ({ entity, key, engine, streamType } = {}) => {
     const current = state();
     return (
       current.hostConnected === true &&
@@ -134,13 +145,15 @@ export function createEditorLiveHandoffController({
       key === identityKey(entity) &&
       current.useGo2Rtc === true &&
       current.hasSlot === true &&
-      isWebRtcEngineReusable?.(engine) === true
+      EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType) &&
+      engine?.streamType === streamType &&
+      isEngineReusable?.(engine, streamType) === true
     );
   };
 
-  const acceptReturn = ({ entity, key, engine } = {}) => {
-    if (!canAcceptReturn({ entity, key, engine })) return false;
-    if (adoptEngine?.(engine) !== true) return false;
+  const acceptReturn = ({ entity, key, engine, streamType } = {}) => {
+    if (!canAcceptReturn({ entity, key, engine, streamType })) return false;
+    if (adoptEngine?.(engine, streamType) !== true) return false;
     suspended = false;
     syncLivePresentation?.();
     return true;
@@ -153,12 +166,15 @@ export function createEditorLiveHandoffController({
     const entity = String(current.entity || "");
     const key = identityKey(entity);
     const engine = current.engine;
-    if (target?.canAcceptReturn?.({ entity, key, engine }) !== true) {
+    const streamType = String(current.activeStreamType || "").toLowerCase();
+    if (
+      target?.canAcceptReturn?.({ entity, key, engine, streamType }) !== true
+    ) {
       return false;
     }
     engine.deactivateRecovery?.();
     detachEngine?.(engine);
-    return target.acceptReturn({ entity, key, engine });
+    return target.acceptReturn({ entity, key, engine, streamType });
   };
 
   const dispose = () => {
@@ -359,7 +375,10 @@ export function createLiveMountController({
       }
 
       const editorHandoff =
-        takeEditorLiveHandoff?.({ entity: targetEntity }) || null;
+        takeEditorLiveHandoff?.({
+          entity: targetEntity,
+          streamType: "webrtc",
+        }) || null;
       if (editorHandoff?.engine) {
         if (
           mseGraceController.adoptGraceWebRtcEngine?.(
@@ -444,6 +463,24 @@ export function createLiveMountController({
             }
           }
         }
+      }
+
+      const editorHandoff =
+        takeEditorLiveHandoff?.({
+          entity: targetEntity,
+          streamType: "mse",
+        }) || null;
+      if (editorHandoff?.engine) {
+        if (
+          mseGraceController.adoptGraceMseEngine?.(
+            slot,
+            editorHandoff.engine,
+          )
+        ) {
+          editorHandoff.commit?.();
+          return true;
+        }
+        editorHandoff.reject?.();
       }
     }
 

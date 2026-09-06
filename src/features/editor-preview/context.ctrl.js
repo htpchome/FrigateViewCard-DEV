@@ -51,12 +51,12 @@ const stableValueSignature = (value, seen = new Set()) => {
 };
 
 export const buildEditorLiveHandoffKey = ({
-  config = {},
+  connectionType = "",
   entity = "",
   pathname = "",
 } = {}) =>
   stableValueSignature({
-    config,
+    connectionType: String(connectionType || "").trim(),
     entity: String(entity || "").trim(),
     pathname: String(pathname || "").trim(),
   });
