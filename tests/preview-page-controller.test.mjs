@@ -58,6 +58,8 @@ const createHost = ({
     _isLikelyPhoneClient: () => phoneDevice,
     _cameraConnectionType: (entity) =>
       entity === "camera.front_door" ? "ha_direct" : "webrtc",
+    _shouldUseGo2RtcForEntity: (entity) =>
+      entity !== "camera.front_door",
     _clearPreviewTimers: () => calls.push(["clearPreviewTimers"]),
     _teardownPreviewMedia: () => calls.push(["teardownPreviewMedia"]),
     _applyPreviewShellVisibility: () =>
@@ -302,6 +304,23 @@ test("preview live stream hint prefers current active stream", () => {
   const { controller } = createHost({ activeStreamType: "webrtc" });
 
   assert.equal(controller.previewLiveStreamHint(), "webrtc");
+});
+
+test("Preview does not carry an HA-direct HLS hint into go2rtc cameras", () => {
+  const { controller } = createHost({ activeStreamType: "hls" });
+
+  assert.equal(
+    controller.previewCameraLiveStreamHint("camera.front_door"),
+    "hls",
+  );
+  assert.equal(
+    controller.previewCameraLiveStreamHint("camera.driveway"),
+    "mse",
+  );
+  assert.equal(
+    controller.previewStreamSourceLabel("camera.driveway", true),
+    "MSE Live",
+  );
 });
 
 test("preview stream source label derives from connection type and live hint", () => {
@@ -694,20 +713,7 @@ test("Grid destroys a transport that finishes after its cell was removed", async
 test("Preview HA Direct HLS reveals only after the active HA player renders", async () => {
   const previousDocument = globalThis.document;
   let stream = null;
-  let webRtcFrameCallback = null;
   let hlsFrameCallback = null;
-  const webRtcVideo = {
-    readyState: 0,
-    videoWidth: 0,
-    currentTime: 0,
-    addEventListener() {},
-    removeEventListener() {},
-    requestVideoFrameCallback(callback) {
-      webRtcFrameCallback = callback;
-      return 1;
-    },
-    cancelVideoFrameCallback() {},
-  };
   const hlsVideo = {
     readyState: 0,
     videoWidth: 0,
@@ -723,24 +729,14 @@ test("Preview HA Direct HLS reveals only after the active HA player renders", as
     removeAttribute() {},
     load() {},
   };
-  const webRtcPlayer = {
-    hidden: true,
-    classList: { contains: () => false },
-    shadowRoot: { querySelector: () => webRtcVideo },
-  };
-  const hlsPlayer = {
-    hidden: false,
-    classList: { contains: () => false },
-    shadowRoot: { querySelector: () => hlsVideo },
-  };
   globalThis.document = {
     createElement: (tagName) => {
       const element = createPreviewMediaElement(tagName);
-      if (tagName === "ha-camera-stream") {
+      if (tagName === "ha-hls-player") {
         stream = element;
         element.updateComplete = Promise.resolve();
         element.shadowRoot = {
-          querySelectorAll: () => [webRtcPlayer, hlsPlayer],
+          querySelector: () => hlsVideo,
         };
       }
       return element;
@@ -779,8 +775,9 @@ test("Preview HA Direct HLS reveals only after the active HA player renders", as
     const liveLayer = cell.children[1];
     assert.equal(liveLayer.classList.contains("is-ready"), false);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(stream.stateObj.attributes.frontend_stream_type, "hls");
-    assert.equal(webRtcFrameCallback, null);
+    assert.equal(stream.tagName, "ha-hls-player");
+    assert.equal(stream.entityid, "camera.front");
+    assert.equal(stream.fitMode, "contain");
     assert.equal(typeof hlsFrameCallback, "function");
     hlsFrameCallback();
     assert.equal(liveLayer.classList.contains("is-ready"), true);

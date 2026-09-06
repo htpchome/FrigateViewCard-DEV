@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { watchHaCameraStreamFirstFrame } from "../src/integrations/home-assistant/playback.js";
+import { watchHaPlaybackFirstFrame } from "../src/integrations/home-assistant/playback.js";
 
 const createEventTarget = () => {
   const listeners = new Map();
@@ -74,7 +74,7 @@ test("HA camera-stream readiness follows the active player after HA switches to 
   };
   let readyCount = 0;
 
-  const cleanup = watchHaCameraStreamFirstFrame({
+  const cleanup = watchHaPlaybackFirstFrame({
     stream,
     onReady: () => {
       readyCount += 1;

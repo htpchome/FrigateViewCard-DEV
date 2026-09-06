@@ -100,7 +100,7 @@ export function findActiveHaCameraStreamVideo(stream) {
   );
 }
 
-export function watchHaCameraStreamFirstFrame({
+export function watchHaPlaybackFirstFrame({
   stream,
   isDestroyed = () => false,
   onReady,

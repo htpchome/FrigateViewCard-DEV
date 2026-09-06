@@ -202,11 +202,29 @@ export class PreviewPageController {
     });
   }
 
+  previewCameraLiveStreamHint(entity) {
+    const liveStreamHint = this.previewLiveStreamHint();
+    if (
+      liveStreamHint !== "hls" ||
+      this._host._shouldUseGo2RtcForEntity?.(entity) !== true
+    ) {
+      return liveStreamHint;
+    }
+    const activeEntity = String(this._host._activeCam?.entity || "").trim();
+    if (
+      !activeEntity ||
+      this._host._shouldUseGo2RtcForEntity?.(activeEntity) === true
+    ) {
+      return liveStreamHint;
+    }
+    return DEVICE_PROFILE.isIOS ? "webrtc" : "mse";
+  }
+
   previewStreamSourceLabel(entity, useLive) {
     return resolvePreviewStreamSourceLabel({
       useLive,
       connectionType: this._host._cameraConnectionType(entity),
-      liveStreamHint: this.previewLiveStreamHint(),
+      liveStreamHint: this.previewCameraLiveStreamHint(entity),
     });
   }
 
@@ -266,12 +284,12 @@ export class PreviewPageController {
 
     const cameras = this._displayCameras();
     const showTitleBars = this.previewShowTitleBarsEnabled();
-    const liveStreamHint = this.previewLiveStreamHint();
     const hassReady = !!this._host._hass?.states;
     const nextSignature = cameras
       .map((camera, index) => {
         const entity = camera?.entity || "";
         const useLive = this.previewShouldUseLive(entity);
+        const liveStreamHint = this.previewCameraLiveStreamHint(entity);
         const light = this._host._linkedLightController?.config?.(camera);
         const lightPosition =
           this._host._linkedLightController?.position?.(light) || "right";
@@ -413,12 +431,12 @@ export class PreviewPageController {
       });
       return;
     }
-    const liveStreamHint = this.previewLiveStreamHint();
     const previewState = { destroyed: false, cleanup: [] };
     this._host._previewMediaState = previewState;
     hosts.forEach((host, index) => {
       const entity = host.dataset.previewMediaEntity || "";
       const useLive = host.dataset.previewUseLive === "1";
+      const liveStreamHint = this.previewCameraLiveStreamHint(entity);
       const stateObj = entity
         ? buildHaCameraStreamState(
             this._host._hass,

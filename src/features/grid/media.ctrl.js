@@ -1,8 +1,9 @@
 import {
   buildHaCameraStreamState,
   createHaCameraStreamElement,
+  createHaHlsPlayerElement,
   findActiveHaCameraStreamVideo,
-  watchHaCameraStreamFirstFrame,
+  watchHaPlaybackFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
 import { appendCacheBustParam } from "../live/fallbacks/fallback-url.js";
 import { adoptMountedAttemptSlot } from "../live/mount-result.js";
@@ -359,10 +360,12 @@ export class GridMediaController {
     const raw = normalizeHaDirectLiveStreamHint(
       this._host._hass?.states?.[entity]?.attributes?.frontend_stream_type,
     );
-    if (requested === "hls" || current === "hls" || raw === "hls") {
-      return "hls";
+    const targetEntity = String(entity || "").trim();
+    const activeEntity = String(this._host._activeCam?.entity || "").trim();
+    if (targetEntity && targetEntity === activeEntity) {
+      return requested || current || raw || "webrtc";
     }
-    return requested || current || raw || "webrtc";
+    return raw || requested || current || "webrtc";
   }
 
   _resolveGridCellLiveStreamHint(entity) {
@@ -535,15 +538,28 @@ export class GridMediaController {
               haDirectStreamHint === "webrtc" ? "web_rtc" : "hls",
           },
         };
-        const stream = createHaCameraStreamElement({
-          hass: this._host._hass,
-          stateObj: haDirectStateObj,
-          controls: false,
-          muted: true,
-          defaultMuted: true,
-          styleText:
-            "width:100%;height:100%;display:block;background:var(--c-bg-deep)",
-        });
+        const styleText =
+          "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
+        const stream =
+          haDirectStreamHint === "hls"
+            ? createHaHlsPlayerElement({
+                hass: this._host._hass,
+                entity,
+                controls: false,
+                muted: true,
+                defaultMuted: true,
+                fitMode: "contain",
+                styleText,
+              })
+            : createHaCameraStreamElement({
+                hass: this._host._hass,
+                stateObj: haDirectStateObj,
+                controls: false,
+                muted: true,
+                defaultMuted: true,
+                fitMode: "contain",
+                styleText,
+              });
         if (!stream) {
           liveStage?.retainPlaceholder?.();
           return Boolean(liveStage);
@@ -567,7 +583,7 @@ export class GridMediaController {
         };
         if (liveStage) {
           gridState.cleanup.push(
-            watchHaCameraStreamFirstFrame({
+            watchHaPlaybackFirstFrame({
               stream,
               isDestroyed: () => gridState.destroyed,
               onReady: () => {
