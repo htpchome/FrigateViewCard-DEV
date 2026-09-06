@@ -18,7 +18,6 @@ const normalizeHaDirectStreamType = (value) => {
   return normalized === "hls" ? "hls" : "webrtc";
 };
 
-const HA_DIRECT_WEBRTC_PREFERENCE_MS = 500;
 const HA_DIRECT_HIDDEN_ATTEMPT_STYLE =
   "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px;background:var(--c-bg-deep)";
 const HA_DIRECT_VISIBLE_STYLE =
@@ -77,9 +76,9 @@ export function createHaDirectMounter({
     } catch (_) {}
   };
 
-  const applyReady = (engine, streamType) => {
+  const applyReady = (engine, streamType, { markStarted = true } = {}) => {
     if (!isCurrentEngine(engine)) return;
-    engine.markStarted?.();
+    if (markStarted) engine.markStarted?.();
     onCommittedStream?.(streamType);
     const readyState = resolveHaDirectReadyState({
       rotateOverlayActive: getRotateOverlayActive(),
@@ -234,7 +233,7 @@ export function createHaDirectMounter({
       }
     };
 
-    const commitReadyHls = (engine) => {
+    const commitReadyHls = (engine, { readyStateApplied = false } = {}) => {
       engine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
       removeSlotChildrenExcept(engine);
       if (engine.parentElement !== slot) slot.appendChild(engine);
@@ -249,23 +248,31 @@ export function createHaDirectMounter({
       };
       bindHlsMedia(engine, fail);
       if (getRotateOverlayActive()) setLiveNativeControls(true);
-      applyReady(engine, "hls");
+      if (!readyStateApplied) applyReady(engine, "hls");
       return { ok: true, type: "hls", engine, slot };
     };
 
-    const waitForPreferredWebRtc = async (webRtcReady) => {
-      let timer = null;
-      const preferredWon = await Promise.race([
-        webRtcReady,
-        new Promise((resolve) => {
-          timer = setTimeout(
-            () => resolve(false),
-            HA_DIRECT_WEBRTC_PREFERENCE_MS,
-          );
-        }),
-      ]);
-      if (timer != null) clearTimeout(timer);
-      return preferredWon === true;
+    const showProvisionalHls = (ownerEngine, hlsEngine) => {
+      if (!isCurrentEngine(ownerEngine)) return false;
+      ownerEngine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
+      hlsEngine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
+      if (hlsEngine.parentElement !== slot) slot.appendChild(hlsEngine);
+      const hlsVideo = findActiveHaCameraStreamVideo(hlsEngine);
+      if (hlsVideo) onCommittedMediaReady?.(ownerEngine, hlsVideo);
+      applyReady(ownerEngine, "hls", { markStarted: false });
+      return true;
+    };
+
+    const showReadyWebRtc = (ownerEngine, hlsEngine) => {
+      ownerEngine.video.style.cssText =
+        options.styleText || HA_DIRECT_VISIBLE_STYLE;
+      removeSlotChildrenExcept(ownerEngine.video);
+      if (ownerEngine.video.parentElement !== slot) {
+        slot.appendChild(ownerEngine.video);
+      }
+      hlsEngine?.remove?.();
+      onCommittedMediaReady?.(ownerEngine, ownerEngine.video);
+      applyReady(ownerEngine, "webrtc");
     };
 
     if (initialStreamType === "hls") return mountHls();
@@ -338,23 +345,23 @@ export function createHaDirectMounter({
       ]).catch(() => "");
       if (binding.disposed || !isCurrentEngine(engine)) return;
       if (winner === "hls") {
-        const preferredWon = await waitForPreferredWebRtc(webRtcReady);
+        if (!showProvisionalHls(engine, fallbackEngine)) return;
+        const webRtcStarted = await webRtcReady;
         if (binding.disposed || !isCurrentEngine(engine)) return;
-        if (preferredWon) winner = "webrtc";
+        if (webRtcStarted) winner = "webrtc";
       }
       if (winner === "webrtc") {
         binding.fallbackAbortController = null;
         binding.fallbackEngine = null;
         fallbackAbortController.abort();
-        fallbackEngine?.remove?.();
-        applyReady(engine, "webrtc");
+        showReadyWebRtc(engine, fallbackEngine);
         return;
       }
       if (winner === "hls" && fallbackEngine) {
         binding.fallbackAbortController = null;
         binding.fallbackEngine = null;
         release(engine);
-        commitReadyHls(fallbackEngine);
+        commitReadyHls(fallbackEngine, { readyStateApplied: true });
         return;
       }
       applyFailed(engine);

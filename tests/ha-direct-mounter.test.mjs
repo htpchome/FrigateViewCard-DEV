@@ -441,6 +441,155 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
   }
 });
 
+test("ha direct mounter shows ready HLS while WebRTC continues and takes over", async () => {
+  const previousDocument = globalThis.document;
+  const previousMediaStream = globalThis.MediaStream;
+  const previousPeerConnection = globalThis.RTCPeerConnection;
+  let assignedEngine = null;
+  let resolveWebRtcReady = null;
+  let unsubscribeCalls = 0;
+  const committedTypes = [];
+  const hlsPlayers = [];
+
+  class FakePeerConnection {
+    constructor() {
+      this.connectionState = "new";
+      this.iceConnectionState = "new";
+    }
+
+    addTransceiver() {
+      return { stop() {} };
+    }
+
+    getTransceivers() {
+      return [];
+    }
+
+    async createOffer() {
+      return { type: "offer", sdp: "ha-direct-offer" };
+    }
+
+    async setLocalDescription() {
+      this.ontrack?.({
+        track: { kind: "video", stop() {} },
+        streams: [],
+      });
+    }
+
+    async setRemoteDescription() {}
+
+    close() {}
+  }
+
+  globalThis.document = {
+    createElement(tag) {
+      if (tag === "video") {
+        return {
+          tagName: "VIDEO",
+          style: { cssText: "" },
+          dataset: {},
+          classList: { add() {} },
+          setAttribute() {},
+          removeAttribute() {},
+          play: () => Promise.resolve(),
+          pause() {},
+        };
+      }
+      if (tag === "ha-hls-player") {
+        const player = createFakeStreamElement();
+        hlsPlayers.push(player);
+        return player;
+      }
+      throw new Error(`Unexpected tag: ${tag}`);
+    },
+  };
+  globalThis.MediaStream = class {
+    addTrack() {}
+    getTracks() {
+      return [];
+    }
+  };
+  globalThis.RTCPeerConnection = FakePeerConnection;
+
+  const hass = {
+    states: {
+      "camera.front": { entity_id: "camera.front", attributes: {} },
+    },
+    callWS: async () => ({ configuration: { iceServers: [] } }),
+    connection: {
+      subscribeMessage(callback) {
+        queueMicrotask(() =>
+          callback({ type: "answer", answer: "ha-direct-answer" }),
+        );
+        return Promise.resolve(() => {
+          unsubscribeCalls += 1;
+        });
+      },
+    },
+  };
+  const slot = {
+    innerHTML: "",
+    appendChild(node) {
+      this.lastChild = node;
+    },
+  };
+  const mounter = createHaDirectMounter({
+    getHass: () => hass,
+    getPreferredStreamType: () => "webrtc",
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => assignedEngine === engine,
+    waitForStreamStart: async (engine) => {
+      if (engine?.tagName === "HA-HLS-PLAYER") return true;
+      return await new Promise((resolve) => {
+        resolveWebRtcReady = resolve;
+      });
+    },
+    assignCommittedEngine: (engine) => {
+      assignedEngine = engine;
+    },
+    onCommittedMediaReady: () => {},
+    onCommittedStream: (type) => committedTypes.push(type),
+    applyResolvedStreamUiState: () => {},
+    setLiveNativeControls: () => {},
+    scheduleResumeLive: () => {},
+  });
+
+  try {
+    const result = await mounter.tryMount(slot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    const webRtcEngine = assignedEngine;
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    assert.equal(result.type, "webrtc");
+    assert.equal(assignedEngine, webRtcEngine);
+    assert.deepEqual(committedTypes, ["hls"]);
+    assert.equal(hlsPlayers[0].removeCalled, false);
+    assert.match(webRtcEngine.video.style.cssText, /left:-9999px/);
+    assert.equal(unsubscribeCalls, 0);
+
+    resolveWebRtcReady(true);
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    assert.equal(assignedEngine, webRtcEngine);
+    assert.deepEqual(committedTypes, ["hls", "webrtc"]);
+    assert.equal(hlsPlayers[0].removeCalled, true);
+    assert.equal(webRtcEngine.video.style.cssText.includes("left:-9999px"), false);
+    assert.equal(unsubscribeCalls, 0);
+  } finally {
+    mounter.release(assignedEngine);
+    await flushAsyncWork();
+    assert.equal(unsubscribeCalls, 1);
+    globalThis.document = previousDocument;
+    globalThis.MediaStream = previousMediaStream;
+    globalThis.RTCPeerConnection = previousPeerConnection;
+  }
+});
+
 test("ha direct mounter serializes WebRTC teardown before the next offer", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
