@@ -2306,9 +2306,19 @@ test("editor presents general, layout, and Mobile View controls in their request
       layoutSource.indexOf('id="display_logo"'),
   );
   assert.match(generalSource, /id="card-version-status"/);
+  assert.match(generalSource, /data-home-assistant-version-notice/);
+  assert.match(generalSource, /data-frigate-integration-version-notice/);
   assert.ok(
     generalSource.indexOf('id="card-version-status"') <
       generalSource.indexOf('id="title"'),
+  );
+  assert.match(
+    editorSource,
+    /\.environment-version-summary\{[^}]*margin:12px 0;/,
+  );
+  assert.match(
+    editorSource,
+    /\.environment-support-notice\{[^}]*var\(--warning-color/,
   );
   assert.equal(
     (generalSource.match(/buildEditorBubbleSelectorMarkup\(\{/g) || []).length,

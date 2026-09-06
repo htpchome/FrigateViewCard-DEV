@@ -989,6 +989,104 @@ test("editor version badge follows the HACS update entity", () => {
   assert.equal(link.dataset.entityId, "update.frigateview_card_update");
 });
 
+test("editor shows compact notices for unsupported environment versions", () => {
+  const editor = new FrigateViewCardEditor();
+  const homeAssistantText = { textContent: "" };
+  const frigateText = { textContent: "" };
+  const homeAssistantNotice = {
+    hidden: true,
+    querySelector: () => homeAssistantText,
+  };
+  const frigateNotice = {
+    hidden: true,
+    querySelector: () => frigateText,
+  };
+  editor._hass = { config: { version: "2026.8.4" } };
+  editor._frigateIntegrationInstalled = true;
+  editor._frigateIntegrationVersion = "5.14.0";
+  editor.querySelector = (selector) =>
+    ({
+      "[data-home-assistant-version-notice]": homeAssistantNotice,
+      "[data-frigate-integration-version-notice]": frigateNotice,
+    })[selector] || null;
+
+  editor._syncEnvironmentSupportNotices();
+
+  assert.equal(homeAssistantNotice.hidden, false);
+  assert.equal(
+    homeAssistantText.textContent,
+    "Home Assistant 2026.8.4 is below the recommended 2026.9.0.",
+  );
+  assert.equal(frigateNotice.hidden, false);
+  assert.equal(
+    frigateText.textContent,
+    "Frigate integration 5.14.0 is below the recommended 5.15.6.",
+  );
+
+  editor._hass.config.version = "2026.9.0";
+  editor._frigateIntegrationVersion = "5.15.6";
+  editor._syncEnvironmentSupportNotices();
+  assert.equal(homeAssistantNotice.hidden, true);
+  assert.equal(frigateNotice.hidden, true);
+
+  editor._frigateIntegrationInstalled = false;
+  editor._syncEnvironmentSupportNotices();
+  assert.equal(frigateNotice.hidden, false);
+  assert.equal(
+    frigateText.textContent,
+    "Frigate integration is not installed in Home Assistant.",
+  );
+});
+
+test("editor caches the Frigate integration manifest request", async () => {
+  const editor = new FrigateViewCardEditor();
+  const requests = [];
+  const connection = {};
+  editor._hass = {
+    connection,
+    config: { components: ["frigate"] },
+    callWS: async (request) => {
+      requests.push(request);
+      return { version: "5.15.6" };
+    },
+  };
+  editor.querySelector = () => null;
+
+  editor._ensureFrigateIntegrationVersionLookup();
+  const pendingRequest = editor._frigateIntegrationManifestRequest;
+  editor._ensureFrigateIntegrationVersionLookup();
+  await pendingRequest;
+  editor._ensureFrigateIntegrationVersionLookup();
+
+  assert.equal(requests.length, 1);
+  assert.equal(editor._frigateIntegrationInstalled, true);
+  assert.equal(editor._frigateIntegrationVersion, "5.15.6");
+  assert.equal(editor._frigateIntegrationLookupStatus, "resolved");
+});
+
+test("editor reports a missing Frigate integration without retrying", async () => {
+  const editor = new FrigateViewCardEditor();
+  let requests = 0;
+  const connection = {};
+  editor._hass = {
+    connection,
+    config: { components: [] },
+    callWS: async () => {
+      requests += 1;
+      throw new Error("Integration not found");
+    },
+  };
+  editor.querySelector = () => null;
+
+  editor._ensureFrigateIntegrationVersionLookup();
+  await editor._frigateIntegrationManifestRequest;
+  editor._ensureFrigateIntegrationVersionLookup();
+
+  assert.equal(requests, 1);
+  assert.equal(editor._frigateIntegrationInstalled, false);
+  assert.equal(editor._frigateIntegrationLookupStatus, "resolved");
+});
+
 test("editor update link opens the Home Assistant update entity dialog", () => {
   const editor = new FrigateViewCardEditor();
   const events = [];
