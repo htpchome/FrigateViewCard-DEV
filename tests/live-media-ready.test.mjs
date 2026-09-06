@@ -191,6 +191,101 @@ test("HA direct stale checks probe only the visible HA player", () => {
   assert.deepEqual(mountCalls, []);
 });
 
+test("HA direct HLS stale checks ignore a hidden pending WebRTC video", () => {
+  const pendingWebRtcVideo = {
+    readyState: 0,
+    ended: false,
+    paused: true,
+    currentTime: 0,
+    webkitDecodedFrameCount: 0,
+  };
+  const activeHlsVideo = {
+    readyState: 4,
+    ended: false,
+    paused: false,
+    currentTime: 10,
+    webkitDecodedFrameCount: 20,
+  };
+  const engine = {
+    tagName: "HA-HLS-PLAYER",
+    type: "ha_direct",
+    streamType: "hls",
+    hidden: false,
+    classList: { contains: () => false },
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "video" ? activeHlsVideo : null,
+    },
+    querySelector: () => null,
+  };
+  const mountCalls = [];
+  const context = {
+    _engine: engine,
+    _started: true,
+    _hass: {},
+    _config: {},
+    _viewMode: "single",
+    _mountInProgress: false,
+    _lastLiveKick: 0,
+    _mseConnectAt: 0,
+    _mseLastChunkAt: 0,
+    _$: (selector) =>
+      selector === "#engine"
+        ? { children: [pendingWebRtcVideo, engine] }
+        : null,
+    _findVideoDeep: () => {
+      throw new Error("HA direct must not probe hidden sibling media");
+    },
+    _isPreviewPageActive: () => false,
+    _isCardVisible: () => true,
+    _isFirefox: () => false,
+    _mountEngine: (...args) => mountCalls.push(args),
+  };
+
+  FrigateViewCard.prototype._kickLiveIfStale.call(context);
+
+  assert.deepEqual(mountCalls, []);
+});
+
+test("HA direct WebRTC stale checks probe the committed engine video", () => {
+  const activeWebRtcVideo = {
+    readyState: 4,
+    ended: false,
+    paused: false,
+    currentTime: 10,
+    webkitDecodedFrameCount: 20,
+  };
+  const engine = {
+    type: "ha_direct",
+    streamType: "webrtc",
+    video: activeWebRtcVideo,
+  };
+  const mountCalls = [];
+  const context = {
+    _engine: engine,
+    _started: true,
+    _hass: {},
+    _config: {},
+    _viewMode: "single",
+    _mountInProgress: false,
+    _lastLiveKick: 0,
+    _mseConnectAt: 0,
+    _mseLastChunkAt: 0,
+    _$: (selector) => (selector === "#engine" ? {} : null),
+    _findVideoDeep: () => {
+      throw new Error("HA direct must not probe unrelated slot media");
+    },
+    _isPreviewPageActive: () => false,
+    _isCardVisible: () => true,
+    _isFirefox: () => false,
+    _mountEngine: (...args) => mountCalls.push(args),
+  };
+
+  FrigateViewCard.prototype._kickLiveIfStale.call(context);
+
+  assert.deepEqual(mountCalls, []);
+});
+
 test("stream readiness releases pending video callbacks and listeners on abort", async () => {
   const listeners = new Map();
   const cancelledFrames = [];

@@ -5601,12 +5601,14 @@ export class FrigateViewCard extends HTMLElement {
   ) {
     const now = Date.now();
     const engineHost = this._$("#engine");
-    const haDirectEngine =
-      this._engine?.tagName?.toLowerCase?.() === "ha-camera-stream"
-        ? this._engine
-        : null;
-    const v = haDirectEngine
-      ? findActiveHaCameraStreamVideo(haDirectEngine)
+    const currentEngineTag = this._engine?.tagName?.toLowerCase?.() || "";
+    const isHaDirectEngine =
+      this._engine?.type === "ha_direct" ||
+      currentEngineTag === "ha-camera-stream" ||
+      currentEngineTag === "ha-hls-player" ||
+      currentEngineTag === "ha-web-rtc-player";
+    const v = isHaDirectEngine
+      ? this._engine?.video || findActiveHaCameraStreamVideo(this._engine)
       : this._findVideoDeep(engineHost) ||
         this._findVideoDeep(this._engine) ||
         this._engine?.video ||
