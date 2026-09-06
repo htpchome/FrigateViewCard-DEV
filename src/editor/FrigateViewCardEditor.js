@@ -181,6 +181,7 @@ const CAMERA_MODAL_SELECTOR_IDS = Object.freeze(
 const HOME_ASSISTANT_DIRTY_STATE_CONTEXT = "dirtyState";
 const EDITOR_DIRTY_STATE_KEY = "frigate-view-card-editor";
 const EDITOR_TEXT_PREVIEW_DELAY_MS = 200;
+const EDITOR_GO2RTC_METADATA_CACHE_TTL_MS = 30_000;
 
 const escapeEditorChoiceMarkup = escapeHtml;
 
@@ -500,6 +501,57 @@ export class FrigateViewCardEditor extends HTMLElement {
     }
   }
 
+  _editorCapabilityCacheNow() {
+    return Date.now();
+  }
+
+  _frigateCapabilityCacheKey(entity) {
+    const targetEntity = String(entity || "").trim();
+    const context = this._cameraEntityCapabilityLookupContext(targetEntity);
+    return JSON.stringify([
+      targetEntity,
+      context?.instanceId || "",
+      context?.cameraName || "",
+    ]);
+  }
+
+  _haCameraCapabilityCacheKey(entity) {
+    const targetEntity = String(entity || "").trim();
+    const state = this._hass?.states?.[targetEntity];
+    const attrs = state?.attributes || {};
+    return JSON.stringify([
+      targetEntity,
+      Boolean(state),
+      attrs.supported_features ?? null,
+      attrs.frontend_stream_type ?? null,
+      attrs.frontend_stream_types ?? null,
+    ]);
+  }
+
+  _pruneChangedCapabilityCacheEntries(cache, cacheKeyForEntity) {
+    if (!(cache instanceof Map)) return;
+    cache.forEach((entry, cacheKey) => {
+      if (!entry?.entity || cacheKey !== cacheKeyForEntity(entry.entity)) {
+        cache.delete(cacheKey);
+      }
+    });
+  }
+
+  _pruneChangedCapabilityCaches() {
+    this._pruneChangedCapabilityCacheEntries(
+      this._ptzCapabilityCache,
+      (entity) => this._frigateCapabilityCacheKey(entity),
+    );
+    this._pruneChangedCapabilityCacheEntries(
+      this._go2rtcMetadataCache,
+      (entity) => this._frigateCapabilityCacheKey(entity),
+    );
+    this._pruneChangedCapabilityCacheEntries(
+      this._haCameraCapabilityCache,
+      (entity) => this._haCameraCapabilityCacheKey(entity),
+    );
+  }
+
   _cameraEntityCapabilityLookupContext(entity) {
     const state = this._hass?.states?.[entity];
     if (!state) return null;
@@ -514,18 +566,29 @@ export class FrigateViewCardEditor extends HTMLElement {
     const targetEntity = String(entity || "").trim();
     if (!targetEntity || !this._hass?.callWS) return null;
     this._ensurePtzCapabilityCache();
-    const cached = this._ptzCapabilityCache.get(targetEntity);
+    const cacheKey = this._frigateCapabilityCacheKey(targetEntity);
+    const cached = this._ptzCapabilityCache.get(cacheKey);
     if (cached?.resolved) return cached.info;
     if (cached?.promise) return cached.promise;
 
     const context = this._cameraEntityCapabilityLookupContext(targetEntity);
     if (!context) {
-      const empty = { resolved: true, info: null, promise: null };
-      this._ptzCapabilityCache.set(targetEntity, empty);
+      const empty = {
+        entity: targetEntity,
+        resolved: true,
+        info: null,
+        promise: null,
+      };
+      this._ptzCapabilityCache.set(cacheKey, empty);
       return null;
     }
 
-    const entry = { resolved: false, info: null, promise: null };
+    const entry = {
+      entity: targetEntity,
+      resolved: false,
+      info: null,
+      promise: null,
+    };
     entry.promise = (async () => {
       try {
         const result = parseWs(
@@ -546,7 +609,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       return entry.info;
     })();
 
-    this._ptzCapabilityCache.set(targetEntity, entry);
+    this._ptzCapabilityCache.set(cacheKey, entry);
     return entry.promise;
   }
 
@@ -554,18 +617,33 @@ export class FrigateViewCardEditor extends HTMLElement {
     const targetEntity = String(entity || "").trim();
     if (!targetEntity || !this._hass?.callWS) return null;
     this._ensureGo2RtcMetadataCache();
-    const cached = this._go2rtcMetadataCache.get(targetEntity);
-    if (cached?.resolved) return cached.info;
+    const cacheKey = this._frigateCapabilityCacheKey(targetEntity);
+    const cached = this._go2rtcMetadataCache.get(cacheKey);
+    const now = this._editorCapabilityCacheNow();
+    if (cached?.resolved && cached.expiresAt > now) return cached.info;
     if (cached?.promise) return cached.promise;
+    if (cached) this._go2rtcMetadataCache.delete(cacheKey);
 
     const context = this._cameraEntityCapabilityLookupContext(targetEntity);
     if (!context) {
-      const empty = { resolved: true, info: null, promise: null };
-      this._go2rtcMetadataCache.set(targetEntity, empty);
+      const empty = {
+        entity: targetEntity,
+        resolved: true,
+        info: null,
+        promise: null,
+        expiresAt: now + EDITOR_GO2RTC_METADATA_CACHE_TTL_MS,
+      };
+      this._go2rtcMetadataCache.set(cacheKey, empty);
       return null;
     }
 
-    const entry = { resolved: false, info: null, promise: null };
+    const entry = {
+      entity: targetEntity,
+      resolved: false,
+      info: null,
+      promise: null,
+      expiresAt: 0,
+    };
     entry.promise = (async () => {
       try {
         const path = `/api/frigate/${encodeURIComponent(context.instanceId)}/go2rtc/api/streams?src=${encodeURIComponent(context.cameraName)}&video=all&audio=all&microphone`;
@@ -590,11 +668,14 @@ export class FrigateViewCardEditor extends HTMLElement {
       } finally {
         entry.resolved = true;
         entry.promise = null;
+        entry.expiresAt =
+          this._editorCapabilityCacheNow() +
+          EDITOR_GO2RTC_METADATA_CACHE_TTL_MS;
       }
       return entry.info;
     })();
 
-    this._go2rtcMetadataCache.set(targetEntity, entry);
+    this._go2rtcMetadataCache.set(cacheKey, entry);
     return entry.promise;
   }
 
@@ -602,11 +683,17 @@ export class FrigateViewCardEditor extends HTMLElement {
     const targetEntity = String(entity || "").trim();
     if (!targetEntity || !this._hass?.callWS) return null;
     this._ensureHaCameraCapabilityCache();
-    const cached = this._haCameraCapabilityCache.get(targetEntity);
+    const cacheKey = this._haCameraCapabilityCacheKey(targetEntity);
+    const cached = this._haCameraCapabilityCache.get(cacheKey);
     if (cached?.resolved) return cached.info;
     if (cached?.promise) return cached.promise;
 
-    const entry = { resolved: false, info: null, promise: null };
+    const entry = {
+      entity: targetEntity,
+      resolved: false,
+      info: null,
+      promise: null,
+    };
     entry.promise = (async () => {
       try {
         entry.info = parseWs(
@@ -628,7 +715,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       return entry.info;
     })();
 
-    this._haCameraCapabilityCache.set(targetEntity, entry);
+    this._haCameraCapabilityCache.set(cacheKey, entry);
     return entry.promise;
   }
 
@@ -1065,15 +1152,7 @@ export class FrigateViewCardEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (this._ptzCapabilityCache instanceof Map) {
-      this._ptzCapabilityCache.clear();
-    }
-    if (this._go2rtcMetadataCache instanceof Map) {
-      this._go2rtcMetadataCache.clear();
-    }
-    if (this._haCameraCapabilityCache instanceof Map) {
-      this._haCameraCapabilityCache.clear();
-    }
+    this._pruneChangedCapabilityCaches();
     const modeKey = this._hass?.themes?.darkMode ? "dark" : "light";
     const key = `${this._frigateEntities().join(",")}|${modeKey}`;
     if (key !== this._lastEntityKey) {
@@ -1162,14 +1241,26 @@ export class FrigateViewCardEditor extends HTMLElement {
   }
 
   _frigateEntities() {
-    if (!this._hass) return [];
-    return Object.keys(this._hass.states)
-      .filter((e) => e.startsWith("camera."))
-      .filter((e) => {
-        const a = this._hass.states[e].attributes;
-        return a?.client_id || a?.mqtt_client_id || a?.camera_name;
-      })
-      .sort();
+    const states = this._hass?.states || {};
+    const entities = Object.keys(states).filter((entity) => {
+      if (!entity.startsWith("camera.")) return false;
+      const attrs = states[entity]?.attributes;
+      return Boolean(
+        attrs?.client_id || attrs?.mqtt_client_id || attrs?.camera_name,
+      );
+    });
+    const cachedSet = this._frigateEntitySet;
+    if (
+      cachedSet instanceof Set &&
+      cachedSet.size === entities.length &&
+      entities.every((entity) => cachedSet.has(entity))
+    ) {
+      return this._frigateEntityList;
+    }
+    entities.sort();
+    this._frigateEntitySet = new Set(entities);
+    this._frigateEntityList = entities;
+    return entities;
   }
 
   _timezoneDisplay() {

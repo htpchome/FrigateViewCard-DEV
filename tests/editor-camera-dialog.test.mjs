@@ -1146,6 +1146,236 @@ test("HA-direct two-way talk is offered only when HA reports WebRTC playback", a
   assert.equal(states.at(-1).sourceType, "ha_direct");
 });
 
+test("editor capability caches retain resolved and in-flight requests across unrelated hass updates", async () => {
+  const editor = new FrigateViewCardEditor();
+  const requests = [];
+  let resolvePtzRequest;
+  const callWS = (request) => {
+    requests.push(request);
+    return new Promise((resolve) => {
+      resolvePtzRequest = resolve;
+    });
+  };
+  const cameraState = {
+    attributes: { client_id: "frigate-main", camera_name: "driveway" },
+  };
+  editor.hass = {
+    states: {
+      "camera.driveway": cameraState,
+      "sensor.unrelated": { state: "one", attributes: {} },
+    },
+    callWS,
+  };
+
+  const first = editor._fetchPtzCapabilityForEntity("camera.driveway");
+  const second = editor._fetchPtzCapabilityForEntity("camera.driveway");
+  assert.equal(requests.length, 1);
+  resolvePtzRequest({ features: ["pt"] });
+  assert.deepEqual(await Promise.all([first, second]), [
+    { features: ["pt"] },
+    { features: ["pt"] },
+  ]);
+
+  editor.hass = {
+    states: {
+      "camera.driveway": { attributes: { ...cameraState.attributes } },
+      "sensor.unrelated": { state: "two", attributes: {} },
+    },
+    callWS,
+  };
+
+  assert.deepEqual(
+    await editor._fetchPtzCapabilityForEntity("camera.driveway"),
+    { features: ["pt"] },
+  );
+  assert.equal(requests.length, 1);
+});
+
+test("editor capability caches invalidate only the camera with changed relevant attributes", async () => {
+  const editor = new FrigateViewCardEditor();
+  const requests = [];
+  const callWS = async (request) => {
+    requests.push(request);
+    if (request.type === "camera/capabilities") {
+      return { frontend_stream_types: ["hls", "web_rtc"] };
+    }
+    return { camera: request.camera, features: ["pt"] };
+  };
+  editor.hass = {
+    states: {
+      "camera.driveway": {
+        attributes: {
+          client_id: "frigate-main",
+          camera_name: "driveway",
+          supported_features: 1,
+        },
+      },
+      "camera.porch": {
+        attributes: {
+          client_id: "frigate-main",
+          camera_name: "porch",
+          supported_features: 1,
+        },
+      },
+    },
+    callWS,
+  };
+
+  await Promise.all([
+    editor._fetchPtzCapabilityForEntity("camera.driveway"),
+    editor._fetchPtzCapabilityForEntity("camera.porch"),
+    editor._fetchHaCameraCapabilitiesForEntity("camera.driveway"),
+    editor._fetchHaCameraCapabilitiesForEntity("camera.porch"),
+  ]);
+  assert.equal(requests.length, 4);
+
+  editor.hass = {
+    states: {
+      "camera.driveway": {
+        attributes: {
+          client_id: "frigate-main",
+          camera_name: "driveway_hd",
+          supported_features: 3,
+        },
+      },
+      "camera.porch": {
+        attributes: {
+          client_id: "frigate-main",
+          camera_name: "porch",
+          supported_features: 1,
+        },
+      },
+    },
+    callWS,
+  };
+
+  await Promise.all([
+    editor._fetchPtzCapabilityForEntity("camera.porch"),
+    editor._fetchHaCameraCapabilitiesForEntity("camera.porch"),
+  ]);
+  assert.equal(requests.length, 4);
+
+  await Promise.all([
+    editor._fetchPtzCapabilityForEntity("camera.driveway"),
+    editor._fetchHaCameraCapabilitiesForEntity("camera.driveway"),
+  ]);
+  assert.equal(requests.length, 6);
+  assert.equal(requests.at(-2).camera, "driveway_hd");
+});
+
+test("editor go2rtc metadata cache survives unrelated hass updates and expires by TTL", async () => {
+  const editor = new FrigateViewCardEditor();
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  const requests = [];
+  const fetches = [];
+  let now = 1_000;
+  editor._editorCapabilityCacheNow = () => now;
+  const callWS = async (request) => {
+    requests.push(request);
+    return { path: `${request.path}&authSig=test` };
+  };
+  globalThis.window = { location: { origin: "https://example.test" } };
+  globalThis.fetch = async (url) => {
+    fetches.push(url);
+    return {
+      ok: true,
+      json: async () => ({ request: fetches.length }),
+    };
+  };
+
+  try {
+    editor.hass = {
+      states: {
+        "camera.driveway": {
+          attributes: { client_id: "frigate-main", camera_name: "driveway" },
+        },
+      },
+      callWS,
+    };
+    assert.deepEqual(
+      await editor._fetchGo2RtcStreamMetadataForEntity("camera.driveway"),
+      { request: 1 },
+    );
+
+    now += 29_999;
+    editor.hass = {
+      states: {
+        "camera.driveway": {
+          attributes: { client_id: "frigate-main", camera_name: "driveway" },
+        },
+        "sensor.unrelated": { state: "changed", attributes: {} },
+      },
+      callWS,
+    };
+    assert.deepEqual(
+      await editor._fetchGo2RtcStreamMetadataForEntity("camera.driveway"),
+      { request: 1 },
+    );
+    assert.equal(requests.length, 1);
+    assert.equal(fetches.length, 1);
+
+    now += 2;
+    assert.deepEqual(
+      await editor._fetchGo2RtcStreamMetadataForEntity("camera.driveway"),
+      { request: 2 },
+    );
+    assert.equal(requests.length, 2);
+    assert.equal(fetches.length, 2);
+  } finally {
+    if (originalFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
+test("editor reuses its sorted Frigate entity list until membership changes", () => {
+  const editor = new FrigateViewCardEditor();
+  editor.hass = {
+    states: {
+      "camera.porch": {
+        attributes: { client_id: "frigate-main", camera_name: "porch" },
+      },
+      "camera.driveway": {
+        attributes: { client_id: "frigate-main", camera_name: "driveway" },
+      },
+    },
+  };
+  const first = editor._frigateEntities();
+  assert.deepEqual(first, ["camera.driveway", "camera.porch"]);
+
+  editor.hass = {
+    states: {
+      "sensor.unrelated": { state: "changed", attributes: {} },
+      "camera.driveway": {
+        attributes: { client_id: "frigate-main", camera_name: "driveway" },
+      },
+      "camera.porch": {
+        attributes: { client_id: "frigate-main", camera_name: "porch" },
+      },
+    },
+  };
+  const unchanged = editor._frigateEntities();
+  assert.equal(unchanged, first);
+
+  editor.hass = {
+    states: {
+      ...editor._hass.states,
+      "camera.backyard": {
+        attributes: { client_id: "frigate-main", camera_name: "backyard" },
+      },
+    },
+  };
+  const changed = editor._frigateEntities();
+  assert.notEqual(changed, first);
+  assert.deepEqual(changed, [
+    "camera.backyard",
+    "camera.driveway",
+    "camera.porch",
+  ]);
+});
+
 test("disabling standalone Card View requires a top-layer replacement landing page", () => {
   const editor = new FrigateViewCardEditor();
   const modal = {
