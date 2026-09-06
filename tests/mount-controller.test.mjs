@@ -96,7 +96,7 @@ test("editor WebRTC handoff transfers and returns one established engine", () =>
   assert.equal(donorSyncCalls, 1);
 });
 
-test("editor live handoff rejects HA-direct and active talk sessions", () => {
+test("editor live handoff rejects mismatched transports and active talk sessions", () => {
   const current = {
     activeStreamType: "webrtc",
     engine: { type: "ha_direct" },
@@ -133,6 +133,88 @@ test("editor live handoff rejects HA-direct and active talk sessions", () => {
   current.useGo2Rtc = true;
   current.twoWayTalkActive = true;
   assert.equal(controller.createOffer(request), null);
+});
+
+test("editor HA-direct WebRTC handoff transfers and returns one established engine", () => {
+  const engine = {
+    type: "ha_direct",
+    streamType: "webrtc",
+    video: {},
+    pc: {},
+    deactivateRecovery() {},
+  };
+  const donorState = {
+    activeStreamType: "webrtc",
+    engine,
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: false,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: false,
+    viewMode: "single",
+  };
+  const receiverState = { ...donorState, engine: null };
+  let requestedType = "";
+  let donor;
+  donor = createEditorLiveHandoffController({
+    getState: () => donorState,
+    getContext: () => "preconfig",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    isEngineReusable: (candidate, streamType, connectionType) =>
+      candidate === engine &&
+      streamType === "webrtc" &&
+      connectionType === "ha_direct",
+    detachEngine: () => {
+      donorState.engine = null;
+      return true;
+    },
+    adoptEngine: (candidate, streamType, connectionType) => {
+      assert.equal(streamType, "webrtc");
+      assert.equal(connectionType, "ha_direct");
+      donorState.engine = candidate;
+      return true;
+    },
+  });
+  const receiver = createEditorLiveHandoffController({
+    getState: () => receiverState,
+    getContext: () => "config",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    requestHandoff: (request) => {
+      requestedType = request.type;
+      return donor.createOffer(request);
+    },
+    isEngineReusable: (candidate, streamType, connectionType) =>
+      candidate === engine &&
+      streamType === "webrtc" &&
+      connectionType === "ha_direct",
+    detachEngine: () => {
+      receiverState.engine = null;
+      return true;
+    },
+    adoptEngine: (candidate, streamType, connectionType) => {
+      assert.equal(streamType, "webrtc");
+      assert.equal(connectionType, "ha_direct");
+      receiverState.engine = candidate;
+      return true;
+    },
+  });
+
+  const transfer = receiver.take("camera.front", "webrtc", "ha_direct");
+  assert.equal(requestedType, "ha-direct-webrtc-live");
+  assert.equal(transfer?.engine, engine);
+  assert.equal(donorState.engine, null);
+  receiverState.engine = transfer.engine;
+  transfer.commit();
+  donorState.hostConnected = true;
+
+  assert.equal(receiver.returnIfPossible(), true);
+  assert.equal(receiverState.engine, null);
+  assert.equal(donorState.engine, engine);
 });
 
 test("editor MSE handoff transfers and returns one established engine", () => {
@@ -638,7 +720,7 @@ test("live mount controller reuses only the HA-direct retained engine for HA-dir
       },
     },
     takeEditorLiveHandoff: () => {
-      throw new Error("Editor WebRTC handoff must remain isolated from HA-direct");
+      throw new Error("Editor handoff must not run after local HA-direct reuse");
     },
     getPendingMountDestroyers: () => [],
     setPendingMountDestroyers: () => {},
@@ -664,6 +746,72 @@ test("live mount controller reuses only the HA-direct retained engine for HA-dir
   assert.deepEqual(calls, [
     ["take-ha-direct", "camera.front", ""],
     ["adopt-ha-direct", slot, cachedEngine],
+  ]);
+});
+
+test("live mount controller adopts an editor HA-direct WebRTC handoff before restarting HLS", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  const handedOffEngine = {
+    type: "ha_direct",
+    streamType: "webrtc",
+    video: {},
+    pc: {},
+  };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => ({
+      mountSeq: 1,
+      mountInProgress: false,
+      mountStartedAt: 0,
+      mountTargetEntity: "",
+    }),
+    applyMountTrackingState: () => {},
+    mountGridEngine: () => {},
+    cleanupEngine: () => calls.push("cleanup"),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    mseGraceController: {
+      takeGraceHaDirectEntry: (entity, streamType) => {
+        calls.push(["take-ha-direct", entity, streamType]);
+        return null;
+      },
+      adoptGraceHaDirectEngine: (targetSlot, engine) => {
+        calls.push(["adopt-ha-webrtc-handoff", targetSlot, engine]);
+        return true;
+      },
+    },
+    takeEditorLiveHandoff: ({ connectionType, entity, streamType }) => {
+      calls.push(["take-handoff", connectionType, entity, streamType]);
+      return {
+        engine: handedOffEngine,
+        commit: () => calls.push("commit-handoff"),
+      };
+    },
+    haDirectMounter: {
+      tryMount: async () => {
+        throw new Error("HA HLS/WebRTC startup must not restart after handoff");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    ["take-ha-direct", "camera.front", ""],
+    ["take-handoff", "ha_direct", "camera.front", "webrtc"],
+    ["adopt-ha-webrtc-handoff", slot, handedOffEngine],
+    "commit-handoff",
   ]);
 });
 

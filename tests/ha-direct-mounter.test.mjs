@@ -452,6 +452,7 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
   const hlsPlayers = [];
   const assignments = [];
   let mounter = null;
+  let receivingMounter = null;
 
   class FakePeerConnection {
     constructor() {
@@ -602,8 +603,32 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
     assert.equal(hlsPlayers[0].cancelPendingTakeover, null);
     assert.equal(webRtcEngine.video.style.cssText.includes("left:-9999px"), false);
     assert.equal(unsubscribeCalls, 0);
+
+    const recoveryReasons = [];
+    receivingMounter = createHaDirectMounter({
+      getHass: () => hass,
+      getPreferredStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: (engine) => assignedEngine === engine,
+      waitForStreamStart: async () => true,
+      assignCommittedEngine: () => {},
+      onCommittedMediaReady: () => {},
+      onCommittedStream: () => {},
+      applyResolvedStreamUiState: () => {},
+      setLiveNativeControls: () => {},
+      scheduleResumeLive: (reason) => recoveryReasons.push(reason),
+    });
+    assert.equal(mounter.detachWebRtcForHandoff(webRtcEngine), true);
+    assert.equal(
+      receivingMounter.adoptRetainedWebRtcEngine(webRtcEngine),
+      true,
+    );
+    webRtcEngine.pc.connectionState = "failed";
+    webRtcEngine.pc.onconnectionstatechange();
+    assert.deepEqual(recoveryReasons, ["webrtc-connection-lost"]);
   } finally {
-    mounter.release(assignedEngine);
+    (receivingMounter || mounter).release(assignedEngine);
     await flushAsyncWork();
     assert.equal(unsubscribeCalls, 1);
     globalThis.document = previousDocument;

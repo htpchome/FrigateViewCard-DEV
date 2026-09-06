@@ -408,6 +408,7 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
     let engine = cachedEngine;
     let activeStreamType = "webrtc";
     let retainedOptions = null;
+    let ownershipAdoptions = 0;
     const controller = createMseGraceController({
       graceMs: 100,
       graceMax: 2,
@@ -438,6 +439,11 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
       releaseHaDirectEngine: () => {
         throw new Error("retained HA engine must not be released");
       },
+      adoptHaDirectWebRtcEngine: (candidate) => {
+        assert.equal(engine, candidate);
+        ownershipAdoptions += 1;
+        return true;
+      },
     });
 
     controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
@@ -462,6 +468,7 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
     assert.equal(activeStreamType, "webrtc");
     assert.equal(slot.child, video);
     assert.equal(cachedEngine.destroyCalls, 0);
+    assert.equal(ownershipAdoptions, 1);
   });
 });
 
@@ -519,6 +526,9 @@ test("live grace controller retains and releases HA-direct HLS separately", asyn
       setLiveNativeControls: () => {},
       releaseHaDirectEngine: (released) => {
         releasedEngine = released;
+      },
+      adoptHaDirectWebRtcEngine: () => {
+        throw new Error("HLS must not enter WebRTC handoff ownership");
       },
     });
 

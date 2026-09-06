@@ -52,6 +52,9 @@ export function createHaDirectWebRtcPlayback({
   let destroyed = false;
   let shutdownPromise = null;
   let started = false;
+  let recoveryActive = true;
+  let recoveryHandler =
+    typeof onConnectionLost === "function" ? onConnectionLost : null;
   let failureSettled = false;
   let resolveFailure = null;
   let providerStartedSettled = false;
@@ -83,12 +86,14 @@ export function createHaDirectWebRtcPlayback({
       settleFailure();
       return;
     }
-    onConnectionLost?.(reason);
+    if (recoveryActive) recoveryHandler?.(reason);
   };
 
   const destroy = () => {
     if (destroyed) return shutdownPromise || Promise.resolve();
     destroyed = true;
+    recoveryActive = false;
+    recoveryHandler = null;
     if (!failureSettled && !started) {
       failureSettled = true;
       resolveFailure?.(false);
@@ -149,6 +154,15 @@ export function createHaDirectWebRtcPlayback({
       if (destroyed) return false;
       started = true;
       return true;
+    },
+    activateRecovery: () => {
+      if (!destroyed) recoveryActive = true;
+    },
+    deactivateRecovery: () => {
+      recoveryActive = false;
+    },
+    setRecoveryHandler: (handler) => {
+      recoveryHandler = typeof handler === "function" ? handler : null;
     },
     destroy,
   };

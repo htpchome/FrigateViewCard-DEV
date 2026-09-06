@@ -214,7 +214,6 @@ export const shouldRetainMountedLiveForEditorTransition = ({
   previewPageActive !== true &&
   String(viewMode || "").trim().toLowerCase() !== "grid" &&
   twoWayTalkActive !== true &&
-  useGo2Rtc === true &&
   String(activeStreamType || "").trim().toLowerCase() === "webrtc";
 
 export const shouldForceLiveRemountForReason = (

@@ -261,3 +261,45 @@ test("destroying a pending HA direct WebRTC mount prevents a stale subscription"
     assert.equal(FakePeerConnection.instances.length, 0);
   });
 });
+
+test("HA direct WebRTC recovery ownership can move between card instances", async () => {
+  await withMediaGlobals(async () => {
+    let offerCallback = null;
+    const lostReasons = [];
+    const hass = {
+      callWS: async () => ({ configuration: { iceServers: [] } }),
+      connection: {
+        subscribeMessage(callback) {
+          offerCallback = callback;
+          return Promise.resolve(() => {});
+        },
+      },
+    };
+    const playback = createHaDirectWebRtcPlayback({
+      hass,
+      entity: "camera.front",
+      onConnectionLost: (reason) => lostReasons.push(["donor", reason]),
+    });
+
+    assert.equal(await playback.start(), true);
+    await offerCallback({ type: "answer", answer: "one-answer" });
+    playback.engine.markStarted();
+    const peerConnection = FakePeerConnection.instances[0];
+
+    playback.engine.deactivateRecovery();
+    peerConnection.connectionState = "failed";
+    peerConnection.onconnectionstatechange();
+    assert.deepEqual(lostReasons, []);
+
+    playback.engine.setRecoveryHandler((reason) =>
+      lostReasons.push(["receiver", reason]),
+    );
+    playback.engine.activateRecovery();
+    peerConnection.onconnectionstatechange();
+    assert.deepEqual(lostReasons, [
+      ["receiver", "webrtc-connection-lost"],
+    ]);
+
+    await playback.engine.destroy();
+  });
+});

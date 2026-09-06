@@ -150,6 +150,47 @@ export function createHaDirectMounter({
     return binding;
   };
 
+  const detachWebRtcForHandoff = (engine) => {
+    const binding = mediaBindings.get(engine);
+    if (
+      engine?.type !== "ha_direct" ||
+      engine?.streamType !== "webrtc" ||
+      !engine?.video ||
+      !engine?.pc ||
+      !binding ||
+      binding.disposed ||
+      binding.fallbackEngine ||
+      binding.fallbackAbortController ||
+      binding.takeoverEngine
+    ) {
+      return false;
+    }
+    binding.disposed = true;
+    binding.revision += 1;
+    binding.abortController.abort();
+    mediaBindings.delete(engine);
+    engine.deactivateRecovery?.();
+    return true;
+  };
+
+  const adoptRetainedWebRtcEngine = (engine) => {
+    if (
+      engine?.type !== "ha_direct" ||
+      engine?.streamType !== "webrtc" ||
+      !engine?.video ||
+      !engine?.pc
+    ) {
+      return false;
+    }
+    const existingBinding = mediaBindings.get(engine);
+    if (!existingBinding || existingBinding.disposed) {
+      createWebRtcBinding(engine);
+    }
+    engine.setRecoveryHandler?.((reason) => scheduleResumeLive?.(reason));
+    engine.activateRecovery?.();
+    return true;
+  };
+
   const tryMount = async (slot, startup = null, options = {}) => {
     const preferredStreamType = getPreferredStreamType();
     const haDirectPlan = buildHaDirectMountPlan({
@@ -397,6 +438,8 @@ export function createHaDirectMounter({
   };
 
   return {
+    adoptRetainedWebRtcEngine,
+    detachWebRtcForHandoff,
     release,
     tryMount,
   };

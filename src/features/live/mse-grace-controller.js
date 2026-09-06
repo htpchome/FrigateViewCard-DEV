@@ -34,6 +34,7 @@ export function createMseGraceController({
   setStreamFallbackVisible,
   setLiveNativeControls,
   releaseHaDirectEngine,
+  adoptHaDirectWebRtcEngine,
   scheduleResumeLive,
   resetMseDiagnostics,
   markMseChunk,
@@ -411,8 +412,21 @@ export function createMseGraceController({
     }
     mountNodeIntoSlot(slot, mediaNode);
     attachVideoFit?.(engine.streamType === "hls" ? engine : video);
-    engine.activateRecovery?.();
     setEngine?.(engine);
+    if (engine.streamType === "webrtc") {
+      const ownershipAdopted = adoptHaDirectWebRtcEngine?.(engine);
+      if (ownershipAdopted === false) {
+        setEngine?.(null, { retainPrevious: true });
+        try {
+          releaseHaDirectEngine?.(engine);
+          mediaNode.remove?.();
+        } catch (_) {}
+        return false;
+      }
+      if (ownershipAdopted !== true) engine.activateRecovery?.();
+    } else {
+      engine.activateRecovery?.();
+    }
     setEngineMountedMuted?.(getStreamMuted?.());
     setActiveStreamType?.(engine.streamType);
     setStreamLoading?.(false);
@@ -516,5 +530,6 @@ export function createMseGraceController({
     isWebRtcEngineReusable,
     takeGraceHaDirectEntry,
     adoptGraceHaDirectEngine,
+    isHaDirectEngineReusable,
   };
 }
