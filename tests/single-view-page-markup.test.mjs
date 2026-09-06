@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildSingleViewCamSwitcherMarkup,
   buildSingleViewLiveBadgeMarkup,
+  buildSingleViewLiveStatusMarkup,
   buildSingleViewMainLayoutShellMarkup,
   resolveSingleViewAlertsCountText,
   resolveSingleViewOnlineLabel,
@@ -118,27 +119,50 @@ test("single view text resolvers preserve standard status values", () => {
 
 test("Single View adds a responsive live status overlay", () => {
   const badgeMarkup = buildSingleViewLiveBadgeMarkup();
-  const shellMarkup = buildSingleViewMainLayoutShellMarkup();
+  const statusMarkup = buildSingleViewLiveStatusMarkup({
+    webRtcIcon: "webrtc-icon",
+  });
+  const shellMarkup = buildSingleViewMainLayoutShellMarkup({
+    regions: { liveSourceWebRtcIcon: "shell-webrtc-icon" },
+  });
 
   assert.match(badgeMarkup, /data-single-view-live-badge/);
   assert.match(badgeMarkup, /single-view-live-badge-dot/);
   assert.match(badgeMarkup, />Live</);
+  assert.match(statusMarkup, /data-single-view-live-status-overlay/);
+  assert.match(
+    statusMarkup,
+    /data-single-view-source-indicator[^>]*hidden[\s\S]*data-single-view-source-icon[^>]*hidden[^>]*>webrtc-icon</,
+  );
   assert.match(shellMarkup, /data-single-view-live-badge/);
+  assert.match(shellMarkup, />shell-webrtc-icon</);
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
     /@container single-view \(max-width: 420px\)/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.info-online-stat\s*\{\s*display: none;/,
+    /\.info-alert-stat,[\s\S]*?\.stats\s*\{\s*display: none;/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.info-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto max-content;/,
+    /\.info-row\s*\{[^}]*--single-view-center-controls-width: 224px;[^}]*grid-template-columns: minmax\(0, 1fr\) var\(--single-view-center-controls-width\) minmax\(0, 1fr\);/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.stats\s*\{[^}]*width: max-content;[^}]*justify-self: end;/,
+    /\.info-row-center-controls\s*\{[^}]*grid-template-columns: repeat\(5, 40px\);[^}]*column-gap: 6px;[^}]*width: var\(--single-view-center-controls-width\);/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /two-way-talk-control-row:not\(\.has-soundwave\)\s*\{[^}]*grid-template-columns: repeat\(3, 40px\);[^}]*width: var\(--single-view-talk-controls-width\);/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /two-way-talk-control-row:not\(\.has-soundwave\) \.info-row-mic-btn\s*\{\s*grid-column: 2;/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /two-way-talk-active[\s\S]*?data-linked-light-position-slot="left"[\s\S]*?grid-column: 1;[\s\S]*?two-way-talk-active[\s\S]*?data-linked-light-position-slot="right"[\s\S]*?grid-column: 5;/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,

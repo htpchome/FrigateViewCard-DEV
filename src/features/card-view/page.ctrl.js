@@ -30,29 +30,15 @@ import {
   normalizeCardViewViewMode,
 } from "./config.js";
 import { CardViewMediaDrawerController } from "./media-drawer.ctrl.js";
+import { resolveLiveSourceIndicatorState } from "../../shared/media/source-indicator.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
 const STANDALONE_GRID_INDICATOR_DURATION_MS = GRID_ALERT_HOLD_MS;
 const STANDALONE_GRID_INDICATOR_VISIBLE_CLASS =
   "card-view-grid-indicator-visible";
 
-export const resolveCardViewSourceIndicatorState = (streamType) => {
-  const source = String(streamType || "")
-    .trim()
-    .toLowerCase();
-  const visible =
-    source === "webrtc" || source === "mse" || source === "hls";
-  if (!visible) {
-    return { visible: false, label: "", showIcon: false, text: "" };
-  }
-  const label = source === "webrtc" ? "WebRTC" : source.toUpperCase();
-  return {
-    visible: true,
-    label,
-    showIcon: source === "webrtc",
-    text: source === "webrtc" ? "" : label,
-  };
-};
+export const resolveCardViewSourceIndicatorState =
+  resolveLiveSourceIndicatorState;
 
 export const resolveCardViewColumnCount = ({
   width = 0,

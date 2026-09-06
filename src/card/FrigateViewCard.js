@@ -4397,6 +4397,7 @@ export class FrigateViewCard extends HTMLElement {
       }),
       cardViewVideoBackIcon: ICONS.back,
       cardViewWebRtcIcon: ICONS.webrtc,
+      liveSourceWebRtcIcon: ICONS.webrtc,
       information: infoRow,
       mobileBackButton: buildMobileViewBackButtonMarkup({
         previewPageEnabled:

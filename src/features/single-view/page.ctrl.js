@@ -1,6 +1,7 @@
 import { BrowseRenderController } from "../browse/render.ctrl.js";
 import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycle.js";
 import { cap, camDisplayName } from "../../helpers.js";
+import { resolveLiveSourceIndicatorState } from "../../shared/media/source-indicator.js";
 import {
   buildSingleViewCamSwitcherMarkup,
   resolveSingleViewAlertsCountText,
@@ -120,6 +121,30 @@ export class SingleViewPageController {
       streamType.textContent = resolveSingleViewStreamTypeText(
         this._host._activeStreamType,
       );
+    }
+    const sourceIndicator = this._host.shadowRoot?.querySelector?.(
+      "[data-single-view-source-indicator]",
+    );
+    if (!sourceIndicator) return;
+    const sourceState = resolveLiveSourceIndicatorState(
+      this._host._activeStreamType,
+    );
+    const sourceIcon = sourceIndicator.querySelector?.(
+      "[data-single-view-source-icon]",
+    );
+    const sourceText = sourceIndicator.querySelector?.(
+      "[data-single-view-source-text]",
+    );
+    sourceIndicator.hidden = this._usesGridText() || !sourceState.visible;
+    sourceIndicator.title = sourceState.label;
+    sourceIndicator.setAttribute?.(
+      "aria-label",
+      sourceState.visible ? `${sourceState.label} live source` : "Live source",
+    );
+    if (sourceIcon) sourceIcon.hidden = !sourceState.showIcon;
+    if (sourceText) {
+      sourceText.hidden = !sourceState.text;
+      sourceText.textContent = sourceState.text;
     }
   }
 

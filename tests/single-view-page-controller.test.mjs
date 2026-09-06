@@ -726,6 +726,27 @@ test("single-view render helpers update subtitle and stats through the controlle
     "#stream-type": createNode(),
   };
   const { host } = createHost({ domNodes: nodes });
+  const sourceIcon = { hidden: true };
+  const sourceText = { hidden: true, textContent: "" };
+  const sourceAttributes = {};
+  const sourceIndicator = {
+    hidden: true,
+    title: "",
+    querySelector: (selector) => {
+      if (selector === "[data-single-view-source-icon]") return sourceIcon;
+      if (selector === "[data-single-view-source-text]") return sourceText;
+      return null;
+    },
+    setAttribute: (name, value) => {
+      sourceAttributes[name] = value;
+    },
+  };
+  host.shadowRoot = {
+    querySelector: (selector) =>
+      selector === "[data-single-view-source-indicator]"
+        ? sourceIndicator
+        : null,
+  };
   const controller = new SingleViewPageController(host, { PAGE_IDS });
 
   controller.renderSubtitle();
@@ -734,6 +755,23 @@ test("single-view render helpers update subtitle and stats through the controlle
   assert.equal(nodes["#tl-range"].textContent, "Front Patio");
   assert.equal(nodes["#alert-count"].textContent, "2");
   assert.equal(nodes["#stream-type"].textContent, "webrtc");
+  assert.equal(sourceIndicator.hidden, false);
+  assert.equal(sourceIndicator.title, "WebRTC");
+  assert.equal(sourceAttributes["aria-label"], "WebRTC live source");
+  assert.equal(sourceIcon.hidden, false);
+  assert.equal(sourceText.hidden, true);
+
+  host._activeStreamType = "hls";
+  controller.renderStats();
+  assert.equal(sourceIndicator.hidden, false);
+  assert.equal(sourceIndicator.title, "HLS");
+  assert.equal(sourceIcon.hidden, true);
+  assert.equal(sourceText.hidden, false);
+  assert.equal(sourceText.textContent, "HLS");
+
+  host._viewMode = "grid";
+  controller.renderStats();
+  assert.equal(sourceIndicator.hidden, true);
 });
 
 test("single-view dynamic subtitle follows the active camera and display setting", () => {

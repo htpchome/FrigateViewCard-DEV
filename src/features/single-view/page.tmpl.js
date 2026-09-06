@@ -29,6 +29,7 @@ function normalizeRegions(regions) {
     browseHeader: "",
     browse: "",
     footer: "",
+    liveSourceWebRtcIcon: "",
     ...suppliedRegions,
   };
 }
@@ -100,8 +101,18 @@ export function resolveSingleViewOnlineLabel(online) {
 
 export function buildSingleViewLiveBadgeMarkup() {
   return `<div class="single-view-live-badge" data-single-view-live-badge aria-label="Live camera">
-              <span class="single-view-live-badge-dot" aria-hidden="true"></span>
-              <span>Live</span>
+            <span class="single-view-live-badge-dot" aria-hidden="true"></span>
+            <span>Live</span>
+          </div>`;
+}
+
+export function buildSingleViewLiveStatusMarkup({ webRtcIcon = "" } = {}) {
+  return `<div class="single-view-live-status-overlay" data-single-view-live-status-overlay>
+              <div class="single-view-source-indicator" data-single-view-source-indicator aria-label="Live source" hidden>
+                <span class="single-view-source-indicator-icon" data-single-view-source-icon aria-hidden="true" hidden>${webRtcIcon}</span>
+                <span class="single-view-source-indicator-text" data-single-view-source-text hidden></span>
+              </div>
+              ${buildSingleViewLiveBadgeMarkup()}
             </div>`;
 }
 
@@ -134,7 +145,9 @@ export function buildSingleViewMainLayoutShellMarkup({
               <div class="live-stage live-stage--overlay" id="live-stage">
                 ${regions.live}
                 ${buildLivePlaybackControlsMarkup(regions)}
-                ${buildSingleViewLiveBadgeMarkup()}
+                ${buildSingleViewLiveStatusMarkup({
+                  webRtcIcon: regions.liveSourceWebRtcIcon,
+                })}
               </div>
 
               ${regions.information}
