@@ -286,6 +286,72 @@ test("popup recording scrub coordinator owns rendering, caching, and teardown", 
   assert.equal(elements.get("#recording-segment-selection").hidden, true);
 });
 
+test("popup recording marker cache evicts the least recently used range", async () => {
+  const elements = createScrubElements();
+  const fetchedStarts = [];
+  const controller = new PopupRecordingScrubController({
+    query: (selector) => elements.get(selector) || null,
+    fetchReviews: async (_clientId, _cam, start) => {
+      fetchedStarts.push(start);
+      return [];
+    },
+    isPlaybackTokenCurrent: () => true,
+    createScrubBinding: () => ({ bind() {}, dispose() {} }),
+    markerCacheMaxEntries: 2,
+  });
+  const openRange = (start) =>
+    controller.initialize({
+      clientId: "frigate",
+      cam: "front",
+      start,
+      end: start + 50,
+      video: {},
+      token: 1,
+    });
+
+  await openRange(100);
+  await openRange(200);
+  await openRange(100);
+  await openRange(300);
+  await openRange(200);
+
+  assert.deepEqual(fetchedStarts, [100, 200, 300, 200]);
+});
+
+test("popup recording marker disposal blocks late cache writes", async () => {
+  const elements = createScrubElements();
+  let resolveFirstFetch;
+  const firstFetch = new Promise((resolve) => {
+    resolveFirstFetch = resolve;
+  });
+  let fetchCount = 0;
+  const controller = new PopupRecordingScrubController({
+    query: (selector) => elements.get(selector) || null,
+    fetchReviews: async () => {
+      fetchCount += 1;
+      return fetchCount === 1 ? await firstFetch : [];
+    },
+    isPlaybackTokenCurrent: () => true,
+    createScrubBinding: () => ({ bind() {}, dispose() {} }),
+  });
+  const payload = {
+    clientId: "frigate",
+    cam: "front",
+    start: 100,
+    end: 200,
+    video: {},
+    token: 1,
+  };
+
+  const initializing = controller.initialize(payload);
+  controller.dispose();
+  resolveFirstFetch([]);
+  assert.equal(await initializing, null);
+
+  await controller.initialize(payload);
+  assert.equal(fetchCount, 2);
+});
+
 test("popup recording segment manager shades, resets, and downloads its selected range", async () => {
   const elements = createScrubElements();
   const downloads = [];

@@ -13,6 +13,42 @@ import {
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+const POPUP_RECORDING_MARKER_CACHE_MAX_ENTRIES = 24;
+
+class PopupRecordingMarkerCache {
+  constructor({ maxEntries = POPUP_RECORDING_MARKER_CACHE_MAX_ENTRIES } = {}) {
+    this._entries = new Map();
+    this._maxEntries = Math.max(1, Math.floor(Number(maxEntries) || 0));
+    this._disposed = false;
+  }
+
+  get(key) {
+    if (this._disposed) return undefined;
+    const cacheKey = String(key || "");
+    if (!cacheKey || !this._entries.has(cacheKey)) return undefined;
+    const markers = this._entries.get(cacheKey);
+    this._entries.delete(cacheKey);
+    this._entries.set(cacheKey, markers);
+    return markers;
+  }
+
+  set(key, markers) {
+    if (this._disposed) return;
+    const cacheKey = String(key || "");
+    if (!cacheKey) return;
+    this._entries.delete(cacheKey);
+    this._entries.set(cacheKey, markers);
+    while (this._entries.size > this._maxEntries) {
+      this._entries.delete(this._entries.keys().next().value);
+    }
+  }
+
+  dispose() {
+    this._entries.clear();
+    this._disposed = true;
+  }
+}
+
 export const resolveRecordingSegmentSelection = ({
   rangeStart = 0,
   rangeEnd = 0,
@@ -78,6 +114,7 @@ export class PopupRecordingScrubController {
     formatClock = (timestamp) => String(timestamp),
     buildMarkers = buildFrigateRecordingReviewMarkers,
     createScrubBinding = (options) => new RecordingScrubController(options),
+    markerCacheMaxEntries = POPUP_RECORDING_MARKER_CACHE_MAX_ENTRIES,
     setTimer = globalThis.setTimeout?.bind(globalThis),
     clearTimer = globalThis.clearTimeout?.bind(globalThis),
   } = {}) {
@@ -99,6 +136,10 @@ export class PopupRecordingScrubController {
     this._createScrubBinding = createScrubBinding;
     this._setTimer = setTimer;
     this._clearTimer = clearTimer;
+    this._markerCacheMaxEntries = Math.max(
+      1,
+      Math.floor(Number(markerCacheMaxEntries) || 0),
+    );
     this._binding = null;
     this._segmentCleanup = new CleanupController();
     this._segmentElements = null;
@@ -107,7 +148,9 @@ export class PopupRecordingScrubController {
     this._previewLoadNonce = 0;
     this._previewReturnFocus = null;
     this._state = null;
-    this._markerCache = new Map();
+    this._markerCache = new PopupRecordingMarkerCache({
+      maxEntries: this._markerCacheMaxEntries,
+    });
     this._initGeneration = 0;
   }
 
@@ -384,11 +427,17 @@ export class PopupRecordingScrubController {
     this._segmentElements = null;
   }
 
+  dispose() {
+    this.teardown();
+    this._markerCache?.dispose();
+    this._markerCache = null;
+  }
+
   async _loadMarkers({ clientId, cam, start, end }) {
     const cacheKey = `${clientId}|${cam}|${Math.floor(start)}|${Math.floor(end)}`;
-    if (this._markerCache.has(cacheKey)) {
-      return this._markerCache.get(cacheKey);
-    }
+    const markerCache = this._ensureMarkerCache();
+    const cachedMarkers = markerCache.get(cacheKey);
+    if (cachedMarkers !== undefined) return cachedMarkers;
     const reviews = await this._fetchReviews(clientId, cam, start, end);
     const markers = this._buildMarkers({
       clientId,
@@ -396,8 +445,17 @@ export class PopupRecordingScrubController {
       end,
       reviews,
     });
-    this._markerCache.set(cacheKey, markers);
+    markerCache.set(cacheKey, markers);
     return markers;
+  }
+
+  _ensureMarkerCache() {
+    if (!this._markerCache) {
+      this._markerCache = new PopupRecordingMarkerCache({
+        maxEntries: this._markerCacheMaxEntries,
+      });
+    }
+    return this._markerCache;
   }
 
   _activeTimelineRange() {

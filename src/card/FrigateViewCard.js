@@ -2257,6 +2257,7 @@ export class FrigateViewCard extends HTMLElement {
       this._recordingsSwipeController = null;
     }
     this._popupLifecycleController.dispose();
+    this._popupRecordingScrubController?.dispose?.();
     if (this._onDocVisibility) {
       document.removeEventListener("visibilitychange", this._onDocVisibility);
     }

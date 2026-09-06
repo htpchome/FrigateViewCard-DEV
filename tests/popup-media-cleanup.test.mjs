@@ -90,6 +90,11 @@ test("_teardownDisconnected delegates popup cleanup to its lifecycle owner", () 
           calls.push(["disposePopupLifecycle"]);
         },
       },
+      _popupRecordingScrubController: {
+        dispose() {
+          calls.push(["disposePopupRecordingScrub"]);
+        },
+      },
       _pageNavigationController: {
         disconnectToolbarDivider() {
           calls.push(["disconnectToolbarDivider"]);
@@ -123,6 +128,7 @@ test("_teardownDisconnected delegates popup cleanup to its lifecycle owner", () 
       ["disconnectToolbarDivider"],
       ["clearPictureInPicture", "live"],
       ["disposePopupLifecycle"],
+      ["disposePopupRecordingScrub"],
       ["clearRotateOverlayAudioSync"],
       ["clearRotateVideoFullscreenStyle"],
       ["clearGracePool"],
