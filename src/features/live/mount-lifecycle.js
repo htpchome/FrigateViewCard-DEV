@@ -205,17 +205,23 @@ export const shouldRetainMountedLiveForEditorTransition = ({
   twoWayTalkActive = false,
   useGo2Rtc = false,
   activeStreamType = "",
-} = {}) =>
-  sameDashboard === true &&
-  editorLifecycleActive === true &&
-  started === true &&
-  hasEngine === true &&
-  mountInProgress !== true &&
-  previewPageActive !== true &&
-  String(viewMode || "").trim().toLowerCase() !== "grid" &&
-  twoWayTalkActive !== true &&
-  useGo2Rtc === true &&
-  String(activeStreamType || "").trim().toLowerCase() === "webrtc";
+} = {}) => {
+  const streamType = String(activeStreamType || "").trim().toLowerCase();
+  const transferableStream = useGo2Rtc
+    ? streamType === "webrtc" || streamType === "mse"
+    : streamType === "hls";
+  return (
+    sameDashboard === true &&
+    editorLifecycleActive === true &&
+    started === true &&
+    hasEngine === true &&
+    mountInProgress !== true &&
+    previewPageActive !== true &&
+    String(viewMode || "").trim().toLowerCase() !== "grid" &&
+    twoWayTalkActive !== true &&
+    transferableStream
+  );
+};
 
 export const shouldForceLiveRemountForReason = (
   reason,

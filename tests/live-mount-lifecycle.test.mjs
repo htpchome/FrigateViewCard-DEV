@@ -59,7 +59,7 @@ test("camera switches preserve the physical grouped-camera transport", () => {
   );
 });
 
-test("editor reparenting retains only an established Frigate go2rtc WebRTC engine", () => {
+test("editor reparenting retains each supported established live engine", () => {
   const eligible = {
     sameDashboard: true,
     editorLifecycleActive: true,
@@ -77,6 +77,21 @@ test("editor reparenting retains only an established Frigate go2rtc WebRTC engin
     shouldRetainMountedLiveForEditorTransition(eligible),
     true,
   );
+  assert.equal(
+    shouldRetainMountedLiveForEditorTransition({
+      ...eligible,
+      activeStreamType: "mse",
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRetainMountedLiveForEditorTransition({
+      ...eligible,
+      useGo2Rtc: false,
+      activeStreamType: "hls",
+    }),
+    true,
+  );
   for (const override of [
     { sameDashboard: false },
     { editorLifecycleActive: false },
@@ -85,8 +100,6 @@ test("editor reparenting retains only an established Frigate go2rtc WebRTC engin
     { previewPageActive: true },
     { viewMode: "grid" },
     { twoWayTalkActive: true },
-    { useGo2Rtc: false },
-    { activeStreamType: "mse" },
     { activeStreamType: "hls" },
   ]) {
     assert.equal(
@@ -97,6 +110,14 @@ test("editor reparenting retains only an established Frigate go2rtc WebRTC engin
       false,
     );
   }
+  assert.equal(
+    shouldRetainMountedLiveForEditorTransition({
+      ...eligible,
+      useGo2Rtc: false,
+      activeStreamType: "webrtc",
+    }),
+    false,
+  );
 });
 
 test("connection-loss reasons force a remount without broadening normal stale checks", () => {

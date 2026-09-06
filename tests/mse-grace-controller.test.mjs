@@ -438,6 +438,9 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
       releaseHaDirectEngine: () => {
         throw new Error("retained HA engine must not be released");
       },
+      adoptHaDirectEngine: () => {
+        throw new Error("existing HA WebRTC ownership must remain unchanged");
+      },
     });
 
     controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
@@ -531,5 +534,71 @@ test("live grace controller retains and releases HA-direct HLS separately", asyn
 
     assert.equal(releasedEngine, hlsEngine);
     assert.equal(removeCalls, 1);
+  });
+});
+
+test("HA-direct HLS adoption binds the receiving mounter after assignment", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const video = {
+      style: { cssText: "" },
+      dataset: {},
+      classList: { add() {} },
+      setAttribute() {},
+      removeAttribute() {},
+      play: () => Promise.resolve(),
+    };
+    const hlsEngine = {
+      type: "ha_direct",
+      streamType: "hls",
+      tagName: "HA-HLS-PLAYER",
+      style: { cssText: "" },
+      shadowRoot: { querySelector: () => video },
+      querySelector: () => null,
+    };
+    let engine = null;
+    let ownershipBindCalls = 0;
+    const controller = createMseGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "receiver" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "hls",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: () => {
+        throw new Error("a valid transferred HLS engine must not be released");
+      },
+      adoptHaDirectEngine: (candidate) => {
+        assert.equal(engine, candidate);
+        ownershipBindCalls += 1;
+        return true;
+      },
+    });
+    const slot = {
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+
+    assert.equal(controller.adoptGraceHaDirectEngine(slot, hlsEngine), true);
+    assert.equal(engine, hlsEngine);
+    assert.equal(slot.child, hlsEngine);
+    assert.equal(ownershipBindCalls, 1);
   });
 });
