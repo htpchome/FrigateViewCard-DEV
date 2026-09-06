@@ -339,7 +339,10 @@ export class EditorPreviewContextController {
         );
       }
       if (dashboardEdit) {
-        this._host._kickLiveIfStale(true);
+        // Routine edit-mode probes must let an in-flight media mount settle.
+        // HA HLS creates its nested video asynchronously, so forced polling can
+        // mistake that startup window for a missing stream and remount forever.
+        this._host._kickLiveIfStale(false);
       }
       this._dialogOpenLast = dialogOpen;
       this._dashboardEditLast = dashboardEdit;

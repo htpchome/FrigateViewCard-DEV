@@ -458,7 +458,7 @@ test("syncHassPreviewContext resumes live on preview exit", () => {
   assert.deepEqual(calls, ["hass-edit-exit"]);
 });
 
-test("startEditModeWatchdog resumes and kicks when state changes", () => {
+test("startEditModeWatchdog resumes and uses guarded stale probes while editing", () => {
   const calls = [];
   const timers = [];
   const originalSetInterval = global.setInterval;
@@ -488,7 +488,7 @@ test("startEditModeWatchdog resumes and kicks when state changes", () => {
       ["resume", "watchdog-dialog-close"],
       ["resume", "watchdog-edit-exit"],
       ["resume", "watchdog-dashboard-edit-on"],
-      ["kick", true],
+      ["kick", false],
     ]);
   } finally {
     global.setInterval = originalSetInterval;

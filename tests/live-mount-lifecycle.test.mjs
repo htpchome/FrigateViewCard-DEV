@@ -409,6 +409,26 @@ test("resolveLiveKickProbeState maps live video fields for stale checks", () => 
 });
 
 test("resolveLiveKickIfStaleAction gates on cooldown and MSE traffic", () => {
+  const loading = resolveLiveKickIfStaleAction({
+    started: true,
+    hass: {},
+    config: {},
+    previewPageActive: false,
+    viewMode: "single",
+    visible: true,
+    popupOpen: false,
+    mountInProgress: false,
+    force: false,
+    streamLoadingVisible: true,
+    lastLiveKick: 0,
+    nowMs: 12000,
+    hasVideo: false,
+  });
+  assert.deepEqual(loading, {
+    shouldKick: false,
+    nextLastLiveKick: 0,
+  });
+
   const coolingDown = resolveLiveKickIfStaleAction({
     started: true,
     hass: {},
