@@ -3,10 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   compareVersions,
-  fetchFrigateIntegrationVersion,
   isFrigateIntegrationLoaded,
-  resolveFrigateIntegrationVersionNotice,
-  resolveFrigateIntegrationVersionStatus,
+  resolveFrigateIntegrationStatus,
   resolveHomeAssistantVersionNotice,
   resolveHomeAssistantVersionStatus,
 } from "../src/editor/environment-support.js";
@@ -52,7 +50,7 @@ test("editor environment support always describes a detected Home Assistant vers
     {
       visible: true,
       status: "current",
-      label: "Home Assistant 2026.9.0 • Recommended level met",
+      label: "Home Assistant 2026.9.0",
     },
   );
   assert.equal(
@@ -64,51 +62,28 @@ test("editor environment support always describes a detected Home Assistant vers
   );
 });
 
-test("editor environment support warns for a missing or old Frigate integration", () => {
-  assert.equal(
-    resolveFrigateIntegrationVersionNotice({ installed: false }),
-    "Frigate integration is not installed in Home Assistant.",
-  );
-  assert.equal(
-    resolveFrigateIntegrationVersionNotice({
-      installed: true,
-      currentVersion: "5.14.0",
-      recommendedVersion: "5.15.6",
-    }),
-    "Frigate integration 5.14.0 is below the recommended 5.15.6.",
-  );
-  assert.equal(
-    resolveFrigateIntegrationVersionNotice({
-      installed: true,
-      currentVersion: "5.15.6",
-      recommendedVersion: "5.15.6",
-    }),
-    "",
-  );
-});
-
-test("editor environment support describes current and pending Frigate integration checks", () => {
+test("editor environment support reports Frigate integration presence", () => {
   assert.deepEqual(
-    resolveFrigateIntegrationVersionStatus({
-      installed: true,
-      currentVersion: "5.15.6",
-      recommendedVersion: "5.15.6",
-      lookupStatus: "resolved",
-    }),
+    resolveFrigateIntegrationStatus({ installed: true }),
     {
       visible: true,
       status: "current",
-      label: "Frigate integration 5.15.6 • Recommended level met",
+      label: "Frigate integration is installed.",
     },
   );
   assert.deepEqual(
-    resolveFrigateIntegrationVersionStatus({ lookupStatus: "pending" }),
+    resolveFrigateIntegrationStatus({ installed: false }),
     {
       visible: true,
-      status: "checking",
-      label: "Checking Frigate integration version…",
+      status: "error",
+      label: "Frigate integration is not installed in Home Assistant.",
     },
   );
+  assert.deepEqual(resolveFrigateIntegrationStatus(), {
+    visible: false,
+    status: "unavailable",
+    label: "",
+  });
 });
 
 test("editor environment support detects whether Frigate is loaded", () => {
@@ -125,29 +100,4 @@ test("editor environment support detects whether Frigate is loaded", () => {
     false,
   );
   assert.equal(isFrigateIntegrationLoaded({ config: {} }), null);
-});
-
-test("editor environment support requests the Frigate integration manifest", async () => {
-  const requests = [];
-  const version = await fetchFrigateIntegrationVersion({
-    callWS: async (request) => {
-      requests.push(request);
-      return { domain: "frigate", version: "5.15.6" };
-    },
-  });
-
-  assert.equal(version, "5.15.6");
-  assert.deepEqual(requests, [
-    {
-      type: "config/integration/get_manifest",
-      integration: "frigate",
-    },
-  ]);
-});
-
-test("editor environment support rejects an integration manifest without a version", async () => {
-  await assert.rejects(
-    fetchFrigateIntegrationVersion({ callWS: async () => ({}) }),
-    /version is unavailable/,
-  );
 });

@@ -2307,7 +2307,7 @@ test("editor presents general, layout, and Mobile View controls in their request
   );
   assert.match(generalSource, /id="card-version-status"/);
   assert.match(generalSource, /data-home-assistant-version-notice/);
-  assert.match(generalSource, /data-frigate-integration-version-notice/);
+  assert.match(generalSource, /data-frigate-integration-status/);
   assert.ok(
     generalSource.indexOf('id="card-version-status"') <
       generalSource.indexOf('id="title"'),
@@ -2318,8 +2318,14 @@ test("editor presents general, layout, and Mobile View controls in their request
   );
   assert.match(
     editorSource,
-    /\.environment-support-notice\[data-support-status="warning"\]\{[^}]*var\(--warning-color/,
+    /\.environment-support-item\[data-support-status="warning"\]\{[^}]*var\(--warning-color/,
   );
+  assert.match(
+    editorSource,
+    /\.environment-support-item\[data-support-status="error"\]\{[^}]*var\(--error-color/,
+  );
+  assert.match(generalSource, /\$\{ICONS\.homeAssistant\}/);
+  assert.match(generalSource, /\$\{ICONS\.frigate\}/);
   assert.equal(
     (generalSource.match(/buildEditorBubbleSelectorMarkup\(\{/g) || []).length,
     3,

@@ -1,7 +1,6 @@
 import {
   VERSION,
   RECOMMENDED_HOME_ASSISTANT_VERSION,
-  RECOMMENDED_FRIGATE_INTEGRATION_VERSION,
   CARD_TAG,
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
@@ -162,9 +161,8 @@ import {
 } from "../config/yaml-mapper.js";
 import { escapeHtml, escapeHtmlAttribute } from "../shared/html.js";
 import {
-  fetchFrigateIntegrationVersion,
   isFrigateIntegrationLoaded,
-  resolveFrigateIntegrationVersionStatus,
+  resolveFrigateIntegrationStatus,
   resolveHomeAssistantVersionStatus,
 } from "./environment-support.js";
 
@@ -926,12 +924,6 @@ export class FrigateViewCardEditor extends HTMLElement {
     this._haDirtyStateSeeded = false;
     this._dialogActionHooksBound = false;
     this._standaloneDraftPreviousLandingPage = null;
-    this._frigateIntegrationLookupGeneration =
-      Number(this._frigateIntegrationLookupGeneration || 0) + 1;
-    this._frigateIntegrationLookupKey = null;
-    this._frigateIntegrationLoadedAtLookup = null;
-    this._frigateIntegrationLookupStatus = "idle";
-    this._frigateIntegrationManifestRequest = null;
     this._emitPreviewDraft(null);
   }
 
@@ -1013,76 +1005,17 @@ export class FrigateViewCardEditor extends HTMLElement {
       currentVersion: this._hass?.config?.version,
       recommendedVersion: RECOMMENDED_HOME_ASSISTANT_VERSION,
     });
-    const frigateIntegrationStatus =
-      resolveFrigateIntegrationVersionStatus({
-        installed: this._frigateIntegrationInstalled,
-        currentVersion: this._frigateIntegrationVersion,
-        recommendedVersion: RECOMMENDED_FRIGATE_INTEGRATION_VERSION,
-        lookupStatus: this._frigateIntegrationLookupStatus,
-      });
+    const frigateIntegrationStatus = resolveFrigateIntegrationStatus({
+      installed: isFrigateIntegrationLoaded(this._hass),
+    });
     this._syncEnvironmentSupportNotice(
       "[data-home-assistant-version-notice]",
       homeAssistantStatus,
     );
     this._syncEnvironmentSupportNotice(
-      "[data-frigate-integration-version-notice]",
+      "[data-frigate-integration-status]",
       frigateIntegrationStatus,
     );
-  }
-
-  _ensureFrigateIntegrationVersionLookup() {
-    const hass = this._hass;
-    if (!hass) return;
-    const loaded = isFrigateIntegrationLoaded(hass);
-    if (typeof hass.callWS !== "function") {
-      this._frigateIntegrationInstalled =
-        loaded === null ? null : loaded === true;
-      this._frigateIntegrationVersion = "";
-      this._frigateIntegrationLookupStatus = "resolved";
-      this._syncEnvironmentSupportNotices();
-      return;
-    }
-    const lookupKey = hass.connection || hass.callWS;
-    if (
-      lookupKey &&
-      this._frigateIntegrationLookupKey === lookupKey &&
-      this._frigateIntegrationLoadedAtLookup === loaded &&
-      ["pending", "resolved"].includes(
-        this._frigateIntegrationLookupStatus,
-      )
-    ) {
-      return;
-    }
-
-    this._frigateIntegrationLookupKey = lookupKey;
-    this._frigateIntegrationLoadedAtLookup = loaded;
-    this._frigateIntegrationLookupStatus = "pending";
-    this._frigateIntegrationInstalled = loaded === true ? true : null;
-    this._frigateIntegrationVersion = "";
-    const generation =
-      Number(this._frigateIntegrationLookupGeneration || 0) + 1;
-    this._frigateIntegrationLookupGeneration = generation;
-    this._syncEnvironmentSupportNotices();
-
-    const request = fetchFrigateIntegrationVersion(hass)
-      .then((version) => {
-        if (this._frigateIntegrationLookupGeneration !== generation) return;
-        this._frigateIntegrationInstalled = true;
-        this._frigateIntegrationVersion = version;
-        this._frigateIntegrationLookupStatus = "resolved";
-      })
-      .catch(() => {
-        if (this._frigateIntegrationLookupGeneration !== generation) return;
-        this._frigateIntegrationInstalled = loaded === true ? true : false;
-        this._frigateIntegrationVersion = "";
-        this._frigateIntegrationLookupStatus = "resolved";
-      })
-      .finally(() => {
-        if (this._frigateIntegrationLookupGeneration !== generation) return;
-        this._frigateIntegrationManifestRequest = null;
-        this._syncEnvironmentSupportNotices();
-      });
-    this._frigateIntegrationManifestRequest = request;
   }
 
   _openCardUpdateDialog(entityId) {
@@ -1149,7 +1082,6 @@ export class FrigateViewCardEditor extends HTMLElement {
     }
     this._syncCardVersionStatus();
     this._syncEnvironmentSupportNotices();
-    this._ensureFrigateIntegrationVersionLookup();
     this._scheduleEditorPreviewLayoutSync();
   }
 
@@ -2839,18 +2771,22 @@ export class FrigateViewCardEditor extends HTMLElement {
     const generalPanelContent = `
       <div class="environment-version-summary">
         <div class="card-version-status" id="card-version-status" data-update-status="unavailable">
-          <ha-icon icon="mdi:package-variant-closed-check" aria-hidden="true"></ha-icon>
+          <span class="environment-item-icon card-version-icon" aria-hidden="true">${ICONS.packageCheck}</span>
           <div class="card-version-copy">
             <strong>FrigateView Card</strong>
             <span>Version v${escapeHtml(VERSION)} <span aria-hidden="true">•</span> <span id="card-version-update-status" role="status" aria-live="polite">Update status unavailable</span></span>
+            <div class="environment-support-items">
+              <div class="environment-support-item" data-home-assistant-version-notice data-support-status="unavailable" role="status" aria-live="polite" hidden>
+                <span class="environment-item-icon" aria-hidden="true">${ICONS.homeAssistant}</span>
+                <span data-environment-support-text></span>
+              </div>
+              <div class="environment-support-item" data-frigate-integration-status data-support-status="unavailable" role="status" aria-live="polite" hidden>
+                <span class="environment-item-icon" aria-hidden="true">${ICONS.frigate}</span>
+                <span data-environment-support-text></span>
+              </div>
+            </div>
           </div>
           <button class="card-version-update-link" id="card-version-update-link" type="button" hidden>Open update</button>
-        </div>
-        <div class="environment-support-notice" data-home-assistant-version-notice data-support-status="unavailable" role="status" aria-live="polite" hidden>
-          <span data-environment-support-text></span>
-        </div>
-        <div class="environment-support-notice" data-frigate-integration-version-notice data-support-status="unavailable" role="status" aria-live="polite" hidden>
-          <span data-environment-support-text></span>
         </div>
       </div>
       <div class="text-display-row">
@@ -3475,17 +3411,21 @@ export class FrigateViewCardEditor extends HTMLElement {
             .standalone-mobile-note{box-sizing:border-box;width:100%;margin-top:8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 42%,var(--editor-card-bg));color:var(--c-primary-d, var(--editor-text));font-weight:650;line-height:1.3;}
             .config-save-reminder[hidden]{display:none;}
             .config-save-reminder ha-icon{--mdc-icon-size:17px;flex:0 0 auto;}
-            .environment-version-summary{display:flex;flex-direction:column;gap:6px;margin:12px 0;}
+            .environment-version-summary{margin:12px 0;}
             .card-version-status{box-sizing:border-box;width:100%;display:flex;align-items:center;gap:9px;margin:0;padding:9px 11px;border-radius:10px;background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-text));font-size:12px;line-height:1.3;cursor:default;}
-            .card-version-status > ha-icon{--mdc-icon-size:20px;flex:0 0 auto;}
+            .environment-item-icon{display:inline-flex;width:14px;height:14px;flex:0 0 14px;align-items:center;justify-content:center;}
+            .environment-item-icon svg{display:block;width:100%;height:100%;}
+            .card-version-icon{width:20px;height:20px;flex-basis:20px;align-self:flex-start;}
             .card-version-copy{display:flex;min-width:0;flex:1 1 auto;flex-direction:column;gap:1px;}
             .card-version-update-link{appearance:none;flex:0 0 auto;padding:2px 0;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
             .card-version-update-link[hidden]{display:none;}
             .card-version-update-link:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:2px;}
-            .environment-support-notice{box-sizing:border-box;width:100%;padding:6px 9px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 30%,transparent);border-radius:8px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 28%,var(--editor-card-bg));color:var(--primary-text-color, var(--editor-text));font-size:11px;font-weight:600;line-height:1.3;}
-            .environment-support-notice[data-support-status="warning"]{border-color:color-mix(in srgb,var(--warning-color, #f59e0b) 52%,transparent);background:color-mix(in srgb,var(--warning-color, #f59e0b) 14%,var(--editor-card-bg));}
-            .environment-support-notice[data-support-status="checking"]{opacity:.78;}
-            .environment-support-notice[hidden]{display:none;}
+            .environment-support-items{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;}
+            .environment-support-item{display:inline-flex;min-width:0;align-items:center;gap:4px;color:color-mix(in srgb,currentColor 76%,transparent);font-size:10px;font-weight:600;line-height:1.25;}
+            .environment-support-item[data-support-status="warning"],.environment-support-item[data-support-status="error"]{padding:2px 6px;border:1px solid;border-radius:999px;}
+            .environment-support-item[data-support-status="warning"]{border-color:color-mix(in srgb,var(--warning-color, #f59e0b) 58%,transparent);background:color-mix(in srgb,var(--warning-color, #f59e0b) 17%,transparent);color:color-mix(in srgb,var(--warning-color, #b86b00) 75%,var(--primary-text-color, #111));}
+            .environment-support-item[data-support-status="error"]{border-color:color-mix(in srgb,var(--error-color, var(--c-alert, #d32f2f)) 65%,transparent);background:color-mix(in srgb,var(--error-color, var(--c-alert, #d32f2f)) 15%,transparent);color:var(--error-color, var(--c-alert, #b71c1c));}
+            .environment-support-item[hidden]{display:none;}
             .settings-panel{
                 border:1px solid var(--c-border2, var(--editor-border));
                 border-radius:16px;
@@ -4354,7 +4294,6 @@ export class FrigateViewCardEditor extends HTMLElement {
     );
     this._syncCardVersionStatus();
     this._syncEnvironmentSupportNotices();
-    this._ensureFrigateIntegrationVersionLookup();
 
     this.querySelector("#ha_dashboard_swipe_navigation_owner")
       ?.addEventListener("change", () => {

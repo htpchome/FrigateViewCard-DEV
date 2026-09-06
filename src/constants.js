@@ -1,7 +1,6 @@
-export const VERSION = "1.1.5-dev.80";
+export const VERSION = "1.1.5-dev.81";
 
 export const RECOMMENDED_HOME_ASSISTANT_VERSION = "2026.9.0";
-export const RECOMMENDED_FRIGATE_INTEGRATION_VERSION = "5.15.6";
 
 export const CARD_TAG = "frigate-view-card";
 export const DEFAULT_TITLE = "FrigateView";

@@ -44,59 +44,23 @@ export const resolveHomeAssistantVersionStatus = ({
   return {
     visible: true,
     status: "current",
-    label: `Home Assistant ${version} • Recommended level met`,
+    label: `Home Assistant ${version}`,
   };
 };
 
-export const resolveFrigateIntegrationVersionNotice = ({
-  installed = null,
-  currentVersion = "",
-  recommendedVersion = "",
-} = {}) => {
-  if (installed === false) {
-    return "Frigate integration is not installed in Home Assistant.";
-  }
-  if (
-    installed !== true ||
-    compareVersions(currentVersion, recommendedVersion) !== -1
-  ) {
-    return "";
-  }
-  return `Frigate integration ${currentVersion} is below the recommended ${recommendedVersion}.`;
-};
-
-export const resolveFrigateIntegrationVersionStatus = ({
-  installed = null,
-  currentVersion = "",
-  recommendedVersion = "",
-  lookupStatus = "idle",
-} = {}) => {
-  const warning = resolveFrigateIntegrationVersionNotice({
-    installed,
-    currentVersion,
-    recommendedVersion,
-  });
-  if (warning) return { visible: true, status: "warning", label: warning };
-  const version = String(currentVersion || "").trim();
-  if (installed === true && version) {
-    return {
-      visible: true,
-      status: "current",
-      label: `Frigate integration ${version} • Recommended level met`,
-    };
-  }
-  if (lookupStatus === "pending") {
-    return {
-      visible: true,
-      status: "checking",
-      label: "Checking Frigate integration version…",
-    };
-  }
+export const resolveFrigateIntegrationStatus = ({ installed = null } = {}) => {
   if (installed === true) {
     return {
       visible: true,
-      status: "warning",
-      label: "Frigate integration is installed, but its version could not be determined.",
+      status: "current",
+      label: "Frigate integration is installed.",
+    };
+  }
+  if (installed === false) {
+    return {
+      visible: true,
+      status: "error",
+      label: "Frigate integration is not installed in Home Assistant.",
     };
   }
   return { visible: false, status: "unavailable", label: "" };
@@ -107,17 +71,4 @@ export const isFrigateIntegrationLoaded = (hass) => {
   if (Array.isArray(components)) return components.includes("frigate");
   if (components instanceof Set) return components.has("frigate");
   return null;
-};
-
-export const fetchFrigateIntegrationVersion = async (hass) => {
-  if (typeof hass?.callWS !== "function") {
-    throw new Error("Home Assistant WebSocket API is unavailable");
-  }
-  const manifest = await hass.callWS({
-    type: "config/integration/get_manifest",
-    integration: "frigate",
-  });
-  const version = String(manifest?.version || "").trim();
-  if (!version) throw new Error("Frigate integration version is unavailable");
-  return version;
 };
