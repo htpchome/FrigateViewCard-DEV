@@ -124,12 +124,48 @@ test("HA direct WebRTC owns exactly one non-resubscribing signaling subscription
     });
     assert.deepEqual(subscriptionCalls[0].options, { resubscribe: false });
     assert.deepEqual(FakePeerConnection.instances[0].transceivers, [
-      ["video", { direction: "recvonly" }],
       ["audio", { direction: "recvonly" }],
+      ["video", { direction: "recvonly" }],
     ]);
 
-    playback.engine.destroy();
+    await subscriptionCalls[0].callback({
+      type: "answer",
+      answer: "one-answer",
+    });
+    await playback.engine.destroy();
+
+    assert.equal(unsubscribeCalls, 1);
+    assert.equal(FakePeerConnection.instances[0].closed, true);
+  });
+});
+
+test("HA direct WebRTC waits for provider startup before unsubscribing", async () => {
+  await withMediaGlobals(async () => {
+    let offerCallback = null;
+    let unsubscribeCalls = 0;
+    const hass = {
+      callWS: async () => ({ configuration: { iceServers: [] } }),
+      connection: {
+        subscribeMessage(callback) {
+          offerCallback = callback;
+          return Promise.resolve(() => {
+            unsubscribeCalls += 1;
+          });
+        },
+      },
+    };
+    const playback = createHaDirectWebRtcPlayback({
+      hass,
+      entity: "camera.front",
+    });
+
+    assert.equal(await playback.start(), true);
+    const shutdown = playback.engine.destroy();
     await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(unsubscribeCalls, 0);
+    offerCallback({ type: "answer", answer: "late-answer" });
+    await shutdown;
 
     assert.equal(unsubscribeCalls, 1);
     assert.equal(FakePeerConnection.instances[0].closed, true);

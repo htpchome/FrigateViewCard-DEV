@@ -18,6 +18,29 @@ const normalizeHaDirectStreamType = (value) => {
   return normalized === "hls" ? "hls" : "webrtc";
 };
 
+const HA_DIRECT_WEBRTC_TRACK_WAIT_MS = 3000;
+
+const waitForFirstVideoTrack = async (engine, timeoutMs, abortSignal) => {
+  let timer = null;
+  let onAbort = null;
+  const guard = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(false), timeoutMs);
+    if (!abortSignal) return;
+    onAbort = () => resolve(false);
+    if (abortSignal.aborted) {
+      resolve(false);
+      return;
+    }
+    abortSignal.addEventListener("abort", onAbort, { once: true });
+  });
+  const received = await Promise.race([engine.firstVideoTrack, guard]);
+  if (timer != null) clearTimeout(timer);
+  if (abortSignal && onAbort) {
+    abortSignal.removeEventListener("abort", onAbort);
+  }
+  return received === true;
+};
+
 export function createHaDirectMounter({
   getHass,
   getPreferredStreamType,
@@ -34,12 +57,21 @@ export function createHaDirectMounter({
   scopeKey,
 }) {
   const mediaBindings = new WeakMap();
+  let releaseBarrier = Promise.resolve();
+
+  const rememberRelease = (releaseResult) => {
+    if (!releaseResult?.then) return;
+    const pendingRelease = Promise.resolve(releaseResult).catch(() => {});
+    releaseBarrier = Promise.all([releaseBarrier, pendingRelease]).then(
+      () => undefined,
+    );
+  };
 
   const release = (engine) => {
     const binding = mediaBindings.get(engine);
     if (!binding) {
       if (engine?.type === "ha_direct" && engine?.streamType === "webrtc") {
-        engine.destroy?.();
+        rememberRelease(engine.destroy?.());
       }
       return;
     }
@@ -49,7 +81,7 @@ export function createHaDirectMounter({
     engine.removeEventListener?.("load", binding.reconcile, true);
     engine.removeEventListener?.("streams", binding.onStreams, true);
     mediaBindings.delete(engine);
-    engine?.destroy?.();
+    rememberRelease(engine?.destroy?.());
   };
 
   const awaitUpdate = async (element) => {
@@ -218,6 +250,10 @@ export function createHaDirectMounter({
     onCommittedMediaReady?.(engine, engine.video);
     if (getRotateOverlayActive()) setLiveNativeControls(true);
     void (async () => {
+      const priorRelease = releaseBarrier;
+      await priorRelease;
+      if (binding.disposed || !isCurrentEngine(engine)) return;
+      const signalingStartedAt = Date.now();
       const signalingStarted = await playback.start();
       if (
         !signalingStarted ||
@@ -230,8 +266,25 @@ export function createHaDirectMounter({
         }
         return;
       }
+      const trackWaitMs = Math.min(
+        HA_DIRECT_WEBRTC_TRACK_WAIT_MS,
+        haDirectPlan.waitMs,
+      );
+      const videoTrackReceived = await waitForFirstVideoTrack(
+        engine,
+        trackWaitMs,
+        binding.abortController.signal,
+      );
+      if (binding.disposed || !isCurrentEngine(engine)) return;
+      if (!videoTrackReceived) {
+        release(engine);
+        mountHls();
+        return;
+      }
+      const elapsedMs = Date.now() - signalingStartedAt;
+      const frameWaitMs = Math.max(500, haDirectPlan.waitMs - elapsedMs);
       const ready = await Promise.race([
-        waitForStreamStart(engine, haDirectPlan.waitMs, {
+        waitForStreamStart(engine, frameWaitMs, {
           ...haDirectPlan.waitOptions,
           strict: true,
           abortSignal: binding.abortController.signal,

@@ -336,7 +336,12 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
       return { type: "offer", sdp: "ha-direct-offer" };
     }
 
-    async setLocalDescription() {}
+    async setLocalDescription() {
+      this.ontrack?.({
+        track: { kind: "video", stop() {} },
+        streams: [],
+      });
+    }
 
     close() {}
   }
@@ -373,9 +378,12 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
     },
     callWS: async () => ({ configuration: { iceServers: [] } }),
     connection: {
-      subscribeMessage(_callback, _message, options) {
+      subscribeMessage(callback, _message, options) {
         subscriptionCalls += 1;
         assert.deepEqual(options, { resubscribe: false });
+        queueMicrotask(() =>
+          callback({ type: "answer", answer: "ha-direct-answer" }),
+        );
         return Promise.resolve(() => {
           unsubscribeCalls += 1;
         });
@@ -418,6 +426,143 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
     assert.equal(unsubscribeCalls, 1);
     assert.equal(assignedEngine.tagName, "HA-HLS-PLAYER");
     assert.deepEqual(committedTypes, ["hls"]);
+  } finally {
+    mounter.release(assignedEngine);
+    globalThis.document = previousDocument;
+    globalThis.MediaStream = previousMediaStream;
+    globalThis.RTCPeerConnection = previousPeerConnection;
+  }
+});
+
+test("ha direct mounter serializes WebRTC teardown before the next offer", async () => {
+  const previousDocument = globalThis.document;
+  const previousMediaStream = globalThis.MediaStream;
+  const previousPeerConnection = globalThis.RTCPeerConnection;
+  let assignedEngine = null;
+  let resolveFirstUnsubscribe = null;
+  const subscriptionCalls = [];
+
+  class FakePeerConnection {
+    constructor() {
+      this.connectionState = "new";
+      this.iceConnectionState = "new";
+    }
+
+    addTransceiver() {
+      return { stop() {} };
+    }
+
+    getTransceivers() {
+      return [];
+    }
+
+    async createOffer() {
+      return { type: "offer", sdp: "ha-direct-offer" };
+    }
+
+    async setLocalDescription() {
+      this.ontrack?.({
+        track: { kind: "video", stop() {} },
+        streams: [],
+      });
+    }
+
+    async setRemoteDescription() {}
+
+    close() {}
+  }
+
+  globalThis.document = {
+    createElement(tag) {
+      assert.equal(tag, "video");
+      return {
+        tagName: "VIDEO",
+        style: {},
+        dataset: {},
+        classList: { add() {} },
+        setAttribute() {},
+        removeAttribute() {},
+        play: () => Promise.resolve(),
+        pause() {},
+      };
+    },
+  };
+  globalThis.MediaStream = class {
+    addTrack() {}
+    getTracks() {
+      return [];
+    }
+  };
+  globalThis.RTCPeerConnection = FakePeerConnection;
+
+  const hass = {
+    states: {
+      "camera.front": { entity_id: "camera.front", attributes: {} },
+      "camera.back": { entity_id: "camera.back", attributes: {} },
+    },
+    callWS: async () => ({ configuration: { iceServers: [] } }),
+    connection: {
+      subscribeMessage(callback, message, options) {
+        const callIndex = subscriptionCalls.length;
+        subscriptionCalls.push({ callback, message, options });
+        queueMicrotask(() =>
+          callback({ type: "answer", answer: `answer-${callIndex}` }),
+        );
+        return Promise.resolve(() => {
+          if (callIndex !== 0) return Promise.resolve();
+          return new Promise((resolve) => {
+            resolveFirstUnsubscribe = resolve;
+          });
+        });
+      },
+    },
+  };
+  const slot = {
+    innerHTML: "",
+    appendChild(node) {
+      this.lastChild = node;
+    },
+  };
+  const mounter = createHaDirectMounter({
+    getHass: () => hass,
+    getPreferredStreamType: () => "webrtc",
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => assignedEngine === engine,
+    waitForStreamStart: async () => true,
+    assignCommittedEngine: (engine) => {
+      assignedEngine = engine;
+    },
+    onCommittedMediaReady: () => {},
+    onCommittedStream: () => {},
+    applyResolvedStreamUiState: () => {},
+    setLiveNativeControls: () => {},
+    scheduleResumeLive: () => {},
+  });
+
+  try {
+    await mounter.tryMount(slot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    await flushAsyncWork();
+    await flushAsyncWork();
+    assert.equal(subscriptionCalls.length, 1);
+
+    mounter.release(assignedEngine);
+    await mounter.tryMount(slot, null, {
+      entity: "camera.back",
+      commit: true,
+    });
+    await flushAsyncWork();
+    assert.equal(subscriptionCalls.length, 1);
+
+    resolveFirstUnsubscribe();
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    assert.equal(subscriptionCalls.length, 2);
+    assert.equal(subscriptionCalls[1].message.entity_id, "camera.back");
   } finally {
     mounter.release(assignedEngine);
     globalThis.document = previousDocument;

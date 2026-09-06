@@ -3,6 +3,8 @@ import {
   createVideoElement,
 } from "../../shared/media/video-factory.js";
 
+const HA_WEBRTC_PROVIDER_START_WAIT_MS = 3000;
+
 const stopMediaStream = (stream) => {
   for (const track of stream?.getTracks?.() || []) {
     try {
@@ -48,18 +50,44 @@ export function createHaDirectWebRtcPlayback({
   let unsubscribePromise = null;
   let sessionId = "";
   let destroyed = false;
+  let shutdownPromise = null;
   let started = false;
   let failureSettled = false;
   let resolveFailure = null;
+  let firstVideoTrackSettled = false;
+  let resolveFirstVideoTrack = null;
+  let providerStartedSettled = false;
+  let resolveProviderStarted = null;
   const failure = new Promise((resolve) => {
     resolveFailure = resolve;
   });
+  const firstVideoTrack = new Promise((resolve) => {
+    resolveFirstVideoTrack = resolve;
+  });
+  const providerStarted = new Promise((resolve) => {
+    resolveProviderStarted = resolve;
+  });
+
+  const settleFirstVideoTrack = (received) => {
+    if (firstVideoTrackSettled) return;
+    firstVideoTrackSettled = true;
+    resolveFirstVideoTrack?.(received === true);
+    resolveFirstVideoTrack = null;
+  };
+
+  const settleProviderStarted = () => {
+    if (providerStartedSettled) return;
+    providerStartedSettled = true;
+    resolveProviderStarted?.();
+    resolveProviderStarted = null;
+  };
 
   const settleFailure = () => {
     if (failureSettled || started || destroyed) return;
     failureSettled = true;
     resolveFailure?.(false);
     resolveFailure = null;
+    settleFirstVideoTrack(false);
   };
 
   const notifyConnectionLost = (reason) => {
@@ -72,19 +100,33 @@ export function createHaDirectWebRtcPlayback({
   };
 
   const destroy = () => {
-    if (destroyed) return;
+    if (destroyed) return shutdownPromise || Promise.resolve();
     destroyed = true;
     if (!failureSettled && !started) {
       failureSettled = true;
       resolveFailure?.(false);
       resolveFailure = null;
     }
-    if (unsubscribePromise) {
-      void unsubscribePromise
-        .then((unsubscribe) => unsubscribe?.())
-        .catch(() => {});
-      unsubscribePromise = null;
-    }
+    settleFirstVideoTrack(false);
+    const pendingUnsubscribe = unsubscribePromise;
+    unsubscribePromise = null;
+    shutdownPromise = pendingUnsubscribe
+      ? pendingUnsubscribe
+        .then(async (unsubscribe) => {
+          if (!providerStartedSettled) {
+            let timer = null;
+            await Promise.race([
+              providerStarted,
+              new Promise((resolve) => {
+                timer = setTimeout(resolve, HA_WEBRTC_PROVIDER_START_WAIT_MS);
+              }),
+            ]);
+            if (timer != null) clearTimeout(timer);
+          }
+          await unsubscribe?.();
+        })
+        .catch(() => {})
+      : Promise.resolve();
     stopMediaStream(remoteStream);
     try {
       video.pause?.();
@@ -105,6 +147,7 @@ export function createHaDirectWebRtcPlayback({
     }
     pendingCandidates.length = 0;
     sessionId = "";
+    return shutdownPromise;
   };
 
   const engine = {
@@ -113,6 +156,7 @@ export function createHaDirectWebRtcPlayback({
     video,
     remoteStream,
     failure,
+    firstVideoTrack,
     get pc() {
       return peerConnection;
     },
@@ -148,6 +192,7 @@ export function createHaDirectWebRtcPlayback({
         } else if (event.streams?.[0]) {
           video.srcObject = event.streams[0];
         }
+        if (event.track?.kind === "video") settleFirstVideoTrack(true);
         video.play?.().catch?.(() => {});
       };
       peerConnection.onicecandidate = (event) => {
@@ -179,8 +224,8 @@ export function createHaDirectWebRtcPlayback({
         }
       };
 
-      peerConnection.addTransceiver("video", { direction: "recvonly" });
       peerConnection.addTransceiver("audio", { direction: "recvonly" });
+      peerConnection.addTransceiver("video", { direction: "recvonly" });
       const offer = await peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
@@ -189,7 +234,23 @@ export function createHaDirectWebRtcPlayback({
       await peerConnection.setLocalDescription(offer);
       if (destroyed) return false;
 
+      let gatheredCandidates = "";
+      while (pendingCandidates.length) {
+        const candidate = pendingCandidates.shift();
+        if (candidate?.candidate) {
+          gatheredCandidates += `a=${candidate.candidate}\r\n`;
+        }
+      }
+      const offerSdp = `${offer.sdp || ""}${gatheredCandidates}`;
+
       const handleOfferEvent = async (event) => {
+        if (
+          event?.type === "answer" ||
+          event?.type === "candidate" ||
+          event?.type === "error"
+        ) {
+          settleProviderStarted();
+        }
         if (destroyed) return;
         if (event?.type === "session") {
           sessionId = event.session_id || "";
@@ -242,14 +303,18 @@ export function createHaDirectWebRtcPlayback({
           {
             type: "camera/webrtc/offer",
             entity_id: entityId,
-            offer: offer.sdp,
+            offer: offerSdp,
           },
           { resubscribe: false },
         ),
       );
-      unsubscribePromise.catch(() => settleFailure());
+      unsubscribePromise.catch(() => {
+        settleProviderStarted();
+        settleFailure();
+      });
       return true;
     } catch (_) {
+      settleProviderStarted();
       settleFailure();
       return false;
     }
