@@ -115,6 +115,8 @@ export function buildCardViewMainLayoutShellMarkup({
 
 export function buildCardViewStandaloneModeControlsMarkup({
   icons = {},
+  alertTakeoverEnabled = false,
+  alertTakeoverDisabled = false,
   gridAvailable = false,
   gridActive = false,
   gridDisabled = false,
@@ -127,12 +129,18 @@ export function buildCardViewStandaloneModeControlsMarkup({
   const slideshowLabel = slideshowActive
     ? "Stop slideshow rotation"
     : "Start slideshow rotation";
+  const takeoverLabel = alertTakeoverEnabled
+    ? "Disable alert camera takeover"
+    : "Enable alert camera takeover";
   const remaining = Math.max(
     0,
     Math.ceil(Number(slideshowRemainingSeconds) || 0),
   );
   return `${slideshowAvailable ? `<button class="card-view-standalone-mode-button card-view-standalone-slideshow-button${slideshowActive ? " active" : ""}" type="button" data-card-view-standalone-slideshow data-media-overlay-ignore aria-pressed="${slideshowActive}" title="${slideshowLabel}" aria-label="${slideshowLabel}"${slideshowDisabled ? " disabled" : ""}>${slideshowActive ? icons.presentationPlayActive || icons.presentationPlay || "" : icons.presentationPlay || ""}${slideshowActive ? `<span class="card-view-standalone-countdown" data-card-view-slideshow-countdown>${remaining}s</span>` : ""}</button>` : ""}
-    ${gridAvailable ? `<button class="card-view-standalone-mode-button${gridActive ? " active" : ""}" type="button" data-card-view-standalone-grid data-media-overlay-ignore aria-pressed="${gridActive}" title="${gridLabel}" aria-label="${gridLabel}"${gridDisabled ? " disabled" : ""}>${icons.grid || ""}</button>` : ""}`;
+    <div class="card-view-standalone-mode-end">
+      ${gridAvailable ? `<button class="card-view-standalone-mode-button${gridActive ? " active" : ""}" type="button" data-card-view-standalone-grid data-media-overlay-ignore aria-pressed="${gridActive}" title="${gridLabel}" aria-label="${gridLabel}"${gridDisabled ? " disabled" : ""}>${icons.grid || ""}</button>` : ""}
+      <button class="card-view-standalone-mode-button card-view-standalone-takeover-button${alertTakeoverEnabled ? " active" : ""}" type="button" data-card-view-takeover data-media-overlay-ignore aria-pressed="${alertTakeoverEnabled}" title="${takeoverLabel}" aria-label="${takeoverLabel}"${alertTakeoverDisabled ? " disabled" : ""}>${icons.alerts || ""}</button>
+    </div>`;
 }
 
 export function buildCardViewToolbarMarkup({

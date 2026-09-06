@@ -657,7 +657,7 @@ export class CardViewPageController {
     return this._mediaDrawerController.render(options);
   }
 
-  renderStandaloneModeControls(_buttonStates = null) {
+  renderStandaloneModeControls(buttonStates = null) {
     const container = this._host.shadowRoot?.querySelector?.(
       "[data-card-view-standalone-mode-controls]",
     );
@@ -672,8 +672,13 @@ export class CardViewPageController {
       this._mode === "ptz" ||
       this._host._twoWayTalkStarting === true ||
       this._host._twoWayTalkActiveForCurrentCamera?.() === true;
+    const resolvedButtonStates =
+      buttonStates || this._host._toolbarButtonStates?.() || {};
     const markup = buildCardViewStandaloneModeControlsMarkup({
       icons: ICONS,
+      alertTakeoverEnabled: this.alertTakeoverEnabled(),
+      alertTakeoverDisabled:
+        resolvedButtonStates.wideAlertTakeoverDisabled === true,
       gridAvailable: this._host._isGridModeAvailable?.() === true,
       gridActive: this._host._viewMode === "grid",
       gridDisabled: modeSwitchLocked,

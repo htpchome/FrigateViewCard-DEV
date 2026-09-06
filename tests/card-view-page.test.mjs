@@ -250,13 +250,15 @@ test("Card View source indicator shares video-only overlay visibility", () => {
   );
 });
 
-test("standalone Card View controls expose active Grid and Slideshow states", () => {
+test("standalone Card View controls expose active Grid, Slideshow, and takeover states", () => {
   const markup = buildCardViewStandaloneModeControlsMarkup({
     icons: {
+      alerts: "takeover-icon",
       grid: "grid-icon",
       presentationPlay: "slideshow-icon",
       presentationPlayActive: "slideshow-active-icon",
     },
+    alertTakeoverEnabled: true,
     gridAvailable: true,
     gridActive: true,
     slideshowAvailable: true,
@@ -269,9 +271,17 @@ test("standalone Card View controls expose active Grid and Slideshow states", ()
   assert.match(markup, /data-card-view-standalone-slideshow/);
   assert.match(markup, /slideshow-active-icon/);
   assert.match(markup, /data-card-view-slideshow-countdown>7s/);
+  assert.match(
+    markup,
+    /card-view-standalone-takeover-button active[^>]*data-card-view-takeover[^>]*aria-pressed="true"[^>]*>takeover-icon</,
+  );
   assert.ok(
     markup.indexOf("data-card-view-standalone-slideshow") <
       markup.indexOf("data-card-view-standalone-grid"),
+  );
+  assert.ok(
+    markup.indexOf("data-card-view-standalone-grid") <
+      markup.indexOf("data-card-view-takeover"),
   );
 });
 
@@ -336,6 +346,10 @@ test("Video Only mode controls are not disabled by Card View alert takeover", ()
 
   assert.match(container.innerHTML, /data-card-view-standalone-grid/);
   assert.match(container.innerHTML, /data-card-view-standalone-slideshow/);
+  assert.match(
+    container.innerHTML,
+    /data-card-view-takeover[^>]*aria-pressed="true"/,
+  );
   assert.doesNotMatch(
     container.innerHTML,
     /data-card-view-standalone-(?:grid|slideshow)[^>]* disabled/,
@@ -715,7 +729,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(112px,38%,200px\) minmax\(0,1fr\)/,
+    /card-view-overlay-presentation \.card-view-camera-row \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) clamp\(104px,34%,180px\) minmax\(0,1fr\)/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -739,7 +753,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlay-presentation \[data-card-view-standalone-grid\] \{grid-column:3;justify-self:start;/,
+    /card-view-overlay-presentation \.card-view-standalone-mode-end \{[\s\S]*?grid-column:3;grid-row:1;display:flex;[\s\S]*?gap:6px;[\s\S]*?pointer-events:none;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -799,19 +813,19 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /@keyframes card-view-slideshow-button-settle \{[\s\S]*?0%,72% \{opacity:1;\}[\s\S]*?100% \{opacity:\.68;\}/,
+    /@keyframes card-view-active-mode-button-hide \{[\s\S]*?from \{opacity:\.68;visibility:visible;pointer-events:auto;\}[\s\S]*?to \{opacity:0;visibility:hidden;pointer-events:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone-slideshow-button\.active \{[\s\S]*?opacity:\.68;pointer-events:auto;animation:card-view-slideshow-button-settle 3\.2s ease-out forwards;/,
+    /:is\([\s\S]*?card-view-standalone-slideshow-button\.active,[\s\S]*?\[data-card-view-standalone-grid\]\.active,[\s\S]*?card-view-standalone-takeover-button\.active[\s\S]*?\) \{[\s\S]*?opacity:\.68;visibility:visible;pointer-events:auto;[\s\S]*?animation:card-view-active-mode-button-hide 10s step-end forwards;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /\[data-card-view-standalone-grid\]\.active \{[\s\S]*?opacity:\.68;pointer-events:auto;/,
+    /card-view-standalone-takeover-button,[\s\S]*?card-view-standalone-takeover-button\.active \{[\s\S]*?width:32px;min-width:32px;max-width:32px;padding:4px;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlays-visible \.card-view-standalone-slideshow-button\.active \{animation:none;\}/,
+    /card-view-overlays-visible :is\([\s\S]*?card-view-standalone-slideshow-button\.active,[\s\S]*?\[data-card-view-standalone-grid\]\.active,[\s\S]*?card-view-standalone-takeover-button\.active[\s\S]*?\) \{opacity:1;visibility:visible;pointer-events:auto;animation:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

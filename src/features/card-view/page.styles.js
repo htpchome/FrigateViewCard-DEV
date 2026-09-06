@@ -265,7 +265,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-camera-row {
     position:absolute;z-index:24;top:8px;left:8px;right:8px;width:auto;min-width:0;padding:0;
-    grid-template-columns:minmax(0,1fr) clamp(112px,38%,200px) minmax(0,1fr);align-items:start;gap:6px;
+    grid-template-columns:minmax(0,1fr) clamp(104px,34%,180px) minmax(0,1fr);align-items:start;gap:6px;
     background:transparent;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-back-slot {display:none;}
@@ -298,7 +298,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-controls {
     position:relative;z-index:1;grid-column:1 / -1;grid-row:1;display:grid;width:100%;min-width:0;
-    grid-template-columns:minmax(0,1fr) clamp(112px,38%,200px) minmax(0,1fr);align-items:start;gap:6px;pointer-events:none;
+    grid-template-columns:minmax(0,1fr) clamp(104px,34%,180px) minmax(0,1fr);align-items:start;gap:6px;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button {
     position:relative;grid-row:1;display:grid;place-items:center;min-width:32px;width:32px;height:32px;padding:4px;border:1px solid var(--fvc-media-overlay-border);
@@ -307,21 +307,29 @@ export const CARD_VIEW_PAGE_STYLES = `
     transition:opacity .16s ease,background-color .15s ease,border-color .15s ease;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-slideshow-button {grid-column:1;justify-self:end;}
-  .card.card-view-active.card-view-overlay-presentation [data-card-view-standalone-grid] {grid-column:3;justify-self:start;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-end {
+    grid-column:3;grid-row:1;display:flex;align-items:flex-start;justify-self:start;gap:6px;min-width:0;pointer-events:none;
+  }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button svg {width:21px;height:21px;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.active {
     width:auto;min-width:32px;grid-auto-flow:column;gap:3px;padding-inline:5px;
     border-color:var(--fvc-media-overlay-active-border);background:var(--fvc-media-overlay-active-bg);
   }
-  @keyframes card-view-slideshow-button-settle {
-    0%,72% {opacity:1;}
-    100% {opacity:.68;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-takeover-button,
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-takeover-button.active {
+    width:32px;min-width:32px;max-width:32px;padding:4px;
   }
-  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-slideshow-button.active {
-    opacity:.68;pointer-events:auto;animation:card-view-slideshow-button-settle 3.2s ease-out forwards;
+  @keyframes card-view-active-mode-button-hide {
+    from {opacity:.68;visibility:visible;pointer-events:auto;}
+    to {opacity:0;visibility:hidden;pointer-events:none;}
   }
-  .card.card-view-active.card-view-overlay-presentation [data-card-view-standalone-grid].active {
-    opacity:.68;pointer-events:auto;
+  .card.card-view-active.card-view-overlay-presentation :is(
+    .card-view-standalone-slideshow-button.active,
+    [data-card-view-standalone-grid].active,
+    .card-view-standalone-takeover-button.active
+  ) {
+    opacity:.68;visibility:visible;pointer-events:auto;
+    animation:card-view-active-mode-button-hide 10s step-end forwards;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-countdown {min-width:18px;font-size:.62rem;font-weight:750;line-height:1;font-variant-numeric:tabular-nums;}
   .card.card-view-active.card-view-overlay-presentation.card-view-hide-camera-name .mobile-cam-picker {opacity:0;pointer-events:none;}
@@ -329,12 +337,16 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation.card-view-hide-camera-name.card-view-overlays-visible .mobile-cam-picker,
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-controls.card-view-grid-indicator-visible [data-card-view-standalone-grid].active,
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-mode-button {
-    opacity:1;pointer-events:auto;
+    opacity:1;visibility:visible;pointer-events:auto;
   }
-  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-slideshow-button.active {animation:none;}
+  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible :is(
+    .card-view-standalone-slideshow-button.active,
+    [data-card-view-standalone-grid].active,
+    .card-view-standalone-takeover-button.active
+  ) {opacity:1;visibility:visible;pointer-events:auto;animation:none;}
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button:hover {background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
-    .card.card-view-active.card-view-overlay-presentation .card-view-standalone-slideshow-button.active:hover {opacity:1;animation:none;}
+    .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.active:hover {opacity:1;visibility:visible;animation:none;}
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-live-status-overlay {
     position:absolute;z-index:22;top:9px;right:9px;display:flex;align-items:center;gap:5px;pointer-events:none;
@@ -491,7 +503,6 @@ export const CARD_VIEW_PAGE_STYLES = `
     .card.card-view-active.card-view-overlay-presentation .linked-light-dimmer-power {width:28px;height:28px;min-width:28px;min-height:28px;}
   }
   @media (prefers-reduced-motion:reduce) {
-    .card.card-view-active.card-view-overlay-presentation .card-view-standalone-slideshow-button.active {animation:none;}
     .card.card-view-active .card-view-drawer {transition-duration:1ms;}
     .card.card-view-active .card-view-drawer.is-closed .card-view-drawer-inner {transition-delay:1ms;}
     .card.card-view-active .card-view-drawer-handle svg {transition-duration:1ms;}
