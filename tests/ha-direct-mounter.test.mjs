@@ -450,6 +450,8 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
   let unsubscribeCalls = 0;
   const committedTypes = [];
   const hlsPlayers = [];
+  const assignments = [];
+  let mounter = null;
 
   class FakePeerConnection {
     constructor() {
@@ -533,7 +535,7 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
       this.lastChild = node;
     },
   };
-  const mounter = createHaDirectMounter({
+  mounter = createHaDirectMounter({
     getHass: () => hass,
     getPreferredStreamType: () => "webrtc",
     getStreamMuted: () => true,
@@ -545,8 +547,17 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
         resolveWebRtcReady = resolve;
       });
     },
-    assignCommittedEngine: (engine) => {
+    assignCommittedEngine: (engine, options = {}) => {
+      const previousEngine = assignedEngine;
       assignedEngine = engine;
+      assignments.push({ engine, retainPrevious: options.retainPrevious });
+      if (
+        previousEngine &&
+        previousEngine !== engine &&
+        options.retainPrevious !== true
+      ) {
+        mounter.release(previousEngine);
+      }
     },
     onCommittedMediaReady: () => {},
     onCommittedStream: (type) => committedTypes.push(type),
@@ -560,14 +571,19 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
       entity: "camera.front",
       commit: true,
     });
-    const webRtcEngine = assignedEngine;
+    const webRtcEngine = result.engine;
     await flushAsyncWork();
     await flushAsyncWork();
 
     assert.equal(result.type, "webrtc");
-    assert.equal(assignedEngine, webRtcEngine);
+    assert.equal(assignedEngine, hlsPlayers[0]);
+    assert.deepEqual(assignments, [
+      { engine: webRtcEngine, retainPrevious: undefined },
+      { engine: hlsPlayers[0], retainPrevious: true },
+    ]);
     assert.deepEqual(committedTypes, ["hls"]);
     assert.equal(hlsPlayers[0].removeCalled, false);
+    assert.equal(typeof hlsPlayers[0].cancelPendingTakeover, "function");
     assert.match(webRtcEngine.video.style.cssText, /left:-9999px/);
     assert.equal(unsubscribeCalls, 0);
 
@@ -576,8 +592,14 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
     await flushAsyncWork();
 
     assert.equal(assignedEngine, webRtcEngine);
+    assert.deepEqual(assignments, [
+      { engine: webRtcEngine, retainPrevious: undefined },
+      { engine: hlsPlayers[0], retainPrevious: true },
+      { engine: webRtcEngine, retainPrevious: undefined },
+    ]);
     assert.deepEqual(committedTypes, ["hls", "webrtc"]);
     assert.equal(hlsPlayers[0].removeCalled, true);
+    assert.equal(hlsPlayers[0].cancelPendingTakeover, null);
     assert.equal(webRtcEngine.video.style.cssText.includes("left:-9999px"), false);
     assert.equal(unsubscribeCalls, 0);
   } finally {

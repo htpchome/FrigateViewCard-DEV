@@ -62,11 +62,17 @@ export function createHaDirectMounter({
     binding.abortController.abort();
     binding.fallbackAbortController?.abort?.();
     binding.fallbackEngine?.remove?.();
+    const takeoverEngine = binding.takeoverEngine || null;
     binding.fallbackAbortController = null;
     binding.fallbackEngine = null;
+    binding.takeoverEngine = null;
+    if (engine) engine.cancelPendingTakeover = null;
     engine.removeEventListener?.("load", binding.reconcile, true);
     engine.removeEventListener?.("streams", binding.onStreams, true);
     mediaBindings.delete(engine);
+    if (takeoverEngine && takeoverEngine !== engine) {
+      release(takeoverEngine);
+    }
     rememberRelease(engine?.destroy?.());
   };
 
@@ -76,9 +82,9 @@ export function createHaDirectMounter({
     } catch (_) {}
   };
 
-  const applyReady = (engine, streamType, { markStarted = true } = {}) => {
+  const applyReady = (engine, streamType) => {
     if (!isCurrentEngine(engine)) return;
-    if (markStarted) engine.markStarted?.();
+    engine.markStarted?.();
     onCommittedStream?.(streamType);
     const readyState = resolveHaDirectReadyState({
       rotateOverlayActive: getRotateOverlayActive(),
@@ -101,6 +107,7 @@ export function createHaDirectMounter({
       abortController: new AbortController(),
       reconcile: null,
       onStreams: null,
+      takeoverEngine: null,
     };
     binding.reconcile = () => {
       const revision = ++binding.revision;
@@ -137,6 +144,7 @@ export function createHaDirectMounter({
       onStreams: null,
       fallbackAbortController: null,
       fallbackEngine: null,
+      takeoverEngine: null,
     };
     mediaBindings.set(engine, binding);
     return binding;
@@ -233,11 +241,11 @@ export function createHaDirectMounter({
       }
     };
 
-    const commitReadyHls = (engine, { readyStateApplied = false } = {}) => {
+    const commitReadyHls = (engine, { retainPrevious = false } = {}) => {
       engine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
-      removeSlotChildrenExcept(engine);
+      if (!retainPrevious) removeSlotChildrenExcept(engine);
       if (engine.parentElement !== slot) slot.appendChild(engine);
-      assignCommittedEngine(engine);
+      assignCommittedEngine(engine, { retainPrevious });
       let failureHandled = false;
       const fail = (binding) => {
         if (failureHandled || binding.disposed || !isCurrentEngine(engine)) {
@@ -248,19 +256,8 @@ export function createHaDirectMounter({
       };
       bindHlsMedia(engine, fail);
       if (getRotateOverlayActive()) setLiveNativeControls(true);
-      if (!readyStateApplied) applyReady(engine, "hls");
+      applyReady(engine, "hls");
       return { ok: true, type: "hls", engine, slot };
-    };
-
-    const showProvisionalHls = (ownerEngine, hlsEngine) => {
-      if (!isCurrentEngine(ownerEngine)) return false;
-      ownerEngine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
-      hlsEngine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
-      if (hlsEngine.parentElement !== slot) slot.appendChild(hlsEngine);
-      const hlsVideo = findActiveHaCameraStreamVideo(hlsEngine);
-      if (hlsVideo) onCommittedMediaReady?.(ownerEngine, hlsVideo);
-      applyReady(ownerEngine, "hls", { markStarted: false });
-      return true;
     };
 
     const showReadyWebRtc = (ownerEngine, hlsEngine) => {
@@ -307,17 +304,25 @@ export function createHaDirectMounter({
       binding.fallbackAbortController = fallbackAbortController;
       slot.appendChild(fallbackEngine);
     }
+    const isWebRtcAttemptActive = () => {
+      if (binding.disposed) return false;
+      if (isCurrentEngine(engine)) return true;
+      const hlsBinding = fallbackEngine
+        ? mediaBindings.get(fallbackEngine)
+        : null;
+      return Boolean(
+        hlsBinding?.takeoverEngine === engine &&
+          !hlsBinding.disposed &&
+          isCurrentEngine(fallbackEngine),
+      );
+    };
     void (async () => {
       const priorRelease = releaseBarrier;
       const webRtcReady = (async () => {
         await priorRelease;
-        if (binding.disposed || !isCurrentEngine(engine)) return false;
+        if (!isWebRtcAttemptActive()) return false;
         const signalingStarted = await playback.start();
-        if (
-          !signalingStarted ||
-          binding.disposed ||
-          !isCurrentEngine(engine)
-        ) {
+        if (!signalingStarted || !isWebRtcAttemptActive()) {
           return false;
         }
         const ready = await Promise.race([
@@ -343,25 +348,43 @@ export function createHaDirectMounter({
         readyCandidate("webrtc", webRtcReady),
         readyCandidate("hls", hlsReady),
       ]).catch(() => "");
-      if (binding.disposed || !isCurrentEngine(engine)) return;
+      if (!isWebRtcAttemptActive()) return;
       if (winner === "hls") {
-        if (!showProvisionalHls(engine, fallbackEngine)) return;
+        binding.fallbackAbortController = null;
+        binding.fallbackEngine = null;
+        fallbackAbortController.abort();
+        engine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
+        commitReadyHls(fallbackEngine, { retainPrevious: true });
+        const hlsBinding = mediaBindings.get(fallbackEngine);
+        if (!hlsBinding || !isCurrentEngine(fallbackEngine)) {
+          release(engine);
+          return;
+        }
+        hlsBinding.takeoverEngine = engine;
+        fallbackEngine.cancelPendingTakeover = () => {
+          const activeBinding = mediaBindings.get(fallbackEngine);
+          const pendingEngine = activeBinding?.takeoverEngine || null;
+          if (activeBinding) activeBinding.takeoverEngine = null;
+          fallbackEngine.cancelPendingTakeover = null;
+          if (pendingEngine) release(pendingEngine);
+        };
         const webRtcStarted = await webRtcReady;
-        if (binding.disposed || !isCurrentEngine(engine)) return;
-        if (webRtcStarted) winner = "webrtc";
+        if (hlsBinding.disposed || !isCurrentEngine(fallbackEngine)) return;
+        hlsBinding.takeoverEngine = null;
+        fallbackEngine.cancelPendingTakeover = null;
+        if (!webRtcStarted) {
+          release(engine);
+          return;
+        }
+        assignCommittedEngine(engine);
+        showReadyWebRtc(engine, fallbackEngine);
+        return;
       }
       if (winner === "webrtc") {
         binding.fallbackAbortController = null;
         binding.fallbackEngine = null;
         fallbackAbortController.abort();
         showReadyWebRtc(engine, fallbackEngine);
-        return;
-      }
-      if (winner === "hls" && fallbackEngine) {
-        binding.fallbackAbortController = null;
-        binding.fallbackEngine = null;
-        release(engine);
-        commitReadyHls(fallbackEngine, { readyStateApplied: true });
         return;
       }
       applyFailed(engine);

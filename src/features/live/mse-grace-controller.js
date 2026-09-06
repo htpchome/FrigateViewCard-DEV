@@ -213,7 +213,9 @@ export function createMseGraceController({
   };
   const stashHaDirectEngineForGrace = (entity, engine) => {
     const key = normalizeGraceEntityKey(entity);
-    if (!key || !isHaDirectEngineReusable(engine)) return false;
+    if (!key) return false;
+    engine?.cancelPendingTakeover?.();
+    if (!isHaDirectEngineReusable(engine)) return false;
     const mediaNode = resolveHaDirectMediaNode(engine);
     if (!mediaNode) return false;
     evictGraceHaDirectEntry(key);

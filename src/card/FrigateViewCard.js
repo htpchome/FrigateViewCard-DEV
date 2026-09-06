@@ -515,7 +515,8 @@ export class FrigateViewCard extends HTMLElement {
       isCurrentEngine: (streamEl) => this._engine === streamEl,
       waitForStreamStart: (streamEl, timeoutMs, opts) =>
         this._waitForStreamStart(streamEl, timeoutMs, opts),
-      assignCommittedEngine: (engine) => this._assignLiveEngine(engine),
+      assignCommittedEngine: (engine, options) =>
+        this._assignLiveEngine(engine, options),
       onCommittedMediaReady: (engine, video) => {
         const liveEngineHost = this._$("#engine");
         this._attachMainLiveVideoZoom(engine, video, {

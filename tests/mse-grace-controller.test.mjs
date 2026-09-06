@@ -385,6 +385,7 @@ test("live grace controller retains and releases HA-direct HLS separately", asyn
       play: () => Promise.resolve(),
     };
     let removeCalls = 0;
+    let cancelTakeoverCalls = 0;
     const hlsEngine = {
       type: "ha_direct",
       streamType: "hls",
@@ -392,6 +393,9 @@ test("live grace controller retains and releases HA-direct HLS separately", asyn
       style: { cssText: "" },
       shadowRoot: { querySelector: () => video },
       querySelector: () => null,
+      cancelPendingTakeover() {
+        cancelTakeoverCalls += 1;
+      },
       remove() {
         removeCalls += 1;
       },
@@ -429,6 +433,7 @@ test("live grace controller retains and releases HA-direct HLS separately", asyn
 
     controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
     assert.equal(engine, null);
+    assert.equal(cancelTakeoverCalls, 1);
     assert.equal(controller.takeGraceWebRtcEntry("camera.front"), null);
 
     controller.clearGracePool();
