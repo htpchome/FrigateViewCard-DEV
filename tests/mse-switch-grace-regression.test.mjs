@@ -65,11 +65,19 @@ test("camera switching preserves recent live engines for short switch-back reuse
     true,
   );
   assert.equal(
+    mseGraceControllerSource.includes("const haDirectGracePool = new Map()"),
+    true,
+  );
+  assert.equal(
     mseGraceControllerSource.includes("takeGraceWebRtcEntry"),
     true,
   );
   assert.equal(
     mseGraceControllerSource.includes("adoptGraceWebRtcEngine"),
+    true,
+  );
+  assert.equal(
+    mseGraceControllerSource.includes("adoptGraceHaDirectEngine"),
     true,
   );
   assert.equal(mseGraceControllerSource.includes("clearGracePool"), true);

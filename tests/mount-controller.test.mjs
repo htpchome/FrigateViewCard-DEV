@@ -276,6 +276,75 @@ test("live mount controller reuses a cached WebRTC engine before starting a race
   ]);
 });
 
+test("live mount controller reuses only the HA-direct retained engine for HA-direct", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  const cachedEngine = {
+    type: "ha_direct",
+    streamType: "webrtc",
+    video: {},
+  };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => ({
+      mountSeq: 1,
+      mountInProgress: false,
+      mountStartedAt: 0,
+      mountTargetEntity: "",
+    }),
+    applyMountTrackingState: () => {},
+    mountGridEngine: () => {},
+    cleanupEngine: () => calls.push("cleanup"),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    mseGraceController: {
+      takeGraceHaDirectEntry: (entity, streamType) => {
+        calls.push(["take-ha-direct", entity, streamType]);
+        return { engine: cachedEngine };
+      },
+      adoptGraceHaDirectEngine: (targetSlot, engine) => {
+        calls.push(["adopt-ha-direct", targetSlot, engine]);
+        return true;
+      },
+      takeGraceWebRtcEntry: () => {
+        throw new Error("Frigate WebRTC cache must remain isolated");
+      },
+      takeGraceMseEntry: () => {
+        throw new Error("Frigate MSE cache must remain isolated");
+      },
+    },
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    haDirectMounter: {
+      tryMount: async () => {
+        throw new Error("HA mount should not run after retained reuse");
+      },
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("Frigate race must not run for HA-direct reuse");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    ["take-ha-direct", "camera.front", ""],
+    ["adopt-ha-direct", slot, cachedEngine],
+  ]);
+});
+
 test("failed pending MSE reuse falls through to a fresh transport race", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };

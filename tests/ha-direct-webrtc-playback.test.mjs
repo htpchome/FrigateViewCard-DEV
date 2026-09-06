@@ -124,8 +124,8 @@ test("HA direct WebRTC owns exactly one non-resubscribing signaling subscription
     });
     assert.deepEqual(subscriptionCalls[0].options, { resubscribe: false });
     assert.deepEqual(FakePeerConnection.instances[0].transceivers, [
-      ["audio", { direction: "recvonly" }],
       ["video", { direction: "recvonly" }],
+      ["audio", { direction: "recvonly" }],
     ]);
 
     await subscriptionCalls[0].callback({

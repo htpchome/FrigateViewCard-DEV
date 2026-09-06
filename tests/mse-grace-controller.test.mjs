@@ -290,3 +290,150 @@ test("live grace controller shares its cache limit across MSE and WebRTC", async
     assert.ok(controller.takeGraceWebRtcEntry("camera.three")?.engine);
   });
 });
+
+test("live grace controller retains HA-direct WebRTC without entering the Frigate pool", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const video = {
+      style: { cssText: "" },
+      dataset: {},
+      classList: { add() {} },
+      setAttribute() {},
+      removeAttribute() {},
+      play: () => Promise.resolve(),
+    };
+    const cachedEngine = {
+      type: "ha_direct",
+      streamType: "webrtc",
+      video,
+      pc: {
+        connectionState: "connected",
+        iceConnectionState: "connected",
+      },
+      destroyCalls: 0,
+      destroy() {
+        this.destroyCalls += 1;
+      },
+    };
+    let engine = cachedEngine;
+    let activeStreamType = "webrtc";
+    let retainedOptions = null;
+    const controller = createMseGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next, options) => {
+        engine = next;
+        retainedOptions = options;
+      },
+      getActiveStreamType: () => activeStreamType,
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: (next) => {
+        activeStreamType = next;
+      },
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: () => {
+        throw new Error("retained HA engine must not be released");
+      },
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+
+    assert.equal(engine, null);
+    assert.deepEqual(retainedOptions, { retainPrevious: true });
+    assert.equal(controller.takeGraceWebRtcEntry("camera.front"), null);
+    const entry = controller.takeGraceHaDirectEntry("camera.front");
+    assert.equal(entry?.engine, cachedEngine);
+
+    const slot = {
+      innerHTML: "occupied",
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+    assert.equal(
+      controller.adoptGraceHaDirectEngine(slot, cachedEngine),
+      true,
+    );
+    assert.equal(engine, cachedEngine);
+    assert.equal(activeStreamType, "webrtc");
+    assert.equal(slot.child, video);
+    assert.equal(cachedEngine.destroyCalls, 0);
+  });
+});
+
+test("live grace controller retains and releases HA-direct HLS separately", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const video = {
+      style: { cssText: "" },
+      dataset: {},
+      classList: { add() {} },
+      setAttribute() {},
+      removeAttribute() {},
+      play: () => Promise.resolve(),
+    };
+    let removeCalls = 0;
+    const hlsEngine = {
+      type: "ha_direct",
+      streamType: "hls",
+      tagName: "HA-HLS-PLAYER",
+      style: { cssText: "" },
+      shadowRoot: { querySelector: () => video },
+      querySelector: () => null,
+      remove() {
+        removeCalls += 1;
+      },
+    };
+    let engine = hlsEngine;
+    let releasedEngine = null;
+    const controller = createMseGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "hls",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: (released) => {
+        releasedEngine = released;
+      },
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+    assert.equal(engine, null);
+    assert.equal(controller.takeGraceWebRtcEntry("camera.front"), null);
+
+    controller.clearGracePool();
+
+    assert.equal(releasedEngine, hlsEngine);
+    assert.equal(removeCalls, 1);
+  });
+});

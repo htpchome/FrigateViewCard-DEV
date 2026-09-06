@@ -164,6 +164,23 @@ export function createLiveMountController({
       twoWayTalkOptions?.microphoneStream,
     );
 
+    if (!useGo2Rtc && !hasTwoWayTalkOptions) {
+      const graceHaDirectEntry =
+        mseGraceController.takeGraceHaDirectEntry?.(
+          targetEntity,
+          forcedType || "",
+        ) || null;
+      if (
+        graceHaDirectEntry?.engine &&
+        mseGraceController.adoptGraceHaDirectEngine?.(
+          slot,
+          graceHaDirectEntry.engine,
+        )
+      ) {
+        return true;
+      }
+    }
+
     if (
       useGo2Rtc &&
       !hasTwoWayTalkOptions &&

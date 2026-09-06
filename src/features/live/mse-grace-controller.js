@@ -33,9 +33,11 @@ export function createMseGraceController({
   setStreamLoading,
   setStreamFallbackVisible,
   setLiveNativeControls,
+  releaseHaDirectEngine,
 }) {
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
+  const haDirectGracePool = new Map();
   const terminalWebRtcStates = new Set(["closed", "failed", "disconnected"]);
   let graceEntrySequence = 0;
 
@@ -54,6 +56,41 @@ export function createMseGraceController({
       (!Number.isFinite(wsState) || wsState <= 1)
     );
   };
+  const isHaDirectWebRtcEngineReusable = (engine) => {
+    if (
+      engine?.type !== "ha_direct" ||
+      engine?.streamType !== "webrtc" ||
+      !engine?.video ||
+      !engine?.pc
+    ) {
+      return false;
+    }
+    const connectionState = String(engine.pc.connectionState || "")
+      .trim()
+      .toLowerCase();
+    const iceState = String(engine.pc.iceConnectionState || "")
+      .trim()
+      .toLowerCase();
+    return (
+      !terminalWebRtcStates.has(connectionState) &&
+      !terminalWebRtcStates.has(iceState)
+    );
+  };
+  const isHaDirectHlsEngineReusable = (engine) =>
+    engine?.type === "ha_direct" &&
+    engine?.streamType === "hls" &&
+    engine?.tagName?.toLowerCase?.() === "ha-hls-player";
+  const isHaDirectEngineReusable = (engine) =>
+    isHaDirectWebRtcEngineReusable(engine) ||
+    isHaDirectHlsEngineReusable(engine);
+  const resolveHaDirectMediaNode = (engine) =>
+    engine?.streamType === "hls" ? engine : engine?.video || null;
+  const resolveHaDirectVideo = (engine) =>
+    engine?.streamType === "hls"
+      ? engine?.shadowRoot?.querySelector?.("video") ||
+        engine?.querySelector?.("video") ||
+        null
+      : engine?.video || null;
   let mseGraceHost = null;
 
   const evictGraceMseEntry = (entity) => {
@@ -82,6 +119,20 @@ export function createMseGraceController({
     } catch (_) {}
   };
 
+  const evictGraceHaDirectEntry = (entity) => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key) return;
+    const entry = haDirectGracePool.get(key);
+    if (!entry) return;
+    entry.cancelled = true;
+    if (entry.timer) clearTimeout(entry.timer);
+    haDirectGracePool.delete(key);
+    try {
+      releaseHaDirectEngine?.(entry.engine);
+      entry.engine?.remove?.();
+    } catch (_) {}
+  };
+
   const trimGracePool = () => {
     const maxEntries = Math.max(0, Number(graceMax) || 0);
     while (mseGracePool.size + webRtcGracePool.size > maxEntries) {
@@ -97,6 +148,15 @@ export function createMseGraceController({
         if (!webRtcKey) break;
         evictGraceWebRtcEntry(webRtcKey);
       }
+    }
+  };
+
+  const trimHaDirectGracePool = () => {
+    const maxEntries = Math.max(0, Number(graceMax) || 0);
+    while (haDirectGracePool.size > maxEntries) {
+      const oldestKey = haDirectGracePool.keys().next().value || "";
+      if (!oldestKey) break;
+      evictGraceHaDirectEntry(oldestKey);
     }
   };
 
@@ -149,6 +209,28 @@ export function createMseGraceController({
     entry.graceOrder = ++graceEntrySequence;
     webRtcGracePool.set(key, entry);
     trimGracePool();
+    return true;
+  };
+  const stashHaDirectEngineForGrace = (entity, engine) => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key || !isHaDirectEngineReusable(engine)) return false;
+    const mediaNode = resolveHaDirectMediaNode(engine);
+    if (!mediaNode) return false;
+    evictGraceHaDirectEntry(key);
+    engine.deactivateRecovery?.();
+    ensureMseGraceHost().appendChild(mediaNode);
+    prepareEngineVideoForGraceHost(resolveHaDirectVideo(engine));
+    const entry = createGraceEngineEntry({
+      engine,
+      graceMs,
+      onExpire: () => {
+        if (haDirectGracePool.get(key) !== entry) return;
+        evictGraceHaDirectEntry(key);
+      },
+    });
+    entry.graceOrder = ++graceEntrySequence;
+    haDirectGracePool.set(key, entry);
+    trimHaDirectGracePool();
     return true;
   };
 
@@ -213,6 +295,19 @@ export function createMseGraceController({
     webRtcGracePool.delete(key);
     return entry;
   };
+  const takeGraceHaDirectEntry = (entity, streamType = "") => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key) return null;
+    const entry = haDirectGracePool.get(key);
+    if (!entry) return null;
+    const expectedType = String(streamType || "")
+      .trim()
+      .toLowerCase();
+    if (expectedType && entry.engine?.streamType !== expectedType) return null;
+    if (entry.timer) clearTimeout(entry.timer);
+    haDirectGracePool.delete(key);
+    return entry;
+  };
 
   const adoptGraceMseEngine = (slot, engine) => {
     if (!slot || !engine?.video || !engine?.ws) return false;
@@ -275,6 +370,42 @@ export function createMseGraceController({
     void engine.video.play?.().catch?.(() => {});
     return true;
   };
+  const adoptGraceHaDirectEngine = (slot, engine) => {
+    if (!slot || !isHaDirectEngineReusable(engine)) {
+      try {
+        releaseHaDirectEngine?.(engine);
+        engine?.remove?.();
+      } catch (_) {}
+      return false;
+    }
+    const mediaNode = resolveHaDirectMediaNode(engine);
+    const video = resolveHaDirectVideo(engine);
+    if (!mediaNode) return false;
+    if (video) {
+      configureVideoElement(
+        video,
+        buildVideoOptionsForView(
+          "live",
+          {
+            muted: getStreamMuted?.(),
+            controls: false,
+          },
+          { scopeKey: getScopeKey?.() },
+        ),
+      );
+    }
+    mountNodeIntoSlot(slot, mediaNode);
+    attachVideoFit?.(engine.streamType === "hls" ? engine : video);
+    engine.activateRecovery?.();
+    setEngine?.(engine);
+    setEngineMountedMuted?.(getStreamMuted?.());
+    setActiveStreamType?.(engine.streamType);
+    setStreamLoading?.(false);
+    setStreamFallbackVisible?.(false);
+    if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
+    void video?.play?.().catch?.(() => {});
+    return true;
+  };
 
   const cleanupEngine = (options = {}) => {
     const pendingTakeoverTimer = getPendingWebRtcTakeoverTimer?.();
@@ -312,6 +443,15 @@ export function createMseGraceController({
       .toLowerCase();
     if (
       preserveLiveEntity &&
+      engine?.type === "ha_direct" &&
+      engine?.streamType === activeStreamType &&
+      stashHaDirectEngineForGrace(preserveLiveEntity, engine)
+    ) {
+      setEngine?.(null, { retainPrevious: true });
+      return;
+    }
+    if (
+      preserveLiveEntity &&
       activeStreamType === "webrtc" &&
       stashWebRtcEngineForGrace(preserveLiveEntity, engine)
     ) {
@@ -341,6 +481,9 @@ export function createMseGraceController({
     for (const entity of [...webRtcGracePool.keys()]) {
       evictGraceWebRtcEntry(entity);
     }
+    for (const entity of [...haDirectGracePool.keys()]) {
+      evictGraceHaDirectEntry(entity);
+    }
     try {
       mseGraceHost?.remove?.();
     } catch (_) {}
@@ -354,5 +497,7 @@ export function createMseGraceController({
     adoptGraceMseEngine,
     takeGraceWebRtcEntry,
     adoptGraceWebRtcEngine,
+    takeGraceHaDirectEntry,
+    adoptGraceHaDirectEngine,
   };
 }

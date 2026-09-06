@@ -317,6 +317,7 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
   let unsubscribeCalls = 0;
   let subscriptionCalls = 0;
   const committedTypes = [];
+  const readinessTargets = [];
 
   class FakePeerConnection {
     constructor() {
@@ -402,7 +403,10 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => assignedEngine === engine,
-    waitForStreamStart: async (engine) => engine?.type !== "ha_direct",
+    waitForStreamStart: async (engine) => {
+      readinessTargets.push(engine?.tagName || engine?.streamType || "");
+      return engine?.tagName === "HA-HLS-PLAYER";
+    },
     assignCommittedEngine: (engine) => {
       assignedEngine = engine;
     },
@@ -425,7 +429,10 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
     assert.equal(subscriptionCalls, 1);
     assert.equal(unsubscribeCalls, 1);
     assert.equal(assignedEngine.tagName, "HA-HLS-PLAYER");
+    assert.equal(assignedEngine.removeCalled, false);
     assert.deepEqual(committedTypes, ["hls"]);
+    assert.equal(readinessTargets.includes("webrtc"), true);
+    assert.equal(readinessTargets.includes("HA-HLS-PLAYER"), true);
   } finally {
     mounter.release(assignedEngine);
     globalThis.document = previousDocument;
@@ -441,6 +448,7 @@ test("ha direct mounter serializes WebRTC teardown before the next offer", async
   let assignedEngine = null;
   let resolveFirstUnsubscribe = null;
   const subscriptionCalls = [];
+  const hlsPlayers = [];
 
   class FakePeerConnection {
     constructor() {
@@ -474,17 +482,24 @@ test("ha direct mounter serializes WebRTC teardown before the next offer", async
 
   globalThis.document = {
     createElement(tag) {
-      assert.equal(tag, "video");
-      return {
-        tagName: "VIDEO",
-        style: {},
-        dataset: {},
-        classList: { add() {} },
-        setAttribute() {},
-        removeAttribute() {},
-        play: () => Promise.resolve(),
-        pause() {},
-      };
+      if (tag === "video") {
+        return {
+          tagName: "VIDEO",
+          style: {},
+          dataset: {},
+          classList: { add() {} },
+          setAttribute() {},
+          removeAttribute() {},
+          play: () => Promise.resolve(),
+          pause() {},
+        };
+      }
+      if (tag === "ha-hls-player") {
+        const player = createFakeStreamElement();
+        hlsPlayers.push(player);
+        return player;
+      }
+      throw new Error(`Unexpected tag: ${tag}`);
     },
   };
   globalThis.MediaStream = class {
@@ -529,7 +544,8 @@ test("ha direct mounter serializes WebRTC teardown before the next offer", async
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => assignedEngine === engine,
-    waitForStreamStart: async () => true,
+    waitForStreamStart: async (engine) =>
+      engine?.tagName !== "HA-HLS-PLAYER",
     assignCommittedEngine: (engine) => {
       assignedEngine = engine;
     },
@@ -548,6 +564,7 @@ test("ha direct mounter serializes WebRTC teardown before the next offer", async
     await flushAsyncWork();
     await flushAsyncWork();
     assert.equal(subscriptionCalls.length, 1);
+    assert.equal(hlsPlayers[0].removeCalled, true);
 
     mounter.release(assignedEngine);
     await mounter.tryMount(slot, null, {

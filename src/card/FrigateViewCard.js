@@ -1158,7 +1158,7 @@ export class FrigateViewCard extends HTMLElement {
       clearRotateVideoFullscreenStyle: () =>
         this._clearRotateVideoFullscreenStyle(),
       getEngine: () => this._engine,
-      setEngine: (engine) => this._assignLiveEngine(engine),
+      setEngine: (engine, options) => this._assignLiveEngine(engine, options),
       getActiveStreamType: () => this._activeStreamType,
       getStreamMuted: () => this._streamMuted,
       setEngineMountedMuted: (muted) => {
@@ -1171,6 +1171,8 @@ export class FrigateViewCard extends HTMLElement {
       setStreamFallbackVisible: (visible) =>
         this._setStreamFallbackVisible(visible),
       setLiveNativeControls: (enabled) => this._setLiveNativeControls(enabled),
+      releaseHaDirectEngine: (engine) =>
+        this._haDirectMounter?.release?.(engine),
     });
     this._liveMountController = createLiveMountController({
       getSlot: () => this.shadowRoot.querySelector("#engine"),
@@ -2544,13 +2546,15 @@ export class FrigateViewCard extends HTMLElement {
     return this._preferredStreamType();
   }
 
-  _assignLiveEngine(engine) {
+  _assignLiveEngine(engine, options = {}) {
     if (this._engine === engine) {
       if (engine) this._attachMainLiveVideoZoom(engine);
       this._syncPictureInPictureButtons();
       return;
     }
-    this._haDirectMounter?.release?.(this._engine);
+    if (options.retainPrevious !== true) {
+      this._haDirectMounter?.release?.(this._engine);
+    }
     this._clearLiveVideoZoom();
     this._clearPictureInPictureButtonController("live");
     this._liveViewResizeController?.attachMedia(null);

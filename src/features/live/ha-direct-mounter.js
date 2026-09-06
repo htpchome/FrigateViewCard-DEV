@@ -18,28 +18,11 @@ const normalizeHaDirectStreamType = (value) => {
   return normalized === "hls" ? "hls" : "webrtc";
 };
 
-const HA_DIRECT_WEBRTC_TRACK_WAIT_MS = 3000;
-
-const waitForFirstVideoTrack = async (engine, timeoutMs, abortSignal) => {
-  let timer = null;
-  let onAbort = null;
-  const guard = new Promise((resolve) => {
-    timer = setTimeout(() => resolve(false), timeoutMs);
-    if (!abortSignal) return;
-    onAbort = () => resolve(false);
-    if (abortSignal.aborted) {
-      resolve(false);
-      return;
-    }
-    abortSignal.addEventListener("abort", onAbort, { once: true });
-  });
-  const received = await Promise.race([engine.firstVideoTrack, guard]);
-  if (timer != null) clearTimeout(timer);
-  if (abortSignal && onAbort) {
-    abortSignal.removeEventListener("abort", onAbort);
-  }
-  return received === true;
-};
+const HA_DIRECT_WEBRTC_PREFERENCE_MS = 500;
+const HA_DIRECT_HIDDEN_ATTEMPT_STYLE =
+  "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px;background:var(--c-bg-deep)";
+const HA_DIRECT_VISIBLE_STYLE =
+  "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
 
 export function createHaDirectMounter({
   getHass,
@@ -78,6 +61,10 @@ export function createHaDirectMounter({
     binding.disposed = true;
     binding.revision += 1;
     binding.abortController.abort();
+    binding.fallbackAbortController?.abort?.();
+    binding.fallbackEngine?.remove?.();
+    binding.fallbackAbortController = null;
+    binding.fallbackEngine = null;
     engine.removeEventListener?.("load", binding.reconcile, true);
     engine.removeEventListener?.("streams", binding.onStreams, true);
     mediaBindings.delete(engine);
@@ -149,6 +136,8 @@ export function createHaDirectMounter({
       abortController: new AbortController(),
       reconcile: null,
       onStreams: null,
+      fallbackAbortController: null,
+      fallbackEngine: null,
     };
     mediaBindings.set(engine, binding);
     return binding;
@@ -179,7 +168,7 @@ export function createHaDirectMounter({
       slot.appendChild(node);
     };
 
-    const mountHls = () => {
+    const createHlsEngine = (styleText = "") => {
       const engine = createHaHlsPlayerElement({
         hass,
         entity,
@@ -187,10 +176,16 @@ export function createHaDirectMounter({
         muted: options?.muted ?? getStreamMuted(),
         defaultMuted: options.defaultMuted,
         fitMode: "contain",
-        styleText:
-          options.styleText ||
-          "width:100%;height:100%;display:block;background:var(--c-bg-deep)",
+        styleText: styleText || options.styleText || HA_DIRECT_VISIBLE_STYLE,
       });
+      if (!engine) return false;
+      engine.type = "ha_direct";
+      engine.streamType = "hls";
+      return engine;
+    };
+
+    const mountHls = () => {
+      const engine = createHlsEngine();
       if (!engine) return false;
       replaceSlotContent(engine);
       if (!commit) {
@@ -224,6 +219,55 @@ export function createHaDirectMounter({
       return { ok: true, type: "hls", engine, slot };
     };
 
+    const waitForHlsAttempt = async (engine, abortSignal) => {
+      const ready = await waitForStreamStart(engine, haDirectPlan.waitMs, {
+        ...haDirectPlan.waitOptions,
+        abortSignal,
+        resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+      });
+      return ready === true;
+    };
+
+    const removeSlotChildrenExcept = (node) => {
+      for (const child of Array.from(slot.children || [])) {
+        if (child !== node) child.remove?.();
+      }
+    };
+
+    const commitReadyHls = (engine) => {
+      engine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
+      removeSlotChildrenExcept(engine);
+      if (engine.parentElement !== slot) slot.appendChild(engine);
+      assignCommittedEngine(engine);
+      let failureHandled = false;
+      const fail = (binding) => {
+        if (failureHandled || binding.disposed || !isCurrentEngine(engine)) {
+          return;
+        }
+        failureHandled = true;
+        applyFailed(engine);
+      };
+      bindHlsMedia(engine, fail);
+      if (getRotateOverlayActive()) setLiveNativeControls(true);
+      applyReady(engine, "hls");
+      return { ok: true, type: "hls", engine, slot };
+    };
+
+    const waitForPreferredWebRtc = async (webRtcReady) => {
+      let timer = null;
+      const preferredWon = await Promise.race([
+        webRtcReady,
+        new Promise((resolve) => {
+          timer = setTimeout(
+            () => resolve(false),
+            HA_DIRECT_WEBRTC_PREFERENCE_MS,
+          );
+        }),
+      ]);
+      if (timer != null) clearTimeout(timer);
+      return preferredWon === true;
+    };
+
     if (initialStreamType === "hls") return mountHls();
 
     const playback = createHaDirectWebRtcPlayback({
@@ -249,56 +293,74 @@ export function createHaDirectMounter({
     const binding = createWebRtcBinding(engine);
     onCommittedMediaReady?.(engine, engine.video);
     if (getRotateOverlayActive()) setLiveNativeControls(true);
+    const fallbackEngine = createHlsEngine(HA_DIRECT_HIDDEN_ATTEMPT_STYLE);
+    const fallbackAbortController = new AbortController();
+    if (fallbackEngine) {
+      binding.fallbackEngine = fallbackEngine;
+      binding.fallbackAbortController = fallbackAbortController;
+      slot.appendChild(fallbackEngine);
+    }
     void (async () => {
       const priorRelease = releaseBarrier;
-      await priorRelease;
-      if (binding.disposed || !isCurrentEngine(engine)) return;
-      const signalingStartedAt = Date.now();
-      const signalingStarted = await playback.start();
-      if (
-        !signalingStarted ||
-        binding.disposed ||
-        !isCurrentEngine(engine)
-      ) {
-        if (!binding.disposed && isCurrentEngine(engine)) {
-          release(engine);
-          mountHls();
+      const webRtcReady = (async () => {
+        await priorRelease;
+        if (binding.disposed || !isCurrentEngine(engine)) return false;
+        const signalingStarted = await playback.start();
+        if (
+          !signalingStarted ||
+          binding.disposed ||
+          !isCurrentEngine(engine)
+        ) {
+          return false;
         }
-        return;
-      }
-      const trackWaitMs = Math.min(
-        HA_DIRECT_WEBRTC_TRACK_WAIT_MS,
-        haDirectPlan.waitMs,
-      );
-      const videoTrackReceived = await waitForFirstVideoTrack(
-        engine,
-        trackWaitMs,
-        binding.abortController.signal,
-      );
+        const ready = await Promise.race([
+          waitForStreamStart(engine, haDirectPlan.waitMs, {
+            ...haDirectPlan.waitOptions,
+            strict: true,
+            abortSignal: binding.abortController.signal,
+            resolveVideo: () => engine.video,
+          }),
+          engine.failure,
+        ]);
+        return ready === true;
+      })();
+      const hlsReady = fallbackEngine
+        ? waitForHlsAttempt(fallbackEngine, fallbackAbortController.signal)
+        : Promise.resolve(false);
+      const readyCandidate = (type, promise) =>
+        promise.then((ready) => {
+          if (!ready) throw new Error(`${type} did not render`);
+          return type;
+        });
+      let winner = await Promise.any([
+        readyCandidate("webrtc", webRtcReady),
+        readyCandidate("hls", hlsReady),
+      ]).catch(() => "");
       if (binding.disposed || !isCurrentEngine(engine)) return;
-      if (!videoTrackReceived) {
-        release(engine);
-        mountHls();
+      if (winner === "hls") {
+        const preferredWon = await waitForPreferredWebRtc(webRtcReady);
+        if (binding.disposed || !isCurrentEngine(engine)) return;
+        if (preferredWon) winner = "webrtc";
+      }
+      if (winner === "webrtc") {
+        binding.fallbackAbortController = null;
+        binding.fallbackEngine = null;
+        fallbackAbortController.abort();
+        fallbackEngine?.remove?.();
+        applyReady(engine, "webrtc");
         return;
       }
-      const elapsedMs = Date.now() - signalingStartedAt;
-      const frameWaitMs = Math.max(500, haDirectPlan.waitMs - elapsedMs);
-      const ready = await Promise.race([
-        waitForStreamStart(engine, frameWaitMs, {
-          ...haDirectPlan.waitOptions,
-          strict: true,
-          abortSignal: binding.abortController.signal,
-          resolveVideo: () => engine.video,
-        }),
-        engine.failure,
-      ]);
-      if (binding.disposed || !isCurrentEngine(engine)) return;
-      if (!ready) {
+      if (winner === "hls" && fallbackEngine) {
+        binding.fallbackAbortController = null;
+        binding.fallbackEngine = null;
         release(engine);
-        mountHls();
+        commitReadyHls(fallbackEngine);
         return;
       }
-      applyReady(engine, "webrtc");
+      applyFailed(engine);
+      release(engine);
+      fallbackAbortController.abort();
+      fallbackEngine?.remove?.();
     })();
 
     return { ok: true, type: "webrtc", engine, slot };
