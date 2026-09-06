@@ -817,7 +817,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /:is\([\s\S]*?card-view-standalone-slideshow-button\.active,[\s\S]*?\[data-card-view-standalone-grid\]\.active,[\s\S]*?card-view-standalone-takeover-button\.active[\s\S]*?\) \{[\s\S]*?opacity:\.68;visibility:visible;pointer-events:auto;[\s\S]*?animation:card-view-active-mode-button-hide 10s step-end forwards;/,
+    /:is\([\s\S]*?card-view-standalone-slideshow-button\.active,[\s\S]*?\[data-card-view-standalone-grid\]\.active,[\s\S]*?card-view-standalone-takeover-button\.active[\s\S]*?\) \{[\s\S]*?opacity:\.68;visibility:visible;pointer-events:auto;[\s\S]*?animation:card-view-active-mode-button-hide 10000ms step-end forwards;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -833,7 +833,19 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlays-idle #live-stage \.live-playback-controls \{opacity:0;pointer-events:none;\}/,
+    /card-view-overlays-idle #live-stage \.live-playback-controls,[\s\S]*?card-view-overlays-idle #live-stage \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle \{opacity:0;visibility:hidden;pointer-events:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /@media \(hover:none\), \(pointer:coarse\)[\s\S]*?\[data-card-view-standalone-grid\]\.active[\s\S]*?3000ms step-end forwards;[\s\S]*?card-view-standalone-slideshow-button\.active,[\s\S]*?card-view-standalone-takeover-button\.active[\s\S]*?5000ms linear forwards;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-touch-idle:not\(\.card-view-video-zoomed\):not\(:has\(\.fvc-video-zoomed\)\)[\s\S]*?card-view-standalone-slideshow-button\.active,[\s\S]*?card-view-standalone-takeover-button\.active[\s\S]*?animation:card-view-touch-active-mode-button-hide 2000ms linear forwards;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-touch-idle #live-stage \.live-playback-controls,[\s\S]*?card-view-overlays-touch-idle #live-stage \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle \{opacity:0;visibility:hidden;pointer-events:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -923,6 +935,14 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
     CARD_VIEW_PAGE_STYLES,
     /card-view-media-drawer\.is-open \.card-view-media-drawer-handle \{left:calc\(100% - 1px\);\}/,
   );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-handle \{[\s\S]*?opacity:0;visibility:hidden;pointer-events:none;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-visible \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle,[\s\S]*?card-view-media-drawer\.is-open \.card-view-media-drawer-handle \{[\s\S]*?opacity:1;visibility:visible;pointer-events:auto;/,
+  );
   assert.equal((CARD_VIEW_PAGE_STYLES.match(/top:45px/g) || []).length, 0);
   assert.doesNotMatch(
     CARD_VIEW_PAGE_STYLES,
@@ -939,6 +959,10 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-video-zoomed \.card-view-standalone-mode-button,[\s\S]*?fvc-video-zoomed\) \.card-view-standalone-mode-button \{opacity:0;visibility:hidden;pointer-events:none;animation:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-zoomed #live-stage \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle,[\s\S]*?#live-stage:has\(\.fvc-video-zoomed\) \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle \{opacity:0;visibility:hidden;pointer-events:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

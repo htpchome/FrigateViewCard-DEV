@@ -20,7 +20,7 @@ import {
   SLIDESHOW_REVIEW_WATCH_MAX_MS,
   GRID_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
-  CARD_VIEW_OVERLAY_INACTIVITY_MS,
+  CARD_VIEW_OVERLAY_TIMING,
   PREVIEW_ALERT_HOLD_MS,
   PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
   PREVIEW_ALERT_END_GRACE_MS,
@@ -377,6 +377,8 @@ import {
 } from "../features/slideshow/routing.js";
 
 const CARD_VIEW_OVERLAYS_IDLE_CLASS = "card-view-overlays-idle";
+const CARD_VIEW_OVERLAYS_TOUCH_IDLE_CLASS =
+  "card-view-overlays-touch-idle";
 
 export class FrigateViewCard extends HTMLElement {
   constructor() {
@@ -402,6 +404,11 @@ export class FrigateViewCard extends HTMLElement {
       void this._handleCirclePadPtzEvent(event, "release");
     };
     this._onPtzControlPointerDown = (event) => {
+      const pointerType = String(event?.pointerType || "").toLowerCase();
+      if (pointerType) {
+        this._lastLiveOverlayPointerType =
+          pointerType === "mouse" ? "mouse" : "touch";
+      }
       this._mobileCamSwitcherController?.handlePointerDown?.(
         event,
         event.target,
@@ -1130,6 +1137,7 @@ export class FrigateViewCard extends HTMLElement {
     this._popupPictureInPictureButtonController = null;
     this._liveControlsHideTimer = null;
     this._liveOverlayControlsController = null;
+    this._lastLiveOverlayPointerType = "mouse";
     this._snapshotResultTimers = { live: null, popup: null };
     this._recordingsDayAvailabilityCache = new Map();
     this._recordingsDayDataCache = new Map();
@@ -5033,11 +5041,15 @@ export class FrigateViewCard extends HTMLElement {
     const interactionSurface = overlayCardView
       ? this._$(".card-view-live-panel") || wrap
       : wrap;
-    const show = () => {
+    const show = (interaction = {}) => {
+      if (interaction.pointerType) {
+        this._lastLiveOverlayPointerType = interaction.pointerType;
+      }
       wrap.classList.add("live-controls-visible");
       card?.classList?.add("card-view-overlays-visible");
       if (overlayCardView) {
         card?.classList?.remove(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+        card?.classList?.remove(CARD_VIEW_OVERLAYS_TOUCH_IDLE_CLASS);
       }
     };
     const hideNow = () => {
@@ -5048,14 +5060,22 @@ export class FrigateViewCard extends HTMLElement {
         this._liveControlsHideTimer = null;
       }
     };
-    const hideSoon = (ms = 1400) => {
+    const hideSoon = (ms = 1400, interaction = {}) => {
       if (this._liveControlsHideTimer)
         clearTimeout(this._liveControlsHideTimer);
+      const touchInteraction = interaction.pointerType === "touch";
       this._liveControlsHideTimer = setTimeout(() => {
         wrap.classList.remove("live-controls-visible");
         card?.classList?.remove("card-view-overlays-visible");
         if (overlayCardView) {
-          card?.classList?.add(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+          card?.classList?.toggle(
+            CARD_VIEW_OVERLAYS_IDLE_CLASS,
+            !touchInteraction,
+          );
+          card?.classList?.toggle(
+            CARD_VIEW_OVERLAYS_TOUCH_IDLE_CLASS,
+            touchInteraction,
+          );
         }
         this._liveControlsHideTimer = null;
       }, ms);
@@ -5067,10 +5087,10 @@ export class FrigateViewCard extends HTMLElement {
       hideNow,
       hideSoon,
       revealDurationMs: overlayCardView
-        ? CARD_VIEW_OVERLAY_INACTIVITY_MS
+        ? CARD_VIEW_OVERLAY_TIMING.mouse.controlsHideMs
         : 1300,
       touchRevealDurationMs: overlayCardView
-        ? CARD_VIEW_OVERLAY_INACTIVITY_MS
+        ? CARD_VIEW_OVERLAY_TIMING.touch.controlsHideMs
         : 2300,
       autoHideMouse: overlayCardView,
     });
@@ -6717,10 +6737,13 @@ export class FrigateViewCard extends HTMLElement {
     const overlayCardView =
       this._isCardViewPageActive() &&
       this._cardViewPageController?.usesOverlayPresentation?.() === true;
+    const touchInteraction =
+      overlayCardView && this._lastLiveOverlayPointerType === "touch";
     wrap.classList.add("live-controls-visible");
     card?.classList?.add("card-view-overlays-visible");
     if (overlayCardView) {
       card?.classList?.remove(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+      card?.classList?.remove(CARD_VIEW_OVERLAYS_TOUCH_IDLE_CLASS);
     }
     if (this._liveControlsHideTimer) clearTimeout(this._liveControlsHideTimer);
     this._liveControlsHideTimer = setTimeout(
@@ -6733,12 +6756,21 @@ export class FrigateViewCard extends HTMLElement {
           this._isCardViewPageActive() &&
           this._cardViewPageController?.usesOverlayPresentation?.() === true
         ) {
-          nextCard?.classList?.add(CARD_VIEW_OVERLAYS_IDLE_CLASS);
+          nextCard?.classList?.toggle(
+            CARD_VIEW_OVERLAYS_IDLE_CLASS,
+            !touchInteraction,
+          );
+          nextCard?.classList?.toggle(
+            CARD_VIEW_OVERLAYS_TOUCH_IDLE_CLASS,
+            touchInteraction,
+          );
         }
         this._liveControlsHideTimer = null;
       },
       overlayCardView
-        ? CARD_VIEW_OVERLAY_INACTIVITY_MS
+        ? CARD_VIEW_OVERLAY_TIMING[
+            touchInteraction ? "touch" : "mouse"
+          ].controlsHideMs
         : Math.max(500, Number(ms) || 2200),
     );
   }

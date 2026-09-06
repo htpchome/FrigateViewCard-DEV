@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { CARD_VIEW_OVERLAY_INACTIVITY_MS } from "../src/constants.js";
+import { CARD_VIEW_OVERLAY_TIMING } from "../src/constants.js";
 
 const cardSource = fs.readFileSync(
   new URL("../src/card/FrigateViewCard.js", import.meta.url),
@@ -209,15 +209,26 @@ test("live controls keep a shared overlay with a mobile inline mute exception", 
   );
 });
 
-test("Card View overlays use one ten-second mouse and touch inactivity window", () => {
-  assert.equal(CARD_VIEW_OVERLAY_INACTIVITY_MS, 10000);
+test("Card View overlay timing matrix keeps mouse and touch behavior separate", () => {
+  assert.deepEqual(CARD_VIEW_OVERLAY_TIMING, {
+    mouse: {
+      controlsHideMs: 10000,
+      activeSlideshowAndTakeoverFadeStartMs: 10000,
+      activeSlideshowAndTakeoverHideMs: 10000,
+    },
+    touch: {
+      controlsHideMs: 3000,
+      activeSlideshowAndTakeoverFadeStartMs: 3000,
+      activeSlideshowAndTakeoverHideMs: 5000,
+    },
+  });
   assert.match(
     cardSource,
-    /revealDurationMs: overlayCardView\s*\? CARD_VIEW_OVERLAY_INACTIVITY_MS\s*: 1300,/,
+    /revealDurationMs: overlayCardView\s*\? CARD_VIEW_OVERLAY_TIMING\.mouse\.controlsHideMs\s*: 1300,/,
   );
   assert.match(
     cardSource,
-    /touchRevealDurationMs: overlayCardView\s*\? CARD_VIEW_OVERLAY_INACTIVITY_MS\s*: 2300,/,
+    /touchRevealDurationMs: overlayCardView\s*\? CARD_VIEW_OVERLAY_TIMING\.touch\.controlsHideMs\s*: 2300,/,
   );
   assert.match(
     cardSource,
@@ -225,7 +236,15 @@ test("Card View overlays use one ten-second mouse and touch inactivity window", 
   );
   assert.match(
     cardSource,
-    /card\?\.classList\?\.add\(CARD_VIEW_OVERLAYS_IDLE_CLASS\);/,
+    /card\?\.classList\?\.toggle\(\s*CARD_VIEW_OVERLAYS_IDLE_CLASS,\s*!touchInteraction,\s*\);/,
+  );
+  assert.match(
+    cardSource,
+    /CARD_VIEW_OVERLAYS_TOUCH_IDLE_CLASS/,
+  );
+  assert.match(
+    cardSource,
+    /touchInteraction \? "touch" : "mouse"/,
   );
 });
 

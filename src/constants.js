@@ -1,4 +1,4 @@
-export const VERSION = "1.1.5-dev.71";
+export const VERSION = "1.1.5-dev.72";
 
 export const CARD_TAG = "frigate-view-card";
 export const DEFAULT_TITLE = "FrigateView";
@@ -37,7 +37,18 @@ export const SLIDESHOW_ALERT_HOLD_OPTIONS_SECONDS = Object.freeze([
 ]);
 export const GRID_ALERT_HOLD_MS = 10000;
 export const GRID_ALERT_HOLD_OPTIONS_SECONDS = Object.freeze([10, 20, 30, 60]);
-export const CARD_VIEW_OVERLAY_INACTIVITY_MS = 10000;
+export const CARD_VIEW_OVERLAY_TIMING = Object.freeze({
+  mouse: Object.freeze({
+    controlsHideMs: 10000,
+    activeSlideshowAndTakeoverFadeStartMs: 10000,
+    activeSlideshowAndTakeoverHideMs: 10000,
+  }),
+  touch: Object.freeze({
+    controlsHideMs: 3000,
+    activeSlideshowAndTakeoverFadeStartMs: 3000,
+    activeSlideshowAndTakeoverHideMs: 5000,
+  }),
+});
 export const SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC = 10;
 export const SLIDESHOW_REVIEW_WATCH_MIN_MS = 1500;
 export const SLIDESHOW_REVIEW_WATCH_MAX_MS = 15000;

@@ -103,9 +103,10 @@ test("LiveOverlayControlsController reveals controls after a stationary touch ta
   const calls = [];
   const controller = new LiveOverlayControlsController({
     wrap,
-    show: () => calls.push("show"),
+    show: (interaction) => calls.push(["show", interaction.pointerType]),
     hideNow: () => calls.push("hideNow"),
-    hideSoon: (ms) => calls.push(["hideSoon", ms]),
+    hideSoon: (ms, interaction) =>
+      calls.push(["hideSoon", ms, interaction.pointerType]),
   });
 
   controller.bind();
@@ -122,7 +123,10 @@ test("LiveOverlayControlsController reveals controls after a stationary touch ta
     clientY: 80,
   });
 
-  assert.deepEqual(calls, ["show", ["hideSoon", 1300]]);
+  assert.deepEqual(calls, [
+    ["show", "touch"],
+    ["hideSoon", 1300, "touch"],
+  ]);
 });
 
 test("LiveOverlayControlsController can keep touch controls visible longer than mouse controls", () => {

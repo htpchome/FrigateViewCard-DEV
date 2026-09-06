@@ -76,10 +76,11 @@ export class MediaOverlayControlsController {
 
   _onPointerEnter = (event) => {
     if (event?.pointerType !== "mouse") return;
-    this._show?.();
+    const interaction = { pointerType: "mouse" };
+    this._show?.(interaction);
     if (this._autoHideMouse) {
       this._lastMouseRevealAt = Date.now();
-      this._hideSoon?.(this._revealDurationMs);
+      this._hideSoon?.(this._revealDurationMs, interaction);
     }
   };
 
@@ -109,8 +110,9 @@ export class MediaOverlayControlsController {
       const now = Date.now();
       if (now - this._lastMouseRevealAt < 100) return;
       this._lastMouseRevealAt = now;
-      this._show?.();
-      this._hideSoon?.(this._revealDurationMs);
+      const interaction = { pointerType: "mouse" };
+      this._show?.(interaction);
+      this._hideSoon?.(this._revealDurationMs, interaction);
       return;
     }
     const pointer = this._pointers.get(event.pointerId);
@@ -126,8 +128,9 @@ export class MediaOverlayControlsController {
     const pointer = this._pointers.get(event.pointerId);
     this._pointers.delete(event.pointerId);
     if (!pointer || pointer.moved) return;
-    this._show?.();
-    this._hideSoon?.(this._touchRevealDurationMs);
+    const interaction = { pointerType: "touch" };
+    this._show?.(interaction);
+    this._hideSoon?.(this._touchRevealDurationMs, interaction);
   };
 
   _onPointerCancel = (event) => {
