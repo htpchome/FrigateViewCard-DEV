@@ -20,6 +20,7 @@ import {
   resolveLiveResumeAction,
   shouldForceLiveRemountForReason,
   shouldPreserveLiveRemountReasonWhileWaiting,
+  shouldRetainMountedLiveForEditorTransition,
   shouldResetMseOnQuickReconnect,
   shouldRunMountWatchdog,
 } from "../src/features/live/mount-lifecycle.js";
@@ -56,6 +57,46 @@ test("camera switches preserve the physical grouped-camera transport", () => {
     }),
     "camera.main",
   );
+});
+
+test("editor reparenting retains only an established Frigate go2rtc WebRTC engine", () => {
+  const eligible = {
+    sameDashboard: true,
+    editorLifecycleActive: true,
+    started: true,
+    hasEngine: true,
+    mountInProgress: false,
+    previewPageActive: false,
+    viewMode: "single",
+    twoWayTalkActive: false,
+    useGo2Rtc: true,
+    activeStreamType: "webrtc",
+  };
+
+  assert.equal(
+    shouldRetainMountedLiveForEditorTransition(eligible),
+    true,
+  );
+  for (const override of [
+    { sameDashboard: false },
+    { editorLifecycleActive: false },
+    { hasEngine: false },
+    { mountInProgress: true },
+    { previewPageActive: true },
+    { viewMode: "grid" },
+    { twoWayTalkActive: true },
+    { useGo2Rtc: false },
+    { activeStreamType: "mse" },
+    { activeStreamType: "hls" },
+  ]) {
+    assert.equal(
+      shouldRetainMountedLiveForEditorTransition({
+        ...eligible,
+        ...override,
+      }),
+      false,
+    );
+  }
 });
 
 test("connection-loss reasons force a remount without broadening normal stale checks", () => {

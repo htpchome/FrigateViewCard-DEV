@@ -486,6 +486,37 @@ test("isDashboardEditMode reads lovelace edit query flags", () => {
   );
 });
 
+test("editor lifecycle remains active across Home Assistant reparent boundaries", () => {
+  let now = 1000;
+  const controller = new EditorPreviewContextController(
+    {},
+    { nowFn: () => now },
+  );
+  controller.isEditorPreviewContext = () => false;
+  controller.isDashboardEditMode = () => false;
+  controller.isCardEditorDialogOpen = () => false;
+
+  assert.equal(controller.isEditorLifecycleActive(), false);
+
+  controller._dashboardEditLast = true;
+  assert.equal(controller.isEditorLifecycleActive(), true);
+
+  controller._dashboardEditLast = false;
+  controller._dialogOpenLast = true;
+  assert.equal(controller.isEditorLifecycleActive(), true);
+
+  controller._dialogOpenLast = false;
+  controller._lastEditorPreviewContext = true;
+  assert.equal(controller.isEditorLifecycleActive(), true);
+
+  controller._lastEditorPreviewContext = false;
+  controller._markEditorLifecycleTransition();
+  now = 2999;
+  assert.equal(controller.isEditorLifecycleActive(), true);
+  now = 3000;
+  assert.equal(controller.isEditorLifecycleActive(), false);
+});
+
 test("syncHassPreviewContext resumes live on preview exit", () => {
   const calls = [];
   const controller = new EditorPreviewContextController({

@@ -126,6 +126,7 @@ import {
   resolveLiveResumeAction,
   shouldForceLiveRemountForReason,
   shouldPreserveLiveRemountReasonWhileWaiting,
+  shouldRetainMountedLiveForEditorTransition,
   shouldResetMseOnQuickReconnect,
 } from "../features/live/mount-lifecycle.js";
 import {
@@ -2133,9 +2134,31 @@ export class FrigateViewCard extends HTMLElement {
   disconnectedCallback() {
     void this._stopPtzMotion("disconnected");
     this._wideViewPageController?.disconnectResizeHandle?.();
-    const preserveDashboardLive =
+    const sameDashboard =
       this._haDashboardSwipeNavigationController?.isCurrentDashboardScope?.() ===
-        true && this._preserveLiveForDashboardNavigation();
+      true;
+    const activeLiveEntity =
+      this._activeGroupMemberOverride || this._activeCam?.entity || "";
+    const retainMountedEditorLive =
+      shouldRetainMountedLiveForEditorTransition({
+        sameDashboard,
+        editorLifecycleActive:
+          this._editorPreviewController?.isEditorLifecycleActive?.() === true,
+        started: this._started,
+        hasEngine: Boolean(this._engine),
+        mountInProgress: this._mountInProgress,
+        previewPageActive: this._isPreviewPageActive(),
+        viewMode: this._viewMode,
+        twoWayTalkActive: Boolean(
+          this._twoWayTalkStarting || this._twoWayTalkSession,
+        ),
+        useGo2Rtc: this._shouldUseGo2RtcForEntity(activeLiveEntity),
+        activeStreamType: this._currentLiveStreamHint(),
+      });
+    const preserveDashboardLive =
+      sameDashboard &&
+      (retainMountedEditorLive || this._preserveLiveForDashboardNavigation());
+    if (retainMountedEditorLive) this._dashboardLiveGraceActive = true;
     this._haNavbarController?.disconnect?.();
     this._haDashboardSwipeNavigationController?.disconnect?.();
     this._haPageBackgroundController?.disconnect?.();

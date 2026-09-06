@@ -194,6 +194,29 @@ export const shouldResetMseOnQuickReconnect = ({
   useGo2Rtc === true &&
   String(activeStreamType || "").trim().toLowerCase() === "mse";
 
+export const shouldRetainMountedLiveForEditorTransition = ({
+  sameDashboard = false,
+  editorLifecycleActive = false,
+  started = false,
+  hasEngine = false,
+  mountInProgress = false,
+  previewPageActive = false,
+  viewMode = "",
+  twoWayTalkActive = false,
+  useGo2Rtc = false,
+  activeStreamType = "",
+} = {}) =>
+  sameDashboard === true &&
+  editorLifecycleActive === true &&
+  started === true &&
+  hasEngine === true &&
+  mountInProgress !== true &&
+  previewPageActive !== true &&
+  String(viewMode || "").trim().toLowerCase() !== "grid" &&
+  twoWayTalkActive !== true &&
+  useGo2Rtc === true &&
+  String(activeStreamType || "").trim().toLowerCase() === "webrtc";
+
 export const shouldForceLiveRemountForReason = (
   reason,
   { activeStreamType = "", useGo2Rtc = false } = {},

@@ -4,6 +4,8 @@ import {
 } from "./card-picker-demo.tmpl.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 
+const EDITOR_LIFECYCLE_TRANSITION_GRACE_MS = 2000;
+
 export const EDITOR_PREVIEW_ROUTE_INTENTS = Object.freeze({
   enterStandalone: "enter-card-view-standalone",
   revertStandaloneDraft: "revert-card-view-standalone-draft",
@@ -37,8 +39,10 @@ export class EditorPreviewContextController {
     this._dialogOpenLast = false;
     this._dashboardEditLast = false;
     this._lastEditorPreviewContext = null;
+    this._editorLifecycleTransitionUntil = 0;
     this._documentRef = options.documentRef;
     this._windowRef = options.windowRef;
+    this._now = options.nowFn || (() => Date.now());
     this._watchdogIntervalMs = Math.max(
       100,
       Number(options.watchdogIntervalMs) || 600,
@@ -71,6 +75,7 @@ export class EditorPreviewContextController {
     this._dialogOpenLast = false;
     this._dashboardEditLast = false;
     this._lastEditorPreviewContext = null;
+    this._editorLifecycleTransitionUntil = 0;
     this._host.classList?.remove?.("card-picker-demo-host");
     this._host.shadowRoot
       ?.querySelector?.("#card")
@@ -337,6 +342,7 @@ export class EditorPreviewContextController {
   syncHassPreviewContext() {
     const inEditorPreview = this.isEditorPreviewContext();
     if (this._lastEditorPreviewContext === true && !inEditorPreview) {
+      this._markEditorLifecycleTransition();
       this._host._scheduleResumeLive("hass-edit-exit");
     }
     this._lastEditorPreviewContext = inEditorPreview;
@@ -365,6 +371,23 @@ export class EditorPreviewContextController {
     } catch (_) {
       return false;
     }
+  }
+
+  isEditorLifecycleActive() {
+    return (
+      this.isEditorPreviewContext() ||
+      this.isDashboardEditMode() ||
+      this.isCardEditorDialogOpen() ||
+      this._lastEditorPreviewContext === true ||
+      this._dashboardEditLast === true ||
+      this._dialogOpenLast === true ||
+      this._now() < this._editorLifecycleTransitionUntil
+    );
+  }
+
+  _markEditorLifecycleTransition() {
+    this._editorLifecycleTransitionUntil =
+      this._now() + EDITOR_LIFECYCLE_TRANSITION_GRACE_MS;
   }
 
   isCardEditorDialogOpen(dialogHostCandidate = null) {
@@ -433,6 +456,13 @@ export class EditorPreviewContextController {
     const dialogOpen = this.isCardEditorDialogOpen(this._dialogHost);
     const dashboardEdit = this.isDashboardEditMode();
     const dialogClosed = this._dialogOpenLast && !dialogOpen;
+    if (
+      dialogClosed ||
+      (this._lastEditorPreviewContext === true && !inEditorPreview) ||
+      this._dashboardEditLast !== dashboardEdit
+    ) {
+      this._markEditorLifecycleTransition();
+    }
     if (dialogClosed) {
       this._host._scheduleResumeLive("watchdog-dialog-close");
     }
@@ -495,6 +525,7 @@ export class EditorPreviewContextController {
     }
     const wasOpen = this._dialogOpenLast;
     const openNow = this.isCardEditorDialogOpen(dialogHost);
+    if (wasOpen !== openNow) this._markEditorLifecycleTransition();
     if (wasOpen && !openNow) {
       this._host._scheduleResumeLive("card-editor-close");
     }
@@ -518,6 +549,9 @@ export class EditorPreviewContextController {
     const observer = this._createMutationObserver(() => {
       this._refreshActiveDialogRoot();
       const openNow = this.isCardEditorDialogOpen(this._dialogHost);
+      if (this._dialogOpenLast !== openNow) {
+        this._markEditorLifecycleTransition();
+      }
       if (this._dialogOpenLast && !openNow) {
         this._host._scheduleResumeLive("card-editor-close");
       }
@@ -604,6 +638,7 @@ export class EditorPreviewContextController {
     this._onLocationChange = () => {
       const dashboardEdit = this.isDashboardEditMode();
       if (this._dashboardEditLast !== dashboardEdit) {
+        this._markEditorLifecycleTransition();
         this._host._scheduleResumeLive(
           dashboardEdit
             ? "watchdog-dashboard-edit-on"
