@@ -162,6 +162,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active .card-view-calendar-panel[hidden] {display:none;}
   .card.card-view-active .card-view-standalone-mode-controls,
+  .card.card-view-active .card-view-live-status-overlay,
   .card.card-view-active .card-view-live-badge,
   .card.card-view-active .card-view-standalone-linked-overlay,
   .card.card-view-active .card-view-media-drawer {display:none;}
@@ -335,17 +336,39 @@ export const CARD_VIEW_PAGE_STYLES = `
     .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button:hover {background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
     .card.card-view-active.card-view-overlay-presentation .card-view-standalone-slideshow-button.active:hover {opacity:1;animation:none;}
   }
-  .card.card-view-active.card-view-overlay-presentation .card-view-live-badge {
-    position:absolute;z-index:22;top:9px;right:9px;display:inline-flex;align-items:center;gap:5px;min-height:24px;
+  .card.card-view-active.card-view-overlay-presentation .card-view-live-status-overlay {
+    position:absolute;z-index:22;top:9px;right:9px;display:flex;align-items:center;gap:5px;pointer-events:none;
+  }
+  .card.card-view-active.card-view-overlay-presentation .card-view-live-badge,
+  .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator {
+    display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:24px;
     box-sizing:border-box;padding:3px 7px;border:1px solid var(--fvc-media-overlay-border);border-radius:999px;
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-soft);box-shadow:var(--fvc-media-overlay-shadow);
     font-size:.64rem;font-weight:750;line-height:1;text-transform:uppercase;pointer-events:none;
     backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   }
+  .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator {
+    min-width:24px;padding-inline:6px;opacity:0;visibility:hidden;
+    transition:opacity .16s ease,visibility 0s linear .16s;
+  }
+  .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator[hidden] {display:none !important;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator-icon {display:inline-grid;place-items:center;width:14px;height:14px;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator-icon[hidden],
+  .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator-text[hidden] {display:none !important;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-source-indicator-icon svg {width:14px;height:14px;color:currentColor;}
+  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-source-indicator {
+    opacity:1;visibility:visible;transition-delay:0s;
+  }
   .card.card-view-active.card-view-overlay-presentation .card-view-live-badge-dot {width:7px;height:7px;border-radius:50%;background:var(--c-on);box-shadow:0 0 0 2px var(--fvc-media-overlay-live-halo);}
   .card.card-view-active.card-view-overlay-presentation .card-view-live-badge.is-offline .card-view-live-badge-dot {background:var(--c-off);box-shadow:0 0 0 2px var(--fvc-media-overlay-offline-halo);}
   .card.card-view-active.card-view-overlay-presentation .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-live-badge {display:none;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-source-indicator {display:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .card-view-live-badge {display:none;}
+  @media (hover:hover) and (pointer:fine) {
+    .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:hover .card-view-source-indicator {
+      opacity:1;visibility:visible;transition-delay:0s;
+    }
+  }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay {
     position:absolute;z-index:23;left:50%;bottom:27px;display:grid;
     grid-template-columns:minmax(36px,1fr) auto minmax(36px,1fr);align-items:center;gap:6px;
@@ -439,6 +462,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     .mobile-cam-picker__trigger,
     .mobile-cam-picker__panel,
     .card-view-media-drawer-panel,
+    .card-view-source-indicator,
     .card-view-live-badge,
     .linked-light-dimmer-panel,
     .snapshot-result-bubble,

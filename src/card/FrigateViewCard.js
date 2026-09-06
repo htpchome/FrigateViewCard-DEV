@@ -4398,6 +4398,7 @@ export class FrigateViewCard extends HTMLElement {
         buttonClass: shellProfile?.liveMuteButtonClass,
       }),
       cardViewVideoBackIcon: ICONS.back,
+      cardViewWebRtcIcon: ICONS.webrtc,
       information: infoRow,
       mobileBackButton: buildMobileViewBackButtonMarkup({
         previewPageEnabled:

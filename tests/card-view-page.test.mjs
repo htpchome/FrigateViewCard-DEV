@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   CardViewPageController,
   chunkCardViewItems,
+  resolveCardViewSourceIndicatorState,
   resolveCardViewDrawerSwipe,
   resolveCardViewColumnCount,
   resolveCardViewPageScrollTarget,
@@ -22,6 +23,7 @@ import {
 } from "../src/features/card-view/config.js";
 import { CAMERA_PICKER_STYLES } from "../src/features/navigation/camera-picker.styles.js";
 import { GRID_ALERT_HOLD_MS } from "../src/constants.js";
+import { ICONS } from "../src/icons.js";
 
 test("Card View uses independent alert and recording page widths", () => {
   assert.equal(resolveCardViewColumnCount({ width: 500, mode: "alerts" }), 1);
@@ -94,6 +96,7 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
         '<button data-fvc-region="live-take-snapshot"></button>',
       liveMute: '<button data-fvc-region="live-mute"></button>',
       cardViewVideoBackIcon: "back-icon",
+      cardViewWebRtcIcon: "webrtc-icon",
       linkedEntitiesLeft: "left-light-control",
       linkedEntitiesRight: "right-light-control",
       pageNavigation:
@@ -119,6 +122,10 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /card-view-footer/);
   assert.match(markup, /data-card-view-standalone-mode-controls/);
   assert.match(markup, /data-card-view-live-badge/);
+  assert.match(
+    markup,
+    /data-card-view-source-indicator[^>]*hidden[\s\S]*data-card-view-source-icon[^>]*hidden[^>]*>webrtc-icon</,
+  );
   assert.match(
     markup,
     /card-view-video-only-back[^>]*data-card-view-video-back[^>]*>back-icon</,
@@ -149,6 +156,98 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
     /data-linked-light-position-slot="right"[^>]*>right-light-control/,
   );
   assert.match(markup, /data-card-view-standalone-talk-overlay/);
+});
+
+test("Card View source indicator uses an icon for WebRTC and text for MSE or HLS", () => {
+  assert.match(ICONS.webrtc, /^<svg[^>]*>[\s\S]*<\/svg>$/);
+  assert.doesNotMatch(ICONS.webrtc, /<ha-icon|mdi:/);
+  assert.deepEqual(resolveCardViewSourceIndicatorState("webrtc"), {
+    visible: true,
+    label: "WebRTC",
+    showIcon: true,
+    text: "",
+  });
+  assert.deepEqual(resolveCardViewSourceIndicatorState("MSE"), {
+    visible: true,
+    label: "MSE",
+    showIcon: false,
+    text: "MSE",
+  });
+  assert.deepEqual(resolveCardViewSourceIndicatorState("hls"), {
+    visible: true,
+    label: "HLS",
+    showIcon: false,
+    text: "HLS",
+  });
+  assert.deepEqual(resolveCardViewSourceIndicatorState("snapshot"), {
+    visible: false,
+    label: "",
+    showIcon: false,
+    text: "",
+  });
+});
+
+test("Card View source indicator follows committed stream changes", () => {
+  const sourceIcon = { hidden: true };
+  const sourceText = { hidden: true, textContent: "" };
+  const attributes = new Map();
+  const sourceIndicator = {
+    hidden: true,
+    title: "",
+    setAttribute: (name, value) => attributes.set(name, value),
+    querySelector: (selector) => {
+      if (selector === "[data-card-view-source-icon]") return sourceIcon;
+      if (selector === "[data-card-view-source-text]") return sourceText;
+      return null;
+    },
+  };
+  const host = {
+    _activeStreamType: "webrtc",
+    _pageShellRegionElement: () => null,
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "[data-card-view-source-indicator]"
+          ? sourceIndicator
+          : null,
+    },
+  };
+  const controller = new CardViewPageController(host);
+
+  controller.renderStats();
+  assert.equal(sourceIndicator.hidden, false);
+  assert.equal(sourceIndicator.title, "WebRTC");
+  assert.equal(attributes.get("aria-label"), "WebRTC live source");
+  assert.equal(sourceIcon.hidden, false);
+  assert.equal(sourceText.hidden, true);
+
+  host._activeStreamType = "hls";
+  controller.renderStats();
+  assert.equal(sourceIcon.hidden, true);
+  assert.equal(sourceText.hidden, false);
+  assert.equal(sourceText.textContent, "HLS");
+
+  host._activeStreamType = "snapshot";
+  controller.renderStats();
+  assert.equal(sourceIndicator.hidden, true);
+});
+
+test("Card View source indicator shares video-only overlay visibility", () => {
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-status-overlay \{[^}]*top:9px;right:9px;[^}]*display:flex;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-overlays-visible \.card-view-source-indicator \{\s*opacity:1;visibility:visible;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-live-panel:hover \.card-view-source-indicator \{\s*opacity:1;visibility:visible;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /#stream-loading:not\(\[hidden\]\)\) \.card-view-source-indicator \{display:none;\}/,
+  );
 });
 
 test("standalone Card View controls expose active Grid and Slideshow states", () => {

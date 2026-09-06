@@ -36,6 +36,24 @@ const STANDALONE_GRID_INDICATOR_DURATION_MS = GRID_ALERT_HOLD_MS;
 const STANDALONE_GRID_INDICATOR_VISIBLE_CLASS =
   "card-view-grid-indicator-visible";
 
+export const resolveCardViewSourceIndicatorState = (streamType) => {
+  const source = String(streamType || "")
+    .trim()
+    .toLowerCase();
+  const visible =
+    source === "webrtc" || source === "mse" || source === "hls";
+  if (!visible) {
+    return { visible: false, label: "", showIcon: false, text: "" };
+  }
+  const label = source === "webrtc" ? "WebRTC" : source.toUpperCase();
+  return {
+    visible: true,
+    label,
+    showIcon: source === "webrtc",
+    text: source === "webrtc" ? "" : label,
+  };
+};
+
 export const resolveCardViewColumnCount = ({
   width = 0,
   mode = "alerts",
@@ -568,6 +586,31 @@ export class CardViewPageController {
       "#stream-type",
     );
     if (stream) stream.textContent = this._host._activeStreamType || "--";
+
+    const sourceIndicator = this._host.shadowRoot?.querySelector?.(
+      "[data-card-view-source-indicator]",
+    );
+    if (!sourceIndicator) return;
+    const sourceState = resolveCardViewSourceIndicatorState(
+      this._host._activeStreamType,
+    );
+    const sourceIcon = sourceIndicator.querySelector?.(
+      "[data-card-view-source-icon]",
+    );
+    const sourceText = sourceIndicator.querySelector?.(
+      "[data-card-view-source-text]",
+    );
+    sourceIndicator.hidden = !sourceState.visible;
+    sourceIndicator.title = sourceState.label;
+    sourceIndicator.setAttribute?.(
+      "aria-label",
+      sourceState.visible ? `${sourceState.label} live source` : "Live source",
+    );
+    if (sourceIcon) sourceIcon.hidden = !sourceState.showIcon;
+    if (sourceText) {
+      sourceText.hidden = !sourceState.text;
+      sourceText.textContent = sourceState.text;
+    }
   }
 
   titleText() {

@@ -13,6 +13,7 @@ const normalizeRegions = (regions = {}) => ({
   liveMute: "",
   mobileBackButton: "",
   cardViewVideoBackIcon: "",
+  cardViewWebRtcIcon: "",
   cameraSwitcherMarkup: "",
   pageNavigation: "",
   cardViewToolbar: "",
@@ -63,9 +64,15 @@ export function buildCardViewMainLayoutShellMarkup({
           </div>
           <button class="card-view-media-drawer-handle" type="button" data-card-view-media-drawer-toggle aria-controls="card-view-media-drawer-panel" aria-expanded="false" title="Open media drawer" aria-label="Open media drawer">${regions.mediaDrawerHandleIcon}</button>
         </aside>
-        <div class="card-view-live-badge" data-card-view-live-badge aria-label="Live camera">
-          <span class="card-view-live-badge-dot" aria-hidden="true"></span>
-          <span>Live</span>
+        <div class="card-view-live-status-overlay" data-card-view-live-status-overlay>
+          <div class="card-view-source-indicator" data-card-view-source-indicator aria-label="Live source" hidden>
+            <span class="card-view-source-indicator-icon" data-card-view-source-icon aria-hidden="true" hidden>${regions.cardViewWebRtcIcon}</span>
+            <span class="card-view-source-indicator-text" data-card-view-source-text hidden></span>
+          </div>
+          <div class="card-view-live-badge" data-card-view-live-badge aria-label="Live camera">
+            <span class="card-view-live-badge-dot" aria-hidden="true"></span>
+            <span>Live</span>
+          </div>
         </div>
         <div class="card-view-standalone-linked-overlay media-linked-controls-overlay" data-card-view-standalone-linked-overlay data-media-overlay-ignore>
           <div class="linked-light-region card-view-standalone-light-controls" data-card-view-standalone-light-overlay data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">
