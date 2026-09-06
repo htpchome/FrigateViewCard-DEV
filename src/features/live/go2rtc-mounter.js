@@ -411,6 +411,7 @@ export function createGo2RtcMounter({
     let recoveryScheduled = false;
     let recoveryEnabled = commit;
     let microphoneEndNotified = false;
+    let signalingComplete = false;
     const negotiationTimeoutMs = Math.max(
       1,
       Number(options?.negotiationTimeoutMs) || WEBRTC_NEGOTIATION_TIMEOUT_MS,
@@ -442,6 +443,19 @@ export function createGo2RtcMounter({
       onMicrophoneSessionEnded?.();
     };
 
+    const closeSignalingSocket = () => {
+      if (Number(ws.readyState) >= 2) return;
+      try {
+        ws.close();
+      } catch (_) {}
+    };
+
+    const completeSignaling = () => {
+      if (destroyed || signalingComplete) return;
+      signalingComplete = true;
+      closeSignalingSocket();
+    };
+
     const destroy = () => {
       if (destroyed) return;
       destroyed = true;
@@ -462,9 +476,7 @@ export function createGo2RtcMounter({
         }
         pc.close();
       } catch (_) {}
-      try {
-        ws.close();
-      } catch (_) {}
+      closeSignalingSocket();
       stopMediaStream(microphoneStream);
       if (abortSignal && abortBound) {
         abortSignal.removeEventListener("abort", onAbort);
@@ -526,7 +538,10 @@ export function createGo2RtcMounter({
     });
 
     pc.addEventListener("connectionstatechange", () => {
-      if (pc.connectionState === "connected") clearNegotiationTimer();
+      if (pc.connectionState === "connected") {
+        clearNegotiationTimer();
+        completeSignaling();
+      }
       if (["disconnected", "failed"].includes(pc.connectionState)) {
         scheduleRecovery("webrtc-connection-lost");
       }
@@ -540,6 +555,7 @@ export function createGo2RtcMounter({
       }
     });
     ws.addEventListener("close", () => {
+      if (signalingComplete) return;
       scheduleRecovery("webrtc-ws-closed");
     });
 

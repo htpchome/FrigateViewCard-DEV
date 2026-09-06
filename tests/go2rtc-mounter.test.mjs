@@ -695,7 +695,7 @@ test("go2rtc mounter HLS path commits the mounted engine on success", async () =
   });
 });
 
-test("go2rtc mounter WebRTC keeps signaling open until engine teardown", async () => {
+test("go2rtc mounter WebRTC releases completed signaling without remounting", async () => {
   await withFakeDocument(async () => {
     const previousWebSocket = globalThis.WebSocket;
     const previousRtcPeerConnection = globalThis.RTCPeerConnection;
@@ -714,8 +714,10 @@ test("go2rtc mounter WebRTC keeps signaling open until engine teardown", async (
       send() {}
 
       close() {
+        if (this.readyState >= 2) return;
         closeCalls += 1;
         this.readyState = 3;
+        this._listeners.get("close")?.({ type: "close" });
       }
     }
 
@@ -781,12 +783,102 @@ test("go2rtc mounter WebRTC keeps signaling open until engine teardown", async (
       assignedEngine.pc.connectionState = "connected";
       assignedEngine.pc.emit("connectionstatechange");
       await new Promise((resolve) => setTimeout(resolve, 0));
-      assert.equal(closeCalls, 0);
+      assert.equal(closeCalls, 1);
+      assert.deepEqual(recoveryReasons, []);
       assignedEngine.pc.connectionState = "disconnected";
       assignedEngine.pc.emit("connectionstatechange");
       assert.deepEqual(recoveryReasons, ["webrtc-connection-lost"]);
       assignedEngine.destroy();
       assert.equal(closeCalls, 1);
+    } finally {
+      globalThis.WebSocket = previousWebSocket;
+      globalThis.RTCPeerConnection = previousRtcPeerConnection;
+    }
+  });
+});
+
+test("go2rtc mounter WebRTC recovers from signaling loss before peer connection", async () => {
+  await withFakeDocument(async () => {
+    const previousWebSocket = globalThis.WebSocket;
+    const previousRtcPeerConnection = globalThis.RTCPeerConnection;
+
+    class FakeWebSocket {
+      constructor() {
+        this.readyState = 1;
+        this._listeners = new Map();
+      }
+
+      addEventListener(type, handler) {
+        this._listeners.set(type, handler);
+      }
+
+      send() {}
+
+      close() {
+        this.readyState = 3;
+      }
+
+      emitClose() {
+        this.readyState = 3;
+        this._listeners.get("close")?.({ type: "close" });
+      }
+    }
+
+    class FakePeerConnection {
+      constructor() {
+        this.connectionState = "connecting";
+        this.iceConnectionState = "checking";
+        this._listeners = new Map();
+      }
+
+      addTransceiver() {}
+
+      addEventListener(type, handler) {
+        this._listeners.set(type, handler);
+      }
+
+      async createOffer() {
+        return { sdp: "sdp" };
+      }
+
+      async setLocalDescription() {}
+
+      async setRemoteDescription() {}
+
+      async addIceCandidate() {}
+
+      close() {}
+    }
+
+    globalThis.WebSocket = FakeWebSocket;
+    globalThis.RTCPeerConnection = FakePeerConnection;
+
+    let assignedEngine = null;
+    const recoveryReasons = [];
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      scheduleResumeLive: (reason) => recoveryReasons.push(reason),
+      waitForStreamStart: async () => true,
+    });
+
+    try {
+      const result = await withFakeWindow(
+        {
+          WebSocket: FakeWebSocket,
+          RTCPeerConnection: FakePeerConnection,
+        },
+        () => mounter.tryMountWebRtc(createSlot()),
+      );
+
+      assert.equal(result, true);
+      assignedEngine.ws.emitClose();
+      assert.deepEqual(recoveryReasons, ["webrtc-ws-closed"]);
+      assignedEngine.destroy();
     } finally {
       globalThis.WebSocket = previousWebSocket;
       globalThis.RTCPeerConnection = previousRtcPeerConnection;
