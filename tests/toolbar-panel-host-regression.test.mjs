@@ -215,7 +215,7 @@ test("live controls keep a shared overlay with a mobile inline mute exception", 
 test("Card View overlay timing matrix keeps mouse and touch behavior separate", () => {
   assert.deepEqual(MEDIA_OVERLAY_TIMING, {
     mouse: {
-      leaveHideDelayMs: 1000,
+      leaveHideDelayMs: 500,
     },
   });
   assert.deepEqual(CARD_VIEW_OVERLAY_TIMING, {
