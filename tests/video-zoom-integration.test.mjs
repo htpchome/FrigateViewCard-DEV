@@ -46,7 +46,7 @@ test("media zoom is attached through committed main-live and popup lifecycles", 
   assert.equal(
     (cardSource.match(/onInteractionStart: \(\) => this\._dismissLinkedLightDimmers\(\)/g) || [])
       .length,
-    2,
+    3,
   );
   assert.equal(
     cardSource.includes(

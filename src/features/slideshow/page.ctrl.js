@@ -141,16 +141,11 @@ export class SlideshowPageController {
     ) {
       return;
     }
-    this._host._slideshowPausedUntil =
-      Date.now() + this._host._slideshowRotationMs();
-    this._host._setSlideshowCountdown(this._host._slideshowRotationMs());
+    const rotationMs = this._host._slideshowRotationMs();
+    this._host._slideshowPausedUntil = Date.now() + rotationMs;
     if (this._host._slideshowPauseT) clearTimeout(this._host._slideshowPauseT);
-    if (this._host._slideshowSwitchT)
-      clearTimeout(this._host._slideshowSwitchT);
-    this._host._slideshowPauseT = setTimeout(() => {
-      this._host._slideshowPauseT = null;
-      this.scheduleRotation("pause-expired");
-    }, this._host._slideshowRotationMs());
+    this._host._slideshowPauseT = null;
+    this.scheduleRotation("interaction");
   }
 
   scheduleRotation(_reason = "") {

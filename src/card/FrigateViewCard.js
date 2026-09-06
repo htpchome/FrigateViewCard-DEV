@@ -1302,7 +1302,7 @@ export class FrigateViewCard extends HTMLElement {
           String(this._activeStreamType || "").toLowerCase() !== "snapshot"
         );
       },
-      onInteractionStart: () => this._pauseSlideshowForInteraction(),
+      onInteractionStart: () => this._dismissLinkedLightDimmers(),
       onZoomScaleChange: (scale) => {
         this._liveVideoZoomController?.zoomToCenter?.(scale);
         this._cameraGroupLiveController?.setResizeZoomScale?.(scale);
@@ -6173,6 +6173,7 @@ export class FrigateViewCard extends HTMLElement {
     return false;
   }
   _handleListClick(e, target) {
+    if (!target?.closest?.('[data-fvc-region="browse"]')) return false;
     this._pauseSlideshowForInteraction();
     if (this._handlePrimaryListItemClick(e, target)) return true;
     if (this._handleListNavigationClick(e, target)) return true;

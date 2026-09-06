@@ -42,7 +42,7 @@ export function buildInfoRowMarkup({
               ${pageNav ? `<div class="info-row-page-nav">${pageNav}</div>` : ""}
               <div class="info-row-center-controls">
                 <div class="info-row-action-slot" data-fvc-region="two-way-talk">${centerActionMarkup}</div>
-                <div class="linked-light-region" data-fvc-region="linked-entities" data-linked-light-variant="round-btn">
+                <div class="linked-light-region" data-fvc-region="linked-entities" data-linked-light-variant="round-btn" data-linked-light-hide-in-grid>
                   <div class="linked-light-position-slot" data-linked-light-position-slot="left" ${leftLights ? "" : "hidden"}>${leftLights}</div>
                   <div class="linked-light-position-slot" data-linked-light-position-slot="right" ${rightLights ? "" : "hidden"}>${rightLights}</div>
                 </div>

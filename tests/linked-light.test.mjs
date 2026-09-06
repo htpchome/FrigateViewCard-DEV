@@ -408,7 +408,7 @@ test("linked light regions use round controls in info rows and icon controls in 
   });
   assert.match(
     info,
-    /data-fvc-region="linked-entities" data-linked-light-variant="round-btn">[\s\S]*data-linked-light-position-slot="right"[^>]*>LIGHT/,
+    /data-fvc-region="linked-entities" data-linked-light-variant="round-btn" data-linked-light-hide-in-grid>[\s\S]*data-linked-light-position-slot="right"[^>]*>LIGHT/,
   );
   assert.match(
     info,
@@ -421,6 +421,10 @@ test("linked light regions use round controls in info rows and icon controls in 
   assert.match(
     LINKED_LIGHT_STYLES,
     /data-fvc-region="linked-entities"\]\{display:contents;/,
+  );
+  assert.match(
+    LINKED_LIGHT_STYLES,
+    /data-fvc-region="linked-entities"\]\[hidden\]\{display:none!important;/,
   );
   assert.match(
     LINKED_LIGHT_STYLES,
@@ -446,6 +450,47 @@ test("linked light regions use round controls in info rows and icon controls in 
     /data-fvc-region="linked-entities" data-linked-light-variant="icon-btn">[\s\S]*data-linked-light-position-slot="right"[^>]*>LIGHT/,
   );
   assert.match(card, /data-fvc-region="two-way-talk">MIC/);
+});
+
+test("info-row linked lights hide in Grid and restore in single view", () => {
+  const positionSlot = {
+    dataset: { linkedLightPositionSlot: "right" },
+    hidden: true,
+    innerHTML: "",
+    querySelectorAll: () => [],
+  };
+  const infoSlot = {
+    dataset: { linkedLightVariant: "round-btn" },
+    hidden: false,
+    hasAttribute: (name) => name === "data-linked-light-hide-in-grid",
+    querySelectorAll: (selector) =>
+      selector === "[data-linked-light-position-slot]"
+        ? [positionSlot]
+        : [],
+  };
+  const host = {
+    _viewMode: "grid",
+    _activeCam: {
+      entity: "camera.front",
+      linked_entities: [{ entity: "light.porch" }],
+    },
+    _hass: {
+      states: { "light.porch": { state: "off", attributes: {} } },
+    },
+    shadowRoot: {
+      addEventListener: () => {},
+      querySelectorAll: () => [infoSlot],
+    },
+  };
+  const controller = new LinkedLightController(host);
+
+  controller.sync();
+  assert.equal(infoSlot.hidden, true);
+
+  host._viewMode = "single";
+  controller.sync();
+  assert.equal(infoSlot.hidden, false);
+  assert.equal(positionSlot.hidden, false);
 });
 
 test("linked light markup filters both controls around the microphone", () => {

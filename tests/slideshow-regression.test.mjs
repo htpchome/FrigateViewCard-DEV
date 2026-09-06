@@ -13,6 +13,10 @@ const editorBundleSource = fs.readFileSync(
   new URL("../dist/frigate-view-card-editor.js", import.meta.url),
   "utf8",
 );
+const cardSource = fs.readFileSync(
+  new URL("../src/card/FrigateViewCard.js", import.meta.url),
+  "utf8",
+);
 
 test("slideshow config is wired through the card", () => {
   assert.equal(source.includes("slideshow_rotation_enabled"), true);
@@ -64,11 +68,38 @@ test("slideshow countdown does not change live video compositing", () => {
   assert.equal(rule.includes("backdrop-filter"), false);
 });
 
-test("main live video fit remains stable after metadata loads", () => {
-  const cardSource = fs.readFileSync(
-    new URL("../src/card/FrigateViewCard.js", import.meta.url),
-    "utf8",
+test("live resize and media-only clicks do not restart slideshow rotation", () => {
+  const resizeStart = cardSource.indexOf(
+    "this._liveViewResizeController = new LiveViewResizeController",
   );
+  const resizeEnd = cardSource.indexOf(
+    "this._liveFullscreenLifecycleController",
+    resizeStart,
+  );
+  const resizeSetup = cardSource.slice(resizeStart, resizeEnd);
+  assert.match(
+    resizeSetup,
+    /onInteractionStart: \(\) => this\._dismissLinkedLightDimmers\(\)/,
+  );
+  assert.doesNotMatch(resizeSetup, /_pauseSlideshowForInteraction/);
+
+  const listStart = cardSource.indexOf("  _handleListClick(e, target) {");
+  const listEnd = cardSource.indexOf(
+    "  _handleRecordingsListClick(e, target) {",
+    listStart,
+  );
+  const listHandler = cardSource.slice(listStart, listEnd);
+  assert.match(
+    listHandler,
+    /if \(!target\?\.closest\?\.\('\[data-fvc-region="browse"\]'\)\) return false;/,
+  );
+  assert.ok(
+    listHandler.indexOf('closest?.(\'[data-fvc-region="browse"]\')') <
+      listHandler.indexOf("_pauseSlideshowForInteraction"),
+  );
+});
+
+test("main live video fit remains stable after metadata loads", () => {
   const fitStart = cardSource.indexOf("  _applyVideoFit(videoEl) {");
   const fitEnd = cardSource.indexOf("  _attachVideoFit(", fitStart);
   const fitMethod = cardSource.slice(fitStart, fitEnd);

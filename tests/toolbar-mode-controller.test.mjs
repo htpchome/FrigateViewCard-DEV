@@ -281,6 +281,55 @@ test("slideshow refuses activation while another toolbar mode is active", () => 
   assert.equal(controller.startRotation(), false);
 });
 
+test("slideshow interaction restart schedules only one interval", async () => {
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  const originalDateNow = Date.now;
+  const scheduled = [];
+  Date.now = () => 1000;
+  global.setTimeout = (callback, delay) => {
+    const timer = { callback, delay };
+    scheduled.push(timer);
+    return timer;
+  };
+  global.clearTimeout = () => {};
+  try {
+    const countdowns = [];
+    const host = {
+      _slideshowActive: true,
+      _slideshowPopupPaused: false,
+      _slideshowPausedUntil: 0,
+      _slideshowPauseT: null,
+      _slideshowSwitchT: null,
+      _isSlideshowRotationAvailable: () => true,
+      _slideshowRotationMs: () => 5000,
+      _setSlideshowCountdown: (delay) => countdowns.push(delay),
+    };
+    const controller = new SlideshowPageController(host);
+    let advances = 0;
+    controller.advanceRotation = async () => {
+      advances += 1;
+    };
+
+    controller.pauseForInteraction();
+
+    assert.equal(scheduled.length, 1);
+    assert.equal(scheduled[0].delay, 5000);
+    assert.deepEqual(countdowns, [5000]);
+    assert.equal(host._slideshowPauseT, null);
+    assert.equal(host._slideshowSwitchT, scheduled[0]);
+
+    scheduled[0].callback();
+    await Promise.resolve();
+    assert.equal(advances, 1);
+    assert.equal(scheduled.length, 1);
+  } finally {
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+    Date.now = originalDateNow;
+  }
+});
+
 test("slideshow rotates through physical members of a camera group", async () => {
   const calls = [];
   const groupedCamera = {

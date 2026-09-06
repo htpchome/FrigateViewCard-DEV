@@ -44,6 +44,7 @@ export const LINKED_LIGHT_STYLES = `
   .info-row-center-controls{display:grid;grid-template-columns:minmax(40px,1fr) auto minmax(40px,1fr);align-items:center;align-self:stretch;min-width:0;overflow:visible;}
   .info-row-center-controls > [data-fvc-region="two-way-talk"]{grid-column:2;grid-row:1;display:flex;align-items:center;justify-content:center;min-width:0;}
   .info-row-center-controls > [data-fvc-region="linked-entities"]{display:contents;}
+  .info-row-center-controls > [data-fvc-region="linked-entities"][hidden]{display:none!important;}
   .info-row-center-controls .linked-light-position-slot{grid-row:1;justify-self:center;}
   .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="left"]{grid-column:1;}
   .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="right"]{grid-column:3;}

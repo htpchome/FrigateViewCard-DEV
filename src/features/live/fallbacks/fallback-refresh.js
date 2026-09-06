@@ -118,6 +118,9 @@ export const executeFallbackRefreshWrite = ({
     img: writeInput.applyPayload.img,
     src: writeInput.src,
   });
+  if (writeInput.applyPayload.img) {
+    writeInput.applyPayload.img.hidden = false;
+  }
 };
 
 export const isFallbackRefreshStale = ({ requestId, activeRequestId }) =>
@@ -223,6 +226,13 @@ export const runFallbackRefreshCycle = async ({
   setActiveRequestId?.(token.nextRequestId);
 
   const entity = resolveFallbackRefreshEntity(activeCam);
+  const previousEntity = String(
+    imgEl.dataset?.fallbackEntity || "",
+  ).trim();
+  if (previousEntity && previousEntity !== entity) {
+    imgEl.hidden = true;
+  }
+  if (imgEl.dataset) imgEl.dataset.fallbackEntity = entity;
   const primaryPhase = await loadPrimaryWithStaleGate({
     entity,
     token,
@@ -278,7 +288,10 @@ export const runFallbackRefreshCycleForCard = async ({
   return await runFallbackRefreshCycle({
     shadowRoot: card.shadowRoot,
     currentRequestId: card._fallbackReqId,
-    activeCam: card._activeCam,
+    activeCam: {
+      entity:
+        card._activeGroupMemberOverride || card._activeCam?.entity || "",
+    },
     setActiveRequestId: (nextRequestId) => {
       card._fallbackReqId = nextRequestId;
     },

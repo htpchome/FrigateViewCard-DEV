@@ -102,6 +102,9 @@ export class LinkedLightController {
     this.host?.shadowRoot
       ?.querySelectorAll?.('[data-fvc-region="linked-entities"]')
       ?.forEach((slot) => {
+        const hiddenForViewMode =
+          this.host?._viewMode === "grid" &&
+          slot.hasAttribute?.("data-linked-light-hide-in-grid") === true;
         const cameraEntity = String(
           slot.dataset?.linkedLightCamera || "",
         ).trim();
@@ -171,7 +174,7 @@ export class LinkedLightController {
           renderSlot.hidden = configs.length === 0;
           renderedAny ||= configs.length > 0;
         });
-        slot.hidden = !renderedAny;
+        slot.hidden = hiddenForViewMode || !renderedAny;
       });
   }
 
