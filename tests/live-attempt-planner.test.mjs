@@ -1,10 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  buildLiveAttemptPlan,
-  raceMountAttempts,
-} from "../src/features/live/attempt-planner.js";
+import { buildLiveAttemptPlan } from "../src/features/live/attempt-planner.js";
 
 test("buildLiveAttemptPlan excludes HLS from automatic live startup", () => {
   const attempts = buildLiveAttemptPlan({
@@ -50,22 +47,4 @@ test("buildLiveAttemptPlan returns no attempts for ha_direct", () => {
   });
 
   assert.deepEqual(attempts, []);
-});
-
-test("raceMountAttempts resolves first successful result", async () => {
-  const loser = Promise.resolve({ ok: false, type: "webrtc" });
-  const winner = Promise.resolve({ ok: true, type: "mse" });
-  const result = await raceMountAttempts([loser, winner]);
-
-  assert.equal(result?.ok, true);
-  assert.equal(result?.type, "mse");
-});
-
-test("raceMountAttempts returns null when all attempts fail", async () => {
-  const result = await raceMountAttempts([
-    Promise.resolve({ ok: false, type: "webrtc" }),
-    Promise.resolve(false),
-  ]);
-
-  assert.equal(result, null);
 });

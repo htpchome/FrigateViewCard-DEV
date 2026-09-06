@@ -7,7 +7,6 @@ import {
   cameraGroupMemberConfig,
   cameraMemberEntities,
   countPhysicalCameras,
-  findLogicalCameraIndexByEntity,
   flattenCameraMembers,
   limitCameraConfigsByPhysicalCount,
   nextCameraGroupDefaultName,
@@ -72,22 +71,20 @@ test("camera group names advance through unused alphabetic pairs", () => {
   );
 });
 
-test("flattened members remain addressable through one logical camera", () => {
+test("flattened members retain their logical camera indexes", () => {
   const single = { entity: "camera.driveway" };
+  const flattened = flattenCameraMembers([groupedCamera, single]);
   assert.deepEqual(
-    flattenCameraMembers([groupedCamera, single]).map(({ entity }) => entity),
+    flattened.map(({ entity }) => entity),
     [
       "camera.doorbell_main",
       "camera.doorbell_package",
       "camera.driveway",
     ],
   );
-  assert.equal(
-    findLogicalCameraIndexByEntity(
-      [groupedCamera, single],
-      "camera.doorbell_package",
-    ),
-    0,
+  assert.deepEqual(
+    flattened.map(({ logical_camera_index: logicalIndex }) => logicalIndex),
+    [0, 0, 1],
   );
 });
 

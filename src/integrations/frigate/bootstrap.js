@@ -21,32 +21,6 @@ export function resolveAbsoluteSignedPath({ signedPath, origin }) {
   return toAbsoluteSignedUrl({ signedPath, origin });
 }
 
-export async function signSameOriginAbsoluteUrl({
-  hass,
-  url,
-  origin,
-  expires = 3600,
-}) {
-  const abs = String(url || "").trim();
-  if (!abs) return abs;
-
-  let parsed;
-  try {
-    parsed = new URL(abs, origin);
-  } catch (_) {
-    return abs;
-  }
-
-  if (parsed.origin !== origin) return parsed.toString();
-
-  const signedPath = await signHomeAssistantPath({
-    hass,
-    path: `${parsed.pathname}${parsed.search}`,
-    expires,
-  });
-  return resolveAbsoluteSignedPath({ signedPath, origin });
-}
-
 export async function buildSignedGo2RtcWebSocketUrl({
   hass,
   path,

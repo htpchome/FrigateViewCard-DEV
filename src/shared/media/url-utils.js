@@ -16,38 +16,6 @@ export const isM3u8Url = (url = "") =>
     .toLowerCase()
     .includes(".m3u8");
 
-export const rewriteM3u8Manifest = async ({ manifestText, rewriteUri }) => {
-  const lines = String(manifestText || "").split(/\r?\n/);
-  const rewritten = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      rewritten.push(line);
-      continue;
-    }
-
-    if (!trimmed.startsWith("#")) {
-      rewritten.push(await rewriteUri(trimmed));
-      continue;
-    }
-
-    let nextLine = line;
-    const matches = [...line.matchAll(/URI="([^"]+)"/g)];
-    for (const match of matches) {
-      const originalUri = match[1];
-      const replacementUri = await rewriteUri(originalUri);
-      nextLine = nextLine.replace(
-        `URI="${originalUri}"`,
-        `URI="${replacementUri}"`,
-      );
-    }
-    rewritten.push(nextLine);
-  }
-
-  return rewritten.join("\n");
-};
-
 export const getFreshCachedValue = ({ cacheMap, cacheKey, nowMs }) => {
   const entry = cacheMap.get(cacheKey);
   if (entry && entry.exp > nowMs) return entry.url ?? null;

@@ -137,11 +137,3 @@ export const flattenCameraMembers = (cameras) =>
       }),
     ),
   );
-
-export const findLogicalCameraIndexByEntity = (cameras, entity) => {
-  const target = String(entity || "").trim();
-  if (!target) return -1;
-  return (Array.isArray(cameras) ? cameras : []).findIndex((camera) =>
-    cameraMemberEntities(camera).includes(target),
-  );
-};

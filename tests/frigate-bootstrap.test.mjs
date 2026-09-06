@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   buildGo2RtcHlsProbeResult,
-  signSameOriginAbsoluteUrl,
+  signHomeAssistantPath,
 } from "../src/integrations/frigate/bootstrap.js";
 
-test("signSameOriginAbsoluteUrl signs only same-origin URLs", async () => {
+test("signHomeAssistantPath requests an HA auth signature", async () => {
   const calls = [];
   const hass = {
     callWS: async (msg) => {
@@ -15,19 +15,12 @@ test("signSameOriginAbsoluteUrl signs only same-origin URLs", async () => {
     },
   };
 
-  const signed = await signSameOriginAbsoluteUrl({
+  const signed = await signHomeAssistantPath({
     hass,
-    url: "https://ha.local/api/frigate/x?src=front",
-    origin: "https://ha.local",
-  });
-  const external = await signSameOriginAbsoluteUrl({
-    hass,
-    url: "https://edge.local/api/frigate/x?src=front",
-    origin: "https://ha.local",
+    path: "/api/frigate/x?src=front",
   });
 
-  assert.equal(signed, "https://ha.local/api/frigate/x?src=front&authSig=abc");
-  assert.equal(external, "https://edge.local/api/frigate/x?src=front");
+  assert.equal(signed, "/api/frigate/x?src=front&authSig=abc");
   assert.deepEqual(calls, [
     {
       type: "auth/sign_path",
