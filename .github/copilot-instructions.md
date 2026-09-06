@@ -35,6 +35,8 @@ For architectural rationale and refactor strategy, see `docs/refactor-guidelines
 
 ## Live View And Startup Safety
 
+- Read `docs/live-transport-baseline.md` before changing live transport or
+  two-way-talk behavior.
 - Do not modify live view mount or playback internals unless the change is explicitly requested or directly fixes a proven defect.
 - Preserve startup ordering: initial event window load should complete before live mount.
 - Keep Firefox/WebRTC/MSE ordering and fallback race behavior intact unless the task is specifically about that flow.

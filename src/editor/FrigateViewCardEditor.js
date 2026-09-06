@@ -226,7 +226,7 @@ const buildEditorBubbleSelectorMarkup = ({
 }) => {
   const selected = String(selectedValue ?? "");
   const safeName = escapeEditorChoiceMarkup(name);
-  return `<div class="theme-scope-seg card-view-start-seg general-duration-seg">
+  return `<div class="theme-scope-seg card-view-start-seg editor-bubble-selector" style="--editor-bubble-option-count:${Math.max(1, options.length)}">
     ${options
       .map(({ value, label, disabled = false }) => {
         const safeValue = escapeEditorChoiceMarkup(value);
@@ -2952,7 +2952,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div id="slideshow_rotation_row" style="display:${this._config?.slideshow_rotation_enabled ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
             <div class="editor-choice-field editor-choice-field--single-row" id="slideshow_rotation_seconds" role="radiogroup" aria-label="Slideshow Rotation Frequency">
               <div class="field-label">Slideshow Rotation Frequency</div>
-              ${buildEditorChoiceChipsMarkup({
+              ${buildEditorBubbleSelectorMarkup({
                 name: "slideshow_rotation_seconds",
                 options: durationEditorChoices(
                   SLIDESHOW_ROTATION_OPTIONS_SECONDS,
@@ -2967,7 +2967,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div id="slideshow_alert_hold_row" style="min-width:210px;display:flex;flex-direction:column;gap:6px;width:100%">
             <div class="editor-choice-field" id="slideshow_alert_hold_seconds" role="radiogroup" aria-label="Slideshow Alert Hold Duration">
               <div class="field-label">Slideshow Alert Hold Duration</div>
-              ${buildEditorChoiceChipsMarkup({
+              ${buildEditorBubbleSelectorMarkup({
                 name: "slideshow_alert_hold_seconds",
                 options: durationEditorChoices(
                   SLIDESHOW_ALERT_HOLD_OPTIONS_SECONDS,
@@ -3053,7 +3053,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       <div class="section timeline-dependent-section" id="wide-timeline-default-scale-row" style="${this._config?.wide_view_page_enabled && this._config?.wide_view_timeline_enabled ? "" : "display:none"}">
         <div class="editor-choice-field" id="wide_view_timeline_default_scale" role="radiogroup" aria-label="Default Timeline Time Range">
           <div class="field-label">Default Timeline Time Range</div>
-          ${buildEditorChoiceChipsMarkup({
+          ${buildEditorBubbleSelectorMarkup({
             name: "wide_view_timeline_default_scale",
             options: WIDE_TIMELINE_SCALE_OPTIONS_HOURS.map((value) => ({
               value,
@@ -3253,7 +3253,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div id="grid_rotation_row" style="display:${this._config?.grid_mode_enabled && gridVisibleCameraCount > 4 ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
             <div class="editor-choice-field editor-choice-field--single-row" id="grid_rotation_seconds" role="radiogroup" aria-label="Grid Rotation Frequency">
               <div class="field-label">Grid Rotation Frequency</div>
-              ${buildEditorChoiceChipsMarkup({
+              ${buildEditorBubbleSelectorMarkup({
                 name: "grid_rotation_seconds",
                 options: durationEditorChoices(
                   GRID_ROTATION_OPTIONS_SECONDS,
@@ -3268,7 +3268,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div id="grid_alert_hold_row" style="min-width:210px;display:flex;flex-direction:column;gap:6px;width:100%">
             <div class="editor-choice-field editor-choice-field--single-row" id="grid_alert_hold_seconds" role="radiogroup" aria-label="Grid Alert Hold Duration">
               <div class="field-label">Grid Alert Hold Duration</div>
-              ${buildEditorChoiceChipsMarkup({
+              ${buildEditorBubbleSelectorMarkup({
                 name: "grid_alert_hold_seconds",
                 options: durationEditorChoices(
                   GRID_ALERT_HOLD_OPTIONS_SECONDS,
@@ -3577,8 +3577,8 @@ export class FrigateViewCardEditor extends HTMLElement {
             @media (hover:hover){.theme-scope-opt:not(.active):hover{background:color-mix(in srgb,var(--c-bg-primary, var(--editor-card-bg)) 66%,transparent);color:var(--c-text, var(--editor-text));}}
             .card-view-start-seg{width:min(100%,280px);margin:0;padding:3px;gap:2px;}
             .card-view-mode-seg{width:min(100%,430px);}
-            .general-duration-seg{width:min(100%,560px);grid-template-columns:repeat(6,minmax(0,1fr));}
-            .general-duration-seg .card-view-start-opt{padding-inline:4px;white-space:nowrap;}
+            .editor-bubble-selector{width:min(100%,560px);grid-template-columns:repeat(var(--editor-bubble-option-count,3),minmax(0,1fr));}
+            .editor-bubble-selector .card-view-start-opt{padding-inline:4px;white-space:nowrap;}
             .card-view-start-opt{position:relative;min-height:32px;padding:5px 9px;flex-direction:row;font-size:11px;}
             .card-view-start-input{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
             .card-view-start-opt:has(.card-view-start-input:checked){background:var(--c-bg-primary, var(--editor-card-bg));color:var(--c-primary, var(--editor-primary));box-shadow:0 2px 8px rgba(0,0,0,.16),inset 0 0 0 1px color-mix(in srgb,var(--c-primary, var(--editor-primary)) 26%,transparent);}
@@ -3616,7 +3616,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             .timezone-helper a{color:var(--c-primary, var(--editor-primary));text-decoration:underline;text-underline-offset:2px;}
 
             .cam-modal.hidden{display:none;}
-            .cam-modal{position:fixed;inset:0;box-sizing:border-box;padding:12px;background:rgba(0,0,0,.30);display:flex;align-items:flex-start;justify-content:center;overflow:auto;overscroll-behavior:contain;z-index:10;}
+            .cam-modal{position:fixed;inset:0;box-sizing:border-box;padding:12px;background:rgba(0,0,0,.30);display:flex;align-items:flex-start;justify-content:center;overflow:auto;overscroll-behavior:contain;z-index:10000;}
             .cam-modal-card{flex:0 0 auto;width:min(640px,100%);margin:auto;overflow:visible;box-sizing:border-box;background:var(--editor-card-bg);color:var(--editor-text);border:var(--editor-border-width) solid var(--editor-border);border-radius:16px;padding:16px;box-shadow:var(--editor-shadow);}
             .cam-modal-card ha-input,
             .cam-modal-card ha-selector,

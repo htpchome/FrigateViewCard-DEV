@@ -170,5 +170,6 @@ core.*
 # Misc
 docs/*
 !docs/config-editor-contract.md
+!docs/live-transport-baseline.md
 Agents.md
 ARCHITECTURE.md

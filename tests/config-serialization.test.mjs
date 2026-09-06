@@ -274,6 +274,39 @@ test("requested editor settings use the shared choice-chip control", () => {
   );
 });
 
+test("Slideshow, Grid, and Wide View duration radios use bubble selectors", () => {
+  const bubbleFields = [
+    "slideshow_rotation_seconds",
+    "slideshow_alert_hold_seconds",
+    "grid_rotation_seconds",
+    "grid_alert_hold_seconds",
+    "wide_view_timeline_default_scale",
+  ];
+
+  bubbleFields.forEach((name) => {
+    assert.match(
+      editorSource,
+      new RegExp(
+        `buildEditorBubbleSelectorMarkup\\(\\{\\s*name: "${name}"`,
+      ),
+    );
+    assert.doesNotMatch(
+      editorSource,
+      new RegExp(
+        `buildEditorChoiceChipsMarkup\\(\\{\\s*name: "${name}"`,
+      ),
+    );
+  });
+  assert.match(
+    editorSource,
+    /--editor-bubble-option-count:\$\{Math\.max\(1, options\.length\)\}/,
+  );
+  assert.match(
+    editorSource,
+    /grid-template-columns:repeat\(var\(--editor-bubble-option-count,3\),minmax\(0,1fr\)\)/,
+  );
+});
+
 test("realtime polling offers slower choices and Battery Saver uses one minute", () => {
   assert.deepEqual(REALTIME_POLL_OPTIONS_SECONDS, [2, 5, 10, 15, 30, 60]);
   assert.equal(MOBILE_BATTERY_SAVER_POLL_SECONDS, 60);
@@ -295,7 +328,7 @@ test("realtime polling offers slower choices and Battery Saver uses one minute",
   );
   assert.match(
     editorSource,
-    /\.general-duration-seg\{width:min\(100%,560px\);grid-template-columns:repeat\(6,minmax\(0,1fr\)\);\}/,
+    /\.editor-bubble-selector\{width:min\(100%,560px\);grid-template-columns:repeat\(var\(--editor-bubble-option-count,3\),minmax\(0,1fr\)\);\}/,
   );
 });
 

@@ -25,8 +25,12 @@ export const CARD_VIEW_PAGE_STYLES = `
     position:absolute;z-index:25;top:8px;left:8px;display:inline-flex;align-items:center;justify-content:center;
     width:32px;height:32px;min-width:32px;min-height:32px;margin:0;padding:4px;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);background-image:none;box-shadow:var(--fvc-media-overlay-shadow);
-    opacity:1;appearance:none;-webkit-appearance:none;
+    opacity:0;visibility:hidden;pointer-events:none;appearance:none;-webkit-appearance:none;
     backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    transition:opacity .16s ease,visibility 0s linear .16s;
+  }
+  .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone).card-view-overlays-visible .card-view-video-only-back {
+    opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s;
   }
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back svg {width:20px;height:20px;color:currentColor;fill:currentColor;opacity:1;pointer-events:none;}
   .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-back-slot {display:none;}
@@ -43,6 +47,9 @@ export const CARD_VIEW_PAGE_STYLES = `
     top:auto;bottom:48px;transform:none;
   }
   @media (hover:hover) and (pointer:fine) {
+    .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-live-panel:hover .card-view-video-only-back {
+      opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s;
+    }
     .card.card-view-active.card-view-video-panel-only:not(.card-view-standalone) .card-view-video-only-back:hover {
       background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
     }

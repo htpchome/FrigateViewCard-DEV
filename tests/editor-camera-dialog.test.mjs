@@ -775,7 +775,7 @@ test("camera modal scrolls inside the available editor overlay", () => {
 
   assert.match(
     source,
-    /\.cam-modal\{[^}]*align-items:flex-start;[^}]*overflow:auto;[^}]*overscroll-behavior:contain;/,
+    /\.cam-modal\{[^}]*align-items:flex-start;[^}]*overflow:auto;[^}]*overscroll-behavior:contain;[^}]*z-index:10000;/,
   );
   assert.match(
     source,
