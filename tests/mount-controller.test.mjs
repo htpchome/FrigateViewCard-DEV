@@ -106,19 +106,18 @@ test("live mount controller delegates ha-direct mounts outside the card shell", 
   assert.deepEqual(calls[2], ["cleanupEngine"]);
   assert.deepEqual(calls[3], ["setStreamFallbackVisible", false, false]);
   assert.deepEqual(calls[4], ["setStreamLoading", false]);
-  assert.deepEqual(calls[5], ["setActiveStreamType", "webrtc"]);
-  assert.deepEqual(calls[6], [
+  assert.deepEqual(calls[5], [
     "haDirectTryMount",
     slot,
     { streamType: "webrtc" },
     { entity: "camera.front", commit: true },
   ]);
-  assert.deepEqual(calls[7], ["setEngineMountedMuted", true]);
-  assert.equal(calls[8][0], "applyMountTrackingState");
-  assert.equal(calls[8][1].mountSeq, 7);
-  assert.equal(calls[8][1].mountInProgress, false);
-  assert.equal(calls[8][1].mountStartedAt, 0);
-  assert.equal(calls[8][1].mountTargetEntity, "");
+  assert.deepEqual(calls[6], ["setEngineMountedMuted", true]);
+  assert.equal(calls[7][0], "applyMountTrackingState");
+  assert.equal(calls[7][1].mountSeq, 7);
+  assert.equal(calls[7][1].mountInProgress, false);
+  assert.equal(calls[7][1].mountStartedAt, 0);
+  assert.equal(calls[7][1].mountTargetEntity, "");
   assert.equal(mountState.mountSeq, 7);
   assert.equal(mountState.mountInProgress, false);
 });

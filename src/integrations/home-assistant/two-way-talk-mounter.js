@@ -290,11 +290,15 @@ export function createHaDirectTwoWayTalkMounter({
       });
       await pc.setLocalDescription(offer);
       unsubscribePromise = Promise.resolve(
-        hass.connection.subscribeMessage(handleOfferEvent, {
-          type: "camera/webrtc/offer",
-          entity_id: entity,
-          offer: offer.sdp,
-        }),
+        hass.connection.subscribeMessage(
+          handleOfferEvent,
+          {
+            type: "camera/webrtc/offer",
+            entity_id: entity,
+            offer: offer.sdp,
+          },
+          { resubscribe: false },
+        ),
       );
       unsubscribePromise.catch(() => {
         if (streamStarted) {

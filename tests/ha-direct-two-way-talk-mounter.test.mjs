@@ -41,6 +41,7 @@ test("ha-direct talk mounting uses Home Assistant signaling for one full-duplex 
   let recoveryReason = "";
   let microphoneStopCalls = 0;
   let subscriptionPayload = null;
+  let subscriptionOptions = null;
   let unsubscribed = false;
   let remoteTrackStopCalls = 0;
 
@@ -128,8 +129,9 @@ test("ha-direct talk mounting uses Home Assistant signaling for one full-duplex 
       return null;
     },
     connection: {
-      subscribeMessage(_callback, payload) {
+      subscribeMessage(_callback, payload, options) {
         subscriptionPayload = payload;
+        subscriptionOptions = options;
         return Promise.resolve(() => {
           unsubscribed = true;
         });
@@ -196,6 +198,7 @@ test("ha-direct talk mounting uses Home Assistant signaling for one full-duplex 
       entity_id: "camera.front",
       offer: "ha-talk-offer",
     });
+    assert.deepEqual(subscriptionOptions, { resubscribe: false });
 
     const videoTrack = {
       kind: "video",

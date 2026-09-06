@@ -38,7 +38,43 @@ export function createHaCameraStreamElement({
   return stream;
 }
 
+export function createHaHlsPlayerElement({
+  hass,
+  entity,
+  muted = false,
+  controls = false,
+  defaultMuted,
+  fitMode,
+  styleText = "",
+} = {}) {
+  const entityId = String(entity || "").trim();
+  if (!hass || !entityId) return null;
+  const player = document.createElement("ha-hls-player");
+  player.hass = hass;
+  player.entityid = entityId;
+  player.autoPlay = true;
+  player.playsInline = true;
+  player.controls = controls;
+  player.muted = muted;
+  if (fitMode !== undefined) {
+    player.fitMode = fitMode;
+  }
+  if (defaultMuted !== undefined) {
+    player.defaultMuted = defaultMuted;
+  }
+  if (styleText) {
+    player.style.cssText = styleText;
+  }
+  return player;
+}
+
 export function findActiveHaCameraStreamPlayer(stream) {
+  const tagName = stream?.tagName?.toLowerCase?.();
+  if (tagName === "ha-web-rtc-player" || tagName === "ha-hls-player") {
+    return !stream?.hidden && !stream?.classList?.contains?.("hidden")
+      ? stream
+      : null;
+  }
   const players = Array.from(
     stream?.shadowRoot?.querySelectorAll?.(
       "ha-web-rtc-player,ha-hls-player",

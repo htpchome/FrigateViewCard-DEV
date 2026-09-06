@@ -57,23 +57,18 @@ export const resolveHaDirectMountUnavailableState = () => ({
   refreshFallbackImage: false,
 });
 
+export const resolveHaDirectFailedState = () => ({
+  loading: false,
+  fallbackVisible: true,
+  refreshFallbackImage: true,
+});
+
 export const resolveHaDirectReadyState = ({
   rotateOverlayActive = false,
   isCurrentEngine = false,
   waitSucceeded = false,
 }) => ({
   shouldApply: Boolean(isCurrentEngine && waitSucceeded),
-  loading: false,
-  fallbackVisible: false,
-  refreshFallbackImage: false,
-  enableNativeControls: Boolean(rotateOverlayActive && isCurrentEngine),
-});
-
-export const resolveHaDirectStabilizedState = ({
-  rotateOverlayActive = false,
-  isCurrentEngine = false,
-}) => ({
-  shouldApply: Boolean(isCurrentEngine),
   loading: false,
   fallbackVisible: false,
   refreshFallbackImage: false,

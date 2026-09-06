@@ -269,7 +269,6 @@ export function createLiveMountController({
       });
 
       if (transportPlan.mode === "ha-direct") {
-        setActiveStreamType?.(transportPlan.streamType);
         const directMounter = hasTwoWayTalkOptions
           ? haDirectTwoWayTalkMounter
           : haDirectMounter;

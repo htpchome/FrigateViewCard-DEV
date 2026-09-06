@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import {
   buildHaDirectMountPlan,
   resolveHaDirectMountUnavailableState,
+  resolveHaDirectFailedState,
   resolveHaDirectReadyState,
-  resolveHaDirectStabilizedState,
   resolveHaDirectStartup,
   resolveHlsStartup,
   resolveMseStartup,
@@ -89,6 +89,14 @@ test("resolveHaDirectMountUnavailableState clears loading and fallback", () => {
   });
 });
 
+test("resolveHaDirectFailedState reveals the snapshot fallback", () => {
+  assert.deepEqual(resolveHaDirectFailedState(), {
+    loading: false,
+    fallbackVisible: true,
+    refreshFallbackImage: true,
+  });
+});
+
 test("resolveHaDirectReadyState applies only for the current engine after a successful wait", () => {
   assert.deepEqual(
     resolveHaDirectReadyState({
@@ -109,35 +117,6 @@ test("resolveHaDirectReadyState applies only for the current engine after a succ
       rotateOverlayActive: true,
       isCurrentEngine: false,
       waitSucceeded: true,
-    }),
-    {
-      shouldApply: false,
-      loading: false,
-      fallbackVisible: false,
-      refreshFallbackImage: false,
-      enableNativeControls: false,
-    },
-  );
-});
-
-test("resolveHaDirectStabilizedState applies for current engine even without wait result", () => {
-  assert.deepEqual(
-    resolveHaDirectStabilizedState({
-      rotateOverlayActive: false,
-      isCurrentEngine: true,
-    }),
-    {
-      shouldApply: true,
-      loading: false,
-      fallbackVisible: false,
-      refreshFallbackImage: false,
-      enableNativeControls: false,
-    },
-  );
-  assert.deepEqual(
-    resolveHaDirectStabilizedState({
-      rotateOverlayActive: true,
-      isCurrentEngine: false,
     }),
     {
       shouldApply: false,

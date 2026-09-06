@@ -523,9 +523,16 @@ export class FrigateViewCard extends HTMLElement {
           interactionTarget: liveEngineHost,
         });
       },
+      onCommittedStream: (type) => {
+        this._setActiveStreamType(type);
+        this._setStreamLoading(false);
+        this._setStreamFallbackVisible(false);
+      },
       applyResolvedStreamUiState: (streamState) =>
         this._applyResolvedStreamUiState(streamState),
       setLiveNativeControls: (enabled) => this._setLiveNativeControls(enabled),
+      scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
+      scopeKey: this,
     });
     this._haDirectTwoWayTalkMounter = createHaDirectTwoWayTalkMounter({
       getHass: () => this._hass,

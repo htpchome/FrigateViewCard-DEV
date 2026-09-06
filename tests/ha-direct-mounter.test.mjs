@@ -6,21 +6,24 @@ import { createHaDirectMounter } from "../src/features/live/ha-direct-mounter.js
 function createFakeStreamElement() {
   const listeners = new Map();
   const firstVideo = { tagName: "VIDEO", id: "first-video" };
-  const firstPlayer = createFakePlayer(firstVideo);
-  let players = [firstPlayer];
+  let video = firstVideo;
   return {
+    tagName: "HA-HLS-PLAYER",
     style: { cssText: "" },
     updateComplete: Promise.resolve(),
-    get players() {
-      return players;
+    get video() {
+      return video;
     },
-    set players(nextPlayers) {
-      players = nextPlayers;
+    set video(nextVideo) {
+      video = nextVideo;
     },
     firstVideo,
+    hidden: false,
+    classList: { contains: () => false },
     shadowRoot: {
-      querySelectorAll: () => players,
+      querySelector: (selector) => (selector === "video" ? video : null),
     },
+    querySelector: () => null,
     addEventListener(type, handler) {
       const handlers = listeners.get(type) || new Set();
       handlers.add(handler);
@@ -44,27 +47,13 @@ function createFakeStreamElement() {
   };
 }
 
-function createFakePlayer(video, hidden = false) {
-  return {
-    hidden,
-    classList: {
-      contains: (name) => name === "hidden" && hidden,
-    },
-    updateComplete: Promise.resolve(),
-    shadowRoot: {
-      querySelector: (selector) => (selector === "video" ? video : null),
-    },
-    querySelector: () => null,
-  };
-}
-
 const flushAsyncWork = () => new Promise((resolve) => setImmediate(resolve));
 
 function withFakeDocument(run) {
   const previousDocument = globalThis.document;
   globalThis.document = {
     createElement: (tag) => {
-      if (String(tag).toLowerCase() !== "ha-camera-stream") {
+      if (String(tag).toLowerCase() !== "ha-hls-player") {
         throw new Error(`Unexpected tag: ${tag}`);
       }
       return createFakeStreamElement();
@@ -158,7 +147,7 @@ test("ha direct mounter mounts and schedules follow-up without blocking", async 
   });
 });
 
-test("ha direct mounter follows HA's visible player and releases its listeners", async () => {
+test("ha direct mounter follows the active HLS video and releases its listeners", async () => {
   await withFakeDocument(async () => {
     await withImmediateTimeout(async () => {
       const slot = {
@@ -179,7 +168,7 @@ test("ha direct mounter follows HA's visible player and releases its listeners",
       const committedVideos = [];
       const mounter = createHaDirectMounter({
         getHass: () => hass,
-        getPreferredStreamType: () => "webrtc",
+        getPreferredStreamType: () => "hls",
         getStreamMuted: () => true,
         getRotateOverlayActive: () => false,
         isCurrentEngine: (streamEl) => assignedEngine === streamEl,
@@ -201,19 +190,12 @@ test("ha direct mounter follows HA's visible player and releases its listeners",
       await flushAsyncWork();
 
       const stream = assignedEngine;
-      const firstPlayer = stream.players[0];
       const secondVideo = { tagName: "VIDEO", id: "second-video" };
-      const secondPlayer = createFakePlayer(secondVideo);
-      firstPlayer.hidden = true;
-      firstPlayer.classList.contains = (name) => name === "hidden";
-      stream.players = [firstPlayer, secondPlayer];
+      stream.video = secondVideo;
       stream.dispatch("streams");
       await flushAsyncWork();
 
-      secondPlayer.hidden = true;
-      secondPlayer.classList.contains = (name) => name === "hidden";
-      firstPlayer.hidden = false;
-      firstPlayer.classList.contains = () => false;
+      stream.video = stream.firstVideo;
       stream.dispatch("load");
       await flushAsyncWork();
 
@@ -256,7 +238,7 @@ test("ha direct mounter aborts readiness work when its engine is released", asyn
     let waitOptions = null;
     const mounter = createHaDirectMounter({
       getHass: () => hass,
-      getPreferredStreamType: () => "webrtc",
+        getPreferredStreamType: () => "hls",
       getStreamMuted: () => true,
       getRotateOverlayActive: () => false,
       isCurrentEngine: (streamEl) => assignedEngine === streamEl,
@@ -325,4 +307,121 @@ test("ha direct mounter applies unavailable state when no camera state exists", 
       refreshFallbackImage: false,
     },
   ]);
+});
+
+test("ha direct mounter replaces WebRTC with HLS when no video frame starts", async () => {
+  const previousDocument = globalThis.document;
+  const previousMediaStream = globalThis.MediaStream;
+  const previousPeerConnection = globalThis.RTCPeerConnection;
+  let assignedEngine = null;
+  let unsubscribeCalls = 0;
+  let subscriptionCalls = 0;
+  const committedTypes = [];
+
+  class FakePeerConnection {
+    constructor() {
+      this.connectionState = "new";
+      this.iceConnectionState = "new";
+    }
+
+    addTransceiver() {
+      return { stop() {} };
+    }
+
+    getTransceivers() {
+      return [];
+    }
+
+    async createOffer() {
+      return { type: "offer", sdp: "ha-direct-offer" };
+    }
+
+    async setLocalDescription() {}
+
+    close() {}
+  }
+
+  globalThis.document = {
+    createElement(tag) {
+      if (tag === "video") {
+        return {
+          tagName: "VIDEO",
+          style: {},
+          dataset: {},
+          classList: { add() {} },
+          setAttribute() {},
+          removeAttribute() {},
+          play: () => Promise.resolve(),
+          pause() {},
+        };
+      }
+      if (tag === "ha-hls-player") return createFakeStreamElement();
+      throw new Error(`Unexpected tag: ${tag}`);
+    },
+  };
+  globalThis.MediaStream = class {
+    addTrack() {}
+    getTracks() {
+      return [];
+    }
+  };
+  globalThis.RTCPeerConnection = FakePeerConnection;
+
+  const hass = {
+    states: {
+      "camera.front": { entity_id: "camera.front", attributes: {} },
+    },
+    callWS: async () => ({ configuration: { iceServers: [] } }),
+    connection: {
+      subscribeMessage(_callback, _message, options) {
+        subscriptionCalls += 1;
+        assert.deepEqual(options, { resubscribe: false });
+        return Promise.resolve(() => {
+          unsubscribeCalls += 1;
+        });
+      },
+    },
+  };
+  const slot = {
+    innerHTML: "",
+    appendChild(node) {
+      this.lastChild = node;
+    },
+  };
+  const mounter = createHaDirectMounter({
+    getHass: () => hass,
+    getPreferredStreamType: () => "webrtc",
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => assignedEngine === engine,
+    waitForStreamStart: async (engine) => engine?.type !== "ha_direct",
+    assignCommittedEngine: (engine) => {
+      assignedEngine = engine;
+    },
+    onCommittedMediaReady: () => {},
+    onCommittedStream: (type) => committedTypes.push(type),
+    applyResolvedStreamUiState: () => {},
+    setLiveNativeControls: () => {},
+    scheduleResumeLive: () => {},
+  });
+
+  try {
+    const result = await mounter.tryMount(slot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    assert.equal(result.type, "webrtc");
+    assert.equal(subscriptionCalls, 1);
+    assert.equal(unsubscribeCalls, 1);
+    assert.equal(assignedEngine.tagName, "HA-HLS-PLAYER");
+    assert.deepEqual(committedTypes, ["hls"]);
+  } finally {
+    mounter.release(assignedEngine);
+    globalThis.document = previousDocument;
+    globalThis.MediaStream = previousMediaStream;
+    globalThis.RTCPeerConnection = previousPeerConnection;
+  }
 });

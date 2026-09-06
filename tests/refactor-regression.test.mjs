@@ -415,7 +415,11 @@ test("go2rtc ownership is pulled out of the card shell", () => {
   );
   assert.equal(haDirectMounterSource.includes("buildHaDirectMountPlan"), true);
   assert.equal(
-    haDirectMounterSource.includes("createHaCameraStreamElement"),
+    haDirectMounterSource.includes("createHaDirectWebRtcPlayback"),
+    true,
+  );
+  assert.equal(
+    haDirectMounterSource.includes("createHaHlsPlayerElement"),
     true,
   );
   assert.equal(
