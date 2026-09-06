@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildEditorLiveHandoffKey,
   EDITOR_PREVIEW_ROUTE_INTENTS,
   EditorPreviewContextController,
 } from "../src/features/editor-preview/context.ctrl.js";
@@ -40,14 +41,95 @@ const createListenerTarget = (properties = {}) => {
     removeEventListener(type, listener) {
       listeners.get(type)?.delete(listener);
     },
-    emit(type) {
-      for (const listener of [...(listeners.get(type) || [])]) listener();
+    emit(type, event = { type }) {
+      for (const listener of [...(listeners.get(type) || [])]) listener(event);
+    },
+    dispatchEvent(event) {
+      this.emit(event?.type, event);
+      return true;
     },
     listenerCount(type) {
       return listeners.get(type)?.size || 0;
     },
   };
 };
+
+class FakeCustomEvent {
+  constructor(type, options = {}) {
+    this.type = type;
+    this.detail = options.detail;
+  }
+}
+
+test("editor live handoff keys are stable and card-specific", () => {
+  const first = buildEditorLiveHandoffKey({
+    config: { title: "Front", cameras: [{ entity: "camera.front" }] },
+    entity: "camera.front",
+    pathname: "/lovelace/cameras",
+  });
+  const reordered = buildEditorLiveHandoffKey({
+    config: { cameras: [{ entity: "camera.front" }], title: "Front" },
+    entity: "camera.front",
+    pathname: "/lovelace/cameras",
+  });
+
+  assert.equal(first, reordered);
+  assert.notEqual(
+    first,
+    buildEditorLiveHandoffKey({
+      config: { title: "Front", cameras: [{ entity: "camera.front" }] },
+      entity: "camera.back",
+      pathname: "/lovelace/cameras",
+    }),
+  );
+});
+
+test("editor live handoff broker returns one provider and removes its listener", () => {
+  const windowRef = createListenerTarget({
+    CustomEvent: FakeCustomEvent,
+    location: { pathname: "/lovelace/cameras" },
+  });
+  const requester = new EditorPreviewContextController({}, { windowRef });
+  const provider = new EditorPreviewContextController({}, { windowRef });
+  const candidate = { provider, id: "established-webrtc" };
+  provider.startLiveHandoffProvider(() => candidate);
+
+  assert.equal(
+    requester.requestLiveHandoff({ entity: "camera.front" }),
+    candidate,
+  );
+  assert.equal(
+    windowRef.listenerCount("frigate-view-card-editor-live-handoff-request"),
+    1,
+  );
+  provider.dispose();
+  assert.equal(
+    windowRef.listenerCount("frigate-view-card-editor-live-handoff-request"),
+    0,
+  );
+  requester.dispose();
+});
+
+test("editor live handoff refuses ambiguous matching providers", () => {
+  const windowRef = createListenerTarget({
+    CustomEvent: FakeCustomEvent,
+    location: { pathname: "/lovelace/cameras" },
+  });
+  const requester = new EditorPreviewContextController(
+    {},
+    { windowRef },
+  );
+  const providerA = new EditorPreviewContextController({}, { windowRef });
+  const providerB = new EditorPreviewContextController({}, { windowRef });
+  providerA.startLiveHandoffProvider(() => ({ provider: providerA }));
+  providerB.startLiveHandoffProvider(() => ({ provider: providerB }));
+
+  assert.equal(requester.requestLiveHandoff({ entity: "camera.front" }), null);
+
+  providerA.dispose();
+  providerB.dispose();
+  requester.dispose();
+});
 
 const createMutationObserverHarness = () => {
   const observers = [];

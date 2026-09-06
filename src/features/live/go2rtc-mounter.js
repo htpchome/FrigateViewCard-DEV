@@ -492,6 +492,7 @@ export function createGo2RtcMounter({
       abortBound = true;
     }
 
+    let recoveryHandler = scheduleResumeLive;
     const engine = {
       type: "frigate_go2rtc",
       video,
@@ -499,6 +500,9 @@ export function createGo2RtcMounter({
       ws,
       localStream: microphoneStream,
       microphoneStream,
+      get signalingComplete() {
+        return signalingComplete;
+      },
       destroy,
       activateRecovery: () => {
         recoveryEnabled = true;
@@ -506,6 +510,10 @@ export function createGo2RtcMounter({
       },
       deactivateRecovery: () => {
         recoveryEnabled = false;
+      },
+      setRecoveryHandler: (handler) => {
+        recoveryHandler =
+          typeof handler === "function" ? handler : scheduleResumeLive;
       },
     };
     if (commit) assignCommittedEngine(engine);
@@ -530,7 +538,7 @@ export function createGo2RtcMounter({
       }
       recoveryScheduled = true;
       notifyMicrophoneSessionEnded();
-      scheduleResumeLive(reason);
+      recoveryHandler(reason);
     };
 
     microphoneTrack?.addEventListener?.("ended", () => {

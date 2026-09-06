@@ -160,14 +160,19 @@ test("live grace controller preserves and re-adopts a WebRTC engine", async () =
         connectionState: "connected",
         iceConnectionState: "connected",
       },
-      ws: { readyState: 1 },
+      ws: { readyState: 3 },
+      signalingComplete: true,
       destroyCalls: 0,
       recoveryActive: true,
+      recoveryHandler: null,
       activateRecovery() {
         this.recoveryActive = true;
       },
       deactivateRecovery() {
         this.recoveryActive = false;
+      },
+      setRecoveryHandler(handler) {
+        this.recoveryHandler = handler;
       },
       destroy() {
         this.destroyCalls += 1;
@@ -175,6 +180,7 @@ test("live grace controller preserves and re-adopts a WebRTC engine", async () =
     };
     let engine = cachedEngine;
     let activeStreamType = "webrtc";
+    const recoveryReasons = [];
     const controller = createMseGraceController({
       graceMs: 100,
       graceMax: 2,
@@ -201,6 +207,7 @@ test("live grace controller preserves and re-adopts a WebRTC engine", async () =
       setStreamLoading: () => {},
       setStreamFallbackVisible: () => {},
       setLiveNativeControls: () => {},
+      scheduleResumeLive: (reason) => recoveryReasons.push(reason),
     });
 
     controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
@@ -223,6 +230,8 @@ test("live grace controller preserves and re-adopts a WebRTC engine", async () =
     assert.equal(slot.child, video);
     assert.equal(cachedEngine.destroyCalls, 0);
     assert.equal(cachedEngine.recoveryActive, true);
+    cachedEngine.recoveryHandler("webrtc-connection-lost");
+    assert.deepEqual(recoveryReasons, ["webrtc-connection-lost"]);
   });
 });
 

@@ -757,6 +757,7 @@ test("go2rtc mounter WebRTC releases completed signaling without remounting", as
 
     let assignedEngine = null;
     const recoveryReasons = [];
+    const reboundRecoveryReasons = [];
     const mounter = createBaseMounter({
       resolver: {
         resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
@@ -784,10 +785,15 @@ test("go2rtc mounter WebRTC releases completed signaling without remounting", as
       assignedEngine.pc.emit("connectionstatechange");
       await new Promise((resolve) => setTimeout(resolve, 0));
       assert.equal(closeCalls, 1);
+      assert.equal(assignedEngine.signalingComplete, true);
       assert.deepEqual(recoveryReasons, []);
+      assignedEngine.setRecoveryHandler((reason) =>
+        reboundRecoveryReasons.push(reason),
+      );
       assignedEngine.pc.connectionState = "disconnected";
       assignedEngine.pc.emit("connectionstatechange");
-      assert.deepEqual(recoveryReasons, ["webrtc-connection-lost"]);
+      assert.deepEqual(recoveryReasons, []);
+      assert.deepEqual(reboundRecoveryReasons, ["webrtc-connection-lost"]);
       assignedEngine.destroy();
       assert.equal(closeCalls, 1);
     } finally {

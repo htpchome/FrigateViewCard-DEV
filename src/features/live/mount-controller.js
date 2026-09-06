@@ -19,6 +19,165 @@ import {
 } from "./pending-destroyers.js";
 import { resolveSnapshotFallbackState } from "./stream.state.js";
 
+const EDITOR_WEBRTC_HANDOFF_TYPE = "frigate-go2rtc-webrtc";
+
+export function createEditorLiveHandoffController({
+  getState,
+  getContext,
+  getIdentityKey,
+  isEditorLifecycleActive,
+  requestHandoff,
+  isWebRtcEngineReusable,
+  detachEngine,
+  setStreamLoading,
+  setStreamFallbackVisible,
+  scheduleResumeLive,
+  adoptEngine,
+  syncLivePresentation,
+}) {
+  let suspended = false;
+  let returnTarget = null;
+  let controller = null;
+
+  const state = () => getState?.() || {};
+  const identityKey = (entity) => getIdentityKey?.(entity) || "";
+
+  const claim = (engine) => {
+    const current = state();
+    if (
+      current.engine !== engine ||
+      isWebRtcEngineReusable?.(engine) !== true
+    ) {
+      return null;
+    }
+    engine.deactivateRecovery?.();
+    detachEngine?.(engine);
+    suspended = true;
+    setStreamLoading?.(false);
+    setStreamFallbackVisible?.(true, false);
+    return engine;
+  };
+
+  const reject = () => {
+    suspended = false;
+    if (state().hostConnected) {
+      scheduleResumeLive?.("editor-handoff-rejected");
+    }
+  };
+
+  const createOffer = (request = {}) => {
+    const current = state();
+    const entity = String(current.entity || "");
+    const requestContext = String(request.context || "");
+    const engine = current.engine;
+    if (
+      request.type !== EDITOR_WEBRTC_HANDOFF_TYPE ||
+      !entity ||
+      request.entity !== entity ||
+      request.key !== identityKey(entity) ||
+      suspended ||
+      isEditorLifecycleActive?.() !== true ||
+      current.started !== true ||
+      current.mountInProgress ||
+      current.previewPageActive ||
+      current.viewMode !== "single" ||
+      current.twoWayTalkActive ||
+      current.useGo2Rtc !== true ||
+      current.activeStreamType !== "webrtc" ||
+      engine?.type !== "frigate_go2rtc" ||
+      isWebRtcEngineReusable?.(engine) !== true
+    ) {
+      return null;
+    }
+
+    const nextReturnTarget =
+      requestContext === "config" ? returnTarget || controller : null;
+    return {
+      provider: controller,
+      returnTarget: nextReturnTarget,
+      claim: () => claim(engine),
+      complete: () => {
+        returnTarget = null;
+      },
+      reject,
+    };
+  };
+
+  const take = (entity = "") => {
+    const offer = requestHandoff?.({
+      context: getContext?.() || "",
+      entity,
+      key: identityKey(entity),
+      type: EDITOR_WEBRTC_HANDOFF_TYPE,
+    });
+    const engine = offer?.claim?.() || null;
+    if (!engine) return null;
+    return {
+      engine,
+      commit: () => {
+        suspended = false;
+        returnTarget = offer.returnTarget || null;
+        offer.complete?.();
+      },
+      reject: () => offer.reject?.(),
+    };
+  };
+
+  const canAcceptReturn = ({ entity, key, engine } = {}) => {
+    const current = state();
+    return (
+      current.hostConnected === true &&
+      suspended === true &&
+      !current.engine &&
+      !current.mountInProgress &&
+      current.entity === entity &&
+      key === identityKey(entity) &&
+      current.useGo2Rtc === true &&
+      current.hasSlot === true &&
+      isWebRtcEngineReusable?.(engine) === true
+    );
+  };
+
+  const acceptReturn = ({ entity, key, engine } = {}) => {
+    if (!canAcceptReturn({ entity, key, engine })) return false;
+    if (adoptEngine?.(engine) !== true) return false;
+    suspended = false;
+    syncLivePresentation?.();
+    return true;
+  };
+
+  const returnIfPossible = () => {
+    const target = returnTarget;
+    returnTarget = null;
+    const current = state();
+    const entity = String(current.entity || "");
+    const key = identityKey(entity);
+    const engine = current.engine;
+    if (target?.canAcceptReturn?.({ entity, key, engine }) !== true) {
+      return false;
+    }
+    engine.deactivateRecovery?.();
+    detachEngine?.(engine);
+    return target.acceptReturn({ entity, key, engine });
+  };
+
+  const dispose = () => {
+    suspended = false;
+    returnTarget = null;
+  };
+
+  controller = {
+    acceptReturn,
+    canAcceptReturn,
+    createOffer,
+    dispose,
+    isSuspended: () => suspended,
+    returnIfPossible,
+    take,
+  };
+  return controller;
+}
+
 export function createLiveMountController({
   getSlot,
   isPreviewPageActive,
@@ -44,6 +203,7 @@ export function createLiveMountController({
   setStreamFallbackVisible,
   scheduleResumeLive,
   resolveUseGo2Rtc,
+  takeEditorLiveHandoff,
 }) {
   const applyLiveMountUiState = (quiet = false) => {
     const mountUi = resolveLiveMountUiState({ quiet });
@@ -196,6 +356,21 @@ export function createLiveMountController({
         )
       ) {
         return true;
+      }
+
+      const editorHandoff =
+        takeEditorLiveHandoff?.({ entity: targetEntity }) || null;
+      if (editorHandoff?.engine) {
+        if (
+          mseGraceController.adoptGraceWebRtcEngine?.(
+            slot,
+            editorHandoff.engine,
+          )
+        ) {
+          editorHandoff.commit?.();
+          return true;
+        }
+        editorHandoff.reject?.();
       }
     }
 

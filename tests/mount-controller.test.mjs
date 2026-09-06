@@ -1,7 +1,130 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { createLiveMountController } from "../src/features/live/mount-controller.js";
+import {
+  createEditorLiveHandoffController,
+  createLiveMountController,
+} from "../src/features/live/mount-controller.js";
+
+test("editor WebRTC handoff transfers and returns one established engine", () => {
+  const engine = {
+    type: "frigate_go2rtc",
+    deactivateRecoveryCalls: 0,
+    deactivateRecovery() {
+      this.deactivateRecoveryCalls += 1;
+    },
+  };
+  const donorState = {
+    activeStreamType: "webrtc",
+    engine,
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: false,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: true,
+    viewMode: "single",
+  };
+  const receiverState = {
+    ...donorState,
+    engine: null,
+  };
+  let donor = null;
+  let receiver = null;
+  let donorSyncCalls = 0;
+  donor = createEditorLiveHandoffController({
+    getState: () => donorState,
+    getContext: () => "preconfig",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    requestHandoff: () => null,
+    isWebRtcEngineReusable: (candidate) => candidate === engine,
+    detachEngine: () => {
+      donorState.engine = null;
+    },
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    adoptEngine: (candidate) => {
+      donorState.engine = candidate;
+      return true;
+    },
+    syncLivePresentation: () => {
+      donorSyncCalls += 1;
+    },
+  });
+  receiver = createEditorLiveHandoffController({
+    getState: () => receiverState,
+    getContext: () => "config",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    requestHandoff: (request) => donor.createOffer(request),
+    isWebRtcEngineReusable: (candidate) => candidate === engine,
+    detachEngine: () => {
+      receiverState.engine = null;
+    },
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    adoptEngine: (candidate) => {
+      receiverState.engine = candidate;
+      return true;
+    },
+    syncLivePresentation: () => {},
+  });
+
+  const transfer = receiver.take("camera.front");
+  assert.equal(transfer?.engine, engine);
+  assert.equal(donorState.engine, null);
+  assert.equal(donor.isSuspended(), true);
+  receiverState.engine = transfer.engine;
+  transfer.commit();
+  donorState.hostConnected = true;
+
+  assert.equal(receiver.returnIfPossible(), true);
+  assert.equal(receiverState.engine, null);
+  assert.equal(donorState.engine, engine);
+  assert.equal(donor.isSuspended(), false);
+  assert.equal(engine.deactivateRecoveryCalls, 2);
+  assert.equal(donorSyncCalls, 1);
+});
+
+test("editor WebRTC handoff rejects HA-direct and active talk sessions", () => {
+  const current = {
+    activeStreamType: "webrtc",
+    engine: { type: "ha_direct" },
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: true,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: false,
+    viewMode: "single",
+  };
+  const controller = createEditorLiveHandoffController({
+    getState: () => current,
+    getContext: () => "preconfig",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    isWebRtcEngineReusable: () => true,
+  });
+  const request = {
+    context: "config",
+    entity: "camera.front",
+    key: "matching-card",
+    type: "frigate-go2rtc-webrtc",
+  };
+
+  assert.equal(controller.createOffer(request), null);
+  current.engine = { type: "frigate_go2rtc" };
+  current.useGo2Rtc = true;
+  current.twoWayTalkActive = true;
+  assert.equal(controller.createOffer(request), null);
+});
 
 test("grid mounts do not cancel the existing main live session", async () => {
   let cancelCount = 0;
@@ -276,6 +399,66 @@ test("live mount controller reuses a cached WebRTC engine before starting a race
   ]);
 });
 
+test("live mount controller adopts an editor WebRTC handoff before starting a race", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  const handedOffEngine = { video: {} };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => ({
+      mountSeq: 1,
+      mountInProgress: false,
+      mountStartedAt: 0,
+      mountTargetEntity: "",
+    }),
+    applyMountTrackingState: () => {},
+    mountGridEngine: () => {},
+    cleanupEngine: () => calls.push("cleanup"),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    mseGraceController: {
+      takeGraceWebRtcEntry: () => null,
+      adoptGraceWebRtcEngine: (targetSlot, engine) => {
+        calls.push(["adopt-handoff", targetSlot, engine]);
+        return true;
+      },
+      takeGraceMseEntry: () => {
+        throw new Error("MSE reuse should not run after editor handoff");
+      },
+    },
+    takeEditorLiveHandoff: ({ entity }) => {
+      calls.push(["take-handoff", entity]);
+      return {
+        engine: handedOffEngine,
+        commit: () => calls.push("commit-handoff"),
+      };
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("Transport race should not run after editor handoff");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => true,
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    ["take-handoff", "camera.front"],
+    ["adopt-handoff", slot, handedOffEngine],
+    "commit-handoff",
+  ]);
+});
+
 test("live mount controller reuses only the HA-direct retained engine for HA-direct", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };
@@ -317,6 +500,9 @@ test("live mount controller reuses only the HA-direct retained engine for HA-dir
       takeGraceMseEntry: () => {
         throw new Error("Frigate MSE cache must remain isolated");
       },
+    },
+    takeEditorLiveHandoff: () => {
+      throw new Error("Editor WebRTC handoff must remain isolated from HA-direct");
     },
     getPendingMountDestroyers: () => [],
     setPendingMountDestroyers: () => {},

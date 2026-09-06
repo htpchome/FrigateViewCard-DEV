@@ -34,6 +34,7 @@ export function createMseGraceController({
   setStreamFallbackVisible,
   setLiveNativeControls,
   releaseHaDirectEngine,
+  scheduleResumeLive,
 }) {
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
@@ -50,10 +51,12 @@ export function createMseGraceController({
       .trim()
       .toLowerCase();
     const wsState = Number(engine.ws.readyState);
+    const signalingClosedAfterConnect =
+      engine.signalingComplete === true && wsState >= 2;
     return (
       !terminalWebRtcStates.has(connectionState) &&
       !terminalWebRtcStates.has(iceState) &&
-      (!Number.isFinite(wsState) || wsState <= 1)
+      (!Number.isFinite(wsState) || wsState <= 1 || signalingClosedAfterConnect)
     );
   };
   const isHaDirectWebRtcEngineReusable = (engine) => {
@@ -362,6 +365,7 @@ export function createMseGraceController({
     );
     mountNodeIntoSlot(slot, engine.video);
     attachVideoFit?.(engine.video);
+    engine.setRecoveryHandler?.((reason) => scheduleResumeLive?.(reason));
     engine.activateRecovery?.();
     setEngine?.(engine);
     setEngineMountedMuted?.(getStreamMuted?.());
@@ -499,6 +503,7 @@ export function createMseGraceController({
     adoptGraceMseEngine,
     takeGraceWebRtcEntry,
     adoptGraceWebRtcEngine,
+    isWebRtcEngineReusable,
     takeGraceHaDirectEntry,
     adoptGraceHaDirectEngine,
   };

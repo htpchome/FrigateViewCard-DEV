@@ -5,6 +5,10 @@ import {
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 
 const EDITOR_LIFECYCLE_TRANSITION_GRACE_MS = 2000;
+// HA replaces card instances at editor boundaries, so use an ephemeral offer
+// instead of retaining media engines in a global registry.
+const EDITOR_LIVE_HANDOFF_REQUEST_EVENT =
+  "frigate-view-card-editor-live-handoff-request";
 
 export const EDITOR_PREVIEW_ROUTE_INTENTS = Object.freeze({
   enterStandalone: "enter-card-view-standalone",
@@ -25,6 +29,37 @@ const previewKeysChanged = (previousConfig, nextConfig, ...keys) =>
       previewValueSignature(previousConfig?.[key]) !==
       previewValueSignature(nextConfig?.[key]),
   );
+
+const stableValueSignature = (value, seen = new Set()) => {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (seen.has(value)) return '"[circular]"';
+  seen.add(value);
+  const signature = Array.isArray(value)
+    ? `[${value.map((item) => stableValueSignature(item, seen)).join(",")}]`
+    : `{${Object.keys(value)
+        .filter((key) => value[key] !== undefined)
+        .sort()
+        .map(
+          (key) =>
+            `${JSON.stringify(key)}:${stableValueSignature(value[key], seen)}`,
+        )
+        .join(",")}}`;
+  seen.delete(value);
+  return signature;
+};
+
+export const buildEditorLiveHandoffKey = ({
+  config = {},
+  entity = "",
+  pathname = "",
+} = {}) =>
+  stableValueSignature({
+    config,
+    entity: String(entity || "").trim(),
+    pathname: String(pathname || "").trim(),
+  });
 
 export class EditorPreviewContextController {
   constructor(host, options = {}) {
@@ -64,6 +99,9 @@ export class EditorPreviewContextController {
     this._cardPickerDemoList = null;
     this._standaloneDraftReturnPageId = null;
     this._initialLandingPageSynced = false;
+    this._liveHandoffProvider = null;
+    this._liveHandoffWindow = null;
+    this._onLiveHandoffRequest = null;
   }
 
   dispose() {
@@ -84,6 +122,82 @@ export class EditorPreviewContextController {
     this._cardPickerDemoList = null;
     this._standaloneDraftReturnPageId = null;
     this._initialLandingPageSynced = false;
+    this.stopLiveHandoffProvider();
+  }
+
+  startLiveHandoffProvider(provider) {
+    this._liveHandoffProvider =
+      typeof provider === "function" ? provider : null;
+    if (!this._liveHandoffProvider || this._onLiveHandoffRequest) return;
+    const windowRef = this._window();
+    if (!windowRef?.addEventListener) return;
+    this._onLiveHandoffRequest = (event) => {
+      const detail = event?.detail;
+      if (
+        !detail ||
+        detail.requester === this._host ||
+        typeof detail.offer !== "function"
+      ) {
+        return;
+      }
+      const candidate = this._liveHandoffProvider?.(detail.request || {});
+      if (candidate) detail.offer(candidate);
+    };
+    this._liveHandoffWindow = windowRef;
+    windowRef.addEventListener(
+      EDITOR_LIVE_HANDOFF_REQUEST_EVENT,
+      this._onLiveHandoffRequest,
+    );
+  }
+
+  stopLiveHandoffProvider() {
+    if (this._liveHandoffWindow && this._onLiveHandoffRequest) {
+      this._liveHandoffWindow.removeEventListener?.(
+        EDITOR_LIVE_HANDOFF_REQUEST_EVENT,
+        this._onLiveHandoffRequest,
+      );
+    }
+    this._liveHandoffProvider = null;
+    this._liveHandoffWindow = null;
+    this._onLiveHandoffRequest = null;
+  }
+
+  requestLiveHandoff(request = {}) {
+    const windowRef = this._window();
+    if (!windowRef?.dispatchEvent) return null;
+    const EventCtor = windowRef.CustomEvent || globalThis.CustomEvent;
+    if (typeof EventCtor !== "function") return null;
+    const candidates = [];
+    const providers = new Set();
+    const event = new EventCtor(EDITOR_LIVE_HANDOFF_REQUEST_EVENT, {
+      detail: {
+        requester: this._host,
+        request,
+        offer: (candidate) => {
+          const provider = candidate?.provider;
+          if (
+            !provider ||
+            provider === this ||
+            provider === this._host ||
+            providers.has(provider)
+          ) {
+            return;
+          }
+          providers.add(provider);
+          candidates.push(candidate);
+        },
+      },
+    });
+    windowRef.dispatchEvent(event);
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
+  liveHandoffContext() {
+    if (this.isEditorPreviewContext()) return "config";
+    if (this.isDashboardEditMode() || this.isCardEditorDialogOpen()) {
+      return "preconfig";
+    }
+    return "dashboard";
   }
 
   resolveLandingPage(pageId) {

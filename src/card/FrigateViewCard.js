@@ -182,6 +182,7 @@ import {
 import { runFallbackRefreshCycleForCard } from "../features/live/fallbacks/fallback-refresh.js";
 import { createHaDirectMounter } from "../features/live/ha-direct-mounter.js";
 import { createLiveMountController } from "../features/live/mount-controller.js";
+import { createEditorLiveHandoffController } from "../features/live/mount-controller.js";
 import { createGo2RtcRaceMounter } from "../features/live/go2rtc-race-mounter.js";
 import { createMseGraceController } from "../features/live/mse-grace-controller.js";
 import {
@@ -311,6 +312,7 @@ import {
   normalizeWideTimelineScale,
 } from "../features/wide-view/config.js";
 import {
+  buildEditorLiveHandoffKey,
   EDITOR_PREVIEW_ROUTE_INTENTS,
   EditorPreviewContextController,
 } from "../features/editor-preview/context.ctrl.js";
@@ -1152,7 +1154,60 @@ export class FrigateViewCard extends HTMLElement {
       setLiveNativeControls: (enabled) => this._setLiveNativeControls(enabled),
       releaseHaDirectEngine: (engine) =>
         this._haDirectMounter?.release?.(engine),
+      scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
     });
+    this._editorLiveHandoffController =
+      createEditorLiveHandoffController({
+        getState: () => {
+          const entity =
+            this._activeGroupMemberOverride || this._activeCam?.entity || "";
+          return {
+            activeStreamType: this._currentLiveStreamHint(),
+            engine: this._engine,
+            entity,
+            hasSlot: Boolean(this._$("#engine")),
+            hostConnected: this.isConnected === true,
+            mountInProgress: this._mountInProgress,
+            previewPageActive: this._isPreviewPageActive(),
+            started: this._started,
+            twoWayTalkActive: Boolean(
+              this._twoWayTalkStarting || this._twoWayTalkSession,
+            ),
+            useGo2Rtc: this._shouldUseGo2RtcForEntity(entity),
+            viewMode: this._viewMode,
+          };
+        },
+        getContext: () =>
+          this._editorPreviewController.liveHandoffContext(),
+        getIdentityKey: (entity) =>
+          buildEditorLiveHandoffKey({
+            config: this._committedConfig || this._config || {},
+            entity,
+            pathname: window.location?.pathname || "",
+          }),
+        isEditorLifecycleActive: () =>
+          this._editorPreviewController.isEditorLifecycleActive(),
+        requestHandoff: (request) =>
+          this._editorPreviewController.requestLiveHandoff(request),
+        isWebRtcEngineReusable: (engine) =>
+          this._mseGraceController.isWebRtcEngineReusable(engine),
+        detachEngine: () =>
+          this._assignLiveEngine(null, { retainPrevious: true }),
+        setStreamLoading: (loading) => this._setStreamLoading(loading),
+        setStreamFallbackVisible: (visible, refreshImage = false) =>
+          this._setStreamFallbackVisible(visible, refreshImage),
+        scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
+        adoptEngine: (engine) => {
+          const slot = this._$("#engine");
+          if (!slot) return false;
+          const adopted =
+            this._mseGraceController.adoptGraceWebRtcEngine(slot, engine);
+          if (adopted) this._dashboardLiveGraceActive = false;
+          return adopted;
+        },
+        syncLivePresentation: () =>
+          this._cameraGroupLiveController?.sync?.(),
+      });
     this._liveMountController = createLiveMountController({
       getSlot: () => this.shadowRoot.querySelector("#engine"),
       isPreviewPageActive: () => this._isPreviewPageActive(),
@@ -1191,6 +1246,8 @@ export class FrigateViewCard extends HTMLElement {
         this._setStreamFallbackVisible(visible, refreshImage),
       scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
       resolveUseGo2Rtc: (entity) => this._shouldUseGo2RtcForEntity(entity),
+      takeEditorLiveHandoff: ({ entity }) =>
+        this._editorLiveHandoffController.take(entity),
     });
     this._liveViewResizeController = new LiveViewResizeController({
       getLiveWrap: () => this._$("#eng-wrap"),
@@ -1488,6 +1545,9 @@ export class FrigateViewCard extends HTMLElement {
 
   connectedCallback() {
     this._ensureEditorPreviewController();
+    this._editorPreviewController.startLiveHandoffProvider((request) =>
+      this._editorLiveHandoffController.createOffer(request),
+    );
     this._editorPreviewController.syncInitialLandingPage();
     const hadPendingDisconnectTeardown = Boolean(this._disconnectTeardownT);
     const hadDashboardLiveGrace = this._dashboardLiveGraceActive;
@@ -2134,6 +2194,7 @@ export class FrigateViewCard extends HTMLElement {
   disconnectedCallback() {
     void this._stopPtzMotion("disconnected");
     this._wideViewPageController?.disconnectResizeHandle?.();
+    this._editorLiveHandoffController?.returnIfPossible?.();
     const sameDashboard =
       this._haDashboardSwipeNavigationController?.isCurrentDashboardScope?.() ===
       true;
@@ -2218,6 +2279,7 @@ export class FrigateViewCard extends HTMLElement {
         this._editorPreviewController.dispose();
       } catch (_) {}
     }
+    this._editorLiveHandoffController?.dispose?.();
     if (this._liveControlsHideTimer) clearTimeout(this._liveControlsHideTimer);
     Object.values(this._snapshotResultTimers || {}).forEach((timer) => {
       if (timer) clearTimeout(timer);
@@ -2938,6 +3000,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   async _mountEngine(forcedType = null, options = {}) {
+    if (this._editorLiveHandoffController?.isSuspended?.()) return false;
     const mountPromise = this._liveMountController.mount({
       forcedType,
       quiet: options?.quiet === true,
@@ -5624,6 +5687,7 @@ export class FrigateViewCard extends HTMLElement {
     forceRemount = false,
     forcedType = null,
   ) {
+    if (this._editorLiveHandoffController?.isSuspended?.()) return;
     const now = Date.now();
     const engineHost = this._$("#engine");
     const currentEngineTag = this._engine?.tagName?.toLowerCase?.() || "";
@@ -5670,6 +5734,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _resumeLiveIfNeeded(reason = "") {
+    if (this._editorLiveHandoffController?.isSuspended?.()) return;
     const liveStreamHint = this._currentLiveStreamHint();
     const forceRemount = shouldForceLiveRemountForReason(reason, {
       activeStreamType: liveStreamHint,
