@@ -29,6 +29,47 @@ const makeNode = (tagName, options = {}) => ({
   getRootNode: options.getRootNode || (() => ({ host: null })),
 });
 
+const createListenerTarget = (properties = {}) => {
+  const listeners = new Map();
+  return {
+    ...properties,
+    addEventListener(type, listener) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+    },
+    removeEventListener(type, listener) {
+      listeners.get(type)?.delete(listener);
+    },
+    emit(type) {
+      for (const listener of [...(listeners.get(type) || [])]) listener();
+    },
+    listenerCount(type) {
+      return listeners.get(type)?.size || 0;
+    },
+  };
+};
+
+const createMutationObserverHarness = () => {
+  const observers = [];
+  class FakeMutationObserver {
+    constructor(callback) {
+      this.callback = callback;
+      this.observations = [];
+      this.disconnectCount = 0;
+      observers.push(this);
+    }
+
+    observe(target, options) {
+      this.observations.push({ target, options });
+    }
+
+    disconnect() {
+      this.disconnectCount += 1;
+    }
+  }
+  return { FakeMutationObserver, observers };
+};
+
 test("isEditorPreviewContext walks through shadow hosts", () => {
   const preview = makeNode("HUI-CARD-PREVIEW");
   const wrapper = makeNode("DIV", { parentNode: preview });
@@ -458,6 +499,26 @@ test("syncHassPreviewContext resumes live on preview exit", () => {
   assert.deepEqual(calls, ["hass-edit-exit"]);
 });
 
+test("edit-mode watchdog stays stopped outside an editor context", () => {
+  let intervalCount = 0;
+  const controller = new EditorPreviewContextController(
+    { isConnected: true },
+    {
+      setInterval: () => {
+        intervalCount += 1;
+        return intervalCount;
+      },
+    },
+  );
+  controller.isEditorPreviewContext = () => false;
+  controller.isCardEditorDialogOpen = () => false;
+  controller.isDashboardEditMode = () => false;
+
+  controller.startEditModeWatchdog();
+
+  assert.equal(intervalCount, 0);
+});
+
 test("startEditModeWatchdog resumes and uses guarded stale probes while editing", () => {
   const calls = [];
   const timers = [];
@@ -496,44 +557,235 @@ test("startEditModeWatchdog resumes and uses guarded stale probes while editing"
   }
 });
 
-test("startEditorDialogCloseObserver resumes when the dialog closes", () => {
+test("editor monitoring stages document and dialog observers", () => {
   const calls = [];
-  let observerCallback = null;
-  class FakeMutationObserver {
-    constructor(callback) {
-      observerCallback = callback;
-    }
-
-    observe() {}
-
-    disconnect() {}
-  }
-
-  const controller = new EditorPreviewContextController({
-    _scheduleResumeLive: (reason) => calls.push(reason),
-  });
-  const dialogStates = [true, false];
-  controller.isCardEditorDialogOpen = () => dialogStates.shift();
-
-  withGlobals(
-    {
-      window: {
-        MutationObserver: FakeMutationObserver,
-        getComputedStyle: () => ({ display: "block", visibility: "visible" }),
-      },
-      document: {
-        body: {},
-        querySelector: () => null,
-      },
-      MutationObserver: FakeMutationObserver,
+  const clearedTimers = [];
+  let watchdogCallback = null;
+  const { FakeMutationObserver, observers } =
+    createMutationObserverHarness();
+  const body = {};
+  const haDialog = {
+    opened: true,
+    hidden: false,
+    hasAttribute: () => false,
+    getAttribute: () => null,
+  };
+  const dialogRoot = {
+    querySelector: (selector) => (selector === "ha-dialog" ? haDialog : null),
+  };
+  const dialogHost = {
+    isConnected: true,
+    hidden: false,
+    shadowRoot: dialogRoot,
+    querySelector: () => null,
+    getAttribute: () => null,
+  };
+  const documentRef = {
+    body,
+    querySelector: (selector) =>
+      selector === "hui-dialog-edit-card" ? dialogHost : null,
+  };
+  const windowRef = createListenerTarget({
+    location: {
+      href: "https://example.test/lovelace/test",
+      origin: "https://example.test",
     },
-    () => {
-      controller.startEditorDialogCloseObserver();
-      observerCallback();
+    getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+  });
+  const controller = new EditorPreviewContextController(
+    {
+      isConnected: true,
+      _scheduleResumeLive: (reason) => calls.push(reason),
+      _kickLiveIfStale() {},
+    },
+    {
+      documentRef,
+      windowRef,
+      createMutationObserver: (callback) =>
+        new FakeMutationObserver(callback),
+      setInterval: (callback) => {
+        watchdogCallback = callback;
+        return 17;
+      },
+      clearInterval: (timer) => clearedTimers.push(timer),
     },
   );
 
+  controller.startEditorDialogCloseObserver();
+
+  assert.equal(observers.length, 1);
+  const dialogObserver = observers[0];
+  assert.ok(dialogObserver);
+  assert.deepEqual(
+    dialogObserver.observations.map(({ target }) => target),
+    [dialogHost, dialogRoot],
+  );
+  assert.equal(typeof watchdogCallback, "function");
+
+  haDialog.opened = false;
+  haDialog.hidden = true;
+  dialogObserver.callback([{ type: "attributes", target: haDialog }]);
+
   assert.deepEqual(calls, ["card-editor-close"]);
+  assert.equal(dialogObserver.disconnectCount, 1);
+  assert.deepEqual(clearedTimers, [17]);
+  assert.equal(observers.length, 2);
+  const documentObserver = observers[1];
+  assert.deepEqual(documentObserver.observations, [
+    {
+      target: body,
+      options: { childList: true, subtree: true },
+    },
+  ]);
+
+  controller.dispose();
+  assert.equal(documentObserver.disconnectCount, 1);
+  assert.equal(windowRef.listenerCount("location-changed"), 0);
+  assert.equal(windowRef.listenerCount("popstate"), 0);
+});
+
+test("document monitor detects dialog insertion and removal", () => {
+  const calls = [];
+  let watchdogCallback = null;
+  const { FakeMutationObserver, observers } =
+    createMutationObserverHarness();
+  const body = {};
+  const haDialog = {
+    opened: true,
+    hidden: false,
+    hasAttribute: () => false,
+    getAttribute: () => null,
+  };
+  const dialogRoot = {
+    querySelector: (selector) => (selector === "ha-dialog" ? haDialog : null),
+  };
+  const dialogHost = {
+    isConnected: true,
+    shadowRoot: dialogRoot,
+    querySelector: () => null,
+    matches: (selector) => selector === "hui-dialog-edit-card",
+  };
+  let currentDialogHost = null;
+  let documentQueryCount = 0;
+  const documentRef = {
+    body,
+    querySelector: () => {
+      documentQueryCount += 1;
+      return currentDialogHost;
+    },
+  };
+  const windowRef = createListenerTarget({
+    location: {
+      href: "https://example.test/lovelace/test",
+      origin: "https://example.test",
+    },
+    getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+  });
+  const controller = new EditorPreviewContextController(
+    {
+      isConnected: true,
+      _scheduleResumeLive: (reason) => calls.push(reason),
+      _kickLiveIfStale() {},
+    },
+    {
+      documentRef,
+      windowRef,
+      createMutationObserver: (callback) =>
+        new FakeMutationObserver(callback),
+      setInterval: (callback) => {
+        watchdogCallback = callback;
+        return 22;
+      },
+      clearInterval() {},
+    },
+  );
+
+  controller.startEditorDialogCloseObserver();
+  const documentObserver = observers[0];
+  assert.deepEqual(documentObserver.observations[0], {
+    target: body,
+    options: { childList: true, subtree: true },
+  });
+  const initialDocumentQueryCount = documentQueryCount;
+  documentObserver.callback([
+    {
+      addedNodes: [
+        { matches: () => false, querySelector: () => null },
+      ],
+      removedNodes: [],
+    },
+  ]);
+  assert.equal(documentQueryCount, initialDocumentQueryCount);
+
+  currentDialogHost = dialogHost;
+  documentObserver.callback([
+    { addedNodes: [dialogHost], removedNodes: [] },
+  ]);
+  assert.equal(observers.length, 2);
+  assert.equal(documentObserver.disconnectCount, 1);
+  assert.equal(typeof watchdogCallback, "function");
+
+  dialogHost.isConnected = false;
+  currentDialogHost = null;
+  watchdogCallback();
+  assert.deepEqual(calls, ["watchdog-dialog-close"]);
+  assert.equal(observers.length, 3);
+  assert.deepEqual(observers[2].observations, [
+    {
+      target: body,
+      options: { childList: true, subtree: true },
+    },
+  ]);
+});
+
+test("dashboard edit monitoring is event-driven outside editing", () => {
+  const calls = [];
+  const timers = [];
+  const clearedTimers = [];
+  const { FakeMutationObserver } = createMutationObserverHarness();
+  const documentRef = { body: {}, querySelector: () => null };
+  const location = {
+    href: "https://example.test/lovelace/test",
+    origin: "https://example.test",
+  };
+  const windowRef = createListenerTarget({ location });
+  const controller = new EditorPreviewContextController(
+    {
+      isConnected: true,
+      _scheduleResumeLive: (reason) => calls.push(["resume", reason]),
+      _kickLiveIfStale: (force) => calls.push(["kick", force]),
+    },
+    {
+      documentRef,
+      windowRef,
+      createMutationObserver: (callback) =>
+        new FakeMutationObserver(callback),
+      setInterval: (callback) => {
+        timers.push(callback);
+        return timers.length;
+      },
+      clearInterval: (timer) => clearedTimers.push(timer),
+    },
+  );
+
+  controller.startEditorDialogCloseObserver();
+  assert.equal(timers.length, 0);
+
+  location.href = "https://example.test/lovelace/test?edit=true";
+  windowRef.emit("location-changed");
+  assert.deepEqual(calls, [
+    ["resume", "watchdog-dashboard-edit-on"],
+    ["kick", false],
+  ]);
+  assert.equal(timers.length, 1);
+
+  location.href = "https://example.test/lovelace/test";
+  windowRef.emit("popstate");
+  assert.deepEqual(calls.at(-1), [
+    "resume",
+    "watchdog-dashboard-edit-off",
+  ]);
+  assert.deepEqual(clearedTimers, [1]);
 });
 
 test("standalone preview routing returns to the page active before the draft", () => {
