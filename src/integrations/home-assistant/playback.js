@@ -1,3 +1,5 @@
+import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
+
 export function buildHaCameraStreamState(
   hass,
   entity,
@@ -96,4 +98,61 @@ export function findActiveHaCameraStreamVideo(stream) {
     player.querySelector?.("video") ||
     null
   );
+}
+
+export function watchHaCameraStreamFirstFrame({
+  stream,
+  isDestroyed = () => false,
+  onReady,
+  pollMs = 80,
+} = {}) {
+  if (!stream || typeof onReady !== "function") return () => {};
+
+  let disposed = false;
+  let revision = 0;
+  let cleanupFrameWatch = () => {};
+
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    revision += 1;
+    cleanupFrameWatch();
+    cleanupFrameWatch = () => {};
+    stream.removeEventListener?.("load", reconcile, true);
+    stream.removeEventListener?.("streams", reconcile, true);
+  };
+  const finish = () => {
+    if (disposed || isDestroyed()) return;
+    cleanup();
+    onReady();
+  };
+  const reconcile = () => {
+    const currentRevision = ++revision;
+    cleanupFrameWatch();
+    cleanupFrameWatch = () => {};
+    void (async () => {
+      try {
+        await stream.updateComplete;
+      } catch (_) {}
+      if (
+        disposed ||
+        isDestroyed() ||
+        currentRevision !== revision
+      ) {
+        return;
+      }
+      cleanupFrameWatch = watchMediaFirstFrame({
+        mediaRoot: stream,
+        findVideo: findActiveHaCameraStreamVideo,
+        isDestroyed,
+        onReady: finish,
+        pollMs,
+      });
+    })();
+  };
+
+  stream.addEventListener?.("load", reconcile, true);
+  stream.addEventListener?.("streams", reconcile, true);
+  reconcile();
+  return cleanup;
 }

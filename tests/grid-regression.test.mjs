@@ -266,12 +266,11 @@ test("Grid cells own their border and rounded clipping directly", () => {
   assert.doesNotMatch(stylesSource, /@supports \(-moz-appearance:none\)/);
 });
 
-test("Grid live always prefers WebRTC while retaining fallback", () => {
+test("Frigate go2rtc Grid races WebRTC, MSE, and HLS while retaining takeover", () => {
   assert.match(
     gridMediaControllerSource,
-    /const liveStreamHint = "webrtc";/,
+    /GRID_LIVE_ATTEMPT_TYPES = Object\.freeze\(\["webrtc", "mse", "hls"\]\)/,
   );
-  assert.match(gridMediaControllerSource, /GRID_LIVE_ATTEMPT_TYPES/);
   assert.match(
     gridMediaControllerSource,
     /new StreamOrchestrator\(\{[\s\S]*?preferredType: "webrtc"[\s\S]*?retainPreferredOnFallback: true/,
@@ -319,6 +318,110 @@ test("Grid live always prefers WebRTC while retaining fallback", () => {
     stylesSource,
     /\.live-grid-cell > \.preview-live-layer\.is-ready\{opacity:1;\}/,
   );
+});
+
+test("Grid resolves HA-direct HLS without narrowing the go2rtc race", () => {
+  const previousDocument = globalThis.document;
+  const createElement = () => {
+    const classes = new Set();
+    const element = {
+      style: {},
+      dataset: {},
+      children: [],
+      parentNode: null,
+      isConnected: true,
+      innerHTML: "",
+      classList: {
+        add: (...tokens) => tokens.forEach((token) => classes.add(token)),
+        contains: (token) => classes.has(token),
+      },
+      appendChild(child) {
+        child.parentNode = this;
+        child.isConnected = this.isConnected;
+        this.children.push(child);
+        return child;
+      },
+      setAttribute() {},
+      querySelectorAll: () => [],
+      remove() {
+        this.isConnected = false;
+      },
+    };
+    Object.defineProperty(element, "className", {
+      set: (value) => {
+        classes.clear();
+        String(value || "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .forEach((token) => classes.add(token));
+      },
+    });
+    return element;
+  };
+  globalThis.document = { createElement };
+
+  try {
+    const cameras = [
+      { entity: "camera.ha_direct" },
+      { entity: "camera.frigate_go2rtc" },
+    ];
+    const host = {
+      _config: { cameras },
+      _hass: {
+        states: {
+          "camera.ha_direct": {
+            attributes: { frontend_stream_type: "hls" },
+          },
+          "camera.frigate_go2rtc": { attributes: {} },
+        },
+      },
+      _gridRotationStart: 0,
+      _gridEngine: null,
+      _gridLastRenderSignature: "",
+      _gridLiveViewEnabled: () => true,
+      _isGridCameraAlertLive: () => false,
+      _gridCellSeverity: () => "",
+      _shouldUseGo2RtcForEntity: (entity) =>
+        entity === "camera.frigate_go2rtc",
+      _currentLiveStreamHint: () => "hls",
+      _preferredStreamType: () => "webrtc",
+      _setActiveStreamType() {},
+      _syncSnapshotRefreshTimer() {},
+      shadowRoot: { querySelector: () => null },
+    };
+    const controller = new GridMediaController(host);
+    const mounts = [];
+    controller._mountGridCameraCellMedia = (_cell, options) => {
+      mounts.push(options);
+      return true;
+    };
+
+    controller.mountGridEngine(createElement());
+
+    assert.equal(mounts.length, 2);
+    assert.deepEqual(
+      mounts.map(({ entity, liveStreamHint, stateObj }) => ({
+        entity,
+        liveStreamHint,
+        frontendStreamType: stateObj.attributes.frontend_stream_type,
+      })),
+      [
+        {
+          entity: "camera.ha_direct",
+          liveStreamHint: "hls",
+          frontendStreamType: "hls",
+        },
+        {
+          entity: "camera.frigate_go2rtc",
+          liveStreamHint: "webrtc",
+          frontendStreamType: "webrtc",
+        },
+      ],
+    );
+    assert.equal(mounts[1].preferWebRtc, true);
+  } finally {
+    globalThis.document = previousDocument;
+  }
 });
 
 test("Grid live preference reaches the go2rtc cell mount", () => {

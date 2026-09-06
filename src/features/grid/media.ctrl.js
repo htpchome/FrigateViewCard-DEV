@@ -1,8 +1,9 @@
 import {
   buildHaCameraStreamState,
   createHaCameraStreamElement,
+  findActiveHaCameraStreamVideo,
+  watchHaCameraStreamFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
-import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 import { appendCacheBustParam } from "../live/fallbacks/fallback-url.js";
 import { adoptMountedAttemptSlot } from "../live/mount-result.js";
 import { createStrategyForType } from "../live/stream.strategies.js";
@@ -19,6 +20,16 @@ import { resolveGridCameras } from "./config.js";
 
 const GRID_LIVE_ATTEMPT_TYPES = Object.freeze(["webrtc", "mse", "hls"]);
 const GRID_WEBRTC_PREFERRED_WAIT_MS = 500;
+
+const normalizeHaDirectLiveStreamHint = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_");
+  if (normalized === "hls") return "hls";
+  if (normalized === "webrtc" || normalized === "web_rtc") return "webrtc";
+  return "";
+};
 
 const gridLiveAttemptStartup = (type) => {
   if (type === "webrtc") return { waitMs: 7000 };
@@ -340,6 +351,25 @@ export class GridMediaController {
     })();
   }
 
+  _resolveHaDirectLiveStreamHint(entity, requestedHint = "") {
+    const requested = normalizeHaDirectLiveStreamHint(requestedHint);
+    const current = normalizeHaDirectLiveStreamHint(
+      this._host._currentLiveStreamHint?.(),
+    );
+    const raw = normalizeHaDirectLiveStreamHint(
+      this._host._hass?.states?.[entity]?.attributes?.frontend_stream_type,
+    );
+    if (requested === "hls" || current === "hls" || raw === "hls") {
+      return "hls";
+    }
+    return requested || current || raw || "webrtc";
+  }
+
+  _resolveGridCellLiveStreamHint(entity) {
+    if (this._host._shouldUseGo2RtcForEntity(entity)) return "webrtc";
+    return this._resolveHaDirectLiveStreamHint(entity);
+  }
+
   _createGridLiveAttemptSlot(host) {
     const slot = document.createElement("div");
     slot.style.cssText =
@@ -493,9 +523,21 @@ export class GridMediaController {
           onFailure: liveStage?.retainPlaceholder,
         });
       } else if (stateObj) {
+        const haDirectStreamHint = this._resolveHaDirectLiveStreamHint(
+          entity,
+          liveStreamHint,
+        );
+        const haDirectStateObj = {
+          ...stateObj,
+          attributes: {
+            ...stateObj.attributes,
+            frontend_stream_type:
+              haDirectStreamHint === "webrtc" ? "web_rtc" : "hls",
+          },
+        };
         const stream = createHaCameraStreamElement({
           hass: this._host._hass,
-          stateObj,
+          stateObj: haDirectStateObj,
           controls: false,
           muted: true,
           defaultMuted: true,
@@ -509,7 +551,7 @@ export class GridMediaController {
         liveTarget.appendChild(stream);
         this._host._attachVideoFit(stream);
         let released = false;
-        const handoffType = String(liveStreamHint || "").trim().toLowerCase();
+        const handoffType = haDirectStreamHint;
         const handoff = {
           type: handoffType,
           take: () => {
@@ -525,9 +567,8 @@ export class GridMediaController {
         };
         if (liveStage) {
           gridState.cleanup.push(
-            watchMediaFirstFrame({
-              mediaRoot: stream,
-              findVideo: (root) => this._host._findVideoDeep?.(root) || null,
+            watchHaCameraStreamFirstFrame({
+              stream,
               isDestroyed: () => gridState.destroyed,
               onReady: () => {
                 liveStage.reveal();
@@ -541,7 +582,7 @@ export class GridMediaController {
         gridState.cleanup.push(() => {
           if (released) return;
           try {
-            const video = this._host._findVideoDeep?.(stream);
+            const video = findActiveHaCameraStreamVideo(stream);
             if (video) {
               video.pause?.();
               video.removeAttribute?.("src");
@@ -719,7 +760,6 @@ export class GridMediaController {
       this._host._config?.cameras,
       this._host._config?.grid_order,
     );
-    const liveStreamHint = "webrtc";
     const signatureParts = [];
     const mediaSignatureParts = [];
 
@@ -728,6 +768,9 @@ export class GridMediaController {
       const entity = cam?.entity || "";
       const severity = idx >= 0 ? this._host._gridCellSeverity(entity) : "";
       const useLive = idx >= 0 && this._shouldUseLive(entity);
+      const liveStreamHint = idx >= 0
+        ? this._resolveGridCellLiveStreamHint(entity)
+        : "webrtc";
       signatureParts.push(
         buildGridSignaturePart({
           index: idx,
@@ -792,8 +835,8 @@ export class GridMediaController {
           ? this._host._shouldUseGo2RtcForEntity(entity)
           : false;
         const cameraStreamHint = useGo2Rtc
-          ? liveStreamHint
-          : this._host._preferredStreamType();
+          ? "webrtc"
+          : this._resolveGridCellLiveStreamHint(entity);
         const stateObj = entity
           ? buildHaCameraStreamState(
               this._host._hass,
@@ -813,7 +856,7 @@ export class GridMediaController {
             entity,
             stateObj,
             useLive,
-            liveStreamHint,
+            liveStreamHint: cameraStreamHint,
             gridState,
             fallbackOnLiveError: true,
             snapshotPlaceholderWhileLive: true,

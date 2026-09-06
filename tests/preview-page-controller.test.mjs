@@ -414,6 +414,7 @@ test("mountPreviewMedia delegates preview cells through grid media ownership", (
 
 const createPreviewMediaElement = (tagName) => {
   const classTokens = new Set();
+  const listeners = new Map();
   const element = {
     tagName,
     style: {},
@@ -434,6 +435,17 @@ const createPreviewMediaElement = (tagName) => {
       child.isConnected = this.isConnected;
       this.children.push(child);
       return child;
+    },
+    addEventListener(eventName, listener) {
+      const eventListeners = listeners.get(eventName) || new Set();
+      eventListeners.add(listener);
+      listeners.set(eventName, eventListeners);
+    },
+    removeEventListener(eventName, listener) {
+      listeners.get(eventName)?.delete(listener);
+    },
+    dispatchEvent(event) {
+      listeners.get(event?.type)?.forEach((listener) => listener(event));
     },
     remove() {
       if (this.parentNode?.children) {
@@ -679,39 +691,86 @@ test("Grid destroys a transport that finishes after its cell was removed", async
   }
 });
 
-test("Preview HA Direct tiles reveal live media only after its first frame", () => {
+test("Preview HA Direct HLS reveals only after the active HA player renders", async () => {
   const previousDocument = globalThis.document;
-  globalThis.document = { createElement: createPreviewMediaElement };
+  let stream = null;
+  let webRtcFrameCallback = null;
+  let hlsFrameCallback = null;
+  const webRtcVideo = {
+    readyState: 0,
+    videoWidth: 0,
+    currentTime: 0,
+    addEventListener() {},
+    removeEventListener() {},
+    requestVideoFrameCallback(callback) {
+      webRtcFrameCallback = callback;
+      return 1;
+    },
+    cancelVideoFrameCallback() {},
+  };
+  const hlsVideo = {
+    readyState: 0,
+    videoWidth: 0,
+    currentTime: 0,
+    addEventListener() {},
+    removeEventListener() {},
+    requestVideoFrameCallback(callback) {
+      hlsFrameCallback = callback;
+      return 2;
+    },
+    cancelVideoFrameCallback() {},
+    pause() {},
+    removeAttribute() {},
+    load() {},
+  };
+  const webRtcPlayer = {
+    hidden: true,
+    classList: { contains: () => false },
+    shadowRoot: { querySelector: () => webRtcVideo },
+  };
+  const hlsPlayer = {
+    hidden: false,
+    classList: { contains: () => false },
+    shadowRoot: { querySelector: () => hlsVideo },
+  };
+  globalThis.document = {
+    createElement: (tagName) => {
+      const element = createPreviewMediaElement(tagName);
+      if (tagName === "ha-camera-stream") {
+        stream = element;
+        element.updateComplete = Promise.resolve();
+        element.shadowRoot = {
+          querySelectorAll: () => [webRtcPlayer, hlsPlayer],
+        };
+      }
+      return element;
+    },
+  };
   try {
-    let firstFrameCallback = null;
-    const video = {
-      readyState: 0,
-      videoWidth: 0,
-      currentTime: 0,
-      addEventListener() {},
-      removeEventListener() {},
-      requestVideoFrameCallback(callback) {
-        firstFrameCallback = callback;
-        return 1;
-      },
-      cancelVideoFrameCallback() {},
-    };
     const cell = createPreviewMediaElement("cell");
     cell.isConnected = true;
     const gridState = { destroyed: false, cleanup: [] };
     const controller = new GridMediaController({
-      _hass: { states: {} },
+      _hass: {
+        states: {
+          "camera.front": {
+            attributes: { frontend_stream_type: "hls" },
+          },
+        },
+      },
       _streamFallbackUrl: async () => "/snapshot/front.jpg",
       _shouldUseGo2RtcForEntity: () => false,
       _attachVideoFit() {},
-      _findVideoDeep: () => video,
+      _findVideoDeep: () => {
+        throw new Error("HA Direct must resolve HA's active player");
+      },
     });
 
     controller.mountCameraCellMedia(cell, {
       entity: "camera.front",
-      stateObj: { attributes: {} },
+      stateObj: { attributes: { frontend_stream_type: "mse" } },
       useLive: true,
-      liveStreamHint: "webrtc",
+      liveStreamHint: "mse",
       gridState,
       fallbackOnLiveError: true,
       snapshotPlaceholderWhileLive: true,
@@ -719,8 +778,11 @@ test("Preview HA Direct tiles reveal live media only after its first frame", () 
 
     const liveLayer = cell.children[1];
     assert.equal(liveLayer.classList.contains("is-ready"), false);
-    assert.equal(typeof firstFrameCallback, "function");
-    firstFrameCallback();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(stream.stateObj.attributes.frontend_stream_type, "hls");
+    assert.equal(webRtcFrameCallback, null);
+    assert.equal(typeof hlsFrameCallback, "function");
+    hlsFrameCallback();
     assert.equal(liveLayer.classList.contains("is-ready"), true);
     gridState.cleanup.forEach((cleanup) => cleanup());
   } finally {

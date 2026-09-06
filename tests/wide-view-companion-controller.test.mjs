@@ -419,6 +419,10 @@ test("camera tile live mounts keep HA Direct and Frigate/go2rtc distinct", async
     });
     assert.equal(haCell.children[0].tagName, "ha-camera-stream");
     assert.equal(haCell.children[0].hass, hass);
+    assert.equal(
+      haCell.children[0].stateObj.attributes.frontend_stream_type,
+      "web_rtc",
+    );
   } finally {
     globalThis.document = previousDocument;
   }
