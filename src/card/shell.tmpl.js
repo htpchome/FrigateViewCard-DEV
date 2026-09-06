@@ -1,4 +1,3 @@
-import { DEFAULT_SUBTITLE } from "../constants.js";
 import { escapeHtml, escapeHtmlAttribute } from "../shared/html.js";
 
 export function buildCamSwitcherRegionMarkup({ markup = "" } = {}) {
@@ -13,10 +12,6 @@ export function buildTabsRegionMarkup({ markup = "" } = {}) {
 
 export function buildToolsRegionMarkup({ markup = "" } = {}) {
   return `<div class="tl-tools-slot" data-fvc-region="tools">${String(markup || "")}</div>`;
-}
-
-export function resolveSubtitleText(config) {
-  return config?.subtitle || DEFAULT_SUBTITLE;
 }
 
 export function buildInfoRowMarkup({

@@ -4,7 +4,6 @@ import {
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DAY,
-  RECORDINGS_WINDOW,
   REALTIME_HEAD_POLL_MS,
   REALTIME_RELOAD_DEBOUNCE_MS,
   REALTIME_POLL_OPTIONS_SECONDS,
@@ -35,9 +34,7 @@ import { ICONS } from "../icons.js";
 import { STYLES } from "../styles.js";
 import "../components/circle-pad/circle-pad.js";
 import {
-  detectDeviceProfile,
   DEVICE_PROFILE,
-  isAndroid,
   cap,
   parseWs,
   normalizePositiveInteger,
@@ -45,28 +42,7 @@ import {
   normalizeCameraConnectionType,
   normalizeThemeCustomConfig,
   normalizeThemeCustomDefaultsConfig,
-  DIALOG_ACTION_SELECTOR,
-  setSettingsPanelActiveState,
-  dialogActionKindFromElement,
-  dialogActionKindFromEvent,
-  wireCameraRowDragAndDrop,
-  setFieldErrorState,
-  bindNumericInputField,
-  bindSelectorSyncEvents,
-  setupSelectSelector,
-  setupEntitySelector,
-  bindThemeControlEvents,
-  bindClickHandler,
-  bindClickHandlers,
-  bindEachClickHandler,
-  bindEventsForIds,
-  bindEventsForSelectorAll,
-  buildEditorConfigFromDom,
-  createEditorPreviewDraft,
-  LABEL_COLORS,
-  PALETTE,
   labelColor,
-  CAM_COLORS,
   mkCamState,
   camDisplayName,
   normalizeCameraConfig,
@@ -127,10 +103,8 @@ import {
 import { resolveFrigateEventPrePostRollRange } from "../integrations/frigate/event-media.js";
 import { FrigateMediaDownloadController } from "../integrations/frigate/media-download.ctrl.js";
 import {
-  discoverFrigateCameraState,
   resolveCameraConnectionType,
   resolveGo2RtcEntity,
-  shouldUseGo2RtcForEntity,
 } from "../integrations/frigate/camera-context.js";
 import {
   haReviewStatusForCamera,
@@ -145,7 +119,6 @@ import { createGo2RtcMounter } from "../features/live/go2rtc-mounter.js";
 import {
   invalidateMountTrackingIfActive,
   isMseReturnRemountReason,
-  isLiveVideoStale,
   resolveCameraSwitchCleanupOptions,
   resolveCameraSwitchTransportEntity,
   resolveLiveKickIfStaleAction,
@@ -157,7 +130,6 @@ import {
 } from "../features/live/mount-lifecycle.js";
 import {
   adoptMountedAttemptResult,
-  adoptMountedAttemptSlot,
   cleanupStaleWinnerResult,
   isMountTokenCurrent,
 } from "../features/live/mount-result.js";
@@ -178,11 +150,9 @@ import {
 } from "../features/live/rotate-overlay-state.js";
 import {
   buildVideoOptionsForView,
-  configureVideoElement,
   createVideoElement,
   disableNativePictureInPicture,
   enableNativePictureInPicture,
-  mountNodeIntoSlot,
   setScopedVideoViewDefaultOptions,
   supportsNativeHlsPlayback,
 } from "../shared/media/video-factory.js";
@@ -280,12 +250,8 @@ import {
   RecordingsDayCache,
   RecordingsSwipeController,
   formatRecordingScrubTime,
-  normalizeFetchedRecordingsAvailability,
   RECORDING_SEGMENT_EXTENSION_SECONDS,
   resolveRecordingSegmentTimelineRange,
-  resolveRecordingsBrowseNavContextState,
-  resolveRecordingsBrowseNavProbePlan,
-  resolveRecordingsBrowseNavState,
   resetRecordingsDayCache,
   splitRecordingsHourly,
 } from "../features/recordings/index.js";
@@ -1252,7 +1218,7 @@ export class FrigateViewCard extends HTMLElement {
         this._liveVideoZoomController?.zoomToCenter?.(scale);
         this._cameraGroupLiveController?.setResizeZoomScale?.(scale);
       },
-      getMediaDimensions: (video) => {
+      getMediaDimensions: () => {
         if (!this._cameraGroupLiveController?.isActive?.()) return null;
         return this._activeCam?.group?.layout === "stacked"
           ? { videoWidth: 1, videoHeight: 1 }

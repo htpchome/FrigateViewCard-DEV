@@ -1275,7 +1275,7 @@ const bindCoordinator = (state) => {
     void settleDashboardSwipeGesture(state, gesture);
   };
 
-  const onTouchCancel = (event) => {
+  const onTouchCancel = () => {
     const gesture = state.gesture;
     if (!gesture) return;
     resetGesture(state);

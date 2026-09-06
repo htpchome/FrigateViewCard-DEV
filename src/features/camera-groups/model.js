@@ -3,11 +3,6 @@ export const CAMERA_GROUP_LAYOUTS = Object.freeze({
   stacked: "stacked",
 });
 
-export const CAMERA_GROUP_LAYOUT_OPTIONS = Object.freeze([
-  CAMERA_GROUP_LAYOUTS.sideBySide,
-  CAMERA_GROUP_LAYOUTS.stacked,
-]);
-
 export const normalizeCameraGroupLayout = (value) =>
   value === CAMERA_GROUP_LAYOUTS.stacked
     ? CAMERA_GROUP_LAYOUTS.stacked

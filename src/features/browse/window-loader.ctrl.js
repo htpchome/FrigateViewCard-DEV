@@ -363,7 +363,6 @@ export class BrowseWindowLoaderController {
 
   async warmOtherCamerasEvents() {
     const token = ++this._host._warmCamsToken;
-    const activeEntity = this._host._activeCam?.entity;
     const includeActiveCamera =
       this._host._isPreviewPageActive?.() === true ||
       this._host._isCardViewPageActive?.() === true;
@@ -573,8 +572,6 @@ export class BrowseWindowLoaderController {
   }
 
   async _fetchRecentActiveDaysItems({
-    clientId,
-    cam,
     before,
     dayCount,
     fetcher,
@@ -1771,7 +1768,7 @@ export class BrowseWindowLoaderController {
     ) {
       return [];
     }
-    const { entity, clientId, cam, cache } = context;
+    const { clientId, cam, cache } = context;
     const cacheKey = buildRecordingsDayCacheKey(clientId, cam, bounds);
     const dayCache = ensureRecordingsDayCache(this._host);
     const hasCached = dayCache.hasRecordings(cacheKey);

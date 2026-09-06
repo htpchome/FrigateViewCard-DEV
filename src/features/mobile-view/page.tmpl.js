@@ -94,9 +94,6 @@ export function buildMobileViewMainLayoutShellMarkup({
   const layoutClassName = ["layout", layoutProfile.layoutClass, "mobile-layout"]
     .filter(Boolean)
     .join(" ");
-  const tabsHolderClassName = ["tabs-holder", layoutProfile.tabsHolderClass]
-    .filter(Boolean)
-    .join(" ");
   return `<div class="${layoutClassName}" id="layout">
             <div class="mobile-container" id="mobile-container">
               <div class="mobile-top" id="mobile-top">

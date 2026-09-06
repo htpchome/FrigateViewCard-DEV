@@ -5,12 +5,7 @@ import {
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DEFAULT_HIDDEN_TABS,
-  DAY,
-  RECORDINGS_WINDOW,
-  REALTIME_HEAD_POLL_MS,
-  REALTIME_RELOAD_DEBOUNCE_MS,
   REALTIME_POLL_OPTIONS_SECONDS,
-  MOBILE_BATTERY_SAVER_POLL_SECONDS,
   SNAPSHOT_UPDATE_SECONDS,
   SNAPSHOT_UPDATE_OPTIONS_SECONDS,
   EVENT_PRE_POST_ROLL_SECONDS,
@@ -18,16 +13,10 @@ import {
   GRID_ROTATION_OPTIONS_SECONDS,
   SLIDESHOW_ALERT_HOLD_MS,
   SLIDESHOW_ALERT_HOLD_OPTIONS_SECONDS,
-  SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,
-  SLIDESHOW_REVIEW_WATCH_MIN_MS,
-  SLIDESHOW_REVIEW_WATCH_MAX_MS,
   GRID_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
   PREVIEW_ALERT_HOLD_MS,
   PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
-  PREVIEW_ALERT_END_GRACE_MS,
-  MSE_SWITCH_GRACE_MS,
-  MSE_SWITCH_GRACE_MAX,
   MAX_CAMERAS,
   DEFAULT_CAMERA_CONNECTION_TYPE,
   ALLOWED_HIDDEN_TABS,
@@ -37,13 +26,7 @@ import {
 } from "../constants.js";
 import { ICONS } from "../icons.js";
 import {
-  detectDeviceProfile,
-  DEVICE_PROFILE,
-  isIOS,
-  isAndroid,
-  cap,
   parseWs,
-  normalizePositiveInteger,
   normalizeNumberChoice,
   normalizeCameraConnectionType,
   normalizeAlertsAreaContent,
@@ -51,35 +34,23 @@ import {
   normalizeThemeMode,
   normalizeThemeCustomDefaultsConfig,
   DIALOG_ACTION_SELECTOR,
-  resolveActiveTab,
   setSettingsPanelActiveState,
   dialogActionKindFromElement,
   dialogActionKindFromEvent,
   reorderItemsForDrop,
   wireCameraRowDragAndDrop,
   setFieldErrorState,
-  bindSelectorSyncEvents,
   setupSelectSelector,
   setupEntitySelector,
   setupIconSelector,
   bindThemeControlEvents,
-  bindClickHandler,
   bindClickHandlers,
   bindEachClickHandler,
   bindEventsForIds,
   bindEventsForSelectorAll,
   buildEditorConfigFromDom,
   resolveSwitchChecked,
-  LABEL_COLORS,
-  PALETTE,
-  labelColor,
-  CAM_COLORS,
-  mkCamState,
-  camDisplayName,
   normalizeCameraConfig,
-  configuredCameraEntities,
-  hassThemeSignature,
-  hassEntityStateSignature,
 } from "../helpers.js";
 import {
   hasCameraPtz,
@@ -3616,7 +3587,6 @@ export class FrigateViewCardEditor extends HTMLElement {
             .editor-choice-field--compact .editor-choice-chip-indicator{width:15px;height:15px;}
             .card-height-control{display:flex;gap:8px;align-items:center;min-width:0;}
             .card-height-control > #stream_height{flex:1 1 auto;min-width:120px;}
-            .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}
             .chk-row{display:flex;flex-wrap:wrap;gap:8px 16px;}
             .text-display-row{display:flex;align-items:center;gap:12px;min-width:0;}
             .text-display-row + .text-display-row{margin-top:8px;}

@@ -45,13 +45,3 @@ export const linkedLightForCamera = (camera) =>
 
 export const linkedLightsForCamera = (camera) =>
   normalizeLinkedEntitiesConfig(camera?.linked_entities);
-
-export const linkedLightEntityIds = (cameras) => [
-  ...new Set(
-    (Array.isArray(cameras) ? cameras : [])
-      .flatMap((camera) =>
-        linkedLightsForCamera(camera).map(({ entity }) => entity),
-      )
-      .filter(Boolean),
-  ),
-];

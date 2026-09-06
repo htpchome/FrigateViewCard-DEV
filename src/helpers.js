@@ -1,12 +1,5 @@
 import {
-  VERSION,
-  CARD_TAG,
-  DAY,
-  RECORDINGS_WINDOW,
-  REALTIME_HEAD_POLL_MS,
-  REALTIME_RELOAD_DEBOUNCE_MS,
   REALTIME_POLL_OPTIONS_SECONDS,
-  MOBILE_BATTERY_SAVER_POLL_SECONDS,
   SNAPSHOT_UPDATE_SECONDS,
   SNAPSHOT_UPDATE_OPTIONS_SECONDS,
   SLIDESHOW_ROTATION_OPTIONS_SECONDS,
@@ -15,19 +8,9 @@ import {
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
   SLIDESHOW_ALERT_HOLD_MS,
   SLIDESHOW_ALERT_HOLD_OPTIONS_SECONDS,
-  SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,
-  SLIDESHOW_REVIEW_WATCH_MIN_MS,
-  SLIDESHOW_REVIEW_WATCH_MAX_MS,
-  PREVIEW_ALERT_HOLD_MS,
   PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
-  PREVIEW_ALERT_END_GRACE_MS,
-  MSE_SWITCH_GRACE_MS,
-  MSE_SWITCH_GRACE_MAX,
-  MAX_CAMERAS,
   DEFAULT_CAMERA_CONNECTION_TYPE,
   ALLOWED_HIDDEN_TABS,
-  THEME_DEFAULTS,
-  THEME_CUSTOM_ROWS,
   THEME_CUSTOM_KEYS,
   THEME_MODES,
 } from "./constants.js";
@@ -138,13 +121,6 @@ export function normalizeNumberChoice(value, options, fallback) {
   return Array.isArray(options) && options.includes(numeric)
     ? numeric
     : fallback;
-}
-
-export function normalizeBoundedPositiveInteger(value, fallback, min, max) {
-  const parsed = normalizePositiveInteger(value, fallback);
-  const lower = Math.max(1, Number(min) || 1);
-  const upper = Math.max(lower, Number(max) || lower);
-  return Math.min(upper, Math.max(lower, parsed));
 }
 
 export function normalizeCameraConnectionType(value) {

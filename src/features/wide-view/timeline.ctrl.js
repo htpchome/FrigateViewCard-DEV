@@ -9,8 +9,6 @@ import {
   wideTimelineStackVisualDepth,
   WIDE_TIMELINE_DEFAULT_SCALE,
   WIDE_TIMELINE_DEFAULT_PANEL_WIDTH,
-  WIDE_TIMELINE_MIN_BROWSE_WIDTH,
-  WIDE_TIMELINE_MIN_PANEL_WIDTH,
   WIDE_TIMELINE_SCALES,
 } from "./timeline.model.js";
 import {
