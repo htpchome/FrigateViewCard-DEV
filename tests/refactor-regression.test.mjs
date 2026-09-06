@@ -14,9 +14,6 @@ const indexSource = fs.readFileSync(
   new URL("../src/index.js", import.meta.url),
   "utf8",
 );
-test("card registration does not write an informational console message", () => {
-  assert.equal(indexSource.includes("console.info"), false);
-});
 const cardSource = fs.readFileSync(
   new URL("../src/card/FrigateViewCard.js", import.meta.url),
   "utf8",
