@@ -275,7 +275,9 @@ import { BrowseWindowLoaderController } from "../features/browse/window-loader.c
 import {
   buildRecordingPlaybackPlan,
   buildRecordingsListMarkup,
+  disposeRecordingsDayCache,
   RecordingsBrowseNavController,
+  RecordingsDayCache,
   RecordingsSwipeController,
   formatRecordingScrubTime,
   normalizeFetchedRecordingsAvailability,
@@ -284,6 +286,7 @@ import {
   resolveRecordingsBrowseNavContextState,
   resolveRecordingsBrowseNavProbePlan,
   resolveRecordingsBrowseNavState,
+  resetRecordingsDayCache,
   splitRecordingsHourly,
 } from "../features/recordings/index.js";
 import {
@@ -1138,9 +1141,7 @@ export class FrigateViewCard extends HTMLElement {
     this._liveOverlayControlsController = null;
     this._lastLiveOverlayPointerType = "mouse";
     this._snapshotResultTimers = { live: null, popup: null };
-    this._recordingsDayAvailabilityCache = new Map();
-    this._recordingsDayDataCache = new Map();
-    this._recordingsDayFetchedAtCache = new Map();
+    this._recordingsDayCache = new RecordingsDayCache();
     this._recordingsDayRequestCache = new Map();
     this._recordingsNavUpdateToken = 0;
     this._recordingsDayNavAnimating = false;
@@ -2016,6 +2017,7 @@ export class FrigateViewCard extends HTMLElement {
           c?.group?.layout !== nextCams[i]?.group?.layout,
       );
     if (camerasChanged) {
+      resetRecordingsDayCache(this);
       this._activeCameraAvailability = resolveCameraAvailabilitySnapshot({
         entity: this._activeCam?.entity || "",
         state: this._hass?.states?.[this._activeCam?.entity],
@@ -2327,6 +2329,7 @@ export class FrigateViewCard extends HTMLElement {
     this._clearRotateOverlayAudioSync();
     this._clearRotateVideoFullscreenStyle();
     this._mseGraceController.clearGracePool();
+    disposeRecordingsDayCache(this);
     if (this._parentOrigStyle && this.parentElement) {
       this.parentElement.style.height = this._parentOrigStyle.height;
       this.parentElement.style.margin = this._parentOrigStyle.margin;

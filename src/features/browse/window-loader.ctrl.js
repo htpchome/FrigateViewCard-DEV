@@ -9,6 +9,7 @@ import {
 } from "../../constants.js";
 import { fetchWindowedItems } from "../../data/window-fetch.js";
 import { buildRecordingsDayCacheKey } from "../recordings/utils/availability.js";
+import { ensureRecordingsDayCache } from "../recordings/day-cache.js";
 import { resolveRecordingsDayBounds } from "../recordings/utils/day.js";
 import {
   cameraGroupMemberConfig,
@@ -1691,17 +1692,7 @@ export class BrowseWindowLoaderController {
   async loadWindowRecordings(clientId, cam, before) {
     const bounds = this._resolveRecordingsDayBounds(before);
     const cacheKey = buildRecordingsDayCacheKey(clientId, cam, bounds);
-    if (!this._host._recordingsDayDataCache) {
-      this._host._recordingsDayDataCache = new Map();
-    }
-    if (!this._host._recordingsDayAvailabilityCache) {
-      this._host._recordingsDayAvailabilityCache = new Map();
-    }
-    if (!this._host._recordingsDayFetchedAtCache) {
-      this._host._recordingsDayFetchedAtCache = new Map();
-    }
-
-    const dataCache = this._host._recordingsDayDataCache;
+    const dayCache = ensureRecordingsDayCache(this._host);
     const secondaryTask = isCameraGroup(this._host._activeCam)
       ? this._loadActiveGroupSecondaryRecordings(before, bounds)
       : Promise.resolve([]);
@@ -1712,8 +1703,10 @@ export class BrowseWindowLoaderController {
       }
       return recordings;
     };
-    const hasCached = dataCache.has(cacheKey);
-    const cachedRecordings = hasCached ? dataCache.get(cacheKey) || [] : [];
+    const hasCached = dayCache.hasRecordings(cacheKey);
+    const cachedRecordings = hasCached
+      ? dayCache.getRecordings(cacheKey) || []
+      : [];
     if (hasCached) {
       this._publishRecordingsDay(
         clientId,
@@ -1728,9 +1721,7 @@ export class BrowseWindowLoaderController {
     );
     const isToday =
       bounds.start === todayBounds.start && bounds.end === todayBounds.end;
-    const fetchedAt = Number(
-      this._host._recordingsDayFetchedAtCache.get(cacheKey) || 0,
-    );
+    const fetchedAt = Number(dayCache.getFetchedAt(cacheKey) || 0);
     const cacheIsFresh =
       fetchedAt > 0 && Date.now() - fetchedAt < this._recordingsFreshnessMs();
     if (hasCached && (!isToday || cacheIsFresh)) {
@@ -1782,9 +1773,11 @@ export class BrowseWindowLoaderController {
     }
     const { entity, clientId, cam, cache } = context;
     const cacheKey = buildRecordingsDayCacheKey(clientId, cam, bounds);
-    const dataCache = this._host._recordingsDayDataCache;
-    const hasCached = dataCache.has(cacheKey);
-    const cachedRecordings = hasCached ? dataCache.get(cacheKey) || [] : [];
+    const dayCache = ensureRecordingsDayCache(this._host);
+    const hasCached = dayCache.hasRecordings(cacheKey);
+    const cachedRecordings = hasCached
+      ? dayCache.getRecordings(cacheKey) || []
+      : [];
     if (hasCached) {
       cache.recordings = cachedRecordings;
       this.publishActiveGroupCombined("recordings");
@@ -1794,9 +1787,7 @@ export class BrowseWindowLoaderController {
     );
     const isToday =
       bounds.start === todayBounds.start && bounds.end === todayBounds.end;
-    const fetchedAt = Number(
-      this._host._recordingsDayFetchedAtCache.get(cacheKey) || 0,
-    );
+    const fetchedAt = Number(dayCache.getFetchedAt(cacheKey) || 0);
     const cacheIsFresh =
       fetchedAt > 0 && Date.now() - fetchedAt < this._recordingsFreshnessMs();
     if (hasCached && (!isToday || cacheIsFresh)) return cachedRecordings;
@@ -1915,8 +1906,10 @@ export class BrowseWindowLoaderController {
     }
 
     const key = buildRecordingsDayCacheKey(clientId, cam, bounds);
-    const dataCache = this._host._recordingsDayDataCache;
-    if (!forceRefresh && dataCache.has(key)) return dataCache.get(key) || [];
+    const dayCache = ensureRecordingsDayCache(this._host);
+    if (!forceRefresh && dayCache.hasRecordings(key)) {
+      return dayCache.getRecordings(key) || [];
+    }
     if (!this._host._recordingsDayRequestCache) {
       this._host._recordingsDayRequestCache = new Map();
     }
@@ -1932,12 +1925,7 @@ export class BrowseWindowLoaderController {
         before: bounds.end,
       });
       const recordings = Array.isArray(response) ? response : [];
-      dataCache.set(key, recordings);
-      this._host._recordingsDayAvailabilityCache.set(
-        key,
-        recordings.length > 0,
-      );
-      this._host._recordingsDayFetchedAtCache.set(key, Date.now());
+      dayCache.setRecordings(key, recordings, { fetchedAt: Date.now() });
       return recordings;
     })();
     requestCache.set(key, request);

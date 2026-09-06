@@ -45,8 +45,25 @@ globalThis.HTMLElement =
 globalThis.HTMLImageElement = globalThis.HTMLImageElement || class {};
 
 const { FrigateViewCard } = await import("../../src/card/FrigateViewCard.js");
-const { RecordingsBrowseNavController } =
-  await import("../../src/features/recordings/index.js");
+const {
+  RecordingsBrowseNavController,
+  RecordingsDayCache,
+  resetRecordingsDayCache,
+} = await import("../../src/features/recordings/index.js");
+
+const createDayCache = (entries = []) => {
+  const cache = new RecordingsDayCache();
+  for (const [key, value] of entries) {
+    if (Object.hasOwn(value, "recordings")) {
+      cache.setRecordings(key, value.recordings, {
+        fetchedAt: value.fetchedAt,
+      });
+    } else if (Object.hasOwn(value, "available")) {
+      cache.setAvailability(key, value.available);
+    }
+  }
+  return cache;
+};
 
 function createBrowseNavContext({
   clientId = "client-a",
@@ -106,8 +123,7 @@ function createCommitContext({
   recordings = [{ id: 1 }],
   swipeActive = false,
 } = {}) {
-  const dataCache = new Map();
-  const availabilityCache = new Map();
+  const dayCache = new RecordingsDayCache();
   const calls = [];
   const removedClasses = [];
   const list = {
@@ -120,8 +136,7 @@ function createCommitContext({
   };
 
   return {
-    dataCache,
-    availabilityCache,
+    dayCache,
     calls,
     list,
     removedClasses,
@@ -131,8 +146,7 @@ function createCommitContext({
       _winEnd: 0,
       _exhausted: true,
       _recordings: [],
-      _recordingsDayDataCache: dataCache,
-      _recordingsDayAvailabilityCache: availabilityCache,
+      _recordingsDayCache: dayCache,
       _recordingsSwipeController: {
         clearListState(targetList = null) {
           (targetList || list)?.classList?.remove?.("recordings-swipe-active");
@@ -286,11 +300,11 @@ test("_updateRecordingsBrowseNav skips next-day probing on today", async () => {
 });
 
 test("hasRecordingsInBounds syncs cache hits and fetches uncached availability", async () => {
-  const dataCache = new Map([["client-a|front|0|99", [{ id: 1 }]]]);
-  const availabilityCache = new Map();
+  const dayCache = createDayCache([
+    ["client-a|front|0|99", { recordings: [{ id: 1 }] }],
+  ]);
   const host = {
-    _recordingsDayDataCache: dataCache,
-    _recordingsDayAvailabilityCache: availabilityCache,
+    _recordingsDayCache: dayCache,
     _ws: async ({ before }) => {
       if (before === 199) return [{ id: 2 }];
       return [];
@@ -306,7 +320,7 @@ test("hasRecordingsInBounds syncs cache hits and fetches uncached availability",
     ),
     true,
   );
-  assert.equal(availabilityCache.get("client-a|front|0|99"), true);
+  assert.equal(dayCache.getAvailability("client-a|front|0|99"), true);
   assert.equal(
     await controller.hasRecordingsInBounds(
       { start: 100, end: 199 },
@@ -315,19 +329,21 @@ test("hasRecordingsInBounds syncs cache hits and fetches uncached availability",
     ),
     true,
   );
-  assert.deepEqual(dataCache.get("client-a|front|100|199"), [{ id: 2 }]);
-  assert.equal(availabilityCache.get("client-a|front|100|199"), true);
+  assert.deepEqual(dayCache.getRecordings("client-a|front|100|199"), [
+    { id: 2 },
+  ]);
+  assert.equal(dayCache.getAvailability("client-a|front|100|199"), true);
 });
 
 test("prepareDayTransition reuses cached transitions and fetches uncached day data", async () => {
   const cachedBounds = { start: 0, end: 99 };
   const fetchedBounds = { start: 100, end: 199 };
-  const dataCache = new Map([["client-a|front|0|99", [{ id: "cached" }]]]);
-  const availabilityCache = new Map();
+  const dayCache = createDayCache([
+    ["client-a|front|0|99", { recordings: [{ id: "cached" }] }],
+  ]);
   const calls = [];
   const host = {
-    _recordingsDayDataCache: dataCache,
-    _recordingsDayAvailabilityCache: availabilityCache,
+    _recordingsDayCache: dayCache,
     _recordingsOffsetDayBounds: (direction) =>
       direction < 0 ? cachedBounds : fetchedBounds,
     _recordingsDayBounds: () => ({ start: 200, end: 299 }),
@@ -352,10 +368,10 @@ test("prepareDayTransition reuses cached transitions and fetches uncached day da
     recs: [{ id: "fetched" }],
   });
   assert.deepEqual(calls, [["ws", 199]]);
-  assert.deepEqual(dataCache.get("client-a|front|100|199"), [
+  assert.deepEqual(dayCache.getRecordings("client-a|front|100|199"), [
     { id: "fetched" },
   ]);
-  assert.equal(availabilityCache.get("client-a|front|100|199"), true);
+  assert.equal(dayCache.getAvailability("client-a|front|100|199"), true);
 });
 
 test("fetchRecordingsInBounds deduplicates concurrent day requests", async () => {
@@ -366,9 +382,7 @@ test("fetchRecordingsInBounds deduplicates concurrent day requests", async () =>
     releaseRequest = resolve;
   });
   const host = {
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
-    _recordingsDayFetchedAtCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _recordingsDayRequestCache: new Map(),
     _ws: async () => {
       requestCount += 1;
@@ -395,8 +409,39 @@ test("fetchRecordingsInBounds deduplicates concurrent day requests", async () =>
   assert.deepEqual(await second, [{ id: "recording-1" }]);
   assert.equal(host._recordingsDayRequestCache.size, 0);
   assert.deepEqual(
-    host._recordingsDayDataCache.get("client-a|front|100|199"),
+    host._recordingsDayCache.getRecordings("client-a|front|100|199"),
     [{ id: "recording-1" }],
+  );
+});
+
+test("an in-flight day request cannot repopulate a reset cache", async () => {
+  const bounds = { start: 100, end: 199 };
+  let releaseRequest;
+  const pendingRequest = new Promise((resolve) => {
+    releaseRequest = resolve;
+  });
+  const host = {
+    _recordingsDayCache: new RecordingsDayCache(),
+    _recordingsDayRequestCache: new Map(),
+    _ws: async () => await pendingRequest,
+  };
+  const staleCache = host._recordingsDayCache;
+  const controller = new RecordingsBrowseNavController(host);
+  const request = controller.fetchRecordingsInBounds(
+    bounds,
+    "client-a",
+    "front",
+  );
+
+  const replacement = resetRecordingsDayCache(host);
+  releaseRequest([{ id: "late-recording" }]);
+
+  assert.deepEqual(await request, [{ id: "late-recording" }]);
+  assert.equal(staleCache.size, 0);
+  assert.equal(replacement.size, 0);
+  assert.equal(
+    replacement.hasRecordings("client-a|front|100|199"),
+    false,
   );
 });
 
@@ -405,9 +450,7 @@ test("fetchRecordingsInBoundsProgressively paints newest slices before completin
   const requests = [];
   const paints = [];
   const host = {
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
-    _recordingsDayFetchedAtCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _recordingsDayRequestCache: new Map(),
     _ws: async ({ after, before }) => {
       requests.push([after, before]);
@@ -453,15 +496,17 @@ test("fetchRecordingsInBoundsProgressively paints newest slices before completin
     ["oldest", "middle", "newest"],
   );
   assert.deepEqual(
-    host._recordingsDayDataCache.get("client-a|front|100|400"),
+    host._recordingsDayCache.getRecordings("client-a|front|100|400"),
     recordings,
   );
   assert.equal(
-    host._recordingsDayAvailabilityCache.get("client-a|front|100|400"),
+    host._recordingsDayCache.getAvailability("client-a|front|100|400"),
     true,
   );
   assert.equal(
-    host._recordingsDayFetchedAtCache.has("client-a|front|100|400"),
+    Number.isFinite(
+      host._recordingsDayCache.getFetchedAt("client-a|front|100|400"),
+    ),
     true,
   );
   assert.equal(host._recordingsDayRequestCache.size, 0);
@@ -472,9 +517,7 @@ test("fetchRecordingsInBoundsProgressively keeps painted data when an older slic
   const paints = [];
   let requestCount = 0;
   const host = {
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
-    _recordingsDayFetchedAtCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _recordingsDayRequestCache: new Map(),
     _ws: async () => {
       requestCount += 1;
@@ -500,7 +543,7 @@ test("fetchRecordingsInBoundsProgressively keeps painted data when an older slic
   ]);
   assert.equal(paints.length, 1);
   assert.equal(
-    host._recordingsDayDataCache.has("client-a|front|100|300"),
+    host._recordingsDayCache.hasRecordings("client-a|front|100|300"),
     false,
   );
   assert.equal(host._recordingsDayRequestCache.size, 0);
@@ -509,9 +552,7 @@ test("fetchRecordingsInBoundsProgressively keeps painted data when an older slic
 test("fetchRecordingsInBoundsProgressively rejects when the newest slice fails", async () => {
   const bounds = { start: 100, end: 300 };
   const host = {
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
-    _recordingsDayFetchedAtCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _recordingsDayRequestCache: new Map(),
     _ws: async () => {
       throw new Error("offline");
@@ -528,15 +569,14 @@ test("fetchRecordingsInBoundsProgressively rejects when the newest slice fails",
     ),
     /offline/,
   );
-  assert.equal(host._recordingsDayDataCache.size, 0);
+  assert.equal(host._recordingsDayCache.size, 0);
   assert.equal(host._recordingsDayRequestCache.size, 0);
 });
 
 test("prepareDayTransition preserves the empty bounce state when loading fails", async () => {
   const bounds = { start: 100, end: 199 };
   const host = {
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _recordingsOffsetDayBounds: () => bounds,
     _recordingsDayBounds: () => ({ start: 200, end: 299 }),
     _cc: () => ({ clientId: "client-a", cam: "front" }),
@@ -561,8 +601,7 @@ test("scheduleBrowseNavUpdate waits for current rows and coalesces repeated rend
   const host = {
     _tab: "recordings",
     _winEnd: 150,
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _cc: () => ({ clientId: "client-a", cam: "front" }),
     _recordingsDayBounds: () => bounds,
     _pageShellRegionElement: (_region, selector) =>
@@ -578,7 +617,7 @@ test("scheduleBrowseNavUpdate waits for current rows and coalesces repeated rend
   assert.equal(next.disabled, true);
   assert.equal(controller.scheduleBrowseNavUpdate(), false);
 
-  host._recordingsDayDataCache.set("client-a|front|100|199", []);
+  host._recordingsDayCache.setRecordings("client-a|front|100|199", []);
   assert.equal(controller.scheduleBrowseNavUpdate(), true);
   assert.equal(controller.scheduleBrowseNavUpdate(), false);
   await new Promise((resolve) => setImmediate(resolve));
@@ -592,8 +631,7 @@ test("_commitRecordingsDayTransition updates caches and render state with camera
   const {
     ctx,
     calls,
-    dataCache,
-    availabilityCache,
+    dayCache,
     recordings,
     removedClasses,
   } = createCommitContext({
@@ -612,8 +650,11 @@ test("_commitRecordingsDayTransition updates caches and render state with camera
   assert.equal(ctx._exhausted, false);
   assert.equal(ctx._lastRenderedListHtml, "");
   assert.deepEqual(ctx._recordings, recordings);
-  assert.deepEqual(dataCache.get("client-a|front|100|200"), recordings);
-  assert.equal(availabilityCache.get("client-a|front|100|200"), true);
+  assert.deepEqual(
+    dayCache.getRecordings("client-a|front|100|200"),
+    recordings,
+  );
+  assert.equal(dayCache.getAvailability("client-a|front|100|200"), true);
   assert.deepEqual(removedClasses, ["recordings-swipe-active"]);
   assert.deepEqual(calls, [
     ["prune"],
@@ -625,7 +666,7 @@ test("_commitRecordingsDayTransition updates caches and render state with camera
 
 test("_commitRecordingsDayTransition skips cache writes without camera context", async () => {
   const bounds = { start: 300, end: 400 };
-  const { ctx, calls, dataCache, availabilityCache, removedClasses } =
+  const { ctx, calls, dayCache, removedClasses } =
     createCommitContext({
       clientId: "",
       camera: "front",
@@ -641,8 +682,7 @@ test("_commitRecordingsDayTransition skips cache writes without camera context",
   assert.equal(ctx._winEnd, 400);
   assert.equal(ctx._exhausted, false);
   assert.deepEqual(ctx._recordings, []);
-  assert.equal(dataCache.size, 0);
-  assert.equal(availabilityCache.size, 0);
+  assert.equal(dayCache.size, 0);
   assert.deepEqual(removedClasses, ["recordings-swipe-active"]);
   assert.deepEqual(calls, [
     ["prune"],

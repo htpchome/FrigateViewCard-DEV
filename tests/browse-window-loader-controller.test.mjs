@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { BrowseWindowLoaderController } from "../src/features/browse/window-loader.ctrl.js";
+import { RecordingsDayCache } from "../src/features/recordings/day-cache.js";
 
 test("fetchWindowedReviews applies severity at the data boundary", async () => {
   const requests = [];
@@ -1852,8 +1853,7 @@ test("loadWindowRecordings resolves day bounds without card-owned recordings wra
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _recordings: [],
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _tzParts: (target) =>
       target === 150
         ? { year: 2026, month: 8, day: 5 }
@@ -1892,11 +1892,11 @@ test("loadWindowRecordings resolves day bounds without card-owned recordings wra
   ]);
   assert.deepEqual(activeCache.recordings, host._recordings);
   assert.deepEqual(
-    host._recordingsDayDataCache.get("frigate|front|100|199"),
+    host._recordingsDayCache.getRecordings("frigate|front|100|199"),
     host._recordings,
   );
   assert.equal(
-    host._recordingsDayAvailabilityCache.get("frigate|front|100|199"),
+    host._recordingsDayCache.getAvailability("frigate|front|100|199"),
     true,
   );
 });
@@ -1915,9 +1915,7 @@ test("loadWindowRecordings paints progressive cold-load results as they arrive",
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": {} },
     _recordings: [],
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
-    _recordingsDayFetchedAtCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _recordingsDayBounds: () => bounds,
     _cc: () => ({ clientId: "frigate", cam: "front" }),
     _recordingsBrowseNavController: {
@@ -1963,15 +1961,15 @@ test("loadWindowRecordings paints stale current-day cache before refreshing it",
     releaseRequest = resolve;
   });
   const renders = [];
+  const dayCache = new RecordingsDayCache();
+  dayCache.setRecordings(key, cached, { fetchedAt: Date.now() - 60_000 });
   const host = {
     _winEnd: 150,
     _config: { refresh_seconds: 15 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": {} },
     _recordings: [],
-    _recordingsDayDataCache: new Map([[key, cached]]),
-    _recordingsDayAvailabilityCache: new Map([[key, true]]),
-    _recordingsDayFetchedAtCache: new Map([[key, Date.now() - 60_000]]),
+    _recordingsDayCache: dayCache,
     _recordingsDayRequestCache: new Map(),
     _recordingsDayBounds: () => bounds,
     _cc: () => ({ clientId: "frigate", cam: "front" }),
@@ -1993,7 +1991,7 @@ test("loadWindowRecordings paints stale current-day cache before refreshing it",
   await load;
 
   assert.deepEqual(host._recordings, refreshed);
-  assert.deepEqual(host._recordingsDayDataCache.get(key), refreshed);
+  assert.deepEqual(host._recordingsDayCache.getRecordings(key), refreshed);
   assert.deepEqual(renders, [cached, refreshed]);
 });
 
@@ -2002,15 +2000,15 @@ test("loadWindowRecordings reuses a fresh current-day cache without fetching", a
   const key = "frigate|front|100|199";
   const cached = [{ id: "cached", start_time: 110, end_time: 120 }];
   let requestCount = 0;
+  const dayCache = new RecordingsDayCache();
+  dayCache.setRecordings(key, cached, { fetchedAt: Date.now() });
   const host = {
     _winEnd: 150,
     _config: { refresh_seconds: 45 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": {} },
     _recordings: [],
-    _recordingsDayDataCache: new Map([[key, cached]]),
-    _recordingsDayAvailabilityCache: new Map([[key, true]]),
-    _recordingsDayFetchedAtCache: new Map([[key, Date.now()]]),
+    _recordingsDayCache: dayCache,
     _recordingsDayBounds: () => bounds,
     _cc: () => ({ clientId: "frigate", cam: "front" }),
     _ws: async () => {
@@ -2067,9 +2065,7 @@ test("camera-group recordings load both physical members in parallel", async () 
       },
     },
     _recordings: [],
-    _recordingsDayDataCache: new Map(),
-    _recordingsDayAvailabilityCache: new Map(),
-    _recordingsDayFetchedAtCache: new Map(),
+    _recordingsDayCache: new RecordingsDayCache(),
     _recordingsDayBounds: () => bounds,
     _cc: () => ({ clientId: "frigate", cam: "main" }),
     _discoverOne: async () => {},

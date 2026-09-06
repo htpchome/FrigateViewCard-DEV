@@ -50,6 +50,14 @@ export { RecordingsSwipeController } from "./swipe.ctrl.js";
 export { RecordingsBrowseNavController } from "./browse-nav.ctrl.js";
 
 export {
+  disposeRecordingsDayCache,
+  ensureRecordingsDayCache,
+  RECORDINGS_DAY_CACHE_MAX_ENTRIES,
+  RecordingsDayCache,
+  resetRecordingsDayCache,
+} from "./day-cache.js";
+
+export {
   RECORDINGS_SWIPE_EMPTY_HTML,
   resolvePreparedRecordingsDayNavigationState,
   resolvePreparedRecordingsIncomingState,

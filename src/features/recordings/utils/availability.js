@@ -33,6 +33,7 @@ export function resolvePreparedRecordingsDayTransition({
   todayBounds = null,
   clientId = "",
   camera = "",
+  dayCache = null,
   dataCache = null,
 }) {
   const emptyResult = {
@@ -61,8 +62,13 @@ export function resolvePreparedRecordingsDayTransition({
   }
 
   const key = buildRecordingsDayCacheKey(clientId, camera, bounds);
-  if (dataCache?.has(key)) {
-    const recordings = dataCache.get(key) || [];
+  const hasCachedRecordings = dayCache?.hasRecordings
+    ? dayCache.hasRecordings(key)
+    : dataCache?.has(key);
+  if (hasCachedRecordings) {
+    const recordings = dayCache?.getRecordings
+      ? dayCache.getRecordings(key) || []
+      : dataCache.get(key) || [];
     return {
       done: true,
       key,
@@ -83,9 +89,27 @@ export function resolvePreparedRecordingsDayTransition({
 
 export function resolveCachedRecordingsAvailability({
   key = "",
+  dayCache = null,
   dataCache = null,
   availabilityCache = null,
 }) {
+  if (dayCache?.hasRecordings?.(key)) {
+    const recordings = dayCache.getRecordings(key) || [];
+    return {
+      found: true,
+      hasRecordings: recordings.length > 0,
+      shouldSyncAvailability: !dayCache.hasAvailability?.(key),
+    };
+  }
+
+  if (dayCache?.hasAvailability?.(key)) {
+    return {
+      found: true,
+      hasRecordings: dayCache.getAvailability(key) === true,
+      shouldSyncAvailability: false,
+    };
+  }
+
   if (dataCache?.has(key)) {
     const recordings = dataCache.get(key) || [];
     return {

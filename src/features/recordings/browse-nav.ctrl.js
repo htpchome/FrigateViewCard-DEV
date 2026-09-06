@@ -22,6 +22,7 @@ import {
   cameraMemberEntities,
   isCameraGroup,
 } from "../camera-groups/model.js";
+import { ensureRecordingsDayCache } from "./day-cache.js";
 
 export class RecordingsBrowseNavController {
   constructor(host) {
@@ -77,25 +78,8 @@ export class RecordingsBrowseNavController {
     });
   }
 
-  _recordingsDataCache() {
-    if (!this._host._recordingsDayDataCache) {
-      this._host._recordingsDayDataCache = new Map();
-    }
-    return this._host._recordingsDayDataCache;
-  }
-
-  _recordingsAvailabilityCache() {
-    if (!this._host._recordingsDayAvailabilityCache) {
-      this._host._recordingsDayAvailabilityCache = new Map();
-    }
-    return this._host._recordingsDayAvailabilityCache;
-  }
-
-  _recordingsFetchedAtCache() {
-    if (!this._host._recordingsDayFetchedAtCache) {
-      this._host._recordingsDayFetchedAtCache = new Map();
-    }
-    return this._host._recordingsDayFetchedAtCache;
+  _recordingsDayCache() {
+    return ensureRecordingsDayCache(this._host);
   }
 
   _recordingsRequestCache() {
@@ -194,9 +178,9 @@ export class RecordingsBrowseNavController {
   ) {
     if (!bounds || !clientId || !cam) return [];
     const key = buildRecordingsDayCacheKey(clientId, cam, bounds);
-    const dataCache = this._recordingsDataCache();
-    if (!forceRefresh && dataCache.has(key)) {
-      return dataCache.get(key) || [];
+    const dayCache = this._recordingsDayCache();
+    if (!forceRefresh && dayCache.hasRecordings(key)) {
+      return dayCache.getRecordings(key) || [];
     }
 
     const requestCache = this._recordingsRequestCache();
@@ -211,12 +195,9 @@ export class RecordingsBrowseNavController {
         before: bounds.end,
       });
       const fetched = resolveFetchedRecordingsAvailabilityState(recordings);
-      dataCache.set(key, fetched.recordings);
-      this._recordingsAvailabilityCache().set(
-        key,
-        fetched.availabilityValue,
-      );
-      this._recordingsFetchedAtCache().set(key, Date.now());
+      dayCache.setRecordings(key, fetched.recordings, {
+        fetchedAt: Date.now(),
+      });
       return fetched.recordings;
     })();
     requestCache.set(key, request);
@@ -235,8 +216,10 @@ export class RecordingsBrowseNavController {
   ) {
     if (!bounds || !clientId || !cam) return [];
     const key = buildRecordingsDayCacheKey(clientId, cam, bounds);
-    const dataCache = this._recordingsDataCache();
-    if (dataCache.has(key)) return dataCache.get(key) || [];
+    const dayCache = this._recordingsDayCache();
+    if (dayCache.hasRecordings(key)) {
+      return dayCache.getRecordings(key) || [];
+    }
 
     const requestCache = this._recordingsRequestCache();
     if (requestCache.has(key)) return await requestCache.get(key);
@@ -262,12 +245,9 @@ export class RecordingsBrowseNavController {
           completedChunks += 1;
           const complete = index === chunks.length - 1;
           if (complete) {
-            dataCache.set(key, accumulated);
-            this._recordingsAvailabilityCache().set(
-              key,
-              accumulated.length > 0,
-            );
-            this._recordingsFetchedAtCache().set(key, Date.now());
+            dayCache.setRecordings(key, accumulated, {
+              fetchedAt: Date.now(),
+            });
           }
           if ((accumulated.length || complete) && onProgress) {
             try {
@@ -285,9 +265,7 @@ export class RecordingsBrowseNavController {
       }
 
       if (!chunks.length) {
-        dataCache.set(key, []);
-        this._recordingsAvailabilityCache().set(key, false);
-        this._recordingsFetchedAtCache().set(key, Date.now());
+        dayCache.setRecordings(key, [], { fetchedAt: Date.now() });
         if (onProgress) {
           try {
             onProgress([], {
@@ -311,14 +289,14 @@ export class RecordingsBrowseNavController {
 
   async hasRecordingsInBounds(bounds, clientId, cam) {
     const key = buildRecordingsDayCacheKey(clientId, cam, bounds);
+    const dayCache = this._recordingsDayCache();
     const cached = resolveCachedRecordingsAvailability({
       key,
-      dataCache: this._recordingsDataCache(),
-      availabilityCache: this._recordingsAvailabilityCache(),
+      dayCache,
     });
     if (cached.found) {
       if (cached.shouldSyncAvailability) {
-        this._recordingsAvailabilityCache().set(key, cached.hasRecordings);
+        dayCache.setAvailability(key, cached.hasRecordings);
       }
       return cached.hasRecordings;
     }
@@ -331,10 +309,7 @@ export class RecordingsBrowseNavController {
       return recordings.length > 0;
     } catch (_) {
       const failed = resolveFailedRecordingsAvailabilityState();
-      this._recordingsAvailabilityCache().set(
-        key,
-        failed.availabilityValue,
-      );
+      dayCache.setAvailability(key, failed.availabilityValue);
       return failed.hasRecordings;
     }
   }
@@ -349,7 +324,7 @@ export class RecordingsBrowseNavController {
       todayBounds: today,
       clientId,
       camera: cam,
-      dataCache: this._host._recordingsDayDataCache,
+      dayCache: this._recordingsDayCache(),
     });
     if (prepared.done) {
       return prepared.result;
@@ -366,8 +341,7 @@ export class RecordingsBrowseNavController {
       return { hasData: false, bounds, recs: [] };
     }
     const result = buildPreparedRecordingsDayResult(bounds, recordings);
-    this._recordingsDataCache().set(key, result.recs);
-    this._recordingsAvailabilityCache().set(key, result.hasData);
+    this._recordingsDayCache().setRecordings(key, result.recs);
     return result;
   }
 
@@ -378,11 +352,12 @@ export class RecordingsBrowseNavController {
     const bounds = this._recordingsDayBounds();
     const key = buildRecordingsDayCacheKey(clientId, cam, bounds);
     if (!requireData) return key;
+    const dayCache = this._recordingsDayCache();
     if (contexts.length <= 1) {
-      return this._recordingsDataCache().has(key) ? key : "";
+      return dayCache.hasRecordings(key) ? key : "";
     }
     const allMembersResolved = contexts.every((context) =>
-      this._recordingsDataCache().has(
+      dayCache.hasRecordings(
         buildRecordingsDayCacheKey(
           context.clientId,
           context.cam,
@@ -390,7 +365,7 @@ export class RecordingsBrowseNavController {
         ),
       ),
     );
-    return allMembersResolved || this._recordingsDataCache().has(key)
+    return allMembersResolved || dayCache.hasRecordings(key)
       ? key
       : "";
   }
@@ -539,13 +514,9 @@ export class RecordingsBrowseNavController {
       this._host._pruneNonActiveCamWindowCaches?.();
     this._host._recordings = committed.recordings;
     if (committed.key) {
-      this._host._recordingsDayDataCache.set(
+      this._recordingsDayCache().setRecordings(
         committed.key,
         this._host._recordings,
-      );
-      this._host._recordingsDayAvailabilityCache.set(
-        committed.key,
-        committed.hasRecordings,
       );
     }
     if (contexts.length > 1) {
