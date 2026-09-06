@@ -541,8 +541,7 @@ export class PreviewPageController {
       : groupMembers[0] || "";
     const isPhoneView =
       this._constants.DEVICE_PROFILE?.isPhone === true ||
-      this._host._isLikelyPhoneClient?.() === true ||
-      this._host._isMobilePhoneViewport?.() === true;
+      this._host._isLikelyPhoneClient?.() === true;
     const groupMemberEntity =
       isPhoneView &&
       isCameraGroup(camera) &&

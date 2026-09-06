@@ -1,4 +1,5 @@
 import { MOBILE_VIEW_PAGE_STYLES } from "./features/mobile-view/page.styles.js";
+import { SINGLE_VIEW_PAGE_STYLES } from "./features/single-view/page.styles.js";
 import { CARD_VIEW_PAGE_STYLES } from "./features/card-view/page.styles.js";
 import { CAMERA_PICKER_STYLES } from "./features/navigation/camera-picker.styles.js";
 import { WIDE_VIEW_TIMELINE_STYLES } from "./features/wide-view/timeline.styles.js";
@@ -1329,6 +1330,7 @@ export const STYLES = `
   }
 
 
+${SINGLE_VIEW_PAGE_STYLES}
 ${MOBILE_VIEW_PAGE_STYLES}
 ${CAMERA_PICKER_STYLES}
 ${CARD_VIEW_PAGE_STYLES}

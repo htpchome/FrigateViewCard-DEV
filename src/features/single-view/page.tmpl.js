@@ -98,6 +98,13 @@ export function resolveSingleViewOnlineLabel(online) {
   return online ? "Online" : "Offline";
 }
 
+export function buildSingleViewLiveBadgeMarkup() {
+  return `<div class="single-view-live-badge" data-single-view-live-badge aria-label="Live camera">
+              <span class="single-view-live-badge-dot" aria-hidden="true"></span>
+              <span>Live</span>
+            </div>`;
+}
+
 export function buildSingleViewMainLayoutShellMarkup({
   regions: suppliedRegions = null,
   layoutProfile = {},
@@ -127,6 +134,7 @@ export function buildSingleViewMainLayoutShellMarkup({
               <div class="live-stage live-stage--overlay" id="live-stage">
                 ${regions.live}
                 ${buildLivePlaybackControlsMarkup(regions)}
+                ${buildSingleViewLiveBadgeMarkup()}
               </div>
 
               ${regions.information}

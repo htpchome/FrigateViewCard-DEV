@@ -50,34 +50,6 @@ test("isCardVisible respects connection, document visibility, display, and bound
   );
 });
 
-test("isMobilePhoneViewport uses card width fallback and threshold", () => {
-  const host = { _cardWidth: 390 };
-  const controller = new ViewportContextController(host);
-
-  withGlobals(
-    {
-      window: { innerWidth: 500 },
-      document: {},
-      getComputedStyle: () => ({ display: "block", visibility: "visible" }),
-    },
-    () => {
-      assert.equal(controller.isMobilePhoneViewport(), true);
-    },
-  );
-
-  host._cardWidth = 430;
-  withGlobals(
-    {
-      window: { innerWidth: 430 },
-      document: {},
-      getComputedStyle: () => ({ display: "block", visibility: "visible" }),
-    },
-    () => {
-      assert.equal(controller.isMobilePhoneViewport(), false);
-    },
-  );
-});
-
 test("isMobileTabletViewport matches coarse tablet-sized displays", () => {
   const controller = new ViewportContextController({});
 

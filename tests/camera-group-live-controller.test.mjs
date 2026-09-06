@@ -83,7 +83,6 @@ const createHost = () => {
     },
     _isPreviewPageActive: () => false,
     _isLikelyPhoneClient: () => false,
-    _isMobilePhoneViewport: () => false,
     _cameraConnectionType: () => "frigate_go2rtc",
     _currentLiveStreamHint: () => "webrtc",
     _preferredStreamType: () => "webrtc",

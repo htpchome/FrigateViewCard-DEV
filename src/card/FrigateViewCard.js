@@ -112,7 +112,6 @@ import {
 } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
 import {
-  CARD_VIEW_VIEW_MODES,
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
@@ -3378,23 +3377,11 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _isSlideshowRotationAvailable() {
-    const allowPhone =
-      this._config?.card_view_page_enabled === true &&
-      (this._config?.card_view_standalone === true ||
-        normalizeCardViewViewMode(
-          this._config?.card_view_view_mode,
-        ) === CARD_VIEW_VIEW_MODES.videoOnly);
     return (
       this._config?.slideshow_rotation_enabled === true &&
-      (allowPhone ||
-        (!DEVICE_PROFILE.isPhone && !this._isMobilePhoneViewport())) &&
       Array.isArray(this._config?.cameras) &&
       flattenCameraMembers(this._config.cameras).length > 1
     );
-  }
-
-  _isMobilePhoneViewport() {
-    return this._viewportContextController.isMobilePhoneViewport();
   }
 
   _slideshowRotationMs() {

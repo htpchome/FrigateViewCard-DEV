@@ -93,7 +93,6 @@ const createHost = () => {
         ? items.map((item) => `<article class="recording">${item.id}</article>`).join("")
         : `<div class="empty">${emptyText}</div>`,
     _renderControlsSection: (target) => calls.push(["controls", target]),
-    _isMobilePhoneViewport: () => false,
   };
   return {
     host,
@@ -177,12 +176,10 @@ test("browse render controller distinguishes loading from an empty alert window"
   assert.equal(nodes.list.innerHTML.includes("No alerts in this window"), false);
 });
 
-test("recordings day navigation renders on mobile phone widths", () => {
+test("recordings day navigation renders in the recordings header", () => {
   const { host, nodes } = createHost();
   const controller = new BrowseRenderController(host);
   host._tab = "recordings";
-  host._isMobilePhoneViewport = () => true;
-
   controller.renderListLabel();
 
   assert.equal(nodes.previous.style.display, "inline-flex");

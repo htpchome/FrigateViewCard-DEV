@@ -14,11 +14,6 @@ export class ViewportContextController {
     return rect.width > 2 && rect.height > 2;
   }
 
-  isMobilePhoneViewport() {
-    const width = Number(this._host._cardWidth || window.innerWidth || 0);
-    return width > 0 && width < 420;
-  }
-
   isMobileTabletViewport() {
     const coarse =
       window.matchMedia?.("(pointer: coarse)")?.matches ||

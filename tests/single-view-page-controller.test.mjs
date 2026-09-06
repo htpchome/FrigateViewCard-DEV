@@ -763,18 +763,46 @@ test("single-view render helpers update status and title through the controller"
     "#info-title": createNode(),
   };
   const { host } = createHost({ domNodes: nodes });
+  const badgeState = new Set();
+  const badgeAttributes = {};
+  const liveBadge = {
+    hidden: false,
+    classList: {
+      toggle: (className, active) => {
+        if (active) badgeState.add(className);
+        else badgeState.delete(className);
+      },
+    },
+    setAttribute: (name, value) => {
+      badgeAttributes[name] = value;
+    },
+  };
+  host.shadowRoot = {
+    querySelector: (selector) =>
+      selector === "[data-single-view-live-badge]" ? liveBadge : null,
+  };
   const controller = new SingleViewPageController(host, { PAGE_IDS });
 
   controller.syncStatus();
 
   assert.equal(nodes["#on-dot"].style.color, "#4ade80");
   assert.equal(nodes["#on-lbl"].textContent, "Online");
+  assert.equal(liveBadge.hidden, false);
+  assert.equal(badgeState.has("is-offline"), false);
+  assert.equal(badgeAttributes["aria-label"], "Live camera");
   assert.equal(nodes["#info-title"].textContent, "FrigateView");
   assert.equal(nodes["#info-title"].hidden, false);
 
   host._config.display_title = false;
+  host._hass.states["camera.front_door"].state = "unavailable";
   controller.syncStatus();
   assert.equal(nodes["#info-title"].hidden, true);
+  assert.equal(badgeState.has("is-offline"), true);
+  assert.equal(badgeAttributes["aria-label"], "Camera offline");
+
+  host._viewMode = "grid";
+  controller.syncStatus();
+  assert.equal(liveBadge.hidden, true);
 });
 
 test("single-view camera tokens resolve both fields to Grid in grid mode", () => {

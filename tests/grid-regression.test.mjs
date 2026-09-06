@@ -197,7 +197,8 @@ test("Grid startup and its toolbar button use the same view-mode activation", ()
   );
 });
 
-test("standalone Card View permits Grid on phones and owns its start mode", () => {
+test("standalone Card View never permits Grid on actual mobile devices", () => {
+  let isMobile = true;
   const host = {
     _config: {
       cameras: [
@@ -210,16 +211,35 @@ test("standalone Card View permits Grid on phones and owns its start mode", () =
       card_view_standalone: false,
       card_view_start_mode: "live",
     },
-    _isMobilePhoneViewport: () => true,
+    _cardWidth: 400,
+    _isLikelyMobileClient: () => isMobile,
   };
   const controller = new GridPageController(host);
 
   assert.equal(controller.isGridModeAvailable(), false);
   host._config.card_view_standalone = true;
+  assert.equal(controller.isGridModeAvailable(), false);
+
+  isMobile = false;
   assert.equal(controller.isGridModeAvailable(), true);
   assert.equal(controller.shouldStartInGridMode(), false);
   host._config.card_view_start_mode = "grid";
   assert.equal(controller.shouldStartInGridMode(), true);
+});
+
+test("Slideshow availability is not inferred from card width or device type", () => {
+  const start = cardSource.indexOf("_isSlideshowRotationAvailable() {");
+  const end = cardSource.indexOf("_slideshowRotationMs()", start);
+  const availabilitySource = cardSource.slice(start, end);
+
+  assert.match(
+    availabilitySource,
+    /slideshow_rotation_enabled === true/,
+  );
+  assert.match(availabilitySource, /flattenCameraMembers/);
+  assert.doesNotMatch(availabilitySource, /DEVICE_PROFILE|Phone|Viewport/);
+  assert.match(gridPageControllerSource, /_isLikelyMobileClient\?\.\(\) !== true/);
+  assert.doesNotMatch(gridPageControllerSource, /MobilePhoneViewport/);
 });
 
 test("Grid cells own their border and rounded clipping directly", () => {

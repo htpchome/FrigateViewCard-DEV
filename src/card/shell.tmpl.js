@@ -57,7 +57,7 @@ export function buildInfoRowMarkup({
                   <div class="sv stream-type" id="stream-type">--</div>
                   <div class="sl">Stream</div>
                 </div>
-                <div class="stat">
+                <div class="stat info-online-stat">
                   <div class="sv" id="on-dot" style="color:var(--c-on)">●</div>
                   <div class="sl" id="on-lbl">Online</div>
                 </div>

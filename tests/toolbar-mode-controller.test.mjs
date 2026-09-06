@@ -215,7 +215,6 @@ test("Grid rotation pauses in the Home Assistant config preview without changing
           entity: `camera.${index + 1}`,
         })),
       },
-      _isMobilePhoneViewport: () => false,
       _isEditorPreviewContext: () => true,
       _mountEngine: () => calls.push("mount"),
     };
@@ -252,7 +251,6 @@ test("Grid rotation still schedules normally outside the config preview", () => 
           entity: `camera.${index + 1}`,
         })),
       },
-      _isMobilePhoneViewport: () => false,
       _isEditorPreviewContext: () => false,
     };
     const controller = new GridPageController(host);

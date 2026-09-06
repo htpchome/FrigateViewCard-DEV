@@ -80,11 +80,22 @@ export class SingleViewPageController {
       "#on-lbl",
     );
     const online = state.state !== "unavailable";
+    const liveBadge = this._host.shadowRoot?.querySelector?.(
+      "[data-single-view-live-badge]",
+    );
     if (statusDot) {
       statusDot.style.color = resolveSingleViewStatusColor(online);
     }
     if (statusLabel) {
       statusLabel.textContent = resolveSingleViewOnlineLabel(online);
+    }
+    if (liveBadge) {
+      liveBadge.hidden = this._usesGridText();
+      liveBadge.classList?.toggle?.("is-offline", !online);
+      liveBadge.setAttribute?.(
+        "aria-label",
+        online ? "Live camera" : "Camera offline",
+      );
     }
   }
 

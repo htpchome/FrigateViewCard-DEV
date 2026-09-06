@@ -2947,7 +2947,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Slideshow Mode</span>
               <ha-switch id="slideshow_rotation_enabled" ${this._config?.slideshow_rotation_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation. On phones, it is available when Card View is standalone or uses Video Only mode.</div>
+            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation.</div>
           </div>
           <div id="slideshow_rotation_row" style="display:${this._config?.slideshow_rotation_enabled ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
             <div class="editor-choice-field editor-choice-field--single-row" id="slideshow_rotation_seconds" role="radiogroup" aria-label="Slideshow Rotation Frequency">
@@ -3225,7 +3225,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Grid Mode</span>
               <ha-switch id="grid_mode_enabled" ${this._config?.grid_mode_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enable a 2x2 camera grid. It requires at least 2 cameras and is available on phones when Card View is standalone or uses Video Only mode.</div>
+            <div class="field-helper">Enable a 2x2 camera grid. It requires at least 2 cameras and is not available on mobile devices.</div>
           </div>
           <div id="grid_order_row" class="grid-order-config" style="display:${this._config?.grid_mode_enabled ? "flex" : "none"}">
             <span class="field-label" style="margin:0">Grid Order</span>

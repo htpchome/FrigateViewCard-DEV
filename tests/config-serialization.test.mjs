@@ -383,6 +383,18 @@ test("Grid, Card View, and Slideshow enable controls explain their behavior", ()
     editorSource,
     /Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation\./,
   );
+  assert.doesNotMatch(
+    editorSource,
+    /On phones, it is available when Card View is standalone or uses Video Only mode\./,
+  );
+  assert.match(
+    editorSource,
+    /Enable a 2x2 camera grid\. It requires at least 2 cameras and is not available on mobile devices\./,
+  );
+  assert.doesNotMatch(
+    editorSource,
+    /Grid[^.]*available on (?:phones|mobile devices) when Card View is standalone or uses Video Only mode/,
+  );
 });
 
 test("custom theme background rows use the requested order and defaults", () => {

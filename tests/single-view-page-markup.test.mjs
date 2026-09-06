@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   buildSingleViewCamSwitcherMarkup,
+  buildSingleViewLiveBadgeMarkup,
+  buildSingleViewMainLayoutShellMarkup,
   resolveSingleViewAlertsCountText,
   resolveSingleViewOnlineLabel,
   resolveSingleViewStatusColor,
@@ -10,6 +12,7 @@ import {
   resolveSingleViewSubtitleText,
   resolveSingleViewTitleText,
 } from "../src/features/single-view/page.tmpl.js";
+import { SINGLE_VIEW_PAGE_STYLES } from "../src/features/single-view/page.styles.js";
 import { STYLES } from "../src/styles.js";
 
 test("Single View camera switcher wraps on desktop and scrolls on phone and tablet devices", () => {
@@ -111,6 +114,32 @@ test("single view text resolvers preserve standard status values", () => {
   assert.equal(resolveSingleViewOnlineLabel(false), "Offline");
   assert.equal(resolveSingleViewStatusColor(true), "#4ade80");
   assert.equal(resolveSingleViewStatusColor(false), "#ef4444");
+});
+
+test("Single View adds a responsive live status overlay", () => {
+  const badgeMarkup = buildSingleViewLiveBadgeMarkup();
+  const shellMarkup = buildSingleViewMainLayoutShellMarkup();
+
+  assert.match(badgeMarkup, /data-single-view-live-badge/);
+  assert.match(badgeMarkup, /single-view-live-badge-dot/);
+  assert.match(badgeMarkup, />Live</);
+  assert.match(shellMarkup, /data-single-view-live-badge/);
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /@container single-view \(max-width: 420px\)/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /\.info-online-stat\s*\{\s*display: none;/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /\.live-playback-controls > button\s*\{[^}]*width: 29px;[^}]*height: 29px;/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /\.live-playback-controls\.overlay-controls svg,[\s\S]*?width: 24px;[\s\S]*?height: 24px;/,
+  );
 });
 
 test("single view camera switcher markup preserves active and availability state", () => {

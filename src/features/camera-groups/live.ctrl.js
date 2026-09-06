@@ -48,7 +48,6 @@ export class CameraGroupLiveController {
       this._host._viewMode === "single" &&
       this._host._isPreviewPageActive?.() !== true &&
       this._host._isLikelyPhoneClient?.() !== true &&
-      this._host._isMobilePhoneViewport?.() !== true &&
       !this._host._activeGroupMemberOverride
     );
   }
@@ -58,8 +57,7 @@ export class CameraGroupLiveController {
       isCameraGroup(this._host._activeCam) &&
       this._host._viewMode === "single" &&
       this._host._isPreviewPageActive?.() !== true &&
-      (this._host._isLikelyPhoneClient?.() === true ||
-        this._host._isMobilePhoneViewport?.() === true)
+      this._host._isLikelyPhoneClient?.() === true
     );
   }
 

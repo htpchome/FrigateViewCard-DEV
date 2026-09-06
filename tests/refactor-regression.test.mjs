@@ -894,12 +894,6 @@ test("viewport helpers delegate through the viewport context controller", () => 
     true,
   );
   assert.equal(
-    /_isMobilePhoneViewport\(\) \{\s*const width = Number\(this\._cardWidth \|\| window\.innerWidth \|\| 0\);/.test(
-      cardSource,
-    ),
-    false,
-  );
-  assert.equal(
     /_isMobileTabletViewport\(\) \{\s*const coarse =/.test(cardSource),
     false,
   );
@@ -910,16 +904,15 @@ test("viewport helpers delegate through the viewport context controller", () => 
     true,
   );
   assert.equal(
-    /_isMobilePhoneViewport\(\) \{\s*return this\._viewportContextController\.isMobilePhoneViewport\(\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
     /_isMobileTabletViewport\(\) \{\s*return this\._viewportContextController\.isMobileTabletViewport\(\);\s*\}/s.test(
       cardSource,
     ),
     true,
+  );
+  assert.equal(cardSource.includes("_isMobilePhoneViewport"), false);
+  assert.equal(
+    viewportContextControllerSource.includes("isMobilePhoneViewport"),
+    false,
   );
   assert.equal(
     /_isLandscapeViewport\(\) \{\s*return this\._viewportContextController\.isLandscapeViewport\(\);\s*\}/s.test(

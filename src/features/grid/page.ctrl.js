@@ -1,5 +1,4 @@
 import { GRID_ROTATION_OPTIONS_SECONDS } from "../../constants.js";
-import { DEVICE_PROFILE } from "../../helpers.js";
 import {
   CARD_VIEW_START_MODES,
   normalizeCardViewStartMode,
@@ -82,12 +81,9 @@ export class GridPageController {
   }
 
   isGridModeAvailable() {
-    const allowPhone = this._isStandaloneCardView();
     return (
       this._host._config?.grid_mode_enabled === true &&
-      (allowPhone ||
-        (!DEVICE_PROFILE.isPhone &&
-          !this._host._isMobilePhoneViewport())) &&
+      this._host._isLikelyMobileClient?.() !== true &&
       this._displayCameras().length > 1
     );
   }

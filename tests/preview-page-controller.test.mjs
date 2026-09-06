@@ -56,7 +56,6 @@ const createHost = ({
     _$: () => null,
     _isPreviewCameraAlertLive: () => alertLive,
     _isLikelyPhoneClient: () => phoneDevice,
-    _isMobilePhoneViewport: () => phoneDevice,
     _cameraConnectionType: (entity) =>
       entity === "camera.front_door" ? "ha_direct" : "webrtc",
     _clearPreviewTimers: () => calls.push(["clearPreviewTimers"]),
