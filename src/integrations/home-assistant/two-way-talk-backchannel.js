@@ -401,11 +401,19 @@ export function createHaDirectTwoWayTalkBackchannel({
       });
       await pc.setLocalDescription(offer);
       if (!destroyed) {
+        let gatheredCandidates = "";
+        while (pendingCandidates.length) {
+          const candidate = pendingCandidates.shift();
+          if (candidate?.candidate) {
+            gatheredCandidates += `a=${candidate.candidate}\r\n`;
+          }
+        }
+        const offerSdp = `${offer.sdp || ""}${gatheredCandidates}`;
         subscriptionPromise = Promise.resolve(
           hass.connection.subscribeMessage(handleOfferEvent, {
             type: "camera/webrtc/offer",
             entity_id: entity,
-            offer: offer.sdp,
+            offer: offerSdp,
           }),
         );
         subscriptionPromise.catch(fail);

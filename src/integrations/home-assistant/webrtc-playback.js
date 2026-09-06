@@ -208,8 +208,8 @@ export function createHaDirectWebRtcPlayback({
         }
       };
 
-      peerConnection.addTransceiver("video", { direction: "recvonly" });
       peerConnection.addTransceiver("audio", { direction: "recvonly" });
+      peerConnection.addTransceiver("video", { direction: "recvonly" });
       const offer = await peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
@@ -217,6 +217,15 @@ export function createHaDirectWebRtcPlayback({
       if (destroyed) return false;
       await peerConnection.setLocalDescription(offer);
       if (destroyed) return false;
+
+      let gatheredCandidates = "";
+      while (pendingCandidates.length) {
+        const candidate = pendingCandidates.shift();
+        if (candidate?.candidate) {
+          gatheredCandidates += `a=${candidate.candidate}\r\n`;
+        }
+      }
+      const offerSdp = `${offer.sdp || ""}${gatheredCandidates}`;
 
       const handleOfferEvent = async (event) => {
         if (
@@ -278,7 +287,7 @@ export function createHaDirectWebRtcPlayback({
           {
             type: "camera/webrtc/offer",
             entity_id: entityId,
-            offer: offer.sdp,
+            offer: offerSdp,
           },
           { resubscribe: false },
         ),

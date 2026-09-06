@@ -33,6 +33,8 @@ class FakeMediaStream {
 class FakePeerConnection {
   static instances = [];
 
+  static initialCandidate = null;
+
   constructor(configuration) {
     this.configuration = configuration;
     this.connectionState = "new";
@@ -55,7 +57,11 @@ class FakePeerConnection {
     return { type: "offer", sdp: "one-offer" };
   }
 
-  async setLocalDescription() {}
+  async setLocalDescription() {
+    if (FakePeerConnection.initialCandidate) {
+      this.onicecandidate?.({ candidate: FakePeerConnection.initialCandidate });
+    }
+  }
 
   async setRemoteDescription() {}
 
@@ -71,6 +77,7 @@ const withMediaGlobals = async (run) => {
   const previousMediaStream = globalThis.MediaStream;
   const previousPeerConnection = globalThis.RTCPeerConnection;
   FakePeerConnection.instances = [];
+  FakePeerConnection.initialCandidate = null;
   globalThis.document = {
     createElement(tag) {
       assert.equal(tag, "video");
@@ -124,8 +131,8 @@ test("HA direct WebRTC owns exactly one non-resubscribing signaling subscription
     });
     assert.deepEqual(subscriptionCalls[0].options, { resubscribe: false });
     assert.deepEqual(FakePeerConnection.instances[0].transceivers, [
-      ["video", { direction: "recvonly" }],
       ["audio", { direction: "recvonly" }],
+      ["video", { direction: "recvonly" }],
     ]);
 
     await subscriptionCalls[0].callback({
@@ -136,6 +143,58 @@ test("HA direct WebRTC owns exactly one non-resubscribing signaling subscription
 
     assert.equal(unsubscribeCalls, 1);
     assert.equal(FakePeerConnection.instances[0].closed, true);
+  });
+});
+
+test("HA direct WebRTC includes already gathered ICE candidates in its offer", async () => {
+  await withMediaGlobals(async () => {
+    FakePeerConnection.initialCandidate = {
+      candidate: "candidate:fast-path",
+      toJSON: () => ({
+        candidate: "candidate:fast-path",
+        sdpMid: "1",
+      }),
+    };
+    const callWsPayloads = [];
+    let offerCallback = null;
+    let offerPayload = null;
+    const hass = {
+      callWS: async (message) => {
+        callWsPayloads.push(message);
+        if (message.type === "camera/webrtc/get_client_config") {
+          return { configuration: { iceServers: [] } };
+        }
+        return null;
+      },
+      connection: {
+        subscribeMessage(callback, message) {
+          offerCallback = callback;
+          offerPayload = message;
+          return Promise.resolve(() => {});
+        },
+      },
+    };
+    const playback = createHaDirectWebRtcPlayback({
+      hass,
+      entity: "camera.front",
+    });
+
+    assert.equal(await playback.start(), true);
+    assert.deepEqual(offerPayload, {
+      type: "camera/webrtc/offer",
+      entity_id: "camera.front",
+      offer: "one-offera=candidate:fast-path\r\n",
+    });
+    await offerCallback({ type: "session", session_id: "ha-session-1" });
+    assert.deepEqual(callWsPayloads, [
+      {
+        type: "camera/webrtc/get_client_config",
+        entity_id: "camera.front",
+      },
+    ]);
+
+    await offerCallback({ type: "answer", answer: "one-answer" });
+    await playback.engine.destroy();
   });
 });
 

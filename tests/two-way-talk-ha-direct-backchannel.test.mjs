@@ -42,6 +42,7 @@ class FakePeerConnection extends FakeEventTarget {
     this.remoteDescription = null;
     this.remoteCandidates = [];
     this.closeCalls = 0;
+    this.initialCandidate = null;
   }
 
   createDataChannel(label) {
@@ -70,6 +71,9 @@ class FakePeerConnection extends FakeEventTarget {
 
   async setLocalDescription(description) {
     this.localDescription = description;
+    if (this.initialCandidate) {
+      this.emit("icecandidate", { candidate: this.initialCandidate });
+    }
   }
 
   async setRemoteDescription(description) {
@@ -155,7 +159,11 @@ const createMicrophone = () => {
   return { stream, track };
 };
 
-const startBackchannel = async ({ onEnded } = {}) => {
+const startBackchannel = async ({
+  onEnded,
+  initialCandidate = null,
+  emitPendingCandidate = true,
+} = {}) => {
   const callWsPayloads = [];
   const microphone = createMicrophone();
   const incomingAudio = new FakeIncomingAudio();
@@ -191,6 +199,7 @@ const startBackchannel = async ({ onEnded } = {}) => {
     getHass: () => hass,
     createPeerConnection: (configuration) => {
       peerConnection = new FakePeerConnection(configuration);
+      peerConnection.initialCandidate = initialCandidate;
       return peerConnection;
     },
     createIceCandidate: (candidate) => ({ wrapped: candidate }),
@@ -213,11 +222,13 @@ const startBackchannel = async ({ onEnded } = {}) => {
   });
   await flushPromises();
 
-  const localCandidate = {
-    candidate: "local-candidate",
-    toJSON: () => ({ candidate: "local-candidate", sdpMid: "0" }),
-  };
-  peerConnection.emit("icecandidate", { candidate: localCandidate });
+  if (emitPendingCandidate) {
+    const localCandidate = {
+      candidate: "local-candidate",
+      toJSON: () => ({ candidate: "local-candidate", sdpMid: "0" }),
+    };
+    peerConnection.emit("icecandidate", { candidate: localCandidate });
+  }
   await offerHandler({ type: "session", session_id: "ha-session-1" });
   await offerHandler({ type: "answer", answer: "ha-answer" });
   await offerHandler({
@@ -357,6 +368,35 @@ test("HA direct talk keeps a separate full-shaped peer and plays its audio", asy
   assert.equal(fixture.incomingAudio.pauseCalls, 1);
   assert.equal(fixture.incomingAudio.srcObject, null);
   assert.equal(fixture.microphone.track.stopCalls, 0);
+});
+
+test("HA direct talk includes already gathered ICE candidates in its offer", async () => {
+  const fixture = await startBackchannel({
+    initialCandidate: {
+      candidate: "candidate:fast-talk-path",
+      toJSON: () => ({
+        candidate: "candidate:fast-talk-path",
+        sdpMid: "2",
+      }),
+    },
+    emitPendingCandidate: false,
+  });
+
+  assert.deepEqual(fixture.offerPayload, {
+    type: "camera/webrtc/offer",
+    entity_id: "camera.front",
+    offer: "ha-full-session-offera=candidate:fast-talk-path\r\n",
+  });
+  assert.deepEqual(fixture.callWsPayloads, [
+    {
+      type: "camera/webrtc/get_client_config",
+      entity_id: "camera.front",
+    },
+  ]);
+
+  const { engine } = await finishBackchannelMedia(fixture);
+  engine.destroy();
+  await flushPromises();
 });
 
 test("an established HA direct backchannel failure leaves live playback alone", async () => {
