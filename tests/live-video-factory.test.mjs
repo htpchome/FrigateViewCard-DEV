@@ -9,17 +9,21 @@ import {
   disableNativePictureInPicture,
   endNativePictureInPictureAllowance,
   enableNativePictureInPicture,
-  getVideoViewDefaultOptions,
-  getScopedVideoViewDefaultOptions,
   isSafeVideoAttributeName,
   mountNodeIntoSlot,
-  resetVideoViewDefaultOptions,
-  resetScopedVideoViewDefaultOptions,
   resolveVideoProfileNameForView,
   setScopedVideoViewDefaultOptions,
   setVideoViewDefaultOptions,
   supportsNativeHlsPlayback,
 } from "../src/shared/media/video-factory.js";
+
+const VIDEO_VIEW_TYPES = ["live", "popup", "recording"];
+
+function clearKnownVideoViewDefaults() {
+  for (const viewType of VIDEO_VIEW_TYPES) {
+    setVideoViewDefaultOptions(viewType, {});
+  }
+}
 
 function createFakeVideoElement() {
   const attrs = new Map();
@@ -402,60 +406,56 @@ test("buildVideoOptionsForView merges style/dataset/attributes/classNames", () =
   assert.deepEqual(merged.classNames, ["rounded", "overlay-enabled"]);
 });
 
-test("runtime view defaults can be set and read per view", () => {
-  resetVideoViewDefaultOptions();
-  setVideoViewDefaultOptions("popup", {
-    controls: false,
-    style: { objectFit: "contain" },
-  });
+test("runtime view defaults can be set and resolved per view", () => {
+  try {
+    setVideoViewDefaultOptions("popup", {
+      controls: false,
+      style: { objectFit: "contain" },
+    });
 
-  const runtime = getVideoViewDefaultOptions("popup");
-  assert.equal(runtime.controls, false);
-  assert.deepEqual(runtime.style, { objectFit: "contain" });
+    assert.deepEqual(buildVideoOptionsForView("popup"), {
+      viewType: "popup",
+      controls: false,
+      style: { objectFit: "contain" },
+    });
+    assert.deepEqual(buildVideoOptionsForView("recording"), {
+      viewType: "recording",
+    });
+  } finally {
+    clearKnownVideoViewDefaults();
+  }
 });
 
 test("buildVideoOptionsForView applies runtime defaults before overrides", () => {
-  resetVideoViewDefaultOptions();
-  setVideoViewDefaultOptions("popup", {
-    controls: false,
-    style: { objectFit: "contain", borderRadius: "8px" },
-    dataset: { source: "runtime" },
-    classNames: ["runtime-class"],
-  });
+  try {
+    setVideoViewDefaultOptions("popup", {
+      controls: false,
+      style: { objectFit: "contain", borderRadius: "8px" },
+      dataset: { source: "runtime" },
+      classNames: ["runtime-class"],
+    });
 
-  const merged = buildVideoOptionsForView("popup", {
-    style: { objectFit: "cover" },
-    dataset: { source: "override" },
-    classNames: ["override-class"],
-  });
+    const merged = buildVideoOptionsForView("popup", {
+      style: { objectFit: "cover" },
+      dataset: { source: "override" },
+      classNames: ["override-class"],
+    });
 
-  assert.equal(merged.controls, false);
-  assert.deepEqual(merged.style, {
-    objectFit: "cover",
-    borderRadius: "8px",
-  });
-  assert.deepEqual(merged.dataset, { source: "override" });
-  assert.deepEqual(merged.classNames, ["runtime-class", "override-class"]);
-});
-
-test("resetVideoViewDefaultOptions clears one view or all views", () => {
-  resetVideoViewDefaultOptions();
-  setVideoViewDefaultOptions("popup", { controls: false });
-  setVideoViewDefaultOptions("recording", { muted: false });
-
-  resetVideoViewDefaultOptions("popup");
-  assert.deepEqual(getVideoViewDefaultOptions("popup"), {});
-  assert.deepEqual(getVideoViewDefaultOptions("recording"), { muted: false });
-
-  resetVideoViewDefaultOptions();
-  assert.deepEqual(getVideoViewDefaultOptions("recording"), {});
+    assert.equal(merged.controls, false);
+    assert.deepEqual(merged.style, {
+      objectFit: "cover",
+      borderRadius: "8px",
+    });
+    assert.deepEqual(merged.dataset, { source: "override" });
+    assert.deepEqual(merged.classNames, ["runtime-class", "override-class"]);
+  } finally {
+    clearKnownVideoViewDefaults();
+  }
 });
 
 test("scoped runtime defaults are isolated per scope key", () => {
   const scopeA = {};
   const scopeB = {};
-  resetScopedVideoViewDefaultOptions(null, { scopeKey: scopeA });
-  resetScopedVideoViewDefaultOptions(null, { scopeKey: scopeB });
 
   setScopedVideoViewDefaultOptions(
     "popup",
@@ -464,86 +464,89 @@ test("scoped runtime defaults are isolated per scope key", () => {
   );
 
   assert.deepEqual(
-    getScopedVideoViewDefaultOptions("popup", { scopeKey: scopeA }),
+    buildVideoOptionsForView("popup", {}, { scopeKey: scopeA }),
     {
+      viewType: "popup",
       controls: false,
     },
   );
   assert.deepEqual(
-    getScopedVideoViewDefaultOptions("popup", { scopeKey: scopeB }),
-    {},
+    buildVideoOptionsForView("popup", {}, { scopeKey: scopeB }),
+    { viewType: "popup" },
   );
 });
 
 test("buildVideoOptionsForView applies scoped defaults over global defaults", () => {
   const scope = {};
-  resetVideoViewDefaultOptions();
-  resetScopedVideoViewDefaultOptions(null, { scopeKey: scope });
+  try {
+    setVideoViewDefaultOptions("popup", {
+      controls: false,
+      style: { objectFit: "contain" },
+    });
+    setScopedVideoViewDefaultOptions(
+      "popup",
+      {
+        controls: true,
+        style: { objectFit: "cover" },
+        classNames: ["scope-class"],
+      },
+      { scopeKey: scope },
+    );
 
-  setVideoViewDefaultOptions("popup", {
-    controls: false,
-    style: { objectFit: "contain" },
-  });
-  setScopedVideoViewDefaultOptions(
-    "popup",
-    {
-      controls: true,
-      style: { objectFit: "cover" },
-      classNames: ["scope-class"],
-    },
-    { scopeKey: scope },
-  );
+    const merged = buildVideoOptionsForView(
+      "popup",
+      { classNames: ["override-class"] },
+      { scopeKey: scope },
+    );
 
-  const merged = buildVideoOptionsForView(
-    "popup",
-    { classNames: ["override-class"] },
-    { scopeKey: scope },
-  );
-
-  assert.equal(merged.controls, true);
-  assert.deepEqual(merged.style, { objectFit: "cover" });
-  assert.deepEqual(merged.classNames, ["scope-class", "override-class"]);
+    assert.equal(merged.controls, true);
+    assert.deepEqual(merged.style, { objectFit: "cover" });
+    assert.deepEqual(merged.classNames, ["scope-class", "override-class"]);
+  } finally {
+    clearKnownVideoViewDefaults();
+  }
 });
 
 test("buildVideoOptionsForView merges global scoped and override object layers", () => {
   const scope = {};
-  resetVideoViewDefaultOptions();
-  resetScopedVideoViewDefaultOptions(null, { scopeKey: scope });
+  try {
+    setVideoViewDefaultOptions("popup", {
+      style: { objectFit: "contain" },
+      dataset: { source: "global" },
+      attributes: { controlslist: "nodownload" },
+      classNames: ["global-class"],
+    });
+    setScopedVideoViewDefaultOptions(
+      "popup",
+      {
+        style: { borderRadius: "8px" },
+        dataset: { source: "scoped" },
+        classNames: ["scoped-class"],
+      },
+      { scopeKey: scope },
+    );
 
-  setVideoViewDefaultOptions("popup", {
-    style: { objectFit: "contain" },
-    dataset: { source: "global" },
-    attributes: { controlslist: "nodownload" },
-    classNames: ["global-class"],
-  });
-  setScopedVideoViewDefaultOptions(
-    "popup",
-    {
-      style: { borderRadius: "8px" },
-      dataset: { source: "scoped" },
-      classNames: ["scoped-class"],
-    },
-    { scopeKey: scope },
-  );
+    const merged = buildVideoOptionsForView(
+      "popup",
+      {
+        style: { objectFit: "cover" },
+        classNames: ["override-class"],
+      },
+      { scopeKey: scope },
+    );
 
-  const merged = buildVideoOptionsForView(
-    "popup",
-    {
-      style: { objectFit: "cover" },
-      classNames: ["override-class"],
-    },
-    { scopeKey: scope },
-  );
-
-  assert.deepEqual(merged.style, {
-    objectFit: "cover",
-    borderRadius: "8px",
-  });
-  assert.deepEqual(merged.dataset, { source: "scoped" });
-  assert.deepEqual(merged.attributes, { controlslist: "nodownload" });
-  assert.deepEqual(merged.classNames, [
-    "global-class",
-    "scoped-class",
-    "override-class",
-  ]);
+    assert.deepEqual(merged.style, {
+      objectFit: "cover",
+      borderRadius: "8px",
+    });
+    assert.deepEqual(merged.dataset, { source: "scoped" });
+    assert.deepEqual(merged.attributes, { controlslist: "nodownload" });
+    assert.deepEqual(merged.classNames, [
+      "global-class",
+      "scoped-class",
+      "override-class",
+    ]);
+  } finally {
+    clearKnownVideoViewDefaults();
+  }
 });

@@ -151,24 +151,6 @@ export function setVideoViewDefaultOptions(viewType, defaults = {}) {
   };
 }
 
-export function getVideoViewDefaultOptions(viewType) {
-  const viewKey = resolveViewKey(viewType);
-  return {
-    ...normalizeOptionsObject(globalRuntimeVideoViewDefaultOptions[viewKey]),
-  };
-}
-
-export function resetVideoViewDefaultOptions(viewType = null) {
-  if (viewType == null) {
-    for (const key of Object.keys(globalRuntimeVideoViewDefaultOptions)) {
-      globalRuntimeVideoViewDefaultOptions[key] = {};
-    }
-    return;
-  }
-  const viewKey = resolveViewKey(viewType);
-  globalRuntimeVideoViewDefaultOptions[viewKey] = {};
-}
-
 export function setScopedVideoViewDefaultOptions(
   viewType,
   defaults = {},
@@ -184,33 +166,6 @@ export function setScopedVideoViewDefaultOptions(
   store[viewKey] = {
     ...normalizeOptionsObject(defaults),
   };
-}
-
-export function getScopedVideoViewDefaultOptions(viewType, context = {}) {
-  const viewKey = resolveViewKey(viewType);
-  const scopeKey = context?.scopeKey;
-  const store = resolveScopedRuntimeStore(scopeKey);
-  if (!store) return {};
-  return { ...normalizeOptionsObject(store[viewKey]) };
-}
-
-export function resetScopedVideoViewDefaultOptions(
-  viewType = null,
-  context = {},
-) {
-  const scopeKey = context?.scopeKey;
-  const store = resolveScopedRuntimeStore(scopeKey);
-  if (!store) return;
-
-  if (viewType == null) {
-    for (const key of Object.keys(store)) {
-      store[key] = {};
-    }
-    return;
-  }
-
-  const viewKey = resolveViewKey(viewType);
-  store[viewKey] = {};
 }
 
 export function buildVideoOptionsForView(
