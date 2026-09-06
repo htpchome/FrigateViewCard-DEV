@@ -1,3 +1,4 @@
+import { CleanupController } from "../../shared/cleanup.js";
 import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycle.js";
 
 import {
@@ -12,6 +13,24 @@ export class WideViewPageController {
     this._constants = constants;
     this._companionController = options.companionController || null;
     this._timelineController = options.timelineController || null;
+    this._documentTarget = options.documentTarget ?? globalThis.document ?? null;
+    this._windowTarget = options.windowTarget ?? globalThis.window ?? null;
+    this._requestFrame =
+      options.requestFrame ||
+      ((callback) => {
+        if (typeof globalThis.requestAnimationFrame !== "function") {
+          callback();
+          return null;
+        }
+        return globalThis.requestAnimationFrame(callback);
+      });
+    this._cancelFrame =
+      options.cancelFrame ||
+      ((frameId) => globalThis.cancelAnimationFrame?.(frameId));
+    this._resizeHandleCleanup = null;
+    this._resizeDragCleanup = null;
+    this._resizeDragState = null;
+    this._syncColHeightFrame = null;
   }
 
   activateWideViewPageRoute(context = {}) {
@@ -82,8 +101,19 @@ export class WideViewPageController {
   }
 
   stopWideViewMode() {
+    this._cancelResizeDrag();
     this.stopCompanionMode();
     this.teardownTimeline({ preserveScroll: true });
+  }
+
+  dispose() {
+    this.stopWideViewMode();
+    this.disconnectResizeHandle();
+  }
+
+  disconnectResizeHandle() {
+    this._disposeResizeHandle();
+    this._cancelSyncColHeight();
   }
 
   handleCompanionRealtimeMessage(msg) {
@@ -153,7 +183,10 @@ export class WideViewPageController {
   }
 
   syncColHeight() {
-    requestAnimationFrame(() => {
+    if (this._syncColHeightFrame !== null) return;
+    this._syncColHeightFrame = true;
+    const frameId = this._requestFrame(() => {
+      this._syncColHeightFrame = null;
       this._companionController?.updateLayout?.();
       const l = this._host.shadowRoot?.querySelector(".col-left");
       const r = this._host.shadowRoot?.querySelector(".col-right");
@@ -161,6 +194,9 @@ export class WideViewPageController {
       const h = l.offsetHeight;
       if (h > 0) r.style.maxHeight = h + "px";
     });
+    if (this._syncColHeightFrame !== null) {
+      this._syncColHeightFrame = frameId;
+    }
   }
 
   isWideViewPageActive() {
@@ -200,54 +236,80 @@ export class WideViewPageController {
   }
 
   initResizeHandle() {
+    this._disposeResizeHandle();
     const handle = this._host._$("#resize-handle");
     if (!handle) return;
-    let dragging = false;
-    let startX = 0;
-    let startLeftWidth = 0;
-    let layoutWidth = 0;
-    let colL = null;
-    let colR = null;
+    const cleanup = new CleanupController();
+    this._resizeHandleCleanup = cleanup;
+    cleanup.addEventListener(handle, "mousedown", (event) => {
+      event.preventDefault();
+      this._startResizeDrag(event, handle);
+    });
+  }
 
-    const onMouseDown = (e) => {
-      e.preventDefault();
-      dragging = true;
-      startX = e.clientX;
-      const layout = this._host._$("#layout");
-      colL = this._host._$(".col-left");
-      colR = this._host._$(".col-right");
-      if (!layout || !colL || !colR) {
-        dragging = false;
-        return;
-      }
-      layoutWidth = layout.getBoundingClientRect().width;
-      startLeftWidth = colL.getBoundingClientRect().width;
-      handle.classList.add("active");
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
+  _startResizeDrag(event, handle) {
+    this._cancelResizeDrag();
+    const layout = this._host._$("#layout");
+    const colL = this._host._$(".col-left");
+    const colR = this._host._$(".col-right");
+    if (!layout || !colL || !colR) return;
+    const layoutWidth = Number(layout.getBoundingClientRect?.().width) || 0;
+    const startLeftWidth = Number(colL.getBoundingClientRect?.().width) || 0;
+    if (layoutWidth <= 0) return;
+
+    const documentTarget = handle.ownerDocument || this._documentTarget;
+    const windowTarget = documentTarget?.defaultView || this._windowTarget;
+    const cleanup = new CleanupController();
+    this._resizeDragCleanup = cleanup;
+    this._resizeDragState = {
+      startX: Number(event.clientX) || 0,
+      startLeftWidth,
+      layoutWidth,
+      colL,
+      colR,
+      handle,
     };
+    handle.classList.add("active");
 
-    const onMouseMove = (e) => {
-      if (!dragging) return;
-      if (!colL || !colR || !layoutWidth) return;
+    cleanup.addEventListener(documentTarget, "mousemove", (moveEvent) => {
+      const state = this._resizeDragState;
+      if (!state) return;
       const minPct = WIDE_LEFT_WIDTH_MIN;
       const maxPct = WIDE_LEFT_WIDTH_MAX;
-      const dx = e.clientX - startX;
-      let newLeftWidth = startLeftWidth + dx;
-      let pct = (newLeftWidth / layoutWidth) * 100;
+      const dx = (Number(moveEvent.clientX) || 0) - state.startX;
+      const newLeftWidth = state.startLeftWidth + dx;
+      let pct = (newLeftWidth / state.layoutWidth) * 100;
       pct = Math.max(minPct, Math.min(maxPct, pct));
-      if (colL) colL.style.width = pct + "%";
-      if (colR) colR.style.width = 100 - pct + "%";
+      state.colL.style.width = pct + "%";
+      state.colR.style.width = 100 - pct + "%";
       this.syncColHeight();
-    };
+    });
+    const cancelDrag = () => this._cancelResizeDrag();
+    cleanup.addEventListener(documentTarget, "mouseup", cancelDrag);
+    cleanup.addEventListener(documentTarget, "mouseleave", cancelDrag);
+    cleanup.addEventListener(documentTarget, "pointercancel", cancelDrag);
+    cleanup.addEventListener(windowTarget, "blur", cancelDrag);
+  }
 
-    const onMouseUp = () => {
-      dragging = false;
-      handle.classList.remove("active");
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
+  _cancelResizeDrag() {
+    const state = this._resizeDragState;
+    const cleanup = this._resizeDragCleanup;
+    this._resizeDragState = null;
+    this._resizeDragCleanup = null;
+    state?.handle?.classList?.remove?.("active");
+    cleanup?.dispose();
+  }
 
-    handle.addEventListener("mousedown", onMouseDown);
+  _disposeResizeHandle() {
+    this._cancelResizeDrag();
+    this._resizeHandleCleanup?.dispose();
+    this._resizeHandleCleanup = null;
+  }
+
+  _cancelSyncColHeight() {
+    const frameId = this._syncColHeightFrame;
+    this._syncColHeightFrame = null;
+    if (frameId === null || frameId === true || frameId === undefined) return;
+    this._cancelFrame(frameId);
   }
 }

@@ -1565,6 +1565,8 @@ export class FrigateViewCard extends HTMLElement {
       }
       this._wideViewPageController?.startCompanionMode?.();
       this._wideViewPageController?.bindTimeline?.();
+      this._wideViewPageController?.initResizeHandle?.();
+      this._wideViewPageController?.syncColHeightIfWideView?.();
       if (!this._ro && typeof ResizeObserver !== "undefined") {
         this._setupResizeObserver();
       }
@@ -2164,6 +2166,7 @@ export class FrigateViewCard extends HTMLElement {
   }
   disconnectedCallback() {
     void this._stopPtzMotion("disconnected");
+    this._wideViewPageController?.disconnectResizeHandle?.();
     const preserveDashboardLive =
       this._haDashboardSwipeNavigationController?.isCurrentDashboardScope?.() ===
         true && this._preserveLiveForDashboardNavigation();
@@ -2196,7 +2199,7 @@ export class FrigateViewCard extends HTMLElement {
     this._stopSlideshowRotation("disconnect", false);
     this._stopGridModeState();
     this._stopPreviewMode();
-    this._wideViewPageController?.stopWideViewMode?.();
+    this._wideViewPageController?.dispose?.();
     this._cardViewPageController?.deactivate?.();
     if (this._rt) clearTimeout(this._rt);
     this._rt = null;

@@ -9,6 +9,44 @@ const cardSource = fs.readFileSync(
   new URL("../src/card/FrigateViewCard.js", import.meta.url),
   "utf8",
 );
+
+const createEventTarget = () => {
+  const listeners = new Map();
+  return {
+    addEventListener(type, listener, options = {}) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+      options.signal?.addEventListener(
+        "abort",
+        () => listeners.get(type)?.delete(listener),
+        { once: true },
+      );
+    },
+    dispatch(type, event = {}) {
+      for (const listener of [...(listeners.get(type) || [])]) {
+        listener({ type, ...event });
+      }
+    },
+    listenerCount(type) {
+      return listeners.get(type)?.size || 0;
+    },
+  };
+};
+
+const createResizeHandle = (ownerDocument) => {
+  const target = createEventTarget();
+  const classes = new Set();
+  return {
+    ...target,
+    ownerDocument,
+    classList: {
+      add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
+      contains: (name) => classes.has(name),
+    },
+  };
+};
+
 const createHost = ({ isWide = false, popupOpen = false } = {}) => {
   const calls = [];
   const host = {
@@ -241,6 +279,18 @@ test("card visibility and reconnect hooks resume Companion Camera media", () => 
     cardSource,
     /e\?\.isIntersecting[\s\S]*?_wideViewPageController\?\.resumeCompanionMedia\?\.\(\)/,
   );
+  assert.match(
+    cardSource,
+    /connectedCallback\(\)[\s\S]*?_wideViewPageController\?\.initResizeHandle\?\.\(\)/,
+  );
+  assert.match(
+    cardSource,
+    /disconnectedCallback\(\)[\s\S]*?_wideViewPageController\?\.disconnectResizeHandle\?\.\(\)/,
+  );
+  assert.match(
+    cardSource,
+    /_teardownDisconnected\(\)[\s\S]*?_wideViewPageController\?\.dispose\?\.\(\)/,
+  );
 });
 
 test("wideViewLayoutState resolves wide layout widths with clamping", () => {
@@ -406,4 +456,146 @@ test("syncColHeight is a no-op when columns are missing", () => {
   }
 
   assert.equal(right.style.maxHeight, "88px");
+});
+
+test("Wide View resize drag is cancelled by every terminal interaction", () => {
+  const documentTarget = createEventTarget();
+  const windowTarget = createEventTarget();
+  documentTarget.defaultView = windowTarget;
+  const handle = createResizeHandle(documentTarget);
+  const layout = { getBoundingClientRect: () => ({ width: 1000 }) };
+  const colL = {
+    style: { width: "" },
+    getBoundingClientRect: () => ({ width: 600 }),
+  };
+  const colR = { style: { width: "" } };
+  const { host } = createHost({ isWide: true });
+  host._$ = (selector) => {
+    if (selector === "#resize-handle") return handle;
+    if (selector === "#layout") return layout;
+    if (selector === ".col-left") return colL;
+    if (selector === ".col-right") return colR;
+    return null;
+  };
+  const controller = new WideViewPageController(
+    host,
+    { PAGE_IDS },
+    {
+      documentTarget,
+      windowTarget,
+      requestFrame: (callback) => {
+        callback();
+        return 1;
+      },
+    },
+  );
+  controller.initResizeHandle();
+
+  const cancellations = [
+    [documentTarget, "mouseup"],
+    [documentTarget, "mouseleave"],
+    [documentTarget, "pointercancel"],
+    [windowTarget, "blur"],
+  ];
+  for (const [target, type] of cancellations) {
+    handle.dispatch("mousedown", { clientX: 600, preventDefault() {} });
+    assert.equal(handle.classList.contains("active"), true);
+    assert.equal(documentTarget.listenerCount("mousemove"), 1);
+
+    documentTarget.dispatch("mousemove", { clientX: 700 });
+    assert.equal(colL.style.width, "70%");
+    assert.equal(colR.style.width, "30%");
+
+    target.dispatch(type);
+    assert.equal(handle.classList.contains("active"), false);
+    assert.equal(documentTarget.listenerCount("mousemove"), 0);
+  }
+});
+
+test("Wide View resize handle rebind and disposal release stale elements", () => {
+  const documentTarget = createEventTarget();
+  const windowTarget = createEventTarget();
+  documentTarget.defaultView = windowTarget;
+  const firstHandle = createResizeHandle(documentTarget);
+  const secondHandle = createResizeHandle(documentTarget);
+  let activeHandle = firstHandle;
+  const { host } = createHost({ isWide: true });
+  host._$ = (selector) =>
+    selector === "#resize-handle" ? activeHandle : null;
+  const controller = new WideViewPageController(
+    host,
+    { PAGE_IDS },
+    { documentTarget, windowTarget },
+  );
+
+  controller.initResizeHandle();
+  assert.equal(firstHandle.listenerCount("mousedown"), 1);
+
+  activeHandle = secondHandle;
+  controller.initResizeHandle();
+  assert.equal(firstHandle.listenerCount("mousedown"), 0);
+  assert.equal(secondHandle.listenerCount("mousedown"), 1);
+
+  controller.disconnectResizeHandle();
+  assert.equal(secondHandle.listenerCount("mousedown"), 0);
+
+  controller.initResizeHandle();
+  assert.equal(secondHandle.listenerCount("mousedown"), 1);
+
+  controller.dispose();
+  assert.equal(secondHandle.listenerCount("mousedown"), 0);
+});
+
+test("syncColHeight coalesces work to one pending animation frame", () => {
+  const callbacks = new Map();
+  const cancelled = [];
+  let nextFrameId = 1;
+  let updateCount = 0;
+  const left = { offsetHeight: 240 };
+  const right = { style: { maxHeight: "" } };
+  const { host } = createHost({ isWide: true });
+  host.shadowRoot = {
+    querySelector: (selector) => {
+      if (selector === ".col-left") return left;
+      if (selector === ".col-right") return right;
+      return null;
+    },
+  };
+  const controller = new WideViewPageController(
+    host,
+    { PAGE_IDS },
+    {
+      companionController: {
+        updateLayout: () => {
+          updateCount += 1;
+        },
+      },
+      requestFrame: (callback) => {
+        const frameId = nextFrameId;
+        nextFrameId += 1;
+        callbacks.set(frameId, callback);
+        return frameId;
+      },
+      cancelFrame: (frameId) => {
+        cancelled.push(frameId);
+        callbacks.delete(frameId);
+      },
+    },
+  );
+
+  controller.syncColHeight();
+  controller.syncColHeight();
+  controller.syncColHeight();
+  assert.deepEqual([...callbacks.keys()], [1]);
+
+  callbacks.get(1)();
+  callbacks.delete(1);
+  assert.equal(updateCount, 1);
+  assert.equal(right.style.maxHeight, "240px");
+
+  controller.syncColHeight();
+  assert.deepEqual([...callbacks.keys()], [2]);
+  controller.dispose();
+  assert.deepEqual(cancelled, [2]);
+  assert.equal(callbacks.size, 0);
 });
