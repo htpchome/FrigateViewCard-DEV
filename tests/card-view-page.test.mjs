@@ -875,9 +875,13 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
     CARD_VIEW_PAGE_STYLES,
     /card-view-overlay-presentation \.two-way-talk-result-bubble \{top:50%;bottom:auto;transform:translate\(-50%,-50%\);\}/,
   );
+  assert.doesNotMatch(
+    CARD_VIEW_PAGE_STYLES,
+    /stream-loading[^}]*\.card-view-live-badge \{display:none;\}/,
+  );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-live-stage:has\(#stream-loading:not\(\[hidden\]\)\) \.card-view-live-badge \{display:none;\}/,
+    /card-view-overlay-presentation \.stream-loading \{top:39px;right:9px;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

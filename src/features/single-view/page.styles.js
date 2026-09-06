@@ -52,8 +52,20 @@ export const SINGLE_VIEW_PAGE_STYLES = `
   }
 
   @container single-view (max-width: 420px) {
+    .card .layout--single-view .info-row {
+      grid-template-columns: minmax(0, 1fr) auto max-content;
+      column-gap: 4px;
+    }
+
     .card .layout--single-view .single-view-live-badge {
       display: inline-flex;
+    }
+
+    .card .layout--single-view .stats {
+      width: max-content;
+      min-width: 0;
+      justify-self: end;
+      gap: 0;
     }
 
     .card .layout--single-view .info-online-stat {

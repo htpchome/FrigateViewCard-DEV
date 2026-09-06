@@ -404,7 +404,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-live-badge-dot {width:7px;height:7px;border-radius:50%;background:var(--c-on);box-shadow:0 0 0 2px var(--fvc-media-overlay-live-halo);}
   .card.card-view-active.card-view-overlay-presentation .card-view-live-badge.is-offline .card-view-live-badge-dot {background:var(--c-off);box-shadow:0 0 0 2px var(--fvc-media-overlay-offline-halo);}
-  .card.card-view-active.card-view-overlay-presentation .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-live-badge {display:none;}
+  .card.card-view-active.card-view-overlay-presentation .stream-loading {top:39px;right:9px;}
   .card.card-view-active.card-view-overlay-presentation .card-view-live-stage:has(#stream-loading:not([hidden])) .card-view-source-indicator {display:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .card-view-live-badge {display:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay {

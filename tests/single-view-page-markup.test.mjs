@@ -134,6 +134,14 @@ test("Single View adds a responsive live status overlay", () => {
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
+    /\.info-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto max-content;/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
+    /\.stats\s*\{[^}]*width: max-content;[^}]*justify-self: end;/,
+  );
+  assert.match(
+    SINGLE_VIEW_PAGE_STYLES,
     /\.live-playback-controls > button\s*\{[^}]*width: 29px;[^}]*height: 29px;/,
   );
   assert.match(
