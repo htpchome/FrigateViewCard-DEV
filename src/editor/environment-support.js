@@ -30,6 +30,24 @@ export const resolveHomeAssistantVersionNotice = ({
   return `Home Assistant ${currentVersion} is below the recommended ${recommendedVersion}.`;
 };
 
+export const resolveHomeAssistantVersionStatus = ({
+  currentVersion = "",
+  recommendedVersion = "",
+} = {}) => {
+  const version = String(currentVersion || "").trim();
+  if (!version) return { visible: false, status: "unavailable", label: "" };
+  const warning = resolveHomeAssistantVersionNotice({
+    currentVersion: version,
+    recommendedVersion,
+  });
+  if (warning) return { visible: true, status: "warning", label: warning };
+  return {
+    visible: true,
+    status: "current",
+    label: `Home Assistant ${version} • Recommended level met`,
+  };
+};
+
 export const resolveFrigateIntegrationVersionNotice = ({
   installed = null,
   currentVersion = "",
@@ -45,6 +63,43 @@ export const resolveFrigateIntegrationVersionNotice = ({
     return "";
   }
   return `Frigate integration ${currentVersion} is below the recommended ${recommendedVersion}.`;
+};
+
+export const resolveFrigateIntegrationVersionStatus = ({
+  installed = null,
+  currentVersion = "",
+  recommendedVersion = "",
+  lookupStatus = "idle",
+} = {}) => {
+  const warning = resolveFrigateIntegrationVersionNotice({
+    installed,
+    currentVersion,
+    recommendedVersion,
+  });
+  if (warning) return { visible: true, status: "warning", label: warning };
+  const version = String(currentVersion || "").trim();
+  if (installed === true && version) {
+    return {
+      visible: true,
+      status: "current",
+      label: `Frigate integration ${version} • Recommended level met`,
+    };
+  }
+  if (lookupStatus === "pending") {
+    return {
+      visible: true,
+      status: "checking",
+      label: "Checking Frigate integration version…",
+    };
+  }
+  if (installed === true) {
+    return {
+      visible: true,
+      status: "warning",
+      label: "Frigate integration is installed, but its version could not be determined.",
+    };
+  }
+  return { visible: false, status: "unavailable", label: "" };
 };
 
 export const isFrigateIntegrationLoaded = (hass) => {

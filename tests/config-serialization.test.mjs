@@ -2318,7 +2318,7 @@ test("editor presents general, layout, and Mobile View controls in their request
   );
   assert.match(
     editorSource,
-    /\.environment-support-notice\{[^}]*var\(--warning-color/,
+    /\.environment-support-notice\[data-support-status="warning"\]\{[^}]*var\(--warning-color/,
   );
   assert.equal(
     (generalSource.match(/buildEditorBubbleSelectorMarkup\(\{/g) || []).length,

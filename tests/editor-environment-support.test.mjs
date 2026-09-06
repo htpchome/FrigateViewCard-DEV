@@ -6,7 +6,9 @@ import {
   fetchFrigateIntegrationVersion,
   isFrigateIntegrationLoaded,
   resolveFrigateIntegrationVersionNotice,
+  resolveFrigateIntegrationVersionStatus,
   resolveHomeAssistantVersionNotice,
+  resolveHomeAssistantVersionStatus,
 } from "../src/editor/environment-support.js";
 
 test("editor environment support compares numeric version components", () => {
@@ -41,6 +43,27 @@ test("editor environment support only warns for old Home Assistant versions", ()
   );
 });
 
+test("editor environment support always describes a detected Home Assistant version", () => {
+  assert.deepEqual(
+    resolveHomeAssistantVersionStatus({
+      currentVersion: "2026.9.0",
+      recommendedVersion: "2026.9.0",
+    }),
+    {
+      visible: true,
+      status: "current",
+      label: "Home Assistant 2026.9.0 • Recommended level met",
+    },
+  );
+  assert.equal(
+    resolveHomeAssistantVersionStatus({
+      currentVersion: "2026.8.4",
+      recommendedVersion: "2026.9.0",
+    }).status,
+    "warning",
+  );
+});
+
 test("editor environment support warns for a missing or old Frigate integration", () => {
   assert.equal(
     resolveFrigateIntegrationVersionNotice({ installed: false }),
@@ -61,6 +84,30 @@ test("editor environment support warns for a missing or old Frigate integration"
       recommendedVersion: "5.15.6",
     }),
     "",
+  );
+});
+
+test("editor environment support describes current and pending Frigate integration checks", () => {
+  assert.deepEqual(
+    resolveFrigateIntegrationVersionStatus({
+      installed: true,
+      currentVersion: "5.15.6",
+      recommendedVersion: "5.15.6",
+      lookupStatus: "resolved",
+    }),
+    {
+      visible: true,
+      status: "current",
+      label: "Frigate integration 5.15.6 • Recommended level met",
+    },
+  );
+  assert.deepEqual(
+    resolveFrigateIntegrationVersionStatus({ lookupStatus: "pending" }),
+    {
+      visible: true,
+      status: "checking",
+      label: "Checking Frigate integration version…",
+    },
   );
 });
 

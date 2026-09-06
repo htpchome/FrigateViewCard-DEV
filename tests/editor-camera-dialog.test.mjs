@@ -989,16 +989,18 @@ test("editor version badge follows the HACS update entity", () => {
   assert.equal(link.dataset.entityId, "update.frigateview_card_update");
 });
 
-test("editor shows compact notices for unsupported environment versions", () => {
+test("editor shows compact environment version status rows", () => {
   const editor = new FrigateViewCardEditor();
   const homeAssistantText = { textContent: "" };
   const frigateText = { textContent: "" };
   const homeAssistantNotice = {
     hidden: true,
+    dataset: {},
     querySelector: () => homeAssistantText,
   };
   const frigateNotice = {
     hidden: true,
+    dataset: {},
     querySelector: () => frigateText,
   };
   editor._hass = { config: { version: "2026.8.4" } };
@@ -1026,12 +1028,23 @@ test("editor shows compact notices for unsupported environment versions", () => 
   editor._hass.config.version = "2026.9.0";
   editor._frigateIntegrationVersion = "5.15.6";
   editor._syncEnvironmentSupportNotices();
-  assert.equal(homeAssistantNotice.hidden, true);
-  assert.equal(frigateNotice.hidden, true);
+  assert.equal(homeAssistantNotice.hidden, false);
+  assert.equal(homeAssistantNotice.dataset.supportStatus, "current");
+  assert.equal(
+    homeAssistantText.textContent,
+    "Home Assistant 2026.9.0 • Recommended level met",
+  );
+  assert.equal(frigateNotice.hidden, false);
+  assert.equal(frigateNotice.dataset.supportStatus, "current");
+  assert.equal(
+    frigateText.textContent,
+    "Frigate integration 5.15.6 • Recommended level met",
+  );
 
   editor._frigateIntegrationInstalled = false;
   editor._syncEnvironmentSupportNotices();
   assert.equal(frigateNotice.hidden, false);
+  assert.equal(frigateNotice.dataset.supportStatus, "warning");
   assert.equal(
     frigateText.textContent,
     "Frigate integration is not installed in Home Assistant.",
