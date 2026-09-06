@@ -118,12 +118,11 @@ test("editor live handoff rejects HA-direct and active talk sessions", () => {
     isEngineReusable: () => true,
   });
   const request = {
-    connectionType: "ha_direct",
     context: "config",
     entity: "camera.front",
     key: "matching-card",
     streamType: "webrtc",
-    type: "live-engine",
+    type: "frigate-go2rtc-live",
   };
 
   assert.equal(controller.createOffer(request), null);
@@ -133,7 +132,6 @@ test("editor live handoff rejects HA-direct and active talk sessions", () => {
   };
   current.useGo2Rtc = true;
   current.twoWayTalkActive = true;
-  request.connectionType = "frigate_go2rtc";
   assert.equal(controller.createOffer(request), null);
 });
 
@@ -193,79 +191,6 @@ test("editor MSE handoff transfers and returns one established engine", () => {
   });
 
   const transfer = receiver.take("camera.front", "mse");
-  assert.equal(transfer?.engine, engine);
-  receiverState.engine = transfer.engine;
-  transfer.commit();
-  donorState.hostConnected = true;
-
-  assert.equal(receiver.returnIfPossible(), true);
-  assert.equal(receiverState.engine, null);
-  assert.equal(donorState.engine, engine);
-});
-
-test("editor HA-direct HLS handoff transfers and returns one established player", () => {
-  const engine = {
-    type: "ha_direct",
-    streamType: "hls",
-  };
-  const donorState = {
-    activeStreamType: "hls",
-    engine,
-    entity: "camera.front",
-    hasSlot: true,
-    hostConnected: false,
-    mountInProgress: false,
-    previewPageActive: false,
-    started: true,
-    twoWayTalkActive: false,
-    useGo2Rtc: false,
-    viewMode: "single",
-  };
-  const receiverState = { ...donorState, engine: null };
-  let donor;
-  donor = createEditorLiveHandoffController({
-    getState: () => donorState,
-    getContext: () => "preconfig",
-    getIdentityKey: () => "matching-card",
-    isEditorLifecycleActive: () => true,
-    isEngineReusable: (candidate, streamType, connectionType) =>
-      candidate === engine &&
-      streamType === "hls" &&
-      connectionType === "ha_direct",
-    detachEngine: () => {
-      donorState.engine = null;
-      return true;
-    },
-    adoptEngine: (candidate, streamType, connectionType) => {
-      assert.equal(streamType, "hls");
-      assert.equal(connectionType, "ha_direct");
-      donorState.engine = candidate;
-      return true;
-    },
-  });
-  const receiver = createEditorLiveHandoffController({
-    getState: () => receiverState,
-    getContext: () => "config",
-    getIdentityKey: () => "matching-card",
-    isEditorLifecycleActive: () => true,
-    requestHandoff: (request) => donor.createOffer(request),
-    isEngineReusable: (candidate, streamType, connectionType) =>
-      candidate === engine &&
-      streamType === "hls" &&
-      connectionType === "ha_direct",
-    detachEngine: () => {
-      receiverState.engine = null;
-      return true;
-    },
-    adoptEngine: (candidate, streamType, connectionType) => {
-      assert.equal(streamType, "hls");
-      assert.equal(connectionType, "ha_direct");
-      receiverState.engine = candidate;
-      return true;
-    },
-  });
-
-  const transfer = receiver.take("camera.front", "hls", "ha_direct");
   assert.equal(transfer?.engine, engine);
   receiverState.engine = transfer.engine;
   transfer.commit();
@@ -739,71 +664,6 @@ test("live mount controller reuses only the HA-direct retained engine for HA-dir
   assert.deepEqual(calls, [
     ["take-ha-direct", "camera.front", ""],
     ["adopt-ha-direct", slot, cachedEngine],
-  ]);
-});
-
-test("live mount controller adopts an editor HA-direct HLS handoff before remounting", async () => {
-  const calls = [];
-  const slot = { innerHTML: "occupied" };
-  const handedOffEngine = {
-    type: "ha_direct",
-    streamType: "hls",
-    tagName: "HA-HLS-PLAYER",
-  };
-  const controller = createLiveMountController({
-    getSlot: () => slot,
-    isPreviewPageActive: () => false,
-    getViewMode: () => "single",
-    isGridModeAvailable: () => true,
-    getMountInProgress: () => false,
-    getMountTargetEntity: () => "",
-    getMountState: () => ({
-      mountSeq: 1,
-      mountInProgress: false,
-      mountStartedAt: 0,
-      mountTargetEntity: "",
-    }),
-    applyMountTrackingState: () => {},
-    mountGridEngine: () => {},
-    cleanupEngine: () => calls.push("cleanup"),
-    getStreamMuted: () => true,
-    setEngineMountedMuted: () => {},
-    mseGraceController: {
-      takeGraceHaDirectEntry: (entity, streamType) => {
-        calls.push(["take-ha-direct", entity, streamType]);
-        return null;
-      },
-      adoptGraceHaDirectEngine: (targetSlot, engine) => {
-        calls.push(["adopt-hls-handoff", targetSlot, engine]);
-        return true;
-      },
-    },
-    takeEditorLiveHandoff: ({ connectionType, entity, streamType }) => {
-      calls.push(["take-handoff", connectionType, entity, streamType]);
-      return {
-        engine: handedOffEngine,
-        commit: () => calls.push("commit-handoff"),
-      };
-    },
-    haDirectMounter: {
-      tryMount: async () => {
-        throw new Error("HA mount should not run after HLS handoff");
-      },
-    },
-    preferredStreamType: () => "webrtc",
-    setActiveStreamType: () => {},
-    setStreamLoading: () => {},
-    setStreamFallbackVisible: () => {},
-    scheduleResumeLive: () => {},
-    resolveUseGo2Rtc: () => false,
-  });
-
-  assert.equal(await controller.mount({ entity: "camera.front" }), true);
-  assert.deepEqual(calls, [
-    ["take-ha-direct", "camera.front", ""],
-    ["take-handoff", "ha_direct", "camera.front", "hls"],
-    ["adopt-hls-handoff", slot, handedOffEngine],
-    "commit-handoff",
   ]);
 });
 

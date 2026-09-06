@@ -150,56 +150,6 @@ export function createHaDirectMounter({
     return binding;
   };
 
-  const detachForHandoff = (engine) => {
-    const binding = mediaBindings.get(engine);
-    if (
-      engine?.type !== "ha_direct" ||
-      engine?.streamType !== "hls" ||
-      !binding ||
-      binding.disposed ||
-      binding.fallbackEngine ||
-      binding.fallbackAbortController ||
-      binding.takeoverEngine ||
-      typeof engine.cancelPendingTakeover === "function"
-    ) {
-      return false;
-    }
-    binding.disposed = true;
-    binding.revision += 1;
-    binding.abortController.abort();
-    engine.removeEventListener?.("load", binding.reconcile, true);
-    engine.removeEventListener?.("streams", binding.onStreams, true);
-    mediaBindings.delete(engine);
-    return true;
-  };
-
-  const adoptRetainedEngine = (engine) => {
-    if (
-      engine?.type !== "ha_direct" ||
-      engine?.streamType !== "hls" ||
-      engine?.tagName?.toLowerCase?.() !== "ha-hls-player" ||
-      typeof engine.cancelPendingTakeover === "function"
-    ) {
-      return false;
-    }
-    const existingBinding = mediaBindings.get(engine);
-    if (existingBinding && !existingBinding.disposed) return true;
-
-    const hass = getHass();
-    if (!hass) return false;
-    if (engine.hass !== hass) engine.hass = hass;
-    let failureHandled = false;
-    const fail = (binding) => {
-      if (failureHandled || binding.disposed || !isCurrentEngine(engine)) {
-        return;
-      }
-      failureHandled = true;
-      applyFailed(engine);
-    };
-    bindHlsMedia(engine, fail);
-    return true;
-  };
-
   const tryMount = async (slot, startup = null, options = {}) => {
     const preferredStreamType = getPreferredStreamType();
     const haDirectPlan = buildHaDirectMountPlan({
@@ -447,8 +397,6 @@ export function createHaDirectMounter({
   };
 
   return {
-    adoptRetainedEngine,
-    detachForHandoff,
     release,
     tryMount,
   };

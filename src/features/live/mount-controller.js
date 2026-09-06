@@ -19,15 +19,8 @@ import {
 } from "./pending-destroyers.js";
 import { resolveSnapshotFallbackState } from "./stream.state.js";
 
-const EDITOR_LIVE_HANDOFF_TYPE = "live-engine";
-const FRIGATE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
-const HA_DIRECT_HANDOFF_STREAM_TYPES = new Set(["hls"]);
-
-const isEditorLiveHandoffSupported = (connectionType, streamType) =>
-  connectionType === "frigate_go2rtc"
-    ? FRIGATE_HANDOFF_STREAM_TYPES.has(streamType)
-    : connectionType === "ha_direct" &&
-      HA_DIRECT_HANDOFF_STREAM_TYPES.has(streamType);
+const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
+const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
 
 export function createEditorLiveHandoffController({
   getState,
@@ -50,16 +43,16 @@ export function createEditorLiveHandoffController({
   const state = () => getState?.() || {};
   const identityKey = (entity) => getIdentityKey?.(entity) || "";
 
-  const claim = (engine, streamType, connectionType) => {
+  const claim = (engine, streamType) => {
     const current = state();
     if (
       current.engine !== engine ||
-      isEngineReusable?.(engine, streamType, connectionType) !== true ||
-      detachEngine?.(engine, streamType, connectionType) === false
+      isEngineReusable?.(engine, streamType) !== true
     ) {
       return null;
     }
     engine.deactivateRecovery?.();
+    detachEngine?.(engine);
     suspended = true;
     setStreamLoading?.(false);
     setStreamFallbackVisible?.(true, false);
@@ -78,15 +71,10 @@ export function createEditorLiveHandoffController({
     const entity = String(current.entity || "");
     const requestContext = String(request.context || "");
     const streamType = String(request.streamType || "").toLowerCase();
-    const connectionType = String(request.connectionType || "").toLowerCase();
-    const currentConnectionType = current.useGo2Rtc
-      ? "frigate_go2rtc"
-      : "ha_direct";
     const engine = current.engine;
     if (
       request.type !== EDITOR_LIVE_HANDOFF_TYPE ||
-      !isEditorLiveHandoffSupported(connectionType, streamType) ||
-      connectionType !== currentConnectionType ||
+      !EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType) ||
       !entity ||
       request.entity !== entity ||
       request.key !== identityKey(entity) ||
@@ -97,10 +85,11 @@ export function createEditorLiveHandoffController({
       current.previewPageActive ||
       current.viewMode !== "single" ||
       current.twoWayTalkActive ||
+      current.useGo2Rtc !== true ||
       current.activeStreamType !== streamType ||
-      engine?.type !== connectionType ||
+      engine?.type !== "frigate_go2rtc" ||
       engine?.streamType !== streamType ||
-      isEngineReusable?.(engine, streamType, connectionType) !== true
+      isEngineReusable?.(engine, streamType) !== true
     ) {
       return null;
     }
@@ -110,9 +99,8 @@ export function createEditorLiveHandoffController({
     return {
       provider: controller,
       returnTarget: nextReturnTarget,
-      connectionType,
       streamType,
-      claim: () => claim(engine, streamType, connectionType),
+      claim: () => claim(engine, streamType),
       complete: () => {
         returnTarget = null;
       },
@@ -120,25 +108,12 @@ export function createEditorLiveHandoffController({
     };
   };
 
-  const take = (
-    entity = "",
-    streamType = "",
-    connectionType = "frigate_go2rtc",
-  ) => {
+  const take = (entity = "", streamType = "") => {
     const requestedStreamType = String(streamType || "").toLowerCase();
-    const requestedConnectionType = String(
-      connectionType || "",
-    ).toLowerCase();
-    if (
-      !isEditorLiveHandoffSupported(
-        requestedConnectionType,
-        requestedStreamType,
-      )
-    ) {
+    if (!EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(requestedStreamType)) {
       return null;
     }
     const offer = requestHandoff?.({
-      connectionType: requestedConnectionType,
       context: getContext?.() || "",
       entity,
       key: identityKey(entity),
@@ -149,7 +124,6 @@ export function createEditorLiveHandoffController({
     if (!engine) return null;
     return {
       engine,
-      connectionType: requestedConnectionType,
       streamType: requestedStreamType,
       commit: () => {
         suspended = false;
@@ -160,17 +134,8 @@ export function createEditorLiveHandoffController({
     };
   };
 
-  const canAcceptReturn = ({
-    entity,
-    key,
-    engine,
-    streamType,
-    connectionType,
-  } = {}) => {
+  const canAcceptReturn = ({ entity, key, engine, streamType } = {}) => {
     const current = state();
-    const currentConnectionType = current.useGo2Rtc
-      ? "frigate_go2rtc"
-      : "ha_direct";
     return (
       current.hostConnected === true &&
       suspended === true &&
@@ -178,31 +143,17 @@ export function createEditorLiveHandoffController({
       !current.mountInProgress &&
       current.entity === entity &&
       key === identityKey(entity) &&
+      current.useGo2Rtc === true &&
       current.hasSlot === true &&
-      connectionType === currentConnectionType &&
-      isEditorLiveHandoffSupported(connectionType, streamType) &&
-      engine?.type === connectionType &&
+      EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType) &&
       engine?.streamType === streamType &&
-      isEngineReusable?.(engine, streamType, connectionType) === true
+      isEngineReusable?.(engine, streamType) === true
     );
   };
 
-  const acceptReturn = ({
-    entity,
-    key,
-    engine,
-    streamType,
-    connectionType,
-  } = {}) => {
-    if (
-      !canAcceptReturn({ entity, key, engine, streamType, connectionType })
-    ) {
-      return false;
-    }
-    if (adoptEngine?.(engine, streamType, connectionType) !== true) {
-      reject();
-      return false;
-    }
+  const acceptReturn = ({ entity, key, engine, streamType } = {}) => {
+    if (!canAcceptReturn({ entity, key, engine, streamType })) return false;
+    if (adoptEngine?.(engine, streamType) !== true) return false;
     suspended = false;
     syncLivePresentation?.();
     return true;
@@ -216,31 +167,14 @@ export function createEditorLiveHandoffController({
     const key = identityKey(entity);
     const engine = current.engine;
     const streamType = String(current.activeStreamType || "").toLowerCase();
-    const connectionType = current.useGo2Rtc
-      ? "frigate_go2rtc"
-      : "ha_direct";
     if (
-      target?.canAcceptReturn?.({
-        entity,
-        key,
-        engine,
-        streamType,
-        connectionType,
-      }) !== true
+      target?.canAcceptReturn?.({ entity, key, engine, streamType }) !== true
     ) {
       return false;
     }
     engine.deactivateRecovery?.();
-    if (detachEngine?.(engine, streamType, connectionType) === false) {
-      return false;
-    }
-    return target.acceptReturn({
-      entity,
-      key,
-      engine,
-      streamType,
-      connectionType,
-    });
+    detachEngine?.(engine);
+    return target.acceptReturn({ entity, key, engine, streamType });
   };
 
   const dispose = () => {
@@ -421,27 +355,6 @@ export function createLiveMountController({
       ) {
         return true;
       }
-
-      if (!forcedType || forcedType === "hls") {
-        const editorHandoff =
-          takeEditorLiveHandoff?.({
-            connectionType: "ha_direct",
-            entity: targetEntity,
-            streamType: "hls",
-          }) || null;
-        if (editorHandoff?.engine) {
-          if (
-            mseGraceController.adoptGraceHaDirectEngine?.(
-              slot,
-              editorHandoff.engine,
-            )
-          ) {
-            editorHandoff.commit?.();
-            return true;
-          }
-          editorHandoff.reject?.();
-        }
-      }
     }
 
     if (
@@ -463,7 +376,6 @@ export function createLiveMountController({
 
       const editorHandoff =
         takeEditorLiveHandoff?.({
-          connectionType: "frigate_go2rtc",
           entity: targetEntity,
           streamType: "webrtc",
         }) || null;
@@ -555,7 +467,6 @@ export function createLiveMountController({
 
       const editorHandoff =
         takeEditorLiveHandoff?.({
-          connectionType: "frigate_go2rtc",
           entity: targetEntity,
           streamType: "mse",
         }) || null;
