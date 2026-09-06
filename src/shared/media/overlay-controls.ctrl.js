@@ -1,4 +1,5 @@
 import { CleanupController } from "../cleanup.js";
+import { MEDIA_OVERLAY_TIMING } from "../../constants.js";
 
 const TAP_MOVE_TOLERANCE_PX = 8;
 
@@ -9,21 +10,26 @@ export class MediaOverlayControlsController {
     show,
     hideNow,
     hideSoon,
+    cancelScheduledHide,
     revealDurationMs = 1300,
     touchRevealDurationMs = revealDurationMs,
+    mouseLeaveDelayMs = MEDIA_OVERLAY_TIMING.mouse.leaveHideDelayMs,
     autoHideMouse = false,
   }) {
     this._surface = surface || wrap;
     this._show = show;
     this._hideNow = hideNow;
     this._hideSoon = hideSoon;
+    this._cancelScheduledHide = cancelScheduledHide;
     this._revealDurationMs = Math.max(0, Number(revealDurationMs) || 0);
     this._touchRevealDurationMs = Math.max(
       0,
       Number(touchRevealDurationMs) || 0,
     );
+    this._mouseLeaveDelayMs = Math.max(0, Number(mouseLeaveDelayMs) || 0);
     this._autoHideMouse = autoHideMouse === true;
     this._lastMouseRevealAt = 0;
+    this._mouseLeaveTimer = null;
     this._cleanup = new CleanupController();
     this._pointers = new Map();
   }
@@ -71,11 +77,13 @@ export class MediaOverlayControlsController {
   dispose() {
     this._cleanup.dispose();
     this._pointers.clear();
+    this._clearMouseLeaveTimer();
     this._hideNow?.();
   }
 
   _onPointerEnter = (event) => {
     if (event?.pointerType !== "mouse") return;
+    this._clearMouseLeaveTimer();
     const interaction = { pointerType: "mouse" };
     this._show?.(interaction);
     if (this._autoHideMouse) {
@@ -85,8 +93,24 @@ export class MediaOverlayControlsController {
   };
 
   _onPointerLeave = (event) => {
-    if (event?.pointerType === "mouse") this._hideNow?.();
+    if (event?.pointerType !== "mouse") return;
+    this._clearMouseLeaveTimer();
+    this._cancelScheduledHide?.();
+    if (this._mouseLeaveDelayMs <= 0) {
+      this._hideNow?.();
+      return;
+    }
+    this._mouseLeaveTimer = setTimeout(() => {
+      this._mouseLeaveTimer = null;
+      this._hideNow?.();
+    }, this._mouseLeaveDelayMs);
   };
+
+  _clearMouseLeaveTimer() {
+    if (this._mouseLeaveTimer === null) return;
+    clearTimeout(this._mouseLeaveTimer);
+    this._mouseLeaveTimer = null;
+  }
 
   _onPointerDown = (event) => {
     const pointerType = String(event?.pointerType || "").toLowerCase();

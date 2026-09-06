@@ -586,6 +586,9 @@ export class PopupMediaControlsSurfaceController {
           if (this._isCardViewDrawerPresentation()) this.hideNow();
         }, delayMs);
       },
+      cancelScheduledHide: () => {
+        this._clearPlaybackOverlayHideTimer();
+      },
       revealDurationMs: 1800,
     });
     this._playbackOverlayController.bind();

@@ -39,6 +39,7 @@ test("LiveOverlayControlsController shows on mouse hover and hides on leave", ()
     show: () => calls.push("show"),
     hideNow: () => calls.push("hideNow"),
     hideSoon: (ms) => calls.push(["hideSoon", ms]),
+    mouseLeaveDelayMs: 0,
   });
 
   controller.bind();
@@ -46,6 +47,48 @@ test("LiveOverlayControlsController shows on mouse hover and hides on leave", ()
   wrap.dispatch("pointerleave", { pointerType: "mouse" });
 
   assert.deepEqual(calls, ["show", "hideNow"]);
+});
+
+test("LiveOverlayControlsController delays mouse-leave hiding globally", async () => {
+  const wrap = createTarget();
+  const calls = [];
+  const controller = new LiveOverlayControlsController({
+    wrap,
+    show: () => calls.push("show"),
+    hideNow: () => calls.push("hideNow"),
+    hideSoon: (ms) => calls.push(["hideSoon", ms]),
+    cancelScheduledHide: () => calls.push("cancelScheduledHide"),
+    mouseLeaveDelayMs: 20,
+  });
+
+  controller.bind();
+  wrap.dispatch("pointerenter", { pointerType: "mouse" });
+  wrap.dispatch("pointerleave", { pointerType: "mouse" });
+
+  assert.deepEqual(calls, ["show", "cancelScheduledHide"]);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.deepEqual(calls, ["show", "cancelScheduledHide", "hideNow"]);
+});
+
+test("LiveOverlayControlsController cancels mouse-leave hiding on re-entry", async () => {
+  const wrap = createTarget();
+  const calls = [];
+  const controller = new LiveOverlayControlsController({
+    wrap,
+    show: () => calls.push("show"),
+    hideNow: () => calls.push("hideNow"),
+    hideSoon: (ms) => calls.push(["hideSoon", ms]),
+    mouseLeaveDelayMs: 20,
+  });
+
+  controller.bind();
+  wrap.dispatch("pointerenter", { pointerType: "mouse" });
+  wrap.dispatch("pointerleave", { pointerType: "mouse" });
+  wrap.dispatch("pointerenter", { pointerType: "mouse" });
+
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.deepEqual(calls, ["show", "show"]);
+  controller.dispose();
 });
 
 test("LiveOverlayControlsController can auto-hide temporary mouse overlays", () => {

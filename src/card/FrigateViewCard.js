@@ -5080,12 +5080,18 @@ export class FrigateViewCard extends HTMLElement {
         this._liveControlsHideTimer = null;
       }, ms);
     };
+    const cancelScheduledHide = () => {
+      if (this._liveControlsHideTimer === null) return;
+      clearTimeout(this._liveControlsHideTimer);
+      this._liveControlsHideTimer = null;
+    };
     this._liveOverlayControlsController = new LiveOverlayControlsController({
       surface: interactionSurface,
       wrap,
       show,
       hideNow,
       hideSoon,
+      cancelScheduledHide,
       revealDurationMs: overlayCardView
         ? CARD_VIEW_OVERLAY_TIMING.mouse.controlsHideMs
         : 1300,

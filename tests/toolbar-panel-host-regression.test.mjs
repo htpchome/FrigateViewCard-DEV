@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { CARD_VIEW_OVERLAY_TIMING } from "../src/constants.js";
+import {
+  CARD_VIEW_OVERLAY_TIMING,
+  MEDIA_OVERLAY_TIMING,
+} from "../src/constants.js";
 
 const cardSource = fs.readFileSync(
   new URL("../src/card/FrigateViewCard.js", import.meta.url),
@@ -210,6 +213,11 @@ test("live controls keep a shared overlay with a mobile inline mute exception", 
 });
 
 test("Card View overlay timing matrix keeps mouse and touch behavior separate", () => {
+  assert.deepEqual(MEDIA_OVERLAY_TIMING, {
+    mouse: {
+      leaveHideDelayMs: 1000,
+    },
+  });
   assert.deepEqual(CARD_VIEW_OVERLAY_TIMING, {
     mouse: {
       controlsHideMs: 10000,
