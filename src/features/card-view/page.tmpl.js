@@ -26,6 +26,7 @@ const normalizeRegions = (regions = {}) => ({
   drawerHandleIcon: "",
   mediaDrawerHandleIcon: "",
   calendarIcon: "",
+  filterIcon: "",
   ...regions,
 });
 
@@ -60,9 +61,16 @@ export function buildCardViewMainLayoutShellMarkup({
               <button class="card-view-media-drawer-tab active" type="button" data-card-view-media-drawer-type="alerts" role="tab" aria-selected="true">Alerts</button>
               <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="clips" role="tab" aria-selected="false">Clips</button>
               <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="snapshots" role="tab" aria-selected="false">Snapshots</button>
+              <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="recordings" role="tab" aria-selected="false">Recordings</button>
             </div>
           </div>
           <button class="card-view-media-drawer-handle" type="button" data-card-view-media-drawer-toggle aria-controls="card-view-media-drawer-panel" aria-expanded="false" title="Open media drawer" aria-label="Open media drawer">${regions.mediaDrawerHandleIcon}</button>
+          <div class="card-view-media-drawer-actions" data-card-view-media-drawer-actions aria-hidden="true" hidden>
+            <button class="card-view-media-drawer-action" type="button" data-card-view-media-drawer-calendar aria-pressed="false" title="Choose day" aria-label="Choose day">${regions.calendarIcon}</button>
+            <button class="card-view-media-drawer-action" type="button" data-card-view-media-drawer-filter aria-pressed="false" title="Filter media" aria-label="Filter media">${regions.filterIcon}</button>
+          </div>
+          <div class="cal-panel card-view-media-drawer-popover card-view-media-drawer-calendar-panel" data-card-view-media-drawer-calendar-panel hidden></div>
+          <div class="filter-panel card-view-media-drawer-popover card-view-media-drawer-filter-panel" data-card-view-media-drawer-filter-panel hidden></div>
         </aside>
         <div class="card-view-live-status-overlay" data-card-view-live-status-overlay>
           <div class="card-view-source-indicator" data-card-view-source-indicator aria-label="Live source" hidden>
@@ -105,7 +113,7 @@ export function buildCardViewMainLayoutShellMarkup({
         <button class="icon-btn card-view-drawer-handle card-view-drawer-handle--right" type="button" data-card-view-drawer-toggle aria-expanded="true" title="Close activity drawer" aria-label="Close activity drawer">${regions.drawerHandleIcon}</button>
       </div>
       <div class="card-view-footer-end">
-        <div class="cal-panel card-view-calendar-panel shadow-small" id="card-view-cal-panel" data-fvc-region="calendar-panel" hidden></div>
+        <div class="cal-panel card-view-calendar-panel shadow-small" id="card-view-cal-panel" data-card-view-calendar-panel data-fvc-region="calendar-panel" hidden></div>
         <button class="icon-btn card-view-footer-calendar" type="button" data-card-view-calendar aria-pressed="false" title="Calendar" aria-label="Calendar" hidden>${regions.calendarIcon}</button>
         <div class="footer-version" ${regions.footerVersion ? `aria-label="FrigateView version ${escapeHtml(regions.footerVersion)}"` : "hidden"}>${regions.footerVersion ? `v${escapeHtml(regions.footerVersion)}` : ""}</div>
       </div>

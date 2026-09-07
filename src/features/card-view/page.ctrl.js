@@ -8,6 +8,12 @@ import {
 import { parseRealtimeAlertMessage } from "../../data/realtime-alert.js";
 import { CleanupController } from "../../shared/cleanup.js";
 import { resolveCameraAwareText } from "../../shared/page-text.js";
+import {
+  collectFilterLabelsFromEvents,
+  collectFilterZonesFromEvents,
+  normalizeFilterSelections,
+  toggleFilterSelection,
+} from "../browse/filter-state.js";
 import { canCameraUsePtz } from "../ptz/index.js";
 import { POPUP_PRESENTATION_CARD_VIEW_DRAWER } from "../popup/media.js";
 import { resolveRecordingsDayBounds } from "../recordings/utils/day.js";
@@ -24,6 +30,7 @@ import {
   buildCardViewToolbarMarkup,
 } from "./page.tmpl.js";
 import {
+  CARD_VIEW_MEDIA_DRAWER_TYPES,
   CARD_VIEW_VIEW_MODES,
   CARD_VIEW_START_MODES,
   normalizeCardViewStartMode,
@@ -110,11 +117,12 @@ export class CardViewPageController {
     this._selectedDayTs = null;
     this._calendarMonth = null;
     this._calendarOpen = false;
+    this._mediaDrawerCalendarOpen = false;
+    this._mediaDrawerFilterOpen = false;
     this._columns = 1;
     this._alertLoadToken = 0;
     this._recordingLoadToken = 0;
     this._alertRefreshTimer = null;
-    this._calendarOpen = false;
     this._lastTakeoverAt = 0;
     this._haSeverityByEntity = new Map();
     this._cleanup = new CleanupController();
@@ -142,8 +150,9 @@ export class CardViewPageController {
         this.usesOverlayPresentation() &&
         this._host._config?.card_view_media_drawer_enabled === true,
       getEvents: (mediaType) =>
-        this._host._popupCarouselController?.eventsForMediaType?.(mediaType) ||
-        [],
+        this._mediaDrawerEvents(mediaType),
+      getRecordings: () => this._recordings,
+      isRecordingsLoading: () => this._recordingsLoading,
       mediaUrl: (id, file, camera = "") =>
         this._host._mediaForCamera?.(id, file, camera) || "",
       formatDateTime: (timestamp) =>
@@ -157,6 +166,17 @@ export class CardViewPageController {
           { presentation: POPUP_PRESENTATION_CARD_VIEW_DRAWER },
         );
       },
+      onSelectRecording: (recording) =>
+        this._openMediaDrawerRecording(recording),
+      onSelectType: (drawerType) =>
+        this._handleMediaDrawerTypeSelected(drawerType),
+      onOpenChange: (open) => {
+        if (!open) this._closeMediaDrawerPopovers();
+      },
+      onToggleCalendar: () => this._toggleMediaDrawerCalendar(),
+      onToggleFilter: () => this._toggleMediaDrawerFilter(),
+      isCalendarOpen: () => this._mediaDrawerCalendarOpen,
+      isFilterOpen: () => this._mediaDrawerFilterOpen,
       icons: ICONS,
     });
   }
@@ -286,6 +306,8 @@ export class CardViewPageController {
     this._standaloneModeControlsMarkup = "";
     this._resetStandaloneGridIndicator();
     this._standaloneTalkMarkup = "";
+    this._mediaDrawerCalendarOpen = false;
+    this._mediaDrawerFilterOpen = false;
     this._mediaDrawerController.dispose();
     this._haSeverityByEntity.clear();
     this._activityContent = null;
@@ -641,6 +663,179 @@ export class CardViewPageController {
 
   renderMediaDrawer(options = {}) {
     return this._mediaDrawerController.render(options);
+  }
+
+  _mediaDrawerEvents(mediaType) {
+    const events =
+      this._host._popupCarouselController?.eventsForMediaType?.(mediaType) ||
+      [];
+    const bounds = this._selectedDayTs ? this._selectedDayBounds() : null;
+    return events.filter((event) => {
+      const start = Number(event?.start_time) || 0;
+      if (bounds && (start < bounds.start || start > bounds.end)) return false;
+      return this._host._browseFilterController?.matchesEventFilters?.(event) !==
+        false;
+    });
+  }
+
+  _openMediaDrawerRecording(recording) {
+    const start = Math.floor(Number(recording?.start_time) || 0);
+    const end = Math.floor(Number(recording?.end_time) || 0);
+    if (!start || end <= start) return false;
+    const cameraEntity = String(recording?._fvc_camera_entity || "");
+    const context = cameraEntity
+      ? this._host._camCache?.[cameraEntity]
+      : null;
+    this._host._pauseSlideshowForInteraction?.();
+    void this._host._popupMediaLoaderController?.showRecording?.(
+      start,
+      end,
+      {
+        presentation: POPUP_PRESENTATION_CARD_VIEW_DRAWER,
+        ...(context?.clientId && context?.cam
+          ? { clientId: context.clientId, camera: context.cam }
+          : {}),
+      },
+    );
+    return true;
+  }
+
+  _handleMediaDrawerTypeSelected(drawerType) {
+    this._mediaDrawerCalendarOpen = false;
+    this._mediaDrawerFilterOpen = false;
+    this.renderMediaDrawerCalendar();
+    this.renderMediaDrawerFilter();
+    if (drawerType !== CARD_VIEW_MEDIA_DRAWER_TYPES.recordings) return;
+    this._recordingsLoading = true;
+    void this.loadRecordings();
+  }
+
+  _toggleMediaDrawerCalendar() {
+    this._mediaDrawerCalendarOpen = !this._mediaDrawerCalendarOpen;
+    this._mediaDrawerFilterOpen = false;
+    this.renderMediaDrawerCalendar();
+    this.renderMediaDrawerFilter();
+    if (this._mediaDrawerCalendarOpen) {
+      void this._host._prefetchCalendarActivityForActiveCamera?.().then(() => {
+        if (this.isActive() && this._mediaDrawerCalendarOpen) {
+          this.renderMediaDrawerCalendar();
+        }
+      });
+    }
+  }
+
+  _toggleMediaDrawerFilter() {
+    if (
+      this._mediaDrawerController.selectedType() ===
+      CARD_VIEW_MEDIA_DRAWER_TYPES.recordings
+    ) {
+      return;
+    }
+    this._mediaDrawerFilterOpen = !this._mediaDrawerFilterOpen;
+    this._mediaDrawerCalendarOpen = false;
+    this.renderMediaDrawerCalendar();
+    this.renderMediaDrawerFilter();
+  }
+
+  _closeMediaDrawerPopovers() {
+    if (!this._mediaDrawerCalendarOpen && !this._mediaDrawerFilterOpen) return;
+    this._mediaDrawerCalendarOpen = false;
+    this._mediaDrawerFilterOpen = false;
+    this.renderMediaDrawerCalendar();
+    this.renderMediaDrawerFilter();
+  }
+
+  _calendarPanelMarkup() {
+    const now = Math.floor(Date.now() / 1000);
+    const parts = this._host._tzParts(this._selectedDayTs || now);
+    if (!(this._calendarMonth instanceof Date)) {
+      this._calendarMonth = new Date(
+        Date.UTC(parts.year, parts.month - 1, 15, 12, 0, 0),
+      );
+    }
+    const timeZone = this._host._tz();
+    return this._constants.buildCalendarPanelMarkup?.({
+      monthDate: this._calendarMonth,
+      activeDayDateString: this._selectedDayTs
+        ? this._formatDateString(parts)
+        : "",
+      todayDateString: this._formatDateString(this._host._tzParts(now)),
+      daysWithActivity: this._host._daysWithActivity || new Set(),
+      timeZone,
+      monthLabel:
+        this._host._calendarMonthLabel?.(this._calendarMonth, timeZone) || "",
+      showReset: !!this._selectedDayTs,
+    }) || "";
+  }
+
+  renderMediaDrawerCalendar() {
+    const panel = this._host.shadowRoot?.querySelector?.(
+      "[data-card-view-media-drawer-calendar-panel]",
+    );
+    if (!panel) return;
+    panel.hidden = !this._mediaDrawerCalendarOpen;
+    if (this._mediaDrawerCalendarOpen) {
+      panel.innerHTML = this._calendarPanelMarkup();
+    }
+  }
+
+  renderMediaDrawerFilter() {
+    const panel = this._host.shadowRoot?.querySelector?.(
+      "[data-card-view-media-drawer-filter-panel]",
+    );
+    if (!panel) return;
+    panel.hidden = !this._mediaDrawerFilterOpen;
+    if (!this._mediaDrawerFilterOpen) return;
+    const eventsById = new Map();
+    for (const mediaType of ["alert", "clip", "snapshot"]) {
+      for (const event of
+        this._host._popupCarouselController?.eventsForMediaType?.(
+          mediaType,
+        ) || []) {
+        if (event?.id) eventsById.set(String(event.id), event);
+      }
+    }
+    const events = [...eventsById.values()];
+    const labels = collectFilterLabelsFromEvents(events);
+    const zones = collectFilterZonesFromEvents(events);
+    const normalized = normalizeFilterSelections({
+      filterLabel: this._host._filterLabel,
+      filterZone: this._host._filterZone,
+      labels,
+      zones,
+    });
+    this._host._filterLabel = normalized.filterLabel;
+    this._host._filterZone = normalized.filterZone;
+    panel.innerHTML = this._constants.buildFilterPanelMarkup?.({
+      labels: ["all", ...labels],
+      zones: ["all", ...zones],
+      filterLabel: this._host._filterLabel,
+      filterZone: this._host._filterZone,
+      favOnly: this._host._favOnly,
+    }) || "";
+  }
+
+  _handleMediaDrawerFilterOption(target) {
+    const label = target?.closest?.("[data-flabel]");
+    const zone = target?.closest?.("[data-fzone]");
+    const favorite = target?.closest?.("[data-favonly]");
+    if (!label && !zone && !favorite) return false;
+    if (label) {
+      this._host._filterLabel = toggleFilterSelection(
+        this._host._filterLabel,
+        label.dataset.flabel,
+      );
+    } else if (zone) {
+      this._host._filterZone = toggleFilterSelection(
+        this._host._filterZone,
+        zone.dataset.fzone,
+      );
+    } else {
+      this._host._favOnly = favorite.dataset.favonly === "1";
+    }
+    this.renderMediaDrawerFilter();
+    this.renderMediaDrawer({ force: true });
+    return true;
   }
 
   renderStandaloneModeControls(buttonStates = null) {
@@ -1044,7 +1239,7 @@ export class CardViewPageController {
     const entities = cameraMemberEntities(this._host._activeCam);
     if (!entities.length) {
       this._recordingsLoading = false;
-      this.renderActivity();
+      this._renderRecordingConsumers();
       return;
     }
     await Promise.all(
@@ -1065,7 +1260,7 @@ export class CardViewPageController {
     if (!contexts.length) {
       this._recordings = [];
       this._recordingsLoading = false;
-      this.renderActivity();
+      this._renderRecordingConsumers();
       return;
     }
     const contextKey = [
@@ -1081,7 +1276,7 @@ export class CardViewPageController {
     this._recordingContextKey = contextKey;
     if (!preserveCurrentItems) {
       this._recordings = [];
-      this.renderActivity();
+      this._renderRecordingConsumers();
     }
     const useProgressivePaint = this._recordings.length === 0;
     let progressivePainted = false;
@@ -1094,10 +1289,10 @@ export class CardViewPageController {
         useProgressivePaint &&
         !progressivePainted &&
         this._recordings.length > 0 &&
-        this._mode === "recordings"
+        (this._mode === "recordings" || this._mediaDrawerRecordingsActive())
       ) {
         progressivePainted = true;
-        this.renderActivity();
+        this._renderRecordingConsumers();
       }
     };
     try {
@@ -1140,7 +1335,25 @@ export class CardViewPageController {
       this._recordings = [];
       this._recordingsLoading = false;
     }
-    if (this._mode === "recordings") this.renderActivity();
+    this._renderRecordingConsumers();
+  }
+
+  _mediaDrawerRecordingsActive() {
+    return (
+      this._mediaDrawerController.isOpen() &&
+      this._mediaDrawerController.selectedType() ===
+        CARD_VIEW_MEDIA_DRAWER_TYPES.recordings
+    );
+  }
+
+  _renderRecordingConsumers() {
+    if (this._mode === "recordings") {
+      this.renderActivity();
+      return;
+    }
+    if (this._mediaDrawerRecordingsActive()) {
+      this.renderMediaDrawer({ force: true });
+    }
   }
 
   _sortRecordings(recordings) {
@@ -1255,7 +1468,7 @@ export class CardViewPageController {
 
   async refreshActiveContent({ force = false } = {}) {
     const activeMode = this._mode === "ptz" ? this._returnMode : this._mode;
-    if (activeMode === "recordings") {
+    if (activeMode === "recordings" || this._mediaDrawerRecordingsActive()) {
       await this.loadRecordings();
       return;
     }
@@ -1274,8 +1487,11 @@ export class CardViewPageController {
     this.renderToolbar();
     this.renderMediaDrawer({ force: true });
     void this._discoverPtzSupport();
-    if (this._mode === "recordings") await this.loadRecordings();
-    else if (this._mode === "alerts") this.renderActivity();
+    if (this._mode === "recordings" || this._mediaDrawerRecordingsActive()) {
+      await this.loadRecordings();
+    } else if (this._mode === "alerts") {
+      this.renderActivity();
+    }
   }
 
   handleRealtimeMessage(message) {
@@ -1465,9 +1681,15 @@ export class CardViewPageController {
   }
 
   closeCalendarIfOutside(event) {
-    if (!this._calendarOpen) return false;
+    if (
+      !this._calendarOpen &&
+      !this._mediaDrawerCalendarOpen &&
+      !this._mediaDrawerFilterOpen
+    ) {
+      return false;
+    }
     const calendarSelector =
-      ".card-view-calendar-panel, [data-card-view-calendar]";
+      ".card-view-calendar-panel, [data-card-view-calendar], .card-view-media-drawer-popover, [data-card-view-media-drawer-calendar], [data-card-view-media-drawer-filter]";
     const path = event?.composedPath?.() || [];
     const candidates = path.length ? path : [event?.target];
     const withinCalendar = candidates.some((candidate) =>
@@ -1476,8 +1698,13 @@ export class CardViewPageController {
     );
     if (withinCalendar) return false;
     this._calendarOpen = false;
+    this._mediaDrawerCalendarOpen = false;
+    this._mediaDrawerFilterOpen = false;
     this.renderToolbar();
     this.renderCalendar();
+    this.renderMediaDrawerCalendar();
+    this.renderMediaDrawerFilter();
+    this.renderMediaDrawer();
     return true;
   }
 
@@ -1486,27 +1713,7 @@ export class CardViewPageController {
     if (!panel) return;
     panel.hidden = !this._calendarOpen;
     if (!this._calendarOpen) return;
-    const now = Math.floor(Date.now() / 1000);
-    const parts = this._host._tzParts(this._selectedDayTs || now);
-    if (!(this._calendarMonth instanceof Date)) {
-      this._calendarMonth = new Date(
-        Date.UTC(parts.year, parts.month - 1, 15, 12, 0, 0),
-      );
-    }
-    const timeZone = this._host._tz();
-    const todayDateString = this._formatDateString(this._host._tzParts(now));
-    panel.innerHTML = this._constants.buildCalendarPanelMarkup?.({
-      monthDate: this._calendarMonth,
-      activeDayDateString: this._selectedDayTs
-        ? this._formatDateString(parts)
-        : "",
-      todayDateString,
-      daysWithActivity: this._host._daysWithActivity || new Set(),
-      timeZone,
-      monthLabel:
-        this._host._calendarMonthLabel?.(this._calendarMonth, timeZone) || "",
-      showReset: !!this._selectedDayTs,
-    }) || "";
+    panel.innerHTML = this._calendarPanelMarkup();
   }
 
   _formatDateString(parts) {
@@ -1535,10 +1742,19 @@ export class CardViewPageController {
       0,
       0,
     );
+    const mediaDrawerType = this._mediaDrawerController.isOpen()
+      ? this._mediaDrawerController.selectedType()
+      : "";
     this._calendarOpen = false;
+    this._mediaDrawerCalendarOpen = false;
     this.renderToolbar();
     this.renderCalendar();
-    if (this._mode === "recordings") {
+    this.renderMediaDrawerCalendar();
+    this.renderMediaDrawer();
+    if (
+      mediaDrawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.recordings ||
+      (!mediaDrawerType && this._mode === "recordings")
+    ) {
       void this.loadRecordings();
       return;
     }
@@ -1555,12 +1771,21 @@ export class CardViewPageController {
   }
 
   resetCalendarDay() {
+    const mediaDrawerType = this._mediaDrawerController.isOpen()
+      ? this._mediaDrawerController.selectedType()
+      : "";
     this._selectedDayTs = null;
     this._calendarMonth = null;
     this._calendarOpen = false;
+    this._mediaDrawerCalendarOpen = false;
     this.renderToolbar();
     this.renderCalendar();
-    if (this._mode === "recordings") {
+    this.renderMediaDrawerCalendar();
+    this.renderMediaDrawer();
+    if (
+      mediaDrawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.recordings ||
+      (!mediaDrawerType && this._mode === "recordings")
+    ) {
       void this.loadRecordings();
       return;
     }
@@ -1615,6 +1840,7 @@ export class CardViewPageController {
   handleClick(event, target) {
     if (!this.isActive()) return false;
     if (this._mediaDrawerController.handleClick(event, target)) return true;
+    if (this._handleMediaDrawerFilterOption(target)) return true;
     if (target.closest?.("[data-card-view-video-back]")) {
       event?.preventDefault?.();
       const viewMode = normalizeCardViewViewMode(
@@ -1719,6 +1945,7 @@ export class CardViewPageController {
         this._calendarMonth.getUTCMonth() + Number(monthNav.dataset.calNav),
       );
       this.renderCalendar();
+      this.renderMediaDrawerCalendar();
       return true;
     }
     if (target.closest?.("[data-cal-reset]")) {

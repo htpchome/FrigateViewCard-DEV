@@ -710,6 +710,77 @@ test.describe("touch input", () => {
     expect(geometry.slideshowGap).toBeGreaterThanOrEqual(6);
   });
 
+  test("fits four Card View media tabs above the handle on a narrow video", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(baseUrl);
+    const geometry = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      card.style.display = "block";
+      card.style.width = "390px";
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
+        card_view_media_drawer_enabled: true,
+      });
+      card._pageId = "card-view";
+      card._renderShell();
+
+      const root = card.shadowRoot;
+      const stage = root.querySelector("#live-stage");
+      stage.style.height = "225px";
+      const drawer = card._cardViewPageController._mediaDrawerController;
+      drawer.bind();
+      drawer.setOpen(true);
+
+      const tabs = [...root.querySelectorAll("[data-card-view-media-drawer-type]")];
+      const handle = root.querySelector("[data-card-view-media-drawer-toggle]");
+      const actions = root.querySelector("[data-card-view-media-drawer-actions]");
+      const pageController = card._cardViewPageController;
+      pageController._mediaDrawerCalendarOpen = true;
+      pageController.renderMediaDrawerCalendar();
+      drawer.render();
+      const calendarPanel = root.querySelector(
+        "[data-card-view-media-drawer-calendar-panel]",
+      );
+      const lastTabRect = tabs.at(-1)?.getBoundingClientRect?.();
+      const handleRect = handle?.getBoundingClientRect?.();
+      const actionsRect = actions?.getBoundingClientRect?.();
+      const stageRect = stage.getBoundingClientRect();
+      const calendarRect = calendarPanel?.getBoundingClientRect?.();
+      return {
+        tabLabels: tabs.map((tab) => tab.textContent.trim()),
+        tabsBeforeHandle: Boolean(
+          lastTabRect && handleRect && lastTabRect.bottom <= handleRect.top,
+        ),
+        actionsAfterHandle: Boolean(
+          actionsRect && handleRect && actionsRect.top >= handleRect.bottom,
+        ),
+        actionCount: actions?.querySelectorAll("button").length || 0,
+        calendarVisible: Boolean(
+          calendarRect && calendarRect.width > 0 && calendarRect.height > 0,
+        ),
+        calendarWithinStage: Boolean(
+          calendarRect && calendarRect.right <= stageRect.right + 0.5,
+        ),
+      };
+    });
+
+    expect(geometry).toEqual({
+      tabLabels: ["Alerts", "Clips", "Snapshots", "Recordings"],
+      tabsBeforeHandle: true,
+      actionsAfterHandle: true,
+      actionCount: 2,
+      calendarVisible: true,
+      calendarWithinStage: true,
+    });
+  });
+
   test("keeps the normal Card View header in standalone Bottom Panel mode", async ({
     page,
   }) => {

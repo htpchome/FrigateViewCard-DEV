@@ -996,7 +996,18 @@ export class FrigateViewCardEditor extends HTMLElement {
   _syncConfigSaveReminder() {
     const reminder = this.querySelector?.("#config-save-reminder");
     if (!reminder) return;
-    reminder.hidden = this._hasConfigDraft !== true;
+    const dirty = this._hasConfigDraft === true;
+    reminder.hidden = false;
+    if (reminder.dataset) {
+      reminder.dataset.configSaveState = dirty ? "dirty" : "clean";
+    }
+    reminder.setAttribute?.("data-config-save-state", dirty ? "dirty" : "clean");
+    const text = reminder.querySelector?.("[data-config-save-reminder-text]");
+    if (text) {
+      text.textContent = dirty
+        ? "Unsaved changes — use Home Assistant's Save button to apply them."
+        : "No pending changes.";
+    }
   }
 
   _syncCardVersionStatus() {
@@ -1791,15 +1802,14 @@ export class FrigateViewCardEditor extends HTMLElement {
   _syncCameraModalGroupFields() {
     const enabled = this._cameraModalGroupEnabled === true;
     const nameInput = this.querySelector("#camera-modal-name");
+    const nameLabel = this.querySelector("#camera-modal-name-label");
     const addButton = this.querySelector("#camera-modal-add-secondary");
     const help = this.querySelector("#camera-modal-secondary-help");
     const removeButton = this.querySelector("#camera-modal-remove-secondary");
     const fields = this.querySelector("#camera-modal-group-fields");
-    if (nameInput) {
-      const label = enabled ? "Group Name" : "Camera Name";
-      nameInput.label = label;
-      nameInput.setAttribute?.("label", label);
-    }
+    const label = enabled ? "Group Name" : "Camera Name";
+    if (nameLabel) nameLabel.textContent = label;
+    if (nameInput) nameInput.setAttribute?.("aria-label", label);
     if (addButton) addButton.hidden = enabled;
     if (help) help.hidden = enabled;
     if (fields) fields.hidden = !enabled;
@@ -3417,9 +3427,9 @@ export class FrigateViewCardEditor extends HTMLElement {
         ${this._renderSettingsPanel({ id: "landing", title: "Landing Page", icon: "mdi:home-import-outline", content: landingPanelContent, active: activeSettingsPanel === "landing" })}
       </div>`;
 
-    const configSaveReminderMarkup = `<div id="config-save-reminder" class="config-save-reminder" role="status" aria-live="polite" aria-atomic="true" ${this._hasConfigDraft === true ? "" : "hidden"}>
-      <ha-icon icon="mdi:content-save-alert-outline" aria-hidden="true"></ha-icon>
-      <span>Unsaved changes — use Home Assistant's Save button to apply them.</span>
+    const configSaveReminderMarkup = `<div id="config-save-reminder" class="config-save-reminder" role="status" aria-live="polite" aria-atomic="true" data-config-save-state="${this._hasConfigDraft === true ? "dirty" : "clean"}">
+      <span class="config-save-reminder-icon" aria-hidden="true">${ICONS.packageCheck}</span>
+      <span data-config-save-reminder-text>${this._hasConfigDraft === true ? "Unsaved changes — use Home Assistant's Save button to apply them." : "No pending changes."}</span>
     </div>`;
 
     this.innerHTML = `<style>
@@ -3475,10 +3485,11 @@ export class FrigateViewCardEditor extends HTMLElement {
                 font-size: var(--ha-font-size, 14px);
             }
             .settings-container{display:flex;flex-direction:column;gap:6px;}
-            .config-save-reminder{box-sizing:border-box;width:100%;min-height:30px;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:1px solid color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 12%,var(--editor-card-bg));color:var(--warning-color, var(--c-accent, var(--editor-primary)));font-size:12px;font-weight:600;line-height:1.2;text-align:center;pointer-events:none;}
+            .config-save-reminder{box-sizing:border-box;width:100%;min-height:30px;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:1px solid color-mix(in srgb,var(--success-color,#2e7d32) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--success-color,#2e7d32) 10%,var(--editor-card-bg));color:var(--success-color,#2e7d32);font-size:12px;font-weight:600;line-height:1.2;text-align:center;pointer-events:none;}
+            .config-save-reminder[data-config-save-state="dirty"]{border-color:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 55%,transparent);background:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 12%,var(--editor-card-bg));color:var(--warning-color, var(--c-accent, var(--editor-primary)));}
             .standalone-mobile-note{box-sizing:border-box;width:100%;margin-top:8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 42%,var(--editor-card-bg));color:var(--c-primary-d, var(--editor-text));font-weight:650;line-height:1.3;}
-            .config-save-reminder[hidden]{display:none;}
-            .config-save-reminder ha-icon{--mdc-icon-size:17px;flex:0 0 auto;}
+            .config-save-reminder-icon{display:inline-flex;width:17px;height:17px;flex:0 0 17px;}
+            .config-save-reminder-icon svg{display:block;width:100%;height:100%;}
             .environment-version-summary{margin:12px 0;}
             .card-version-status{box-sizing:border-box;width:100%;display:flex;align-items:center;gap:9px;margin:0;padding:9px 11px;border-radius:10px;background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-text));font-size:12px;line-height:1.3;cursor:default;}
             .environment-item-icon{display:inline-flex;width:14px;height:14px;flex:0 0 14px;align-items:center;justify-content:center;}
@@ -3930,7 +3941,8 @@ export class FrigateViewCardEditor extends HTMLElement {
             </div>
           </div>
           <div class="cam-modal-field">
-            <ha-input id="camera-modal-name" label="Camera Name" placeholder="Display name (optional)"></ha-input>
+            <span class="cam-modal-label" id="camera-modal-name-label">Camera Name</span>
+            <ha-input id="camera-modal-name" aria-labelledby="camera-modal-name-label" aria-label="Camera Name" placeholder="Display name (optional)"></ha-input>
           </div>
           <div class="cam-modal-field">
             <span class="cam-modal-label">Connection Type</span>

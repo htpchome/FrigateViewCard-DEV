@@ -107,6 +107,7 @@ test("camera deletion cancellation leaves the camera untouched", () => {
 test("adding a second camera assigns the next unused group name", () => {
   const editor = new FrigateViewCardEditor();
   const nameInput = { value: "" };
+  const nameLabel = { textContent: "Camera Name" };
   const secondaryInput = { value: "", dataset: {} };
   const addButton = { hidden: false };
   const help = { hidden: false };
@@ -114,6 +115,7 @@ test("adding a second camera assigns the next unused group name", () => {
   const helper = { textContent: "" };
   const nodes = {
     "#camera-modal-name": nameInput,
+    "#camera-modal-name-label": nameLabel,
     "#camera-modal-secondary-entity": secondaryInput,
     "#camera-modal-add-secondary": addButton,
     "#camera-modal-secondary-help": help,
@@ -136,7 +138,7 @@ test("adding a second camera assigns the next unused group name", () => {
   editor._setCameraModalGroupEnabled(true);
 
   assert.equal(nameInput.value, "Group C/D");
-  assert.equal(nameInput.label, "Group Name");
+  assert.equal(nameLabel.textContent, "Group Name");
   assert.equal(addButton.hidden, true);
   assert.equal(help.hidden, true);
   assert.equal(fields.hidden, false);
@@ -144,7 +146,7 @@ test("adding a second camera assigns the next unused group name", () => {
   editor._setCameraModalGroupEnabled(false);
 
   assert.equal(nameInput.value, "");
-  assert.equal(nameInput.label, "Camera Name");
+  assert.equal(nameLabel.textContent, "Camera Name");
   assert.equal(secondaryInput.value, "");
   assert.equal(addButton.hidden, false);
   assert.equal(help.hidden, false);
@@ -212,7 +214,7 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
   );
   assert.match(
     source,
-    /id="camera-modal-name" label="Camera Name"/,
+    /id="camera-modal-name-label">Camera Name<\/span>\s*<ha-input id="camera-modal-name"[^>]*placeholder="Display name \(optional\)"/,
   );
   assert.match(source, /The same light may be linked to more than one camera/);
   assert.match(
@@ -841,7 +843,13 @@ test("ordinary editor changes mark dirty and publish an internal preview", () =>
 test("Home Assistant dirty context tracks drafts without config-changed", () => {
   const editor = new FrigateViewCardEditor();
   const updates = [];
-  const reminder = { hidden: true };
+  const reminderText = { textContent: "" };
+  const reminder = {
+    hidden: true,
+    dataset: {},
+    setAttribute() {},
+    querySelector: () => reminderText,
+  };
   editor._haDirtyBaselineConfig = { title: "Original" };
   editor._haDirtyBaselineSig = JSON.stringify(editor._haDirtyBaselineConfig);
   editor.querySelector = (selector) =>
@@ -868,26 +876,38 @@ test("Home Assistant dirty context tracks drafts without config-changed", () => 
 
   editor._markHomeAssistantDirty({ title: "Original" });
   assert.equal(editor._hasConfigDraft, false);
-  assert.equal(reminder.hidden, true);
+  assert.equal(reminder.hidden, false);
+  assert.equal(reminder.dataset.configSaveState, "clean");
+  assert.equal(reminderText.textContent, "No pending changes.");
   assert.deepEqual(updates.at(-1), {
     config: { title: "Original" },
     key: "frigate-view-card-editor",
   });
 });
 
-test("unsaved changes reminder is a passive normal-flow dirty-state mirror", () => {
+test("save-state reminder reserves normal-flow space in clean and dirty states", () => {
   const editor = new FrigateViewCardEditor();
-  const reminder = { hidden: true };
+  const reminderText = { textContent: "" };
+  const reminder = {
+    hidden: true,
+    dataset: {},
+    setAttribute() {},
+    querySelector: () => reminderText,
+  };
   editor.querySelector = (selector) =>
     selector === "#config-save-reminder" ? reminder : null;
 
   editor._hasConfigDraft = true;
   editor._syncConfigSaveReminder();
   assert.equal(reminder.hidden, false);
+  assert.equal(reminder.dataset.configSaveState, "dirty");
+  assert.match(reminderText.textContent, /Unsaved changes/);
 
   editor._hasConfigDraft = false;
   editor._syncConfigSaveReminder();
-  assert.equal(reminder.hidden, true);
+  assert.equal(reminder.hidden, false);
+  assert.equal(reminder.dataset.configSaveState, "clean");
+  assert.equal(reminderText.textContent, "No pending changes.");
 
   const source = fs.readFileSync(
     new URL("../src/editor/FrigateViewCardEditor.js", import.meta.url),
@@ -901,6 +921,11 @@ test("unsaved changes reminder is a passive normal-flow dirty-state mirror", () 
     source,
     /\.config-save-reminder\{[^}]*width:100%;[^}]*pointer-events:none;/,
   );
+  assert.match(
+    source,
+    /\.config-save-reminder\[data-config-save-state="dirty"\]/,
+  );
+  assert.doesNotMatch(source, /\.config-save-reminder\[hidden\]/);
   assert.match(
     source,
     /<div class="ed-wrap">\s*\$\{configSaveReminderMarkup\}\s*\$\{settingsPanelsMarkup\}/,

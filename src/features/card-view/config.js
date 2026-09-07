@@ -8,6 +8,7 @@ export const CARD_VIEW_MEDIA_DRAWER_TYPES = Object.freeze({
   alerts: "alerts",
   clips: "clips",
   snapshots: "snapshots",
+  recordings: "recordings",
 });
 
 export const CARD_VIEW_VIEW_MODES = Object.freeze({
@@ -58,6 +59,8 @@ const CARD_VIEW_MEDIA_DRAWER_TYPE_ALIASES = Object.freeze({
   clips: CARD_VIEW_MEDIA_DRAWER_TYPES.clips,
   snapshot: CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots,
   snapshots: CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots,
+  recording: CARD_VIEW_MEDIA_DRAWER_TYPES.recordings,
+  recordings: CARD_VIEW_MEDIA_DRAWER_TYPES.recordings,
 });
 
 export const normalizeCardViewMediaDrawerType = (value) =>

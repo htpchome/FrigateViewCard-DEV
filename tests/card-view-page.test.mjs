@@ -142,6 +142,11 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /data-card-view-media-drawer-type="alerts"/);
   assert.match(markup, /data-card-view-media-drawer-type="clips"/);
   assert.match(markup, /data-card-view-media-drawer-type="snapshots"/);
+  assert.match(markup, /data-card-view-media-drawer-type="recordings"/);
+  assert.match(markup, /data-card-view-media-drawer-calendar/);
+  assert.match(markup, /data-card-view-media-drawer-filter/);
+  assert.match(markup, /data-card-view-media-drawer-calendar-panel/);
+  assert.match(markup, /data-card-view-media-drawer-filter-panel/);
   assert.doesNotMatch(markup, /card-view-media-drawer-heading/);
   assert.match(markup, /media-chevron/);
   assert.match(markup, /data-card-view-standalone-linked-overlay/);
@@ -901,7 +906,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-media-drawer-tabs \{[\s\S]*?top:8px;left:calc\(100% - 1px\);[\s\S]*?flex-direction:column;[\s\S]*?width:68px;[\s\S]*?visibility:hidden;pointer-events:none;transition:visibility 0s linear 180ms;/,
+    /card-view-media-drawer-tabs \{[\s\S]*?top:6px;left:calc\(100% - 1px\);[\s\S]*?grid-template-rows:repeat\(4,minmax\(0,24px\)\);[\s\S]*?width:70px;height:min\(102px,max\(48px,calc\(50% - 39px\)\)\);[\s\S]*?visibility:hidden;pointer-events:none;transition:visibility 0s linear 180ms;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -910,6 +915,18 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-media-drawer-tab \{[\s\S]*?border-left:0;border-radius:0 7px 7px 0;[\s\S]*?background:var\(--fvc-media-overlay-bg\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-tab:not\(\.active\),\.card-view-media-drawer-action:not\(\.active\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-actions \{[\s\S]*?top:calc\(50% \+ 31px\);[\s\S]*?width:28px;[\s\S]*?visibility:hidden;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-popover:not\(\[hidden\]\) \{display:block;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -1974,4 +1991,77 @@ test("standalone media drawer opens the focused Card View popup", () => {
       { presentation: "card-view-drawer" },
     ],
   ]);
+});
+
+test("Card View media drawer opens a grouped recording with its camera context", () => {
+  const calls = [];
+  const host = {
+    _pageId: "card-view",
+    _camCache: {
+      "camera.package": { clientId: "frigate-main", cam: "package" },
+    },
+    _pauseSlideshowForInteraction: () => calls.push(["pause"]),
+    _popupMediaLoaderController: {
+      showRecording: (...args) => calls.push(["recording", ...args]),
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  assert.equal(
+    controller._openMediaDrawerRecording({
+      start_time: 100,
+      end_time: 160,
+      _fvc_camera_entity: "camera.package",
+    }),
+    true,
+  );
+  assert.deepEqual(calls, [
+    ["pause"],
+    [
+      "recording",
+      100,
+      160,
+      {
+        presentation: "card-view-drawer",
+        clientId: "frigate-main",
+        camera: "package",
+      },
+    ],
+  ]);
+});
+
+test("Card View recording drawer changes days only through its calendar selection", () => {
+  const host = {
+    _pageId: "card-view",
+    _tzDateTimeToEpochSeconds: (year, month, day) =>
+      Date.UTC(year, month - 1, day, 12) / 1000,
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  controller._mediaDrawerController.isOpen = () => true;
+  controller._mediaDrawerController.selectedType = () => "recordings";
+  controller.renderToolbar = () => {};
+  controller.renderCalendar = () => {};
+  controller.renderMediaDrawerCalendar = () => {};
+  controller.renderMediaDrawer = () => {};
+  let recordingLoads = 0;
+  let alertLoads = 0;
+  controller.loadRecordings = async () => {
+    recordingLoads += 1;
+  };
+  controller.loadAlerts = async () => {
+    alertLoads += 1;
+  };
+
+  controller.pickCalendarDay("2026-09-07");
+
+  assert.equal(
+    controller._selectedDayTs,
+    Date.UTC(2026, 8, 7, 12) / 1000,
+  );
+  assert.equal(recordingLoads, 1);
+  assert.equal(alertLoads, 0);
 });

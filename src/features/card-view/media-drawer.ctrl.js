@@ -13,12 +13,14 @@ const POPUP_MEDIA_TYPES = Object.freeze({
   [CARD_VIEW_MEDIA_DRAWER_TYPES.alerts]: "alert",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.clips]: "clip",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots]: "snapshot",
+  [CARD_VIEW_MEDIA_DRAWER_TYPES.recordings]: "recording",
 });
 
 const DRAWER_LABELS = Object.freeze({
   [CARD_VIEW_MEDIA_DRAWER_TYPES.alerts]: "Alerts",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.clips]: "Clips",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots]: "Snapshots",
+  [CARD_VIEW_MEDIA_DRAWER_TYPES.recordings]: "Recordings",
 });
 
 export const resolveCardViewMediaDrawerPopupType = (value) =>
@@ -27,17 +29,26 @@ export const resolveCardViewMediaDrawerPopupType = (value) =>
 export const buildCardViewMediaDrawerContentKey = ({
   mediaType = "",
   events = [],
+  recordings = [],
   limit = DRAWER_ITEM_LIMIT,
-} = {}) =>
-  JSON.stringify([
-    resolveCardViewMediaDrawerPopupType(mediaType),
-    ...(events || []).slice(0, Math.max(0, Number(limit) || 0)).map((event) => [
-      String(event?.id || ""),
-      String(event?.camera || ""),
-      Number(event?.start_time) || 0,
-      String(event?.label || ""),
-    ]),
-  ]);
+} = {}) => {
+  const popupMediaType = resolveCardViewMediaDrawerPopupType(mediaType);
+  const itemLimit = Math.max(0, Number(limit) || 0);
+  const items = popupMediaType === "recording"
+    ? (recordings || []).slice(0, itemLimit).map((recording) => [
+        Number(recording?.start_time) || 0,
+        Number(recording?.end_time) || 0,
+        String(recording?._fvc_camera_entity || ""),
+        String(recording?._fvc_group_member || ""),
+      ])
+    : (events || []).slice(0, itemLimit).map((event) => [
+        String(event?.id || ""),
+        String(event?.camera || ""),
+        Number(event?.start_time) || 0,
+        String(event?.label || ""),
+      ]);
+  return JSON.stringify([popupMediaType, ...items]);
+};
 
 export const buildCardViewMediaDrawerItemMarkup = ({
   event = null,
@@ -55,6 +66,25 @@ export const buildCardViewMediaDrawerItemMarkup = ({
     <span class="card-view-media-drawer-thumbnail">
       <span class="card-view-media-drawer-placeholder" aria-hidden="true">${placeholderIcon}</span>
       <img src="${escapeHtmlAttribute(thumbnailUrl)}" alt="" loading="lazy" decoding="async" data-card-view-media-thumbnail>
+    </span>
+    <span class="card-view-media-drawer-meta"><span>${escapeHtml(label)}</span><span>${escapeHtml(time)}</span></span>
+  </button>`;
+};
+
+export const buildCardViewMediaDrawerRecordingMarkup = ({
+  recording = null,
+  title = "",
+  label = "Recording",
+  time = "",
+  placeholderIcon = "",
+} = {}) => {
+  const start = Math.floor(Number(recording?.start_time) || 0);
+  const end = Math.floor(Number(recording?.end_time) || Date.now() / 1000);
+  if (!start || end <= start) return "";
+  const cameraEntity = String(recording?._fvc_camera_entity || "");
+  return `<button class="card-view-media-drawer-item" type="button" data-card-view-media-recording-start="${start}" data-card-view-media-recording-end="${end}"${cameraEntity ? ` data-card-view-media-recording-entity="${escapeHtmlAttribute(cameraEntity)}"` : ""} title="${escapeHtmlAttribute(title)}">
+    <span class="card-view-media-drawer-thumbnail card-view-media-drawer-thumbnail--recording">
+      <span class="card-view-media-drawer-placeholder" aria-hidden="true">${placeholderIcon}</span>
     </span>
     <span class="card-view-media-drawer-meta"><span>${escapeHtml(label)}</span><span>${escapeHtml(time)}</span></span>
   </button>`;
@@ -103,10 +133,19 @@ export class CardViewMediaDrawerController {
     isEnabled = () => false,
     getConfiguredType = () => CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,
     getEvents = () => [],
+    getRecordings = () => [],
+    isRecordingsLoading = () => false,
     mediaUrl = () => "",
     formatDateTime = () => "",
     formatTime = () => "",
     onSelectEvent = () => {},
+    onSelectRecording = () => {},
+    onSelectType = () => {},
+    onOpenChange = () => {},
+    onToggleCalendar = () => {},
+    onToggleFilter = () => {},
+    isCalendarOpen = () => false,
+    isFilterOpen = () => false,
     icons = {},
     resizeObserverCtor = globalThis.ResizeObserver,
     requestFrame = globalThis.requestAnimationFrame?.bind(globalThis) ||
@@ -116,10 +155,19 @@ export class CardViewMediaDrawerController {
     this._isEnabled = isEnabled;
     this._getConfiguredType = getConfiguredType;
     this._getEvents = getEvents;
+    this._getRecordings = getRecordings;
+    this._isRecordingsLoading = isRecordingsLoading;
     this._mediaUrl = mediaUrl;
     this._formatDateTime = formatDateTime;
     this._formatTime = formatTime;
     this._onSelectEvent = onSelectEvent;
+    this._onSelectRecording = onSelectRecording;
+    this._onSelectType = onSelectType;
+    this._onOpenChange = onOpenChange;
+    this._onToggleCalendar = onToggleCalendar;
+    this._onToggleFilter = onToggleFilter;
+    this._isCalendarOpen = isCalendarOpen;
+    this._isFilterOpen = isFilterOpen;
     this._icons = icons;
     this._ResizeObserver = resizeObserverCtor;
     this._requestFrame = requestFrame;
@@ -178,7 +226,10 @@ export class CardViewMediaDrawerController {
   }
 
   setOpen(open) {
-    this._open = open === true && this._isEnabled() === true;
+    const nextOpen = open === true && this._isEnabled() === true;
+    const changed = nextOpen !== this._open;
+    this._open = nextOpen;
+    if (changed) this._onOpenChange(this._open);
     this.syncState();
     if (this._open) this.render();
     return this._open;
@@ -186,6 +237,10 @@ export class CardViewMediaDrawerController {
 
   toggle() {
     return this.setOpen(!this.isOpen());
+  }
+
+  selectedType() {
+    return this._syncSelectedDrawerType();
   }
 
   syncState() {
@@ -203,6 +258,11 @@ export class CardViewMediaDrawerController {
     if (tabs) {
       tabs.hidden = false;
       tabs.setAttribute?.("aria-hidden", String(!open));
+    }
+    const actions = this._query("[data-card-view-media-drawer-actions]");
+    if (actions) {
+      actions.hidden = false;
+      actions.setAttribute?.("aria-hidden", String(!open));
     }
     const handle = this._query("[data-card-view-media-drawer-toggle]");
     if (handle) {
@@ -227,6 +287,7 @@ export class CardViewMediaDrawerController {
     const drawerType = this._syncSelectedDrawerType();
     const popupMediaType = resolveCardViewMediaDrawerPopupType(drawerType);
     this._syncTabs(drawerType);
+    this._syncActions(drawerType);
 
     if (!this._open) {
       if (this._popupMediaType && this._popupMediaType !== popupMediaType) {
@@ -237,19 +298,35 @@ export class CardViewMediaDrawerController {
       return { drawerType, popupMediaType, count: 0, deferred: true };
     }
 
-    const events = (this._getEvents(popupMediaType) || [])
-      .filter((event) => event?.id)
-      .slice(0, DRAWER_ITEM_LIMIT);
+    const isRecording = popupMediaType === "recording";
+    const events = isRecording
+      ? []
+      : (this._getEvents(popupMediaType) || [])
+          .filter((event) => event?.id)
+          .slice(0, DRAWER_ITEM_LIMIT);
+    const recordings = isRecording
+      ? (this._getRecordings() || [])
+          .filter((recording) => {
+            const start = Number(recording?.start_time) || 0;
+            const end = Number(recording?.end_time) || 0;
+            return start > 0 && (!end || end > start);
+          })
+          .slice(0, DRAWER_ITEM_LIMIT)
+      : [];
     const contentKey = buildCardViewMediaDrawerContentKey({
       mediaType: drawerType,
       events,
+      recordings,
     });
     const typeChanged = this._popupMediaType !== popupMediaType;
     if (force || contentKey !== this._contentKey) {
       const previousScrollTop = typeChanged ? 0 : scroller.scrollTop;
-      scroller.innerHTML = events.length
-        ? events.map((event) => this._eventMarkup(event, drawerType)).join("")
-        : `<div class="card-view-media-drawer-empty">No ${DRAWER_LABELS[drawerType].toLowerCase()} available</div>`;
+      const items = isRecording ? recordings : events;
+      scroller.innerHTML = items.length
+        ? isRecording
+          ? recordings.map((recording) => this._recordingMarkup(recording)).join("")
+          : events.map((event) => this._eventMarkup(event, drawerType)).join("")
+        : `<div class="card-view-media-drawer-empty">${isRecording && this._isRecordingsLoading() ? "Loading recordings…" : `No ${DRAWER_LABELS[drawerType].toLowerCase()} available`}</div>`;
       scroller.scrollTop = previousScrollTop;
       for (const image of scroller.querySelectorAll?.(
         "[data-card-view-media-thumbnail]",
@@ -265,7 +342,7 @@ export class CardViewMediaDrawerController {
     return {
       drawerType,
       popupMediaType,
-      count: events.length,
+      count: isRecording ? recordings.length : events.length,
       deferred: false,
     };
   }
@@ -275,6 +352,7 @@ export class CardViewMediaDrawerController {
     if (drawerType === this._selectedDrawerType) return false;
     this._selectedDrawerType = drawerType;
     this._resetContent();
+    this._onSelectType(drawerType);
     this.render({ force: true });
     return true;
   }
@@ -305,6 +383,23 @@ export class CardViewMediaDrawerController {
     }
   }
 
+  _syncActions(activeType = this.selectedType()) {
+    const calendar = this._query("[data-card-view-media-drawer-calendar]");
+    const filter = this._query("[data-card-view-media-drawer-filter]");
+    const calendarOpen = this._isCalendarOpen() === true;
+    const filterOpen = this._isFilterOpen() === true;
+    if (calendar) {
+      calendar.classList?.toggle?.("active", calendarOpen);
+      calendar.setAttribute?.("aria-pressed", String(calendarOpen));
+    }
+    if (filter) {
+      const disabled = activeType === CARD_VIEW_MEDIA_DRAWER_TYPES.recordings;
+      filter.disabled = disabled;
+      filter.classList?.toggle?.("active", !disabled && filterOpen);
+      filter.setAttribute?.("aria-pressed", String(!disabled && filterOpen));
+    }
+  }
+
   _eventMarkup(event, drawerType) {
     return buildCardViewMediaDrawerItemMarkup({
       event,
@@ -318,6 +413,17 @@ export class CardViewMediaDrawerController {
       label: cap(event.label || "event"),
       time: this._formatTime(event.start_time || 0),
       placeholderIcon: this._icons.person || "",
+    });
+  }
+
+  _recordingMarkup(recording) {
+    const member = String(recording?._fvc_group_member || "");
+    return buildCardViewMediaDrawerRecordingMarkup({
+      recording,
+      title: this._formatDateTime(recording.start_time || 0),
+      label: member ? `Recording ${member}` : "Recording",
+      time: this._formatTime(recording.start_time || 0),
+      placeholderIcon: this._icons.recordings || "",
     });
   }
 
@@ -382,6 +488,21 @@ export class CardViewMediaDrawerController {
       this.toggle();
       return true;
     }
+    if (target.closest("[data-card-view-media-drawer-calendar]")) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      this._onToggleCalendar();
+      this._syncActions();
+      return true;
+    }
+    const filterAction = target.closest("[data-card-view-media-drawer-filter]");
+    if (filterAction) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      if (!filterAction.disabled) this._onToggleFilter();
+      this._syncActions();
+      return true;
+    }
     const typeTab = target.closest("[data-card-view-media-drawer-type]");
     if (typeTab) {
       event?.preventDefault?.();
@@ -400,13 +521,29 @@ export class CardViewMediaDrawerController {
     }
     const item = target.closest("[data-card-view-media-event]");
     const eventId = String(item?.dataset?.cardViewMediaEvent || "");
-    if (!eventId) return false;
+    if (eventId) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      this._onSelectEvent(
+        eventId,
+        String(item.dataset.cardViewMediaType || this._popupMediaType),
+      );
+      return true;
+    }
+    const recording = target.closest(
+      "[data-card-view-media-recording-start]",
+    );
+    const start = Number(recording?.dataset?.cardViewMediaRecordingStart) || 0;
+    const end = Number(recording?.dataset?.cardViewMediaRecordingEnd) || 0;
+    if (!start || end <= start) return false;
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    this._onSelectEvent(
-      eventId,
-      String(item.dataset.cardViewMediaType || this._popupMediaType),
-    );
+    this._onSelectRecording({
+      start_time: start,
+      end_time: end,
+      _fvc_camera_entity:
+        recording.dataset.cardViewMediaRecordingEntity || "",
+    });
     return true;
   }
 }

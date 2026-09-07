@@ -755,6 +755,7 @@ export class FrigateViewCard extends HTMLElement {
     this._cardViewPageController = new CardViewPageController(this, {
       PAGE_IDS,
       buildCalendarPanelMarkup,
+      buildFilterPanelMarkup,
     });
     this._pageNavigationController = new PageNavigationController(
       this,
@@ -4533,6 +4534,7 @@ export class FrigateViewCard extends HTMLElement {
       drawerHandleIcon: ICONS.chevron,
       mediaDrawerHandleIcon: ICONS.chevron,
       calendarIcon: ICONS.calendar,
+      filterIcon: ICONS.filter,
       linkedEntities: this._buildLinkedLightControlMarkup({
         buttonClass: "icon-btn",
       }),
