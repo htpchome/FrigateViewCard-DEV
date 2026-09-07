@@ -175,6 +175,22 @@ test("Grid media hands off a mounted camera engine only once", () => {
   assert.equal(takeCalls, 1);
 });
 
+test("Grid media activates the selected page directly through its Grid slot", () => {
+  const slot = { id: "grid-slot" };
+  const host = {
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "#grid-engine" ? slot : null,
+    },
+  };
+  const controller = new GridMediaController(host);
+  const calls = [];
+  controller.mountGridEngine = (target) => calls.push(target);
+
+  assert.equal(controller.activateCurrentGridPage(), true);
+  assert.deepEqual(calls, [slot]);
+});
+
 test("Grid button exit lets the view transition claim live media before teardown", () => {
   const calls = [];
   const host = {
@@ -264,7 +280,7 @@ test("Grid rotation still schedules normally outside the config preview", () => 
   }
 });
 
-test("Grid alert immediately opens its page, holds it, then resumes the interrupted timer", () => {
+test("Grid alert immediately opens its page, holds it, then advances into normal rotation", () => {
   const calls = [];
   const timers = [];
   const originalNow = Date.now;
@@ -297,6 +313,12 @@ test("Grid alert immediately opens its page, holds it, then resumes the interrup
       _isEditorPreviewContext: () => false,
       _gridAlertHoldMs: () => 30000,
       _mountEngine: (...args) => calls.push(["mount", ...args]),
+      _gridMediaController: {
+        activateCurrentGridPage: () => {
+          calls.push(["activateGridPage", host._gridRotationStart]);
+          return true;
+        },
+      },
     };
     const controller = new GridPageController(host);
 
@@ -306,12 +328,14 @@ test("Grid alert immediately opens its page, holds it, then resumes the interrup
 
     assert.equal(host._gridRotationStart, 4);
     assert.equal(host._gridPinnedRotationStart, 4);
-    assert.deepEqual(calls.at(-1), ["mount", null, { quiet: true }]);
+    assert.deepEqual(calls.at(-1), ["activateGridPage", 4]);
     assert.equal(timers[1].delay, 30000);
 
     timers[1].callback();
 
-    assert.equal(timers[2].delay, 6000);
+    assert.equal(host._gridRotationStart, 0);
+    assert.deepEqual(calls.at(-1), ["mount", null, { quiet: true }]);
+    assert.equal(timers[2].delay, 10000);
   } finally {
     Date.now = originalNow;
     global.setTimeout = originalSetTimeout;

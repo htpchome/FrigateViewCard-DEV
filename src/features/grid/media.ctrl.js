@@ -765,6 +765,16 @@ export class GridMediaController {
     return null;
   }
 
+  activateCurrentGridPage() {
+    const slot =
+      this._host.shadowRoot?.querySelector?.("#grid-engine") ||
+      this._host._gridEngine?.slot ||
+      null;
+    if (!slot) return false;
+    this.mountGridEngine(slot);
+    return true;
+  }
+
   mountGridEngine(slot) {
     if (!slot) return;
     this._setGridPresentation(slot, true);

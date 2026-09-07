@@ -249,7 +249,11 @@ export class GridPageController {
 
     // Alert presentation preempts Grid rotation in the same task. The normal
     // Grid timer resumes only after the configured alert hold has completed.
-    void this._host._mountEngine?.(null, { quiet: true });
+    const activated =
+      this._host._gridMediaController?.activateCurrentGridPage?.() === true;
+    if (!activated) {
+      void this._host._mountEngine?.(null, { quiet: true });
+    }
     const holdMs = Math.max(
       1000,
       Number(this._host._gridAlertHoldMs?.()) || this.gridRotationMs(),
@@ -258,7 +262,8 @@ export class GridPageController {
       this._host._gridAlertReturnT = null;
       if (sequence !== this._alertTakeoverSequence) return;
       if (this._host._viewMode !== "grid") return;
-      this.scheduleGridRotation();
+      this._resumeRotationDelayMs = 0;
+      this.advanceGridRotation();
     }, holdMs);
     return true;
   }
