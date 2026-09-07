@@ -98,6 +98,31 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
+test("dispatches event-tab clicks from the page-shell tabs region", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+
+  const selectedTab = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    const tabsRegion = document.createElement("div");
+    tabsRegion.dataset.fvcRegion = "tabs";
+    const clipsButton = document.createElement("button");
+    clipsButton.dataset.tab = "clips";
+    tabsRegion.append(clipsButton);
+    card.shadowRoot.append(tabsRegion);
+    card._setTab = (tab) => {
+      card.dataset.selectedTab = tab;
+    };
+
+    clipsButton.click();
+    return card.dataset.selectedTab || "";
+  });
+
+  expect(selectedTab).toBe("clips");
+});
+
 test.describe("touch input", () => {
   test.use({
     hasTouch: true,

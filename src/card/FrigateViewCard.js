@@ -6060,6 +6060,11 @@ export class FrigateViewCard extends HTMLElement {
     return false;
   }
   _handleBrowsePanelToolbarClick(target) {
+    const tabButton = target.closest("[data-tab]");
+    if (tabButton?.closest?.('[data-fvc-region="tabs"]')) {
+      this._setTab(tabButton.dataset.tab);
+      return true;
+    }
     const filterBtn = target.closest("#filter-btn");
     if (filterBtn) {
       if (filterBtn.disabled) return true;
