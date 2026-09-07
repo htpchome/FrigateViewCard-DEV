@@ -362,8 +362,8 @@ test("Grid alert takeover temporarily stages one camera and resumes its page tim
         calls.push(["switchCamera", index, options]);
         host._viewMode = "single";
       },
-      _setViewMode: (mode) => {
-        calls.push(["setViewMode", mode]);
+      _setViewMode: (mode, options) => {
+        calls.push(["setViewMode", mode, options]);
         host._viewMode = mode;
         if (mode === "grid") controller.scheduleGridRotation();
       },
@@ -400,7 +400,10 @@ test("Grid alert takeover temporarily stages one camera and resumes its page tim
     assert.equal(timers[2].delay, 10000);
     assert.equal(
       calls.some(
-        ([name, mode]) => name === "setViewMode" && mode === "grid",
+        ([name, mode, options]) =>
+          name === "setViewMode" &&
+          mode === "grid" &&
+          options?.resumeGridSession === true,
       ),
       true,
     );

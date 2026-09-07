@@ -347,7 +347,7 @@ export class GridPageController {
       this._host._syncToolbarButtons?.();
       return false;
     }
-    this._host._setViewMode?.("grid");
+    this._host._setViewMode?.("grid", { resumeGridSession: true });
     return true;
   }
 

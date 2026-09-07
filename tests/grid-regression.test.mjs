@@ -82,6 +82,14 @@ test("grid mode toolbar and runtime hooks are present", () => {
     ),
     true,
   );
+  assert.match(
+    gridPageControllerSource,
+    /_setViewMode\?\.\("grid", \{ resumeGridSession: true \}\)/,
+  );
+  assert.match(
+    cardSource,
+    /if \(!resumeGridSession\) this\._gridAlertController\.startSession\(\);/,
+  );
   assert.equal(
     /_clearGridTimers\(\) \{[\s\S]*?this\._gridPageController\.clearGridTimers\(\);[\s\S]*?\}/.test(
       cardSource,

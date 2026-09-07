@@ -145,6 +145,53 @@ test("Grid owns enabled alert takeover and promotes the alerted camera", () => {
   controller.clearTimers();
 });
 
+test("an ongoing alert cannot relaunch takeover after Grid resumes", () => {
+  const host = createHost({ takeoverEnabled: true });
+  const controller = new GridAlertController(host, {
+    DAY: 86400,
+    SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC: 10,
+  });
+  const calls = [];
+  host._beginGridAlertTakeover = (...args) => calls.push(args);
+
+  controller.handleAlertCandidate("camera.front_door", "alert");
+  controller._lastAlertAt = 0;
+  controller.handleAlertCandidate("camera.front_door", "alert");
+
+  assert.deepEqual(calls, [["camera.front_door", "alert"]]);
+  controller.clearTimers();
+});
+
+test("Grid permits a later takeover only after the alert lifecycle clears", () => {
+  const host = createHost({ takeoverEnabled: true });
+  const controller = new GridAlertController(host, {
+    DAY: 86400,
+    SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC: 10,
+  });
+  const calls = [];
+  host._beginGridAlertTakeover = (...args) => calls.push(args);
+
+  controller.handleAlertCandidate("camera.front_door", "alert");
+  controller.syncHaAlertState({
+    reportedEntities: new Set(["camera.front_door"]),
+    activeEntities: new Set(["camera.front_door"]),
+  });
+  controller.handleRealtimeMessage({ type: "end" });
+  controller._lastAlertAt = 0;
+  controller.handleAlertCandidate("camera.front_door", "alert");
+  assert.equal(calls.length, 1);
+
+  controller.syncHaAlertState({
+    reportedEntities: new Set(["camera.front_door"]),
+    activeEntities: new Set(),
+  });
+  controller._lastAlertAt = 0;
+  controller.handleAlertCandidate("camera.front_door", "alert");
+
+  assert.equal(calls.length, 2);
+  controller.clearTimers();
+});
+
 test("Grid continues owning alerts during a temporary single-camera takeover", () => {
   const host = createHost({ takeoverEnabled: true, viewMode: "single" });
   host._gridResumePending = true;

@@ -24,6 +24,8 @@ export class GridAlertController {
     this._lastAlertCam = "";
     this._alertExpiresByEntity = new Map();
     this._alertSeverityByEntity = new Map();
+    this._presentedAlertEntities = new Set();
+    this._activeHaAlertEntities = new Set();
   }
 
   clearTimers() {
@@ -49,6 +51,7 @@ export class GridAlertController {
     this._handledReviewIds.clear();
     this._lastAlertAt = 0;
     this._lastAlertCam = "";
+    this._presentedAlertEntities.clear();
     this.clearAlertTracking();
   }
 
@@ -57,7 +60,33 @@ export class GridAlertController {
     this._handledReviewIds.clear();
     this._lastAlertAt = 0;
     this._lastAlertCam = "";
+    this._presentedAlertEntities.clear();
     this.clearAlertTracking();
+  }
+
+  claimAlertPresentation(entity) {
+    const targetEntity = String(entity || "").trim();
+    if (!targetEntity || this._presentedAlertEntities.has(targetEntity)) {
+      return false;
+    }
+    this._presentedAlertEntities.add(targetEntity);
+    return true;
+  }
+
+  releaseAlertPresentation(entity) {
+    const targetEntity = String(entity || "").trim();
+    if (!targetEntity) return false;
+    return this._presentedAlertEntities.delete(targetEntity);
+  }
+
+  syncHaAlertState({ reportedEntities, activeEntities } = {}) {
+    const reported =
+      reportedEntities instanceof Set ? reportedEntities : new Set();
+    const active = activeEntities instanceof Set ? activeEntities : new Set();
+    this._activeHaAlertEntities = new Set(active);
+    for (const entity of reported) {
+      if (!active.has(entity)) this.releaseAlertPresentation(entity);
+    }
   }
 
   rememberHandledReview(reviewId) {
@@ -224,6 +253,7 @@ export class GridAlertController {
     this._lastAlertAt = now;
     this._lastAlertCam = entity;
     this.markAlertCamera(entity, severity || "alert");
+    if (!this.claimAlertPresentation(entity)) return;
     if (takeoverEnabled) {
       void this._host._beginGridAlertTakeover?.(entity, severity || "alert");
       return;
@@ -238,6 +268,7 @@ export class GridAlertController {
   ) {
     if (!entity || !this.isSessionActive()) return false;
     if (changed !== true) return false;
+    if (!this.claimAlertPresentation(entity)) return false;
     const takeoverEnabled =
       this._host._alertCameraTakeoverEnabled?.() === true;
     if (takeoverEnabled) {
@@ -265,7 +296,12 @@ export class GridAlertController {
     const normalizedSeverity = String(severity || "")
       .trim()
       .toLowerCase();
-    if (type === "end") return;
+    if (type === "end") {
+      if (!this._activeHaAlertEntities.has(cam)) {
+        this.releaseAlertPresentation(cam);
+      }
+      return;
+    }
     if (!normalizedSeverity) {
       this.scheduleAlertWatch(180);
       return;

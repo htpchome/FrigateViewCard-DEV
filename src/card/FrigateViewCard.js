@@ -115,6 +115,7 @@ import {
   haReviewStatusForCamera,
   haReviewStatusSeverity,
   haReviewStatusSignature,
+  reviewStatusEntityCandidates,
 } from "../integrations/frigate/review-status.js";
 import { createGo2RtcResolver } from "../integrations/frigate/go2rtc-resolver.js";
 import { createHaDirectTwoWayTalkMounter } from "../integrations/home-assistant/two-way-talk-mounter.js";
@@ -3445,7 +3446,7 @@ export class FrigateViewCard extends HTMLElement {
     this._gridPageController.toggleGridMode();
   }
 
-  _setViewMode(mode) {
+  _setViewMode(mode, options = {}) {
     if (this._isPreviewPageActive()) return;
     if (
       mode === "grid" &&
@@ -3460,6 +3461,8 @@ export class FrigateViewCard extends HTMLElement {
     const previousMode = this._viewMode;
     const enteringGrid = previousMode !== "grid" && nextMode === "grid";
     const leavingGrid = previousMode === "grid" && nextMode !== "grid";
+    const resumeGridSession =
+      enteringGrid && options?.resumeGridSession === true;
     const gridLiveHandoff = leavingGrid
       ? this._gridPageController.takeColdStartLiveHandoff()
       : null;
@@ -3476,7 +3479,7 @@ export class FrigateViewCard extends HTMLElement {
         0,
         Number(this._gridRotationStart) || 0,
       );
-      this._gridAlertController.startSession();
+      if (!resumeGridSession) this._gridAlertController.startSession();
       this._gridLastRenderSignature = "";
       this._gridResumePending = false;
       startGridTimers = true;
@@ -3933,6 +3936,8 @@ export class FrigateViewCard extends HTMLElement {
 
   _applyHaReviewStatusAlerts() {
     let hasActiveAlert = false;
+    const reportedHaAlertEntities = new Set();
+    const activeHaAlertEntities = new Set();
     const activeEntity = String(this._activeCam?.entity || "").trim();
     const activeMemberEntities = new Set(cameraMemberEntities(this._activeCam));
     let activeCameraAlerted = false;
@@ -3946,14 +3951,23 @@ export class FrigateViewCard extends HTMLElement {
     for (const camera of flattenCameraMembers(this._config?.cameras)) {
       const entity = String(camera?.entity || "").trim();
       if (!entity) continue;
+      const discoveredCameraName = this._camCache?.[entity]?.cam;
+      if (
+        reviewStatusEntityCandidates(entity, discoveredCameraName).some(
+          (candidate) => Boolean(this._hass?.states?.[candidate]),
+        )
+      ) {
+        reportedHaAlertEntities.add(entity);
+      }
       const status = haReviewStatusForCamera({
         entity,
-        discoveredCameraName: this._camCache?.[entity]?.cam,
+        discoveredCameraName,
         hass: this._hass,
       });
       const severity = haReviewStatusSeverity(status);
       if (!severity) continue;
       if (!this._shouldHandleSlideshowReview(entity, severity)) continue;
+      activeHaAlertEntities.add(entity);
       if (!firstAlertEntity) {
         firstAlertEntity = entity;
         firstAlertSeverity = severity;
@@ -4021,6 +4035,10 @@ export class FrigateViewCard extends HTMLElement {
         { changed: gridChanged },
       );
     }
+    this._gridAlertController.syncHaAlertState({
+      reportedEntities: reportedHaAlertEntities,
+      activeEntities: activeHaAlertEntities,
+    });
     this._cameraGroupLiveController?.syncAlertState?.();
     return hasActiveAlert;
   }
