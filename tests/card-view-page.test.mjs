@@ -47,6 +47,13 @@ test("Card View groups tiles into full-width scroll pages", () => {
   ]);
 });
 
+test("Card View overlay calendar keeps the current day readable", () => {
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-media-drawer-popover \.cday\.today:not\(\.active\) \{[^}]*color:var\(--fvc-media-overlay-text\);[^}]*background:var\(--fvc-media-overlay-bg-hover\);/,
+  );
+});
+
 test("Card View recordings use the established one-hour segments", () => {
   const rows = resolveCardViewRecordingRows({
     recordings: [
@@ -178,6 +185,10 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(
     markup,
     /data-card-view-media-drawer-panel[\s\S]*data-card-view-media-drawer-tabs[^>]*aria-hidden="true"[^>]*hidden[\s\S]*card-view-media-drawer-handle/,
+  );
+  assert.match(
+    markup,
+    /data-card-view-media-drawer-panel[\s\S]*data-card-view-media-drawer-tabs[\s\S]*data-card-view-media-drawer-actions[\s\S]*<\/div>\s*<\/div>\s*<button class="card-view-media-drawer-handle"/,
   );
   assert.match(markup, /data-card-view-media-drawer-type="alerts"/);
   assert.match(markup, /data-card-view-media-drawer-type="clips"/);

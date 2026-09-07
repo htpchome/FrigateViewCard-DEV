@@ -301,6 +301,9 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cal-head button {color:var(--fvc-media-overlay-text);}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cday {color:var(--fvc-media-overlay-text);}
+  .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cday.today:not(.active) {
+    color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-hover);box-shadow:inset 0 0 0 1px var(--fvc-media-overlay-border-hover);font-weight:700;
+  }
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-nav {
     position:absolute;z-index:2;right:auto;left:50%;width:min(72px,58%);height:22px;border-radius:6px;transform:translateX(-50%);pointer-events:auto;
   }

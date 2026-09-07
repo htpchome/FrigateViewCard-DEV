@@ -63,12 +63,12 @@ export function buildCardViewMainLayoutShellMarkup({
               <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="snapshots" role="tab" aria-selected="false">Snapshots</button>
               <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="recordings" role="tab" aria-selected="false">Recordings</button>
             </div>
+            <div class="card-view-media-drawer-actions" data-card-view-media-drawer-actions aria-hidden="true" hidden>
+              <button class="card-view-media-drawer-action" type="button" data-card-view-media-drawer-calendar aria-pressed="false" title="Choose day" aria-label="Choose day">${regions.calendarIcon}</button>
+              <button class="card-view-media-drawer-action" type="button" data-card-view-media-drawer-filter aria-pressed="false" title="Filter media" aria-label="Filter media">${regions.filterIcon}</button>
+            </div>
           </div>
           <button class="card-view-media-drawer-handle" type="button" data-card-view-media-drawer-toggle aria-controls="card-view-media-drawer-panel" aria-expanded="false" title="Open media drawer" aria-label="Open media drawer">${regions.mediaDrawerHandleIcon}</button>
-          <div class="card-view-media-drawer-actions" data-card-view-media-drawer-actions aria-hidden="true" hidden>
-            <button class="card-view-media-drawer-action" type="button" data-card-view-media-drawer-calendar aria-pressed="false" title="Choose day" aria-label="Choose day">${regions.calendarIcon}</button>
-            <button class="card-view-media-drawer-action" type="button" data-card-view-media-drawer-filter aria-pressed="false" title="Filter media" aria-label="Filter media">${regions.filterIcon}</button>
-          </div>
           <div class="cal-panel card-view-media-drawer-popover card-view-media-drawer-calendar-panel" data-card-view-media-drawer-calendar-panel hidden></div>
           <div class="filter-panel card-view-media-drawer-popover card-view-media-drawer-filter-panel" data-card-view-media-drawer-filter-panel hidden></div>
         </aside>
