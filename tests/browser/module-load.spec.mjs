@@ -60,7 +60,11 @@ test.afterAll(async () => {
 });
 
 test("loads the runtime and editor modules", async ({ page }) => {
+  const consoleMessages = [];
   const pageErrors = [];
+  page.on("console", (message) => {
+    consoleMessages.push({ type: message.type(), text: message.text() });
+  });
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await page.goto(baseUrl);
@@ -75,6 +79,12 @@ test("loads the runtime and editor modules", async ({ page }) => {
 
   expect(registrations).toEqual({ card: true, editor: true });
   expect(pageErrors).toEqual([]);
+  expect(
+    consoleMessages.filter(({ type }) => ["warning", "error"].includes(type)),
+  ).toEqual([]);
+  expect(
+    consoleMessages.filter(({ text }) => text.includes("FRIGATE-VIEW-CARD")),
+  ).toHaveLength(1);
 });
 
 test("loads the generated HLS browser bundle", async ({ page }) => {

@@ -22,7 +22,7 @@ const buildBundle = async ({ entryPoint, outfile }) => {
     bundle: true,
     format: "esm",
     target: "es2020",
-    treeShaking: false,
+    treeShaking: true,
     outfile,
     write: false,
     logLevel: "silent",

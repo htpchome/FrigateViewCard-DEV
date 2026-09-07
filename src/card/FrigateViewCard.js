@@ -32,6 +32,7 @@ import {
 } from "../constants.js";
 import { ICONS } from "../icons.js";
 import { STYLES } from "../styles.js";
+// Registers <circle-pad-control-2>; keep this import for its module side effect.
 import "../components/circle-pad/circle-pad.js";
 import {
   DEVICE_PROFILE,

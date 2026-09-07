@@ -61,6 +61,16 @@ test("HACS release artifact is production-minified", () => {
   assert.match(bundle, /frigate-view-card-editor\.js/);
 });
 
+test("production bundles enable tree shaking", () => {
+  const buildScript = fs.readFileSync(
+    repositoryFile("scripts/build.mjs"),
+    "utf8",
+  );
+
+  assert.match(buildScript, /treeShaking:\s*true/);
+  assert.doesNotMatch(buildScript, /treeShaking:\s*false/);
+});
+
 test("lazy HLS release asset matches the pinned integrity hash", () => {
   const hlsAsset = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-hls-1.5.17.js"),
