@@ -8,6 +8,7 @@ import {
   resolveCardViewDrawerSwipe,
   resolveCardViewColumnCount,
   resolveCardViewPageScrollTarget,
+  resolveCardViewRecordingRows,
 } from "../src/features/card-view/page.ctrl.js";
 import {
   applyCardViewPageMarkup,
@@ -44,6 +45,45 @@ test("Card View groups tiles into full-width scroll pages", () => {
     [3, 4],
     [5],
   ]);
+});
+
+test("Card View recordings use the established one-hour segments", () => {
+  const rows = resolveCardViewRecordingRows({
+    recordings: [
+      {
+        start_time: 360100,
+        end_time: 367300,
+        events: 2,
+        _fvc_camera_entity: "camera.front",
+      },
+    ],
+    nowSec: 369000,
+  });
+
+  assert.deepEqual(
+    rows.map(({ start_time, end_time, _fvc_camera_entity }) => ({
+      start_time,
+      end_time,
+      _fvc_camera_entity,
+    })),
+    [
+      {
+        start_time: 367200,
+        end_time: 369000,
+        _fvc_camera_entity: "camera.front",
+      },
+      {
+        start_time: 363600,
+        end_time: 367200,
+        _fvc_camera_entity: "camera.front",
+      },
+      {
+        start_time: 360000,
+        end_time: 363600,
+        _fvc_camera_entity: "camera.front",
+      },
+    ],
+  );
 });
 
 test("Card View navigation resolves absolute full-page scroll targets", () => {
@@ -1704,6 +1744,7 @@ test("Card View recordings use a flat responsive carousel", () => {
     { start_time: 100, end_time: 160 },
     { start_time: 200, end_time: 260 },
   ];
+  controller._recordingRows = () => controller._recordings;
   controller._bindScroller = () => {};
 
   controller.renderActivity();

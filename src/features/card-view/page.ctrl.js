@@ -17,6 +17,7 @@ import {
 import { canCameraUsePtz } from "../ptz/index.js";
 import { POPUP_PRESENTATION_CARD_VIEW_DRAWER } from "../popup/media.js";
 import { resolveRecordingsDayBounds } from "../recordings/utils/day.js";
+import { splitRecordingsHourly } from "../recordings/utils/segment.js";
 import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycle.js";
 import { buildCameraPickerMarkup } from "../navigation/camera-picker.tmpl.js";
 import {
@@ -71,6 +72,14 @@ export const chunkCardViewItems = (items = [], pageSize = 1) => {
   }
   return pages;
 };
+
+export const resolveCardViewRecordingRows = ({
+  recordings = [],
+  nowSec = Date.now() / 1000,
+} = {}) =>
+  splitRecordingsHourly(recordings, nowSec).sort(
+    (a, b) => Number(b?.start_time || 0) - Number(a?.start_time || 0),
+  );
 
 export const resolveCardViewPageScrollTarget = ({
   scrollLeft = 0,
@@ -151,7 +160,7 @@ export class CardViewPageController {
         this._host._config?.card_view_media_drawer_enabled === true,
       getEvents: (mediaType) =>
         this._mediaDrawerEvents(mediaType),
-      getRecordings: () => this._recordings,
+      getRecordings: () => this._recordingRows(),
       isRecordingsLoading: () => this._recordingsLoading,
       mediaUrl: (id, file, camera = "") =>
         this._host._mediaForCamera?.(id, file, camera) || "",
@@ -1070,7 +1079,9 @@ export class CardViewPageController {
       return;
     }
 
-    const items = this._mode === "recordings" ? this._recordings : this._alerts;
+    const items = this._mode === "recordings"
+      ? this._recordingRows()
+      : this._alerts;
     if (!items.length) {
       const loading = this._mode === "recordings"
         ? this._recordingsLoading
@@ -1149,6 +1160,14 @@ export class CardViewPageController {
       </div>
       <button class="rp" data-rec-dl-start="${start}" data-rec-dl-end="${end}"${cameraData} title="Download recording" aria-label="Download recording">${ICONS.download}</button>
     </div>`;
+  }
+
+  _recordingRows(recordings = this._recordings) {
+    const now = Math.floor(Date.now() / 1000);
+    const rowEnd = this._selectedDayTs
+      ? Math.min(now, this._selectedDayBounds().end)
+      : now;
+    return resolveCardViewRecordingRows({ recordings, nowSec: rowEnd });
   }
 
   async loadAlerts({ force = false } = {}) {
