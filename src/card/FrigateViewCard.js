@@ -3416,6 +3416,10 @@ export class FrigateViewCard extends HTMLElement {
     );
   }
 
+  _beginGridAlertPageHold(entity) {
+    return this._gridPageController.beginAlertPageHold(entity);
+  }
+
   _handleAlertTakeoverStateChange(enabled) {
     this._gridPageController.handleAlertTakeoverStateChange(enabled);
     this._slideshowPageController.handleAlertTakeoverStateChange(enabled);

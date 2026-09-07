@@ -264,6 +264,61 @@ test("Grid rotation still schedules normally outside the config preview", () => 
   }
 });
 
+test("Grid alert immediately opens its page, holds it, then resumes the interrupted timer", () => {
+  const calls = [];
+  const timers = [];
+  const originalNow = Date.now;
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  let now = 1000;
+  Date.now = () => now;
+  global.setTimeout = (callback, delay) => {
+    const timer = { callback, delay, id: timers.length + 1 };
+    timers.push(timer);
+    return timer;
+  };
+  global.clearTimeout = (timer) => calls.push(["clear", timer?.id]);
+  try {
+    const host = {
+      _viewMode: "grid",
+      _gridRotationStart: 0,
+      _gridPinnedRotationStart: 0,
+      _gridRotationT: null,
+      _gridAlertReturnT: null,
+      _gridRefreshT: null,
+      _config: {
+        grid_mode_enabled: true,
+        grid_rotation_seconds: 10,
+        cameras: Array.from({ length: 8 }, (_, index) => ({
+          entity: `camera.${index + 1}`,
+        })),
+      },
+      _isLikelyMobileClient: () => false,
+      _isEditorPreviewContext: () => false,
+      _gridAlertHoldMs: () => 30000,
+      _mountEngine: (...args) => calls.push(["mount", ...args]),
+    };
+    const controller = new GridPageController(host);
+
+    controller.scheduleGridRotation();
+    now = 5000;
+    assert.equal(controller.beginAlertPageHold("camera.5"), true);
+
+    assert.equal(host._gridRotationStart, 4);
+    assert.equal(host._gridPinnedRotationStart, 4);
+    assert.deepEqual(calls.at(-1), ["mount", null, { quiet: true }]);
+    assert.equal(timers[1].delay, 30000);
+
+    timers[1].callback();
+
+    assert.equal(timers[2].delay, 6000);
+  } finally {
+    Date.now = originalNow;
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+  }
+});
+
 test("Grid alert takeover temporarily stages one camera and resumes its page timer", async () => {
   const calls = [];
   const timers = [];
@@ -318,10 +373,7 @@ test("Grid alert takeover temporarily stages one camera and resumes its page tim
     controller.scheduleGridRotation();
     assert.equal(timers[0].delay, 10000);
 
-    assert.equal(
-      await controller.beginAlertTakeover("camera.5", "detection"),
-      true,
-    );
+    const takeover = controller.beginAlertTakeover("camera.5", "detection");
     assert.equal(host._viewMode, "single");
     assert.equal(host._gridResumePending, true);
     assert.equal(host._gridPinnedRotationStart, 4);
@@ -339,6 +391,7 @@ test("Grid alert takeover temporarily stages one camera and resumes its page tim
         },
       ],
     );
+    assert.equal(await takeover, true);
 
     timers[1].callback();
 

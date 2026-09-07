@@ -227,6 +227,42 @@ export class GridPageController {
     this.scheduleGridRotation();
   }
 
+  beginAlertPageHold(entity) {
+    if (this._host._viewMode !== "grid") return false;
+    if (!this.isGridModeAvailable()) return false;
+    if (!this._displayCameras().some((camera) => camera?.entity === entity)) {
+      return false;
+    }
+
+    const sequence = ++this._alertTakeoverSequence;
+    this._clearRotationTimer({ preserveRemaining: true });
+    if (this._host._gridRefreshT) clearTimeout(this._host._gridRefreshT);
+    this._host._gridRefreshT = null;
+    this.focusGridPageForCamera(entity, { scheduleRotation: false });
+    this._host._gridPinnedRotationStart = Math.max(
+      0,
+      Number(this._host._gridRotationStart) || 0,
+    );
+    if (this._host._gridAlertReturnT) {
+      clearTimeout(this._host._gridAlertReturnT);
+    }
+
+    // Alert presentation preempts Grid rotation in the same task. The normal
+    // Grid timer resumes only after the configured alert hold has completed.
+    void this._host._mountEngine?.(null, { quiet: true });
+    const holdMs = Math.max(
+      1000,
+      Number(this._host._gridAlertHoldMs?.()) || this.gridRotationMs(),
+    );
+    this._host._gridAlertReturnT = setTimeout(() => {
+      this._host._gridAlertReturnT = null;
+      if (sequence !== this._alertTakeoverSequence) return;
+      if (this._host._viewMode !== "grid") return;
+      this.scheduleGridRotation();
+    }, holdMs);
+    return true;
+  }
+
   async beginAlertTakeover(entity, severity = "alert") {
     if (!this.isGridSessionActive()) return false;
     if (this._host._alertCameraTakeoverEnabled?.() !== true) return false;
@@ -239,8 +275,6 @@ export class GridPageController {
     const logicalCamera = this._host._config?.cameras?.[index];
     const grouped = cameraMemberEntities(logicalCamera).length > 1;
     const sequence = ++this._alertTakeoverSequence;
-    const startedAt = Date.now();
-
     if (this._host._viewMode === "grid") {
       this._clearRotationTimer({ preserveRemaining: true });
       if (this._host._gridRefreshT) clearTimeout(this._host._gridRefreshT);
@@ -258,6 +292,16 @@ export class GridPageController {
     this._host._gridResumePending = true;
     this._host._setSlideshowAlertState?.(severity);
     this._host._syncToolbarButtons?.();
+
+    const holdMs = Math.max(
+      1000,
+      Number(this._host._gridAlertHoldMs?.()) || this.gridRotationMs(),
+    );
+    this._host._gridAlertReturnT = setTimeout(() => {
+      this._host._gridAlertReturnT = null;
+      if (sequence !== this._alertTakeoverSequence) return;
+      this.completeAlertTakeover();
+    }, holdMs);
 
     try {
       await this._host._switchCamera?.(index, {
@@ -283,16 +327,6 @@ export class GridPageController {
       return false;
     }
     this._host._setSlideshowAlertState?.(severity);
-    const holdMs = Math.max(
-      1000,
-      Number(this._host._gridAlertHoldMs?.()) || this.gridRotationMs(),
-    );
-    const remainingMs = Math.max(250, holdMs - (Date.now() - startedAt));
-    this._host._gridAlertReturnT = setTimeout(() => {
-      this._host._gridAlertReturnT = null;
-      if (sequence !== this._alertTakeoverSequence) return;
-      this.completeAlertTakeover();
-    }, remainingMs);
     return true;
   }
 

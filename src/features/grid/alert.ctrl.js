@@ -221,18 +221,14 @@ export class GridAlertController {
     }
     const takeoverEnabled =
       this._host._alertCameraTakeoverEnabled?.() === true;
-    const pageFocused =
-      !takeoverEnabled &&
-      this._host._viewMode === "grid" &&
-      this._host._focusGridPageForCamera?.(entity) === true;
     this._lastAlertAt = now;
     this._lastAlertCam = entity;
-    const changed = this.markAlertCamera(entity, severity || "alert");
+    this.markAlertCamera(entity, severity || "alert");
     if (takeoverEnabled) {
       void this._host._beginGridAlertTakeover?.(entity, severity || "alert");
       return;
     }
-    if (changed || pageFocused) this._host._scheduleGridRefresh();
+    this._host._beginGridAlertPageHold?.(entity);
   }
 
   handleMarkedAlertCandidate(
@@ -241,23 +237,14 @@ export class GridAlertController {
     { changed = false } = {},
   ) {
     if (!entity || !this.isSessionActive()) return false;
+    if (changed !== true) return false;
     const takeoverEnabled =
       this._host._alertCameraTakeoverEnabled?.() === true;
-    const pageFocused =
-      !takeoverEnabled &&
-      this._host._viewMode === "grid" &&
-      this._host._focusGridPageForCamera?.(entity) === true;
-    if (
-      changed === true &&
-      takeoverEnabled
-    ) {
+    if (takeoverEnabled) {
       void this._host._beginGridAlertTakeover?.(entity, severity || "alert");
       return true;
     }
-    if ((changed || pageFocused) && this._host._viewMode === "grid") {
-      this._host._scheduleGridRefresh();
-    }
-    return changed || pageFocused;
+    return this._host._beginGridAlertPageHold?.(entity) === true;
   }
 
   handleRealtimeMessage(msg) {
