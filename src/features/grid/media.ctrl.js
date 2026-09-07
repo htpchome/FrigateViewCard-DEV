@@ -3,6 +3,7 @@ import {
   createHaCameraStreamElement,
   createHaHlsPlayerElement,
   findActiveHaCameraStreamVideo,
+  resolveHaDirectCameraStreamType,
   watchHaPlaybackFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
 import { appendCacheBustParam } from "../live/fallbacks/fallback-url.js";
@@ -21,16 +22,6 @@ import { resolveGridCameras } from "./config.js";
 
 const GRID_LIVE_ATTEMPT_TYPES = Object.freeze(["webrtc", "mse", "hls"]);
 const GRID_WEBRTC_PREFERRED_WAIT_MS = 500;
-
-const normalizeHaDirectLiveStreamHint = (value) => {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replaceAll("-", "_");
-  if (normalized === "hls") return "hls";
-  if (normalized === "webrtc" || normalized === "web_rtc") return "webrtc";
-  return "";
-};
 
 const gridLiveAttemptStartup = (type) => {
   if (type === "webrtc") return { waitMs: 7000 };
@@ -352,20 +343,25 @@ export class GridMediaController {
     })();
   }
 
-  _resolveHaDirectLiveStreamHint(entity, requestedHint = "") {
-    const requested = normalizeHaDirectLiveStreamHint(requestedHint);
-    const current = normalizeHaDirectLiveStreamHint(
-      this._host._currentLiveStreamHint?.(),
-    );
-    const raw = normalizeHaDirectLiveStreamHint(
-      this._host._hass?.states?.[entity]?.attributes?.frontend_stream_type,
-    );
-    const targetEntity = String(entity || "").trim();
-    const activeEntity = String(this._host._activeCam?.entity || "").trim();
-    if (targetEntity && targetEntity === activeEntity) {
-      return requested || current || raw || "webrtc";
-    }
-    return raw || requested || current || "webrtc";
+  _resolveHaDirectLiveStreamHint(
+    entity,
+    requestedStreamType = "",
+    fallbackStreamType = "hls",
+  ) {
+    const activeStreamType =
+      String(this._host._activeStreamType || "").trim().toLowerCase() ===
+      "grid"
+        ? this._host._lastLiveStreamHint
+        : this._host._activeStreamType;
+    return resolveHaDirectCameraStreamType({
+      entity,
+      activeEntity: this._host._activeCam?.entity,
+      activeStreamType,
+      advertisedStreamType:
+        this._host._hass?.states?.[entity]?.attributes?.frontend_stream_type,
+      requestedStreamType,
+      fallbackStreamType,
+    });
   }
 
   _resolveGridCellLiveStreamHint(entity) {
@@ -529,6 +525,7 @@ export class GridMediaController {
         const haDirectStreamHint = this._resolveHaDirectLiveStreamHint(
           entity,
           liveStreamHint,
+          "webrtc",
         );
         const haDirectStateObj = {
           ...stateObj,

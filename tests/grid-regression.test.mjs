@@ -369,9 +369,7 @@ test("Grid resolves HA-direct HLS without narrowing the go2rtc race", () => {
       _config: { cameras },
       _hass: {
         states: {
-          "camera.ha_direct": {
-            attributes: { frontend_stream_type: "hls" },
-          },
+          "camera.ha_direct": { attributes: {} },
           "camera.frigate_go2rtc": { attributes: {} },
         },
       },
@@ -383,7 +381,8 @@ test("Grid resolves HA-direct HLS without narrowing the go2rtc race", () => {
       _gridCellSeverity: () => "",
       _shouldUseGo2RtcForEntity: (entity) =>
         entity === "camera.frigate_go2rtc",
-      _currentLiveStreamHint: () => "hls",
+      _activeCam: { entity: "camera.frigate_go2rtc" },
+      _activeStreamType: "mse",
       _preferredStreamType: () => "webrtc",
       _setActiveStreamType() {},
       _syncSnapshotRefreshTimer() {},
@@ -446,6 +445,25 @@ test("Grid live preference reaches the go2rtc cell mount", () => {
   );
 
   assert.equal(mountedOptions?.preferWebRtc, true);
+});
+
+test("Grid keeps the active HA-direct camera transport stable after entering Grid", () => {
+  const controller = new GridMediaController({
+    _activeCam: { entity: "camera.ha_direct" },
+    _activeStreamType: "grid",
+    _lastLiveStreamHint: "webrtc",
+    _hass: {
+      states: {
+        "camera.ha_direct": { attributes: {} },
+      },
+    },
+    _shouldUseGo2RtcForEntity: () => false,
+  });
+
+  assert.equal(
+    controller._resolveGridCellLiveStreamHint("camera.ha_direct"),
+    "webrtc",
+  );
 });
 
 test("Grid editor previews always use snapshots", () => {

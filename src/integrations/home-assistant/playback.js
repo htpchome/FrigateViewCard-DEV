@@ -1,5 +1,34 @@
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
+const normalizeHaStreamType = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_");
+  if (normalized === "hls") return "hls";
+  if (normalized === "webrtc" || normalized === "web_rtc") return "webrtc";
+  return "";
+};
+
+export function resolveHaDirectCameraStreamType({
+  entity,
+  activeEntity,
+  activeStreamType,
+  advertisedStreamType,
+  requestedStreamType,
+  fallbackStreamType = "hls",
+} = {}) {
+  const targetEntity = String(entity || "").trim();
+  const currentEntity = String(activeEntity || "").trim();
+  const active = normalizeHaStreamType(activeStreamType);
+  if (targetEntity && targetEntity === currentEntity && active) return active;
+
+  const advertised = normalizeHaStreamType(advertisedStreamType);
+  const requested = normalizeHaStreamType(requestedStreamType);
+  const fallback = normalizeHaStreamType(fallbackStreamType);
+  return advertised || requested || fallback || "hls";
+}
+
 export function buildHaCameraStreamState(
   hass,
   entity,

@@ -16,7 +16,10 @@ import { ICONS } from "../../icons.js";
 import { DEFAULT_TITLE, VERSION } from "../../constants.js";
 import { cap, camDisplayName, DEVICE_PROFILE } from "../../helpers.js";
 import { resolveCameraAwareText } from "../../shared/page-text.js";
-import { buildHaCameraStreamState } from "../../integrations/home-assistant/playback.js";
+import {
+  buildHaCameraStreamState,
+  resolveHaDirectCameraStreamType,
+} from "../../integrations/home-assistant/playback.js";
 import {
   cameraGroupSecondaryEntity,
   cameraMemberEntities,
@@ -203,13 +206,18 @@ export class PreviewPageController {
   }
 
   previewCameraLiveStreamHint(entity) {
-    const liveStreamHint = this.previewLiveStreamHint();
-    if (
-      liveStreamHint !== "hls" ||
-      this._host._shouldUseGo2RtcForEntity?.(entity) !== true
-    ) {
-      return liveStreamHint;
+    if (this._host._shouldUseGo2RtcForEntity?.(entity) !== true) {
+      return resolveHaDirectCameraStreamType({
+        entity,
+        activeEntity: this._host._activeCam?.entity,
+        activeStreamType: this._host._activeStreamType,
+        advertisedStreamType:
+          this._host._hass?.states?.[entity]?.attributes
+            ?.frontend_stream_type,
+      });
     }
+    const liveStreamHint = this.previewLiveStreamHint();
+    if (liveStreamHint !== "hls") return liveStreamHint;
     const activeEntity = String(this._host._activeCam?.entity || "").trim();
     if (
       !activeEntity ||

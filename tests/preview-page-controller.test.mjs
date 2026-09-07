@@ -323,6 +323,24 @@ test("Preview does not carry an HA-direct HLS hint into go2rtc cameras", () => {
   );
 });
 
+test("Preview landing starts an unclassified HA-direct camera with HLS", () => {
+  const { controller, host } = createHost({
+    activeStreamType: "--",
+    pageId: "preview",
+    liveCameras: true,
+  });
+  host._hass = {
+    states: {
+      "camera.front_door": { attributes: {} },
+    },
+  };
+
+  assert.equal(
+    controller.previewCameraLiveStreamHint("camera.front_door"),
+    "hls",
+  );
+});
+
 test("preview stream source label derives from connection type and live hint", () => {
   const { controller } = createHost({ activeStreamType: "mse" });
 
@@ -427,7 +445,7 @@ test("mountPreviewMedia delegates preview cells through grid media ownership", (
   assert.equal(calls[0][1].entity, "camera.front_door");
   assert.equal(calls[0][1].fallbackOnLiveError, true);
   assert.equal(calls[0][1].snapshotPlaceholderWhileLive, true);
-  assert.equal(calls[0][1].stateObj?.attributes?.frontend_stream_type, "mse");
+  assert.equal(calls[0][1].stateObj?.attributes?.frontend_stream_type, "hls");
   assert.equal(host._previewMediaState?.destroyed, false);
 });
 
@@ -750,7 +768,7 @@ test("Preview HA Direct HLS reveals only after the active HA player renders", as
       _hass: {
         states: {
           "camera.front": {
-            attributes: { frontend_stream_type: "hls" },
+            attributes: {},
           },
         },
       },
@@ -766,7 +784,7 @@ test("Preview HA Direct HLS reveals only after the active HA player renders", as
       entity: "camera.front",
       stateObj: { attributes: { frontend_stream_type: "mse" } },
       useLive: true,
-      liveStreamHint: "mse",
+      liveStreamHint: "hls",
       gridState,
       fallbackOnLiveError: true,
       snapshotPlaceholderWhileLive: true,

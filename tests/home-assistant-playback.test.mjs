@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { watchHaPlaybackFirstFrame } from "../src/integrations/home-assistant/playback.js";
+import {
+  resolveHaDirectCameraStreamType,
+  watchHaPlaybackFirstFrame,
+} from "../src/integrations/home-assistant/playback.js";
 
 const createEventTarget = () => {
   const listeners = new Map();
@@ -48,6 +51,52 @@ const createPendingVideo = () => {
     },
   };
 };
+
+test("HA Direct multi-view startup uses only camera-specific stream evidence", () => {
+  assert.equal(
+    resolveHaDirectCameraStreamType({
+      entity: "camera.front",
+      activeEntity: "camera.front",
+      activeStreamType: "webrtc",
+    }),
+    "webrtc",
+  );
+  assert.equal(
+    resolveHaDirectCameraStreamType({
+      entity: "camera.front",
+      activeEntity: "camera.driveway",
+      activeStreamType: "webrtc",
+    }),
+    "hls",
+  );
+  assert.equal(
+    resolveHaDirectCameraStreamType({
+      entity: "camera.front",
+      activeEntity: "camera.front",
+      activeStreamType: "--",
+    }),
+    "hls",
+  );
+  assert.equal(
+    resolveHaDirectCameraStreamType({
+      entity: "camera.front",
+      activeEntity: "camera.driveway",
+      activeStreamType: "mse",
+      advertisedStreamType: "web_rtc",
+    }),
+    "webrtc",
+  );
+  assert.equal(
+    resolveHaDirectCameraStreamType({
+      entity: "camera.front",
+      activeEntity: "camera.driveway",
+      activeStreamType: "mse",
+      requestedStreamType: "mse",
+      fallbackStreamType: "webrtc",
+    }),
+    "webrtc",
+  );
+});
 
 test("HA camera-stream readiness follows the active player after HA switches to HLS", async () => {
   const events = createEventTarget();
