@@ -813,6 +813,10 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone-mode-button\.active:hover \{\s*color:var\(--fvc-media-overlay-text\);background:var\(--fvc-media-overlay-active-bg\);border-color:var\(--fvc-media-overlay-active-border\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-hide-camera-name \.mobile-cam-picker \{opacity:0;pointer-events:none;/,
   );
   assert.doesNotMatch(

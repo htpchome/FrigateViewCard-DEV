@@ -1028,3 +1028,90 @@ test("renderPreviewPage does not remount media on severity-only updates", () => 
     "0:camera.front_door:snap|1:camera.driveway:snap|titles:1|hass:1",
   );
 });
+
+const createPreviewAlertClassList = () => {
+  const classes = new Set();
+  return {
+    add: (...tokens) => tokens.forEach((token) => classes.add(token)),
+    remove: (...tokens) => tokens.forEach((token) => classes.delete(token)),
+    contains: (token) => classes.has(token),
+  };
+};
+
+test("Preview alerts outline an already-live tile without remounting media", () => {
+  const { controller, host } = createHost({
+    previewEnabled: true,
+    pageId: "preview",
+    liveCameras: true,
+  });
+  const mediaHost = {
+    dataset: {
+      previewMediaEntity: "camera.front_door",
+      previewUseLive: "1",
+    },
+    classList: createPreviewAlertClassList(),
+  };
+  host.shadowRoot = {
+    querySelectorAll: (selector) =>
+      selector === ".preview-media-host" ? [mediaHost] : [],
+  };
+  host._previewAlertController.previewCellSeverity = () => "alert";
+
+  let renderCalls = 0;
+  let updateCalls = 0;
+  controller.renderPreviewPage = () => {
+    renderCalls += 1;
+  };
+  controller.updatePreviewMeta = () => {
+    updateCalls += 1;
+  };
+
+  assert.equal(
+    controller.handleAlertStateChange({ entity: "camera.front_door" }),
+    true,
+  );
+  assert.equal(mediaHost.classList.contains("grid-alert"), true);
+  assert.equal(mediaHost.classList.contains("grid-detection"), false);
+  assert.equal(renderCalls, 0);
+  assert.equal(updateCalls, 1);
+});
+
+test("Preview alerts promote a rendered snapshot tile to live immediately", () => {
+  const { controller, host } = createHost({
+    previewEnabled: true,
+    pageId: "preview",
+    liveCameras: false,
+    alertLive: true,
+  });
+  const mediaHost = {
+    dataset: {
+      previewMediaEntity: "camera.front_door",
+      previewUseLive: "0",
+    },
+    classList: createPreviewAlertClassList(),
+  };
+  host.shadowRoot = {
+    querySelectorAll: (selector) =>
+      selector === ".preview-media-host" ? [mediaHost] : [],
+  };
+  host._previewAlertController.previewCellSeverity = () => "detection";
+  host._previewLastRenderSignature = "stale-snapshot-signature";
+
+  let renderCalls = 0;
+  let updateCalls = 0;
+  controller.renderPreviewPage = () => {
+    renderCalls += 1;
+  };
+  controller.updatePreviewMeta = () => {
+    updateCalls += 1;
+  };
+
+  assert.equal(
+    controller.handleAlertStateChange({ entity: "camera.front_door" }),
+    true,
+  );
+  assert.equal(mediaHost.classList.contains("grid-detection"), true);
+  assert.equal(host._previewLastRenderSignature, "");
+  assert.equal(renderCalls, 1);
+  assert.equal(updateCalls, 0);
+});

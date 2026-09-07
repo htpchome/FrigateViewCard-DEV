@@ -3287,6 +3287,10 @@ export class FrigateViewCard extends HTMLElement {
     this._syncSnapshotRefreshTimer();
   }
 
+  _handlePreviewAlertStateChange(detail = {}) {
+    return this._previewPageController.handleAlertStateChange(detail);
+  }
+
   _refreshSnapshotMedia() {
     return this._gridMediaController.refreshSnapshotMedia();
   }

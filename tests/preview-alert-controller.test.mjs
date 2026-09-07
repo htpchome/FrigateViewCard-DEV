@@ -35,6 +35,32 @@ test("handleRealtimeMessage marks camera live when alert severity is present", (
   assert.deepEqual(calls, [["camera.front_door", "alert", 6000]]);
 });
 
+test("markAlertCamera sends the active Preview page an explicit state change", () => {
+  const calls = [];
+  const host = createHost();
+  host._handlePreviewAlertStateChange = (detail) => calls.push(detail);
+  const controller = new PreviewAlertController(host, {
+    PREVIEW_ALERT_HOLD_MS: 6000,
+    PREVIEW_ALERT_END_GRACE_MS: 3500,
+  });
+
+  try {
+    assert.equal(
+      controller.markAlertCamera("camera.front_door", "detection", 6000),
+      true,
+    );
+    assert.deepEqual(calls, [
+      {
+        entity: "camera.front_door",
+        severity: "detection",
+        changed: true,
+      },
+    ]);
+  } finally {
+    controller.clearTimers();
+  }
+});
+
 test("handleRealtimeMessage only probes Reviews when realtime severity is missing", () => {
   const host = createHost({ severityByMessage: "", shouldHandle: true });
   const controller = new PreviewAlertController(host, {

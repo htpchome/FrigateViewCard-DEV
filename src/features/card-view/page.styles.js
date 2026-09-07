@@ -421,6 +421,9 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   @media (hover:hover) and (pointer:fine) {
     .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button:hover {background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
+    .card.card-view-active.card-view-overlay-presentation .card-view-standalone-mode-button.active:hover {
+      color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-active-bg);border-color:var(--fvc-media-overlay-active-border);
+    }
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-live-status-overlay {
     position:absolute;z-index:22;top:9px;right:9px;display:flex;align-items:center;gap:4px;pointer-events:none;

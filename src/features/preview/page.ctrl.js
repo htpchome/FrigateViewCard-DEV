@@ -392,6 +392,53 @@ export class PreviewPageController {
     this._host._syncSnapshotRefreshTimer?.();
   }
 
+  handleAlertStateChange({ entity = "", entities = [] } = {}) {
+    if (!this.isPreviewPageActive()) return false;
+    const targetEntities = new Set(
+      [entity, ...(Array.isArray(entities) ? entities : [])]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    );
+    if (!targetEntities.size) return false;
+
+    const renderedHosts = Array.from(
+      this._host.shadowRoot?.querySelectorAll?.(".preview-media-host") || [],
+    );
+    let foundTarget = false;
+    let needsMediaTransition = false;
+    for (const mediaHost of renderedHosts) {
+      const renderedEntity = String(
+        mediaHost?.dataset?.previewMediaEntity || "",
+      ).trim();
+      if (!targetEntities.has(renderedEntity)) continue;
+      foundTarget = true;
+
+      const severity = this.previewCellSeverity(renderedEntity);
+      mediaHost.classList?.remove?.("grid-alert", "grid-detection");
+      if (severity === "alert") mediaHost.classList?.add?.("grid-alert");
+      if (severity === "detection") {
+        mediaHost.classList?.add?.("grid-detection");
+      }
+
+      const renderedLive = mediaHost.dataset.previewUseLive === "1";
+      if (renderedLive !== this.previewShouldUseLive(renderedEntity)) {
+        needsMediaTransition = true;
+      }
+    }
+
+    if (!foundTarget || needsMediaTransition) {
+      // Force a rebuild only when an alert changes snapshot/live state. This
+      // leaves already-live Preview media mounted while its outline updates.
+      this._host._previewLastRenderSignature = "";
+      this.renderPreviewPage();
+      return true;
+    }
+
+    this.updatePreviewMeta();
+    this._host._syncSnapshotRefreshTimer?.();
+    return true;
+  }
+
   updatePreviewMeta() {
     const showTitleBars = this.previewShowTitleBarsEnabled();
     this._host.shadowRoot

@@ -52,7 +52,9 @@ export class PreviewAlertController {
   }
 
   markAlertCamera(entity, severity = "alert", holdMs = null) {
-    if (!entity) return;
+    if (!entity) return false;
+    const wasLive = this.isCameraAlertLive(entity);
+    const previousSeverity = this.previewCellSeverity(entity);
     const normalizedSeverity = normalizePreviewAlertSeverity(severity);
     const defaultHoldMs =
       this._host._previewAlertHoldMs?.() ||
@@ -63,7 +65,19 @@ export class PreviewAlertController {
       Date.now() + Math.max(1000, Number(holdMs) || defaultHoldMs),
     );
     this._scheduleAlertCleanup();
-    if (this._host._isPreviewPageActive()) this._host._renderPreviewPage();
+    const changed = !wasLive || previousSeverity !== normalizedSeverity;
+    if (this._host._isPreviewPageActive()) {
+      if (typeof this._host._handlePreviewAlertStateChange === "function") {
+        this._host._handlePreviewAlertStateChange({
+          entity,
+          severity: normalizedSeverity,
+          changed,
+        });
+      } else {
+        this._host._renderPreviewPage();
+      }
+    }
+    return changed;
   }
 
   rememberHandledReview(reviewId) {
@@ -219,17 +233,24 @@ export class PreviewAlertController {
     const wait = Math.max(100, nextExpiry - Date.now() + 25);
     this._alertCleanupT = setTimeout(() => {
       this._alertCleanupT = null;
-      let changed = false;
+      const expiredEntities = [];
       const now = Date.now();
       for (const [entity, until] of this._alertExpiresByEntity.entries()) {
         if (Number(until || 0) <= now) {
           this._alertExpiresByEntity.delete(entity);
           this._alertSeverityByEntity.delete(entity);
-          changed = true;
+          expiredEntities.push(entity);
         }
       }
-      if (changed && this._host._isPreviewPageActive()) {
-        this._host._renderPreviewPage();
+      if (expiredEntities.length && this._host._isPreviewPageActive()) {
+        if (typeof this._host._handlePreviewAlertStateChange === "function") {
+          this._host._handlePreviewAlertStateChange({
+            entities: expiredEntities,
+            expired: true,
+          });
+        } else {
+          this._host._renderPreviewPage();
+        }
       }
       this._scheduleAlertCleanup();
     }, wait);
