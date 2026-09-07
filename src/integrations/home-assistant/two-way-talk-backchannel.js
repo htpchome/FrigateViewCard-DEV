@@ -46,7 +46,15 @@ export function createHaDirectTwoWayTalkBackchannel({
     throw new Error("Missing Home Assistant connection provider");
   }
 
-  const connect = async ({ entity, microphoneStream, onEnded } = {}) => {
+  const connect = async ({
+    entity,
+    microphoneStream,
+    onEnded,
+    abortSignal,
+  } = {}) => {
+    if (abortSignal?.aborted) {
+      throw new Error("Home Assistant two-way talk was stopped during startup");
+    }
     const hass = getHass();
     const microphoneTrack = resolveMicrophoneTrack(microphoneStream);
     if (
@@ -62,6 +70,9 @@ export function createHaDirectTwoWayTalkBackchannel({
       type: "camera/webrtc/get_client_config",
       entity_id: entity,
     });
+    if (abortSignal?.aborted) {
+      throw new Error("Home Assistant two-way talk was stopped during startup");
+    }
     const pc = createPeerConnection(clientConfig?.configuration);
     const incomingAudio = configureIncomingAudio(createIncomingAudio());
     const incomingAudioStream = createMediaStream();
@@ -83,6 +94,7 @@ export function createHaDirectTwoWayTalkBackchannel({
     let endNotified = false;
     let resolveStart = null;
     let rejectStart = null;
+    let abortBound = false;
 
     const startPromise = new Promise((resolve, reject) => {
       resolveStart = resolve;
@@ -93,6 +105,12 @@ export function createHaDirectTwoWayTalkBackchannel({
       if (!connectionTimer) return;
       clearTimeout(connectionTimer);
       connectionTimer = null;
+    };
+
+    const unbindAbort = () => {
+      if (!abortBound) return;
+      abortSignal?.removeEventListener?.("abort", handleAbort);
+      abortBound = false;
     };
 
     const unsubscribeSignaling = () => {
@@ -150,6 +168,7 @@ export function createHaDirectTwoWayTalkBackchannel({
     const destroy = () => {
       if (destroyed) return;
       destroyed = true;
+      unbindAbort();
       clearConnectionTimer();
       unsubscribeSignaling();
       closeIncomingAudio();
@@ -193,6 +212,7 @@ export function createHaDirectTwoWayTalkBackchannel({
         "Unable to establish Home Assistant two-way talk",
       );
       destroyed = true;
+      unbindAbort();
       clearConnectionTimer();
       unsubscribeSignaling();
       closeIncomingAudio();
@@ -231,9 +251,14 @@ export function createHaDirectTwoWayTalkBackchannel({
       }
       connected = true;
       startSettled = true;
+      unbindAbort();
       clearConnectionTimer();
       resolveStart(engine);
     };
+
+    function handleAbort() {
+      destroy();
+    }
 
     const markRemoteMediaStarted = () => {
       if (destroyed || remoteMediaStarted) return;
@@ -369,6 +394,14 @@ export function createHaDirectTwoWayTalkBackchannel({
     }
 
     try {
+      if (abortSignal) {
+        abortSignal.addEventListener("abort", handleAbort, { once: true });
+        abortBound = true;
+      }
+      if (abortSignal?.aborted) {
+        destroy();
+        return await startPromise;
+      }
       unmountIncomingAudio = mountIncomingAudio(incomingAudio) || null;
       if (clientConfig?.dataChannel) {
         pc.createDataChannel(clientConfig.dataChannel);

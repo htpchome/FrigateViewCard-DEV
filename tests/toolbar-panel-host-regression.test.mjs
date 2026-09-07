@@ -73,6 +73,24 @@ test("two-way talk hidden button keeps the info row layout stable", () => {
   );
 });
 
+test("two-way talk exposes pending and active visual states", () => {
+  assert.match(
+    stylesSource,
+    /\.info-row-mic-btn\.connecting::after\{[^}]*border-top-color:var\(--c-primary\);[^}]*animation:twoWayTalkConnectingSpin/,
+  );
+  assert.match(
+    stylesSource,
+    /@keyframes twoWayTalkConnectingSpin\{to\{transform:rotate\(360deg\);\}\}/,
+  );
+
+  const activeRuleStart = stylesSource.indexOf(".info-row-mic-btn.active{");
+  const activeRuleEnd = stylesSource.indexOf("}", activeRuleStart);
+  const activeRule = stylesSource.slice(activeRuleStart, activeRuleEnd);
+  assert.equal(activeRule.includes("var(--c-on)"), true);
+  assert.equal(activeRule.includes("box-shadow:inset"), true);
+  assert.equal(activeRule.includes("color-mix"), false);
+});
+
 test("icon buttons reset native button chrome", () => {
   const start = stylesSource.indexOf(".icon-btn{");
   const end = stylesSource.indexOf(".icon-btn svg", start);
@@ -197,7 +215,9 @@ test("live controls keep a shared overlay with a mobile inline mute exception", 
     true,
   );
   assert.equal(
-    stylesSource.includes(".info-row-mic-btn:not(.active):hover"),
+    stylesSource.includes(
+      ".info-row-mic-btn:not(.active):not(.connecting):hover",
+    ),
     true,
   );
   assert.equal(

@@ -785,7 +785,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-standalone-linked-overlay:has\(#two-way-talk-btn\.active\)[^{]*\{opacity:1;pointer-events:auto;/,
+    /card-view-standalone-linked-overlay:has\(#two-way-talk-btn:is\(\.active,\.connecting\)\)[^{]*\{opacity:1;pointer-events:auto;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -793,7 +793,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /two-way-talk-active \.card-view-standalone-light-controls,[\s\S]*?card-view-standalone-linked-overlay:has\(#two-way-talk-btn\.active\) \.card-view-standalone-light-controls \{display:none;\}/,
+    /two-way-talk-active \.card-view-standalone-light-controls,[\s\S]*?card-view-standalone-linked-overlay:has\(#two-way-talk-btn:is\(\.active,\.connecting\)\) \.card-view-standalone-light-controls \{display:none;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -979,7 +979,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   assert.doesNotMatch(CARD_VIEW_PAGE_STYLES, /translateY\(-3px\)/);
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-video-zoomed \.card-view-standalone-linked-overlay:not\(:has\(#two-way-talk-btn\.active\)\),[\s\S]*?\{opacity:0;pointer-events:none;/,
+    /card-view-video-zoomed \.card-view-standalone-linked-overlay:not\(:has\(#two-way-talk-btn:is\(\.active,\.connecting\)\)\),[\s\S]*?\{opacity:0;pointer-events:none;/,
   );
   const openMediaDrawerRule = CARD_VIEW_PAGE_STYLES.match(
     /card-view-overlay-presentation:has\(\.card-view-media-drawer\.is-open\) \.card-view-camera-row,[\s\S]*?\{[^}]*visibility:hidden;[^}]*\}/,

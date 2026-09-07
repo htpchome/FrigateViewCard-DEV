@@ -18,16 +18,28 @@ function stopMediaStream(stream) {
   });
 }
 
+const createTwoWayTalkAbortError = () => {
+  const error = new Error("Two-way talk connection canceled");
+  error.name = "AbortError";
+  return error;
+};
+
+const throwIfAborted = (abortSignal) => {
+  if (abortSignal?.aborted) throw createTwoWayTalkAbortError();
+};
+
 async function startMountedTwoWayTalkSession({
   type,
   mountMicrophoneStream,
   onEnded,
   restoreLiveOnStop = true,
+  abortSignal = null,
 }) {
   if (typeof mountMicrophoneStream !== "function") {
     throw new Error(`Missing ${type} two-way talk mount handler`);
   }
 
+  throwIfAborted(abortSignal);
   const localStream = await requestMicrophoneStream();
   let engine = null;
   let stopped = false;
@@ -41,14 +53,20 @@ async function startMountedTwoWayTalkSession({
   };
 
   try {
+    throwIfAborted(abortSignal);
     engine = await mountMicrophoneStream({
       localStream,
       onEnded: notifyEnded,
+      abortSignal,
     });
+    throwIfAborted(abortSignal);
     if (!engine) {
       throw new Error(`Unable to establish ${type} two-way talk`);
     }
   } catch (error) {
+    try {
+      await engine?.destroy?.();
+    } catch (_) {}
     stopMediaStream(localStream);
     throw error;
   }
@@ -88,23 +106,27 @@ async function startMountedTwoWayTalkSession({
 export async function startGo2RtcTwoWayTalkSession({
   mountMicrophoneStream,
   onEnded,
+  abortSignal,
 }) {
   return await startMountedTwoWayTalkSession({
     type: "frigate_go2rtc",
     mountMicrophoneStream,
     onEnded,
     restoreLiveOnStop: false,
+    abortSignal,
   });
 }
 
 export async function startHaDirectTwoWayTalkSession({
   mountMicrophoneStream,
   onEnded,
+  abortSignal,
 }) {
   return await startMountedTwoWayTalkSession({
     type: "ha_direct",
     mountMicrophoneStream,
     onEnded,
     restoreLiveOnStop: false,
+    abortSignal,
   });
 }

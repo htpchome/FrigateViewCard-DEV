@@ -707,7 +707,7 @@ export const STYLES = `
     border:1px solid var(--fvc-media-overlay-border);box-shadow:var(--fvc-media-overlay-shadow);
   }
   .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn) svg{color:currentColor;opacity:1;}
-  .media-linked-controls-overlay .info-row-mic-btn.round-btn.active{color:var(--c-on);background-color:var(--fvc-media-overlay-bg-strong);border-color:var(--c-on);}
+  .media-linked-controls-overlay .info-row-mic-btn.round-btn.active{color:var(--c-on);background-color:var(--fvc-media-overlay-bg-strong);border-color:var(--c-on);box-shadow:inset 0 0 12px -3px var(--c-on),var(--fvc-media-overlay-shadow);}
   .media-linked-controls-overlay .info-row-mic-btn.round-btn.active.microphone-muted{color:var(--c-text-rev);background-color:var(--c-accent);border-color:var(--c-accent);}
   .media-linked-controls-overlay .linked-light-button.icon-btn.is-on::before{background:var(--fvc-media-overlay-bg-strong);}
   .media-linked-controls-overlay .two-way-talk-soundwave{
@@ -763,20 +763,23 @@ export const STYLES = `
   .page-nav-btn{border-radius:6px;}
   .page-nav-btn.active svg{color:var(--c-text-rev);opacity:1;}
 
-  .info-row-mic-btn{}
+  .info-row-mic-btn{position:relative;}
   .info-row-mic-btn[hidden] {display: none !important;}
   .info-row-mic-btn svg{width:24px;height:24px;}
   .info-row-mic-btn:hover{border-color:var(--c-primary-d);color:var(--c-primary-d);}
-  .info-row-mic-btn.active{background:rgba(74,222,128,.16);border-color:rgba(74,222,128,.45);color:#4ade80;box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.15), 0 0 6px 1px var(--c-border2);}
+  .info-row-mic-btn.connecting::after{content:"";position:absolute;inset:-3px;border:2px solid transparent;border-top-color:var(--c-primary);border-right-color:var(--c-primary);border-radius:50%;box-sizing:border-box;pointer-events:none;animation:twoWayTalkConnectingSpin .8s linear infinite;}
+  .info-row-mic-btn.active{background:var(--c-bg-main);border-color:var(--c-on);color:var(--c-on);box-shadow:inset 0 0 12px -3px var(--c-on),0 0 6px 1px var(--c-border2);}
   .info-row-mic-btn.active svg{opacity:1;}
-  .info-row-mic-btn.active.microphone-muted{background:var(--c-accent);border-color:var(--c-accent);color:var(--c-text-rev);box-shadow:0 0 6px 1px var(--c-border2);}
+  .info-row-mic-btn.active.microphone-muted{background:var(--c-accent);border-color:var(--c-accent);color:var(--c-text-rev);box-shadow:inset 0 0 12px -3px var(--c-on),0 0 6px 1px var(--c-border2);}
   .info-row-mic-btn.active.microphone-muted svg{color:var(--c-text-rev);opacity:1;}
   @media (hover:none), (pointer:coarse){
-    .info-row-mic-btn:not(.active):hover{background-size:0 0;background-color:var(--c-bg-main);box-shadow:0 0 3px 1px var(--c-text4);color:var(--c-text2);}
-    .info-row-mic-btn:not(.active):hover svg{color:var(--c-text2);}
+    .info-row-mic-btn:not(.active):not(.connecting):hover{background-size:0 0;background-color:var(--c-bg-main);box-shadow:0 0 3px 1px var(--c-text4);color:var(--c-text2);}
+    .info-row-mic-btn:not(.active):not(.connecting):hover svg{color:var(--c-text2);}
     .two-way-talk-microphone-mute-btn:not(.active):hover,.two-way-talk-microphone-mute-btn:not(.active):active{background:transparent;box-shadow:none;color:var(--c-text2);}
     .two-way-talk-microphone-mute-btn:not(.active):hover svg,.two-way-talk-microphone-mute-btn:not(.active):active svg{color:var(--c-text2);}
   }
+  @keyframes twoWayTalkConnectingSpin{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion:reduce){.info-row-mic-btn.connecting::after{animation-duration:1.6s;}}
   .info-title{font-size:1.05rem;font-weight:700;color:var(--c-text);}
   .stats{display:flex;gap:10px;text-align:right;justify-content: end;align-items: center;} 
   .stat{display:flex;flex-direction:column;align-items:flex-end;}

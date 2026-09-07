@@ -121,3 +121,29 @@ test("failed two-way talk mounts release microphone capture", async () => {
     assert.equal(getStopCalls(), 1);
   });
 });
+
+test("canceling two-way talk startup destroys the mounted engine and releases the microphone", async () => {
+  await withFakeMicrophone(async ({ getStopCalls }) => {
+    const abortController = new AbortController();
+    let destroyCalls = 0;
+
+    await assert.rejects(
+      startGo2RtcTwoWayTalkSession({
+        abortSignal: abortController.signal,
+        mountMicrophoneStream: async ({ abortSignal }) => {
+          assert.equal(abortSignal, abortController.signal);
+          abortController.abort();
+          return {
+            destroy() {
+              destroyCalls += 1;
+            },
+          };
+        },
+      }),
+      (error) => error?.name === "AbortError",
+    );
+
+    assert.equal(destroyCalls, 1);
+    assert.equal(getStopCalls(), 1);
+  });
+});

@@ -30,13 +30,24 @@ export function createGo2RtcTwoWayTalkBackchannel({
     throw new Error("Missing go2rtc two-way talk WebSocket resolver");
   }
 
-  const connect = async ({ entity, microphoneStream, onEnded } = {}) => {
+  const connect = async ({
+    entity,
+    microphoneStream,
+    onEnded,
+    abortSignal,
+  } = {}) => {
+    if (abortSignal?.aborted) {
+      throw new Error("go2rtc two-way talk was stopped during startup");
+    }
     const microphoneTrack = resolveMicrophoneTrack(microphoneStream);
     if (!microphoneTrack) {
       throw new Error("Two-way talk microphone stream has no active audio track");
     }
 
     const wsUrl = await resolveWebSocketUrl(entity);
+    if (abortSignal?.aborted) {
+      throw new Error("go2rtc two-way talk was stopped during startup");
+    }
     if (!wsUrl) {
       throw new Error("Unable to resolve the go2rtc two-way talk endpoint");
     }
@@ -55,6 +66,7 @@ export function createGo2RtcTwoWayTalkBackchannel({
     let endNotified = false;
     let resolveStart = null;
     let rejectStart = null;
+    let abortBound = false;
 
     const startPromise = new Promise((resolve, reject) => {
       resolveStart = resolve;
@@ -65,6 +77,12 @@ export function createGo2RtcTwoWayTalkBackchannel({
       if (!connectionTimer) return;
       clearTimeout(connectionTimer);
       connectionTimer = null;
+    };
+
+    const unbindAbort = () => {
+      if (!abortBound) return;
+      abortSignal?.removeEventListener?.("abort", handleAbort);
+      abortBound = false;
     };
 
     const closeWebSocket = () => {
@@ -98,6 +116,7 @@ export function createGo2RtcTwoWayTalkBackchannel({
     const destroy = () => {
       if (destroyed) return;
       destroyed = true;
+      unbindAbort();
       clearConnectionTimer();
       closeWebSocket();
       closePeerConnection();
@@ -122,6 +141,7 @@ export function createGo2RtcTwoWayTalkBackchannel({
         "Unable to establish go2rtc two-way talk",
       );
       destroyed = true;
+      unbindAbort();
       clearConnectionTimer();
       closeWebSocket();
       closePeerConnection();
@@ -146,10 +166,15 @@ export function createGo2RtcTwoWayTalkBackchannel({
       }
       connected = true;
       startSettled = true;
+      unbindAbort();
       clearConnectionTimer();
       closeWebSocket();
       resolveStart(engine);
     };
+
+    function handleAbort() {
+      destroy();
+    }
 
     function handleConnectionStateChange() {
       if (pc.connectionState === "connected") {
@@ -226,6 +251,14 @@ export function createGo2RtcTwoWayTalkBackchannel({
     }
 
     try {
+      if (abortSignal) {
+        abortSignal.addEventListener("abort", handleAbort, { once: true });
+        abortBound = true;
+      }
+      if (abortSignal?.aborted) {
+        destroy();
+        return await startPromise;
+      }
       transceiver = pc.addTransceiver(microphoneTrack, {
         direction: "sendonly",
         streams: [microphoneStream],

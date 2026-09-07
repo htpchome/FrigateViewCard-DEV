@@ -160,6 +160,7 @@ const createMicrophone = () => {
 };
 
 const startBackchannel = async ({
+  abortSignal,
   onEnded,
   initialCandidate = null,
   emitPendingCandidate = true,
@@ -219,6 +220,7 @@ const startBackchannel = async ({
     entity: "camera.front",
     microphoneStream: microphone.stream,
     onEnded,
+    abortSignal,
   });
   await flushPromises();
 
@@ -418,4 +420,26 @@ test("an established HA direct backchannel failure leaves live playback alone", 
   assert.equal(fixture.peerConnection.closeCalls, 1);
   assert.equal(fixture.getUnsubscribeCalls(), 1);
   assert.equal(fixture.getUnmountCalls(), 1);
+});
+
+test("aborting a pending HA direct talk connection releases its signaling resources", async () => {
+  const abortController = new AbortController();
+  const fixture = await startBackchannel({
+    abortSignal: abortController.signal,
+  });
+
+  abortController.abort();
+  await assert.rejects(fixture.connection, /stopped during startup/);
+  await flushPromises();
+
+  assert.equal(fixture.getUnsubscribeCalls(), 1);
+  assert.equal(fixture.getUnmountCalls(), 1);
+  assert.equal(fixture.peerConnection.closeCalls, 1);
+  assert.deepEqual(
+    fixture.peerConnection.transceivers.map(({ stopCalls }) => stopCalls),
+    [1, 1, 1],
+  );
+  assert.equal(fixture.incomingAudio.pauseCalls, 1);
+  assert.equal(fixture.incomingAudio.srcObject, null);
+  assert.equal(fixture.microphone.track.stopCalls, 0);
 });

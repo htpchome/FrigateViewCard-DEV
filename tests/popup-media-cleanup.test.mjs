@@ -362,6 +362,34 @@ test("active two-way talk publishes exclusive-control state and dismisses light 
   FrigateViewCard.prototype._syncTwoWayTalkButton.call(ctx);
   assert.equal(classes.has("two-way-talk-active"), false);
   assert.equal(dismissed, 1);
+
+  ctx._twoWayTalkStarting = true;
+  FrigateViewCard.prototype._syncTwoWayTalkButton.call(ctx);
+  assert.equal(classes.has("two-way-talk-active"), true);
+  assert.equal(dismissed, 1);
+});
+
+test("pressing the two-way-talk button while connecting aborts that attempt", async () => {
+  const abortController = new AbortController();
+  let syncCalls = 0;
+  const ctx = {
+    _twoWayTalkStarting: true,
+    _twoWayTalkStartAbortController: abortController,
+    _twoWayTalkStartSeq: 4,
+    _cancelTwoWayTalkStart:
+      FrigateViewCard.prototype._cancelTwoWayTalkStart,
+    _syncTwoWayTalkButton: () => {
+      syncCalls += 1;
+    },
+  };
+
+  await FrigateViewCard.prototype._toggleTwoWayTalkSession.call(ctx);
+
+  assert.equal(abortController.signal.aborted, true);
+  assert.equal(ctx._twoWayTalkStarting, false);
+  assert.equal(ctx._twoWayTalkStartAbortController, null);
+  assert.equal(ctx._twoWayTalkStartSeq, 5);
+  assert.equal(syncCalls, 1);
 });
 
 test("HA-direct talk unmute does not replace the active full-duplex peer", () => {
@@ -418,6 +446,13 @@ test("desktop talk controls keep the microphone centered and reveal synchronized
   );
   assert.match(inactiveMarkup, /id="two-way-talk-mute-btn"[^>]* hidden/);
 
+  ctx._twoWayTalkStarting = true;
+  const connectingMarkup = ctx._buildTwoWayTalkControlRowMarkup();
+  assert.match(connectingMarkup, /info-row-mic-btn connecting round-btn/);
+  assert.match(connectingMarkup, /aria-busy="true"/);
+  assert.match(connectingMarkup, /Cancel two-way talk connection/);
+
+  ctx._twoWayTalkStarting = false;
   ctx._streamMuted = false;
   ctx._twoWayTalkEntity = "camera.front";
   ctx._twoWayTalkSession = { microphoneMuted: false };

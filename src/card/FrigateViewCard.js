@@ -848,6 +848,8 @@ export class FrigateViewCard extends HTMLElement {
     });
     this._twoWayTalkSession = null;
     this._twoWayTalkStarting = false;
+    this._twoWayTalkStartAbortController = null;
+    this._twoWayTalkStartSeq = 0;
     this._twoWayTalkEntity = "";
     this._twoWayTalkResultBubble = null;
     this._twoWayTalkResultTimer = null;
@@ -4788,14 +4790,17 @@ export class FrigateViewCard extends HTMLElement {
 
   _buildTwoWayTalkButtonMarkup() {
     const active = this._twoWayTalkActiveForCurrentCamera();
+    const connecting = this._twoWayTalkStarting === true && !active;
     const microphoneMuted = this._twoWayTalkMicrophoneMutedForCurrentCamera();
-    const label = active
-      ? microphoneMuted
-        ? "End two-way talk (microphone muted)"
-        : "Disable two-way talk"
-      : "Enable two-way talk";
+    const label = connecting
+      ? "Cancel two-way talk connection"
+      : active
+        ? microphoneMuted
+          ? "End two-way talk (microphone muted)"
+          : "Disable two-way talk"
+        : "Enable two-way talk";
     const visible = this._shouldRenderTwoWayTalkButtonForActiveCamera();
-    return `<button class="info-row-mic-btn${active ? " active" : ""}${microphoneMuted ? " microphone-muted" : ""} round-btn" id="two-way-talk-btn" type="button" ${visible ? "" : "hidden"} aria-pressed="${active ? "true" : "false"}" title="${label}" aria-label="${label}">${active ? ICONS.micOn : ICONS.micOff}</button>`;
+    return `<button class="info-row-mic-btn${active ? " active" : ""}${connecting ? " connecting" : ""}${microphoneMuted ? " microphone-muted" : ""} round-btn" id="two-way-talk-btn" type="button" ${visible ? "" : "hidden"} aria-pressed="${active ? "true" : "false"}" aria-busy="${connecting ? "true" : "false"}" title="${label}" aria-label="${label}">${active ? ICONS.micOn : ICONS.micOff}</button>`;
   }
 
   _buildLinkedLightControlMarkup({
@@ -4837,7 +4842,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _syncTwoWayTalkRuntimeState() {
-    if (!this._twoWayTalkSession) return;
+    if (!this._twoWayTalkSession && this._twoWayTalkStarting !== true) return;
     if (
       !this._shouldRenderTwoWayTalkButtonForActiveCamera() ||
       !this._activeCameraTwoWayTalkEnabled()
@@ -4882,23 +4887,31 @@ export class FrigateViewCard extends HTMLElement {
     const button = this._pageShellRegionElement("twoWayTalk", "#two-way-talk-btn");
     const visible = this._shouldRenderTwoWayTalkButtonForActiveCamera();
     const active = this._twoWayTalkActiveForCurrentCamera();
-    this._$("#card")?.classList?.toggle?.("two-way-talk-active", active);
+    const connecting = this._twoWayTalkStarting === true && !active;
+    this._$("#card")?.classList?.toggle?.(
+      "two-way-talk-active",
+      active || connecting,
+    );
     if (active) this._dismissLinkedLightDimmers();
     const microphoneMuted = this._twoWayTalkMicrophoneMutedForCurrentCamera();
-    const label = active
-      ? microphoneMuted
-        ? "End two-way talk (microphone muted)"
-        : "Disable two-way talk"
-      : "Enable two-way talk";
+    const label = connecting
+      ? "Cancel two-way talk connection"
+      : active
+        ? microphoneMuted
+          ? "End two-way talk (microphone muted)"
+          : "Disable two-way talk"
+        : "Enable two-way talk";
     this.shadowRoot
       ?.querySelectorAll?.(".two-way-talk-control-row")
       ?.forEach((row) => row.classList.toggle("has-inline-mute", active));
     if (button) {
       button.hidden = !visible;
-      button.disabled = this._twoWayTalkStarting === true || !visible;
+      button.disabled = !visible;
       button.classList.toggle("active", active);
+      button.classList.toggle("connecting", connecting);
       button.classList.toggle("microphone-muted", microphoneMuted);
       button.setAttribute("aria-pressed", active ? "true" : "false");
+      button.setAttribute("aria-busy", connecting ? "true" : "false");
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
       button.innerHTML = active ? ICONS.micOn : ICONS.micOff;
@@ -4932,7 +4945,10 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   async _toggleTwoWayTalkSession() {
-    if (this._twoWayTalkStarting) return;
+    if (this._twoWayTalkStarting) {
+      this._cancelTwoWayTalkStart();
+      return;
+    }
     if (this._twoWayTalkActiveForCurrentCamera()) {
       await this._stopTwoWayTalkSession();
       return;
@@ -4982,6 +4998,20 @@ export class FrigateViewCard extends HTMLElement {
     }, success ? 2200 : 3600);
   }
 
+  _cancelTwoWayTalkStart({ syncButton = true } = {}) {
+    const abortController = this._twoWayTalkStartAbortController;
+    if (this._twoWayTalkStarting !== true && !abortController) return false;
+
+    this._twoWayTalkStartSeq = (Number(this._twoWayTalkStartSeq) || 0) + 1;
+    this._twoWayTalkStartAbortController = null;
+    this._twoWayTalkStarting = false;
+    try {
+      abortController?.abort?.();
+    } catch (_) {}
+    if (syncButton) this._syncTwoWayTalkButton();
+    return true;
+  }
+
   async _startTwoWayTalkSession() {
     if (!window.isSecureContext) {
       this._showTwoWayTalkResultBubble(false);
@@ -4990,11 +5020,24 @@ export class FrigateViewCard extends HTMLElement {
     const entity = String(this._activeCam?.entity || "").trim();
     if (!entity || !this._activeCameraTwoWayTalkEnabled()) return;
     const useGo2Rtc = this._shouldUseGo2RtcForEntity(entity);
+    await this._stopTwoWayTalkSession({ restoreLive: false });
+    if (
+      String(this._activeCam?.entity || "").trim() !== entity ||
+      !this._activeCameraTwoWayTalkEnabled() ||
+      this._shouldUseGo2RtcForEntity(entity) !== useGo2Rtc
+    ) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    const startSeq = (Number(this._twoWayTalkStartSeq) || 0) + 1;
+    const isCurrentStart = () => this._twoWayTalkStartSeq === startSeq;
     let endedDuringStart = false;
+    this._twoWayTalkStartSeq = startSeq;
+    this._twoWayTalkStartAbortController = abortController;
     this._twoWayTalkStarting = true;
     this._syncTwoWayTalkButton();
     try {
-      await this._stopTwoWayTalkSession({ restoreLive: false });
       const handleEnded = () => {
         endedDuringStart = true;
         if (this._twoWayTalkEntity !== entity) return;
@@ -5004,9 +5047,14 @@ export class FrigateViewCard extends HTMLElement {
         this._setTwoWayTalkLiveAudioActive(false);
         this._syncTwoWayTalkButton();
       };
-      const mountMicrophoneStream = async ({ localStream, onEnded }) => {
+      const mountMicrophoneStream = async ({
+        localStream,
+        onEnded,
+        abortSignal,
+      }) => {
         const activeEntity = String(this._activeCam?.entity || "").trim();
         if (
+          abortSignal?.aborted ||
           activeEntity !== entity ||
           this._shouldUseGo2RtcForEntity(entity) !== useGo2Rtc
         ) {
@@ -5017,23 +5065,31 @@ export class FrigateViewCard extends HTMLElement {
             entity,
             microphoneStream: localStream,
             onEnded,
+            abortSignal,
           });
         }
         return await this._haDirectTwoWayTalkBackchannel.connect({
           entity,
           microphoneStream: localStream,
           onEnded,
+          abortSignal,
         });
       };
       const session = useGo2Rtc
         ? await startGo2RtcTwoWayTalkSession({
             mountMicrophoneStream,
             onEnded: handleEnded,
+            abortSignal: abortController.signal,
           })
         : await startHaDirectTwoWayTalkSession({
             mountMicrophoneStream,
             onEnded: handleEnded,
+            abortSignal: abortController.signal,
           });
+      if (abortController.signal.aborted || !isCurrentStart()) {
+        await session.stop?.();
+        return;
+      }
       if (
         endedDuringStart ||
         String(this._activeCam?.entity || "").trim() !== entity
@@ -5047,6 +5103,13 @@ export class FrigateViewCard extends HTMLElement {
       this._twoWayTalkSoundwaveController?.startAfterPaint(session);
       this._showTwoWayTalkResultBubble(true);
     } catch (error) {
+      if (
+        abortController.signal.aborted ||
+        !isCurrentStart() ||
+        error?.name === "AbortError"
+      ) {
+        return;
+      }
       console.warn("[Frigate] Two-way talk start failed", error);
       this._showTwoWayTalkResultBubble(false);
       if (!useGo2Rtc) {
@@ -5059,12 +5122,16 @@ export class FrigateViewCard extends HTMLElement {
       this._twoWayTalkEntity = "";
       this._setTwoWayTalkLiveAudioActive(false);
     } finally {
-      this._twoWayTalkStarting = false;
-      this._syncTwoWayTalkButton();
+      if (isCurrentStart()) {
+        this._twoWayTalkStartAbortController = null;
+        this._twoWayTalkStarting = false;
+        this._syncTwoWayTalkButton();
+      }
     }
   }
 
   async _stopTwoWayTalkSession({ restoreLive = true } = {}) {
+    this._cancelTwoWayTalkStart?.({ syncButton: false });
     const session = this._twoWayTalkSession;
     const sessionEntity = this._twoWayTalkEntity;
     const restoreReplacedLive = session?.restoreLiveOnStop !== false;

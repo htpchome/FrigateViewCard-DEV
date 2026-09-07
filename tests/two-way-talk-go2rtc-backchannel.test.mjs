@@ -204,6 +204,39 @@ test("an established go2rtc backchannel reports failure without owning live vide
   assert.equal(peerConnection.closeCalls, 1);
 });
 
+test("aborting a pending go2rtc talk connection closes only its signaling peer", async () => {
+  const abortController = new AbortController();
+  const microphone = createMicrophone();
+  let peerConnection = null;
+  let webSocket = null;
+  const backchannel = createGo2RtcTwoWayTalkBackchannel({
+    resolveWebSocketUrl: async () => "ws://example.test/go2rtc",
+    createPeerConnection: (config) => {
+      peerConnection = new FakePeerConnection(config);
+      return peerConnection;
+    },
+    createWebSocket: (url) => {
+      webSocket = new FakeWebSocket(url);
+      return webSocket;
+    },
+    connectionTimeoutMs: 1000,
+  });
+
+  const connection = backchannel.connect({
+    entity: "camera.front",
+    microphoneStream: microphone.stream,
+    abortSignal: abortController.signal,
+  });
+  await flushPromises();
+  abortController.abort();
+
+  await assert.rejects(connection, /stopped during startup/);
+  assert.equal(webSocket.closeCalls, 1);
+  assert.equal(peerConnection.closeCalls, 1);
+  assert.equal(peerConnection.transceivers[0].stopCalls, 1);
+  assert.equal(microphone.getStopCalls(), 0);
+});
+
 test("card routes both talk transports around the live engine mounter", async () => {
   const source = await readFile(
     new URL("../src/card/FrigateViewCard.js", import.meta.url),

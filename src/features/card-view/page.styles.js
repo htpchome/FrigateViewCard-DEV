@@ -435,16 +435,16 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-talk-overlay:empty {display:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-linked-overlay,
   .card.card-view-active.card-view-overlay-presentation.two-way-talk-active .card-view-standalone-linked-overlay,
-  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active),
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn:is(.active,.connecting)),
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) {opacity:1;pointer-events:auto;}
   .card.card-view-active.card-view-overlay-presentation.two-way-talk-active .card-view-standalone-light-controls,
-  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .card-view-standalone-light-controls {display:none;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn:is(.active,.connecting)) .card-view-standalone-light-controls {display:none;}
   .card.card-view-active.card-view-overlay-presentation.two-way-talk-active.card-view-overlays-visible .card-view-standalone-light-controls {display:contents;}
-  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .card-view-standalone-light-controls {display:contents;}
+  .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-linked-overlay:has(#two-way-talk-btn:is(.active,.connecting)) .card-view-standalone-light-controls {display:contents;}
   .card.card-view-active.card-view-overlay-presentation.two-way-talk-active .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .card-view-standalone-light-controls,
-  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active):has([data-linked-light-dimmer]:not([hidden])) .card-view-standalone-light-controls {display:contents;}
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn:is(.active,.connecting)):has([data-linked-light-dimmer]:not([hidden])) .card-view-standalone-light-controls {display:contents;}
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-visible .card-view-standalone-light-controls .linked-light-position-slot,
-  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn.active) .linked-light-position-slot,
+  .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has(#two-way-talk-btn:is(.active,.connecting)) .linked-light-position-slot,
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-linked-overlay:has([data-linked-light-dimmer]:not([hidden])) .linked-light-position-slot {pointer-events:auto;}
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-idle .card-view-standalone-mode-controls :is(
     .card-view-standalone-slideshow-button.active,
@@ -477,12 +477,12 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-mode-button {opacity:0;visibility:hidden;pointer-events:none;animation:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed #live-stage .card-view-media-drawer:not(.is-open) .card-view-media-drawer-handle,
   .card.card-view-active.card-view-overlay-presentation #live-stage:has(.fvc-video-zoomed) .card-view-media-drawer:not(.is-open) .card-view-media-drawer-handle {opacity:0;visibility:hidden;pointer-events:none;}
-  .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn.active)),
-  .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn.active)) {opacity:0;pointer-events:none;}
+  .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn:is(.active,.connecting))),
+  .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn:is(.active,.connecting))) {opacity:0;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-standalone-light-controls .linked-light-position-slot,
   .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-standalone-light-controls .linked-light-position-slot {pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation:has(.card-view-media-drawer.is-open) .card-view-camera-row,
-  .card.card-view-active.card-view-overlay-presentation:has(.card-view-media-drawer.is-open) .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn.active)) {
+  .card.card-view-active.card-view-overlay-presentation:has(.card-view-media-drawer.is-open) .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn:is(.active,.connecting))) {
     opacity:0;visibility:hidden;pointer-events:none;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn),
@@ -491,7 +491,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn) svg {color:var(--fvc-media-overlay-text);fill:currentColor;opacity:1;}
   .card.card-view-active.card-view-overlay-presentation .two-way-talk-result-bubble {top:50%;bottom:auto;transform:translate(-50%,-50%);}
-  .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn.active)),
+  .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn:is(.active,.connecting))),
   .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .live-playback-controls {display:none !important;}
   .card.card-view-active.card-view-overlay-presentation .slideshow-next-chip {display:none !important;}
   .card.card-view-active.card-view-overlay-presentation:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-camera-row {
