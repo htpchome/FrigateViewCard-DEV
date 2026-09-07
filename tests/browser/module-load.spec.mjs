@@ -123,6 +123,48 @@ test("dispatches event-tab clicks from the page-shell tabs region", async ({
   expect(selectedTab).toBe("clips");
 });
 
+test("positions camera B controls before its stream becomes ready", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [
+        {
+          entity: "camera.front",
+          group: {
+            secondary_entity: "camera.back",
+            layout: "side_by_side",
+          },
+        },
+      ],
+    });
+    card._pageId = "single-view";
+    card._renderShell();
+
+    const root = card.shadowRoot;
+    const wrap = root.querySelector("#eng-wrap");
+    const secondaryPane = root.querySelector(
+      '.camera-group-live-pane[data-camera-group-member="B"]',
+    );
+    wrap.classList.add("camera-group-live", "camera-group-live--side-by-side");
+    secondaryPane.hidden = false;
+    const controls = secondaryPane.querySelector(".camera-group-pane-controls");
+    const rect = controls.getBoundingClientRect();
+    return {
+      ready: secondaryPane.classList.contains("is-ready"),
+      display: getComputedStyle(controls).display,
+      positioned: rect.width > 0 && rect.height > 0,
+    };
+  });
+
+  expect(state).toEqual({ ready: false, display: "flex", positioned: true });
+});
+
 test.describe("touch input", () => {
   test.use({
     hasTouch: true,

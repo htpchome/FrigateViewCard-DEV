@@ -1790,10 +1790,16 @@ export class FrigateViewCardEditor extends HTMLElement {
 
   _syncCameraModalGroupFields() {
     const enabled = this._cameraModalGroupEnabled === true;
+    const nameInput = this.querySelector("#camera-modal-name");
     const addButton = this.querySelector("#camera-modal-add-secondary");
     const help = this.querySelector("#camera-modal-secondary-help");
     const removeButton = this.querySelector("#camera-modal-remove-secondary");
     const fields = this.querySelector("#camera-modal-group-fields");
+    if (nameInput) {
+      const label = enabled ? "Group Name" : "Camera Name";
+      nameInput.label = label;
+      nameInput.setAttribute?.("label", label);
+    }
     if (addButton) addButton.hidden = enabled;
     if (help) help.hidden = enabled;
     if (fields) fields.hidden = !enabled;
@@ -3788,6 +3794,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             .cam-btn.danger{background:var(--c-alert);color:var(--c-text-rev);border-color:var(--c-alert);padding:8px 18px;}
             .cam-btn.danger:hover{background:var(--c-alert);border-color:var(--c-alert);filter:brightness(.9);}
             .cam-modal-helper{font-size:11px;color:var(--error-color);min-height:16px;}
+            .camera-capability-status{box-sizing:border-box;width:fit-content;max-width:100%;margin:5px 0 7px;padding:5px 9px;border:1px solid var(--c-border2);border-radius:10px;background:var(--editor-secondary-bg);color:var(--editor-muted);line-height:1.3;}
             .cam-confirm-card{width:min(420px,100%);}
             .cam-confirm-title{margin:0 0 8px;font-size:20px;color:var(--c-text);}
             .cam-confirm-message{margin:0;color:var(--c-text2);line-height:1.5;}
@@ -3923,12 +3930,12 @@ export class FrigateViewCardEditor extends HTMLElement {
             </div>
           </div>
           <div class="cam-modal-field">
+            <ha-input id="camera-modal-name" label="Camera Name" placeholder="Display name (optional)"></ha-input>
+          </div>
+          <div class="cam-modal-field">
             <span class="cam-modal-label">Connection Type</span>
             <ha-selector id="camera-modal-connection-type"></ha-selector>
             <div class="field-helper">The Home Assistant Frigate integration is required for the card to function properly.</div>
-          </div>
-          <div class="cam-modal-field">
-            <ha-input id="camera-modal-name" label="Name" placeholder="Display name (optional)"></ha-input>
           </div>
           <div class="cam-modal-field">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
@@ -3960,7 +3967,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <div class="field-helper">Remaps the directional commands to match a rotated camera image. At 90°, Up sends Left.</div>
             </div>
             </div>
-            <div class="field-helper" id="camera-modal-ptz-state" style="display:none"></div>
+            <div class="field-helper camera-capability-status" id="camera-modal-ptz-state" style="display:none"></div>
           </div>
           <div class="cam-modal-field" id="camera-modal-two-way-talk-toggle-row" style="display:none">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
@@ -3969,7 +3976,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             </div>
             <div class="field-helper">Frigate mode requires a detected backchannel (WEBRTC). Home Assistant mode is an experimental option when HA reports WebRTC playback.</div>
           </div>
-          <div class="field-helper" id="camera-modal-two-way-talk-state" style="display:none"></div>
+          <div class="field-helper camera-capability-status" id="camera-modal-two-way-talk-state" style="display:none"></div>
           <div class="cam-modal-helper" id="camera-modal-helper"></div>
           <div class="cam-modal-foot">
             <button type="button" id="camera-modal-cancel" class="cam-btn">Cancel</button>

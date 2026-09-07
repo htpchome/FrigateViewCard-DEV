@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { CameraGroupLiveController } from "../src/features/camera-groups/live.ctrl.js";
+import { CAMERA_GROUP_LIVE_STYLES } from "../src/features/camera-groups/live.styles.js";
 import { buildLiveEngineWrapMarkup } from "../src/features/live/view.tmpl.js";
 
 const createClassList = () => {
@@ -139,6 +140,17 @@ test("grouped live shell keeps the phone A/B control on the video pane", () => {
   assert.match(
     markup,
     /camera-group-live-pane--primary[\s\S]*?data-camera-group-mobile-toggle[^>]*data-camera-group-current-member="A"[^>]*data-camera-group-target-member="B"/,
+  );
+});
+
+test("grouped camera B controls are positioned before its live stream is ready", () => {
+  assert.match(
+    CAMERA_GROUP_LIVE_STYLES,
+    /camera-group-live-pane--secondary \.camera-group-pane-controls \{display:flex;\}/,
+  );
+  assert.doesNotMatch(
+    CAMERA_GROUP_LIVE_STYLES,
+    /camera-group-live-pane--secondary\.is-ready \.camera-group-pane-controls/,
   );
 });
 

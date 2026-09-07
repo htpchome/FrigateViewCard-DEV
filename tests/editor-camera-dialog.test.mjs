@@ -136,6 +136,7 @@ test("adding a second camera assigns the next unused group name", () => {
   editor._setCameraModalGroupEnabled(true);
 
   assert.equal(nameInput.value, "Group C/D");
+  assert.equal(nameInput.label, "Group Name");
   assert.equal(addButton.hidden, true);
   assert.equal(help.hidden, true);
   assert.equal(fields.hidden, false);
@@ -143,6 +144,7 @@ test("adding a second camera assigns the next unused group name", () => {
   editor._setCameraModalGroupEnabled(false);
 
   assert.equal(nameInput.value, "");
+  assert.equal(nameInput.label, "Camera Name");
   assert.equal(secondaryInput.value, "");
   assert.equal(addButton.hidden, false);
   assert.equal(help.hidden, false);
@@ -204,7 +206,27 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
     source.indexOf('id="camera-modal-light-fields"') <
       source.indexOf('id="camera-modal-connection-type"'),
   );
+  assert.ok(
+    source.indexOf('id="camera-modal-name"') <
+      source.indexOf('id="camera-modal-connection-type"'),
+  );
+  assert.match(
+    source,
+    /id="camera-modal-name" label="Camera Name"/,
+  );
   assert.match(source, /The same light may be linked to more than one camera/);
+  assert.match(
+    source,
+    /class="field-helper camera-capability-status" id="camera-modal-ptz-state"/,
+  );
+  assert.match(
+    source,
+    /class="field-helper camera-capability-status" id="camera-modal-two-way-talk-state"/,
+  );
+  assert.match(
+    source,
+    /\.camera-capability-status\{[^}]*border-radius:10px;[^}]*background:var\(--editor-secondary-bg\)/,
+  );
   assert.match(
     source,
     /<span class="cam-modal-label">Light<\/span>\s*<ha-selector id="camera-modal-light-entity">/,
