@@ -27,6 +27,16 @@ export class SlideshowAlertController {
     );
   }
 
+  _alertTakeoverEnabled() {
+    const enabled = this._host._alertCameraTakeoverEnabled?.();
+    return enabled == null ? true : enabled === true;
+  }
+
+  _showActiveAlertWithoutTakeover(entity, severity) {
+    if (entity !== this._activeLiveEntity()) return;
+    this._host._setSlideshowAlertState(severity || "alert");
+  }
+
   _switchToCameraEntity(entity) {
     const idx = this._host._cameraIndexByEntity(entity);
     if (idx < 0) return false;
@@ -85,6 +95,14 @@ export class SlideshowAlertController {
     });
     if (!nextReview) return;
     if (nextReview.reviewId) this.rememberHandledReview(nextReview.reviewId);
+
+    if (!this._alertTakeoverEnabled()) {
+      this._showActiveAlertWithoutTakeover(
+        nextReview.entity,
+        nextReview.severity,
+      );
+      return;
+    }
 
     if (this._host._slideshowPopupPaused) {
       this._host._slideshowPendingAlertCam = nextReview.entity;
@@ -161,6 +179,11 @@ export class SlideshowAlertController {
       if (!next?.entity) return;
       if (next.reviewId) this.rememberHandledReview(next.reviewId);
 
+      if (!this._alertTakeoverEnabled()) {
+        this._showActiveAlertWithoutTakeover(next.entity, next.severity);
+        return;
+      }
+
       if (this._host._slideshowPopupPaused) {
         this._host._slideshowPendingAlertCam = next.entity;
         this._host._slideshowPendingAlertType = next.severity;
@@ -231,6 +254,11 @@ export class SlideshowAlertController {
       return;
     }
 
+    if (!this._alertTakeoverEnabled()) {
+      this._showActiveAlertWithoutTakeover(cam, normalizedSeverity);
+      return;
+    }
+
     if (this._host._slideshowPopupPaused) {
       this._host._slideshowPendingAlertCam = cam;
       this._host._slideshowPendingAlertType = normalizedSeverity || "alert";
@@ -294,6 +322,11 @@ export class SlideshowAlertController {
     const parsed = parseRealtimeAlertMessage({ host: this._host, msg });
     if (!parsed) return;
     const { cam, severity } = parsed;
+
+    if (!this._alertTakeoverEnabled()) {
+      this._showActiveAlertWithoutTakeover(cam, severity);
+      return;
+    }
 
     if (this._host._slideshowPopupPaused) {
       this._host._slideshowPendingAlertCam = cam;

@@ -439,7 +439,7 @@ export const STYLES = `
     .live-resize-grip[hidden]{display:none !important;}
     #eng-wrap.live-resizing{user-select:none;}
     #engine,#stream-fallback{transition:opacity .22s ease;}
-    #eng-wrap::before{content:"";position:absolute;border-radius:inherit;pointer-events:none;z-index:5;}
+    #eng-wrap::before{content:"";position:absolute;inset:0;border:0 solid transparent;border-radius:inherit;box-sizing:border-box;pointer-events:none;z-index:5;}
     #eng-wrap.slideshow-switching #engine,
     #eng-wrap.slideshow-switching #stream-fallback{opacity:.12;}
     #eng-wrap.slideshow-alert::before{border-width:3px;border-color:var(--error-color, var(--c-bg-alert));}
@@ -637,8 +637,8 @@ export const STYLES = `
   .ph svg{width:40px;height:40px;opacity:.35;}
   .live-grid{width:100%;height:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:6px;padding:6px;box-sizing:border-box;}
   .live-grid-cell{position:relative;border:1px solid var(--c-text3) !important;box-sizing:border-box;background:var(--c-bg-deep);border-radius:calc(var(--fvc-border-radius, 0px) / 2) !important;overflow:hidden;cursor:pointer;touch-action:manipulation;}
-  .live-grid-cell.grid-alert{border-color:var(--c-bg-alert, var(--error-color));box-shadow:inset 0 0 0 1px varvar(--c-bg-alert, var(--error-color));cursor:pointer;}
-  .live-grid-cell.grid-detection{border-color:var(--c-bg-detect,var(--warning-color));box-shadow:inset 0 0 0 1px var(--c-bg-detect,var(--warning-color));}
+  .live-grid-cell.grid-alert{border-color:var(--c-bg-alert, var(--error-color)) !important;box-shadow:inset 0 0 0 1px var(--c-bg-alert, var(--error-color));cursor:pointer;}
+  .live-grid-cell.grid-detection{border-color:var(--c-bg-detect,var(--warning-color)) !important;box-shadow:inset 0 0 0 1px var(--c-bg-detect,var(--warning-color));}
   .live-grid-cell.empty{display:flex;align-items:center;justify-content:center;cursor:default;}
   .live-grid-cell.empty .ph{border-radius:7px;}
   .live-grid-cell video,.live-grid-cell img,.live-grid-cell ha-camera-stream{width:100%;height:100%;display:block;object-fit:contain;object-position:center center;background:var(--c-bg-deep);}

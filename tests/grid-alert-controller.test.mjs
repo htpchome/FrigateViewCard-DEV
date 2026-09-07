@@ -8,9 +8,11 @@ function createHost({
   viewMode = "grid",
   severityByMessage = "alert",
   shouldHandle = true,
+  takeoverEnabled = false,
 } = {}) {
-  return {
+  const host = {
     _viewMode: viewMode,
+    _gridResumePending: false,
     _config: { alerts_reviews_days: 3 },
     _isGridModeAvailable: () => gridAvailable,
     _extractRealtimeMessageCamera: () => "front_door",
@@ -22,7 +24,11 @@ function createHost({
     _scheduleGridRefresh: () => {},
     _effectiveRealtimePollSeconds: () => 5,
     _gridRotationMs: () => 30000,
+    _alertCameraTakeoverEnabled: () => takeoverEnabled,
   };
+  host._isGridSessionActive = () =>
+    host._viewMode === "grid" || host._gridResumePending;
+  return host;
 }
 
 test("handleRealtimeMessage forwards parsed severity to alert candidate", () => {
@@ -114,4 +120,46 @@ test("handleAlertCandidate refreshes grid when alerted camera is on another page
   controller.handleAlertCandidate("camera.front_door", "alert");
 
   assert.deepEqual(calls, [["refresh"]]);
+});
+
+test("Grid owns enabled alert takeover and promotes the alerted camera", () => {
+  const host = createHost({ takeoverEnabled: true });
+  const controller = new GridAlertController(host, {
+    DAY: 86400,
+    SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC: 10,
+  });
+  const calls = [];
+
+  host._focusGridPageForCamera = () => {
+    calls.push(["focus"]);
+    return true;
+  };
+  host._scheduleGridRefresh = () => calls.push(["refresh"]);
+  host._beginGridAlertTakeover = (entity, severity) => {
+    calls.push(["takeover", entity, severity]);
+  };
+
+  controller.handleAlertCandidate("camera.front_door", "detection");
+
+  assert.deepEqual(calls, [
+    ["takeover", "camera.front_door", "detection"],
+  ]);
+  assert.equal(controller.cellSeverity("camera.front_door"), "detection");
+  controller.clearTimers();
+});
+
+test("Grid continues owning alerts during a temporary single-camera takeover", () => {
+  const host = createHost({ takeoverEnabled: true, viewMode: "single" });
+  host._gridResumePending = true;
+  const controller = new GridAlertController(host, {
+    DAY: 86400,
+    SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC: 10,
+  });
+  const calls = [];
+  host._beginGridAlertTakeover = (...args) => calls.push(args);
+
+  controller.handleAlertCandidate("camera.front_door", "alert");
+
+  assert.deepEqual(calls, [["camera.front_door", "alert"]]);
+  controller.clearTimers();
 });

@@ -316,7 +316,7 @@ test("Alert Camera Takeover cannot start while another toolbar mode is active", 
   assert.deepEqual(calls, [["syncToolbar"]]);
 });
 
-test("configured Alert Camera Takeover yields to an already active mode", () => {
+test("configured Alert Camera Takeover remains enabled with another mode", () => {
   const { host, calls } = createHost({ takeover: true });
   host._toolbarButtonStates = () => ({
     wideAlertTakeoverDisabled: true,
@@ -325,7 +325,7 @@ test("configured Alert Camera Takeover yields to an already active mode", () => 
 
   controller.resetAlertTakeoverDefault();
 
-  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.equal(controller.alertTakeoverEnabled(), true);
   assert.deepEqual(calls, [["syncToolbar"]]);
 });
 

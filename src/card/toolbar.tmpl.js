@@ -45,15 +45,13 @@ export function resolveToolbarModeButtonStates({
     gridDisabled:
       controlsActive ||
       slideshowActive ||
-      wideAlertTakeoverActive ||
       twoWayTalkActive,
     slideshowDisabled:
       controlsActive ||
       gridActive ||
-      wideAlertTakeoverActive ||
       twoWayTalkActive,
     wideAlertTakeoverDisabled:
-      controlsActive || gridActive || slideshowActive || twoWayTalkActive,
+      controlsActive || twoWayTalkActive,
     filterDisabled: controlsActive,
     calendarDisabled: controlsActive,
   };

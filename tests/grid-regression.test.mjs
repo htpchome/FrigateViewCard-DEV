@@ -259,8 +259,13 @@ test("Grid cells own their border and rounded clipping directly", () => {
   );
   assert.match(
     stylesSource,
-    /\.live-grid-cell\.grid-alert\{[^}]*border-color:/,
+    /\.live-grid-cell\.grid-alert\{[^}]*border-color:[^;]*!important;/,
   );
+  assert.match(
+    stylesSource,
+    /#eng-wrap::before\{[^}]*inset:0;[^}]*border:0 solid transparent;/,
+  );
+  assert.doesNotMatch(stylesSource, /varvar\(/);
   assert.doesNotMatch(stylesSource, /live-grid-cell-surface/);
   assert.doesNotMatch(gridMediaControllerSource, /gridCellSurface/);
   assert.doesNotMatch(stylesSource, /@supports \(-moz-appearance:none\)/);

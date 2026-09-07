@@ -76,9 +76,17 @@ export class GridAlertController {
     return gridAlertWatchIntervalMs(this._host._effectiveRealtimePollSeconds());
   }
 
+  isSessionActive() {
+    return (
+      this._host._isGridSessionActive?.() ??
+      (this._host._viewMode === "grid" ||
+        this._host._gridResumePending === true)
+    );
+  }
+
   scheduleAlertWatch(delayMs = null) {
     if (!this._host._isGridModeAvailable()) return;
-    if (this._host._viewMode !== "grid") return;
+    if (!this.isSessionActive()) return;
     this.clearWatchTimer();
     const wait =
       delayMs == null
@@ -156,7 +164,7 @@ export class GridAlertController {
 
   async probeLatestAlert() {
     if (!this._host._isGridModeAvailable()) return;
-    if (this._host._viewMode !== "grid") return;
+    if (!this.isSessionActive()) return;
     const before = Math.floor(Date.now() / 1000);
     const after = Math.max(
       0,
@@ -201,7 +209,7 @@ export class GridAlertController {
 
   handleAlertCandidate(entity, severity = "alert") {
     if (!this._host._isGridModeAvailable()) return;
-    if (this._host._viewMode !== "grid") return;
+    if (!this.isSessionActive()) return;
     const idx = this._host._cameraIndexByEntity(entity);
     if (idx < 0) return;
     const now = Date.now();
@@ -211,16 +219,50 @@ export class GridAlertController {
     ) {
       return;
     }
-    const pageFocused = this._host._focusGridPageForCamera?.(entity) === true;
+    const takeoverEnabled =
+      this._host._alertCameraTakeoverEnabled?.() === true;
+    const pageFocused =
+      !takeoverEnabled &&
+      this._host._viewMode === "grid" &&
+      this._host._focusGridPageForCamera?.(entity) === true;
     this._lastAlertAt = now;
     this._lastAlertCam = entity;
     const changed = this.markAlertCamera(entity, severity || "alert");
+    if (takeoverEnabled) {
+      void this._host._beginGridAlertTakeover?.(entity, severity || "alert");
+      return;
+    }
     if (changed || pageFocused) this._host._scheduleGridRefresh();
+  }
+
+  handleMarkedAlertCandidate(
+    entity,
+    severity = "alert",
+    { changed = false } = {},
+  ) {
+    if (!entity || !this.isSessionActive()) return false;
+    const takeoverEnabled =
+      this._host._alertCameraTakeoverEnabled?.() === true;
+    const pageFocused =
+      !takeoverEnabled &&
+      this._host._viewMode === "grid" &&
+      this._host._focusGridPageForCamera?.(entity) === true;
+    if (
+      changed === true &&
+      takeoverEnabled
+    ) {
+      void this._host._beginGridAlertTakeover?.(entity, severity || "alert");
+      return true;
+    }
+    if ((changed || pageFocused) && this._host._viewMode === "grid") {
+      this._host._scheduleGridRefresh();
+    }
+    return changed || pageFocused;
   }
 
   handleRealtimeMessage(msg) {
     if (!this._host._isGridModeAvailable()) return;
-    if (this._host._viewMode !== "grid") return;
+    if (!this.isSessionActive()) return;
     const parsed = parseRealtimeAlertMessage({
       host: this._host,
       msg,

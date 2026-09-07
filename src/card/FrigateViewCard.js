@@ -3392,6 +3392,35 @@ export class FrigateViewCard extends HTMLElement {
     return this._gridPageController.focusGridPageForCamera(entity);
   }
 
+  _isGridSessionActive() {
+    return this._gridPageController.isGridSessionActive();
+  }
+
+  _alertCameraTakeoverEnabled() {
+    if (this._isCardViewPageActive()) {
+      return this._cardViewPageController.alertTakeoverEnabled();
+    }
+    if (this._wideViewPageController.isWideViewPageActive()) {
+      return this._wideViewPageController.companionAlertTakeoverEnabled();
+    }
+    if (this._singleViewPageController.isActive()) {
+      return this._singleViewPageController.alertTakeoverEnabled();
+    }
+    return false;
+  }
+
+  async _beginGridAlertTakeover(entity, severity = "alert") {
+    return await this._gridPageController.beginAlertTakeover(
+      entity,
+      severity,
+    );
+  }
+
+  _handleAlertTakeoverStateChange(enabled) {
+    this._gridPageController.handleAlertTakeoverStateChange(enabled);
+    this._slideshowPageController.handleAlertTakeoverStateChange(enabled);
+  }
+
   _markGridAlertCamera(entity, severity = "alert") {
     return this._gridAlertController.markAlertCamera(entity, severity);
   }
@@ -3600,7 +3629,7 @@ export class FrigateViewCard extends HTMLElement {
     return resolveToolbarModeButtonStates({
       controlsVisible: this._isControlsButtonVisible(),
       controlsActive: this._tab === "controls" || cardViewPtzActive,
-      gridActive: this._viewMode === "grid",
+      gridActive: this._isGridSessionActive(),
       slideshowActive: this._slideshowActive === true,
       wideAlertTakeoverActive:
         singleAlertTakeoverActive ||
@@ -3648,7 +3677,7 @@ export class FrigateViewCard extends HTMLElement {
     const gridBtn = this._pageShellRegionElement("tools", "#grid-btn");
     if (gridBtn) {
       const gridAvailable = this._isGridModeAvailable();
-      const gridActive = this._viewMode === "grid";
+      const gridActive = this._isGridSessionActive();
       gridBtn.hidden = !gridAvailable;
       gridBtn.style.display = gridAvailable ? "" : "none";
       gridBtn.disabled = buttonStates.gridDisabled;
@@ -3666,7 +3695,7 @@ export class FrigateViewCard extends HTMLElement {
         gridActive ? "Stop grid mode" : "Start grid mode",
       );
       gridBtn.innerHTML = this._gridButtonIcon();
-      if (!gridAvailable && this._viewMode === "grid") {
+      if (!gridAvailable && gridActive) {
         this._stopGridModeState();
         if (this._viewMode === "grid") {
           this._setViewMode("single");
@@ -3907,6 +3936,7 @@ export class FrigateViewCard extends HTMLElement {
     let firstAlertEntity = "";
     let firstAlertSeverity = "";
     let firstChangedAlertEntity = "";
+    let firstChangedAlertSeverity = "";
     let activeAlertEntity = "";
     let activeAlertSeverity = "";
     for (const camera of flattenCameraMembers(this._config?.cameras)) {
@@ -3938,6 +3968,7 @@ export class FrigateViewCard extends HTMLElement {
       );
       if (changed && !firstChangedAlertEntity) {
         firstChangedAlertEntity = entity;
+        firstChangedAlertSeverity = severity;
       }
       gridChanged = changed || gridChanged;
       this._previewAlertController.markAlertCamera(
@@ -3974,12 +4005,17 @@ export class FrigateViewCard extends HTMLElement {
       (activeCameraAlerted
         ? activeAlertEntity || activeEntity
         : firstAlertEntity);
-    let gridFocused = false;
-    if (this._viewMode === "grid" && gridAlertEntity) {
-      gridFocused = this._focusGridPageForCamera(gridAlertEntity) === true;
-    }
-    if ((gridChanged || gridFocused) && this._viewMode === "grid") {
-      this._scheduleGridRefresh(90);
+    const gridAlertSeverity = firstChangedAlertEntity
+      ? firstChangedAlertSeverity
+      : activeCameraAlerted
+        ? activeAlertSeverity
+        : firstAlertSeverity;
+    if (gridAlertEntity && this._isGridSessionActive()) {
+      this._gridAlertController.handleMarkedAlertCandidate(
+        gridAlertEntity,
+        gridAlertSeverity || "alert",
+        { changed: gridChanged },
+      );
     }
     this._cameraGroupLiveController?.syncAlertState?.();
     return hasActiveAlert;
@@ -3992,7 +4028,16 @@ export class FrigateViewCard extends HTMLElement {
   // ── camera switching ──────────────────────────────────────
   async _switchCamera(idx, opts = {}) {
     void this._stopPtzMotion("camera-switch");
+    if (
+      this._gridResumePending === true &&
+      opts?.keepGridResume !== true
+    ) {
+      this._stopGridModeState();
+    }
     const wasGridMode = this._viewMode === "grid";
+    const gridAlertTakeover =
+      opts?.gridAlertTakeover === true &&
+      (wasGridMode || this._gridResumePending === true);
     const previousMemberOverride = this._activeGroupMemberOverride;
     const nextMemberOverride = String(opts?.groupMemberEntity || "").trim();
     const previousCamera = this._activeCam;
@@ -4064,6 +4109,12 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._activeCamIdx = idx;
     const newEnt = this._activeCam?.entity;
+    const gridAlertLiveHandoff =
+      wasGridMode && gridAlertTakeover
+        ? this._gridMediaController?.takeGridLiveHandoff?.(
+            nextMemberOverride || newEnt,
+          ) || null
+        : null;
     this._activeCameraAvailability = resolveCameraAvailabilitySnapshot({
       entity: newEnt,
       state: this._hass?.states?.[newEnt],
@@ -4089,8 +4140,16 @@ export class FrigateViewCard extends HTMLElement {
         { render: false },
       );
     }
-    // Camera button should always return to single live view.
-    if (wasGridMode) this._stopGridModeState();
+    // A camera selection leaves the Grid presentation; Grid owns whether the
+    // single-camera stage is temporary and resumes afterward.
+    if (wasGridMode) {
+      if (gridAlertTakeover) {
+        this._gridMediaController?.teardownGridEngine?.();
+        this._gridLastRenderSignature = "";
+      } else {
+        this._stopGridModeState();
+      }
+    }
     this._viewMode = "single";
     if (wasGridMode) this._gridPageController.restoreLiveAfterGrid();
     if (popupOpen) this._popupLifecycleController.close();
@@ -4123,7 +4182,16 @@ export class FrigateViewCard extends HTMLElement {
         mountInProgress: this._mountInProgress,
       }),
     );
-    this._mountEngine();
+    const adoptedGridAlertLive = gridAlertLiveHandoff
+      ? this._adoptLiveAttemptResult(
+          this._$("#engine"),
+          gridAlertLiveHandoff,
+        )
+      : false;
+    if (gridAlertLiveHandoff && !adoptedGridAlertLive) {
+      cleanupStaleWinnerResult(gridAlertLiveHandoff);
+    }
+    if (!adoptedGridAlertLive) this._mountEngine();
     clearTimeout(this._switchLoadT);
     this._applyCalendarActivityCacheForActiveCamera();
     void this._prefetchCalendarActivityForActiveCamera();
@@ -4385,7 +4453,10 @@ export class FrigateViewCard extends HTMLElement {
     // Build tools only
     const toolsMarkup = buildToolsMarkup({
       tab: activeTab,
-      viewMode: this._viewMode,
+      viewMode:
+        this._isGridSessionActive() && this._viewMode !== "grid"
+          ? "grid"
+          : this._viewMode,
       icons: ICONS,
       buttonClass: toolsButtonClass,
       isFilterPanelOpen: filterPanelOpen,

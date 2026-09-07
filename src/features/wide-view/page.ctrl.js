@@ -81,9 +81,6 @@ export class WideViewPageController {
       configuredMode === PAGE_START_MODES.slideshow &&
       this._host._isSlideshowRotationAvailable?.() === true;
 
-    if (startGrid || startSlideshow) {
-      this._companionController?.yieldAlertTakeoverToActiveMode?.();
-    }
     if (startGrid) {
       if (this._host._slideshowActive === true) {
         this._host._stopSlideshowRotation?.(

@@ -132,8 +132,6 @@ test("Wide View applies its configured Slideshow start mode", () => {
   };
   const companionController = {
     start: () => calls.push(["startCompanions"]),
-    yieldAlertTakeoverToActiveMode: () =>
-      calls.push(["yieldAlertTakeover"]),
   };
   const controller = new WideViewPageController(
     host,
@@ -145,8 +143,7 @@ test("Wide View applies its configured Slideshow start mode", () => {
 
   controller.activateWideViewPageRoute({ startup: true });
 
-  assert.deepEqual(calls.slice(-3), [
-    ["yieldAlertTakeover"],
+  assert.deepEqual(calls.slice(-2), [
     ["startSlideshow", "wide-view-start"],
     ["startCompanions"],
   ]);

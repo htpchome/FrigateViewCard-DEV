@@ -1338,12 +1338,15 @@ test("Card View calendar passes the timezone-aware current day to shared markup"
   assert.equal(state.activeDayDateString, "");
 });
 
-test("Card View alert takeover yields to active shared modes", () => {
+test("Card View alert takeover remains independent of shared modes", () => {
   let toolbarSyncs = 0;
+  const stateChanges = [];
   const host = {
     _pageId: "card-view",
     _config: { card_view_alert_takeover: true },
-    _toolbarButtonStates: () => ({ wideAlertTakeoverDisabled: true }),
+    _toolbarButtonStates: () => ({ wideAlertTakeoverDisabled: false }),
+    _handleAlertTakeoverStateChange: (enabled) =>
+      stateChanges.push(enabled),
     _syncToolbarButtons: () => {
       toolbarSyncs += 1;
     },
@@ -1352,9 +1355,9 @@ test("Card View alert takeover yields to active shared modes", () => {
     PAGE_IDS: { cardView: "card-view" },
   });
 
-  assert.equal(controller._yieldAlertTakeoverToActiveMode(), true);
-  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.equal(controller.alertTakeoverEnabled(), true);
   assert.equal(controller.toggleAlertTakeover(), false);
+  assert.deepEqual(stateChanges, [false]);
   assert.equal(toolbarSyncs, 1);
 });
 
@@ -1384,7 +1387,7 @@ test("Video Only Card View applies its configured starting mode", () => {
 
   assert.equal(controller.applyConfiguredStartMode(), true);
   assert.deepEqual(modeChanges, ["grid"]);
-  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.equal(controller.alertTakeoverEnabled(), true);
 
   host._config.card_view_start_mode = CARD_VIEW_START_MODES.slideshow;
   host._viewMode = "grid";
@@ -1463,10 +1466,10 @@ test("standalone Card View mode buttons use the existing Grid and Slideshow cont
   });
 
   assert.equal(gridToggles, 1);
-  assert.equal(slideshowStops, 1);
+  assert.equal(slideshowStops, 0);
   assert.equal(slideshowToggles, 1);
-  assert.deepEqual(viewModeChanges, ["single"]);
-  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.deepEqual(viewModeChanges, []);
+  assert.equal(controller.alertTakeoverEnabled(), true);
   assert.equal(prevented, 2);
 });
 

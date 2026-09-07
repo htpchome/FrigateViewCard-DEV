@@ -279,7 +279,7 @@ test("buildToolsMarkup places Single View alert takeover between Grid and Slides
   assert.doesNotMatch(markup, /id="wide-alert-takeover-btn"/);
 });
 
-test("Wide View toolbar modes disable every other mode", () => {
+test("Alert takeover remains available with Grid and Slideshow", () => {
   const cases = [
     {
       active: { controlsActive: true },
@@ -298,7 +298,7 @@ test("Wide View toolbar modes disable every other mode", () => {
         controlsDisabled: true,
         gridDisabled: false,
         slideshowDisabled: true,
-        wideAlertTakeoverDisabled: true,
+        wideAlertTakeoverDisabled: false,
         filterDisabled: false,
         calendarDisabled: false,
       },
@@ -309,7 +309,7 @@ test("Wide View toolbar modes disable every other mode", () => {
         controlsDisabled: true,
         gridDisabled: true,
         slideshowDisabled: false,
-        wideAlertTakeoverDisabled: true,
+        wideAlertTakeoverDisabled: false,
         filterDisabled: false,
         calendarDisabled: false,
       },
@@ -318,8 +318,8 @@ test("Wide View toolbar modes disable every other mode", () => {
       active: { wideAlertTakeoverActive: true },
       expected: {
         controlsDisabled: true,
-        gridDisabled: true,
-        slideshowDisabled: true,
+        gridDisabled: false,
+        slideshowDisabled: false,
         wideAlertTakeoverDisabled: false,
         filterDisabled: false,
         calendarDisabled: false,
@@ -349,7 +349,7 @@ test("Wide View toolbar modes disable every other mode", () => {
   }
 });
 
-test("buildToolsMarkup renders Alert Camera Takeover as disabled", () => {
+test("buildToolsMarkup keeps Alert Camera Takeover enabled in Slideshow", () => {
   const markup = buildToolsMarkup({
     tab: "alerts",
     viewMode: "single",
@@ -363,7 +363,7 @@ test("buildToolsMarkup renders Alert Camera Takeover as disabled", () => {
     controlsDisabled: true,
     gridDisabled: true,
     slideshowDisabled: false,
-    wideAlertTakeoverDisabled: true,
+    wideAlertTakeoverDisabled: false,
     gridButtonIcon: "G",
     slideshowButtonIcon: "L",
     showWideAlertTakeover: true,
@@ -371,7 +371,10 @@ test("buildToolsMarkup renders Alert Camera Takeover as disabled", () => {
     wideAlertTakeoverButtonIcon: "T",
   });
 
-  assert.match(markup, /id="wide-alert-takeover-btn"[^>]* disabled/);
+  assert.doesNotMatch(
+    markup,
+    /id="wide-alert-takeover-btn"[^>]* disabled/,
+  );
   assert.doesNotMatch(markup, /id="slideshow-btn"[^>]* disabled/);
   assert.doesNotMatch(markup, /id="filter-btn"[^>]* disabled/);
   assert.doesNotMatch(markup, /id="cal-btn"[^>]* disabled/);

@@ -225,9 +225,6 @@ export class CardViewPageController {
       configuredMode === CARD_VIEW_START_MODES.slideshow &&
       this._host._isSlideshowRotationAvailable?.() === true;
 
-    if (startGrid || startSlideshow) {
-      this._alertTakeoverEnabled = false;
-    }
     if (startGrid) {
       if (this._host._slideshowActive === true) {
         this._host._stopSlideshowRotation?.(
@@ -287,7 +284,6 @@ export class CardViewPageController {
     this.applyConfiguredStartMode();
     this._ensureDrawerState();
     this.syncDrawerState();
-    this._yieldAlertTakeoverToActiveMode();
     this._syncAlertsFromCache();
     this.renderToolbar();
     this.syncStandalonePresentation();
@@ -870,7 +866,9 @@ export class CardViewPageController {
       alertTakeoverDisabled:
         resolvedButtonStates.wideAlertTakeoverDisabled === true,
       gridAvailable: this._host._isGridModeAvailable?.() === true,
-      gridActive: this._host._viewMode === "grid",
+      gridActive:
+        this._host._isGridSessionActive?.() ??
+        this._host._viewMode === "grid",
       gridDisabled: modeSwitchLocked,
       slideshowAvailable:
         this._host._isSlideshowRotationAvailable?.() === true,
@@ -887,7 +885,9 @@ export class CardViewPageController {
   }
 
   _syncStandaloneGridIndicator(container) {
-    const gridActive = this._host._viewMode === "grid";
+    const gridActive =
+      this._host._isGridSessionActive?.() ??
+      this._host._viewMode === "grid";
     if (!gridActive) {
       this._resetStandaloneGridIndicator(container);
       return;
@@ -992,7 +992,9 @@ export class CardViewPageController {
       gridAvailable:
         !overlayPresentation &&
         this._host._isGridModeAvailable?.() === true,
-      gridActive: this._host._viewMode === "grid",
+      gridActive:
+        this._host._isGridSessionActive?.() ??
+        this._host._viewMode === "grid",
       gridDisabled: resolvedButtonStates.gridDisabled === true,
       slideshowAvailable:
         !overlayPresentation &&
@@ -1405,15 +1407,6 @@ export class CardViewPageController {
     return this._mode === "ptz";
   }
 
-  _yieldAlertTakeoverToActiveMode() {
-    if (!this.alertTakeoverEnabled()) return false;
-    if (!this._host._toolbarButtonStates?.().wideAlertTakeoverDisabled) {
-      return false;
-    }
-    this._alertTakeoverEnabled = false;
-    return true;
-  }
-
   toggleAlertTakeover() {
     if (
       !this.alertTakeoverEnabled() &&
@@ -1423,6 +1416,9 @@ export class CardViewPageController {
       return false;
     }
     this._alertTakeoverEnabled = !this.alertTakeoverEnabled();
+    this._host._handleAlertTakeoverStateChange?.(
+      this._alertTakeoverEnabled,
+    );
     this._host._syncToolbarButtons?.();
     return this._alertTakeoverEnabled;
   }
@@ -1437,7 +1433,9 @@ export class CardViewPageController {
   } = {}) {
     if (takeoverDefaultChanged) {
       this._alertTakeoverEnabled = null;
-      this._yieldAlertTakeoverToActiveMode();
+      this._host._handleAlertTakeoverStateChange?.(
+        this.alertTakeoverEnabled(),
+      );
     }
     if (viewModeChanged) {
       this._drawerInitialized = true;
@@ -1551,6 +1549,13 @@ export class CardViewPageController {
 
   _takeOverCamera(entity) {
     if (!this.alertTakeoverEnabled()) return;
+    if (
+      this._host._viewMode === "grid" ||
+      this._host._gridResumePending === true ||
+      this._host._slideshowActive === true
+    ) {
+      return;
+    }
     const index = this._host._cameraIndexByEntity?.(entity) ?? -1;
     if (index < 0 || index === this._host._activeCamIdx) return;
     const now = Date.now();
@@ -1886,15 +1891,6 @@ export class CardViewPageController {
     if (standaloneGrid) {
       event?.preventDefault?.();
       if (!standaloneGrid.disabled) {
-        if (this._host._viewMode !== "grid") {
-          this._alertTakeoverEnabled = false;
-          if (this._host._slideshowActive === true) {
-            this._host._stopSlideshowRotation?.(
-              "card-view-grid-switch",
-              false,
-            );
-          }
-        }
         this._host._toggleGridMode?.();
       }
       return true;
@@ -1905,12 +1901,6 @@ export class CardViewPageController {
     if (standaloneSlideshow) {
       event?.preventDefault?.();
       if (!standaloneSlideshow.disabled) {
-        if (this._host._slideshowActive !== true) {
-          this._alertTakeoverEnabled = false;
-          if (this._host._viewMode === "grid") {
-            this._host._setViewMode?.("single");
-          }
-        }
         this._host._toggleSlideshowRotation?.();
       }
       return true;

@@ -240,6 +240,7 @@ test("activateSingleViewPageRoute delegates to standard activation", () => {
 test("Single View applies its configured Slideshow start mode", () => {
   const { host, calls } = createHost();
   host._config.single_view_start_mode = "slideshow";
+  host._config.single_view_alert_takeover = true;
   host._slideshowActive = false;
   host._isGridModeAvailable = () => true;
   host._isSlideshowRotationAvailable = () => true;
@@ -257,6 +258,7 @@ test("Single View applies its configured Slideshow start mode", () => {
     ["renderAll"],
     ["startSlideshow", "single-view-start"],
   ]);
+  assert.equal(controller.alertTakeoverEnabled(), true);
 });
 
 test("Single View alert takeover switches to an alerted camera", () => {

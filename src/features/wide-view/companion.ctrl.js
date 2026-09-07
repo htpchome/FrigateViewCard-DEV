@@ -108,12 +108,9 @@ export class WideViewCompanionController {
 
   resetAlertTakeoverDefault() {
     this._alertTakeoverEnabled = null;
-    if (
-      this.alertTakeoverEnabled() &&
-      this._host._toolbarButtonStates?.().wideAlertTakeoverDisabled
-    ) {
-      this._alertTakeoverEnabled = false;
-    }
+    this._host._handleAlertTakeoverStateChange?.(
+      this.alertTakeoverEnabled(),
+    );
     this._host._syncToolbarButtons?.();
   }
 
@@ -126,15 +123,11 @@ export class WideViewCompanionController {
       return false;
     }
     this._alertTakeoverEnabled = !this.alertTakeoverEnabled();
+    this._host._handleAlertTakeoverStateChange?.(
+      this._alertTakeoverEnabled,
+    );
     this._host._syncToolbarButtons?.();
     return this._alertTakeoverEnabled;
-  }
-
-  yieldAlertTakeoverToActiveMode() {
-    if (!this.alertTakeoverEnabled()) return false;
-    this._alertTakeoverEnabled = false;
-    this._host._syncToolbarButtons?.();
-    return true;
   }
 
   shouldUseLive(entity) {
@@ -344,13 +337,6 @@ export class WideViewCompanionController {
 
   start() {
     if (!this.isActive()) return;
-    if (
-      this.alertTakeoverEnabled() &&
-      this._host._toolbarButtonStates?.().wideAlertTakeoverDisabled
-    ) {
-      this._alertTakeoverEnabled = false;
-      this._host._syncToolbarButtons?.();
-    }
     this._alertController.start();
     this.render();
   }
@@ -414,6 +400,13 @@ export class WideViewCompanionController {
     this.render();
     if (detail.changed !== true || detail.allowTakeover === false) return;
     if (!this.alertTakeoverEnabled()) return;
+    if (
+      this._host._viewMode === "grid" ||
+      this._host._gridResumePending === true ||
+      this._host._slideshowActive === true
+    ) {
+      return;
+    }
     this._takeOverMainCamera(detail.entity);
   }
 

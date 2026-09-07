@@ -130,3 +130,29 @@ test("slideshow alert takeover targets the alerted member of a camera group", ()
     ],
   ]);
 });
+
+test("disabled slideshow takeover does not switch cameras or reset rotation", () => {
+  const calls = [];
+  const host = {
+    _slideshowActive: true,
+    _isSlideshowRotationAvailable: () => true,
+    _alertCameraTakeoverEnabled: () => false,
+    _slideshowPopupPaused: false,
+    _activeCam: { entity: "camera.front_door" },
+    _shouldHandleSlideshowReview: () => true,
+    _cameraIndexByEntity: () => 1,
+    _setSlideshowAlertState: (severity) =>
+      calls.push(["state", severity]),
+    _scheduleSlideshowRotation: (reason) =>
+      calls.push(["schedule", reason]),
+    _switchCamera: (...args) => calls.push(["switch", ...args]),
+  };
+  const controller = new SlideshowAlertController(host, {
+    SLIDESHOW_ALERT_HOLD_MS: 10000,
+  });
+
+  controller.handleHaStatusCandidate("camera.driveway", "alert");
+  controller.handleHaStatusCandidate("camera.front_door", "detection");
+
+  assert.deepEqual(calls, [["state", "detection"]]);
+});

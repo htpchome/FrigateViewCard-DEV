@@ -134,6 +134,17 @@ export class SlideshowPageController {
     }
   }
 
+  handleAlertTakeoverStateChange(enabled) {
+    if (enabled === true || !this._host._slideshowActive) return;
+    this._host._slideshowPausedUntil = 0;
+    this._host._slideshowPendingAlertCam = "";
+    this._host._slideshowPendingAlertType = "";
+    this._host._slideshowLastAlertAt = 0;
+    this._host._slideshowLastAlertCam = "";
+    this._host._setSlideshowAlertState?.("");
+    this.scheduleRotation("alert-takeover-disabled");
+  }
+
   pauseForInteraction() {
     if (
       !this._host._slideshowActive ||

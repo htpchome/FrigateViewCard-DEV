@@ -264,6 +264,100 @@ test("Grid rotation still schedules normally outside the config preview", () => 
   }
 });
 
+test("Grid alert takeover temporarily stages one camera and resumes its page timer", async () => {
+  const calls = [];
+  const timers = [];
+  const originalNow = Date.now;
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  Date.now = () => 1000;
+  global.setTimeout = (callback, delay) => {
+    const timer = { callback, delay, id: timers.length + 1 };
+    timers.push(timer);
+    return timer;
+  };
+  global.clearTimeout = (timer) => calls.push(["clear", timer?.id]);
+  try {
+    let controller;
+    const host = {
+      _viewMode: "grid",
+      _gridResumePending: false,
+      _gridRotationStart: 0,
+      _gridPinnedRotationStart: 0,
+      _gridRotationT: null,
+      _gridAlertReturnT: null,
+      _gridRefreshT: null,
+      _config: {
+        grid_mode_enabled: true,
+        grid_rotation_seconds: 10,
+        cameras: Array.from({ length: 8 }, (_, index) => ({
+          entity: `camera.${index + 1}`,
+        })),
+      },
+      _isLikelyMobileClient: () => false,
+      _isEditorPreviewContext: () => false,
+      _alertCameraTakeoverEnabled: () => true,
+      _cameraIndexByEntity: (entity) =>
+        Number(String(entity).split(".").at(-1)) - 1,
+      _gridAlertHoldMs: () => 30000,
+      _setSlideshowAlertState: (severity) =>
+        calls.push(["severity", severity]),
+      _syncToolbarButtons: () => calls.push(["syncToolbar"]),
+      _switchCamera: async (index, options) => {
+        calls.push(["switchCamera", index, options]);
+        host._viewMode = "single";
+      },
+      _setViewMode: (mode) => {
+        calls.push(["setViewMode", mode]);
+        host._viewMode = mode;
+        if (mode === "grid") controller.scheduleGridRotation();
+      },
+    };
+    controller = new GridPageController(host);
+
+    controller.scheduleGridRotation();
+    assert.equal(timers[0].delay, 10000);
+
+    assert.equal(
+      await controller.beginAlertTakeover("camera.5", "detection"),
+      true,
+    );
+    assert.equal(host._viewMode, "single");
+    assert.equal(host._gridResumePending, true);
+    assert.equal(host._gridPinnedRotationStart, 4);
+    assert.equal(timers[1].delay, 30000);
+    assert.deepEqual(
+      calls.find(([name]) => name === "switchCamera"),
+      [
+        "switchCamera",
+        4,
+        {
+          source: "alert",
+          origin: "grid-alert-takeover",
+          gridAlertTakeover: true,
+          keepGridResume: true,
+        },
+      ],
+    );
+
+    timers[1].callback();
+
+    assert.equal(host._viewMode, "grid");
+    assert.equal(host._gridResumePending, false);
+    assert.equal(timers[2].delay, 10000);
+    assert.equal(
+      calls.some(
+        ([name, mode]) => name === "setViewMode" && mode === "grid",
+      ),
+      true,
+    );
+  } finally {
+    Date.now = originalNow;
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+  }
+});
+
 test("slideshow refuses activation while another toolbar mode is active", () => {
   const calls = [];
   const host = {

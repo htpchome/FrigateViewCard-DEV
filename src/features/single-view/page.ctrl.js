@@ -49,6 +49,9 @@ export class SingleViewPageController {
       return false;
     }
     this._alertTakeoverEnabled = !this.alertTakeoverEnabled();
+    this._host._handleAlertTakeoverStateChange?.(
+      this._alertTakeoverEnabled,
+    );
     this._host._syncToolbarButtons?.();
     return this._alertTakeoverEnabled;
   }
@@ -72,9 +75,6 @@ export class SingleViewPageController {
       configuredMode === PAGE_START_MODES.slideshow &&
       this._host._isSlideshowRotationAvailable?.() === true;
 
-    if (startGrid || startSlideshow) {
-      this._alertTakeoverEnabled = false;
-    }
     if (startGrid) {
       if (this._host._slideshowActive === true) {
         this._host._stopSlideshowRotation?.(
@@ -107,7 +107,12 @@ export class SingleViewPageController {
     takeoverDefaultChanged = false,
     startModeChanged = false,
   } = {}) {
-    if (takeoverDefaultChanged) this._alertTakeoverEnabled = null;
+    if (takeoverDefaultChanged) {
+      this._alertTakeoverEnabled = null;
+      this._host._handleAlertTakeoverStateChange?.(
+        this.alertTakeoverEnabled(),
+      );
+    }
     if (startModeChanged && this.isActive()) {
       this._startModeApplied = false;
       this.applyConfiguredStartMode({ force: true });
@@ -152,6 +157,7 @@ export class SingleViewPageController {
     if (!this.alertTakeoverEnabled()) return;
     if (
       this._host._viewMode !== "single" ||
+      this._host._gridResumePending === true ||
       this._host._slideshowActive === true
     ) {
       return;

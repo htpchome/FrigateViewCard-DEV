@@ -3,6 +3,7 @@ import {
   PAGE_START_MODES,
   normalizePageStartMode,
 } from "../navigation/start-mode.js";
+import { cameraMemberEntities } from "../camera-groups/model.js";
 import { resolveGridCameras } from "./config.js";
 
 export class GridPageController {
@@ -10,6 +11,9 @@ export class GridPageController {
     this._host = host;
     this._returnLiveStreamType = "";
     this._hasReturnLiveTarget = false;
+    this._rotationDueAt = 0;
+    this._resumeRotationDelayMs = 0;
+    this._alertTakeoverSequence = 0;
   }
 
   _displayCameras() {
@@ -88,21 +92,40 @@ export class GridPageController {
       : 30000;
   }
 
-  _pauseRotationInEditorPreview() {
-    if (this._host._isEditorPreviewContext?.() !== true) return false;
+  isGridSessionActive() {
+    return (
+      this._host._viewMode === "grid" ||
+      this._host._gridResumePending === true
+    );
+  }
+
+  _clearRotationTimer({ preserveRemaining = false } = {}) {
+    if (preserveRemaining && this._rotationDueAt > Date.now()) {
+      this._resumeRotationDelayMs = Math.max(
+        250,
+        this._rotationDueAt - Date.now(),
+      );
+    }
     if (this._host._gridRotationT) clearTimeout(this._host._gridRotationT);
     this._host._gridRotationT = null;
+    this._rotationDueAt = 0;
+  }
+
+  _pauseRotationInEditorPreview() {
+    if (this._host._isEditorPreviewContext?.() !== true) return false;
+    this._clearRotationTimer();
     return true;
   }
 
   clearGridTimers() {
-    if (this._host._gridRotationT) clearTimeout(this._host._gridRotationT);
+    this._clearRotationTimer();
     if (this._host._gridAlertReturnT)
       clearTimeout(this._host._gridAlertReturnT);
     if (this._host._gridRefreshT) clearTimeout(this._host._gridRefreshT);
-    this._host._gridRotationT = null;
     this._host._gridAlertReturnT = null;
     this._host._gridRefreshT = null;
+    this._resumeRotationDelayMs = 0;
+    this._alertTakeoverSequence += 1;
     this._host._gridAlertController.clearTimers();
     this._host._clearSnapshotRefreshTimer?.();
   }
@@ -165,15 +188,22 @@ export class GridPageController {
     if (this._host._viewMode !== "grid") return;
     if (this._pauseRotationInEditorPreview()) return;
     if (this._displayCameras().length <= 4) {
-      if (this._host._gridRotationT) clearTimeout(this._host._gridRotationT);
-      this._host._gridRotationT = null;
+      this._clearRotationTimer();
+      this._resumeRotationDelayMs = 0;
       return;
     }
-    if (this._host._gridRotationT) clearTimeout(this._host._gridRotationT);
+    this._clearRotationTimer();
+    const wait =
+      this._resumeRotationDelayMs > 0
+        ? this._resumeRotationDelayMs
+        : this.gridRotationMs();
+    this._resumeRotationDelayMs = 0;
+    this._rotationDueAt = Date.now() + wait;
     this._host._gridRotationT = setTimeout(() => {
       this._host._gridRotationT = null;
+      this._rotationDueAt = 0;
       this.advanceGridRotation();
-    }, this.gridRotationMs());
+    }, wait);
   }
 
   advanceGridRotation() {
@@ -197,7 +227,102 @@ export class GridPageController {
     this.scheduleGridRotation();
   }
 
-  focusGridPageForCamera(entity) {
+  async beginAlertTakeover(entity, severity = "alert") {
+    if (!this.isGridSessionActive()) return false;
+    if (this._host._alertCameraTakeoverEnabled?.() !== true) return false;
+    const index = this._host._cameraIndexByEntity?.(entity) ?? -1;
+    if (index < 0) return false;
+
+    const target = this._displayCameras().find(
+      (camera) => camera?.entity === entity,
+    );
+    const logicalCamera = this._host._config?.cameras?.[index];
+    const grouped = cameraMemberEntities(logicalCamera).length > 1;
+    const sequence = ++this._alertTakeoverSequence;
+    const startedAt = Date.now();
+
+    if (this._host._viewMode === "grid") {
+      this._clearRotationTimer({ preserveRemaining: true });
+      if (this._host._gridRefreshT) clearTimeout(this._host._gridRefreshT);
+      this._host._gridRefreshT = null;
+    }
+    this.focusGridPageForCamera(entity, { scheduleRotation: false });
+    this._host._gridPinnedRotationStart = Math.max(
+      0,
+      Number(this._host._gridRotationStart) || 0,
+    );
+    if (this._host._gridAlertReturnT) {
+      clearTimeout(this._host._gridAlertReturnT);
+    }
+    this._host._gridAlertReturnT = null;
+    this._host._gridResumePending = true;
+    this._host._setSlideshowAlertState?.(severity);
+    this._host._syncToolbarButtons?.();
+
+    try {
+      await this._host._switchCamera?.(index, {
+        source: "alert",
+        origin: "grid-alert-takeover",
+        gridAlertTakeover: true,
+        keepGridResume: true,
+        ...(grouped && target?.entity
+          ? { groupMemberEntity: target.entity }
+          : {}),
+      });
+    } catch (_) {
+      if (sequence === this._alertTakeoverSequence) {
+        this.completeAlertTakeover();
+      }
+      return false;
+    }
+
+    if (
+      sequence !== this._alertTakeoverSequence ||
+      this._host._gridResumePending !== true
+    ) {
+      return false;
+    }
+    this._host._setSlideshowAlertState?.(severity);
+    const holdMs = Math.max(
+      1000,
+      Number(this._host._gridAlertHoldMs?.()) || this.gridRotationMs(),
+    );
+    const remainingMs = Math.max(250, holdMs - (Date.now() - startedAt));
+    this._host._gridAlertReturnT = setTimeout(() => {
+      this._host._gridAlertReturnT = null;
+      if (sequence !== this._alertTakeoverSequence) return;
+      this.completeAlertTakeover();
+    }, remainingMs);
+    return true;
+  }
+
+  completeAlertTakeover() {
+    if (this._host._gridResumePending !== true) return false;
+    if (this._host._gridAlertReturnT) {
+      clearTimeout(this._host._gridAlertReturnT);
+    }
+    this._host._gridAlertReturnT = null;
+    this._host._gridResumePending = false;
+    this._host._gridRotationStart = Math.max(
+      0,
+      Number(this._host._gridPinnedRotationStart) || 0,
+    );
+    this._host._setSlideshowAlertState?.("");
+    if (!this.isGridModeAvailable()) {
+      this.stopGridModeState();
+      this._host._syncToolbarButtons?.();
+      return false;
+    }
+    this._host._setViewMode?.("grid");
+    return true;
+  }
+
+  handleAlertTakeoverStateChange(enabled) {
+    if (enabled === true || this._host._gridResumePending !== true) return;
+    this.completeAlertTakeover();
+  }
+
+  focusGridPageForCamera(entity, { scheduleRotation = true } = {}) {
     if (!this.isGridModeAvailable()) return false;
     const idx = this._displayCameras().findIndex(
       (camera) => camera?.entity === entity,
@@ -217,7 +342,7 @@ export class GridPageController {
     if (nextStart === currentStart) return false;
     this._host._gridRotationStart = nextStart;
     this._host._gridPinnedRotationStart = nextStart;
-    this.scheduleGridRotation();
+    if (scheduleRotation) this.scheduleGridRotation();
     return true;
   }
 
