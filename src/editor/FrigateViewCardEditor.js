@@ -114,11 +114,13 @@ import {
   normalizeGridOrderConfig,
 } from "../features/grid/config.js";
 import {
-  CARD_VIEW_START_MODES,
   CARD_VIEW_VIEW_MODES,
-  normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
+import {
+  normalizePageStartMode,
+  pageStartModeOptions,
+} from "../features/navigation/start-mode.js";
 import {
   LINKED_LIGHT_POSITIONS,
   linkedLightsForCamera,
@@ -206,17 +208,31 @@ const buildEditorBubbleSelectorMarkup = ({
   const safeName = escapeEditorChoiceMarkup(name);
   return `<div class="theme-scope-seg card-view-start-seg editor-bubble-selector" style="--editor-bubble-option-count:${Math.max(1, options.length)}">
     ${options
-      .map(({ value, label, disabled = false }) => {
+      .map(({ value, label, disabled = false, disabledReason = "" }) => {
         const safeValue = escapeEditorChoiceMarkup(value);
         const safeLabel = escapeEditorChoiceMarkup(label);
-        return `<label class="theme-scope-opt card-view-start-opt">
-          <input class="card-view-start-input" type="radio" name="${safeName}" value="${safeValue}" ${String(value) === selected ? "checked" : ""} ${disabled ? "disabled" : ""}>
+        const safeDisabledReason = escapeHtmlAttribute(disabledReason);
+        const optionDisabled = disabled === true;
+        return `<label class="theme-scope-opt card-view-start-opt" data-disabled-guidance="${safeDisabledReason}"${optionDisabled && safeDisabledReason ? ` title="${safeDisabledReason}"` : ""}>
+          <input class="card-view-start-input" type="radio" name="${safeName}" value="${safeValue}" ${String(value) === selected ? "checked" : ""} ${optionDisabled ? "disabled" : ""} aria-label="${safeLabel}${optionDisabled && safeDisabledReason ? `. ${safeDisabledReason}` : ""}">
           <span>${safeLabel}</span>
         </label>`;
       })
       .join("")}
   </div>`;
 };
+
+const buildPageStartModeControl = ({
+  name,
+  selectedValue,
+  gridEnabled,
+  slideshowEnabled,
+}) =>
+  buildEditorBubbleSelectorMarkup({
+    name,
+    selectedValue: normalizePageStartMode(selectedValue),
+    options: pageStartModeOptions({ gridEnabled, slideshowEnabled }),
+  });
 
 export class FrigateViewCardEditor extends HTMLElement {
   connectedCallback() {
@@ -2320,9 +2336,12 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#preview_page_live_cameras_mobile",
       "#preview_page_alert_live_duration_seconds",
       "#preview_page_show_title_bars",
+      "#single_view_alert_takeover",
+      '[name="single_view_start_mode"]',
       "#wide_view_page_enabled",
       "#wide_view_live_cameras",
       "#wide_view_alert_takeover",
+      '[name="wide_view_start_mode"]',
       "#wide_view_timeline_enabled",
       "#wide_view_timeline_default_open",
       "#wide_view_timeline_default_scale",
@@ -2657,29 +2676,26 @@ export class FrigateViewCardEditor extends HTMLElement {
     )
       ? Number(this._config.grid_rotation_seconds)
       : 30;
-    const cardViewStartMode = normalizeCardViewStartMode(
+    const pageStartModeControl = (name, selectedValue) =>
+      buildPageStartModeControl({
+        name,
+        selectedValue,
+        gridEnabled: this._config?.grid_mode_enabled === true,
+        slideshowEnabled:
+          this._config?.slideshow_rotation_enabled === true,
+      });
+    const singleViewStartModeControl = pageStartModeControl(
+      "single_view_start_mode",
+      this._config?.single_view_start_mode,
+    );
+    const wideViewStartModeControl = pageStartModeControl(
+      "wide_view_start_mode",
+      this._config?.wide_view_start_mode,
+    );
+    const cardViewStartModeControl = pageStartModeControl(
+      "card_view_start_mode",
       this._config?.card_view_start_mode,
     );
-    const cardViewStartModeControl = [
-      { value: CARD_VIEW_START_MODES.live, label: "Live" },
-      {
-        value: CARD_VIEW_START_MODES.slideshow,
-        label: "Slideshow",
-        disabled: this._config?.slideshow_rotation_enabled !== true,
-      },
-      {
-        value: CARD_VIEW_START_MODES.grid,
-        label: "Grid",
-        disabled: this._config?.grid_mode_enabled !== true,
-      },
-    ]
-      .map(
-        ({ value, label, disabled = false }) => `<label class="theme-scope-opt card-view-start-opt">
-          <input class="card-view-start-input" type="radio" name="card_view_start_mode" value="${value}" ${cardViewStartMode === value ? "checked" : ""} ${disabled ? "disabled" : ""}>
-          <span>${label}</span>
-        </label>`,
-      )
-      .join("");
     const cardViewViewMode = normalizeCardViewViewMode(
       this._config?.card_view_view_mode,
     );
@@ -3142,6 +3158,21 @@ export class FrigateViewCardEditor extends HTMLElement {
       GRID_ALERT_HOLD_OPTIONS_SECONDS,
       Math.round(GRID_ALERT_HOLD_MS / 1000),
     );
+    const singleViewPanelContent = `
+      <div class="section">
+        <div class="layout-row">
+          <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
+          <ha-switch id="single_view_alert_takeover" ${this._config?.single_view_alert_takeover ? "checked" : ""}></ha-switch>
+        </div>
+        <div class="field-helper">Sets the initial state of the Single View toolbar button that allows alerted cameras to take over the live view.</div>
+      </div>
+      <div class="section">
+        <div class="editor-choice-field" role="radiogroup" aria-label="Single View Start Card Mode">
+          <div class="field-label">Start Card Mode</div>
+          ${singleViewStartModeControl}
+        </div>
+        <div class="field-helper">Choose the mode used when Single View starts. Grid and Slideshow must also be enabled in their own settings.</div>
+      </div>`;
     const wideViewPanelContent = `
       <div class="section">
         <div class="layout-row">
@@ -3150,19 +3181,28 @@ export class FrigateViewCardEditor extends HTMLElement {
         </div>
         <div class="field-helper">When enabled, Wide View becomes available in navigation and as a desktop/tablet landing page option.</div>
       </div>
-      <div class="section">
-        <div class="layout-row">
-          <span class="field-label" style="margin:0">Live Companion Cameras</span>
-          <ha-switch id="wide_view_live_cameras" ${this._config?.wide_view_live_cameras ? "checked" : ""}></ha-switch>
+      <div id="wide-view-page-options" style="display:${this._config?.wide_view_page_enabled ? "contents" : "none"}">
+        <div class="section">
+          <div class="editor-choice-field" role="radiogroup" aria-label="Wide View Start Card Mode">
+            <div class="field-label">Start Card Mode</div>
+            ${wideViewStartModeControl}
+          </div>
+          <div class="field-helper">Choose the mode used when Wide View starts. Grid and Slideshow must also be enabled in their own settings.</div>
         </div>
-        <div class="field-helper">On = all Companion Cameras remain live. Off = refreshed snapshots, with alerted cameras temporarily promoted to live.</div>
-      </div>
-      <div class="section">
-        <div class="layout-row">
-          <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
-          <ha-switch id="wide_view_alert_takeover" ${this._config?.wide_view_alert_takeover ? "checked" : ""}></ha-switch>
+        <div class="section">
+          <div class="layout-row">
+            <span class="field-label" style="margin:0">Live Companion Cameras</span>
+            <ha-switch id="wide_view_live_cameras" ${this._config?.wide_view_live_cameras ? "checked" : ""}></ha-switch>
+          </div>
+          <div class="field-helper">On = all Companion Cameras remain live. Off = refreshed snapshots, with alerted cameras temporarily promoted to live.</div>
         </div>
-        <div class="field-helper">Sets the initial state of the Wide View toolbar button that allows alerted cameras to take over the main live view.</div>
+        <div class="section">
+          <div class="layout-row">
+            <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
+            <ha-switch id="wide_view_alert_takeover" ${this._config?.wide_view_alert_takeover ? "checked" : ""}></ha-switch>
+          </div>
+          <div class="field-helper">Sets the initial state of the Wide View toolbar button that allows alerted cameras to take over the main live view.</div>
+        </div>
       </div>
       <div class="section" id="wide-timeline-enabled-row" style="${this._config?.wide_view_page_enabled ? "" : "display:none"}">
         <div class="layout-row">
@@ -3224,13 +3264,6 @@ export class FrigateViewCardEditor extends HTMLElement {
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Outer Border</span>
-          <ha-switch id="mobile_view_outer_border" ${this._config?.mobile_view_outer_border ? "checked" : ""}></ha-switch>
-        </div>
-        <div class="field-helper">Shows the theme-colored outer border around Mobile View on any device. Turn off for clean full-width edges.</div>
-      </div>
-      <div class="section">
-        <div class="layout-row">
           <span class="field-label" style="margin:0">Move HA Navbar to Bottom</span>
           <ha-switch id="mobile_view_ha_navbar_bottom" ${this._config?.mobile_view_ha_navbar_bottom ? "checked" : ""}></ha-switch>
         </div>
@@ -3249,6 +3282,13 @@ export class FrigateViewCardEditor extends HTMLElement {
           <ha-switch id="mobile_view_ha_navbar_dashboard" ${this._config?.mobile_view_ha_navbar_dashboard ? "checked" : ""}></ha-switch>
         </div>
         <div class="field-helper">When off, the navbar applies only while this card's Mobile View page is active. When on, it remains active as you navigate every page in this dashboard after this card loads.</div>
+      </div>
+      <div class="section" id="mobile-view-outer-border-row" style="${this._config?.mobile_view_page_enabled !== false ? "" : "display:none"}">
+        <div class="layout-row">
+          <span class="field-label" style="margin:0">Outer Border on Mobile View Page</span>
+          <ha-switch id="mobile_view_outer_border" ${this._config?.mobile_view_outer_border ? "checked" : ""}></ha-switch>
+        </div>
+        <div class="field-helper">Shows the theme-colored outer border around Mobile View on any device. Turn off for clean full-width edges.</div>
       </div>
       `;
     const swipeNavigationPanelContent = `
@@ -3312,9 +3352,9 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div class="field-helper">Choose whether Card View starts with only video or with its bottom activity panel open or closed.</div>
         </div>
         <div class="section">
-          <div class="editor-choice-field" role="radiogroup" aria-label="Start Card View">
-            <div class="field-label">Start Card View</div>
-            <div class="theme-scope-seg card-view-start-seg">${cardViewStartModeControl}</div>
+          <div class="editor-choice-field" role="radiogroup" aria-label="Card View Start Card Mode">
+            <div class="field-label">Start Card Mode</div>
+            ${cardViewStartModeControl}
           </div>
           <div class="field-helper">Choose the initial Video Only live mode. Slideshow and Grid must also be enabled in their own settings.</div>
         </div>
@@ -3420,6 +3460,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         ${this._renderSettingsPanel({ id: "slideshow", title: "Slideshow Settings", icon: "mdi:presentation-play", content: slideshowPanelContent, active: activeSettingsPanel === "slideshow" })}
         ${this._renderSettingsPanel({ id: "gridview", title: "Grid Mode Settings", icon: "mdi:view-grid-outline", content: gridviewPanelContent, active: activeSettingsPanel === "gridview" })}
         ${this._renderSettingsPanel({ id: "preview", title: "Preview Page", icon: "mdi:view-grid", content: previewPanelContent, active: activeSettingsPanel === "preview" })}
+        ${this._renderSettingsPanel({ id: "singleview", title: "Single View Page", icon: ICONS.singleView, content: singleViewPanelContent, active: activeSettingsPanel === "singleview" })}
         ${this._renderSettingsPanel({ id: "wideview", title: "Wide View Page", icon: "mdi:view-split-vertical", content: wideViewPanelContent, active: activeSettingsPanel === "wideview" })}
         ${this._renderSettingsPanel({ id: "cardview", title: "Card View Page", icon: ICONS.cardView, content: cardViewPanelContent, active: activeSettingsPanel === "cardview" })}
         ${this._renderSettingsPanel({ id: "mobileview", title: "Mobile View Page", icon: "mdi:cellphone", content: mobileViewPanelContent, active: activeSettingsPanel === "mobileview" })}
@@ -4446,6 +4487,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         "display_subtitle",
         "display_logo",
         "display_version",
+        "single_view_alert_takeover",
         "wide_view_page_enabled",
         "wide_view_live_cameras",
         "wide_view_alert_takeover",
@@ -4490,7 +4532,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         "stream_height_unit",
       ],
       events: ["input", "change", "value-changed"],
-      handler: () => {
+      handler: (event) => {
         const slideshowRow = this.querySelector("#slideshow_rotation_row");
         const enabled =
           this.querySelector("#slideshow_rotation_enabled")?.checked === true;
@@ -4500,6 +4542,8 @@ export class FrigateViewCardEditor extends HTMLElement {
         const gridOrderRow = this.querySelector("#grid_order_row");
         const gridEnabled =
           this.querySelector("#grid_mode_enabled")?.checked === true;
+        const gridStartEnabled =
+          this.querySelector("#grid_start_in_grid_enabled")?.checked === true;
         const cardViewPageOptions = this.querySelector(
           "#card-view-page-options",
         );
@@ -4510,16 +4554,43 @@ export class FrigateViewCardEditor extends HTMLElement {
             ? ""
             : "none";
         }
-        const cardViewSlideshowStart = this.querySelector(
-          '[name="card_view_start_mode"][value="slideshow"]',
-        );
-        const cardViewGridStart = this.querySelector(
-          '[name="card_view_start_mode"][value="grid"]',
-        );
-        if (cardViewSlideshowStart) {
-          cardViewSlideshowStart.disabled = !enabled;
+        const syncPageStartOption = (mode, available) => {
+          this.querySelectorAll(
+            `[name$="_view_start_mode"][value="${mode}"]`,
+          ).forEach((input) => {
+            input.disabled = !available;
+            const label = input.closest("label");
+            if (!label) return;
+            const guidance = String(
+              label.dataset.disabledGuidance || "",
+            ).trim();
+            if (!available && guidance) {
+              label.title = guidance;
+              input.setAttribute(
+                "aria-label",
+                `${input.nextElementSibling?.textContent || mode}. ${guidance}`,
+              );
+              return;
+            }
+            label.removeAttribute("title");
+            input.setAttribute(
+              "aria-label",
+              input.nextElementSibling?.textContent || mode,
+            );
+          });
+        };
+        syncPageStartOption("slideshow", enabled);
+        syncPageStartOption("grid", gridEnabled);
+        if (
+          gridStartEnabled &&
+          event?.currentTarget?.id === "grid_start_in_grid_enabled"
+        ) {
+          this.querySelectorAll(
+            '[name$="_view_start_mode"][value="grid"]',
+          ).forEach((input) => {
+            input.checked = true;
+          });
         }
-        if (cardViewGridStart) cardViewGridStart.disabled = !gridEnabled;
         if (slideshowRow)
           slideshowRow.style.display = enabled ? "flex" : "none";
         if (gridStartRow)
@@ -4548,6 +4619,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     });
 
     const wideCb = this.querySelector("#wide_view_page_enabled");
+    const widePageOptions = this.querySelector("#wide-view-page-options");
     const colWidthRow = this.querySelector("#col-width-row");
     const timelineEnabled = this.querySelector(
       "#wide_view_timeline_enabled",
@@ -4563,6 +4635,9 @@ export class FrigateViewCardEditor extends HTMLElement {
     );
     if (wideCb && colWidthRow) {
       const syncWideRow = () => {
+        if (widePageOptions) {
+          widePageOptions.style.display = wideCb.checked ? "contents" : "none";
+        }
         colWidthRow.style.display = wideCb.checked ? "" : "none";
         if (timelineEnabledRow) {
           timelineEnabledRow.style.display = wideCb.checked ? "" : "none";
@@ -4582,6 +4657,29 @@ export class FrigateViewCardEditor extends HTMLElement {
       timelineEnabled?.addEventListener("change", syncWideRow);
       timelineEnabled?.addEventListener("value-changed", syncWideRow);
       syncWideRow();
+    }
+
+    const mobileViewEnabled = this.querySelector(
+      "#mobile_view_page_enabled",
+    );
+    const mobileViewOuterBorderRow = this.querySelector(
+      "#mobile-view-outer-border-row",
+    );
+    if (mobileViewEnabled && mobileViewOuterBorderRow) {
+      const syncMobileViewOuterBorderRow = () => {
+        mobileViewOuterBorderRow.style.display = mobileViewEnabled.checked
+          ? ""
+          : "none";
+      };
+      mobileViewEnabled.addEventListener(
+        "change",
+        syncMobileViewOuterBorderRow,
+      );
+      mobileViewEnabled.addEventListener(
+        "value-changed",
+        syncMobileViewOuterBorderRow,
+      );
+      syncMobileViewOuterBorderRow();
     }
 
     const haNavbarBottom = this.querySelector(

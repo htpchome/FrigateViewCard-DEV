@@ -46,6 +46,10 @@ import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
+import {
+  normalizePageStartMode,
+  synchronizePageStartModesWithGridDefault,
+} from "../features/navigation/start-mode.js";
 
 export const DEFAULT_CAMERA_ENTITY = "camera.doorbell";
 export const PREFERRED_DEFAULT_CAMERA_ENTITIES = Object.freeze([
@@ -192,6 +196,22 @@ export const normalizeCardConfig = (config) => {
       10,
     );
 
+  const synchronizedStartModes = synchronizePageStartModesWithGridDefault({
+    grid_start_in_grid_enabled: src.grid_start_in_grid_enabled,
+    single_view_start_mode: normalizePageStartMode(
+      src.single_view_start_mode,
+    ),
+    wide_view_start_mode: normalizePageStartMode(src.wide_view_start_mode),
+    card_view_start_mode: normalizeCardViewStartMode(
+      src.card_view_start_mode,
+    ),
+  });
+  src.single_view_start_mode = synchronizedStartModes.single_view_start_mode;
+  src.wide_view_start_mode = synchronizedStartModes.wide_view_start_mode;
+  src.card_view_start_mode = synchronizedStartModes.card_view_start_mode;
+  src.single_view_alert_takeover =
+    src.single_view_alert_takeover === true;
+
   src.wide_view_page_enabled =
     src.wide_view_page_enabled === true || src.wide_view === true;
   src.wide_view_live_cameras = src.wide_view_live_cameras === true;
@@ -209,9 +229,6 @@ export const normalizeCardConfig = (config) => {
     src.card_view_page_enabled && src.card_view_standalone === true;
   src.card_view_media_drawer_enabled =
     src.card_view_media_drawer_enabled === true;
-  src.card_view_start_mode = normalizeCardViewStartMode(
-    src.card_view_start_mode,
-  );
   src.card_view_view_mode = normalizeCardViewViewMode(
     src.card_view_view_mode,
     {

@@ -317,6 +317,34 @@ export class EditorPreviewContextController {
       );
     }
 
+    const singleTakeoverChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "single_view_alert_takeover",
+    );
+    const singleStartModeChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "single_view_start_mode",
+    );
+    if (singleTakeoverChanged || singleStartModeChanged) {
+      this._host._singleViewPageController?.applyPageConfigUpdate?.({
+        takeoverDefaultChanged: singleTakeoverChanged,
+        startModeChanged: singleStartModeChanged,
+      });
+    }
+
+    const wideStartModeChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "wide_view_start_mode",
+    );
+    if (wideStartModeChanged) {
+      this._host._wideViewPageController?.applyPageConfigUpdate?.({
+        startModeChanged: true,
+      });
+    }
+
     const wideCompanionChanged = previewKeysChanged(
       previousConfig,
       nextConfig,

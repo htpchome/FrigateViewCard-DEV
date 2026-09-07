@@ -1,8 +1,9 @@
-export const CARD_VIEW_START_MODES = Object.freeze({
-  live: "live",
-  slideshow: "slideshow",
-  grid: "grid",
-});
+import {
+  PAGE_START_MODES,
+  normalizePageStartMode,
+} from "../navigation/start-mode.js";
+
+export const CARD_VIEW_START_MODES = PAGE_START_MODES;
 
 export const CARD_VIEW_MEDIA_DRAWER_TYPES = Object.freeze({
   alerts: "alerts",
@@ -17,16 +18,7 @@ export const CARD_VIEW_VIEW_MODES = Object.freeze({
   bottomPanelClosed: "bottom-panel-closed",
 });
 
-const CARD_VIEW_START_MODE_SET = new Set(
-  Object.values(CARD_VIEW_START_MODES),
-);
-
-export const normalizeCardViewStartMode = (value) => {
-  const mode = String(value || "").trim().toLowerCase();
-  return CARD_VIEW_START_MODE_SET.has(mode)
-    ? mode
-    : CARD_VIEW_START_MODES.live;
-};
+export const normalizeCardViewStartMode = normalizePageStartMode;
 
 const CARD_VIEW_VIEW_MODE_SET = new Set(
   Object.values(CARD_VIEW_VIEW_MODES),

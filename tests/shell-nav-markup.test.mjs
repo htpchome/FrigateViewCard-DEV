@@ -250,6 +250,35 @@ test("buildToolsMarkup places Wide View alert takeover beside grid", () => {
   assert.doesNotMatch(markup, /<\/button><\/button>/);
 });
 
+test("buildToolsMarkup places Single View alert takeover between Grid and Slideshow", () => {
+  const markup = buildToolsMarkup({
+    tab: "alerts",
+    viewMode: "single",
+    icons,
+    isFilterPanelOpen: false,
+    isCalendarPanelOpen: false,
+    isGridModeAvailable: true,
+    isSlideshowRotationAvailable: true,
+    isSlideshowActive: false,
+    isControlsVisible: true,
+    gridButtonIcon: "G",
+    slideshowButtonIcon: "L",
+    showSingleAlertTakeover: true,
+    singleAlertTakeoverEnabled: false,
+    wideAlertTakeoverButtonIcon: "T",
+  });
+
+  assert.match(
+    markup,
+    /id="grid-btn"[\s\S]*?id="single-alert-takeover-btn"[\s\S]*?id="slideshow-btn"/,
+  );
+  assert.match(
+    markup,
+    /id="single-alert-takeover-btn"[^>]*aria-pressed="false"/,
+  );
+  assert.doesNotMatch(markup, /id="wide-alert-takeover-btn"/);
+});
+
 test("Wide View toolbar modes disable every other mode", () => {
   const cases = [
     {

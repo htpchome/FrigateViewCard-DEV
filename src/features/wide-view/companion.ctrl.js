@@ -130,6 +130,13 @@ export class WideViewCompanionController {
     return this._alertTakeoverEnabled;
   }
 
+  yieldAlertTakeoverToActiveMode() {
+    if (!this.alertTakeoverEnabled()) return false;
+    this._alertTakeoverEnabled = false;
+    this._host._syncToolbarButtons?.();
+    return true;
+  }
+
   shouldUseLive(entity) {
     return (
       this.liveCamerasEnabled() ||

@@ -78,6 +78,8 @@ export function buildToolsMarkup({
   calendarDisabled,
   gridButtonIcon,
   slideshowButtonIcon,
+  showSingleAlertTakeover = false,
+  singleAlertTakeoverEnabled = false,
   showWideAlertTakeover = false,
   wideAlertTakeoverEnabled = false,
   wideAlertTakeoverButtonIcon = "",
@@ -91,11 +93,19 @@ export function buildToolsMarkup({
   const gridButton = gridHidden
     ? ""
     : `<button class="${toolButtonClass}${gridActive ? " active" : ""}" id="grid-btn" aria-pressed="${gridActive ? "true" : "false"}" title="${gridActive ? "Stop grid mode" : "Start grid mode"}" aria-label="${gridActive ? "Stop grid mode" : "Start grid mode"}" ${gridDisabled ? "disabled" : ""}>${gridButtonIcon}</button>`;
-  const wideAlertTakeoverLabel = wideAlertTakeoverEnabled
+  const showAlertTakeover =
+    showSingleAlertTakeover || showWideAlertTakeover;
+  const alertTakeoverEnabled = showSingleAlertTakeover
+    ? singleAlertTakeoverEnabled
+    : wideAlertTakeoverEnabled;
+  const alertTakeoverButtonId = showSingleAlertTakeover
+    ? "single-alert-takeover-btn"
+    : "wide-alert-takeover-btn";
+  const wideAlertTakeoverLabel = alertTakeoverEnabled
     ? "Disable Alert Camera Takeover"
     : "Enable Alert Camera Takeover";
-  const wideAlertTakeoverButton = showWideAlertTakeover
-    ? `<button class="${toolButtonClass}${wideAlertTakeoverEnabled ? " active" : ""}" id="wide-alert-takeover-btn" type="button" aria-pressed="${wideAlertTakeoverEnabled ? "true" : "false"}" title="${wideAlertTakeoverLabel}" aria-label="${wideAlertTakeoverLabel}" ${wideAlertTakeoverDisabled ? "disabled" : ""}>${wideAlertTakeoverButtonIcon}</button><div class="divider">${icons.divider}</div>`
+  const wideAlertTakeoverButton = showAlertTakeover
+    ? `<button class="${toolButtonClass}${alertTakeoverEnabled ? " active" : ""}" id="${alertTakeoverButtonId}" type="button" aria-pressed="${alertTakeoverEnabled ? "true" : "false"}" title="${wideAlertTakeoverLabel}" aria-label="${wideAlertTakeoverLabel}" ${wideAlertTakeoverDisabled ? "disabled" : ""}>${wideAlertTakeoverButtonIcon}</button><div class="divider">${icons.divider}</div>`
     : "";
   const slideshowHidden = !isSlideshowRotationAvailable;
   const slideshowActive = isSlideshowActive;

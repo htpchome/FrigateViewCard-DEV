@@ -38,6 +38,7 @@ import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
+import { normalizePageStartMode } from "../features/navigation/start-mode.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -113,9 +114,14 @@ export const createEditorPreviewDraft = (config) => ({
   preview_page_alert_live_duration_seconds:
     config.preview_page_alert_live_duration_seconds,
   preview_page_show_title_bars: config.preview_page_show_title_bars,
+  single_view_alert_takeover: config.single_view_alert_takeover,
+  single_view_start_mode: normalizePageStartMode(
+    config.single_view_start_mode,
+  ),
   wide_view_page_enabled: config.wide_view_page_enabled,
   wide_view_live_cameras: config.wide_view_live_cameras,
   wide_view_alert_takeover: config.wide_view_alert_takeover,
+  wide_view_start_mode: normalizePageStartMode(config.wide_view_start_mode),
   wide_view_timeline_enabled: config.wide_view_timeline_enabled,
   wide_view_timeline_default_open: config.wide_view_timeline_default_open,
   wide_view_timeline_default_scale: config.wide_view_timeline_default_scale,
@@ -265,6 +271,11 @@ export const applyEditorPreviewDraftToCardConfig = ({
     ),
     preview_page_show_title_bars:
       previewConfig.preview_page_show_title_bars !== false,
+    single_view_alert_takeover:
+      previewConfig.single_view_alert_takeover === true,
+    single_view_start_mode: normalizePageStartMode(
+      previewConfig.single_view_start_mode,
+    ),
     hidden_tabs: Array.isArray(previewConfig.hidden_tabs)
       ? previewConfig.hidden_tabs
       : [...DEFAULT_HIDDEN_TABS],
@@ -286,6 +297,9 @@ export const applyEditorPreviewDraftToCardConfig = ({
     wide_view_live_cameras: previewConfig.wide_view_live_cameras === true,
     wide_view_alert_takeover:
       previewConfig.wide_view_alert_takeover === true,
+    wide_view_start_mode: normalizePageStartMode(
+      previewConfig.wide_view_start_mode,
+    ),
     wide_view_timeline_enabled:
       previewConfig.wide_view_timeline_enabled === true,
     wide_view_timeline_default_open:

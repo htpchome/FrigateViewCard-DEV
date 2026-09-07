@@ -51,6 +51,9 @@ const createHost = ({ isWide = false, popupOpen = false } = {}) => {
   const calls = [];
   const host = {
     _pageId: isWide ? "wide-view" : "single-view",
+    _viewMode: "single",
+    _slideshowActive: false,
+    _config: {},
     _stopPreviewMode: () => calls.push(["stopPreview"]),
     _$: (selector) => {
       if (selector === "#myPopup" && popupOpen) {
@@ -69,7 +72,10 @@ const createHost = ({ isWide = false, popupOpen = false } = {}) => {
     _applyPreviewShellVisibility: () =>
       calls.push(["applyPreviewShellVisibility"]),
     _applyCardStyle: () => calls.push(["applyCardStyle"]),
-    _setViewMode: (mode) => calls.push(["setViewMode", mode]),
+    _setViewMode: (mode) => {
+      host._viewMode = mode;
+      calls.push(["setViewMode", mode]);
+    },
     _mountEngine: (...args) => calls.push(["mountEngine", ...args]),
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
@@ -112,6 +118,38 @@ test("activateWideViewPageRoute starts the Companion Camera session", () => {
   controller.activateWideViewPageRoute({ startup: true });
 
   assert.deepEqual(calls.slice(-2), [["renderAll"], ["startCompanions"]]);
+});
+
+test("Wide View applies its configured Slideshow start mode", () => {
+  const { host, calls } = createHost({ isWide: true });
+  host._config.wide_view_start_mode = "slideshow";
+  host._isGridModeAvailable = () => true;
+  host._isSlideshowRotationAvailable = () => true;
+  host._startSlideshowRotation = (source) => {
+    host._slideshowActive = true;
+    calls.push(["startSlideshow", source]);
+    return true;
+  };
+  const companionController = {
+    start: () => calls.push(["startCompanions"]),
+    yieldAlertTakeoverToActiveMode: () =>
+      calls.push(["yieldAlertTakeover"]),
+  };
+  const controller = new WideViewPageController(
+    host,
+    { PAGE_IDS },
+    { companionController },
+  );
+  controller.applyLayoutModeForCard = () => calls.push(["applyLayoutMode"]);
+  controller.syncColHeight = () => calls.push(["syncColHeight"]);
+
+  controller.activateWideViewPageRoute({ startup: true });
+
+  assert.deepEqual(calls.slice(-3), [
+    ["yieldAlertTakeover"],
+    ["startSlideshow", "wide-view-start"],
+    ["startCompanions"],
+  ]);
 });
 
 test("Wide View owns Timeline rendering and interaction delegation", () => {

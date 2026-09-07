@@ -85,3 +85,24 @@ test("data-tab outside the tabs region is not treated as a toolbar tab", () => {
 
   assert.equal(handled, false);
 });
+
+test("Single View alert takeover toolbar button reaches its controller", () => {
+  const calls = [];
+  const button = { disabled: false };
+  const target = {
+    closest: (selector) =>
+      selector === "#single-alert-takeover-btn" ? button : null,
+  };
+
+  const handled = FrigateViewCard.prototype._handleTopToolbarClick.call(
+    {
+      _singleViewPageController: {
+        toggleAlertTakeover: () => calls.push("toggle"),
+      },
+    },
+    target,
+  );
+
+  assert.equal(handled, true);
+  assert.deepEqual(calls, ["toggle"]);
+});

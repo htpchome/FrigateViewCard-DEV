@@ -1,5 +1,10 @@
 import { BrowseRenderController } from "../browse/render.ctrl.js";
 import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycle.js";
+import {
+  PAGE_START_MODES,
+  normalizePageStartMode,
+} from "../navigation/start-mode.js";
+import { parseRealtimeAlertMessage } from "../../data/realtime-alert.js";
 import { cap, camDisplayName } from "../../helpers.js";
 import { resolveLiveSourceIndicatorState } from "../../shared/media/source-indicator.js";
 import {
@@ -19,6 +24,147 @@ export class SingleViewPageController {
     this._host = host;
     this._constants = constants;
     this._browseRenderController = new BrowseRenderController(host);
+    this._alertTakeoverEnabled = null;
+    this._haSeverityByEntity = new Map();
+    this._lastTakeoverAt = 0;
+    this._startModeApplied = false;
+  }
+
+  isActive() {
+    return this._host._pageId === this._constants.PAGE_IDS.singleView;
+  }
+
+  alertTakeoverEnabled() {
+    return this._alertTakeoverEnabled == null
+      ? this._host._config?.single_view_alert_takeover === true
+      : this._alertTakeoverEnabled === true;
+  }
+
+  toggleAlertTakeover() {
+    if (
+      !this.alertTakeoverEnabled() &&
+      this._host._toolbarButtonStates?.().wideAlertTakeoverDisabled
+    ) {
+      this._host._syncToolbarButtons?.();
+      return false;
+    }
+    this._alertTakeoverEnabled = !this.alertTakeoverEnabled();
+    this._host._syncToolbarButtons?.();
+    return this._alertTakeoverEnabled;
+  }
+
+  applyConfiguredStartMode({
+    force = false,
+    mode = null,
+    gridAvailable = null,
+  } = {}) {
+    if (!this.isActive()) return false;
+    if (this._startModeApplied && !force) return false;
+    this._startModeApplied = true;
+
+    const configuredMode = normalizePageStartMode(
+      mode ?? this._host._config?.single_view_start_mode,
+    );
+    const startGrid =
+      configuredMode === PAGE_START_MODES.grid &&
+      (gridAvailable ?? this._host._isGridModeAvailable?.() === true);
+    const startSlideshow =
+      configuredMode === PAGE_START_MODES.slideshow &&
+      this._host._isSlideshowRotationAvailable?.() === true;
+
+    if (startGrid || startSlideshow) {
+      this._alertTakeoverEnabled = false;
+    }
+    if (startGrid) {
+      if (this._host._slideshowActive === true) {
+        this._host._stopSlideshowRotation?.(
+          "single-view-start-grid",
+          false,
+        );
+      }
+      if (this._host._viewMode !== "grid") {
+        this._host._setViewMode?.("grid");
+      }
+      return true;
+    }
+
+    if (this._host._viewMode === "grid") {
+      this._host._setViewMode?.("single");
+    }
+    if (startSlideshow) {
+      if (this._host._slideshowActive !== true) {
+        this._host._startSlideshowRotation?.("single-view-start");
+      }
+      return true;
+    }
+    if (this._host._slideshowActive === true) {
+      this._host._stopSlideshowRotation?.("single-view-start-live");
+    }
+    return true;
+  }
+
+  applyPageConfigUpdate({
+    takeoverDefaultChanged = false,
+    startModeChanged = false,
+  } = {}) {
+    if (takeoverDefaultChanged) this._alertTakeoverEnabled = null;
+    if (startModeChanged && this.isActive()) {
+      this._startModeApplied = false;
+      this.applyConfiguredStartMode({ force: true });
+    }
+    this._host._syncToolbarButtons?.();
+  }
+
+  handleRealtimeMessage(message) {
+    if (!this.isActive()) return;
+    const parsed = parseRealtimeAlertMessage({
+      host: this._host,
+      msg: message,
+      checkSeverity: false,
+    });
+    if (!parsed) return;
+    const { cam: entity, type } = parsed;
+    const severity = String(parsed.severity || "").trim().toLowerCase();
+    if (type === "end" || !severity) return;
+    if (!this._host._shouldHandleSlideshowReview?.(entity, severity)) return;
+    this._takeOverCamera(entity);
+  }
+
+  handleHaReviewStatus(entity, severity) {
+    if (!this.isActive()) return false;
+    if (!this._host._shouldHandleSlideshowReview?.(entity, severity)) {
+      return false;
+    }
+    const previous = this._haSeverityByEntity.get(entity);
+    const now = Date.now();
+    this._haSeverityByEntity.set(entity, { severity, at: now });
+    if (
+      !previous ||
+      previous.severity !== severity ||
+      now - previous.at > 60000
+    ) {
+      this._takeOverCamera(entity);
+    }
+    return true;
+  }
+
+  _takeOverCamera(entity) {
+    if (!this.alertTakeoverEnabled()) return;
+    if (
+      this._host._viewMode !== "single" ||
+      this._host._slideshowActive === true
+    ) {
+      return;
+    }
+    const index = this._host._cameraIndexByEntity?.(entity) ?? -1;
+    if (index < 0 || index === this._host._activeCamIdx) return;
+    const now = Date.now();
+    if (now - this._lastTakeoverAt < 1200) return;
+    this._lastTakeoverAt = now;
+    void this._host._switchCamera(index, {
+      source: "alert",
+      origin: "single-view-alert",
+    });
   }
 
   _pageNavigation() {
@@ -233,7 +379,21 @@ export class SingleViewPageController {
   }
 
   activateSingleViewPageRoute(context = {}) {
-    this.activateStandardPageRoute(context);
+    this._startModeApplied = false;
+    const routeContext = {
+      ...context,
+      startInGrid:
+        context.startInGrid === true ||
+        (normalizePageStartMode(
+          this._host._config?.single_view_start_mode,
+        ) === PAGE_START_MODES.grid &&
+          this._host._isGridModeAvailable?.() === true),
+    };
+    this.activateStandardPageRoute(routeContext);
+    this.applyConfiguredStartMode({
+      mode: routeContext.startInGrid ? PAGE_START_MODES.grid : null,
+      gridAvailable: routeContext.startInGrid,
+    });
   }
 
   activateStandardPageRoute(context = {}) {
@@ -455,6 +615,7 @@ export class SingleViewPageController {
   } = {}) {
     if (!needsEngineRemount) return;
 
+    this._haSeverityByEntity.clear();
     this._host._cleanupEngine();
     this._host._activeCamIdx = Math.min(
       this._host._activeCamIdx,

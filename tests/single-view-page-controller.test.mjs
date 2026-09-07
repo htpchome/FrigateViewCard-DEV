@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 
 import { SingleViewPageController } from "../src/features/single-view/page.ctrl.js";
 
-const PAGE_IDS = { preview: "preview", wideView: "wide-view" };
+const PAGE_IDS = {
+  preview: "preview",
+  singleView: "single-view",
+  wideView: "wide-view",
+};
 
 const createNode = () => ({
   style: {},
@@ -130,7 +134,10 @@ const createHost = ({
     _cleanupEngine: () => calls.push(["cleanupEngine"]),
     _clearPreviewTimers: () => calls.push(["clearPreviewTimers"]),
     _renderShell: () => calls.push(["renderShell"]),
-    _setViewMode: (mode) => calls.push(["setViewMode", mode]),
+    _setViewMode: (mode) => {
+      host._viewMode = mode;
+      calls.push(["setViewMode", mode]);
+    },
     _mountEngine: (...args) => calls.push(["mountEngine", ...args]),
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
@@ -227,6 +234,53 @@ test("activateSingleViewPageRoute delegates to standard activation", () => {
     ["applyLayoutMode"],
     ["mountEngine"],
     ["renderAll"],
+  ]);
+});
+
+test("Single View applies its configured Slideshow start mode", () => {
+  const { host, calls } = createHost();
+  host._config.single_view_start_mode = "slideshow";
+  host._slideshowActive = false;
+  host._isGridModeAvailable = () => true;
+  host._isSlideshowRotationAvailable = () => true;
+  host._startSlideshowRotation = (source) => {
+    host._slideshowActive = true;
+    calls.push(["startSlideshow", source]);
+    return true;
+  };
+  const controller = new SingleViewPageController(host, { PAGE_IDS });
+
+  controller.activateSingleViewPageRoute({ startup: true });
+
+  assert.deepEqual(calls.slice(-3), [
+    ["mountEngine"],
+    ["renderAll"],
+    ["startSlideshow", "single-view-start"],
+  ]);
+});
+
+test("Single View alert takeover switches to an alerted camera", () => {
+  const { host, calls } = createHost();
+  host._config.single_view_alert_takeover = true;
+  host._shouldHandleSlideshowReview = () => true;
+  host._cameraIndexByEntity = (entity) =>
+    entity === "camera.driveway" ? 1 : -1;
+  host._switchCamera = (index, options) => {
+    calls.push(["switchCamera", index, options]);
+    return Promise.resolve();
+  };
+  const controller = new SingleViewPageController(host, { PAGE_IDS });
+
+  assert.equal(
+    controller.handleHaReviewStatus("camera.driveway", "alert"),
+    true,
+  );
+  assert.deepEqual(calls, [
+    [
+      "switchCamera",
+      1,
+      { source: "alert", origin: "single-view-alert" },
+    ],
   ]);
 });
 

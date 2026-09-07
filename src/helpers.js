@@ -51,6 +51,7 @@ import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "./features/card-view/config.js";
+import { normalizePageStartMode } from "./features/navigation/start-mode.js";
 
 export function detectDeviceProfile() {
   const nav = typeof navigator !== "undefined" ? navigator : {};
@@ -866,6 +867,13 @@ export const buildEditorConfigFromDom = ({
     resolveSwitchChecked(
       root.querySelector("#preview_page_show_title_bars"),
     ) !== false;
+  nextConfig.single_view_alert_takeover = resolveSwitchChecked(
+    root.querySelector("#single_view_alert_takeover"),
+  );
+  nextConfig.single_view_start_mode = normalizePageStartMode(
+    root.querySelector('[name="single_view_start_mode"]:checked')?.value ||
+      baseConfig?.single_view_start_mode,
+  );
   nextConfig.wide_view_page_enabled = resolveSwitchChecked(
     root.querySelector("#wide_view_page_enabled"),
   );
@@ -874,6 +882,10 @@ export const buildEditorConfigFromDom = ({
   );
   nextConfig.wide_view_alert_takeover = resolveSwitchChecked(
     root.querySelector("#wide_view_alert_takeover"),
+  );
+  nextConfig.wide_view_start_mode = normalizePageStartMode(
+    root.querySelector('[name="wide_view_start_mode"]:checked')?.value ||
+      baseConfig?.wide_view_start_mode,
   );
   nextConfig.wide_view_timeline_enabled = resolveSwitchChecked(
     root.querySelector("#wide_view_timeline_enabled"),

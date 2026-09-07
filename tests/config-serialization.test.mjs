@@ -1494,6 +1494,35 @@ test("buildEditorConfigFromDom reads standalone Card View presentation controls"
   assert.equal("card_view_video_panel_only" in result, false);
 });
 
+test("buildEditorConfigFromDom reads Single and Wide page controls", () => {
+  const nodes = {
+    "#single_view_alert_takeover": { checked: true },
+    '[name="single_view_start_mode"]:checked': { value: "slideshow" },
+    "#wide_view_page_enabled": { checked: true },
+    "#wide_view_live_cameras": { checked: true },
+    "#wide_view_alert_takeover": { checked: true },
+    '[name="wide_view_start_mode"]:checked': { value: "grid" },
+  };
+  const root = {
+    querySelector: (selector) => nodes[selector] || null,
+    querySelectorAll: () => [],
+  };
+
+  const result = buildEditorConfigFromDom({
+    root,
+    baseConfig: {},
+    cameras: [{ entity: "camera.front_door" }],
+    themeDraftCache: {},
+  });
+
+  assert.equal(result.single_view_alert_takeover, true);
+  assert.equal(result.single_view_start_mode, "slideshow");
+  assert.equal(result.wide_view_page_enabled, true);
+  assert.equal(result.wide_view_live_cameras, true);
+  assert.equal(result.wide_view_alert_takeover, true);
+  assert.equal(result.wide_view_start_mode, "grid");
+});
+
 test("compact YAML keeps normalized hidden tabs when non-default", () => {
   const config = compactEditorConfigForYaml({
     cameras: [{ entity: "camera.front_door" }],
@@ -1540,6 +1569,9 @@ test("preview draft carries hidden tabs and page routes", () => {
     grid_alert_hold_seconds: 16,
     wide_view_live_cameras: true,
     wide_view_alert_takeover: true,
+    single_view_alert_takeover: true,
+    single_view_start_mode: "slideshow",
+    wide_view_start_mode: "grid",
     wide_view_timeline_enabled: true,
     wide_view_timeline_default_open: true,
     wide_view_timeline_default_scale: 24,
@@ -1586,6 +1618,9 @@ test("preview draft carries hidden tabs and page routes", () => {
   assert.equal(draft.grid_alert_hold_seconds, 16);
   assert.equal(draft.wide_view_live_cameras, true);
   assert.equal(draft.wide_view_alert_takeover, true);
+  assert.equal(draft.single_view_alert_takeover, true);
+  assert.equal(draft.single_view_start_mode, "slideshow");
+  assert.equal(draft.wide_view_start_mode, "grid");
   assert.equal(draft.wide_view_timeline_enabled, true);
   assert.equal(draft.wide_view_timeline_default_open, true);
   assert.equal(draft.wide_view_timeline_default_scale, 24);
@@ -1614,6 +1649,9 @@ test("preview draft carries hidden tabs and page routes", () => {
   assert.equal(previewConfig.ha_dashboard_swipe_include_subviews, true);
   assert.equal(previewConfig.ha_dashboard_swipe_mouse_enabled, true);
   assert.equal(previewConfig.display_version, false);
+  assert.equal(previewConfig.single_view_alert_takeover, true);
+  assert.equal(previewConfig.single_view_start_mode, "slideshow");
+  assert.equal(previewConfig.wide_view_start_mode, "grid");
   assert.equal(previewConfig.card_view_media_drawer_enabled, true);
   assert.equal(previewConfig.card_view_start_mode, "grid");
   assert.equal(
@@ -1871,6 +1909,33 @@ test("Card View settings normalize and serialize only when enabled", () => {
   assert.equal(createEditorPreviewDraft(defaults).card_view_start_mode, "live");
 });
 
+test("page start modes persist and global Grid startup synchronizes all pages", () => {
+  const defaults = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+  });
+  assert.equal(defaults.single_view_alert_takeover, false);
+  assert.equal(defaults.single_view_start_mode, "live");
+  assert.equal(defaults.wide_view_start_mode, "live");
+
+  const normalized = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    grid_start_in_grid_enabled: true,
+    single_view_alert_takeover: true,
+    single_view_start_mode: "live",
+    wide_view_start_mode: "slideshow",
+    card_view_start_mode: "live",
+  });
+  assert.equal(normalized.single_view_start_mode, "grid");
+  assert.equal(normalized.wide_view_start_mode, "grid");
+  assert.equal(normalized.card_view_start_mode, "grid");
+
+  const compact = compactEditorConfigForYaml(normalized);
+  assert.equal(compact.single_view_alert_takeover, true);
+  assert.equal(compact.single_view_start_mode, "grid");
+  assert.equal(compact.wide_view_start_mode, "grid");
+  assert.equal(compact.card_view_start_mode, "grid");
+});
+
 test("Card View View Mode normalizes values and migrates legacy presentation settings", () => {
   assert.equal(
     normalizeCardViewViewMode("video_only"),
@@ -1969,7 +2034,7 @@ test("Card View editor gates and orders all settings beneath the page toggle", (
       panelSource.indexOf(">Alert Camera Takeover Default<"),
   );
   assert.ok(
-    panelSource.indexOf(">Start Card View<") <
+    panelSource.indexOf(">Start Card Mode<") <
       panelSource.indexOf(">Enable Media Drawer<"),
   );
   assert.ok(
@@ -1985,6 +2050,67 @@ test("Card View editor gates and orders all settings beneath the page toggle", (
     /id="mobile_page"[^>]*card_view_standalone[\s\S]*?"disabled"/,
   );
   assert.match(editorSource, /standalone-mobile-note/);
+});
+
+test("Single, Wide, and Mobile page settings are ordered, gated, and dirty-state wired", () => {
+  const previewPanelIndex = editorSource.indexOf(
+    'id: "preview", title: "Preview Page"',
+  );
+  const singlePanelIndex = editorSource.indexOf(
+    'id: "singleview", title: "Single View Page"',
+  );
+  const widePanelIndex = editorSource.indexOf(
+    'id: "wideview", title: "Wide View Page"',
+  );
+  assert.ok(previewPanelIndex >= 0 && previewPanelIndex < singlePanelIndex);
+  assert.ok(singlePanelIndex < widePanelIndex);
+
+  assert.match(editorSource, /id="single_view_alert_takeover"/);
+  assert.match(editorSource, /name="single_view_start_mode"/);
+  assert.match(editorSource, /name="wide_view_start_mode"/);
+  assert.match(
+    editorSource,
+    /id="wide-view-page-options" style="display:\$\{this\._config\?\.wide_view_page_enabled \? "contents" : "none"\}"/,
+  );
+  assert.match(
+    editorSource,
+    /id="mobile-view-outer-border-row" style="\$\{this\._config\?\.mobile_view_page_enabled !== false \? "" : "display:none"\}"/,
+  );
+  const mobilePanelStart = editorSource.indexOf(
+    "const mobileViewPanelContent",
+  );
+  const mobilePanelEnd = editorSource.indexOf(
+    "const swipeNavigationPanelContent",
+    mobilePanelStart,
+  );
+  const mobilePanel = editorSource.slice(mobilePanelStart, mobilePanelEnd);
+  assert.ok(
+    mobilePanel.indexOf("Outer Border on Mobile View Page") >
+      mobilePanel.indexOf("Whole Dashboard"),
+  );
+
+  const livePreviewWireStart = editorSource.indexOf(
+    "_wireLivePreviewUpdates()",
+  );
+  const livePreviewWireEnd = editorSource.indexOf(
+    "const textPreviewSelectors",
+    livePreviewWireStart,
+  );
+  const livePreviewWire = editorSource.slice(
+    livePreviewWireStart,
+    livePreviewWireEnd,
+  );
+  assert.match(livePreviewWire, /#single_view_alert_takeover/);
+  assert.match(livePreviewWire, /name="single_view_start_mode"/);
+  assert.match(livePreviewWire, /name="wide_view_start_mode"/);
+  assert.match(
+    editorSource,
+    /event\?\.currentTarget\?\.id === "grid_start_in_grid_enabled"[\s\S]*?\[name\$="_view_start_mode"\]\[value="grid"\]/,
+  );
+  assert.match(
+    editorSource,
+    /if \(configChanged\) \{\s*this\._markHomeAssistantDirty\(/,
+  );
 });
 
 test("Mobile View presentation settings omit defaults and preserve swipe mode", () => {

@@ -55,6 +55,7 @@ import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
+import { normalizePageStartMode } from "../features/navigation/start-mode.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -461,6 +462,18 @@ export const compactEditorConfigForYaml = (
   );
   addIfNotDefault(
     compact,
+    "single_view_alert_takeover",
+    source.single_view_alert_takeover === true,
+    false,
+  );
+  addIfNotDefault(
+    compact,
+    "single_view_start_mode",
+    normalizePageStartMode(source.single_view_start_mode),
+    "live",
+  );
+  addIfNotDefault(
+    compact,
     "wide_view_page_enabled",
     source.wide_view_page_enabled === true,
     false,
@@ -476,6 +489,12 @@ export const compactEditorConfigForYaml = (
     "wide_view_alert_takeover",
     source.wide_view_alert_takeover === true,
     false,
+  );
+  addIfNotDefault(
+    compact,
+    "wide_view_start_mode",
+    normalizePageStartMode(source.wide_view_start_mode),
+    "live",
   );
   addIfNotDefault(
     compact,

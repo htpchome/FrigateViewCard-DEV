@@ -92,6 +92,10 @@ import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
+import {
+  normalizePageStartMode,
+  synchronizePageStartModesWithGridDefault,
+} from "../features/navigation/start-mode.js";
 import { applyEditorPreviewDraftToCardConfig } from "../config/preview-mapper.js";
 import {
   DEFAULT_CAMERA_ENTITY,
@@ -1759,6 +1763,19 @@ export class FrigateViewCard extends HTMLElement {
     cameras = limitCameraConfigsByPhysicalCount(cameras, MAX_CAMERAS);
 
     const legacyWindowHours = parseInt(config.window_hours, 10);
+    const pageStartModes = synchronizePageStartModesWithGridDefault({
+      grid_start_in_grid_enabled:
+        config.grid_start_in_grid_enabled === true,
+      single_view_start_mode: normalizePageStartMode(
+        config.single_view_start_mode,
+      ),
+      wide_view_start_mode: normalizePageStartMode(
+        config.wide_view_start_mode,
+      ),
+      card_view_start_mode: normalizeCardViewStartMode(
+        config.card_view_start_mode,
+      ),
+    });
     const nextConfig = {
       cameras,
       title: String(config.title || "").trim() || DEFAULT_TITLE,
@@ -1850,10 +1867,14 @@ export class FrigateViewCard extends HTMLElement {
           PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
           Math.round(PREVIEW_ALERT_HOLD_MS / 1000),
         ),
+      single_view_alert_takeover:
+        config.single_view_alert_takeover === true,
+      single_view_start_mode: pageStartModes.single_view_start_mode,
       wide_view_page_enabled:
         config.wide_view_page_enabled === true || config.wide_view === true,
       wide_view_live_cameras: config.wide_view_live_cameras === true,
       wide_view_alert_takeover: config.wide_view_alert_takeover === true,
+      wide_view_start_mode: pageStartModes.wide_view_start_mode,
       wide_view_timeline_enabled:
         config.wide_view_timeline_enabled === true,
       wide_view_timeline_default_open:
@@ -1868,9 +1889,7 @@ export class FrigateViewCard extends HTMLElement {
         config.card_view_standalone === true,
       card_view_media_drawer_enabled:
         config.card_view_media_drawer_enabled === true,
-      card_view_start_mode: normalizeCardViewStartMode(
-        config.card_view_start_mode,
-      ),
+      card_view_start_mode: pageStartModes.card_view_start_mode,
       card_view_view_mode: normalizeCardViewViewMode(
         config.card_view_view_mode,
         {
@@ -2005,6 +2024,17 @@ export class FrigateViewCard extends HTMLElement {
           nextConfig.preview_page_alert_live_duration_seconds);
     const previewModeConfigChanged =
       previewEnabledChanged || previewVisualChanged;
+    const singleViewTakeoverDefaultChanged =
+      !!prevConfig &&
+      prevConfig.single_view_alert_takeover !==
+        nextConfig.single_view_alert_takeover;
+    const singleViewStartModeChanged =
+      !!prevConfig &&
+      prevConfig.single_view_start_mode !==
+        nextConfig.single_view_start_mode;
+    const wideViewStartModeChanged =
+      !!prevConfig &&
+      prevConfig.wide_view_start_mode !== nextConfig.wide_view_start_mode;
 
     this._committedConfig = this._cloneCardConfig(nextConfig);
     this._config = nextConfig;
@@ -2043,6 +2073,13 @@ export class FrigateViewCard extends HTMLElement {
       return;
     }
     if (prevConfig) {
+      this._singleViewPageController.applyPageConfigUpdate({
+        takeoverDefaultChanged: singleViewTakeoverDefaultChanged,
+        startModeChanged: singleViewStartModeChanged,
+      });
+      this._wideViewPageController.applyPageConfigUpdate({
+        startModeChanged: wideViewStartModeChanged,
+      });
       this._wideViewPageController.applyCompanionConfigUpdate({
         takeoverDefaultChanged: wideViewTakeoverDefaultChanged,
       });
@@ -3548,6 +3585,9 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _toolbarButtonStates() {
+    const singleAlertTakeoverActive =
+      this._singleViewPageController.isActive() &&
+      this._singleViewPageController.alertTakeoverEnabled();
     const wideAlertTakeoverActive =
       this._wideViewPageController.isWideViewPageActive() &&
       this._wideViewPageController.companionAlertTakeoverEnabled();
@@ -3563,7 +3603,9 @@ export class FrigateViewCard extends HTMLElement {
       gridActive: this._viewMode === "grid",
       slideshowActive: this._slideshowActive === true,
       wideAlertTakeoverActive:
-        wideAlertTakeoverActive || cardViewAlertTakeoverActive,
+        singleAlertTakeoverActive ||
+        wideAlertTakeoverActive ||
+        cardViewAlertTakeoverActive,
       twoWayTalkActive:
         this._twoWayTalkStarting === true || !!this._twoWayTalkSession,
     });
@@ -3580,6 +3622,8 @@ export class FrigateViewCard extends HTMLElement {
       const shouldShowSlideshow = this._isSlideshowRotationAvailable();
       const shouldShowWideAlertTakeover =
         this._wideViewPageController.isWideViewPageActive();
+      const shouldShowSingleAlertTakeover =
+        this._singleViewPageController.isActive();
       const controlsBtnPresent = !!this._pageShellRegionElement("tools", "#controls-btn");
       const gridBtnPresent = !!this._pageShellRegionElement("tools", "#grid-btn");
       const slideshowBtnPresent = !!this._pageShellRegionElement("tools", "#slideshow-btn");
@@ -3587,11 +3631,16 @@ export class FrigateViewCard extends HTMLElement {
         "tools",
         "#wide-alert-takeover-btn",
       );
+      const singleAlertTakeoverBtnPresent = !!this._pageShellRegionElement(
+        "tools",
+        "#single-alert-takeover-btn",
+      );
       const needsToolsRerender =
         (buttonStates.controlsVisible && !controlsBtnPresent) ||
         (shouldShowGrid && !gridBtnPresent) ||
         (shouldShowSlideshow && !slideshowBtnPresent) ||
-        (shouldShowWideAlertTakeover && !wideAlertTakeoverBtnPresent);
+        (shouldShowWideAlertTakeover && !wideAlertTakeoverBtnPresent) ||
+        (shouldShowSingleAlertTakeover && !singleAlertTakeoverBtnPresent);
       if (needsToolsRerender) {
         this._syncTabsShell();
       }
@@ -3627,11 +3676,14 @@ export class FrigateViewCard extends HTMLElement {
 
     const wideAlertTakeoverBtn = this._pageShellRegionElement(
       "tools",
-      "#wide-alert-takeover-btn",
+      "#wide-alert-takeover-btn, #single-alert-takeover-btn",
     );
     if (wideAlertTakeoverBtn) {
-      const active =
-        this._wideViewPageController.companionAlertTakeoverEnabled();
+      const active = wideAlertTakeoverBtn.matches(
+        "#single-alert-takeover-btn",
+      )
+        ? this._singleViewPageController.alertTakeoverEnabled()
+        : this._wideViewPageController.companionAlertTakeoverEnabled();
       const label = active
         ? "Disable Alert Camera Takeover"
         : "Enable Alert Camera Takeover";
@@ -3894,6 +3946,10 @@ export class FrigateViewCard extends HTMLElement {
         this._previewAlertHoldMs(),
       );
       this._wideViewPageController?.handleCompanionHaReviewStatus?.(
+        entity,
+        severity,
+      );
+      this._singleViewPageController?.handleHaReviewStatus?.(
         entity,
         severity,
       );
@@ -4206,6 +4262,7 @@ export class FrigateViewCard extends HTMLElement {
       this._handleGridRealtimeMessage(msg);
       this._previewAlertController.handleRealtimeMessage(msg);
       this._wideViewPageController?.handleCompanionRealtimeMessage?.(msg);
+      this._singleViewPageController?.handleRealtimeMessage?.(msg);
       this._cardViewPageController?.handleRealtimeMessage?.(msg);
       this._handleSlideshowRealtimeMessage(msg);
       this._cameraGroupLiveController?.syncAlertState?.();
@@ -4346,6 +4403,10 @@ export class FrigateViewCard extends HTMLElement {
       calendarDisabled: buttonStates.calendarDisabled,
       gridButtonIcon: this._gridButtonIcon(),
       slideshowButtonIcon: this._slideshowButtonIcon(),
+      showSingleAlertTakeover:
+        this._singleViewPageController.isActive(),
+      singleAlertTakeoverEnabled:
+        this._singleViewPageController.alertTakeoverEnabled(),
       showWideAlertTakeover:
         this._wideViewPageController.isWideViewPageActive(),
       wideAlertTakeoverEnabled:
@@ -6028,6 +6089,14 @@ export class FrigateViewCard extends HTMLElement {
     if (wideAlertTakeoverBtn) {
       if (wideAlertTakeoverBtn.disabled) return true;
       this._wideViewPageController.toggleCompanionAlertTakeover();
+      return true;
+    }
+    const singleAlertTakeoverBtn = target.closest(
+      "#single-alert-takeover-btn",
+    );
+    if (singleAlertTakeoverBtn) {
+      if (singleAlertTakeoverBtn.disabled) return true;
+      this._singleViewPageController.toggleAlertTakeover();
       return true;
     }
     const gridBtn = target.closest("#grid-btn");

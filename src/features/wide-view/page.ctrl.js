@@ -1,5 +1,9 @@
 import { CleanupController } from "../../shared/cleanup.js";
 import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycle.js";
+import {
+  PAGE_START_MODES,
+  normalizePageStartMode,
+} from "../navigation/start-mode.js";
 
 import {
   WIDE_LEFT_WIDTH_MAX,
@@ -31,16 +35,87 @@ export class WideViewPageController {
     this._resizeDragCleanup = null;
     this._resizeDragState = null;
     this._syncColHeightFrame = null;
+    this._startModeApplied = false;
   }
 
   activateWideViewPageRoute(context = {}) {
+    this._startModeApplied = false;
+    const routeContext = {
+      ...context,
+      startInGrid:
+        context.startInGrid === true ||
+        (normalizePageStartMode(
+          this._host._config?.wide_view_start_mode,
+        ) === PAGE_START_MODES.grid &&
+          this._host._isGridModeAvailable?.() === true),
+    };
     activateStandardPageRouteLifecycle({
       host: this._host,
-      context,
+      context: routeContext,
       previewPageId: this._constants.PAGE_IDS.preview,
       applyRouteFrame: () => this._applyWideViewRouteFrame(),
     });
+    this.applyConfiguredStartMode({
+      mode: routeContext.startInGrid ? PAGE_START_MODES.grid : null,
+      gridAvailable: routeContext.startInGrid,
+    });
     this.startWideViewMode();
+  }
+
+  applyConfiguredStartMode({
+    force = false,
+    mode = null,
+    gridAvailable = null,
+  } = {}) {
+    if (!this.isWideViewPageActive()) return false;
+    if (this._startModeApplied && !force) return false;
+    this._startModeApplied = true;
+
+    const configuredMode = normalizePageStartMode(
+      mode ?? this._host._config?.wide_view_start_mode,
+    );
+    const startGrid =
+      configuredMode === PAGE_START_MODES.grid &&
+      (gridAvailable ?? this._host._isGridModeAvailable?.() === true);
+    const startSlideshow =
+      configuredMode === PAGE_START_MODES.slideshow &&
+      this._host._isSlideshowRotationAvailable?.() === true;
+
+    if (startGrid || startSlideshow) {
+      this._companionController?.yieldAlertTakeoverToActiveMode?.();
+    }
+    if (startGrid) {
+      if (this._host._slideshowActive === true) {
+        this._host._stopSlideshowRotation?.(
+          "wide-view-start-grid",
+          false,
+        );
+      }
+      if (this._host._viewMode !== "grid") {
+        this._host._setViewMode?.("grid");
+      }
+      return true;
+    }
+
+    if (this._host._viewMode === "grid") {
+      this._host._setViewMode?.("single");
+    }
+    if (startSlideshow) {
+      if (this._host._slideshowActive !== true) {
+        this._host._startSlideshowRotation?.("wide-view-start");
+      }
+      return true;
+    }
+    if (this._host._slideshowActive === true) {
+      this._host._stopSlideshowRotation?.("wide-view-start-live");
+    }
+    return true;
+  }
+
+  applyPageConfigUpdate({ startModeChanged = false } = {}) {
+    if (!startModeChanged || !this.isWideViewPageActive()) return;
+    this._startModeApplied = false;
+    this.applyConfiguredStartMode({ force: true });
   }
 
   buildCompanionRegionMarkup() {

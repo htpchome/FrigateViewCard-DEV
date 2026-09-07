@@ -311,6 +311,48 @@ test("standalone Card View draft controls reach its lightweight config updater",
   });
 });
 
+test("Single and Wide page drafts reach their lightweight mode updaters", () => {
+  const calls = [];
+  const host = {
+    _pageId: "single-view",
+    _pageNavigationController: { isPageRouteAvailable: () => true },
+    _singleViewPageController: {
+      applyPageConfigUpdate: (options) =>
+        calls.push(["single-page", options]),
+      applyEditorPreviewDraftRefresh: () => calls.push(["soft-preview"]),
+    },
+    _wideViewPageController: {
+      applyPageConfigUpdate: (options) =>
+        calls.push(["wide-page", options]),
+    },
+    _syncToolbarButtons: () => calls.push(["toolbar"]),
+  };
+  const controller = new EditorPreviewContextController(host);
+
+  controller.applyConfigDraft({
+    previousConfig: {
+      single_view_alert_takeover: false,
+      single_view_start_mode: "live",
+      wide_view_start_mode: "live",
+    },
+    nextConfig: {
+      single_view_alert_takeover: true,
+      single_view_start_mode: "slideshow",
+      wide_view_start_mode: "grid",
+    },
+  });
+
+  assert.deepEqual(calls, [
+    [
+      "single-page",
+      { takeoverDefaultChanged: true, startModeChanged: true },
+    ],
+    ["wide-page", { startModeChanged: true }],
+    ["soft-preview"],
+    ["toolbar"],
+  ]);
+});
+
 test("camera drafts resync linked lights and two-way talk without rebuilding media", () => {
   const calls = [];
   const host = {

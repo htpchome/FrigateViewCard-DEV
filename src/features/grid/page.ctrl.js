@@ -1,8 +1,8 @@
 import { GRID_ROTATION_OPTIONS_SECONDS } from "../../constants.js";
 import {
-  CARD_VIEW_START_MODES,
-  normalizeCardViewStartMode,
-} from "../card-view/config.js";
+  PAGE_START_MODES,
+  normalizePageStartMode,
+} from "../navigation/start-mode.js";
 import { resolveGridCameras } from "./config.js";
 
 export class GridPageController {
@@ -73,13 +73,6 @@ export class GridPageController {
     return hasReturnLiveTarget;
   }
 
-  _isStandaloneCardView() {
-    return (
-      this._host._config?.card_view_page_enabled === true &&
-      this._host._config?.card_view_standalone === true
-    );
-  }
-
   isGridModeAvailable() {
     return (
       this._host._config?.grid_mode_enabled === true &&
@@ -133,13 +126,27 @@ export class GridPageController {
   }
 
   shouldStartInGridMode() {
-    const configuredToStartInGrid = this._isStandaloneCardView()
-      ? normalizeCardViewStartMode(
-          this._host._config?.card_view_start_mode,
-        ) === CARD_VIEW_START_MODES.grid
-      : this._host._config?.grid_start_in_grid_enabled === true;
+    const legacyMode = this._host._config?.grid_start_in_grid_enabled
+      ? PAGE_START_MODES.grid
+      : PAGE_START_MODES.live;
+    let configuredMode = legacyMode;
+    if (
+      this._host._isCardViewPageActive?.() ||
+      this._host._config?.card_view_standalone === true
+    ) {
+      configuredMode =
+        this._host._config?.card_view_start_mode ?? legacyMode;
+    } else if (
+      this._host._wideViewPageController?.isWideViewPageActive?.()
+    ) {
+      configuredMode =
+        this._host._config?.wide_view_start_mode ?? legacyMode;
+    } else if (this._host._pageId === "single-view") {
+      configuredMode =
+        this._host._config?.single_view_start_mode ?? legacyMode;
+    }
     return (
-      configuredToStartInGrid &&
+      normalizePageStartMode(configuredMode) === PAGE_START_MODES.grid &&
       this.isGridModeAvailable()
     );
   }
