@@ -198,6 +198,7 @@ const createRootAndPanel = ({
 
 const createHarness = ({
   hasTouch = true,
+  ownsInternalPages = false,
   deferAnimationFrames = false,
   queueMicrotaskFn = (callback) => callback(),
   resolveInternalPageTarget = () => null,
@@ -283,6 +284,7 @@ const createHarness = ({
         onDashboardScopeExited?.();
       },
       enforceDashboardOwner,
+      ownsInternalPages,
     },
   );
   return {
@@ -825,6 +827,181 @@ test("dashboard-wide swipe policy enables configured subviews", () => {
   assert.equal(policy.includeSubviews, true);
   assert.equal(policy.allowDashboardNavigation, true);
   assert.equal(policy.mouseNavigationEnabled, true);
+});
+
+test("pre-mount navigation yields the owner view to the mounted card", () => {
+  const rootState = createRootAndPanel({
+    views: [
+      {
+        title: "Cameras",
+        path: "one",
+        cards: [
+          {
+            type: "custom:frigate-view-card",
+            ha_dashboard_swipe_navigation_owner: true,
+            ha_dashboard_swipe_navigation: "dashboard-wide",
+          },
+        ],
+      },
+      { title: "Controls", path: "two", cards: [{ type: "entities" }] },
+    ],
+  });
+  const windowRef = createWindow();
+  const bootstrap = installHomeAssistantDashboardSwipeNavigation({
+    documentRef: {},
+    windowRef,
+    MutationObserverCtor: FakeMutationObserver,
+    hasTouch: true,
+    getComputedStyleFn: (element) => element?.computedStyle || {},
+    queueMicrotaskFn: (callback) => callback(),
+    requestAnimationFrameFn: (callback) => {
+      callback();
+      return 1;
+    },
+    setTimeoutFn: (callback) => callback(),
+    findCurrentHuiRoot: () => rootState.huiRoot,
+    findPanel: () => rootState.panel,
+    findSwipeSurface: () => rootState.swipeSurface,
+  });
+
+  assert.equal(rootState.eventTarget.listenerCount("touchstart"), 0);
+  bootstrap.disconnect();
+});
+
+test("mounted owner remains the route authority while an adjacent dashboard is visible", async () => {
+  const h = createHarness({
+    enforceDashboardOwner: true,
+    ownsInternalPages: true,
+    rootOptions: {
+      path: "/two",
+      views: [
+        {
+          path: "one",
+          cards: [
+            {
+              type: "custom:frigate-view-card",
+              ha_dashboard_swipe_navigation_owner: true,
+              ha_dashboard_swipe_navigation: "dashboard-wide",
+            },
+          ],
+        },
+        { path: "two", cards: [{ type: "entities" }] },
+      ],
+    },
+    resolveDashboardBoundaryPage: ({ direction, transition }) =>
+      direction === "previous" && transition === "enter"
+        ? PAGE_IDS.cardView
+        : null,
+  });
+  h.windowRef.location.pathname = "/lovelace/two";
+  h.host.isConnected = true;
+  h.controller.sync();
+  h.host.isConnected = false;
+  h.controller.disconnect();
+
+  const bootstrap = installHomeAssistantDashboardSwipeNavigation({
+    documentRef: h.documentRef,
+    windowRef: h.windowRef,
+    MutationObserverCtor: FakeMutationObserver,
+    hasTouch: true,
+    getComputedStyleFn: (element) => element?.computedStyle || {},
+    queueMicrotaskFn: (callback) => callback(),
+    requestAnimationFrameFn: (callback) => {
+      callback();
+      return 1;
+    },
+    setTimeoutFn: (callback) => callback(),
+    createLocationChangedEvent: () => ({ type: "location-changed" }),
+    findCurrentHuiRoot: () => h.rootState.huiRoot,
+    findPanel: () => h.rootState.panel,
+    findSwipeSurface: () => h.rootState.swipeSurface,
+  });
+
+  const result = swipe(h.rootState.eventTarget, {
+    startX: 100,
+    endX: 280,
+    path: [plainSurface],
+  });
+  assert.equal(result.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, [PAGE_IDS.cardView]);
+  assert.deepEqual(h.windowRef.pushes, ["/lovelace/one?kiosk=1#now"]);
+
+  bootstrap.disconnect();
+  h.controller.disconnect({ force: true });
+});
+
+test("mounted Dashboard Wide owner keeps internal routing on a retargeted card gesture", async () => {
+  const h = createHarness({
+    enforceDashboardOwner: true,
+    ownsInternalPages: true,
+    resolveInternalPageTarget: (direction) =>
+      direction === "next" ? PAGE_IDS.mobileView : null,
+    rootOptions: {
+      views: [
+        {
+          path: "one",
+          cards: [
+            {
+              type: "custom:frigate-view-card",
+              ha_dashboard_swipe_navigation_owner: true,
+              ha_dashboard_swipe_navigation: "dashboard-wide",
+            },
+          ],
+        },
+        { path: "two", cards: [{ type: "entities" }] },
+      ],
+    },
+  });
+  h.controller.sync();
+
+  const video = {
+    tagName: "VIDEO",
+    controls: false,
+    matches: (selector) => selector.split(",").includes("video"),
+  };
+  const liveStage = {
+    tagName: "DIV",
+    matches: (selector) => selector.split(",").includes("#live-stage"),
+  };
+  const result = swipe(h.rootState.eventTarget, {
+    path: [video, liveStage],
+  });
+  assert.equal(result.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, [PAGE_IDS.mobileView]);
+  assert.deepEqual(h.windowRef.pushes, []);
+});
+
+test("mounted Inside Card Only owner does not claim gestures outside the card", async () => {
+  const h = createHarness({
+    enforceDashboardOwner: true,
+    ownsInternalPages: true,
+    resolveInternalPageTarget: () => PAGE_IDS.mobileView,
+    rootOptions: {
+      views: [
+        {
+          path: "one",
+          cards: [
+            {
+              type: "custom:frigate-view-card",
+              ha_dashboard_swipe_navigation_owner: true,
+              ha_dashboard_swipe_navigation: "inside-card",
+            },
+          ],
+        },
+      ],
+    },
+  });
+  h.controller.sync();
+
+  const result = swipe(h.rootState.eventTarget, {
+    path: [plainSurface],
+  });
+  assert.equal(result.prevented, false);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, []);
+  assert.deepEqual(h.windowRef.pushes, []);
 });
 
 test("mouse swipe is opt-in and starts before the owner card is visited", async () => {

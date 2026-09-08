@@ -824,6 +824,7 @@ export class FrigateViewCard extends HTMLElement {
           this._handleDashboardScopeExited(),
         cardTag: CARD_TAG,
         enforceDashboardOwner: true,
+        ownsInternalPages: true,
       });
     this._haPageBackgroundController =
       new HomeAssistantPageBackgroundController(this);

@@ -855,11 +855,22 @@ const latestOwnerOptions = (state) => [...state.owners.values()].at(-1) || null;
 const ownerOptionsForPath = (state, path) => {
   const entries = [...state.owners.values()];
   const composedPath = Array.isArray(path) ? path : [];
+  const reversed = entries.slice().reverse();
   return (
-    entries
-      .slice()
-      .reverse()
-      .find((options) => options.host && composedPath.includes(options.host)) ||
+    reversed.find(
+      (options) =>
+        options.ownsInternalPages === true &&
+        options.host &&
+        composedPath.includes(options.host),
+    ) ||
+    reversed.find(
+      (options) =>
+        options.ownsInternalPages === true &&
+        options.host,
+    ) ||
+    reversed.find(
+      (options) => options.host && composedPath.includes(options.host),
+    ) ||
     entries.at(-1) ||
     null
   );
@@ -1208,15 +1219,29 @@ const bindCoordinator = (state) => {
     const path = event.composedPath?.() || [event.target].filter(Boolean);
     const options = ownerOptionsForPath(state, path);
     if (!options) return;
+    let swipePolicy = null;
+    try {
+      swipePolicy = options.resolveSwipePolicy?.() || null;
+    } catch (_) {
+      swipePolicy = null;
+    }
+    const pathIncludesOwner = path.includes(options.host);
+    const pageMediaGestureElements =
+      pathIncludesOwner || options.ownsInternalPages === true
+        ? resolveAllowedPageSwipeGestureElements(path)
+        : null;
     const startsInsideOwner =
-      options.host?.isConnected !== false && path.includes(options.host);
+      options.host?.isConnected !== false &&
+      (pathIncludesOwner ||
+        (options.ownsInternalPages === true &&
+          Boolean(pageMediaGestureElements)));
     const inputType =
       event?.fvcInputType === "mouse" ? "mouse" : "touch";
     const cardViewHorizontalScroller = startsInsideOwner
       ? findCardViewHorizontalScroller(path, options.getComputedStyleFn)
       : null;
     const allowedGestureElements = startsInsideOwner
-      ? resolveAllowedPageSwipeGestureElements(path)
+      ? pageMediaGestureElements
       : null;
     if (
       shouldIgnoreDashboardSwipePath(path, {
@@ -1227,12 +1252,6 @@ const bindCoordinator = (state) => {
     ) {
       if (startsInsideOwner) event.stopPropagation?.();
       return;
-    }
-    let swipePolicy = null;
-    try {
-      swipePolicy = options.resolveSwipePolicy?.() || null;
-    } catch (_) {
-      swipePolicy = null;
     }
     if (
       inputType === "mouse" &&
@@ -1658,6 +1677,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
       onDashboardScopeExited = null,
       cardTag = "frigate-view-card",
       enforceDashboardOwner = false,
+      ownsInternalPages = false,
     } = {},
   ) {
     this._host = host;
@@ -1692,6 +1712,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
     this._onDashboardScopeExited = onDashboardScopeExited;
     this._cardTag = normalizeCardTag(cardTag) || "frigate-view-card";
     this._enforceDashboardOwner = enforceDashboardOwner === true;
+    this._ownsInternalPages = ownsInternalPages === true;
     this._huiRoot = null;
     this._dashboardKey = null;
     this._hostDashboardKey = null;
@@ -1765,6 +1786,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
       onDashboardNavigationSettled: this._onDashboardNavigationSettled,
       cardTag: this._cardTag,
       resolveSwipePolicy: () => this._resolveSwipePolicy(),
+      ownsInternalPages: this._ownsInternalPages,
     };
   }
 
@@ -2035,16 +2057,18 @@ export const installHomeAssistantDashboardSwipeNavigation = ({
       const panel = huiRoot ? findPanel?.(huiRoot) || null : null;
       const dashboardConfig = panel?.lovelace?.config || null;
       if (huiRoot && dashboardConfig) {
+        const currentViewName = currentViewRouteName({
+          panel,
+          huiRoot,
+          windowRef,
+        });
         const swipePolicy = resolveDashboardSwipeNavigationPolicy({
           dashboardConfig,
           cardTag,
-          currentViewName: currentViewRouteName({
-            panel,
-            huiRoot,
-            windowRef,
-          }),
+          currentViewName,
         });
         if (
+          swipePolicy.owner?.viewName === currentViewName ||
           (!hasTouch && swipePolicy.mouseNavigationEnabled !== true) ||
           !dashboardConfigEnablesPreMountSwipeNavigation(
             dashboardConfig,
