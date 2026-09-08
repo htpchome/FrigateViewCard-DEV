@@ -852,43 +852,46 @@ test("mounted Dashboard Wide owner routes the dashboard surface through internal
   h.controller.disconnect({ force: true });
 });
 
-test("video pan remains outside Dashboard Wide page navigation", async () => {
-  const h = createHarness({
-    enforceDashboardOwner: true,
-    isSwipeNavigationOwner: true,
-    resolveInternalPageTarget: () => PAGE_IDS.mobileView,
-    rootOptions: {
-      views: [
-        {
-          path: "one",
-          cards: [
-            {
-              type: "custom:frigate-view-card",
-              ha_dashboard_swipe_navigation_owner: true,
-              ha_dashboard_swipe_navigation: "dashboard-wide",
-            },
-          ],
-        },
-        { path: "two", cards: [{ type: "entities" }] },
-      ],
-    },
-  });
-  h.controller.sync();
+test("video pan remains outside page navigation in every internal swipe mode", async () => {
   const video = {
     tagName: "VIDEO",
     matches: (selector) => selector.split(",").includes("video"),
     computedStyle: { touchAction: "none", overflowX: "visible" },
   };
 
-  const result = swipe(h.rootState.eventTarget, {
-    path: [video, h.host],
-  });
-  await flushSwipeMotion();
+  for (const mode of ["dashboard-wide", "inside-card"]) {
+    const h = createHarness({
+      enforceDashboardOwner: true,
+      isSwipeNavigationOwner: true,
+      resolveInternalPageTarget: () => PAGE_IDS.mobileView,
+      rootOptions: {
+        views: [
+          {
+            path: "one",
+            cards: [
+              {
+                type: "custom:frigate-view-card",
+                ha_dashboard_swipe_navigation_owner: true,
+                ha_dashboard_swipe_navigation: mode,
+              },
+            ],
+          },
+          { path: "two", cards: [{ type: "entities" }] },
+        ],
+      },
+    });
+    h.controller.sync();
 
-  assert.equal(result.prevented, false);
-  assert.deepEqual(h.internalNavigations, []);
-  assert.deepEqual(h.windowRef.pushes, []);
-  h.controller.disconnect({ force: true });
+    const result = swipe(h.rootState.eventTarget, {
+      path: [video, h.host],
+    });
+    await flushSwipeMotion();
+
+    assert.equal(result.prevented, false);
+    assert.deepEqual(h.internalNavigations, []);
+    assert.deepEqual(h.windowRef.pushes, []);
+    h.controller.disconnect({ force: true });
+  }
 });
 
 test("Card View follows the configured phone and PC/tablet sequence from the dashboard surface", async () => {
@@ -1097,35 +1100,130 @@ test("the selected internal sequence connects to Home Assistant only at its two 
   }
 });
 
-test("mounted Inside Card Only owner does not claim gestures outside the card", async () => {
-  const h = createHarness({
-    enforceDashboardOwner: true,
-    isSwipeNavigationOwner: true,
-    resolveInternalPageTarget: () => PAGE_IDS.mobileView,
-    rootOptions: {
-      views: [
-        {
-          path: "one",
-          cards: [
+test("Inside Card Only routes Card View through internal pages before any dashboard", async () => {
+  const baseConfig = {
+    type: "custom:frigate-view-card",
+    ha_dashboard_swipe_navigation_owner: true,
+    ha_dashboard_swipe_navigation: "inside-card",
+    preview_page_enabled: true,
+    mobile_view_page_enabled: true,
+    wide_view_page_enabled: true,
+    card_view_page_enabled: true,
+    landing_page: PAGE_IDS.cardView,
+    mobile_page: MOBILE_PAGE_MODES.card,
+    ha_dashboard_swipe_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.wideView,
+      PAGE_IDS.cardView,
+    ],
+    ha_dashboard_swipe_mobile_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.cardView,
+    ],
+  };
+
+  for (const deviceBucket of [
+    DEVICE_ROUTE_BUCKETS.mobile,
+    DEVICE_ROUTE_BUCKETS.desktop,
+  ]) {
+    for (const includeOtherCards of [false, true]) {
+      const config = {
+        ...baseConfig,
+        ha_dashboard_swipe_include_other_cards: includeOtherCards,
+      };
+      const h = createHarness({
+        enforceDashboardOwner: true,
+        isSwipeNavigationOwner: true,
+        resolveInternalPageTarget: (direction) =>
+          resolveAdjacentPageSwipeRoute({
+            config,
+            deviceBucket,
+            currentPageId: PAGE_IDS.cardView,
+            direction,
+          }),
+        rootOptions: {
+          views: [
+            { path: "one", cards: [config] },
             {
-              type: "custom:frigate-view-card",
-              ha_dashboard_swipe_navigation_owner: true,
-              ha_dashboard_swipe_navigation: "inside-card",
+              path: "two",
+              cards: [{ type: "custom:frigate-view-card" }],
             },
           ],
         },
-      ],
-    },
-  });
-  h.controller.sync();
+      });
+      h.controller.sync();
 
-  const result = swipe(h.rootState.eventTarget, {
-    path: [plainSurface],
-  });
-  assert.equal(result.prevented, false);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, []);
-  assert.deepEqual(h.windowRef.pushes, []);
+      const result = swipe(h.rootState.eventTarget, {
+        path: [plainSurface],
+      });
+      assert.equal(result.prevented, true);
+      await flushSwipeMotion();
+      assert.deepEqual(h.internalNavigations, [PAGE_IDS.singleView]);
+      assert.deepEqual(h.windowRef.pushes, []);
+      h.controller.disconnect({ force: true });
+    }
+  }
+});
+
+test("Inside Card Only reaches another FrigateView dashboard only when its toggle is enabled", async () => {
+  for (const includeOtherCards of [false, true]) {
+    const config = {
+      type: "custom:frigate-view-card",
+      ha_dashboard_swipe_navigation_owner: true,
+      ha_dashboard_swipe_navigation: "inside-card",
+      ha_dashboard_swipe_include_other_cards: includeOtherCards,
+      preview_page_enabled: true,
+      mobile_view_page_enabled: true,
+      wide_view_page_enabled: true,
+      card_view_page_enabled: true,
+      landing_page: PAGE_IDS.cardView,
+      ha_dashboard_swipe_pages: [
+        PAGE_IDS.preview,
+        PAGE_IDS.singleView,
+        PAGE_IDS.mobileView,
+        PAGE_IDS.wideView,
+        PAGE_IDS.cardView,
+      ],
+    };
+    const h = createHarness({
+      enforceDashboardOwner: true,
+      isSwipeNavigationOwner: true,
+      resolveInternalPageTarget: (direction) =>
+        resolveAdjacentPageSwipeRoute({
+          config,
+          deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+          currentPageId: PAGE_IDS.wideView,
+          direction,
+        }),
+      rootOptions: {
+        views: [
+          { path: "one", cards: [config] },
+          { path: "two", cards: [{ type: "entities" }] },
+          {
+            path: "three",
+            cards: [{ type: "custom:frigate-view-card" }],
+          },
+        ],
+      },
+    });
+    h.controller.sync();
+
+    const result = swipe(h.rootState.eventTarget, {
+      path: [plainSurface],
+    });
+    assert.equal(result.prevented, true);
+    await flushSwipeMotion();
+    assert.deepEqual(h.internalNavigations, []);
+    assert.deepEqual(
+      h.windowRef.pushes,
+      includeOtherCards ? ["/lovelace/three?kiosk=1#now"] : [],
+    );
+    h.controller.disconnect({ force: true });
+  }
 });
 
 test("mouse swipe is opt-in and starts before the owner card is visited", async () => {

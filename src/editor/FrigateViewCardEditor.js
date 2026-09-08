@@ -2726,7 +2726,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.insideCard,
         label: "Inside Card Only",
         description:
-          "Swipe only between the selected FrigateView pages. Other dashboard pages remain excluded.",
+          "Swipe between selected FrigateView pages. Optionally include other dashboard pages with FrigateView cards.",
       },
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.landingDashboard,
@@ -2757,7 +2757,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="editor-choice-chip-copy"><span class="editor-choice-chip-text">${escapeHtml(label)}</span><span class="editor-choice-chip-description">${escapeHtml(description)}</span></span>
             </span>
           </label>
-          ${isInsideCard ? `<label class="editor-swipe-choice-footer"><span>Include Other FrigateView Pages</span><ha-switch id="ha_dashboard_swipe_include_other_cards" ${this._config?.ha_dashboard_swipe_include_other_cards ? "checked" : ""} ${dashboardSwipeSettingsEnabled && selected ? "" : "disabled"}></ha-switch></label>` : ""}
+          ${isInsideCard ? `<label class="editor-swipe-choice-footer"><span>Include FrigateView Cards on Other Dashboard Pages</span><ha-switch id="ha_dashboard_swipe_include_other_cards" ${this._config?.ha_dashboard_swipe_include_other_cards ? "checked" : ""} ${dashboardSwipeSettingsEnabled && selected ? "" : "disabled"}></ha-switch></label>` : ""}
           ${supportsSubviews ? `<label class="editor-swipe-choice-footer"><span>Swipe to Subviews</span><ha-switch data-ha-dashboard-swipe-include-subviews="${escapeHtmlAttribute(value)}" ${this._config?.ha_dashboard_swipe_include_subviews ? "checked" : ""} ${dashboardSwipeSettingsEnabled && selected ? "" : "disabled"}></ha-switch></label>` : ""}
         </div>`;
       })

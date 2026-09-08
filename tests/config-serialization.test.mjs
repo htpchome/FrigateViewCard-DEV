@@ -256,7 +256,7 @@ test("requested editor settings use the shared choice-chip control", () => {
   );
   assert.match(
     editorSource,
-    /Include Other FrigateView Pages/,
+    /Include FrigateView Cards on Other Dashboard Pages/,
   );
   assert.match(editorSource, /Swipe to Subviews/);
   assert.match(

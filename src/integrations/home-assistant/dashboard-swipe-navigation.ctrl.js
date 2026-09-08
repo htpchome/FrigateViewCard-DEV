@@ -1136,7 +1136,8 @@ const bindCoordinator = (state) => {
     });
     const ownsDashboardSurface =
       options.isSwipeNavigationOwner?.() === true &&
-      DASHBOARD_WIDE_SWIPE_MODES.has(swipePolicy?.mode) &&
+      (DASHBOARD_WIDE_SWIPE_MODES.has(swipePolicy?.mode) ||
+        swipePolicy?.mode === DASHBOARD_SWIPE_NAVIGATION_MODES.insideCard) &&
       swipePolicy?.owner?.viewName === currentViewName;
     const startsInsideOwner =
       options.host?.isConnected !== false &&
