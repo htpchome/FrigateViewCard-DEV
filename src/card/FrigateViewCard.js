@@ -4620,7 +4620,7 @@ export class FrigateViewCard extends HTMLElement {
     return this._browseCollectionController.allGridEvents();
   }
 
-  _renderShell() {
+  _buildActivePageMainLayoutShellMarkup() {
     const title = this._titleText();
     const subtitle = this._subtitleText();
     const displayTitle = this._config.display_title !== false;
@@ -4755,27 +4755,25 @@ export class FrigateViewCard extends HTMLElement {
         duplicates: regionValidation.duplicates,
       });
     }
-    const popupShell = buildPopupShellMarkup({
-      icons: ICONS,
-      version: VERSION,
-    });
+
+    return mainLayoutShell;
+  }
+
+  _preparePageLayoutReplacement({ preserveLive = false } = {}) {
     this._wideViewPageController.teardownCompanionMedia();
-    if (this._preservingLiveShell !== true) {
+    if (!preserveLive) {
       this._cameraGroupLiveController?.teardown?.();
     }
     this._wideViewPageController.teardownTimeline({ preserveScroll: true });
-    this.shadowRoot.innerHTML = `<style>${STYLES}</style>
-    <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">
+  }
 
-        ${mainLayoutShell}
-        <div class="toast" id="toast" style="display:none"></div>
-
-          ${popupShell}
-      </ha-card>
-      `;
-    this._domCache = {}; // invalidate DOM element cache after full re-render
-    this._lastRenderedListHtml = "";
-    this._popupLifecycleController.bindInteractions();
+  _bindPageLayout({
+    bindPopupInteractions = false,
+    syncCameraGroup = true,
+  } = {}) {
+    if (bindPopupInteractions) {
+      this._popupLifecycleController.bindInteractions();
+    }
     this._applyBrowse();
     this._applyCardStyle();
     this._wideViewPageController.applyLayoutAndWideSyncForCard();
@@ -4785,7 +4783,7 @@ export class FrigateViewCard extends HTMLElement {
     this._wideViewPageController.initResizeHandle();
     this._wideViewPageController.bindTimeline();
     this._liveViewResizeController?.bind();
-    if (this._preservingLiveShell !== true) {
+    if (syncCameraGroup) {
       this._cameraGroupLiveController?.sync?.();
     }
     this._initLiveOverlayControls();
@@ -4806,6 +4804,38 @@ export class FrigateViewCard extends HTMLElement {
     this._linkedLightController?.sync?.();
     this._pageNavigationController.connectToolbarDivider();
     this._editorPreviewController.renderCardPickerDemo();
+    if (
+      !bindPopupInteractions &&
+      this._$("#myPopup")?.classList.contains("is-open")
+    ) {
+      this._popupLifecycleController.syncShellGeometry();
+    }
+  }
+
+  _renderShell() {
+    const mainLayoutShell = this._buildActivePageMainLayoutShellMarkup();
+    const popupShell = buildPopupShellMarkup({
+      icons: ICONS,
+      version: VERSION,
+    });
+    this._preparePageLayoutReplacement({
+      preserveLive: this._preservingLiveShell === true,
+    });
+    this.shadowRoot.innerHTML = `<style>${STYLES}</style>
+    <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">
+
+        ${mainLayoutShell}
+        <div class="toast" id="toast" style="display:none"></div>
+
+          ${popupShell}
+      </ha-card>
+      `;
+    this._domCache = {}; // invalidate DOM element cache after full re-render
+    this._lastRenderedListHtml = "";
+    this._bindPageLayout({
+      bindPopupInteractions: true,
+      syncCameraGroup: this._preservingLiveShell !== true,
+    });
   }
 
   _renderShellPreserveLive() {
@@ -4815,10 +4845,45 @@ export class FrigateViewCard extends HTMLElement {
       return;
     }
 
-    const parent = preservedEngWrap.parentNode;
-    if (parent) {
-      parent.removeChild(preservedEngWrap);
+    const currentLayout = this._$("#layout");
+    const ownerDocument = currentLayout?.ownerDocument || this.ownerDocument;
+    if (!currentLayout || typeof ownerDocument?.createElement !== "function") {
+      this._renderFullShellPreserveLive(preservedEngWrap);
+      return;
     }
+
+    const template = ownerDocument.createElement("template");
+    template.innerHTML = this._buildActivePageMainLayoutShellMarkup().trim();
+    const nextLayout = template.content?.firstElementChild || null;
+    const nextEngWrap = nextLayout?.querySelector?.("#eng-wrap") || null;
+    if (nextLayout?.id !== "layout" || !nextEngWrap) {
+      this._renderFullShellPreserveLive(preservedEngWrap);
+      return;
+    }
+
+    this._preservingLiveShell = true;
+    try {
+      this._preparePageLayoutReplacement({ preserveLive: true });
+      nextEngWrap.replaceWith(preservedEngWrap);
+      currentLayout.replaceWith(nextLayout);
+      this._domCache = {};
+      this._domCache["#eng-wrap"] = preservedEngWrap;
+      const preservedEngine = preservedEngWrap.querySelector("#engine");
+      if (preservedEngine) {
+        this._domCache["#engine"] = preservedEngine;
+      }
+      this._lastRenderedListHtml = "";
+      this._bindPageLayout({
+        bindPopupInteractions: false,
+        syncCameraGroup: true,
+      });
+    } finally {
+      this._preservingLiveShell = false;
+    }
+  }
+
+  _renderFullShellPreserveLive(preservedEngWrap) {
+    preservedEngWrap.remove();
 
     this._preservingLiveShell = true;
     try {

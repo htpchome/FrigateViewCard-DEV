@@ -105,6 +105,96 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
+test("page routes replace only their layout while preserving live and popup shells", async ({
+  page,
+}) => {
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto(baseUrl);
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      wide_view_page_enabled: true,
+      card_view_page_enabled: true,
+    });
+    card._pageId = "single-view";
+    card._renderShell();
+
+    const root = card.shadowRoot;
+    const outer = {
+      style: root.querySelector("style"),
+      card: root.querySelector("#card"),
+      toast: root.querySelector("#toast"),
+      popup: root.querySelector("#myPopup"),
+      live: root.querySelector("#eng-wrap"),
+      engine: root.querySelector("#engine"),
+      popupDrag: card._popupLifecycleController._dragController,
+    };
+    let previousLayout = root.querySelector("#layout");
+    const routeResults = [];
+
+    for (const [pageId, layoutClass] of [
+      ["wide-view", "layout--wide-view"],
+      ["card-view", "layout--card-view"],
+    ]) {
+      card._pageId = pageId;
+      card._renderShellPreserveLive();
+      const nextLayout = root.querySelector("#layout");
+      routeResults.push({
+        pageId,
+        layoutChanged: nextLayout !== previousLayout,
+        hasExpectedLayout: nextLayout.classList.contains(layoutClass),
+        stylePreserved: root.querySelector("style") === outer.style,
+        cardPreserved: root.querySelector("#card") === outer.card,
+        toastPreserved: root.querySelector("#toast") === outer.toast,
+        popupPreserved: root.querySelector("#myPopup") === outer.popup,
+        popupBindingPreserved:
+          card._popupLifecycleController._dragController === outer.popupDrag,
+        livePreserved: root.querySelector("#eng-wrap") === outer.live,
+        enginePreserved: root.querySelector("#engine") === outer.engine,
+        layoutCount: root.querySelectorAll("#layout").length,
+      });
+      previousLayout = nextLayout;
+    }
+
+    return routeResults;
+  });
+
+  expect(result).toEqual([
+    {
+      pageId: "wide-view",
+      layoutChanged: true,
+      hasExpectedLayout: true,
+      stylePreserved: true,
+      cardPreserved: true,
+      toastPreserved: true,
+      popupPreserved: true,
+      popupBindingPreserved: true,
+      livePreserved: true,
+      enginePreserved: true,
+      layoutCount: 1,
+    },
+    {
+      pageId: "card-view",
+      layoutChanged: true,
+      hasExpectedLayout: true,
+      stylePreserved: true,
+      cardPreserved: true,
+      toastPreserved: true,
+      popupPreserved: true,
+      popupBindingPreserved: true,
+      livePreserved: true,
+      enginePreserved: true,
+      layoutCount: 1,
+    },
+  ]);
+  expect(pageErrors).toEqual([]);
+});
+
 test("dispatches event-tab clicks from the page-shell tabs region", async ({
   page,
 }) => {

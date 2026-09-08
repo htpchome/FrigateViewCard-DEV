@@ -2199,27 +2199,31 @@ test("page shell regions are validated before the shell is committed", () => {
   assert.ok(shellCommitIndex > validationIndex);
 });
 
-test("page shell replacement preserves the existing live wrapper", () => {
+test("page route shell replacement preserves the outer shell and live wrapper", () => {
   const preserveStart = cardSource.indexOf("_renderShellPreserveLive() {");
-  const preserveEnd = cardSource.indexOf(
-    "_shouldRenderTwoWayTalkButtonForActiveCamera()",
+  const fallbackStart = cardSource.indexOf(
+    "_renderFullShellPreserveLive(preservedEngWrap) {",
     preserveStart,
   );
-  const preserveSource = cardSource.slice(preserveStart, preserveEnd);
-  const detachIndex = preserveSource.indexOf(
-    "parent.removeChild(preservedEngWrap);",
-  );
-  const renderIndex = preserveSource.indexOf(
-    "this._renderShell();",
-    detachIndex,
+  const preserveSource = cardSource.slice(preserveStart, fallbackStart);
+  const buildIndex = preserveSource.indexOf(
+    "this._buildActivePageMainLayoutShellMarkup().trim()",
   );
   const restoreIndex = preserveSource.indexOf(
     "nextEngWrap.replaceWith(preservedEngWrap);",
   );
+  const layoutCommitIndex = preserveSource.indexOf(
+    "currentLayout.replaceWith(nextLayout);",
+  );
 
-  assert.ok(detachIndex >= 0);
-  assert.ok(renderIndex > detachIndex);
-  assert.ok(restoreIndex > renderIndex);
+  assert.ok(buildIndex >= 0);
+  assert.ok(restoreIndex > buildIndex);
+  assert.ok(layoutCommitIndex > restoreIndex);
+  assert.equal(preserveSource.includes("this._renderShell();"), true);
+  assert.equal(
+    preserveSource.includes("this.shadowRoot.innerHTML"),
+    false,
+  );
 });
 
 test("browse list orchestration is owned by the browse render controller", () => {
