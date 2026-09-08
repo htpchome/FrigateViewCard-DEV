@@ -23,7 +23,7 @@ test("syncStandardRouteShell updates tabs and renders without remount", () => {
   ]);
 });
 
-test("activateStandardPageRouteLifecycle avoids shell remount on non-startup route change", () => {
+test("activateStandardPageRouteLifecycle skips outgoing DOM work on non-startup route change", () => {
   const calls = [];
   const host = {
     _pageId: "mobile-view",
@@ -46,7 +46,6 @@ test("activateStandardPageRouteLifecycle avoids shell remount on non-startup rou
   });
 
   assert.deepEqual(calls, [
-    ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll", { renderWideTimeline: false }],
@@ -100,7 +99,6 @@ test("activateStandardPageRouteLifecycle leaving preview does not cancel when mo
 
   assert.deepEqual(calls, [
     ["stopPreviewMode"],
-    ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll", { renderWideTimeline: false }],
@@ -133,7 +131,6 @@ test("activateStandardPageRouteLifecycle leaving preview cancels when mount acti
   assert.deepEqual(calls, [
     ["stopPreviewMode"],
     ["cancelPendingMount", "page-route-single-view"],
-    ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll", { renderWideTimeline: false }],
@@ -167,7 +164,6 @@ test("page navigation leaving Preview immediately resumes the retained camera", 
   assert.deepEqual(calls, [
     ["stopPreviewMode"],
     ["prepareRetainedCamera"],
-    ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll", { renderWideTimeline: false }],
@@ -204,7 +200,6 @@ test("activateStandardPageRouteLifecycle applies shell swap during deferred came
 
   assert.deepEqual(calls, [
     ["stopPreviewMode"],
-    ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll", { renderWideTimeline: false }],

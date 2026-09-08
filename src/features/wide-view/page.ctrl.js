@@ -134,6 +134,10 @@ export class WideViewPageController {
 
   renderTimeline(options = {}) {
     if (!this.isWideViewPageActive()) return;
+    if (typeof this._timelineController?.scheduleRender === "function") {
+      this._timelineController.scheduleRender(options);
+      return;
+    }
     this._timelineController?.render?.(options);
   }
 

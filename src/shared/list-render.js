@@ -196,18 +196,24 @@ export function runListPostRenderSync({
   forceHide = null,
   scheduleDeferredOlderHint = false,
 }) {
-  if (typeof syncBrowseHead === "function") {
-    syncBrowseHead();
+  const sync = () => {
+    if (typeof syncBrowseHead === "function") syncBrowseHead();
+    if (typeof syncOlderHint === "function") syncOlderHint(forceHide);
+  };
+  if (!scheduleDeferredOlderHint) {
+    sync();
+    return;
   }
-  if (typeof syncOlderHint !== "function") return;
-
-  syncOlderHint(forceHide);
-  if (!scheduleDeferredOlderHint) return;
 
   if (typeof globalThis.requestAnimationFrame === "function") {
-    globalThis.requestAnimationFrame(() => syncOlderHint(forceHide));
+    // List markup can contain hundreds of nodes. Let it receive a browser
+    // layout pass before reading scroll geometry for the sticky heading/chip.
+    globalThis.requestAnimationFrame(() =>
+      globalThis.requestAnimationFrame(sync),
+    );
+    return;
   }
-  setTimeout(() => syncOlderHint(forceHide), 200);
+  setTimeout(sync, 0);
 }
 
 export function resolveListMarkup({

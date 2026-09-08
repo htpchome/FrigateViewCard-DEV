@@ -162,9 +162,6 @@ test("activateMobileViewPageRoute leaves preview and preserves live media", () =
   assert.deepEqual(calls, [
     ["stopPreview"],
     ["closePopup"],
-    ["applyPreviewShellVisibility"],
-    ["applyStyleLayoutAndWideSyncForCard"],
-    ["toggleClass", "mobile-view-active", true],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll"],

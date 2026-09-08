@@ -298,6 +298,59 @@ test("first cached Alerts paint renders six rows before expanding", () => {
   }
 });
 
+test("a replaced browse list receives a limited first paint again", () => {
+  const { host, nodes } = createHost();
+  const controller = new BrowseRenderController(host);
+  const frameCallbacks = [];
+  const previousAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    frameCallbacks.push(callback);
+    return frameCallbacks.length;
+  };
+  host._reviews = Array.from({ length: 12 }, (_, index) => ({
+    id: `review-${index}`,
+    start_time: 300 - index,
+  }));
+  host._renderList = () => controller.renderList();
+
+  const flushFrame = () => {
+    const callbacks = frameCallbacks.splice(0);
+    callbacks.forEach((callback) => callback());
+  };
+
+  try {
+    controller.renderList();
+    flushFrame();
+    flushFrame();
+    assert.equal(nodes.list.innerHTML.includes(">review-11</article>"), true);
+
+    let replacementHtml = "";
+    const replacement = {
+      ...nodes.list,
+      get innerHTML() {
+        return replacementHtml;
+      },
+      set innerHTML(value) {
+        replacementHtml = value;
+      },
+    };
+    host._pageShellRegionElement = (regionKey, selector) => {
+      if (regionKey === "browse" && selector === "#list") return replacement;
+      if (selector === "#browse-head-label") return nodes.browseLabel;
+      if (selector === "#rec-day-prev") return nodes.previous;
+      if (selector === "#rec-day-next") return nodes.next;
+      if (selector === "#browse-return-top") return nodes.returnToTop;
+      return null;
+    };
+
+    controller.renderList();
+    assert.equal(replacementHtml.includes(">review-5</article>"), true);
+    assert.equal(replacementHtml.includes(">review-6</article>"), false);
+  } finally {
+    globalThis.requestAnimationFrame = previousAnimationFrame;
+  }
+});
+
 test("completed Alerts rendering reuses unchanged row markup", () => {
   const { host, reviewRowRenders } = createHost();
   const controller = new BrowseRenderController(host);

@@ -52,13 +52,16 @@ export function activateStandardPageRouteLifecycle({
   if (useRetainedPreviewCamera) {
     host._previewPageController?.prepareRetainedCameraExit?.();
   }
-  applyRouteFrame?.();
-
   if (context.startup === true) {
+    applyRouteFrame?.();
     activateStartupRoute(host, context);
     return;
   }
 
+  // A non-startup route replaces and binds its page layout immediately below.
+  // Styling the outgoing layout first forces the browser to recalculate a DOM
+  // tree that is about to be discarded, especially when it contains a long
+  // browse list.
   if (context.deferCameraSwitch === true) {
     syncStandardRouteShell(host);
     return;

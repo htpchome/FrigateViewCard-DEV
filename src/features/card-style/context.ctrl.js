@@ -322,12 +322,13 @@ export class CardStyleContextController {
       Number.isFinite(numericHeight) &&
       numericHeight > 0 &&
       !this._host._isPreviewContext();
-    const hostComputedStyle = getComputedStyle(this._host);
-    const haCardHeight = hostComputedStyle
-      .getPropertyValue("--ha-card-height")
-      .trim();
-
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
+    const hostComputedStyle = naturalCardView
+      ? null
+      : getComputedStyle(this._host);
+    const haCardHeight =
+      hostComputedStyle?.getPropertyValue("--ha-card-height").trim() || "";
+
     if (naturalCardView) {
       this._host.style.removeProperty("--card-host-height");
       card.style.removeProperty("--view-height");

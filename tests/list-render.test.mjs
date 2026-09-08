@@ -6,6 +6,7 @@ import {
   resolveActiveListScroller,
   resolveOlderHintMetrics,
   resolveReturnToTopChipState,
+  runListPostRenderSync,
   syncDayLabelAlignmentFromScroll,
 } from "../src/shared/list-render.js";
 import { STYLES } from "../src/styles.js";
@@ -291,4 +292,31 @@ test("day label alignment remains centered with overlay scrollbars", () => {
     STYLES,
     /\.list-day-label\{[^}]*inset-inline-start:calc\(var\(--fvc-day-label-scrollbar-width, 0px\) \/ 2\);/,
   );
+});
+
+test("post-render geometry waits until the list has received a layout frame", () => {
+  const previousAnimationFrame = globalThis.requestAnimationFrame;
+  const callbacks = [];
+  const calls = [];
+  globalThis.requestAnimationFrame = (callback) => {
+    callbacks.push(callback);
+    return callbacks.length;
+  };
+
+  try {
+    runListPostRenderSync({
+      syncBrowseHead: () => calls.push("head"),
+      syncOlderHint: () => calls.push("hint"),
+      scheduleDeferredOlderHint: true,
+    });
+    assert.deepEqual(calls, []);
+
+    callbacks.shift()();
+    assert.deepEqual(calls, []);
+
+    callbacks.shift()();
+    assert.deepEqual(calls, ["head", "hint"]);
+  } finally {
+    globalThis.requestAnimationFrame = previousAnimationFrame;
+  }
 });

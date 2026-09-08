@@ -218,10 +218,6 @@ test("activateStandardPageRoute leaves preview and preserves live media", () => 
   assert.deepEqual(calls, [
     ["stopPreview"],
     ["closePopup"],
-    ["applyPreviewShellVisibility"],
-    ["applyCardStyle"],
-    ["applyLayoutMode"],
-    ["syncColHeightIfWideView"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll"],
@@ -235,9 +231,6 @@ test("activateStandardPageRoute honors deferCameraSwitch", () => {
   controller.activateStandardPageRoute({ deferCameraSwitch: true });
 
   assert.deepEqual(calls, [
-    ["applyPreviewShellVisibility"],
-    ["applyCardStyle"],
-    ["applyLayoutMode"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll"],

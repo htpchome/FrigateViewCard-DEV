@@ -87,6 +87,7 @@ export class BrowseRenderController {
   constructor(host) {
     this._host = host;
     this._lastListElement = null;
+    this._browseFirstPaintList = null;
     this._browseFirstPaintState = new Map();
     this._reviewRowMarkupCache = new Map();
     this._reviewRowMarkupContext = "";
@@ -381,7 +382,7 @@ export class BrowseRenderController {
 
   _renderEventsList(list) {
     const allEvents = this._host._browseFilterController.filtered();
-    const firstPaint = this._resolveBrowseFirstPaint(allEvents);
+    const firstPaint = this._resolveBrowseFirstPaint(allEvents, list);
     const events = firstPaint.items;
     this.renderListLabel(resolveListLabelTimestamp(events));
     this._renderStandardListMarkup(list, {
@@ -428,9 +429,13 @@ export class BrowseRenderController {
     return `${camera}|${mode}|${day}|${tab}`;
   }
 
-  _resolveBrowseFirstPaint(entries) {
+  _resolveBrowseFirstPaint(entries, list = null) {
     const items = Array.isArray(entries) ? entries : [];
     const key = this._browseFirstPaintKey();
+    if (list && list !== this._browseFirstPaintList) {
+      this._browseFirstPaintList = list;
+      if (key) this._browseFirstPaintState.delete(key);
+    }
     if (!key || items.length <= INITIAL_BROWSE_PAINT_LIMIT) {
       if (key && items.length > 0) {
         this._browseFirstPaintState.set(key, "complete");
@@ -495,14 +500,16 @@ export class BrowseRenderController {
       buildContentHtml,
       emptyForceHide = null,
       contentForceHide = null,
-      syncOnContent = true,
+      syncOnContent = false,
       syncBrowseHead = false,
       scheduleDeferredOlderHint = true,
     } = {},
   ) {
-    const syncOlderHint = createOlderHintSyncer((forceHide) =>
-      this.syncOlderHint(forceHide),
-    );
+    const listIsCurrent = () =>
+      this._host._pageShellRegionElement?.("browse", "#list") === list;
+    const syncOlderHint = createOlderHintSyncer((forceHide) => {
+      if (listIsCurrent()) this.syncOlderHint(forceHide);
+    });
     const renderState = resolveListMarkup({
       items,
       emptyMessage,
@@ -522,7 +529,9 @@ export class BrowseRenderController {
 
     runListPostRenderSync({
       syncBrowseHead: syncBrowseHead
-        ? () => this.syncBrowseHeadFromScroll()
+        ? () => {
+            if (listIsCurrent()) this.syncBrowseHeadFromScroll();
+          }
         : null,
       syncOlderHint,
       forceHide: contentForceHide,
@@ -533,9 +542,13 @@ export class BrowseRenderController {
   _renderRecordings(list) {
     this.renderListLabel(this._host._winEnd);
     const recordings = this._host._recordingsViewRows(this._host._recordings);
-    const syncOlderHint = createOlderHintSyncer((forceHide) =>
-      this.syncOlderHint(forceHide),
-    );
+    const syncOlderHint = createOlderHintSyncer((forceHide) => {
+      if (
+        this._host._pageShellRegionElement?.("browse", "#list") === list
+      ) {
+        this.syncOlderHint(forceHide);
+      }
+    });
     const html = this._host._recordingsListMarkup(
       recordings,
       this._host._loading
@@ -549,7 +562,7 @@ export class BrowseRenderController {
       syncOlderHint,
       emptyForceHide: true,
       contentForceHide: false,
-      syncOnContent: true,
+      syncOnContent: false,
     });
     if (hasContent) {
       runListPostRenderSync({
@@ -576,7 +589,7 @@ export class BrowseRenderController {
     const allReviews = [...filteredReviews].sort(
       (a, b) => b.start_time - a.start_time,
     );
-    const firstPaint = this._resolveBrowseFirstPaint(allReviews);
+    const firstPaint = this._resolveBrowseFirstPaint(allReviews, list);
     const reviews = firstPaint.items;
 
     this.renderListLabel(resolveListLabelTimestamp(reviews));

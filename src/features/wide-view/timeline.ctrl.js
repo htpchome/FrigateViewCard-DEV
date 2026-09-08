@@ -112,9 +112,11 @@ export class WideViewTimelineController {
     this._savedScrollTop = 0;
     this._resizeObserver = null;
     this._renderRaf = 0;
+    this._renderCommitRaf = 0;
     this._scrollRaf = 0;
     this._clockTimer = null;
     this._pendingRenderOptions = null;
+    this._pendingRenderCommit = null;
     this._boundViewport = null;
     this._waitingForInitialLayout = false;
     this._boundWidthToggle = null;
@@ -281,11 +283,14 @@ export class WideViewTimelineController {
     this._resizeObserver?.disconnect?.();
     this._resizeObserver = null;
     cancelFrame(this._renderRaf);
+    cancelFrame(this._renderCommitRaf);
     cancelFrame(this._scrollRaf);
     this._clearClockRefresh();
     this._renderRaf = 0;
+    this._renderCommitRaf = 0;
     this._scrollRaf = 0;
     this._pendingRenderOptions = null;
+    this._pendingRenderCommit = null;
     this._waitingForInitialLayout = false;
   }
 
@@ -370,7 +375,7 @@ export class WideViewTimelineController {
     const viewport = this._boundViewport;
     this._scaleHours = nextScale;
     this._syncScaleControls();
-    this.render({ force: true, resetToNow: true });
+    this._scheduleRender({ force: true, resetToNow: true });
     viewport?.focus?.({ preventScroll: true });
   }
 
@@ -388,7 +393,7 @@ export class WideViewTimelineController {
     this._stackIndexes.set(id, activeIndex);
     group.activeIndex = activeIndex;
     if (!this._updateStackMarkup(group, step)) {
-      this.render({
+      this._scheduleRender({
         force: true,
         slidingStackId: id,
         slideDirection: step,
@@ -474,7 +479,7 @@ export class WideViewTimelineController {
     });
     if (!force && signature === this._lastRenderSignature) {
       this._refreshClockPosition();
-      this._syncDayLabel();
+      this._scheduleDayLabelSync();
       this._syncClockRefresh();
       return;
     }
@@ -551,10 +556,12 @@ export class WideViewTimelineController {
     this._lastContextKey = contextKey;
     this._syncScaleControls();
 
-    viewport.scrollTop = nextScrollTop;
-    this._savedScrollTop = nextScrollTop;
-    this._syncDayLabel(nextScrollTop);
+    this._scheduleRenderCommit(viewport, nextScrollTop);
     this._syncClockRefresh();
+  }
+
+  scheduleRender(options = {}) {
+    this._scheduleRender(options);
   }
 
   _scheduleRender(options = {}) {
@@ -569,10 +576,26 @@ export class WideViewTimelineController {
     };
     if (this._renderRaf) return;
     this._renderRaf = nextFrame(() => {
-      this._renderRaf = 0;
-      const pendingOptions = this._pendingRenderOptions || {};
-      this._pendingRenderOptions = null;
-      this.render(pendingOptions);
+      this._renderRaf = nextFrame(() => {
+        this._renderRaf = 0;
+        const pendingOptions = this._pendingRenderOptions || {};
+        this._pendingRenderOptions = null;
+        this.render(pendingOptions);
+      });
+    });
+  }
+
+  _scheduleRenderCommit(viewport, scrollTop) {
+    this._pendingRenderCommit = { viewport, scrollTop };
+    if (this._renderCommitRaf) return;
+    this._renderCommitRaf = nextFrame(() => {
+      this._renderCommitRaf = 0;
+      const pending = this._pendingRenderCommit;
+      this._pendingRenderCommit = null;
+      if (!pending || pending.viewport !== this._boundViewport) return;
+      pending.viewport.scrollTop = pending.scrollTop;
+      this._savedScrollTop = pending.scrollTop;
+      this._syncDayLabel(pending.scrollTop);
     });
   }
 
@@ -761,7 +784,7 @@ export class WideViewTimelineController {
     this._clockTimer = this._deps.setTimer(() => {
       this._clockTimer = null;
       this._refreshClockPosition();
-      this._syncDayLabel();
+      this._scheduleDayLabelSync();
       this._syncClockRefresh();
     }, delay);
     this._clockTimer?.unref?.();

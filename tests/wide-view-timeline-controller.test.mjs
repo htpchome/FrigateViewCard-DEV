@@ -160,6 +160,9 @@ test("Timeline waits for observed Wide layout before its initial paint", () => {
     observers[0].callback();
     assert.equal(frameCallbacks.length, 1);
     frameCallbacks[0]();
+    assert.equal(renders.length, 0);
+    assert.equal(frameCallbacks.length, 2);
+    frameCallbacks[1]();
 
     assert.deepEqual(renders, [
       {

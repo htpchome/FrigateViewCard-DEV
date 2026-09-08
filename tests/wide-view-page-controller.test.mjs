@@ -154,7 +154,7 @@ test("Wide View owns Timeline rendering and interaction delegation", () => {
   const timelineController = {
     buildRegionMarkup: () => "<aside>Timeline</aside>",
     bind: () => calls.push(["bindTimeline"]),
-    render: (options) => calls.push(["renderTimeline", options]),
+    scheduleRender: (options) => calls.push(["scheduleTimeline", options]),
     handleClick: (event, target) => {
       calls.push(["timelineClick", event, target]);
       return true;
@@ -183,7 +183,7 @@ test("Wide View owns Timeline rendering and interaction delegation", () => {
 
   assert.deepEqual(calls, [
     ["bindTimeline"],
-    ["renderTimeline", { force: true }],
+    ["scheduleTimeline", { force: true }],
     ["timelineClick", event, target],
     ["timelineConfig", { enabledChanged: true }],
     ["teardownTimeline", { preserveScroll: true }],
@@ -239,10 +239,6 @@ test("activateWideViewPageRoute leaves preview and preserves live media", () => 
   assert.deepEqual(calls, [
     ["stopPreview"],
     ["closePopup"],
-    ["applyPreviewShellVisibility"],
-    ["applyCardStyle"],
-    ["applyLayoutMode"],
-    ["syncColHeight"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll"],
@@ -258,10 +254,6 @@ test("activateWideViewPageRoute honors deferCameraSwitch", () => {
   controller.activateWideViewPageRoute({ deferCameraSwitch: true });
 
   assert.deepEqual(calls, [
-    ["applyPreviewShellVisibility"],
-    ["applyCardStyle"],
-    ["applyLayoutMode"],
-    ["syncColHeight"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
     ["renderAll"],

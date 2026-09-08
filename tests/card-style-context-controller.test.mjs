@@ -588,7 +588,9 @@ test("Card View ignores configured height and keeps its parent naturally sized",
     {
       document: global.document,
       window: { innerHeight: 900, visualViewport: null },
-      getComputedStyle: () => ({ getPropertyValue: () => "" }),
+      getComputedStyle: () => {
+        throw new Error("Card View must not force a computed-style read");
+      },
     },
     () => controller.applyCardStyle(),
   );
