@@ -680,6 +680,39 @@ test("interactive, direct-touch, and horizontally scrollable paths are excluded"
   assert.equal(shouldIgnoreDashboardSwipePath([plainSurface], options), false);
 });
 
+test("explicit page-media allowance keeps controls and zoomed media protected", () => {
+  const video = {
+    tagName: "VIDEO",
+    controls: false,
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === "video"),
+    computedStyle: { touchAction: "none", overflowX: "visible" },
+  };
+  const controlsVideo = { ...video, controls: true };
+  const options = {
+    getComputedStyleFn: (element) => element.computedStyle || {},
+    allowedGestureElements: new Set([video]),
+  };
+
+  assert.equal(shouldIgnoreDashboardSwipePath([video], options), false);
+  assert.equal(
+    shouldIgnoreDashboardSwipePath([controlsVideo], {
+      ...options,
+      allowedGestureElements: new Set(),
+    }),
+    true,
+  );
+  assert.equal(
+    shouldIgnoreDashboardSwipePath(
+      [{ ...video, matches: () => true }],
+      { ...options, allowedGestureElements: new Set() },
+    ),
+    true,
+  );
+});
+
 test("pre-mount navigation recognizes configured dashboard-wide cards", () => {
   assert.equal(
     dashboardConfigEnablesPreMountSwipeNavigation({
@@ -1260,7 +1293,7 @@ test("Card View horizontal content hands a reverse edge swipe back to page navig
   assert.deepEqual(h.windowRef.pushes, []);
 });
 
-test("Card View horizontal content keeps a reverse swipe while it can still scroll", async () => {
+test("Card View horizontal content gives a configured page target priority", async () => {
   const cardViewScroller = {
     tagName: "DIV",
     clientWidth: 200,
@@ -1279,6 +1312,162 @@ test("Card View horizontal content keeps a reverse swipe while it can still scro
     startX: 100,
     endX: 280,
     path: [cardViewScroller, h.host],
+  });
+  assert.equal(result.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, [PAGE_IDS.mobileView]);
+  assert.deepEqual(h.windowRef.pushes, []);
+});
+
+test("Card View horizontal content keeps native scrolling without a navigation target", async () => {
+  const cardViewScroller = {
+    tagName: "DIV",
+    clientWidth: 200,
+    scrollWidth: 600,
+    scrollLeft: 200,
+    computedStyle: {
+      direction: "ltr",
+      overflowX: "auto",
+      touchAction: "pan-x pan-y",
+    },
+    matches: (selector) => selector === ".card-view-scroller",
+  };
+  const h = createHarness();
+  h.controller.sync();
+
+  const result = swipe(h.rootState.eventTarget, {
+    startX: 100,
+    endX: 280,
+    path: [cardViewScroller, h.host],
+  });
+  assert.equal(result.prevented, false);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, []);
+  assert.deepEqual(h.windowRef.pushes, []);
+});
+
+test("Card View and Preview media surfaces pass internal page swipes", async () => {
+  for (const activePageClass of ["card-view-active", "preview-active"]) {
+    const video = {
+      tagName: "VIDEO",
+      controls: false,
+      computedStyle: { touchAction: "none", overflowX: "visible" },
+      matches: (selector) =>
+        selector
+          .split(",")
+          .some((part) => part.trim() === "video"),
+    };
+    const liveStage = {
+      tagName: "DIV",
+      matches: (selector) =>
+        selector
+          .split(",")
+          .some((part) => part.trim() === "#live-stage"),
+    };
+    const activePage = {
+      tagName: "DIV",
+      matches: (selector) =>
+        selector
+          .split(",")
+          .some((part) => part.trim() === `.card.${activePageClass}`),
+    };
+    const h = createHarness({
+      resolveInternalPageTarget: (direction) =>
+        direction === "next" ? PAGE_IDS.cardView : null,
+    });
+    h.controller.sync();
+
+    const path = activePageClass === "card-view-active"
+      ? [video, liveStage, activePage, h.host]
+      : [video, activePage, h.host];
+    const result = swipe(h.rootState.eventTarget, { path });
+    assert.equal(result.prevented, true);
+    await flushSwipeMotion();
+    assert.deepEqual(h.internalNavigations, [PAGE_IDS.cardView]);
+    assert.deepEqual(h.windowRef.pushes, []);
+  }
+});
+
+test("Card View media passes mouse swipes to internal pages before Home Assistant", async () => {
+  const video = {
+    tagName: "VIDEO",
+    controls: false,
+    computedStyle: { touchAction: "none", overflowX: "visible" },
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === "video"),
+  };
+  const liveStage = {
+    tagName: "DIV",
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === "#live-stage"),
+  };
+  const activeCardPage = {
+    tagName: "DIV",
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === ".card.card-view-active"),
+  };
+  const h = createHarness({
+    enforceDashboardOwner: true,
+    resolveInternalPageTarget: (direction) =>
+      direction === "next" ? PAGE_IDS.singleView : null,
+    rootOptions: {
+      views: [
+        {
+          path: "one",
+          cards: [
+            {
+              type: "custom:frigate-view-card",
+              ha_dashboard_swipe_navigation_owner: true,
+              ha_dashboard_swipe_navigation: "dashboard-wide",
+              ha_dashboard_swipe_mouse_enabled: true,
+            },
+          ],
+        },
+        { path: "two", cards: [{ type: "entities" }] },
+      ],
+    },
+  });
+  h.controller.sync();
+
+  const result = mouseSwipe(h.rootState.eventTarget, {
+    path: [video, liveStage, activeCardPage, h.host],
+  });
+  assert.equal(result.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, [PAGE_IDS.singleView]);
+  assert.deepEqual(h.windowRef.pushes, []);
+});
+
+test("zoomed Card View media keeps its direct gesture ownership", async () => {
+  const zoomedVideo = {
+    tagName: "VIDEO",
+    controls: false,
+    computedStyle: { touchAction: "none", overflowX: "visible" },
+    matches: (selector) =>
+      selector.split(",").some((part) =>
+        ["video", ".fvc-video-zoomed"].includes(part.trim()),
+      ),
+  };
+  const activeCardPage = {
+    tagName: "DIV",
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === ".card.card-view-active"),
+  };
+  const h = createHarness({
+    resolveInternalPageTarget: () => PAGE_IDS.singleView,
+  });
+  h.controller.sync();
+
+  const result = swipe(h.rootState.eventTarget, {
+    path: [zoomedVideo, activeCardPage, h.host],
   });
   assert.equal(result.prevented, false);
   await flushSwipeMotion();

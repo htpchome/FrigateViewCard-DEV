@@ -95,6 +95,11 @@ const SWIPE_BLOCK_SELECTOR = [
   "#filter-panel",
   "#cal-panel",
 ].join(",");
+const PAGE_SWIPE_MEDIA_PAGE_SELECTOR =
+  ".card.card-view-active,.card.preview-active";
+const PAGE_SWIPE_MEDIA_SELECTOR = "video,#live-stage";
+const PAGE_SWIPE_ZOOMED_SELECTOR =
+  ".fvc-video-zoomed,.card-view-video-zoomed";
 
 const DIRECT_GESTURE_TAG_PATTERN = /(?:^|-)(?:dial|knob|range|slider)(?:-|$)/;
 const DASHBOARD_WIDE_SWIPE_MODES = new Set([
@@ -149,6 +154,15 @@ const matchesSwipeBlockSelector = (element) => {
   }
 };
 
+const matchesSelector = (element, selector) => {
+  if (typeof element?.matches !== "function") return false;
+  try {
+    return element.matches(selector);
+  } catch (_) {
+    return false;
+  }
+};
+
 const hasDirectGestureSemantics = (element) => {
   const tagName = String(element?.tagName || "").trim().toLowerCase();
   return (
@@ -188,23 +202,51 @@ export const shouldIgnoreDashboardSwipePath = (
   {
     getComputedStyleFn = globalThis.getComputedStyle,
     allowedHorizontalScroller = null,
+    allowedGestureElements = null,
   } = {},
 ) => {
   for (const element of Array.isArray(path) ? path : []) {
     if (!isElementLike(element)) continue;
     const isAllowedHorizontalScroller = element === allowedHorizontalScroller;
+    const isAllowedGestureElement =
+      allowedGestureElements?.has?.(element) === true;
     if (
-      matchesSwipeBlockSelector(element) ||
+      (!isAllowedGestureElement && matchesSwipeBlockSelector(element)) ||
       hasDirectGestureSemantics(element) ||
       (!isAllowedHorizontalScroller &&
         isHorizontallyScrollable(element, getComputedStyleFn)) ||
-      reservesDirectTouchGestures(element, getComputedStyleFn)
+      (!isAllowedGestureElement &&
+        reservesDirectTouchGestures(element, getComputedStyleFn))
     ) {
       return true;
     }
     if (String(element.tagName || "").toUpperCase() === "HUI-ROOT") break;
   }
   return false;
+};
+
+const resolveAllowedPageSwipeGestureElements = (path) => {
+  const elements = (Array.isArray(path) ? path : []).filter(isElementLike);
+  if (
+    !elements.some((element) =>
+      matchesSelector(element, PAGE_SWIPE_MEDIA_PAGE_SELECTOR),
+    ) ||
+    elements.some((element) =>
+      matchesSelector(element, PAGE_SWIPE_ZOOMED_SELECTOR),
+    )
+  ) {
+    return null;
+  }
+  const allowed = new Set(
+    elements.filter((element) => {
+      if (!matchesSelector(element, PAGE_SWIPE_MEDIA_SELECTOR)) return false;
+      return (
+        String(element.tagName || "").toUpperCase() !== "VIDEO" ||
+        element.controls !== true
+      );
+    }),
+  );
+  return allowed.size ? allowed : null;
 };
 
 const findCardViewHorizontalScroller = (path, getComputedStyleFn) =>
@@ -1160,10 +1202,14 @@ const bindCoordinator = (state) => {
     const cardViewHorizontalScroller = startsInsideOwner
       ? findCardViewHorizontalScroller(path, options.getComputedStyleFn)
       : null;
+    const allowedGestureElements = startsInsideOwner
+      ? resolveAllowedPageSwipeGestureElements(path)
+      : null;
     if (
       shouldIgnoreDashboardSwipePath(path, {
         getComputedStyleFn: options.getComputedStyleFn,
         allowedHorizontalScroller: cardViewHorizontalScroller,
+        allowedGestureElements,
       })
     ) {
       if (startsInsideOwner) event.stopPropagation?.();
@@ -1293,8 +1339,10 @@ const bindCoordinator = (state) => {
     }
     if (gesture.axis !== "horizontal") return;
     const direction = resolveGestureDirection(gesture, deltaX);
+    const target = resolveGestureTarget(state, gesture, direction);
     if (
       gesture.horizontalScroller &&
+      !target &&
       canHorizontalScrollerConsume(
         gesture.horizontalScroller,
         direction,
@@ -1308,7 +1356,6 @@ const bindCoordinator = (state) => {
     if (event.cancelable !== false) event.preventDefault?.();
     if (!gesture.liveMotionEnabled) return;
 
-    const target = resolveGestureTarget(state, gesture, direction);
     const motion = ensureGestureMotion(state, gesture);
     if (!motion) return;
     const offset = resolveDashboardSwipeDragOffset({
