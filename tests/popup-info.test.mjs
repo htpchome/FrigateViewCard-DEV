@@ -201,6 +201,7 @@ test("mobile popup controls sit flush below video and stay touch safe", () => {
     /\.card\.mobile-rotate-popup \.popup-media-controls,\s*\.card\.mobile-rotate-popup-exit \.popup-media-controls \{([^}]*)\}/,
   )?.[1] || "";
   assert.match(rotateRule, /position:fixed;left:0;right:0;bottom:0;width:auto;margin:0;/);
+  assert.doesNotMatch(rotateRule, /safe-area-inset/);
   assert.doesNotMatch(rotateRule, /background:|opacity:|backdrop-filter:/);
 });
 

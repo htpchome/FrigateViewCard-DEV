@@ -20,6 +20,18 @@ export const CARD_VIEW_PAGE_STYLES = `
     max-height:none !important;
     overflow:hidden !important;
   }
+  :host(.card-view-natural-height.mobile-view-rotate-cover),
+  :host(.card-view-natural-height.mobile-view-rotate-cover) ha-card,
+  :host(.card-view-natural-height.mobile-view-rotate-cover) .card.card-view-active:is(
+    .mobile-rotate-live,
+    .mobile-rotate-live-exit,
+    .mobile-rotate-popup,
+    .mobile-rotate-popup-exit
+  ) {
+    height:var(--rotate-vh,100dvh) !important;
+    min-height:var(--rotate-vh,100dvh) !important;
+    max-height:var(--rotate-vh,100dvh) !important;
+  }
   .card.card-view-active .card-view-layout {
     height:auto;
     max-height:none;
@@ -551,6 +563,23 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-media-drawer:not(.is-open) .card-view-media-drawer-handle {
     top:auto;bottom:max(8px,env(safe-area-inset-bottom,0px));left:50%;width:56px;height:30px;
     border-left:1px solid var(--fvc-media-overlay-border);border-radius:8px;transform:translateX(-50%);
+  }
+  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #myPopup.popup-content--card-view-drawer .popup-body {
+    position:relative;flex:1 1 auto;width:100%;height:100%;min-height:0;
+  }
+  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #viewer {
+    position:absolute;inset:0;display:flex !important;align-items:center;justify-content:center;width:100%;height:100%;max-width:none;max-height:none;
+    background:#000;
+  }
+  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #viewer video {
+    width:auto !important;height:100% !important;max-width:100% !important;max-height:100% !important;
+    object-fit:contain !important;object-position:center center !important;background:#000;
+  }
+  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) .popup-card-view-actions {
+    left:max(20px,env(safe-area-inset-left,0px));
+  }
+  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #popup-playback-controls {
+    right:max(20px,env(safe-area-inset-right,0px));
   }
   .card.card-view-active.card-view-video-panel-only .card-view-drawer,
   .card.card-view-active.card-view-video-panel-only .card-view-footer {display:none;}

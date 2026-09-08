@@ -1009,6 +1009,30 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /:host\(\.card-view-natural-height\.mobile-view-rotate-cover\)[\s\S]*?height:var\(--rotate-vh,100dvh\) !important;[\s\S]*?min-height:var\(--rotate-vh,100dvh\) !important;[\s\S]*?max-height:var\(--rotate-vh,100dvh\) !important;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #myPopup\.popup-content--card-view-drawer \.popup-body \{\s*position:relative;flex:1 1 auto;width:100%;height:100%;min-height:0;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #viewer \{\s*position:absolute;inset:0;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #viewer video \{[\s\S]*?width:auto !important;height:100% !important;max-width:100% !important;max-height:100% !important;[\s\S]*?object-fit:contain !important;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) \.popup-card-view-actions \{\s*left:max\(20px,env\(safe-area-inset-left,0px\)\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #popup-playback-controls \{\s*right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-media-drawer\.is-open \.card-view-media-drawer-handle \{left:calc\(100% - 1px\);\}/,
   );
   assert.match(

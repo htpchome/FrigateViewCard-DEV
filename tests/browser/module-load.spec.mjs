@@ -532,6 +532,94 @@ test.describe("touch input", () => {
     });
   });
 
+  test("contains rotated Card View Video Only media and keeps controls inside the sides", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto(baseUrl);
+    const geometry = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
+        mobile_view_rotate_to_fullscreen: true,
+      });
+      card._pageId = "card-view";
+      card._renderShell();
+      card.style.setProperty("--rotate-vw", "844px");
+      card.style.setProperty("--rotate-vh", "390px");
+      card.style.setProperty("--rotate-ox", "0px");
+      card.style.setProperty("--rotate-oy", "0px");
+      card.classList.add("mobile-view-rotate-cover");
+
+      const root = card.shadowRoot;
+      const cardRoot = root.querySelector("#card");
+      const popup = root.querySelector("#myPopup");
+      const viewer = root.querySelector("#viewer");
+      const actions = root.querySelector("#popup-card-view-actions");
+      const mediaBar = root.querySelector("#popup-media-controls");
+      cardRoot.classList.add("mobile-rotate-popup");
+      popup.classList.add("popup-content--card-view-drawer", "is-open");
+      popup.style.animation = "none";
+      popup.style.transition = "none";
+      viewer.style.display = "flex";
+
+      const video = document.createElement("video");
+      video.style.aspectRatio = "16 / 9";
+      viewer.append(video);
+
+      actions.hidden = false;
+      actions.append(document.createElement("button"));
+      const sideControls = document.createElement("div");
+      sideControls.id = "popup-playback-controls";
+      sideControls.className = "popup-playback-controls";
+      sideControls.append(document.createElement("button"));
+      viewer.append(sideControls);
+      mediaBar.hidden = false;
+      mediaBar.classList.add("mobile-tablet-layout");
+
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const hostRect = card.getBoundingClientRect();
+      const cardRect = cardRoot.getBoundingClientRect();
+      const popupRect = popup.getBoundingClientRect();
+      const viewerRect = viewer.getBoundingClientRect();
+      const videoRect = video.getBoundingClientRect();
+      const actionsRect = actions.getBoundingClientRect();
+      const sideControlsRect = sideControls.getBoundingClientRect();
+      const mediaBarRect = mediaBar.getBoundingClientRect();
+
+      return {
+        hostHeight: hostRect.height,
+        cardHeight: cardRect.height,
+        popupHeight: popupRect.height,
+        viewerHeight: viewerRect.height,
+        videoWidth: videoRect.width,
+        videoLeft: videoRect.left,
+        videoRight: videoRect.right,
+        objectFit: getComputedStyle(video).objectFit,
+        leftControlInset: actionsRect.left,
+        rightControlInset: 844 - sideControlsRect.right,
+        bottomBarGap: 390 - mediaBarRect.bottom,
+      };
+    });
+
+    expect(geometry.hostHeight).toBeCloseTo(390, 0);
+    expect(geometry.cardHeight).toBeCloseTo(390, 0);
+    expect(geometry.popupHeight).toBeCloseTo(390, 0);
+    expect(geometry.viewerHeight).toBeCloseTo(390, 0);
+    expect(geometry.videoWidth).toBeCloseTo((390 * 16) / 9, 0);
+    expect(geometry.videoLeft).toBeGreaterThan(70);
+    expect(geometry.videoRight).toBeLessThan(774);
+    expect(geometry.objectFit).toBe("contain");
+    expect(geometry.leftControlInset).toBeCloseTo(20, 0);
+    expect(geometry.rightControlInset).toBeCloseTo(20, 0);
+    expect(geometry.bottomBarGap).toBeCloseTo(0, 0);
+  });
+
   test("keeps remounted live video on custom controls throughout rotation", async ({
     page,
   }) => {
