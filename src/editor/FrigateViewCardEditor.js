@@ -2255,7 +2255,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       8,
       Math.min(
         Number(contentRect.height) - 44,
-        viewportBottom - Number(contentRect.top) - 44,
+        viewportBottom - Number(contentRect.top) - 38,
       ),
     );
     slot.style.top = `${cueTop}px`;

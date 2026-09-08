@@ -1696,7 +1696,7 @@ test("editor accordion More cue is visible only while options remain below", () 
 
   editor._syncSettingsPanelMoreState(panel, viewport);
   assert.equal(more.hidden, false);
-  assert.equal(slot.style.top, "656px");
+  assert.equal(slot.style.top, "662px");
 
   contentBottom = 790;
   editor._syncSettingsPanelMoreState(panel, viewport);
