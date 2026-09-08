@@ -2191,25 +2191,43 @@ export class FrigateViewCardEditor extends HTMLElement {
     </section>`;
   }
 
-  _settingsPanelScrollContainer() {
-    let node = this;
-    const visited = new Set();
-    while (node && !visited.has(node)) {
-      visited.add(node);
-      const overflowY = String(
-        globalThis.getComputedStyle?.(node)?.overflowY || "",
-      );
+  _settingsPanelScrollContainer(path = null) {
+    const candidates = Array.isArray(path) && path.length ? [...path] : [];
+    if (!candidates.length) {
+      let node = this;
+      const visited = new Set();
+      while (node && !visited.has(node)) {
+        visited.add(node);
+        candidates.push(node);
+        const root = node.getRootNode?.();
+        node = node.assignedSlot || node.parentElement || root?.host || null;
+      }
+    }
+
+    for (const node of candidates) {
+      const documentRoot = this.ownerDocument;
       if (
-        /(auto|scroll|overlay)/.test(overflowY) &&
-        Number(node.clientHeight) > 0 &&
-        Number(node.scrollHeight) > Number(node.clientHeight) + 1
+        !node ||
+        node === documentRoot?.scrollingElement ||
+        node === documentRoot?.documentElement ||
+        node === documentRoot?.body ||
+        typeof node.getBoundingClientRect !== "function"
       ) {
+        continue;
+      }
+      let overflowY = "";
+      try {
+        overflowY = String(
+          globalThis.getComputedStyle?.(node)?.overflowY || "",
+        );
+      } catch {
+        continue;
+      }
+      if (/(auto|scroll|overlay)/.test(overflowY) && node.clientHeight > 0) {
         return node;
       }
-      const root = node.getRootNode?.();
-      node = node.assignedSlot || node.parentElement || root?.host || null;
     }
-    return this.ownerDocument?.scrollingElement || null;
+    return null;
   }
 
   _syncSettingsPanelMoreState(panel, viewport = null) {
@@ -2222,23 +2240,14 @@ export class FrigateViewCardEditor extends HTMLElement {
       return;
     }
 
-    const scrollViewport = viewport || this._settingsPanelScrollContainer();
+    const scrollViewport = viewport;
     const contentRect = content.getBoundingClientRect?.();
-    if (!contentRect) {
+    const viewportRect = scrollViewport?.getBoundingClientRect?.();
+    if (!contentRect || !viewportRect) {
       more.hidden = true;
       return;
     }
-    const documentScroller = this.ownerDocument?.scrollingElement;
-    const viewportRect = scrollViewport?.getBoundingClientRect?.();
-    const windowBottom =
-      Number(globalThis.innerHeight) ||
-      Number(this.ownerDocument?.documentElement?.clientHeight) ||
-      800;
-    const viewportBottom =
-      scrollViewport && scrollViewport !== documentScroller &&
-      Number.isFinite(viewportRect?.bottom)
-      ? Math.min(windowBottom, viewportRect.bottom)
-      : windowBottom;
+    const viewportBottom = Number(viewportRect.bottom);
     const hasHiddenOptions = Number(contentRect.bottom) > viewportBottom + 3;
     more.hidden = !hasHiddenOptions;
     if (!hasHiddenOptions) return;
@@ -2252,6 +2261,32 @@ export class FrigateViewCardEditor extends HTMLElement {
     slot.style.top = `${cueTop}px`;
   }
 
+  _scrollSettingsPanelToRemainingContent(panel, panels, viewport) {
+    if (!panel || !viewport) return false;
+    const panelIndex = panels.indexOf(panel);
+    const nextToggle = panels[panelIndex + 1]?.querySelector?.(
+      "[data-panel-toggle]",
+    );
+    const content = panel.querySelector?.(".setting-content");
+    const targetRect =
+      nextToggle?.getBoundingClientRect?.() ||
+      content?.getBoundingClientRect?.();
+    const viewportRect = viewport.getBoundingClientRect?.();
+    if (!targetRect || !viewportRect) return false;
+
+    const distance = Math.max(
+      0,
+      Math.ceil(Number(targetRect.bottom) - Number(viewportRect.bottom) + 8),
+    );
+    if (distance <= 0) return false;
+    if (typeof viewport.scrollBy === "function") {
+      viewport.scrollBy({ top: distance, behavior: "smooth" });
+    } else {
+      viewport.scrollTop += distance;
+    }
+    return true;
+  }
+
   _wireSettingsPanels() {
     this._settingsPanelScrollCleanup?.();
     this._settingsPanelScrollCleanup = null;
@@ -2260,10 +2295,13 @@ export class FrigateViewCardEditor extends HTMLElement {
     const panels = Array.from(this.querySelectorAll(".settings-panel"));
     if (!panels.length) return;
 
-    const viewport = this._settingsPanelScrollContainer();
-    const documentScroller = this.ownerDocument?.scrollingElement;
-    const scrollTarget =
-      viewport && viewport !== documentScroller ? viewport : globalThis;
+    let viewport =
+      this._settingsPanelViewport?.isConnected !== false
+        ? this._settingsPanelViewport || null
+        : null;
+    viewport ||= this._settingsPanelScrollContainer();
+    if (viewport) this._settingsPanelViewport = viewport;
+    let syncFrame = 0;
     let lastActivePanel = null;
     const syncMore = () => {
       const nextActivePanel =
@@ -2277,20 +2315,40 @@ export class FrigateViewCardEditor extends HTMLElement {
       }
     };
     const scheduleMoreSync = () => {
+      if (syncFrame) return;
       if (typeof globalThis.requestAnimationFrame === "function") {
-        globalThis.requestAnimationFrame(syncMore);
+        syncFrame = globalThis.requestAnimationFrame(() => {
+          syncFrame = 0;
+          syncMore();
+        });
       } else {
         setTimeout(syncMore, 0);
       }
     };
+    const bindViewport = (nextViewport) => {
+      if (!nextViewport || nextViewport === viewport) return;
+      viewport?.removeEventListener?.("scroll", scheduleMoreSync);
+      viewport = nextViewport;
+      this._settingsPanelViewport = nextViewport;
+      viewport.addEventListener?.("scroll", scheduleMoreSync, {
+        passive: true,
+      });
+      scheduleMoreSync();
+    };
 
-    scrollTarget?.addEventListener?.("scroll", syncMore, { passive: true });
+    viewport?.addEventListener?.("scroll", scheduleMoreSync, {
+      passive: true,
+    });
     globalThis.addEventListener?.("resize", scheduleMoreSync, {
       passive: true,
     });
     this._settingsPanelScrollCleanup = () => {
-      scrollTarget?.removeEventListener?.("scroll", syncMore);
+      viewport?.removeEventListener?.("scroll", scheduleMoreSync);
       globalThis.removeEventListener?.("resize", scheduleMoreSync);
+      if (syncFrame) {
+        globalThis.cancelAnimationFrame?.(syncFrame);
+        syncFrame = 0;
+      }
     };
     if (typeof globalThis.ResizeObserver === "function") {
       this._settingsPanelResizeObserver = new globalThis.ResizeObserver(
@@ -2314,7 +2372,10 @@ export class FrigateViewCardEditor extends HTMLElement {
       const content = panel.querySelector?.(".setting-content");
       panel
         .querySelector("[data-panel-toggle]")
-        ?.addEventListener("click", () => {
+        ?.addEventListener("click", (event) => {
+          bindViewport(
+            this._settingsPanelScrollContainer(event.composedPath?.()),
+          );
           if (panel.classList.contains("active")) {
             setActive(null);
           } else {
@@ -2326,22 +2387,14 @@ export class FrigateViewCardEditor extends HTMLElement {
         ?.addEventListener?.("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
-          const target = viewport && viewport !== documentScroller
-            ? viewport
-            : globalThis;
-          const distance = Math.max(
-            120,
-            Math.floor(
-              Number(viewport?.clientHeight || globalThis.innerHeight || 600) *
-                0.7,
-            ),
+          bindViewport(
+            this._settingsPanelScrollContainer(event.composedPath?.()),
           );
-          if (typeof target.scrollBy === "function") {
-            target.scrollBy({ top: distance, behavior: "smooth" });
-          } else if (viewport) {
-            viewport.scrollTop += distance;
-            syncMore();
-          }
+          this._scrollSettingsPanelToRemainingContent(
+            panel,
+            panels,
+            viewport,
+          );
         });
     });
 

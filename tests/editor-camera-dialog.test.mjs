@@ -1690,13 +1690,86 @@ test("editor accordion More cue is visible only while options remain below", () 
     querySelector: (selector) =>
       selector === ".setting-content" ? content : null,
   };
-  editor._settingsPanelScrollContainer = () => null;
+  const viewport = {
+    getBoundingClientRect: () => ({ bottom: 800 }),
+  };
 
-  editor._syncSettingsPanelMoreState(panel);
+  editor._syncSettingsPanelMoreState(panel, viewport);
   assert.equal(more.hidden, false);
   assert.equal(slot.style.top, "656px");
 
   contentBottom = 790;
-  editor._syncSettingsPanelMoreState(panel);
+  editor._syncSettingsPanelMoreState(panel, viewport);
   assert.equal(more.hidden, true);
+});
+
+test("editor accordion finds the config scroller before a panel overflows", () => {
+  const editor = new FrigateViewCardEditor();
+  const originalGetComputedStyle = globalThis.getComputedStyle;
+  const dashboardScroller = {
+    clientHeight: 900,
+    getBoundingClientRect: () => ({ bottom: 900 }),
+  };
+  const configScroller = {
+    clientHeight: 600,
+    scrollHeight: 600,
+    getBoundingClientRect: () => ({ bottom: 700 }),
+  };
+  Object.defineProperty(editor, "ownerDocument", {
+    configurable: true,
+    value: {
+      body: dashboardScroller,
+      documentElement: dashboardScroller,
+      scrollingElement: dashboardScroller,
+    },
+  });
+  globalThis.getComputedStyle = (node) => ({
+    overflowY: node === configScroller ? "auto" : "visible",
+  });
+
+  try {
+    assert.equal(
+      editor._settingsPanelScrollContainer([
+        {},
+        configScroller,
+        dashboardScroller,
+      ]),
+      configScroller,
+    );
+  } finally {
+    globalThis.getComputedStyle = originalGetComputedStyle;
+  }
+});
+
+test("editor accordion More scrolls only enough to reveal the next panel", () => {
+  const editor = new FrigateViewCardEditor();
+  const scrollCalls = [];
+  const viewport = {
+    getBoundingClientRect: () => ({ bottom: 800 }),
+    scrollBy: (options) => scrollCalls.push(options),
+  };
+  const content = {
+    getBoundingClientRect: () => ({ bottom: 1200 }),
+  };
+  const nextToggle = {
+    getBoundingClientRect: () => ({ bottom: 950 }),
+  };
+  const panel = {
+    querySelector: (selector) =>
+      selector === ".setting-content" ? content : null,
+  };
+  const nextPanel = {
+    querySelector: (selector) =>
+      selector === "[data-panel-toggle]" ? nextToggle : null,
+  };
+
+  assert.equal(
+    editor._scrollSettingsPanelToRemainingContent(
+      panel,
+      [panel, nextPanel],
+      viewport,
+    ),
+    true,
+  );
+  assert.deepEqual(scrollCalls, [{ top: 158, behavior: "smooth" }]);
 });
