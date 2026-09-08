@@ -450,8 +450,11 @@ export class CardViewPageController {
 
   setDrawerOpen(open) {
     this._ensureDrawerState();
-    this._drawerOpen = open === true;
+    const nextOpen = open === true;
+    const changed = nextOpen !== this._drawerOpen;
+    this._drawerOpen = nextOpen;
     this.syncDrawerState();
+    if (changed) this.renderActivity();
     return this._drawerOpen;
   }
 
@@ -1077,6 +1080,12 @@ export class CardViewPageController {
     this.renderMediaDrawer();
     const content = this._host._pageShellRegion?.("cardViewActivity");
     if (!content) return;
+    this._ensureDrawerState();
+    if (this.usesOverlayPresentation() || !this._drawerOpen) {
+      this._setActivityMarkup(content, "");
+      this._bindScroller();
+      return;
+    }
     const columnValue = String(this._columns);
     if (
       content.dataset &&
@@ -1495,6 +1504,7 @@ export class CardViewPageController {
       this.renderMediaDrawer();
     }
     this.renderToolbar();
+    if (viewModeChanged) this.renderActivity();
     if (takeoverDefaultChanged) {
       void this.refreshActiveContent({ force: true });
     }

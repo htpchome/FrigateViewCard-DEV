@@ -1269,7 +1269,7 @@ test("Card View drawer swipes settle fully open or closed", () => {
   );
 });
 
-test("Card View drawer follows its configured starting state and toggles without rerendering", () => {
+test("Card View drawer follows its configured starting state and updates in place", () => {
   const classes = new Set(["is-open"]);
   const attributes = new Map();
   const drawer = {
@@ -1711,6 +1711,114 @@ test("Card View preserves alert tile DOM when repeated entry renders are identic
   controller.renderActivity();
 
   assert.equal(writes, 1);
+});
+
+test("Video Only Card View does not build its permanently hidden activity drawer", () => {
+  let markup = '<div class="stale-activity">stale</div>';
+  let writes = 0;
+  let reviewRenders = 0;
+  let mediaDrawerRenders = 0;
+  const content = {};
+  Object.defineProperty(content, "innerHTML", {
+    get: () => markup,
+    set: (value) => {
+      writes += 1;
+      markup = value;
+    },
+  });
+  const host = {
+    _pageId: "card-view",
+    _config: {
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+    },
+    _pageShellRegion: (region) =>
+      region === "cardViewActivity" ? content : null,
+    _reviewListItemHTML: () => {
+      reviewRenders += 1;
+      return '<div class="list-item">alert</div>';
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  controller._alerts = [{ id: "review-1" }];
+  controller.renderMediaDrawer = () => {
+    mediaDrawerRenders += 1;
+  };
+  controller._bindScroller = () => {};
+
+  controller.renderActivity();
+  controller.renderActivity();
+
+  assert.equal(markup, "");
+  assert.equal(writes, 1);
+  assert.equal(reviewRenders, 0);
+  assert.equal(mediaDrawerRenders, 2);
+
+  host.shadowRoot = {
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+  host._config.card_view_view_mode = CARD_VIEW_VIEW_MODES.bottomPanelOpen;
+  controller.syncCardViewPageMarkup = () => {};
+  controller.renderCamSwitcher = () => {};
+  controller.renderToolbar = () => {};
+  controller.applyConfigUpdate({ viewModeChanged: true });
+
+  assert.equal(reviewRenders, 1);
+  assert.match(markup, /class="list-item"/);
+});
+
+test("Card View defers bottom activity tiles while its drawer is closed", () => {
+  let markup = "";
+  let reviewRenders = 0;
+  const content = {};
+  Object.defineProperty(content, "innerHTML", {
+    get: () => markup,
+    set: (value) => {
+      markup = value;
+    },
+  });
+  const drawer = {
+    classList: { toggle() {} },
+    dataset: {},
+    setAttribute() {},
+  };
+  const host = {
+    _pageId: "card-view",
+    _config: {
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.bottomPanelClosed,
+    },
+    _pageShellRegion: (region) =>
+      region === "cardViewActivity" ? content : null,
+    _reviewListItemHTML: () => {
+      reviewRenders += 1;
+      return '<div class="list-item">alert</div>';
+    },
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "[data-card-view-drawer]" ? drawer : null,
+      querySelectorAll: () => [],
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  controller._alerts = [{ id: "review-1" }];
+  controller.renderMediaDrawer = () => {};
+  controller._bindScroller = () => {};
+
+  controller.renderActivity();
+  assert.equal(reviewRenders, 0);
+  assert.equal(markup, "");
+
+  controller.setDrawerOpen(true);
+  assert.equal(reviewRenders, 1);
+  assert.match(markup, /class="list-item"/);
+
+  controller.setDrawerOpen(false);
+  assert.equal(reviewRenders, 1);
+  assert.equal(markup, "");
 });
 
 test("Card View preserves toolbar DOM when repeated renders are identical", () => {
