@@ -667,6 +667,13 @@ test("interactive, direct-touch, and horizontally scrollable paths are excluded"
     shouldIgnoreDashboardSwipePath([horizontalScroller], options),
     true,
   );
+  assert.equal(
+    shouldIgnoreDashboardSwipePath([horizontalScroller], {
+      ...options,
+      allowedHorizontalScroller: horizontalScroller,
+    }),
+    false,
+  );
   assert.equal(shouldIgnoreDashboardSwipePath([ariaSlider], options), true);
   assert.equal(shouldIgnoreDashboardSwipePath([customRange], options), true);
   assert.equal(shouldIgnoreDashboardSwipePath([popupSurface], options), true);
@@ -1225,6 +1232,86 @@ test("Frigate pages consume swipes before Home Assistant dashboard pages", async
   assert.deepEqual(h.internalNavigations, ["mobile-view"]);
   assert.deepEqual(h.windowRef.pushes, []);
   assert.deepEqual(h.dashboardSettles, []);
+});
+
+test("Card View horizontal content hands a reverse edge swipe back to page navigation", async () => {
+  const cardViewScroller = {
+    tagName: "DIV",
+    clientWidth: 200,
+    scrollWidth: 600,
+    scrollLeft: 0,
+    computedStyle: { direction: "ltr", overflowX: "auto", touchAction: "pan-x pan-y" },
+    matches: (selector) => selector === ".card-view-scroller",
+  };
+  const h = createHarness({
+    resolveInternalPageTarget: (direction) =>
+      direction === "previous" ? PAGE_IDS.mobileView : null,
+  });
+  h.controller.sync();
+
+  const result = swipe(h.rootState.eventTarget, {
+    startX: 100,
+    endX: 280,
+    path: [cardViewScroller, h.host],
+  });
+  assert.equal(result.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, [PAGE_IDS.mobileView]);
+  assert.deepEqual(h.windowRef.pushes, []);
+});
+
+test("Card View horizontal content keeps a reverse swipe while it can still scroll", async () => {
+  const cardViewScroller = {
+    tagName: "DIV",
+    clientWidth: 200,
+    scrollWidth: 600,
+    scrollLeft: 200,
+    computedStyle: { direction: "ltr", overflowX: "auto", touchAction: "pan-x pan-y" },
+    matches: (selector) => selector === ".card-view-scroller",
+  };
+  const h = createHarness({
+    resolveInternalPageTarget: (direction) =>
+      direction === "previous" ? PAGE_IDS.mobileView : null,
+  });
+  h.controller.sync();
+
+  const result = swipe(h.rootState.eventTarget, {
+    startX: 100,
+    endX: 280,
+    path: [cardViewScroller, h.host],
+  });
+  assert.equal(result.prevented, false);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, []);
+  assert.deepEqual(h.windowRef.pushes, []);
+});
+
+test("Card View edge swipe without an internal target remains available to Home Assistant", async () => {
+  const cardViewScroller = {
+    tagName: "DIV",
+    clientWidth: 200,
+    scrollWidth: 600,
+    scrollLeft: 0,
+    computedStyle: {
+      direction: "ltr",
+      overflowX: "auto",
+      touchAction: "pan-x pan-y",
+    },
+    matches: (selector) => selector === ".card-view-scroller",
+  };
+  const h = createHarness({ rootOptions: { path: "/two" } });
+  h.windowRef.location.pathname = "/lovelace/two";
+  h.controller.sync();
+
+  const result = swipe(h.rootState.eventTarget, {
+    startX: 100,
+    endX: 280,
+    path: [cardViewScroller, h.host],
+  });
+  assert.equal(result.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(h.internalNavigations, []);
+  assert.deepEqual(h.windowRef.pushes, ["/lovelace/one?kiosk=1#now"]);
 });
 
 test("dashboard swipe back into the owner card restores its last eligible page", async () => {

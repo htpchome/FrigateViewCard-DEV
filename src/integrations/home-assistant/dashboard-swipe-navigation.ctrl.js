@@ -91,7 +91,6 @@ const SWIPE_BLOCK_SELECTOR = [
   ".circle-pad",
   ".wide-timeline-shell",
   ".wide-timeline-resize-handle",
-  ".card-view-scroller",
   ".linked-light-brightness-popover",
   "#filter-panel",
   "#cal-panel",
@@ -186,14 +185,19 @@ const reservesDirectTouchGestures = (element, getComputedStyleFn) => {
 
 export const shouldIgnoreDashboardSwipePath = (
   path,
-  { getComputedStyleFn = globalThis.getComputedStyle } = {},
+  {
+    getComputedStyleFn = globalThis.getComputedStyle,
+    allowedHorizontalScroller = null,
+  } = {},
 ) => {
   for (const element of Array.isArray(path) ? path : []) {
     if (!isElementLike(element)) continue;
+    const isAllowedHorizontalScroller = element === allowedHorizontalScroller;
     if (
       matchesSwipeBlockSelector(element) ||
       hasDirectGestureSemantics(element) ||
-      isHorizontallyScrollable(element, getComputedStyleFn) ||
+      (!isAllowedHorizontalScroller &&
+        isHorizontallyScrollable(element, getComputedStyleFn)) ||
       reservesDirectTouchGestures(element, getComputedStyleFn)
     ) {
       return true;
@@ -201,6 +205,38 @@ export const shouldIgnoreDashboardSwipePath = (
     if (String(element.tagName || "").toUpperCase() === "HUI-ROOT") break;
   }
   return false;
+};
+
+const findCardViewHorizontalScroller = (path, getComputedStyleFn) =>
+  (Array.isArray(path) ? path : []).find((element) => {
+    if (!isHorizontallyScrollable(element, getComputedStyleFn)) return false;
+    try {
+      return element.matches?.(".card-view-scroller") === true;
+    } catch (_) {
+      return false;
+    }
+  }) || null;
+
+const canHorizontalScrollerConsume = (
+  scroller,
+  direction,
+  getComputedStyleFn,
+) => {
+  if (!scroller || !["next", "previous"].includes(direction)) return false;
+  try {
+    if (String(getComputedStyleFn?.(scroller)?.direction || "") === "rtl") {
+      return true;
+    }
+  } catch (_) {
+    return true;
+  }
+  const max = Math.max(
+    0,
+    (Number(scroller.scrollWidth) || 0) -
+      (Number(scroller.clientWidth) || 0),
+  );
+  const current = Math.max(0, Math.min(max, Number(scroller.scrollLeft) || 0));
+  return direction === "previous" ? current > 1 : current < max - 1;
 };
 
 const resolveViewportWidth = (windowRef) =>
@@ -1119,9 +1155,15 @@ const bindCoordinator = (state) => {
     if (!options) return;
     const startsInsideOwner =
       options.host?.isConnected !== false && path.includes(options.host);
+    const inputType =
+      event?.fvcInputType === "mouse" ? "mouse" : "touch";
+    const cardViewHorizontalScroller = startsInsideOwner
+      ? findCardViewHorizontalScroller(path, options.getComputedStyleFn)
+      : null;
     if (
       shouldIgnoreDashboardSwipePath(path, {
         getComputedStyleFn: options.getComputedStyleFn,
+        allowedHorizontalScroller: cardViewHorizontalScroller,
       })
     ) {
       if (startsInsideOwner) event.stopPropagation?.();
@@ -1133,8 +1175,6 @@ const bindCoordinator = (state) => {
     } catch (_) {
       swipePolicy = null;
     }
-    const inputType =
-      event?.fvcInputType === "mouse" ? "mouse" : "touch";
     if (
       inputType === "mouse" &&
       swipePolicy?.mouseNavigationEnabled !== true
@@ -1194,6 +1234,8 @@ const bindCoordinator = (state) => {
         inputType,
         userAgent: options.windowRef?.navigator?.userAgent,
       }),
+      horizontalScroller:
+        inputType === "touch" ? cardViewHorizontalScroller : null,
     };
     gesture.shieldOnly =
       !gesture.allowInternalNavigation && !gesture.allowDashboardNavigation;
@@ -1250,11 +1292,22 @@ const bindCoordinator = (state) => {
       }
     }
     if (gesture.axis !== "horizontal") return;
+    const direction = resolveGestureDirection(gesture, deltaX);
+    if (
+      gesture.horizontalScroller &&
+      canHorizontalScrollerConsume(
+        gesture.horizontalScroller,
+        direction,
+        gesture.options.getComputedStyleFn,
+      )
+    ) {
+      resetGesture(state);
+      return;
+    }
     if (gesture.shieldOnly) return;
     if (event.cancelable !== false) event.preventDefault?.();
     if (!gesture.liveMotionEnabled) return;
 
-    const direction = resolveGestureDirection(gesture, deltaX);
     const target = resolveGestureTarget(state, gesture, direction);
     const motion = ensureGestureMotion(state, gesture);
     if (!motion) return;

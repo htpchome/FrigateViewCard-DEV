@@ -502,6 +502,76 @@ test("phone swipe defaults include Preview when enabled plus the effective landi
   ]);
 });
 
+test("Card View always has a reverse phone swipe target when it is selected", () => {
+  for (const [mobilePage, landingPage] of [
+    [MOBILE_PAGE_MODES.mobile, PAGE_IDS.mobileView],
+    [MOBILE_PAGE_MODES.single, PAGE_IDS.singleView],
+  ]) {
+    const config = {
+      mobile_view_page_enabled: true,
+      card_view_page_enabled: true,
+      mobile_page: mobilePage,
+      ha_dashboard_swipe_mobile_pages: [landingPage, PAGE_IDS.cardView],
+    };
+    assert.equal(
+      resolveAdjacentPageSwipeRoute({
+        config,
+        deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+        currentPageId: PAGE_IDS.cardView,
+        direction: "previous",
+      }),
+      landingPage,
+    );
+  }
+});
+
+test("an enabled Card View outside the phone swipe selection can return to the landing page", () => {
+  for (const [mobilePage, landingPage] of [
+    [MOBILE_PAGE_MODES.mobile, PAGE_IDS.mobileView],
+    [MOBILE_PAGE_MODES.single, PAGE_IDS.singleView],
+  ]) {
+    const config = {
+      mobile_view_page_enabled: true,
+      card_view_page_enabled: true,
+      mobile_page: mobilePage,
+      ha_dashboard_swipe_mobile_pages: [landingPage],
+    };
+    assert.equal(
+      resolveAdjacentPageSwipeRoute({
+        config,
+        deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+        currentPageId: PAGE_IDS.cardView,
+        direction: "previous",
+      }),
+      landingPage,
+    );
+  }
+});
+
+test("standalone Card View never creates an internal swipe target", () => {
+  const config = {
+    card_view_page_enabled: true,
+    card_view_standalone: true,
+    landing_page: PAGE_IDS.cardView,
+    mobile_page: MOBILE_PAGE_MODES.card,
+    ha_dashboard_swipe_pages: [PAGE_IDS.cardView],
+    ha_dashboard_swipe_mobile_pages: [PAGE_IDS.cardView],
+  };
+  for (const deviceBucket of Object.values(DEVICE_ROUTE_BUCKETS)) {
+    for (const direction of ["previous", "next"]) {
+      assert.equal(
+        resolveAdjacentPageSwipeRoute({
+          config,
+          deviceBucket,
+          currentPageId: PAGE_IDS.cardView,
+          direction,
+        }),
+        null,
+      );
+    }
+  }
+});
+
 test("page swipe order has hard ends and never wraps", () => {
   const config = {
     preview_page_enabled: true,
