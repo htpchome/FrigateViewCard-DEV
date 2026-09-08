@@ -306,6 +306,26 @@ test("Card View source indicator shares video-only overlay visibility", () => {
   );
 });
 
+test("Card View Video Only closes its media carousel when rotation activates", () => {
+  const host = {
+    _pageId: "card-view",
+    _config: {
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+      card_view_media_drawer_enabled: true,
+    },
+    shadowRoot: { querySelector: () => null },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  controller._mediaDrawerController.setOpen(true);
+
+  assert.equal(controller._mediaDrawerController.isOpen(), true);
+  assert.equal(controller.handleRotateOverlayState({ active: true }), true);
+  assert.equal(controller._mediaDrawerController.isOpen(), false);
+  assert.equal(controller.handleRotateOverlayState({ active: true }), false);
+});
+
 test("standalone Card View controls expose active Grid, Slideshow, and takeover states", () => {
   const markup = buildCardViewStandaloneModeControlsMarkup({
     icons: {
@@ -349,6 +369,10 @@ test("grouped desktop controls are centered per pane", () => {
   assert.doesNotMatch(
     CARD_VIEW_PAGE_STYLES,
     /#eng-wrap\.camera-group-live[^}]*\.camera-group-live-pane--primary \.camera-group-pane-controls \{left:/,
+  );
+  assert.match(
+    CAMERA_GROUP_LIVE_STYLES,
+    /\.card\.mobile-rotate-live \.camera-group-pane-controls,[\s\S]*?\.card\.mobile-rotate-live-exit \.camera-group-pane-controls \{left:max\(20px,env\(safe-area-inset-left,0px\)\);\}/,
   );
 });
 
@@ -1009,6 +1033,14 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-overlay-presentation:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-camera-row \{[\s\S]*?box-sizing:border-box;[\s\S]*?left:calc\(var\(--rotate-ox,0px\) \+ max\(20px,env\(safe-area-inset-left,0px\)\)\);[\s\S]*?width:calc\(var\(--rotate-vw,100vw\) - max\(20px,env\(safe-area-inset-left,0px\)\) - max\(20px,env\(safe-area-inset-right,0px\)\)\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-live-status-overlay \{\s*right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /:host\(\.card-view-natural-height\.mobile-view-rotate-cover\)[\s\S]*?height:var\(--rotate-vh,100dvh\) !important;[\s\S]*?min-height:var\(--rotate-vh,100dvh\) !important;[\s\S]*?max-height:var\(--rotate-vh,100dvh\) !important;/,
   );
   assert.match(
@@ -1022,14 +1054,6 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #viewer video \{[\s\S]*?width:auto !important;height:100% !important;max-width:100% !important;max-height:100% !important;[\s\S]*?object-fit:contain !important;/,
-  );
-  assert.match(
-    CARD_VIEW_PAGE_STYLES,
-    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) \.popup-card-view-actions \{\s*left:max\(20px,env\(safe-area-inset-left,0px\)\);/,
-  );
-  assert.match(
-    CARD_VIEW_PAGE_STYLES,
-    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #popup-playback-controls \{\s*right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

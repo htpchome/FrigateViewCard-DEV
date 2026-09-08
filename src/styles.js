@@ -470,7 +470,9 @@ export const STYLES = `
     .card.mobile-rotate-live .stream-loading,
     .card.mobile-rotate-live-exit .stream-loading{display:none !important;}
     .card.mobile-rotate-live .live-playback-controls,
-    .card.mobile-rotate-live-exit .live-playback-controls{z-index:7;}
+    .card.mobile-rotate-live-exit .live-playback-controls{
+      right:max(20px,env(safe-area-inset-right,0px));z-index:7;
+    }
     .card.mobile-rotate-popup,
     .card.mobile-rotate-popup-exit{overflow:hidden;height:var(--rotate-vh);max-height:var(--rotate-vh);}
     .card.mobile-rotate-popup #myPopup,
@@ -497,6 +499,14 @@ export const STYLES = `
     .card.mobile-rotate-popup-exit #recording-scrub,
     .card.mobile-rotate-popup-exit #recording-segment-manager,
     .card.mobile-rotate-popup-exit #popup-carousel-wrap{display:none !important;}
+    .card.mobile-rotate-popup .popup-playback-controls,
+    .card.mobile-rotate-popup-exit .popup-playback-controls{
+      right:max(20px,env(safe-area-inset-right,0px));
+    }
+    .card.mobile-rotate-popup .popup-card-view-actions,
+    .card.mobile-rotate-popup-exit .popup-card-view-actions{
+      left:max(20px,env(safe-area-inset-left,0px));
+    }
   #stream-fallback{position:absolute;inset:0;z-index:2;background:var(--c-bg-deep);
     pointer-events:none;line-height:0;}
   #stream-fallback[hidden]{display:block;z-index:0;}

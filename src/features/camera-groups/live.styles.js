@@ -43,4 +43,6 @@ export const CAMERA_GROUP_LIVE_STYLES = `
   .card.mobile-rotate-live-exit .camera-group-live-layout,
   #live-stage:fullscreen .camera-group-live-layout,
   #live-stage:-webkit-full-screen .camera-group-live-layout {width:100%;height:100%;}
+  .card.mobile-rotate-live .camera-group-pane-controls,
+  .card.mobile-rotate-live-exit .camera-group-pane-controls {left:max(20px,env(safe-area-inset-left,0px));}
 `;

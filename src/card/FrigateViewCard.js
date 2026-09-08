@@ -3038,6 +3038,10 @@ export class FrigateViewCard extends HTMLElement {
     );
     this._rotateOverlayActive = uiPlan.active;
     this._rotateOverlayMode = uiPlan.mode;
+    this._cardViewPageController?.handleRotateOverlayState?.({
+      active: uiPlan.active,
+      mode: uiPlan.mode,
+    });
     if (uiPlan.disableNativeControls) {
       this._setLiveNativeControls(false, {
         applyFullscreenStyle: uiPlan.active && uiPlan.mode === "live",

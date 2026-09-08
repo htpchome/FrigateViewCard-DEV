@@ -30,6 +30,25 @@ test("normal mobile popup stage uses its padded width without affecting rotation
   );
 });
 
+test("rotated live and popup side controls share the safe side inset", () => {
+  assert.match(
+    STYLES,
+    /\.card\.mobile-rotate-live \.live-playback-controls,[\s\S]*?\.card\.mobile-rotate-live-exit \.live-playback-controls\{[\s\S]*?right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+  );
+  assert.match(
+    STYLES,
+    /\.card\.mobile-rotate-popup \.popup-playback-controls,[\s\S]*?\.card\.mobile-rotate-popup-exit \.popup-playback-controls\{[\s\S]*?right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+  );
+  assert.match(
+    STYLES,
+    /\.card\.mobile-rotate-popup \.popup-card-view-actions,[\s\S]*?\.card\.mobile-rotate-popup-exit \.popup-card-view-actions\{[\s\S]*?left:max\(20px,env\(safe-area-inset-left,0px\)\);/,
+  );
+  assert.match(
+    STYLES,
+    /\.card\.mobile-rotate-popup \.popup-media-controls,[\s\S]*?\.card\.mobile-rotate-popup-exit \.popup-media-controls \{[^}]*bottom:0;/,
+  );
+});
+
 test("popup shell uses precomputed anchor geometry without metadata resizing", () => {
   assert.match(
     STYLES,

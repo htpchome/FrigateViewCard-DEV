@@ -553,11 +553,14 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .live-playback-controls {display:none !important;}
   .card.card-view-active.card-view-overlay-presentation .slideshow-next-chip {display:none !important;}
   .card.card-view-active.card-view-overlay-presentation:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-camera-row {
-    position:fixed;z-index:1500;
+    position:fixed;z-index:1500;box-sizing:border-box;
     top:calc(var(--rotate-oy,0px) + max(8px,env(safe-area-inset-top,0px)));
-    left:calc(var(--rotate-ox,0px) + max(8px,env(safe-area-inset-left,0px)));
+    left:calc(var(--rotate-ox,0px) + max(20px,env(safe-area-inset-left,0px)));
     right:auto;
-    width:calc(var(--rotate-vw,100vw) - max(8px,env(safe-area-inset-left,0px)) - max(8px,env(safe-area-inset-right,0px)));
+    width:calc(var(--rotate-vw,100vw) - max(20px,env(safe-area-inset-left,0px)) - max(20px,env(safe-area-inset-right,0px)));
+  }
+  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-live-status-overlay {
+    right:max(20px,env(safe-area-inset-right,0px));
   }
   .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-video-only-back {display:none !important;}
   .card.card-view-active.card-view-overlay-presentation:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-media-drawer:not(.is-open) .card-view-media-drawer-handle {
@@ -574,12 +577,6 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #viewer video {
     width:auto !important;height:100% !important;max-width:100% !important;max-height:100% !important;
     object-fit:contain !important;object-position:center center !important;background:#000;
-  }
-  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) .popup-card-view-actions {
-    left:max(20px,env(safe-area-inset-left,0px));
-  }
-  .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #popup-playback-controls {
-    right:max(20px,env(safe-area-inset-right,0px));
   }
   .card.card-view-active.card-view-video-panel-only .card-view-drawer,
   .card.card-view-active.card-view-video-panel-only .card-view-footer {display:none;}

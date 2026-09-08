@@ -207,6 +207,18 @@ export class CardViewPageController {
     );
   }
 
+  handleRotateOverlayState({ active = false } = {}) {
+    if (
+      active !== true ||
+      !this.usesOverlayPresentation() ||
+      !this._mediaDrawerController.isOpen()
+    ) {
+      return false;
+    }
+    this._mediaDrawerController.setOpen(false);
+    return true;
+  }
+
   applyConfiguredStartMode({ force = false } = {}) {
     if (!this.usesOverlayPresentation()) return false;
     if (this._startModeApplied && !force) return false;

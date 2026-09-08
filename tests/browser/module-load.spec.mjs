@@ -123,6 +123,66 @@ test("dispatches event-tab clicks from the page-shell tabs region", async ({
   expect(selectedTab).toBe("clips");
 });
 
+test("keeps FrigateView swipe-page chips equal and on one row until resized", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const geometry = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    editor.style.display = "block";
+    editor.style.width = "760px";
+    document.body.style.margin = "0";
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "single-view",
+      preview_page_enabled: true,
+      mobile_view_page_enabled: true,
+      wide_view_page_enabled: true,
+      card_view_page_enabled: true,
+      ha_dashboard_swipe_navigation_owner: true,
+      ha_dashboard_swipe_navigation: "dashboard-wide",
+      ha_dashboard_swipe_pages: [
+        "preview",
+        "single-view",
+        "mobile-view",
+        "wide-view",
+        "card-view",
+      ],
+    });
+
+    const readRows = () => {
+      const chips = [
+        ...editor.querySelectorAll(
+          '.dashboard-swipe-pages-grid > .editor-choice-chip',
+        ),
+      ];
+      const rects = chips.map((chip) =>
+        chip.querySelector(".editor-choice-chip-body").getBoundingClientRect(),
+      );
+      return {
+        count: rects.length,
+        rowCount: new Set(rects.map(({ top }) => Math.round(top))).size,
+        heights: rects.map(({ height }) => height),
+      };
+    };
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const wide = readRows();
+    editor.style.width = "430px";
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const narrow = readRows();
+    return { wide, narrow };
+  });
+
+  expect(geometry.wide.count).toBe(5);
+  expect(geometry.wide.rowCount).toBe(1);
+  expect(new Set(geometry.wide.heights.map(Math.round)).size).toBe(1);
+  expect(geometry.narrow.rowCount).toBeGreaterThan(1);
+  expect(new Set(geometry.narrow.heights.map(Math.round)).size).toBe(1);
+});
+
 test("positions camera B controls before its stream becomes ready", async ({
   page,
 }) => {
@@ -620,6 +680,73 @@ test.describe("touch input", () => {
     expect(geometry.bottomBarGap).toBeCloseTo(0, 0);
   });
 
+  test("insets rotated Card View live overlays and closes its media carousel", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto(baseUrl);
+    const geometry = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
+        card_view_media_drawer_enabled: true,
+        mobile_view_rotate_to_fullscreen: true,
+      });
+      card._pageId = "card-view";
+      card._renderShell();
+      card.style.setProperty("--rotate-vw", "844px");
+      card.style.setProperty("--rotate-vh", "390px");
+      card.style.setProperty("--rotate-ox", "0px");
+      card.style.setProperty("--rotate-oy", "0px");
+
+      const root = card.shadowRoot;
+      const cardRoot = root.querySelector("#card");
+      const drawer = root.querySelector("[data-card-view-media-drawer]");
+      const cameraRow = root.querySelector(".card-view-camera-row");
+      const playback = root.querySelector("#live-playback-controls");
+      const status = root.querySelector(".card-view-live-status-overlay");
+      playback.append(document.createElement("button"));
+      cardRoot.classList.add("card-view-overlays-visible");
+      card._cardViewPageController._mediaDrawerController.setOpen(true);
+      card._cardViewPageController._mediaDrawerCalendarOpen = true;
+
+      card._applyRotateOverlayUiPlan(cardRoot, {
+        active: true,
+        mode: "live",
+        removeClasses: [],
+        addClasses: ["mobile-rotate-live"],
+        retainViewportCover: true,
+      });
+
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const cameraRowRect = cameraRow.getBoundingClientRect();
+      const playbackRect = playback.getBoundingClientRect();
+      const statusRect = status.getBoundingClientRect();
+      return {
+        viewportCover: card.classList.contains("mobile-view-rotate-cover"),
+        drawerOpen: drawer.classList.contains("is-open"),
+        calendarOpen: card._cardViewPageController._mediaDrawerCalendarOpen,
+        cameraRowLeft: cameraRowRect.left,
+        cameraRowRightInset: 844 - cameraRowRect.right,
+        playbackRightInset: 844 - playbackRect.right,
+        statusRightInset: 844 - statusRect.right,
+      };
+    });
+
+    expect(geometry.viewportCover).toBe(true);
+    expect(geometry.drawerOpen).toBe(false);
+    expect(geometry.calendarOpen).toBe(false);
+    expect(geometry.cameraRowLeft).toBeCloseTo(20, 0);
+    expect(geometry.cameraRowRightInset).toBeCloseTo(20, 0);
+    expect(geometry.playbackRightInset).toBeCloseTo(20, 0);
+    expect(geometry.statusRightInset).toBeCloseTo(20, 0);
+  });
+
   test("keeps remounted live video on custom controls throughout rotation", async ({
     page,
   }) => {
@@ -633,6 +760,11 @@ test.describe("touch input", () => {
           label: "Mobile View",
           pageId: "mobile-view",
           config: { mobile_view_page_enabled: true },
+        },
+        {
+          label: "Wide View",
+          pageId: "wide-view",
+          config: { wide_view_page_enabled: true },
         },
         {
           label: "Card View Bottom Panel",
@@ -664,6 +796,10 @@ test.describe("touch input", () => {
         });
         card._pageId = surface.pageId;
         card._renderShell();
+        card.style.setProperty("--rotate-vw", "844px");
+        card.style.setProperty("--rotate-vh", "390px");
+        card.style.setProperty("--rotate-ox", "0px");
+        card.style.setProperty("--rotate-oy", "0px");
 
         const root = card.shadowRoot;
         const cardRoot = root.querySelector("#card");
@@ -675,21 +811,47 @@ test.describe("touch input", () => {
         video.controls = true;
         video.setAttribute("controls", "");
         root.querySelector("#engine")?.append(video);
+        const liveSideControls = root.querySelector("#live-playback-controls");
+        liveSideControls.append(document.createElement("button"));
 
         // Successful remount paths historically request native controls here.
         card._setLiveNativeControls(true);
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const liveSideInset = Math.round(
+          844 - liveSideControls.getBoundingClientRect().right,
+        );
+        const backDisplay =
+          surface.label === "Card View Video Only"
+            ? getComputedStyle(
+                root.querySelector("[data-card-view-video-back]"),
+              ).display
+            : null;
+
+        cardRoot.classList.remove("mobile-rotate-live");
+        cardRoot.classList.add("mobile-rotate-popup");
+        const popup = root.querySelector("#myPopup");
+        const viewer = root.querySelector("#viewer");
+        popup.classList.add("is-open");
+        popup.style.animation = "none";
+        viewer.style.display = "flex";
+        const popupSideControls = document.createElement("div");
+        popupSideControls.className = "popup-playback-controls";
+        popupSideControls.append(document.createElement("button"));
+        viewer.append(popupSideControls);
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const popupSideInset = Math.round(
+          844 - popupSideControls.getBoundingClientRect().right,
+        );
+
         results.push({
           label: surface.label,
           controls: video.controls,
           controlsAttribute: video.hasAttribute("controls"),
           playsInline: video.hasAttribute("playsinline"),
           webkitPlaysInline: video.getAttribute("webkit-playsinline"),
-          backDisplay:
-            surface.label === "Card View Video Only"
-              ? getComputedStyle(
-                  root.querySelector("[data-card-view-video-back]"),
-                ).display
-              : null,
+          liveSideInset,
+          popupSideInset,
+          backDisplay,
         });
         card.remove();
       }
@@ -703,6 +865,8 @@ test.describe("touch input", () => {
         controlsAttribute: false,
         playsInline: true,
         webkitPlaysInline: "true",
+        liveSideInset: 20,
+        popupSideInset: 20,
         backDisplay: null,
       },
       {
@@ -711,6 +875,18 @@ test.describe("touch input", () => {
         controlsAttribute: false,
         playsInline: true,
         webkitPlaysInline: "true",
+        liveSideInset: 20,
+        popupSideInset: 20,
+        backDisplay: null,
+      },
+      {
+        label: "Wide View",
+        controls: false,
+        controlsAttribute: false,
+        playsInline: true,
+        webkitPlaysInline: "true",
+        liveSideInset: 20,
+        popupSideInset: 20,
         backDisplay: null,
       },
       {
@@ -719,6 +895,8 @@ test.describe("touch input", () => {
         controlsAttribute: false,
         playsInline: true,
         webkitPlaysInline: "true",
+        liveSideInset: 20,
+        popupSideInset: 20,
         backDisplay: null,
       },
       {
@@ -727,6 +905,8 @@ test.describe("touch input", () => {
         controlsAttribute: false,
         playsInline: true,
         webkitPlaysInline: "true",
+        liveSideInset: 20,
+        popupSideInset: 20,
         backDisplay: "none",
       },
     ]);

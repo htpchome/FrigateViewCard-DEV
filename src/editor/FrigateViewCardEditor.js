@@ -3802,7 +3802,9 @@ export class FrigateViewCardEditor extends HTMLElement {
             .editor-choice-chips--compact{display:flex;width:auto;gap:6px;}
             .editor-choice-chips--detailed{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}
             .dashboard-swipe-page-selection{margin-top:16px;padding-top:14px;border-top:1px solid var(--c-border2, var(--editor-border));}
-            .dashboard-swipe-pages-grid{grid-template-columns:repeat(auto-fit,minmax(132px,1fr));}
+            .dashboard-swipe-pages-grid{grid-template-columns:repeat(auto-fit,minmax(104px,1fr));align-items:stretch;}
+            .dashboard-swipe-pages-grid > .editor-choice-chip{height:100%;}
+            .dashboard-swipe-pages-grid .editor-choice-chip-body{height:100%;min-height:64px;}
             .dashboard-swipe-landing-note{font-weight:600;color:var(--c-primary-d, var(--editor-primary-d));}
             .editor-swipe-choice-grid{align-items:stretch;}
             .editor-swipe-choice{position:relative;min-width:0;}

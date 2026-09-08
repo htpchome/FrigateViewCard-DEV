@@ -342,6 +342,18 @@ test("editor choice chips avoid native fieldsets while retaining group semantics
     editorSource,
     /class="editor-choice-field" role="group" aria-label="FrigateView Pages"/,
   );
+  assert.match(
+    editorSource,
+    /\.dashboard-swipe-pages-grid\{grid-template-columns:repeat\(auto-fit,minmax\(104px,1fr\)\);align-items:stretch;\}/,
+  );
+  assert.match(
+    editorSource,
+    /\.dashboard-swipe-pages-grid > \.editor-choice-chip\{height:100%;\}/,
+  );
+  assert.match(
+    editorSource,
+    /\.dashboard-swipe-pages-grid \.editor-choice-chip-body\{height:100%;min-height:64px;\}/,
+  );
 });
 
 test("page settings panels use clear names and the requested order", () => {
