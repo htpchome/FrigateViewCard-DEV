@@ -13,8 +13,7 @@ import { flattenCameraMembers } from "../camera-groups/model.js";
 const LIVE_STREAM_HINTS = new Set(["webrtc", "mse", "hls"]);
 const COMPANION_GRID_GAP_PX = 8;
 const COMPANION_META_HEIGHT_PX = 24;
-const COMPANION_LIVE_OVERLAP_MAX_PX = 56;
-const COMPANION_LIVE_OVERLAP_RATIO = 0.12;
+const COMPANION_LIVE_OVERLAP_RATIO = 0.5;
 const COMPANION_EXPANSION_KEY_STEP_PX = 32;
 
 const finiteNumber = (value) => {
@@ -32,10 +31,7 @@ export function resolveWideCompanionExpansionMax({
   const resolvedLiveHeight = Math.max(0, finiteNumber(liveHeight));
   if (resolvedPanelTop <= 0 || resolvedLiveBottom <= 0) return 0;
 
-  const liveOverlap = Math.min(
-    COMPANION_LIVE_OVERLAP_MAX_PX,
-    resolvedLiveHeight * COMPANION_LIVE_OVERLAP_RATIO,
-  );
+  const liveOverlap = resolvedLiveHeight * COMPANION_LIVE_OVERLAP_RATIO;
   return Math.max(
     0,
     resolvedPanelTop - (resolvedLiveBottom - liveOverlap),
@@ -110,6 +106,7 @@ export class WideViewCompanionController {
     this._panelExpansionMaxPx = 0;
     this._panelExpansionPanel = null;
     this._panelExpansionHandle = null;
+    this._panelExpansionButton = null;
     this._panelExpansionDrag = null;
     this._panelExpansionCleanup = new CleanupController();
     this._alertController = new WideViewCompanionAlertController(
@@ -127,7 +124,9 @@ export class WideViewCompanionController {
   }
 
   buildRegionMarkup() {
-    return buildWideCompanionRegionMarkup();
+    return buildWideCompanionRegionMarkup({
+      chevronIcon: this._constants.ICONS?.chevron || "",
+    });
   }
 
   liveCamerasEnabled() {
@@ -221,13 +220,17 @@ export class WideViewCompanionController {
     const handle = panel?.querySelector?.(
       "[data-wide-companion-resize-handle]",
     );
-    if (!panel || !handle) {
+    const button = panel?.querySelector?.(
+      "[data-wide-companion-expand-button]",
+    );
+    if (!panel || !handle || !button) {
       this._disposePanelExpansion();
       return;
     }
     if (
       panel === this._panelExpansionPanel &&
       handle === this._panelExpansionHandle &&
+      button === this._panelExpansionButton &&
       panel.isConnected !== false
     ) {
       return;
@@ -236,6 +239,7 @@ export class WideViewCompanionController {
     this._disposePanelExpansion();
     this._panelExpansionPanel = panel;
     this._panelExpansionHandle = handle;
+    this._panelExpansionButton = button;
     this._panelExpansionCleanup = new CleanupController();
     this._panelExpansionCleanup.addEventListener(
       handle,
@@ -265,6 +269,12 @@ export class WideViewCompanionController {
     this._panelExpansionCleanup.addEventListener(handle, "keydown", (event) =>
       this._handlePanelExpansionKeydown(event),
     );
+    this._panelExpansionCleanup.addEventListener(button, "click", () => {
+      this._panelExpansionMaxPx = this._measurePanelExpansionMax();
+      this._setPanelExpansion(
+        this._panelExpansionPx > 0.5 ? 0 : this._panelExpansionMaxPx,
+      );
+    });
 
     const ResizeObserverCtor =
       panel.ownerDocument?.defaultView?.ResizeObserver ||
@@ -296,7 +306,13 @@ export class WideViewCompanionController {
   }
 
   _syncPanelExpansionBounds() {
-    if (!this._panelExpansionPanel || !this._panelExpansionHandle) return;
+    if (
+      !this._panelExpansionPanel ||
+      !this._panelExpansionHandle ||
+      !this._panelExpansionButton
+    ) {
+      return;
+    }
     this._panelExpansionMaxPx = this._measurePanelExpansionMax();
     this._setPanelExpansion(this._panelExpansionPx, {
       scheduleLayout: false,
@@ -325,6 +341,19 @@ export class WideViewCompanionController {
     handle.setAttribute?.(
       "aria-valuenow",
       String(Math.round(nextExpansion)),
+    );
+    const expanded = nextExpansion > 0.5;
+    this._panelExpansionButton.setAttribute?.(
+      "aria-expanded",
+      expanded ? "true" : "false",
+    );
+    this._panelExpansionButton.setAttribute?.(
+      "aria-label",
+      expanded ? "Collapse Companion Cameras" : "Expand Companion Cameras",
+    );
+    this._panelExpansionButton.setAttribute?.(
+      "title",
+      expanded ? "Collapse Companion Cameras" : "Expand Companion Cameras",
     );
     if (scheduleLayout) {
       this._host._wideViewPageController?.syncColHeightIfWideView?.();
@@ -403,6 +432,7 @@ export class WideViewCompanionController {
     this._panelExpansionCleanup = new CleanupController();
     this._panelExpansionPanel = null;
     this._panelExpansionHandle = null;
+    this._panelExpansionButton = null;
     this._panelExpansionDrag = null;
     if (reset) this._panelExpansionPx = 0;
   }

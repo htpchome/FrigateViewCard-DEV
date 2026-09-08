@@ -83,14 +83,14 @@ const createHost = ({ live = false, takeover = false } = {}) => {
   return { host, calls, grid };
 };
 
-test("Companion Cameras expansion covers controls and only the lower edge of live", () => {
+test("Companion Cameras expansion covers controls and stops at live midpoint", () => {
   assert.equal(
     resolveWideCompanionExpansionMax({
       panelTop: 520,
       liveBottom: 300,
       liveHeight: 400,
     }),
-    268,
+    420,
   );
   assert.equal(
     resolveWideCompanionExpansionMax({
@@ -98,11 +98,11 @@ test("Companion Cameras expansion covers controls and only the lower edge of liv
       liveBottom: 300,
       liveHeight: 800,
     }),
-    276,
+    620,
   );
   assert.equal(
     resolveWideCompanionExpansionMax({
-      panelTop: 280,
+      panelTop: 230,
       liveBottom: 300,
       liveHeight: 100,
     }),
@@ -119,6 +119,8 @@ test("Companion Cameras region exposes an accessible drag handle", () => {
   assert.match(markup, /role="separator"/);
   assert.match(markup, /aria-orientation="horizontal"/);
   assert.match(markup, /aria-controls="wide-companion-grid"/);
+  assert.match(markup, /data-wide-companion-expand-button/);
+  assert.match(markup, /aria-expanded="false"/);
   assert.match(
     STYLES,
     /\.wide-companion-surface\{[^}]*position:absolute;[^}]*inset:calc\(0px - var\(--wide-companion-expansion\)\)/,

@@ -228,6 +228,9 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     const handle = root.querySelector(
       "[data-wide-companion-resize-handle]",
     );
+    const expandButton = root.querySelector(
+      "[data-wide-companion-expand-button]",
+    );
     const liveStage = root.querySelector("#live-stage");
     const cameraSwitcher = root.querySelector("#cam-switcher");
     const before = {
@@ -278,6 +281,8 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       max: Number(handle.getAttribute("aria-valuemax")),
       active: handle.classList.contains("active"),
       panelExpanded: panel.classList.contains("is-expanded"),
+      buttonExpanded: expandButton.getAttribute("aria-expanded"),
+      buttonLabel: expandButton.getAttribute("aria-label"),
     };
 
     const collapseStartY = handle.getBoundingClientRect().top + 10;
@@ -315,6 +320,21 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       now: Number(handle.getAttribute("aria-valuenow")),
       panelExpanded: panel.classList.contains("is-expanded"),
     };
+    expandButton.click();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const buttonExpanded = {
+      now: Number(handle.getAttribute("aria-valuenow")),
+      max: Number(handle.getAttribute("aria-valuemax")),
+      expanded: expandButton.getAttribute("aria-expanded"),
+      label: expandButton.getAttribute("aria-label"),
+    };
+    expandButton.click();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const buttonCollapsed = {
+      now: Number(handle.getAttribute("aria-valuenow")),
+      expanded: expandButton.getAttribute("aria-expanded"),
+      label: expandButton.getAttribute("aria-label"),
+    };
     card._wideViewPageController.stopWideViewMode();
     handle.dispatchEvent(
       new KeyboardEvent("keydown", { bubbles: true, key: "End" }),
@@ -325,6 +345,8 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       before,
       expanded,
       collapsed,
+      buttonExpanded,
+      buttonCollapsed,
       stopped: {
         now: Number(handle.getAttribute("aria-valuenow")),
         panelExpanded: panel.classList.contains("is-expanded"),
@@ -344,16 +366,29 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     result.expanded.liveBottom,
   );
   expect(result.expanded.surfaceTop).toBeGreaterThanOrEqual(
-    result.expanded.liveBottom - 57,
+    result.expanded.liveBottom - result.expanded.liveHeight / 2 - 1,
+  );
+  expect(result.expanded.surfaceTop).toBeLessThanOrEqual(
+    result.expanded.liveBottom - result.expanded.liveHeight / 2 + 1,
   );
   expect(result.expanded.panelTop).toBeCloseTo(result.before.panelTop, 0);
   expect(result.expanded.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
   expect(result.expanded.active).toBe(false);
   expect(result.expanded.panelExpanded).toBe(true);
+  expect(result.expanded.buttonExpanded).toBe("true");
+  expect(result.expanded.buttonLabel).toBe("Collapse Companion Cameras");
   expect(result.collapsed.now).toBe(0);
   expect(result.collapsed.surfaceTop).toBeCloseTo(result.before.surfaceTop, 0);
   expect(result.collapsed.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
   expect(result.collapsed.panelExpanded).toBe(false);
+  expect(result.buttonExpanded.now).toBe(result.buttonExpanded.max);
+  expect(result.buttonExpanded.expanded).toBe("true");
+  expect(result.buttonExpanded.label).toBe("Collapse Companion Cameras");
+  expect(result.buttonCollapsed).toEqual({
+    now: 0,
+    expanded: "false",
+    label: "Expand Companion Cameras",
+  });
   expect(result.stopped).toEqual({ now: 0, panelExpanded: false });
   expect(pageErrors).toEqual([]);
 });
