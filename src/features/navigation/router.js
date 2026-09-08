@@ -366,28 +366,19 @@ export const resolvePageSwipeOrder = (config, deviceBucket) => {
     );
     return ordered;
   }
-  if (deviceBucket === DEVICE_ROUTE_BUCKETS.mobile) {
-    const selectedPages = resolveDashboardSwipeMobilePageSelection(config);
-    const landingPage = resolveMobileSwipeLandingPage(config);
-    if (selectedPages.includes(PAGE_IDS.preview)) append(PAGE_IDS.preview);
-    append(landingPage);
-    DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS.forEach((pageId) => {
-      if (selectedPages.includes(pageId)) append(pageId);
-    });
-    return ordered;
-  }
-  const selectedPages = resolveDashboardSwipePageSelection(
-    config,
-    deviceBucket,
-  );
-  const landingPage = resolveAvailableLandingPage(
-    config,
-    deviceBucket,
-    available,
-  );
+  const isMobile = deviceBucket === DEVICE_ROUTE_BUCKETS.mobile;
+  const selectablePages = isMobile
+    ? DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS
+    : DASHBOARD_SWIPE_PAGE_OPTIONS;
+  const selectedPages = isMobile
+    ? resolveDashboardSwipeMobilePageSelection(config)
+    : resolveDashboardSwipePageSelection(config, deviceBucket);
+  const landingPage = isMobile
+    ? resolveMobileSwipeLandingPage(config)
+    : resolveAvailableLandingPage(config, deviceBucket, available);
   if (selectedPages.includes(PAGE_IDS.preview)) append(PAGE_IDS.preview);
   append(landingPage);
-  PAGE_ROUTE_ORDER.forEach((pageId) => {
+  selectablePages.forEach((pageId) => {
     if (selectedPages.includes(pageId)) append(pageId);
   });
   return ordered;

@@ -95,9 +95,10 @@ const SWIPE_BLOCK_SELECTOR = [
   "#filter-panel",
   "#cal-panel",
 ].join(",");
-const PAGE_SWIPE_MEDIA_PAGE_SELECTOR =
-  ".card.card-view-active,.card.preview-active";
-const PAGE_SWIPE_MEDIA_SELECTOR = "video,#live-stage";
+const PAGE_SWIPE_MEDIA_SURFACE_SELECTOR =
+  "#live-stage,.preview-media-host,.wide-companion-media-host";
+const PAGE_SWIPE_MEDIA_ELEMENT_SELECTOR =
+  `video,audio,canvas,${PAGE_SWIPE_MEDIA_SURFACE_SELECTOR}`;
 const PAGE_SWIPE_ZOOMED_SELECTOR =
   ".fvc-video-zoomed,.card-view-video-zoomed";
 
@@ -214,6 +215,7 @@ export const shouldIgnoreDashboardSwipePath = (
       (!isAllowedGestureElement && matchesSwipeBlockSelector(element)) ||
       hasDirectGestureSemantics(element) ||
       (!isAllowedHorizontalScroller &&
+        !isAllowedGestureElement &&
         isHorizontallyScrollable(element, getComputedStyleFn)) ||
       (!isAllowedGestureElement &&
         reservesDirectTouchGestures(element, getComputedStyleFn))
@@ -227,22 +229,33 @@ export const shouldIgnoreDashboardSwipePath = (
 
 const resolveAllowedPageSwipeGestureElements = (path) => {
   const elements = (Array.isArray(path) ? path : []).filter(isElementLike);
+  const mediaSurfaceIndex = elements.findIndex((element) =>
+    matchesSelector(element, PAGE_SWIPE_MEDIA_SURFACE_SELECTOR),
+  );
   if (
-    !elements.some((element) =>
-      matchesSelector(element, PAGE_SWIPE_MEDIA_PAGE_SELECTOR),
-    ) ||
+    mediaSurfaceIndex < 0 ||
     elements.some((element) =>
       matchesSelector(element, PAGE_SWIPE_ZOOMED_SELECTOR),
     )
   ) {
     return null;
   }
+  const mediaPath = elements.slice(0, mediaSurfaceIndex + 1);
+  if (
+    mediaPath.some(
+      (element) =>
+        String(element.tagName || "").toUpperCase() === "VIDEO" &&
+        element.controls === true,
+    )
+  ) {
+    return null;
+  }
   const allowed = new Set(
-    elements.filter((element) => {
-      if (!matchesSelector(element, PAGE_SWIPE_MEDIA_SELECTOR)) return false;
+    mediaPath.filter((element) => {
+      if (hasDirectGestureSemantics(element)) return false;
       return (
-        String(element.tagName || "").toUpperCase() !== "VIDEO" ||
-        element.controls !== true
+        !matchesSwipeBlockSelector(element) ||
+        matchesSelector(element, PAGE_SWIPE_MEDIA_ELEMENT_SELECTOR)
       );
     }),
   );

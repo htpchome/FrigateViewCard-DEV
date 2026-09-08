@@ -502,27 +502,50 @@ test("phone swipe defaults include Preview when enabled plus the effective landi
   ]);
 });
 
-test("Card View landing keeps Preview before it and selected pages after it", () => {
+test("page swipe order is one filtered sequence around the effective landing page", () => {
   const base = {
     mobile_view_page_enabled: true,
     preview_page_enabled: true,
     wide_view_page_enabled: true,
     card_view_page_enabled: true,
-    mobile_page: MOBILE_PAGE_MODES.card,
-    landing_page: PAGE_IDS.cardView,
+    ha_dashboard_swipe_mobile_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.cardView,
+    ],
+    ha_dashboard_swipe_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.wideView,
+      PAGE_IDS.cardView,
+    ],
   };
   const cases = [
     {
       deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
-      config: {
-        ...base,
-        ha_dashboard_swipe_mobile_pages: [
-          PAGE_IDS.preview,
-          PAGE_IDS.singleView,
-          PAGE_IDS.mobileView,
-          PAGE_IDS.cardView,
-        ],
-      },
+      config: { ...base, mobile_page: MOBILE_PAGE_MODES.single },
+      order: [
+        PAGE_IDS.preview,
+        PAGE_IDS.singleView,
+        PAGE_IDS.mobileView,
+        PAGE_IDS.cardView,
+      ],
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      config: { ...base, mobile_page: MOBILE_PAGE_MODES.mobile },
+      order: [
+        PAGE_IDS.preview,
+        PAGE_IDS.mobileView,
+        PAGE_IDS.singleView,
+        PAGE_IDS.cardView,
+      ],
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      config: { ...base, mobile_page: MOBILE_PAGE_MODES.card },
       order: [
         PAGE_IDS.preview,
         PAGE_IDS.cardView,
@@ -531,17 +554,41 @@ test("Card View landing keeps Preview before it and selected pages after it", ()
       ],
     },
     {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.tablet,
+      config: { ...base, landing_page: PAGE_IDS.singleView },
+      order: [
+        PAGE_IDS.preview,
+        PAGE_IDS.singleView,
+        PAGE_IDS.mobileView,
+        PAGE_IDS.wideView,
+        PAGE_IDS.cardView,
+      ],
+    },
+    {
       deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
-      config: {
-        ...base,
-        ha_dashboard_swipe_pages: [
-          PAGE_IDS.preview,
-          PAGE_IDS.singleView,
-          PAGE_IDS.mobileView,
-          PAGE_IDS.wideView,
-          PAGE_IDS.cardView,
-        ],
-      },
+      config: { ...base, landing_page: PAGE_IDS.mobileView },
+      order: [
+        PAGE_IDS.preview,
+        PAGE_IDS.mobileView,
+        PAGE_IDS.singleView,
+        PAGE_IDS.wideView,
+        PAGE_IDS.cardView,
+      ],
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+      config: { ...base, landing_page: PAGE_IDS.wideView },
+      order: [
+        PAGE_IDS.preview,
+        PAGE_IDS.wideView,
+        PAGE_IDS.singleView,
+        PAGE_IDS.mobileView,
+        PAGE_IDS.cardView,
+      ],
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+      config: { ...base, landing_page: PAGE_IDS.cardView },
       order: [
         PAGE_IDS.preview,
         PAGE_IDS.cardView,
@@ -554,33 +601,26 @@ test("Card View landing keeps Preview before it and selected pages after it", ()
 
   for (const { config, deviceBucket, order } of cases) {
     assert.deepEqual(resolvePageSwipeOrder(config, deviceBucket), order);
-    assert.equal(
-      resolveAdjacentPageSwipeRoute({
-        config,
-        deviceBucket,
-        currentPageId: PAGE_IDS.cardView,
-        direction: "previous",
-      }),
-      PAGE_IDS.preview,
-    );
-    assert.equal(
-      resolveAdjacentPageSwipeRoute({
-        config,
-        deviceBucket,
-        currentPageId: PAGE_IDS.cardView,
-        direction: "next",
-      }),
-      PAGE_IDS.singleView,
-    );
-    assert.equal(
-      resolveAdjacentPageSwipeRoute({
-        config,
-        deviceBucket,
-        currentPageId: PAGE_IDS.preview,
-        direction: "next",
-      }),
-      PAGE_IDS.cardView,
-    );
+    order.forEach((pageId, index) => {
+      assert.equal(
+        resolveAdjacentPageSwipeRoute({
+          config,
+          deviceBucket,
+          currentPageId: pageId,
+          direction: "previous",
+        }),
+        order[index - 1] || null,
+      );
+      assert.equal(
+        resolveAdjacentPageSwipeRoute({
+          config,
+          deviceBucket,
+          currentPageId: pageId,
+          direction: "next",
+        }),
+        order[index + 1] || null,
+      );
+    });
   }
 });
 

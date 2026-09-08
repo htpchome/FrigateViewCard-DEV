@@ -1346,8 +1346,14 @@ test("Card View horizontal content keeps native scrolling without a navigation t
   assert.deepEqual(h.windowRef.pushes, []);
 });
 
-test("Card View and Preview media surfaces pass internal page swipes", async () => {
-  for (const activePageClass of ["card-view-active", "preview-active"]) {
+test("live media surfaces on every page pass internal page swipes", async () => {
+  for (const activePageClass of [
+    "single-view-active",
+    "mobile-view-active",
+    "preview-active",
+    "wide-view-active",
+    "card-view-active",
+  ]) {
     const video = {
       tagName: "VIDEO",
       controls: false,
@@ -1356,6 +1362,13 @@ test("Card View and Preview media surfaces pass internal page swipes", async () 
         selector
           .split(",")
           .some((part) => part.trim() === "video"),
+    };
+    const player = {
+      tagName: "FRIGATE-LIVE-STREAM",
+      clientWidth: 300,
+      scrollWidth: 420,
+      computedStyle: { touchAction: "none", overflowX: "auto" },
+      matches: () => false,
     };
     const liveStage = {
       tagName: "DIV",
@@ -1377,15 +1390,90 @@ test("Card View and Preview media surfaces pass internal page swipes", async () 
     });
     h.controller.sync();
 
-    const path = activePageClass === "card-view-active"
-      ? [video, liveStage, activePage, h.host]
-      : [video, activePage, h.host];
+    const path = [video, player, liveStage, activePage, h.host];
     const result = swipe(h.rootState.eventTarget, { path });
     assert.equal(result.prevented, true);
     await flushSwipeMotion();
     assert.deepEqual(h.internalNavigations, [PAGE_IDS.cardView]);
     assert.deepEqual(h.windowRef.pushes, []);
   }
+});
+
+test("Card View Video Only live media can swipe left to Home Assistant on touch and mouse", async () => {
+  const video = {
+    tagName: "VIDEO",
+    controls: false,
+    computedStyle: { touchAction: "none", overflowX: "visible" },
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === "video"),
+  };
+  const player = {
+    tagName: "FRIGATE-LIVE-STREAM",
+    clientWidth: 300,
+    scrollWidth: 420,
+    computedStyle: { touchAction: "none", overflowX: "auto" },
+    matches: () => false,
+  };
+  const liveStage = {
+    tagName: "DIV",
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === "#live-stage"),
+  };
+  const cardView = {
+    tagName: "DIV",
+    matches: (selector) =>
+      selector
+        .split(",")
+        .some((part) => part.trim() === ".card.card-view-active"),
+  };
+  const path = [video, player, liveStage, cardView];
+  const touchHarness = createHarness();
+  touchHarness.controller.sync();
+
+  const touchResult = swipe(touchHarness.rootState.eventTarget, {
+    path: [...path, touchHarness.host],
+  });
+  assert.equal(touchResult.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(touchHarness.internalNavigations, []);
+  assert.deepEqual(touchHarness.windowRef.pushes, [
+    "/lovelace/two?kiosk=1#now",
+  ]);
+
+  const mouseHarness = createHarness({
+    enforceDashboardOwner: true,
+    rootOptions: {
+      views: [
+        {
+          path: "one",
+          cards: [
+            {
+              type: "custom:frigate-view-card",
+              ha_dashboard_swipe_navigation_owner: true,
+              ha_dashboard_swipe_navigation: "dashboard-wide",
+              ha_dashboard_swipe_mouse_enabled: true,
+            },
+          ],
+        },
+        { path: "two", cards: [{ type: "entities" }] },
+      ],
+    },
+  });
+  mouseHarness.controller.sync();
+
+  const mouseResult = mouseSwipe(mouseHarness.rootState.eventTarget, {
+    path: [...path, mouseHarness.host],
+  });
+  assert.equal(mouseResult.prevented, true);
+  await flushSwipeMotion();
+  assert.deepEqual(mouseHarness.internalNavigations, []);
+  assert.deepEqual(mouseHarness.windowRef.pushes, [
+    "/lovelace/two?kiosk=1#now",
+  ]);
 });
 
 test("Card View media passes mouse swipes to internal pages before Home Assistant", async () => {
@@ -1404,6 +1492,11 @@ test("Card View media passes mouse swipes to internal pages before Home Assistan
       selector
         .split(",")
         .some((part) => part.trim() === "#live-stage"),
+  };
+  const player = {
+    tagName: "FRIGATE-LIVE-STREAM",
+    computedStyle: { touchAction: "none", overflowX: "visible" },
+    matches: () => false,
   };
   const activeCardPage = {
     tagName: "DIV",
@@ -1436,7 +1529,7 @@ test("Card View media passes mouse swipes to internal pages before Home Assistan
   h.controller.sync();
 
   const result = mouseSwipe(h.rootState.eventTarget, {
-    path: [video, liveStage, activeCardPage, h.host],
+    path: [video, player, liveStage, activeCardPage, h.host],
   });
   assert.equal(result.prevented, true);
   await flushSwipeMotion();
