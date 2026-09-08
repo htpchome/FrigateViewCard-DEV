@@ -504,6 +504,27 @@ test("slideshow interaction restart schedules only one interval", async () => {
   }
 });
 
+test("slideshow stops its session when navigation leaves the page", () => {
+  const calls = [];
+  const host = { _slideshowActive: true };
+  const controller = new SlideshowPageController(host);
+  controller.stopRotation = (reason, sync) => {
+    calls.push([reason, sync]);
+    host._slideshowActive = false;
+  };
+
+  assert.equal(
+    controller.handlePageChange("mobile-view", "preview"),
+    true,
+  );
+  assert.deepEqual(calls, [["page-navigation", false]]);
+  assert.equal(host._slideshowActive, false);
+  assert.equal(
+    controller.handlePageChange("preview", "preview"),
+    false,
+  );
+});
+
 test("slideshow rotates through physical members of a camera group", async () => {
   const calls = [];
   const groupedCamera = {

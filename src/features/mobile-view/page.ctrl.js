@@ -20,6 +20,37 @@ export class MobileViewPageController {
     this._host = host;
     this._constants = constants;
     this._browseRenderController = new BrowseRenderController(host);
+    this._alertTakeoverEnabled = false;
+  }
+
+  isActive() {
+    return this._host._pageId === this._constants.PAGE_IDS.mobileView;
+  }
+
+  shouldShowAlertTakeoverButton() {
+    return (
+      this.isActive() && this._host._isLikelyMobileClient?.() !== true
+    );
+  }
+
+  alertTakeoverEnabled() {
+    return this._alertTakeoverEnabled === true;
+  }
+
+  toggleAlertTakeover() {
+    if (
+      !this.alertTakeoverEnabled() &&
+      this._host._toolbarButtonStates?.().wideAlertTakeoverDisabled
+    ) {
+      this._host._syncToolbarButtons?.();
+      return false;
+    }
+    this._alertTakeoverEnabled = !this.alertTakeoverEnabled();
+    this._host._handleAlertTakeoverStateChange?.(
+      this._alertTakeoverEnabled,
+    );
+    this._host._syncToolbarButtons?.();
+    return this._alertTakeoverEnabled;
   }
 
   _usesGridText() {

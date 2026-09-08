@@ -106,3 +106,24 @@ test("Single View alert takeover toolbar button reaches its controller", () => {
   assert.equal(handled, true);
   assert.deepEqual(calls, ["toggle"]);
 });
+
+test("desktop Mobile View alert takeover reaches its page controller", () => {
+  const calls = [];
+  const button = { disabled: false };
+  const target = {
+    closest: (selector) =>
+      selector === "#mobile-alert-takeover-btn" ? button : null,
+  };
+
+  const handled = FrigateViewCard.prototype._handleTopToolbarClick.call(
+    {
+      _mobileViewPageController: {
+        toggleAlertTakeover: () => calls.push("toggle"),
+      },
+    },
+    target,
+  );
+
+  assert.equal(handled, true);
+  assert.deepEqual(calls, ["toggle"]);
+});

@@ -3408,6 +3408,9 @@ export class FrigateViewCard extends HTMLElement {
     if (this._wideViewPageController.isWideViewPageActive()) {
       return this._wideViewPageController.companionAlertTakeoverEnabled();
     }
+    if (this._isMobileViewPageActive()) {
+      return this._mobileViewPageController.alertTakeoverEnabled();
+    }
     if (this._singleViewPageController.isActive()) {
       return this._singleViewPageController.alertTakeoverEnabled();
     }
@@ -3631,6 +3634,9 @@ export class FrigateViewCard extends HTMLElement {
     const wideAlertTakeoverActive =
       this._wideViewPageController.isWideViewPageActive() &&
       this._wideViewPageController.companionAlertTakeoverEnabled();
+    const mobileAlertTakeoverActive =
+      this._mobileViewPageController.isActive() &&
+      this._mobileViewPageController.alertTakeoverEnabled();
     const cardViewActive = this._isCardViewPageActive();
     const cardViewPtzActive =
       cardViewActive && this._cardViewPageController.isPtzActive();
@@ -3645,6 +3651,7 @@ export class FrigateViewCard extends HTMLElement {
       wideAlertTakeoverActive:
         singleAlertTakeoverActive ||
         wideAlertTakeoverActive ||
+        mobileAlertTakeoverActive ||
         cardViewAlertTakeoverActive,
       twoWayTalkActive:
         this._twoWayTalkStarting === true || !!this._twoWayTalkSession,
@@ -3664,6 +3671,8 @@ export class FrigateViewCard extends HTMLElement {
         this._wideViewPageController.isWideViewPageActive();
       const shouldShowSingleAlertTakeover =
         this._singleViewPageController.isActive();
+      const shouldShowMobileAlertTakeover =
+        this._mobileViewPageController.shouldShowAlertTakeoverButton();
       const controlsBtnPresent = !!this._pageShellRegionElement("tools", "#controls-btn");
       const gridBtnPresent = !!this._pageShellRegionElement("tools", "#grid-btn");
       const slideshowBtnPresent = !!this._pageShellRegionElement("tools", "#slideshow-btn");
@@ -3675,12 +3684,17 @@ export class FrigateViewCard extends HTMLElement {
         "tools",
         "#single-alert-takeover-btn",
       );
+      const mobileAlertTakeoverBtnPresent = !!this._pageShellRegionElement(
+        "tools",
+        "#mobile-alert-takeover-btn",
+      );
       const needsToolsRerender =
         (buttonStates.controlsVisible && !controlsBtnPresent) ||
         (shouldShowGrid && !gridBtnPresent) ||
         (shouldShowSlideshow && !slideshowBtnPresent) ||
         (shouldShowWideAlertTakeover && !wideAlertTakeoverBtnPresent) ||
-        (shouldShowSingleAlertTakeover && !singleAlertTakeoverBtnPresent);
+        (shouldShowSingleAlertTakeover && !singleAlertTakeoverBtnPresent) ||
+        (shouldShowMobileAlertTakeover && !mobileAlertTakeoverBtnPresent);
       if (needsToolsRerender) {
         this._syncTabsShell();
       }
@@ -3714,29 +3728,29 @@ export class FrigateViewCard extends HTMLElement {
       }
     }
 
-    const wideAlertTakeoverBtn = this._pageShellRegionElement(
+    const alertTakeoverBtn = this._pageShellRegionElement(
       "tools",
-      "#wide-alert-takeover-btn, #single-alert-takeover-btn",
+      "#wide-alert-takeover-btn, #single-alert-takeover-btn, #mobile-alert-takeover-btn",
     );
-    if (wideAlertTakeoverBtn) {
-      const active = wideAlertTakeoverBtn.matches(
-        "#single-alert-takeover-btn",
-      )
+    if (alertTakeoverBtn) {
+      const active = alertTakeoverBtn.matches("#single-alert-takeover-btn")
         ? this._singleViewPageController.alertTakeoverEnabled()
-        : this._wideViewPageController.companionAlertTakeoverEnabled();
+        : alertTakeoverBtn.matches("#mobile-alert-takeover-btn")
+          ? this._mobileViewPageController.alertTakeoverEnabled()
+          : this._wideViewPageController.companionAlertTakeoverEnabled();
       const label = active
         ? "Disable Alert Camera Takeover"
         : "Enable Alert Camera Takeover";
-      wideAlertTakeoverBtn.classList.toggle("active", active);
-      wideAlertTakeoverBtn.disabled =
+      alertTakeoverBtn.classList.toggle("active", active);
+      alertTakeoverBtn.disabled =
         buttonStates.wideAlertTakeoverDisabled;
-      wideAlertTakeoverBtn.setAttribute(
+      alertTakeoverBtn.setAttribute(
         "aria-pressed",
         active ? "true" : "false",
       );
-      wideAlertTakeoverBtn.setAttribute("title", label);
-      wideAlertTakeoverBtn.setAttribute("aria-label", label);
-      wideAlertTakeoverBtn.innerHTML = ICONS.alerts;
+      alertTakeoverBtn.setAttribute("title", label);
+      alertTakeoverBtn.setAttribute("aria-label", label);
+      alertTakeoverBtn.innerHTML = ICONS.alerts;
     }
 
     const slideshowBtn = this._pageShellRegionElement("tools", "#slideshow-btn");
@@ -3942,6 +3956,7 @@ export class FrigateViewCard extends HTMLElement {
     let hasActiveAlert = false;
     const reportedHaAlertEntities = new Set();
     const activeHaAlertEntities = new Set();
+    const slideshowHaCandidates = [];
     const activeEntity = String(this._activeCam?.entity || "").trim();
     const activeMemberEntities = new Set(cameraMemberEntities(this._activeCam));
     let activeCameraAlerted = false;
@@ -3977,6 +3992,7 @@ export class FrigateViewCard extends HTMLElement {
         firstAlertSeverity = severity;
       }
       hasActiveAlert = true;
+      slideshowHaCandidates.push({ entity, severity });
       if (activeMemberEntities.has(entity)) {
         activeCameraAlerted = true;
         if (!activeAlertEntity) {
@@ -4009,18 +4025,10 @@ export class FrigateViewCard extends HTMLElement {
       this._cardViewPageController?.handleHaReviewStatus?.(entity, severity);
     }
 
-    const slideshowAlertEntity = activeCameraAlerted
-      ? activeAlertEntity || activeEntity
-      : firstAlertEntity;
-    const slideshowAlertSeverity = activeCameraAlerted
-      ? activeAlertSeverity
-      : firstAlertSeverity;
-    if (slideshowAlertEntity) {
-      this._slideshowAlertController.handleHaStatusCandidate(
-        slideshowAlertEntity,
-        slideshowAlertSeverity || "alert",
-      );
-    }
+    this._slideshowAlertController.syncHaAlertState({
+      reportedEntities: reportedHaAlertEntities,
+      candidates: slideshowHaCandidates,
+    });
 
     const gridAlertEntity =
       firstChangedAlertEntity ||
@@ -4504,6 +4512,10 @@ export class FrigateViewCard extends HTMLElement {
         this._singleViewPageController.isActive(),
       singleAlertTakeoverEnabled:
         this._singleViewPageController.alertTakeoverEnabled(),
+      showMobileAlertTakeover:
+        this._mobileViewPageController.shouldShowAlertTakeoverButton(),
+      mobileAlertTakeoverEnabled:
+        this._mobileViewPageController.alertTakeoverEnabled(),
       showWideAlertTakeover:
         this._wideViewPageController.isWideViewPageActive(),
       wideAlertTakeoverEnabled:
@@ -6194,6 +6206,14 @@ export class FrigateViewCard extends HTMLElement {
     if (singleAlertTakeoverBtn) {
       if (singleAlertTakeoverBtn.disabled) return true;
       this._singleViewPageController.toggleAlertTakeover();
+      return true;
+    }
+    const mobileAlertTakeoverBtn = target.closest(
+      "#mobile-alert-takeover-btn",
+    );
+    if (mobileAlertTakeoverBtn) {
+      if (mobileAlertTakeoverBtn.disabled) return true;
+      this._mobileViewPageController.toggleAlertTakeover();
       return true;
     }
     const gridBtn = target.closest("#grid-btn");

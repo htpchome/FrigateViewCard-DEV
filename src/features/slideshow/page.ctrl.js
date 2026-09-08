@@ -45,6 +45,7 @@ export class SlideshowPageController {
     this._host._slideshowHandledReviewIds.clear();
     this._host._slideshowStartedAtSec = 0;
     this._host._slideshowReviewProbeInFlight = false;
+    this._host._slideshowAlertController?.stopSession?.();
     if (clearMemberOverride) {
       this._host._activeGroupMemberOverride = "";
     }
@@ -76,6 +77,7 @@ export class SlideshowPageController {
     this._host._slideshowAttentionType = "";
     this._host._slideshowHandledReviewIds.clear();
     this._host._slideshowStartedAtSec = Math.floor(Date.now() / 1000);
+    this._host._slideshowAlertController?.startSession?.();
     const activeMembers = cameraMemberEntities(this._host._activeCam);
     if (activeMembers.length > 1 && !this._host._activeGroupMemberOverride) {
       void this._host._switchCamera(this._host._activeCamIdx, {
@@ -136,6 +138,7 @@ export class SlideshowPageController {
 
   handleAlertTakeoverStateChange(enabled) {
     if (enabled === true || !this._host._slideshowActive) return;
+    this._host._slideshowAlertController?.resetPresentations?.();
     this._host._slideshowPausedUntil = 0;
     this._host._slideshowPendingAlertCam = "";
     this._host._slideshowPendingAlertType = "";
@@ -143,6 +146,17 @@ export class SlideshowPageController {
     this._host._slideshowLastAlertCam = "";
     this._host._setSlideshowAlertState?.("");
     this.scheduleRotation("alert-takeover-disabled");
+  }
+
+  handlePageChange(previousPageId, nextPageId) {
+    if (
+      previousPageId === nextPageId ||
+      this._host._slideshowActive !== true
+    ) {
+      return false;
+    }
+    this.stopRotation("page-navigation", false);
+    return true;
   }
 
   pauseForInteraction() {
@@ -195,6 +209,15 @@ export class SlideshowPageController {
     if (this._host._slideshowPopupPaused) return;
     const pendingAlertCam = this._host._slideshowPendingAlertCam;
     const pendingAlertType = this._host._slideshowPendingAlertType;
+    const completedAlertEntity =
+      !pendingAlertCam && this._host._slideshowAttentionType
+        ? this._host._slideshowLastAlertCam
+        : "";
+    if (completedAlertEntity) {
+      this._host._slideshowAlertController?.completeAlertPresentation?.(
+        completedAlertEntity,
+      );
+    }
     this._host._slideshowPendingAlertCam = "";
     this._host._slideshowPendingAlertType = "";
     const members = flattenCameraMembers(this._host._config?.cameras || []);

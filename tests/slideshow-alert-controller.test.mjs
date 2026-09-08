@@ -156,3 +156,176 @@ test("disabled slideshow takeover does not switch cameras or reset rotation", ()
 
   assert.deepEqual(calls, [["state", "detection"]]);
 });
+
+test("one alert cycle cannot restart its Slideshow Alert Hold Duration", () => {
+  const originalNow = Date.now;
+  let now = 1000;
+  Date.now = () => now;
+  const calls = [];
+  const host = {
+    _slideshowActive: true,
+    _isSlideshowRotationAvailable: () => true,
+    _alertCameraTakeoverEnabled: () => true,
+    _slideshowHandledReviewIds: new Set(),
+    _slideshowPopupPaused: false,
+    _activeCam: { entity: "camera.front_door" },
+    _config: {
+      cameras: [
+        { entity: "camera.front_door" },
+        { entity: "camera.driveway" },
+      ],
+    },
+    _slideshowLastAlertAt: 0,
+    _slideshowLastAlertCam: "",
+    _slideshowPausedUntil: 0,
+    _slideshowStartedAtSec: 0,
+    _normalizeReviewSeverity: (review) => review?.severity || "alert",
+    _shouldHandleSlideshowReview: () => true,
+    _reviewStartTimeSec: (review) => Number(review?.start_time || 0),
+    _cameraIndexByEntity: (entity) =>
+      entity === "camera.driveway" ? 1 : 0,
+    _setSlideshowAlertState: (severity) =>
+      calls.push(["state", severity]),
+    _scheduleSlideshowRotation: (reason) =>
+      calls.push(["schedule", reason]),
+    _switchCamera: async (index) => calls.push(["switch", index]),
+  };
+  const controller = new SlideshowAlertController(host, {
+    SLIDESHOW_ALERT_HOLD_MS: 10000,
+    SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC: 10,
+  });
+
+  try {
+    controller.handleHaStatusCandidate("camera.driveway", "alert");
+    assert.equal(host._slideshowPausedUntil, 11000);
+    host._activeCam = { entity: "camera.driveway" };
+
+    now = 2000;
+    controller.handleReviewsUpdated("camera.driveway", [
+      { id: "same-alert", start_time: 2, severity: "alert" },
+    ]);
+    controller.handleHaStatusCandidate("camera.driveway", "alert");
+
+    assert.equal(host._slideshowPausedUntil, 11000);
+    assert.deepEqual(calls, [
+      ["state", "alert"],
+      ["switch", 1],
+      ["schedule", "ha-alert-switch"],
+    ]);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("a newly alerted camera preempts an older active HA alert", () => {
+  const calls = [];
+  const host = {
+    _slideshowActive: true,
+    _isSlideshowRotationAvailable: () => true,
+    _alertCameraTakeoverEnabled: () => true,
+    _slideshowPopupPaused: false,
+    _activeCam: { entity: "camera.front_door" },
+    _config: {
+      cameras: [
+        { entity: "camera.front_door" },
+        { entity: "camera.driveway" },
+      ],
+    },
+    _shouldHandleSlideshowReview: () => true,
+    _cameraIndexByEntity: (entity) =>
+      entity === "camera.driveway" ? 1 : 0,
+    _setSlideshowAlertState: () => {},
+    _scheduleSlideshowRotation: (reason) =>
+      calls.push(["schedule", reason]),
+    _switchCamera: async (index) => calls.push(["switch", index]),
+  };
+  const controller = new SlideshowAlertController(host, {
+    SLIDESHOW_ALERT_HOLD_MS: 10000,
+  });
+  const reportedEntities = new Set([
+    "camera.front_door",
+    "camera.driveway",
+  ]);
+
+  controller.syncHaAlertState({
+    reportedEntities,
+    candidates: [{ entity: "camera.front_door", severity: "alert" }],
+  });
+  controller.syncHaAlertState({
+    reportedEntities,
+    candidates: [
+      { entity: "camera.front_door", severity: "alert" },
+      { entity: "camera.driveway", severity: "detection" },
+    ],
+  });
+
+  assert.deepEqual(calls, [
+    ["schedule", "ha-active-alert"],
+    ["switch", 1],
+    ["schedule", "ha-alert-switch"],
+  ]);
+});
+
+test("existing simultaneous HA alerts do not rotate through takeover holds", () => {
+  const calls = [];
+  const host = {
+    _slideshowActive: true,
+    _isSlideshowRotationAvailable: () => true,
+    _alertCameraTakeoverEnabled: () => true,
+    _slideshowPopupPaused: false,
+    _activeCam: { entity: "camera.front_door" },
+    _config: {
+      cameras: [
+        { entity: "camera.front_door" },
+        { entity: "camera.driveway" },
+      ],
+    },
+    _shouldHandleSlideshowReview: () => true,
+    _cameraIndexByEntity: (entity) =>
+      entity === "camera.driveway" ? 1 : 0,
+    _setSlideshowAlertState: () => {},
+    _scheduleSlideshowRotation: (reason) =>
+      calls.push(["schedule", reason]),
+    _switchCamera: async (index) => calls.push(["switch", index]),
+  };
+  const controller = new SlideshowAlertController(host, {
+    SLIDESHOW_ALERT_HOLD_MS: 10000,
+  });
+  const state = {
+    reportedEntities: new Set([
+      "camera.front_door",
+      "camera.driveway",
+    ]),
+    candidates: [
+      { entity: "camera.front_door", severity: "alert" },
+      { entity: "camera.driveway", severity: "alert" },
+    ],
+  };
+
+  controller.syncHaAlertState(state);
+  controller.syncHaAlertState(state);
+
+  assert.deepEqual(calls, [["schedule", "ha-active-alert"]]);
+});
+
+test("HA alert synchronization is presentation-inert outside slideshow", () => {
+  const calls = [];
+  const host = {
+    _slideshowActive: false,
+    _isSlideshowRotationAvailable: () => true,
+    _alertCameraTakeoverEnabled: () => false,
+    _activeCam: { entity: "camera.front_door" },
+    _setSlideshowAlertState: (severity) =>
+      calls.push(["state", severity]),
+  };
+  const controller = new SlideshowAlertController(host, {
+    SLIDESHOW_ALERT_HOLD_MS: 10000,
+  });
+
+  controller.syncHaAlertState({
+    reportedEntities: new Set(["camera.front_door"]),
+    candidates: [{ entity: "camera.front_door", severity: "alert" }],
+  });
+
+  assert.deepEqual(calls, []);
+});

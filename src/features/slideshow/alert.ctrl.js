@@ -17,6 +17,21 @@ export class SlideshowAlertController {
   constructor(host, constants) {
     this._host = host;
     this._constants = constants;
+    this._presentedAlertEntities = new Set();
+    this._presentedAlertSeverityByEntity = new Map();
+    this._activeHaAlertEntities = new Set();
+    this._activeRealtimeAlertEntities = new Set();
+  }
+
+  startSession() {
+    this._presentedAlertEntities.clear();
+    this._presentedAlertSeverityByEntity.clear();
+    this._activeHaAlertEntities.clear();
+    this._activeRealtimeAlertEntities.clear();
+  }
+
+  stopSession() {
+    this.startSession();
   }
 
   _activeLiveEntity() {
@@ -46,6 +61,101 @@ export class SlideshowAlertController {
       source: "alert",
       ...(grouped ? { groupMemberEntity: entity } : {}),
     });
+    return true;
+  }
+
+  releaseAlertPresentation(entity) {
+    const targetEntity = String(entity || "").trim();
+    if (!targetEntity) return false;
+    this._presentedAlertSeverityByEntity.delete(targetEntity);
+    return this._presentedAlertEntities.delete(targetEntity);
+  }
+
+  completeAlertPresentation(entity) {
+    const targetEntity = String(entity || "").trim();
+    if (
+      !targetEntity ||
+      this._activeHaAlertEntities.has(targetEntity) ||
+      this._activeRealtimeAlertEntities.has(targetEntity)
+    ) {
+      return false;
+    }
+    return this.releaseAlertPresentation(targetEntity);
+  }
+
+  resetPresentations() {
+    this._presentedAlertEntities.clear();
+    this._presentedAlertSeverityByEntity.clear();
+  }
+
+  _presentAlert(
+    entity,
+    severity = "alert",
+    {
+      activeReason = "active-alert",
+      switchReason = "alert-switch",
+    } = {},
+  ) {
+    if (
+      !this._host._slideshowActive ||
+      !this._host._isSlideshowRotationAvailable() ||
+      !entity
+    ) {
+      return false;
+    }
+    const normalizedSeverity = String(severity || "")
+      .trim()
+      .toLowerCase();
+    if (
+      !this._host._shouldHandleSlideshowReview(
+        entity,
+        normalizedSeverity,
+      )
+    ) {
+      return false;
+    }
+    if (!this._alertTakeoverEnabled()) {
+      this._showActiveAlertWithoutTakeover(entity, normalizedSeverity);
+      return false;
+    }
+    if (this._presentedAlertEntities.has(entity)) {
+      const previousSeverity = this._presentedAlertSeverityByEntity.get(entity);
+      if (
+        previousSeverity !== normalizedSeverity &&
+        entity === this._activeLiveEntity()
+      ) {
+        this._presentedAlertSeverityByEntity.set(entity, normalizedSeverity);
+        this._host._setSlideshowAlertState(normalizedSeverity || "alert");
+      }
+      return false;
+    }
+    if (this._host._cameraIndexByEntity(entity) < 0) return false;
+
+    this._presentedAlertEntities.add(entity);
+    this._presentedAlertSeverityByEntity.set(entity, normalizedSeverity);
+    if (this._host._slideshowPopupPaused) {
+      this._host._slideshowPendingAlertCam = entity;
+      this._host._slideshowPendingAlertType =
+        normalizedSeverity || "alert";
+      this._host._setSlideshowAlertState(normalizedSeverity || "alert");
+      return true;
+    }
+
+    const now = Date.now();
+    this._host._slideshowLastAlertAt = now;
+    this._host._slideshowLastAlertCam = entity;
+    this._host._slideshowPausedUntil = now + this.alertHoldMs();
+    this._host._slideshowPendingAlertCam = "";
+    this._host._slideshowPendingAlertType = "";
+    this._host._setSlideshowAlertState(normalizedSeverity || "alert");
+
+    if (entity === this._activeLiveEntity()) {
+      this._host._scheduleSlideshowRotation(activeReason);
+      return true;
+    }
+
+    this._switchToCameraEntity(entity);
+    this._host._scheduleSlideshowRotation(switchReason);
     return true;
   }
 
@@ -96,38 +206,10 @@ export class SlideshowAlertController {
     if (!nextReview) return;
     if (nextReview.reviewId) this.rememberHandledReview(nextReview.reviewId);
 
-    if (!this._alertTakeoverEnabled()) {
-      this._showActiveAlertWithoutTakeover(
-        nextReview.entity,
-        nextReview.severity,
-      );
-      return;
-    }
-
-    if (this._host._slideshowPopupPaused) {
-      this._host._slideshowPendingAlertCam = nextReview.entity;
-      this._host._slideshowPendingAlertType = nextReview.severity;
-      this._host._setSlideshowAlertState(nextReview.severity);
-      return;
-    }
-
-    const now = Date.now();
-    const activeEntity = this._activeLiveEntity();
-    this._host._slideshowLastAlertAt = now;
-    this._host._slideshowLastAlertCam = nextReview.entity;
-    this._host._slideshowPausedUntil = now + this.alertHoldMs();
-    this._host._setSlideshowAlertState(nextReview.severity);
-
-    if (nextReview.entity === activeEntity) {
-      this._host._scheduleSlideshowRotation(`${source}-active`);
-      return;
-    }
-
-    if (this._host._cameraIndexByEntity(nextReview.entity) < 0) return;
-    this._host._slideshowPendingAlertCam = "";
-    this._host._slideshowPendingAlertType = "";
-    this._switchToCameraEntity(nextReview.entity);
-    this._host._scheduleSlideshowRotation(`${source}-switch`);
+    this._presentAlert(nextReview.entity, nextReview.severity, {
+      activeReason: `${source}-active`,
+      switchReason: `${source}-switch`,
+    });
   }
 
   async probeLatestReview() {
@@ -179,34 +261,10 @@ export class SlideshowAlertController {
       if (!next?.entity) return;
       if (next.reviewId) this.rememberHandledReview(next.reviewId);
 
-      if (!this._alertTakeoverEnabled()) {
-        this._showActiveAlertWithoutTakeover(next.entity, next.severity);
-        return;
-      }
-
-      if (this._host._slideshowPopupPaused) {
-        this._host._slideshowPendingAlertCam = next.entity;
-        this._host._slideshowPendingAlertType = next.severity;
-        this._host._setSlideshowAlertState(next.severity);
-        return;
-      }
-
-      const activeEntity = this._activeLiveEntity();
-      this._host._slideshowLastAlertAt = Date.now();
-      this._host._slideshowLastAlertCam = next.entity;
-      this._host._slideshowPausedUntil = Date.now() + this.alertHoldMs();
-      this._host._setSlideshowAlertState(next.severity);
-
-      if (next.entity === activeEntity) {
-        this._host._scheduleSlideshowRotation("probe-active-review");
-        return;
-      }
-
-      if (this._host._cameraIndexByEntity(next.entity) < 0) return;
-      this._host._slideshowPendingAlertCam = "";
-      this._host._slideshowPendingAlertType = "";
-      this._switchToCameraEntity(next.entity);
-      this._host._scheduleSlideshowRotation("probe-review-switch");
+      this._presentAlert(next.entity, next.severity, {
+        activeReason: "probe-active-review",
+        switchReason: "probe-review-switch",
+      });
     } finally {
       this._host._slideshowReviewProbeInFlight = false;
     }
@@ -240,53 +298,72 @@ export class SlideshowAlertController {
   }
 
   handleHaStatusCandidate(cam, severity = "alert") {
+    return this._presentAlert(cam, severity, {
+      activeReason: "ha-active-alert",
+      switchReason: "ha-alert-switch",
+    });
+  }
+
+  syncHaAlertState({ reportedEntities, candidates } = {}) {
+    const reported =
+      reportedEntities instanceof Set ? reportedEntities : new Set();
+    const normalizedCandidates = (Array.isArray(candidates) ? candidates : [])
+      .map((candidate) => ({
+        entity: String(candidate?.entity || "").trim(),
+        severity: String(candidate?.severity || "").trim().toLowerCase(),
+      }))
+      .filter(({ entity, severity }) => entity && severity);
+    const activeEntities = new Set(
+      normalizedCandidates.map(({ entity }) => entity),
+    );
+    const newlyActiveCandidates = normalizedCandidates.filter(
+      ({ entity }) => !this._activeHaAlertEntities.has(entity),
+    );
+    this._activeHaAlertEntities = activeEntities;
+
+    for (const entity of reported) {
+      if (
+        !activeEntities.has(entity) &&
+        !this._activeRealtimeAlertEntities.has(entity)
+      ) {
+        this.releaseAlertPresentation(entity);
+      }
+    }
+
     if (
       !this._host._slideshowActive ||
       !this._host._isSlideshowRotationAvailable()
     ) {
-      return;
-    }
-    if (!cam) return;
-    const normalizedSeverity = String(severity || "")
-      .trim()
-      .toLowerCase();
-    if (!this._host._shouldHandleSlideshowReview(cam, normalizedSeverity)) {
-      return;
+      return false;
     }
 
     if (!this._alertTakeoverEnabled()) {
-      this._showActiveAlertWithoutTakeover(cam, normalizedSeverity);
-      return;
+      normalizedCandidates.forEach(({ entity, severity }) => {
+        this._showActiveAlertWithoutTakeover(entity, severity);
+      });
+      return false;
     }
 
-    if (this._host._slideshowPopupPaused) {
-      this._host._slideshowPendingAlertCam = cam;
-      this._host._slideshowPendingAlertType = normalizedSeverity || "alert";
-      this._host._setSlideshowAlertState(normalizedSeverity || "alert");
-      return;
+    for (const { entity, severity } of normalizedCandidates) {
+      if (!this._presentedAlertEntities.has(entity)) continue;
+      this._presentAlert(entity, severity, {
+        activeReason: "ha-active-alert",
+        switchReason: "ha-alert-switch",
+      });
     }
 
-    const now = Date.now();
-    const activeEntity = this._activeLiveEntity();
-    this._host._slideshowLastAlertAt = now;
-    this._host._slideshowLastAlertCam = cam;
-
-    if (cam === activeEntity) {
-      this._host._slideshowPendingAlertCam = "";
-      this._host._slideshowPendingAlertType = "";
-      this._host._slideshowPausedUntil = now + this.alertHoldMs();
-      this._host._setSlideshowAlertState(normalizedSeverity || "alert");
-      this._host._scheduleSlideshowRotation("ha-active-alert");
-      return;
+    for (const { entity, severity } of newlyActiveCandidates) {
+      if (this._presentedAlertEntities.has(entity)) continue;
+      if (
+        this._presentAlert(entity, severity, {
+          activeReason: "ha-active-alert",
+          switchReason: "ha-alert-switch",
+        })
+      ) {
+        return true;
+      }
     }
-
-    if (this._host._cameraIndexByEntity(cam) < 0) return;
-    this._host._slideshowPausedUntil = now + this.alertHoldMs();
-    this._host._slideshowPendingAlertCam = "";
-    this._host._slideshowPendingAlertType = "";
-    this._host._setSlideshowAlertState(normalizedSeverity || "alert");
-    this._switchToCameraEntity(cam);
-    this._host._scheduleSlideshowRotation("ha-alert-switch");
+    return false;
   }
 
   scheduleReviewWatch(delayMs = null) {
@@ -319,42 +396,26 @@ export class SlideshowAlertController {
       return;
     }
     this.scheduleReviewProbe();
-    const parsed = parseRealtimeAlertMessage({ host: this._host, msg });
+    const parsed = parseRealtimeAlertMessage({
+      host: this._host,
+      msg,
+      checkSeverity: false,
+    });
     if (!parsed) return;
-    const { cam, severity } = parsed;
-
-    if (!this._alertTakeoverEnabled()) {
-      this._showActiveAlertWithoutTakeover(cam, severity);
+    const { cam, severity, type } = parsed;
+    if (type === "end") {
+      this._activeRealtimeAlertEntities.delete(cam);
+      if (!this._activeHaAlertEntities.has(cam)) {
+        this.releaseAlertPresentation(cam);
+      }
       return;
     }
-
-    if (this._host._slideshowPopupPaused) {
-      this._host._slideshowPendingAlertCam = cam;
-      this._host._slideshowPendingAlertType = severity;
-      this._host._setSlideshowAlertState(severity);
+    const normalizedSeverity = String(severity || "").trim().toLowerCase();
+    if (!normalizedSeverity) return;
+    if (!this._host._shouldHandleSlideshowReview(cam, normalizedSeverity)) {
       return;
     }
-
-    const now = Date.now();
-    const activeEntity = this._activeLiveEntity();
-    this._host._slideshowLastAlertAt = now;
-    this._host._slideshowLastAlertCam = cam;
-
-    if (cam === activeEntity) {
-      this._host._slideshowPendingAlertCam = "";
-      this._host._slideshowPendingAlertType = "";
-      this._host._slideshowPausedUntil = now + this.alertHoldMs();
-      this._host._setSlideshowAlertState(severity);
-      this._host._scheduleSlideshowRotation("active-alert");
-      return;
-    }
-
-    if (this._host._cameraIndexByEntity(cam) < 0) return;
-    this._host._slideshowPausedUntil = now + this.alertHoldMs();
-    this._host._slideshowPendingAlertCam = "";
-    this._host._slideshowPendingAlertType = "";
-    this._host._setSlideshowAlertState(severity);
-    this._switchToCameraEntity(cam);
-    this._host._scheduleSlideshowRotation("alert-switch");
+    this._activeRealtimeAlertEntities.add(cam);
+    this._presentAlert(cam, normalizedSeverity);
   }
 }

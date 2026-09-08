@@ -279,6 +279,31 @@ test("buildToolsMarkup places Single View alert takeover between Grid and Slides
   assert.doesNotMatch(markup, /id="wide-alert-takeover-btn"/);
 });
 
+test("buildToolsMarkup adds Mobile View alert takeover for desktop layouts", () => {
+  const markup = buildToolsMarkup({
+    tab: "alerts",
+    viewMode: "single",
+    icons,
+    isFilterPanelOpen: false,
+    isCalendarPanelOpen: false,
+    isGridModeAvailable: false,
+    isSlideshowRotationAvailable: true,
+    isSlideshowActive: true,
+    isControlsVisible: false,
+    slideshowButtonIcon: "L",
+    showMobileAlertTakeover: true,
+    mobileAlertTakeoverEnabled: true,
+    wideAlertTakeoverButtonIcon: "T",
+  });
+
+  assert.match(
+    markup,
+    /class="tool active" id="mobile-alert-takeover-btn"[^>]*aria-pressed="true"/,
+  );
+  assert.doesNotMatch(markup, /id="single-alert-takeover-btn"/);
+  assert.doesNotMatch(markup, /id="wide-alert-takeover-btn"/);
+});
+
 test("Alert takeover remains available with Grid and Slideshow", () => {
   const cases = [
     {

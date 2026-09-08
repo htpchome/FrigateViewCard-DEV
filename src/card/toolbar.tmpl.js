@@ -78,6 +78,8 @@ export function buildToolsMarkup({
   slideshowButtonIcon,
   showSingleAlertTakeover = false,
   singleAlertTakeoverEnabled = false,
+  showMobileAlertTakeover = false,
+  mobileAlertTakeoverEnabled = false,
   showWideAlertTakeover = false,
   wideAlertTakeoverEnabled = false,
   wideAlertTakeoverButtonIcon = "",
@@ -92,13 +94,19 @@ export function buildToolsMarkup({
     ? ""
     : `<button class="${toolButtonClass}${gridActive ? " active" : ""}" id="grid-btn" aria-pressed="${gridActive ? "true" : "false"}" title="${gridActive ? "Stop grid mode" : "Start grid mode"}" aria-label="${gridActive ? "Stop grid mode" : "Start grid mode"}" ${gridDisabled ? "disabled" : ""}>${gridButtonIcon}</button>`;
   const showAlertTakeover =
-    showSingleAlertTakeover || showWideAlertTakeover;
+    showSingleAlertTakeover ||
+    showMobileAlertTakeover ||
+    showWideAlertTakeover;
   const alertTakeoverEnabled = showSingleAlertTakeover
     ? singleAlertTakeoverEnabled
-    : wideAlertTakeoverEnabled;
+    : showMobileAlertTakeover
+      ? mobileAlertTakeoverEnabled
+      : wideAlertTakeoverEnabled;
   const alertTakeoverButtonId = showSingleAlertTakeover
     ? "single-alert-takeover-btn"
-    : "wide-alert-takeover-btn";
+    : showMobileAlertTakeover
+      ? "mobile-alert-takeover-btn"
+      : "wide-alert-takeover-btn";
   const wideAlertTakeoverLabel = alertTakeoverEnabled
     ? "Disable Alert Camera Takeover"
     : "Enable Alert Camera Takeover";

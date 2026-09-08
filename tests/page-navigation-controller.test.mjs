@@ -305,6 +305,22 @@ test("factory stops active PTZ motion before page navigation", () => {
   assert.deepEqual(h.calls, [["stopPtz", "page-navigation"]]);
 });
 
+test("factory delegates page-exit slideshow cleanup to Slideshow", () => {
+  const h = createHarness();
+  h.host._slideshowPageController = {
+    handlePageChange: (previousPageId, nextPageId) =>
+      h.calls.push(["slideshowPageChange", previousPageId, nextPageId]),
+  };
+  const controller = new PageNavigationController(h.host, h.constants);
+  controller.ensureNavigationFactory();
+
+  h.getInput().onBeforeNavigate(PAGE_IDS.preview, {});
+
+  assert.deepEqual(h.calls, [
+    ["slideshowPageChange", PAGE_IDS.singleView, PAGE_IDS.preview],
+  ]);
+});
+
 test("page changes synchronize scoped Home Assistant shell styling", () => {
   const h = createHarness();
   h.host._haNavbarController = {
