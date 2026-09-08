@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { GridMediaController } from "../src/features/grid/media.ctrl.js";
 import {
+  resolveWideCompanionExpansionMax,
   resolveWideCompanionGridLayout,
   WideViewCompanionController,
 } from "../src/features/wide-view/companion.ctrl.js";
@@ -81,6 +82,52 @@ const createHost = ({ live = false, takeover = false } = {}) => {
   };
   return { host, calls, grid };
 };
+
+test("Companion Cameras expansion covers controls and only the lower edge of live", () => {
+  assert.equal(
+    resolveWideCompanionExpansionMax({
+      panelTop: 520,
+      liveBottom: 300,
+      liveHeight: 400,
+    }),
+    268,
+  );
+  assert.equal(
+    resolveWideCompanionExpansionMax({
+      panelTop: 520,
+      liveBottom: 300,
+      liveHeight: 800,
+    }),
+    276,
+  );
+  assert.equal(
+    resolveWideCompanionExpansionMax({
+      panelTop: 280,
+      liveBottom: 300,
+      liveHeight: 100,
+    }),
+    0,
+  );
+});
+
+test("Companion Cameras region exposes an accessible drag handle", () => {
+  const { host } = createHost();
+  const controller = new WideViewCompanionController(host, constants);
+  const markup = controller.buildRegionMarkup();
+
+  assert.match(markup, /data-wide-companion-resize-handle/);
+  assert.match(markup, /role="separator"/);
+  assert.match(markup, /aria-orientation="horizontal"/);
+  assert.match(markup, /aria-controls="wide-companion-grid"/);
+  assert.match(
+    STYLES,
+    /\.wide-companion-surface\{[^}]*position:absolute;[^}]*inset:calc\(0px - var\(--wide-companion-expansion\)\)/,
+  );
+  assert.match(
+    STYLES,
+    /\.wide-companion-resize-handle\{[^}]*cursor:ns-resize;[^}]*touch-action:none/,
+  );
+});
 
 test("Companion Cameras render every configured camera in user order", () => {
   const { host, grid } = createHost();

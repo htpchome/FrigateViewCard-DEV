@@ -195,6 +195,169 @@ test("page routes replace only their layout while preserving live and popup shel
   expect(pageErrors).toEqual([]);
 });
 
+test("Wide View Companion Cameras drag upward over controls without resizing live", async ({
+  page,
+}) => {
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto(baseUrl);
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const card = document.createElement("frigate-view-card");
+    card.style.width = "1000px";
+    document.body.append(card);
+    card.setConfig({
+      cameras: Array.from({ length: 6 }, (_, index) => ({
+        entity: `camera.camera_${index + 1}`,
+        name: `Camera ${index + 1}`,
+      })),
+      wide_view_page_enabled: true,
+      stream_height: 640,
+      stream_height_unit: "px",
+    });
+    card._pageId = "wide-view";
+    card._renderShell();
+    card._wideViewPageController.startWideViewMode();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const root = card.shadowRoot;
+    const panel = root.querySelector("#wide-companion-panel");
+    const surface = root.querySelector(".wide-companion-surface");
+    const handle = root.querySelector(
+      "[data-wide-companion-resize-handle]",
+    );
+    const liveStage = root.querySelector("#live-stage");
+    const cameraSwitcher = root.querySelector("#cam-switcher");
+    const before = {
+      panelTop: panel.getBoundingClientRect().top,
+      surfaceTop: surface.getBoundingClientRect().top,
+      liveHeight: liveStage.getBoundingClientRect().height,
+    };
+    const pointerId = 7;
+    const startY = handle.getBoundingClientRect().top + 10;
+    handle.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        clientY: startY,
+        isPrimary: true,
+        pointerId,
+      }),
+    );
+    handle.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        clientY: startY - 1000,
+        isPrimary: true,
+        pointerId,
+      }),
+    );
+    handle.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        button: 0,
+        clientY: startY - 1000,
+        isPrimary: true,
+        pointerId,
+      }),
+    );
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const expandedPanelRect = panel.getBoundingClientRect();
+    const expandedSurfaceRect = surface.getBoundingClientRect();
+    const expandedLiveRect = liveStage.getBoundingClientRect();
+    const expanded = {
+      panelTop: expandedPanelRect.top,
+      surfaceTop: expandedSurfaceRect.top,
+      liveBottom: expandedLiveRect.bottom,
+      liveHeight: expandedLiveRect.height,
+      cameraSwitcherTop: cameraSwitcher.getBoundingClientRect().top,
+      now: Number(handle.getAttribute("aria-valuenow")),
+      max: Number(handle.getAttribute("aria-valuemax")),
+      active: handle.classList.contains("active"),
+      panelExpanded: panel.classList.contains("is-expanded"),
+    };
+
+    const collapseStartY = handle.getBoundingClientRect().top + 10;
+    handle.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        clientY: collapseStartY,
+        isPrimary: true,
+        pointerId,
+      }),
+    );
+    handle.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        clientY: collapseStartY + 1000,
+        isPrimary: true,
+        pointerId,
+      }),
+    );
+    handle.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        button: 0,
+        clientY: collapseStartY + 1000,
+        isPrimary: true,
+        pointerId,
+      }),
+    );
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const collapsed = {
+      surfaceTop: surface.getBoundingClientRect().top,
+      liveHeight: liveStage.getBoundingClientRect().height,
+      now: Number(handle.getAttribute("aria-valuenow")),
+      panelExpanded: panel.classList.contains("is-expanded"),
+    };
+    card._wideViewPageController.stopWideViewMode();
+    handle.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "End" }),
+    );
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    return {
+      before,
+      expanded,
+      collapsed,
+      stopped: {
+        now: Number(handle.getAttribute("aria-valuenow")),
+        panelExpanded: panel.classList.contains("is-expanded"),
+      },
+    };
+  });
+
+  expect(result.expanded.max).toBeGreaterThan(0);
+  expect(result.expanded.now).toBe(result.expanded.max);
+  expect(result.expanded.surfaceTop).toBeLessThan(
+    result.before.surfaceTop - 20,
+  );
+  expect(result.expanded.surfaceTop).toBeLessThan(
+    result.expanded.cameraSwitcherTop,
+  );
+  expect(result.expanded.surfaceTop).toBeLessThanOrEqual(
+    result.expanded.liveBottom,
+  );
+  expect(result.expanded.surfaceTop).toBeGreaterThanOrEqual(
+    result.expanded.liveBottom - 57,
+  );
+  expect(result.expanded.panelTop).toBeCloseTo(result.before.panelTop, 0);
+  expect(result.expanded.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
+  expect(result.expanded.active).toBe(false);
+  expect(result.expanded.panelExpanded).toBe(true);
+  expect(result.collapsed.now).toBe(0);
+  expect(result.collapsed.surfaceTop).toBeCloseTo(result.before.surfaceTop, 0);
+  expect(result.collapsed.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
+  expect(result.collapsed.panelExpanded).toBe(false);
+  expect(result.stopped).toEqual({ now: 0, panelExpanded: false });
+  expect(pageErrors).toEqual([]);
+});
+
 test("dispatches event-tab clicks from the page-shell tabs region", async ({
   page,
 }) => {

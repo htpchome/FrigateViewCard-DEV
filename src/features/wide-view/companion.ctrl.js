@@ -1,4 +1,5 @@
 import { cap, camDisplayName, DEVICE_PROFILE } from "../../helpers.js";
+import { CleanupController } from "../../shared/cleanup.js";
 import { buildHaCameraStreamState } from "../../integrations/home-assistant/playback.js";
 import { WideViewCompanionAlertController } from "./companion-alert.ctrl.js";
 import {
@@ -12,6 +13,34 @@ import { flattenCameraMembers } from "../camera-groups/model.js";
 const LIVE_STREAM_HINTS = new Set(["webrtc", "mse", "hls"]);
 const COMPANION_GRID_GAP_PX = 8;
 const COMPANION_META_HEIGHT_PX = 24;
+const COMPANION_LIVE_OVERLAP_MAX_PX = 56;
+const COMPANION_LIVE_OVERLAP_RATIO = 0.12;
+const COMPANION_EXPANSION_KEY_STEP_PX = 32;
+
+const finiteNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+};
+
+export function resolveWideCompanionExpansionMax({
+  panelTop,
+  liveBottom,
+  liveHeight,
+} = {}) {
+  const resolvedPanelTop = finiteNumber(panelTop);
+  const resolvedLiveBottom = finiteNumber(liveBottom);
+  const resolvedLiveHeight = Math.max(0, finiteNumber(liveHeight));
+  if (resolvedPanelTop <= 0 || resolvedLiveBottom <= 0) return 0;
+
+  const liveOverlap = Math.min(
+    COMPANION_LIVE_OVERLAP_MAX_PX,
+    resolvedLiveHeight * COMPANION_LIVE_OVERLAP_RATIO,
+  );
+  return Math.max(
+    0,
+    resolvedPanelTop - (resolvedLiveBottom - liveOverlap),
+  );
+}
 
 export function resolveWideCompanionGridLayout({
   cameraCount,
@@ -77,6 +106,12 @@ export class WideViewCompanionController {
     this._mediaState = null;
     this._lastRenderSignature = "";
     this._alertTakeoverEnabled = null;
+    this._panelExpansionPx = 0;
+    this._panelExpansionMaxPx = 0;
+    this._panelExpansionPanel = null;
+    this._panelExpansionHandle = null;
+    this._panelExpansionDrag = null;
+    this._panelExpansionCleanup = new CleanupController();
     this._alertController = new WideViewCompanionAlertController(
       host,
       constants,
@@ -180,6 +215,198 @@ export class WideViewCompanionController {
     );
   }
 
+  bindPanelExpansion() {
+    if (!this.isActive()) return;
+    const panel = this._host._$("#wide-companion-panel");
+    const handle = panel?.querySelector?.(
+      "[data-wide-companion-resize-handle]",
+    );
+    if (!panel || !handle) {
+      this._disposePanelExpansion();
+      return;
+    }
+    if (
+      panel === this._panelExpansionPanel &&
+      handle === this._panelExpansionHandle &&
+      panel.isConnected !== false
+    ) {
+      return;
+    }
+
+    this._disposePanelExpansion();
+    this._panelExpansionPanel = panel;
+    this._panelExpansionHandle = handle;
+    this._panelExpansionCleanup = new CleanupController();
+    this._panelExpansionCleanup.addEventListener(
+      handle,
+      "pointerdown",
+      (event) => this._startPanelExpansionDrag(event),
+    );
+    this._panelExpansionCleanup.addEventListener(
+      handle,
+      "pointermove",
+      (event) => this._movePanelExpansionDrag(event),
+    );
+    this._panelExpansionCleanup.addEventListener(
+      handle,
+      "pointerup",
+      (event) => this._finishPanelExpansionDrag(event),
+    );
+    this._panelExpansionCleanup.addEventListener(
+      handle,
+      "pointercancel",
+      (event) => this._finishPanelExpansionDrag(event),
+    );
+    this._panelExpansionCleanup.addEventListener(
+      handle,
+      "lostpointercapture",
+      (event) => this._finishPanelExpansionDrag(event),
+    );
+    this._panelExpansionCleanup.addEventListener(handle, "keydown", (event) =>
+      this._handlePanelExpansionKeydown(event),
+    );
+
+    const ResizeObserverCtor =
+      panel.ownerDocument?.defaultView?.ResizeObserver ||
+      globalThis.ResizeObserver;
+    if (typeof ResizeObserverCtor === "function") {
+      const observer = new ResizeObserverCtor(() => {
+        this._syncPanelExpansionBounds();
+      });
+      observer.observe(panel);
+      const liveStage = this._host._$("#live-stage");
+      if (liveStage) observer.observe(liveStage);
+      this._panelExpansionCleanup.addCleanup(() => observer.disconnect());
+    }
+
+    this._syncPanelExpansionBounds();
+  }
+
+  _measurePanelExpansionMax() {
+    const panelRect =
+      this._panelExpansionPanel?.getBoundingClientRect?.() || null;
+    const liveRect =
+      this._host._$("#live-stage")?.getBoundingClientRect?.() || null;
+    if (!panelRect || !liveRect) return 0;
+    return resolveWideCompanionExpansionMax({
+      panelTop: panelRect.top,
+      liveBottom: liveRect.bottom,
+      liveHeight: liveRect.height,
+    });
+  }
+
+  _syncPanelExpansionBounds() {
+    if (!this._panelExpansionPanel || !this._panelExpansionHandle) return;
+    this._panelExpansionMaxPx = this._measurePanelExpansionMax();
+    this._setPanelExpansion(this._panelExpansionPx, {
+      scheduleLayout: false,
+    });
+    this._host._wideViewPageController?.syncColHeightIfWideView?.();
+  }
+
+  _setPanelExpansion(value, { scheduleLayout = true } = {}) {
+    const panel = this._panelExpansionPanel;
+    const handle = this._panelExpansionHandle;
+    if (!panel || !handle) return false;
+    const nextExpansion = Math.min(
+      this._panelExpansionMaxPx,
+      Math.max(0, finiteNumber(value)),
+    );
+    this._panelExpansionPx = nextExpansion;
+    panel.style?.setProperty?.(
+      "--wide-companion-expansion",
+      `${nextExpansion}px`,
+    );
+    panel.classList?.toggle?.("is-expanded", nextExpansion > 0.5);
+    handle.setAttribute?.(
+      "aria-valuemax",
+      String(Math.round(this._panelExpansionMaxPx)),
+    );
+    handle.setAttribute?.(
+      "aria-valuenow",
+      String(Math.round(nextExpansion)),
+    );
+    if (scheduleLayout) {
+      this._host._wideViewPageController?.syncColHeightIfWideView?.();
+    }
+    return true;
+  }
+
+  _startPanelExpansionDrag(event) {
+    if (
+      !this._panelExpansionHandle ||
+      event?.isPrimary === false ||
+      (Number.isFinite(event?.button) && event.button !== 0)
+    ) {
+      return;
+    }
+    this._panelExpansionMaxPx = this._measurePanelExpansionMax();
+    this._panelExpansionDrag = {
+      pointerId: event.pointerId,
+      startY: finiteNumber(event.clientY),
+      startExpansion: this._panelExpansionPx,
+    };
+    this._panelExpansionHandle.classList?.add?.("active");
+    try {
+      this._panelExpansionHandle.setPointerCapture?.(event.pointerId);
+    } catch (_) {}
+    event.preventDefault?.();
+  }
+
+  _movePanelExpansionDrag(event) {
+    const drag = this._panelExpansionDrag;
+    if (!drag || event?.pointerId !== drag.pointerId) return;
+    this._setPanelExpansion(
+      drag.startExpansion + drag.startY - finiteNumber(event.clientY),
+    );
+    event.preventDefault?.();
+  }
+
+  _finishPanelExpansionDrag(event) {
+    const drag = this._panelExpansionDrag;
+    if (!drag || event?.pointerId !== drag.pointerId) return;
+    this._panelExpansionDrag = null;
+    this._panelExpansionHandle?.classList?.remove?.("active");
+    try {
+      this._panelExpansionHandle?.releasePointerCapture?.(drag.pointerId);
+    } catch (_) {}
+  }
+
+  _handlePanelExpansionKeydown(event) {
+    const key = String(event?.key || "");
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(key)) return;
+    this._panelExpansionMaxPx = this._measurePanelExpansionMax();
+    let nextExpansion = this._panelExpansionPx;
+    if (key === "ArrowUp") {
+      nextExpansion += COMPANION_EXPANSION_KEY_STEP_PX;
+    } else if (key === "ArrowDown") {
+      nextExpansion -= COMPANION_EXPANSION_KEY_STEP_PX;
+    } else if (key === "Home") {
+      nextExpansion = 0;
+    } else {
+      nextExpansion = this._panelExpansionMaxPx;
+    }
+    this._setPanelExpansion(nextExpansion);
+    event.preventDefault?.();
+  }
+
+  _disposePanelExpansion({ reset = false } = {}) {
+    this._finishPanelExpansionDrag({
+      pointerId: this._panelExpansionDrag?.pointerId,
+    });
+    if (reset && this._panelExpansionPanel) {
+      this._panelExpansionPx = 0;
+      this._panelExpansionMaxPx = 0;
+      this._setPanelExpansion(0, { scheduleLayout: false });
+    }
+    this._panelExpansionCleanup.dispose();
+    this._panelExpansionCleanup = new CleanupController();
+    this._panelExpansionPanel = null;
+    this._panelExpansionHandle = null;
+    this._panelExpansionDrag = null;
+    if (reset) this._panelExpansionPx = 0;
+  }
+
   teardownMedia() {
     if (this._mediaState) {
       this._mediaState.destroyed = true;
@@ -216,10 +443,12 @@ export class WideViewCompanionController {
 
   render() {
     if (!this.isActive()) {
+      this._disposePanelExpansion({ reset: true });
       this.teardownMedia();
       this._host._syncSnapshotRefreshTimer?.();
       return;
     }
+    this.bindPanelExpansion();
     const grid = this._host._$("#wide-companion-grid");
     if (!grid) return;
     const cameras = flattenCameraMembers(this._host._config?.cameras);
@@ -356,6 +585,7 @@ export class WideViewCompanionController {
 
   stop() {
     this._alertController.stop();
+    this._disposePanelExpansion({ reset: true });
     this.teardownMedia();
     this._host._clearSnapshotRefreshTimer?.();
   }

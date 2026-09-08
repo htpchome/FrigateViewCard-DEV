@@ -36,7 +36,12 @@ export function buildWideCompanionCellMarkup({
 
 export function buildWideCompanionRegionMarkup() {
   return `<section class="wide-companion-panel" id="wide-companion-panel" aria-label="Companion Cameras">
-            <div class="wide-companion-title">Companion Cameras</div>
-            <div class="preview-grid wide-companion-grid" id="wide-companion-grid"></div>
+            <div class="wide-companion-surface">
+              <div class="wide-companion-resize-handle" data-wide-companion-resize-handle role="separator" tabindex="0" aria-label="Resize Companion Cameras" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-controls="wide-companion-grid" title="Drag up to expand Companion Cameras">
+                <div class="wide-companion-title">Companion Cameras</div>
+                <span class="wide-companion-resize-grip" aria-hidden="true"></span>
+              </div>
+              <div class="preview-grid wide-companion-grid" id="wide-companion-grid"></div>
+            </div>
           </section>`;
 }
