@@ -100,6 +100,7 @@ export class WideViewCompanionController {
   }
 
   alertTakeoverEnabled() {
+    if (this._host._isAlertCameraTakeoverAvailable?.() === false) return false;
     if (typeof this._alertTakeoverEnabled === "boolean") {
       return this._alertTakeoverEnabled;
     }
@@ -115,6 +116,10 @@ export class WideViewCompanionController {
   }
 
   toggleAlertTakeover() {
+    if (this._host._isAlertCameraTakeoverAvailable?.() === false) {
+      this._host._syncToolbarButtons?.();
+      return false;
+    }
     if (
       !this.alertTakeoverEnabled() &&
       this._host._toolbarButtonStates?.().wideAlertTakeoverDisabled
@@ -395,34 +400,8 @@ export class WideViewCompanionController {
     });
   }
 
-  _handleAlertStateChange(detail = {}) {
+  _handleAlertStateChange(_detail = {}) {
     if (!this.isActive()) return;
     this.render();
-    if (detail.changed !== true || detail.allowTakeover === false) return;
-    if (!this.alertTakeoverEnabled()) return;
-    if (
-      this._host._viewMode === "grid" ||
-      this._host._gridResumePending === true ||
-      this._host._slideshowActive === true
-    ) {
-      return;
-    }
-    this._takeOverMainCamera(detail.entity);
-  }
-
-  _takeOverMainCamera(entity) {
-    const index = this._host._cameraIndexByEntity(entity);
-    if (index < 0) return;
-    if (
-      index === this._host._activeCamIdx &&
-      this._host._viewMode === "single"
-    ) {
-      return;
-    }
-    this._host._stopSlideshowRotation?.("wide-companion-alert", false);
-    void this._host._switchCamera(index, {
-      source: "alert",
-      origin: "wide-companion-alert",
-    });
   }
 }

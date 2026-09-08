@@ -126,6 +126,8 @@ test("activateMobileViewPageRoute handles startup like single-view", () => {
 test("Mobile View exposes runtime alert takeover only on non-mobile devices", () => {
   const { host, calls } = createHost();
   host._isLikelyMobileClient = () => false;
+  host._isAlertCameraTakeoverAvailable = () =>
+    host._isLikelyMobileClient() !== true;
   host._toolbarButtonStates = () => ({
     wideAlertTakeoverDisabled: false,
   });
@@ -145,6 +147,9 @@ test("Mobile View exposes runtime alert takeover only on non-mobile devices", ()
 
   host._isLikelyMobileClient = () => true;
   assert.equal(controller.shouldShowAlertTakeoverButton(), false);
+  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.equal(controller.toggleAlertTakeover(), false);
+  assert.deepEqual(calls.at(-1), ["syncToolbar"]);
 });
 
 test("activateMobileViewPageRoute leaves preview and preserves live media", () => {

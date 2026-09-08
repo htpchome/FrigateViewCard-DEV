@@ -29,15 +29,22 @@ export class MobileViewPageController {
 
   shouldShowAlertTakeoverButton() {
     return (
-      this.isActive() && this._host._isLikelyMobileClient?.() !== true
+      this.isActive() &&
+      this._host._isAlertCameraTakeoverAvailable?.() !== false &&
+      this._host._isLikelyMobileClient?.() !== true
     );
   }
 
   alertTakeoverEnabled() {
+    if (this._host._isAlertCameraTakeoverAvailable?.() === false) return false;
     return this._alertTakeoverEnabled === true;
   }
 
   toggleAlertTakeover() {
+    if (this._host._isAlertCameraTakeoverAvailable?.() === false) {
+      this._host._syncToolbarButtons?.();
+      return false;
+    }
     if (
       !this.alertTakeoverEnabled() &&
       this._host._toolbarButtonStates?.().wideAlertTakeoverDisabled

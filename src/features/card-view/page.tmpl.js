@@ -123,6 +123,7 @@ export function buildCardViewMainLayoutShellMarkup({
 
 export function buildCardViewStandaloneModeControlsMarkup({
   icons = {},
+  showAlertTakeover = true,
   alertTakeoverEnabled = false,
   alertTakeoverDisabled = false,
   gridAvailable = false,
@@ -147,7 +148,7 @@ export function buildCardViewStandaloneModeControlsMarkup({
   return `${slideshowAvailable ? `<button class="card-view-standalone-mode-button card-view-standalone-slideshow-button${slideshowActive ? " active" : ""}" type="button" data-card-view-standalone-slideshow data-media-overlay-ignore aria-pressed="${slideshowActive}" title="${slideshowLabel}" aria-label="${slideshowLabel}"${slideshowDisabled ? " disabled" : ""}>${slideshowActive ? icons.presentationPlayActive || icons.presentationPlay || "" : icons.presentationPlay || ""}${slideshowActive ? `<span class="card-view-standalone-countdown" data-card-view-slideshow-countdown>${remaining}s</span>` : ""}</button>` : ""}
     <div class="card-view-standalone-mode-end">
       ${gridAvailable ? `<button class="card-view-standalone-mode-button${gridActive ? " active" : ""}" type="button" data-card-view-standalone-grid data-media-overlay-ignore aria-pressed="${gridActive}" title="${gridLabel}" aria-label="${gridLabel}"${gridDisabled ? " disabled" : ""}>${icons.grid || ""}</button>` : ""}
-      <button class="card-view-standalone-mode-button card-view-standalone-takeover-button${alertTakeoverEnabled ? " active" : ""}" type="button" data-card-view-takeover data-media-overlay-ignore aria-pressed="${alertTakeoverEnabled}" title="${takeoverLabel}" aria-label="${takeoverLabel}"${alertTakeoverDisabled ? " disabled" : ""}>${icons.alerts || ""}</button>
+      ${showAlertTakeover ? `<button class="card-view-standalone-mode-button card-view-standalone-takeover-button${alertTakeoverEnabled ? " active" : ""}" type="button" data-card-view-takeover data-media-overlay-ignore aria-pressed="${alertTakeoverEnabled}" title="${takeoverLabel}" aria-label="${takeoverLabel}"${alertTakeoverDisabled ? " disabled" : ""}>${icons.alerts || ""}</button>` : ""}
     </div>`;
 }
 
@@ -156,6 +157,7 @@ export function buildCardViewToolbarMarkup({
   mode = "alerts",
   showAllAlerts = true,
   activeCameraName = "Camera",
+  showAlertTakeover = true,
   alertTakeoverEnabled = false,
   alertTakeoverDisabled = false,
   showPtz = false,
@@ -225,7 +227,7 @@ export function buildCardViewToolbarMarkup({
     <div class="card-view-activity-actions">
       ${showPtz ? `<button class="icon-btn${ptzActive ? " active" : ""}" type="button" data-card-view-ptz aria-pressed="${ptzActive}" title="${ptzActive ? "Close PTZ controls" : "Open PTZ controls"}" aria-label="${ptzActive ? "Close PTZ controls" : "Open PTZ controls"}"${ptzDisabled ? " disabled" : ""}>${icons.ptz || ""}</button>` : ""}
       ${gridAvailable ? `<button class="icon-btn${gridActive ? " active" : ""}" id="grid-btn" type="button" aria-pressed="${gridActive}" title="${gridLabel}" aria-label="${gridLabel}"${gridDisabled ? " disabled" : ""}>${icons.grid || ""}</button>` : ""}
-      <button class="icon-btn${alertTakeoverEnabled ? " active" : ""}" type="button" data-card-view-takeover aria-pressed="${alertTakeoverEnabled}" title="${takeoverLabel}" aria-label="${takeoverLabel}"${alertTakeoverDisabled ? " disabled" : ""}>${icons.alerts || ""}</button>
+      ${showAlertTakeover ? `<button class="icon-btn${alertTakeoverEnabled ? " active" : ""}" type="button" data-card-view-takeover aria-pressed="${alertTakeoverEnabled}" title="${takeoverLabel}" aria-label="${takeoverLabel}"${alertTakeoverDisabled ? " disabled" : ""}>${icons.alerts || ""}</button>` : ""}
       ${slideshowAvailable ? `<button class="icon-btn slideshow-btn${slideshowActive ? " active" : ""}" id="slideshow-btn" type="button" aria-pressed="${slideshowActive}" title="${slideshowLabel}" aria-label="${slideshowLabel}"${slideshowDisabled ? " disabled" : ""}>${slideshowActive ? icons.presentationPlayActive || icons.presentationPlay || "" : icons.presentationPlay || ""}</button>` : ""}
     </div>`;
 }

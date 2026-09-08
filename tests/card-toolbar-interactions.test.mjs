@@ -127,3 +127,23 @@ test("desktop Mobile View alert takeover reaches its page controller", () => {
   assert.equal(handled, true);
   assert.deepEqual(calls, ["toggle"]);
 });
+
+test("mobile-device detection disables takeover before page defaults", () => {
+  assert.equal(
+    FrigateViewCard.prototype._isAlertCameraTakeoverAvailable.call({
+      _isLikelyMobileClient: () => true,
+    }),
+    false,
+  );
+  const enabled =
+    FrigateViewCard.prototype._alertCameraTakeoverEnabled.call({
+      _isAlertCameraTakeoverAvailable: () => false,
+      _isCardViewPageActive: () => true,
+      _cardViewPageController: {
+        alertTakeoverEnabled: () =>
+          assert.fail("mobile must not consult configured page defaults"),
+      },
+    });
+
+  assert.equal(enabled, false);
+});

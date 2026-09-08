@@ -39,6 +39,44 @@ export function selectNewestReviewCandidate(candidates) {
   return newest;
 }
 
+export function reconcileActiveAlertCandidates({
+  candidates,
+  previousSeverityByEntity,
+  previousChangedAtByEntity,
+}) {
+  const previous =
+    previousSeverityByEntity instanceof Map
+      ? previousSeverityByEntity
+      : new Map();
+  const previousChangedAt =
+    previousChangedAtByEntity instanceof Map
+      ? previousChangedAtByEntity
+      : new Map();
+  const severityByEntity = new Map();
+  const changedAtByEntity = new Map();
+  let latestChanged = null;
+  for (const candidate of Array.isArray(candidates) ? candidates : []) {
+    const entity = String(candidate?.entity || "").trim();
+    const severity = String(candidate?.severity || "")
+      .trim()
+      .toLowerCase();
+    if (!entity || (severity !== "alert" && severity !== "detection")) {
+      continue;
+    }
+    const changedAt = Math.max(0, Number(candidate?.changedAt) || 0);
+    severityByEntity.set(entity, severity);
+    changedAtByEntity.set(entity, changedAt);
+    const severityChanged = previous.get(entity) !== severity;
+    const timestampAdvanced =
+      changedAt > 0 && changedAt > Number(previousChangedAt.get(entity) || 0);
+    if (!severityChanged && !timestampAdvanced) continue;
+    if (!latestChanged || changedAt >= latestChanged.changedAt) {
+      latestChanged = { entity, severity, changedAt };
+    }
+  }
+  return { severityByEntity, changedAtByEntity, latestChanged };
+}
+
 export function rememberHandledReviewId(
   handledReviewIds,
   reviewId,

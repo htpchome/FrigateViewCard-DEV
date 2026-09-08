@@ -1365,6 +1365,31 @@ test("Card View alert takeover remains independent of shared modes", () => {
   assert.equal(toolbarSyncs, 1);
 });
 
+test("Card View removes alert takeover controls on mobile devices", () => {
+  const toolbar = buildCardViewToolbarMarkup({
+    icons: { alerts: "alert-icon" },
+    showAlertTakeover: false,
+  });
+  const standalone = buildCardViewStandaloneModeControlsMarkup({
+    icons: { alerts: "alert-icon" },
+    showAlertTakeover: false,
+  });
+  assert.doesNotMatch(toolbar, /data-card-view-takeover/);
+  assert.doesNotMatch(standalone, /data-card-view-takeover/);
+
+  const host = {
+    _pageId: "card-view",
+    _config: { card_view_alert_takeover: true },
+    _isAlertCameraTakeoverAvailable: () => false,
+    _syncToolbarButtons: () => {},
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.equal(controller.toggleAlertTakeover(), false);
+});
+
 test("Video Only Card View applies its configured starting mode", () => {
   const modeChanges = [];
   const host = {
@@ -1946,7 +1971,7 @@ test("Card View progressively paints only the first non-empty alert batch", asyn
   assert.equal(controller._alerts.length, 3);
 });
 
-test("Card View maps realtime Frigate camera names before alert takeover", () => {
+test("Card View refreshes alerts for realtime Frigate event messages", () => {
   let switchedTo = -1;
   let refreshes = 0;
   const host = {
@@ -1963,6 +1988,7 @@ test("Card View maps realtime Frigate camera names before alert takeover", () =>
     _switchCamera: (index) => {
       switchedTo = index;
     },
+    _isRealtimeEventMessage: () => true,
   };
   const controller = new CardViewPageController(host, {
     PAGE_IDS: { cardView: "card-view" },
@@ -1974,7 +2000,7 @@ test("Card View maps realtime Frigate camera names before alert takeover", () =>
   controller.handleRealtimeMessage({ type: "review", camera: "front_door" });
 
   assert.equal(refreshes, 1);
-  assert.equal(switchedTo, 2);
+  assert.equal(switchedTo, -1);
 });
 
 test("Card View opens media in the standard full-width popup", async () => {

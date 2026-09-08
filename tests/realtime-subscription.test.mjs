@@ -84,6 +84,12 @@ test("_subscribe aggregates successful realtime subscriptions into one cleanup",
     _wideViewPageController: {
       handleCompanionRealtimeMessage: () => calls.push(["companionMessage"]),
     },
+    _cardViewPageController: {
+      handleRealtimeMessage: () => calls.push(["cardMessage"]),
+    },
+    _liveAlertTakeoverController: {
+      handleRealtimeMessage: () => calls.push(["liveTakeoverMessage"]),
+    },
     _handleSlideshowRealtimeMessage: () => calls.push(["slideshowMessage"]),
     _isNowWindow: () => false,
   };
@@ -97,10 +103,12 @@ test("_subscribe aggregates successful realtime subscriptions into one cleanup",
   assert.equal(callbacks.length, 2);
 
   callbacks[0]({ type: "new" });
-  assert.deepEqual(calls.slice(-4), [
+  assert.deepEqual(calls.slice(-6), [
     ["gridMessage"],
     ["previewMessage"],
     ["companionMessage"],
+    ["cardMessage"],
+    ["liveTakeoverMessage"],
     ["slideshowMessage"],
   ]);
 

@@ -41,7 +41,7 @@ export class SlideshowPageController {
     this._host._slideshowPendingAlertType = "";
     this._host._slideshowLastAlertAt = 0;
     this._host._slideshowLastAlertCam = "";
-    this._host._slideshowAttentionType = "";
+    this._host._setSlideshowAlertState?.("");
     this._host._slideshowHandledReviewIds.clear();
     this._host._slideshowStartedAtSec = 0;
     this._host._slideshowReviewProbeInFlight = false;
@@ -74,7 +74,7 @@ export class SlideshowPageController {
     this._host._slideshowPausedUntil = 0;
     this._host._slideshowPendingAlertCam = "";
     this._host._slideshowPendingAlertType = "";
-    this._host._slideshowAttentionType = "";
+    this._host._setSlideshowAlertState?.("");
     this._host._slideshowHandledReviewIds.clear();
     this._host._slideshowStartedAtSec = Math.floor(Date.now() / 1000);
     this._host._slideshowAlertController?.startSession?.();

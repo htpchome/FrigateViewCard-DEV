@@ -281,27 +281,33 @@ test("runtime takeover defaults from config and does not revert main camera", ()
   assert.equal(calls.some(([name]) => name === "switchCamera"), false);
 
   assert.equal(controller.toggleAlertTakeover(), true);
+  assert.equal(controller.alertTakeoverEnabled(), true);
   controller._handleAlertStateChange({
     entity: "camera.front_door",
     changed: true,
     allowTakeover: true,
   });
-  assert.deepEqual(calls.at(-1), [
-    "switchCamera",
-    1,
-    { source: "alert", origin: "wide-companion-alert" },
-  ]);
-  assert.deepEqual(calls.at(-2), [
-    "stopSlideshow",
-    "wide-companion-alert",
-    false,
-  ]);
+  assert.equal(calls.some(([name]) => name === "switchCamera"), false);
 
   controller._handleAlertStateChange({ expired: true, changed: false });
-  assert.equal(
-    calls.filter(([name]) => name === "switchCamera").length,
-    1,
-  );
+  assert.equal(calls.some(([name]) => name === "switchCamera"), false);
+});
+
+test("Wide View configured takeover is disabled on mobile devices", () => {
+  const { host, calls } = createHost({ takeover: true });
+  host._isAlertCameraTakeoverAvailable = () => false;
+  host._toolbarButtonStates = () => ({ wideAlertTakeoverDisabled: false });
+  const controller = new WideViewCompanionController(host, constants);
+
+  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.equal(controller.toggleAlertTakeover(), false);
+  controller._handleAlertStateChange({
+    entity: "camera.front_door",
+    severity: "alert",
+    changed: true,
+    allowTakeover: true,
+  });
+  assert.equal(calls.some(([name]) => name === "switchCamera"), false);
 });
 
 test("Alert Camera Takeover cannot start while another toolbar mode is active", () => {

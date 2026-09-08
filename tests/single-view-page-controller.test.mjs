@@ -261,29 +261,16 @@ test("Single View applies its configured Slideshow start mode", () => {
   assert.equal(controller.alertTakeoverEnabled(), true);
 });
 
-test("Single View alert takeover switches to an alerted camera", () => {
+test("Single View configured takeover is disabled on mobile devices", () => {
   const { host, calls } = createHost();
   host._config.single_view_alert_takeover = true;
-  host._shouldHandleSlideshowReview = () => true;
-  host._cameraIndexByEntity = (entity) =>
-    entity === "camera.driveway" ? 1 : -1;
-  host._switchCamera = (index, options) => {
-    calls.push(["switchCamera", index, options]);
-    return Promise.resolve();
-  };
+  host._isAlertCameraTakeoverAvailable = () => false;
+  host._syncToolbarButtons = () => calls.push(["syncToolbar"]);
   const controller = new SingleViewPageController(host, { PAGE_IDS });
 
-  assert.equal(
-    controller.handleHaReviewStatus("camera.driveway", "alert"),
-    true,
-  );
-  assert.deepEqual(calls, [
-    [
-      "switchCamera",
-      1,
-      { source: "alert", origin: "single-view-alert" },
-    ],
-  ]);
+  assert.equal(controller.alertTakeoverEnabled(), false);
+  assert.equal(controller.toggleAlertTakeover(), false);
+  assert.deepEqual(calls, [["syncToolbar"]]);
 });
 
 test("applyStyleLayoutForCurrentRoute applies style, layout, and wide sync", () => {
