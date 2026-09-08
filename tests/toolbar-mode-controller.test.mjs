@@ -209,6 +209,62 @@ test("Grid button exit lets the view transition claim live media before teardown
   assert.deepEqual(calls, [["setViewMode", "single"]]);
 });
 
+test("Grid stops its active presentation when navigation leaves the page", () => {
+  const calls = [];
+  const host = {
+    _viewMode: "grid",
+    _gridResumePending: false,
+    _setViewMode: (mode) => calls.push(["setViewMode", mode]),
+  };
+  const controller = new GridPageController(host);
+
+  assert.equal(
+    controller.handlePageChange("single-view", "mobile-view"),
+    true,
+  );
+  assert.deepEqual(calls, [["setViewMode", "single"]]);
+});
+
+test("Grid cancels a pending alert-return session when navigation leaves", () => {
+  const calls = [];
+  const host = {
+    _viewMode: "single",
+    _gridResumePending: true,
+    _syncToolbarButtons: () => calls.push(["syncToolbar"]),
+  };
+  const controller = new GridPageController(host);
+  controller.stopGridModeState = () => {
+    calls.push(["stopGridModeState"]);
+    host._gridResumePending = false;
+  };
+
+  assert.equal(
+    controller.handlePageChange("card-view", "preview"),
+    true,
+  );
+  assert.equal(host._gridResumePending, false);
+  assert.deepEqual(calls, [
+    ["stopGridModeState"],
+    ["syncToolbar"],
+  ]);
+});
+
+test("Grid preserves its state when navigation remains on the same page", () => {
+  const calls = [];
+  const host = {
+    _viewMode: "grid",
+    _gridResumePending: false,
+    _setViewMode: (mode) => calls.push(["setViewMode", mode]),
+  };
+  const controller = new GridPageController(host);
+
+  assert.equal(
+    controller.handlePageChange("single-view", "single-view"),
+    false,
+  );
+  assert.deepEqual(calls, []);
+});
+
 test("Grid rotation pauses in the Home Assistant config preview without changing the Grid", () => {
   const calls = [];
   const originalSetTimeout = global.setTimeout;

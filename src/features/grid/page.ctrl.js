@@ -398,6 +398,22 @@ export class GridPageController {
     this._host._setSlideshowAlertState("");
   }
 
+  handlePageChange(previousPageId, nextPageId) {
+    if (
+      previousPageId === nextPageId ||
+      !this.isGridSessionActive()
+    ) {
+      return false;
+    }
+    if (this._host._viewMode === "grid") {
+      this._host._setViewMode?.("single");
+    } else {
+      this.stopGridModeState();
+      this._host._syncToolbarButtons?.();
+    }
+    return true;
+  }
+
   toggleGridMode() {
     if (this._host._isPreviewPageActive()) return;
     if (this._host._viewMode === "grid") {

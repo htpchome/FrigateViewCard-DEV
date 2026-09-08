@@ -313,6 +313,10 @@ export class PageNavigationController {
         void this._host._stopPtzMotion?.("page-navigation");
         const previousPageId = this._host._pageId || PAGE_IDS.singleView;
         context.previousPageId = previousPageId;
+        this._host._gridPageController?.handlePageChange?.(
+          previousPageId,
+          nextPageId,
+        );
         this._host._slideshowPageController?.handlePageChange?.(
           previousPageId,
           nextPageId,

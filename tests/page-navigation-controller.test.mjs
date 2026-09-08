@@ -321,6 +321,33 @@ test("factory delegates page-exit slideshow cleanup to Slideshow", () => {
   ]);
 });
 
+test("factory delegates page-exit Grid cleanup before changing routes", () => {
+  const h = createHarness();
+  h.host._gridPageController = {
+    handlePageChange: (previousPageId, nextPageId) =>
+      h.calls.push([
+        "gridPageChange",
+        previousPageId,
+        nextPageId,
+        h.host._pageId,
+      ]),
+  };
+  const controller = new PageNavigationController(h.host, h.constants);
+  controller.ensureNavigationFactory();
+
+  h.getInput().onBeforeNavigate(PAGE_IDS.mobileView, {});
+
+  assert.deepEqual(h.calls, [
+    [
+      "gridPageChange",
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.singleView,
+    ],
+  ]);
+  assert.equal(h.host._pageId, PAGE_IDS.mobileView);
+});
+
 test("page changes synchronize scoped Home Assistant shell styling", () => {
   const h = createHarness();
   h.host._haNavbarController = {
