@@ -110,6 +110,70 @@ test("loaded timeline content is not rebuilt only because loading completes", ()
   );
 });
 
+test("Timeline waits for observed Wide layout before its initial paint", () => {
+  const previousResizeObserver = globalThis.ResizeObserver;
+  const previousRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const frameCallbacks = [];
+  const observers = [];
+  globalThis.ResizeObserver = class {
+    constructor(callback) {
+      this.callback = callback;
+      observers.push(this);
+    }
+
+    observe() {}
+
+    disconnect() {}
+  };
+  globalThis.requestAnimationFrame = (callback) => {
+    frameCallbacks.push(callback);
+    return frameCallbacks.length;
+  };
+
+  const colRight = fakeElement();
+  const panel = fakeElement({ inert: true });
+  const toggle = fakeElement();
+  const viewport = fakeElement();
+  const elements = new Map([
+    ["#col-right", colRight],
+    ["#wide-timeline-panel", panel],
+    ["#wide-timeline-toggle", toggle],
+    ["#wide-timeline-viewport", viewport],
+  ]);
+  const controller = new WideViewTimelineController({
+    _config: {
+      wide_view_timeline_enabled: true,
+      wide_view_timeline_default_open: true,
+    },
+    _$: (selector) => elements.get(selector) || null,
+  });
+  const renders = [];
+  controller.render = (options) => renders.push(options);
+
+  try {
+    controller.bind();
+    controller.bind();
+    assert.equal(frameCallbacks.length, 0);
+    assert.equal(observers.length, 1);
+
+    observers[0].callback();
+    observers[0].callback();
+    assert.equal(frameCallbacks.length, 1);
+    frameCallbacks[0]();
+
+    assert.deepEqual(renders, [
+      {
+        force: false,
+        resetToNow: true,
+      },
+    ]);
+  } finally {
+    controller.teardown();
+    globalThis.ResizeObserver = previousResizeObserver;
+    globalThis.requestAnimationFrame = previousRequestAnimationFrame;
+  }
+});
+
 test("Timeline controller opens from its handle and renders loaded data", () => {
   const colRight = fakeElement();
   const panel = fakeElement({ inert: true });

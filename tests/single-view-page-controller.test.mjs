@@ -173,6 +173,27 @@ test("activateStandardPageRoute handles startup and mounts engine", () => {
   ]);
 });
 
+test("route rendering can defer only the Wide Timeline data paint", () => {
+  const { host, calls } = createHost({ isWide: true });
+  host._wideViewPageController.renderTimeline = () =>
+    calls.push(["renderTimeline"]);
+  const controller = new SingleViewPageController(host, { PAGE_IDS });
+  controller._browseRenderController.renderList = () =>
+    calls.push(["renderBrowseList"]);
+
+  controller.renderList({ renderWideTimeline: false });
+  controller.renderList();
+  controller.renderList();
+
+  assert.deepEqual(calls, [
+    ["renderBrowseList"],
+    ["renderBrowseList"],
+    ["renderTimeline"],
+    ["renderBrowseList"],
+    ["renderTimeline"],
+  ]);
+});
+
 test("activateStandardPageRoute startup grid chooses grid mode", () => {
   const { host, calls } = createHost();
   const controller = new SingleViewPageController(host, { PAGE_IDS });

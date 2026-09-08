@@ -21,7 +21,7 @@ export function activateStartupRoute(host, context = {}) {
   }
 
   host._mountEngine();
-  host._renderAll();
+  host._renderAll({ renderWideTimeline: false });
 }
 
 export function mountEngineQuietly(host) {
@@ -33,7 +33,7 @@ export function syncStandardRouteShell(host) {
     host._renderShellPreserveLive();
   }
   host._syncTabsShell();
-  host._renderAll();
+  host._renderAll({ renderWideTimeline: false });
 }
 
 export function activateStandardPageRouteLifecycle({

@@ -2246,7 +2246,7 @@ test("browse list orchestration is owned by the browse render controller", () =>
     assert.equal(cardSource.includes(removedCardMethod), false);
   }
   assert.equal(
-    /_renderList\(\) \{\s*this\._activeStandardPageController\(\)\.renderList\(\);\s*\}/.test(
+    /_renderList\(options = \{\}\) \{\s*this\._activeStandardPageController\(\)\.renderList\(options\);\s*\}/.test(
       cardSource,
     ),
     true,

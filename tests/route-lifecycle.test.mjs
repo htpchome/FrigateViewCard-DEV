@@ -11,7 +11,7 @@ test("syncStandardRouteShell updates tabs and renders without remount", () => {
   const host = {
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
-    _renderAll: () => calls.push(["renderAll"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
   };
 
   syncStandardRouteShell(host);
@@ -19,7 +19,7 @@ test("syncStandardRouteShell updates tabs and renders without remount", () => {
   assert.deepEqual(calls, [
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
-    ["renderAll"],
+    ["renderAll", { renderWideTimeline: false }],
   ]);
 });
 
@@ -29,7 +29,7 @@ test("activateStandardPageRouteLifecycle avoids shell remount on non-startup rou
     _pageId: "mobile-view",
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
-    _renderAll: () => calls.push(["renderAll"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
     _stopPreviewMode: () => calls.push(["stopPreview"]),
     _cancelPendingMount: (reason) => calls.push(["cancelPendingMount", reason]),
     _$: () => null,
@@ -49,7 +49,7 @@ test("activateStandardPageRouteLifecycle avoids shell remount on non-startup rou
     ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
-    ["renderAll"],
+    ["renderAll", { renderWideTimeline: false }],
   ]);
 });
 
@@ -58,7 +58,7 @@ test("activateStandardPageRouteLifecycle starts live and renders on startup rout
   const host = {
     _pageId: "mobile-view",
     _mountEngine: () => calls.push(["mountEngine"]),
-    _renderAll: () => calls.push(["renderAll"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
   };
 
   activateStandardPageRouteLifecycle({
@@ -71,7 +71,7 @@ test("activateStandardPageRouteLifecycle starts live and renders on startup rout
   assert.deepEqual(calls, [
     ["applyRouteFrame"],
     ["mountEngine"],
-    ["renderAll"],
+    ["renderAll", { renderWideTimeline: false }],
   ]);
 });
 
@@ -82,7 +82,7 @@ test("activateStandardPageRouteLifecycle leaving preview does not cancel when mo
     _mountInProgress: false,
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
-    _renderAll: () => calls.push(["renderAll"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
     _stopPreviewMode: () => calls.push(["stopPreviewMode"]),
     _cancelPendingMount: (reason) => calls.push(["cancelPendingMount", reason]),
     _$: () => null,
@@ -103,7 +103,7 @@ test("activateStandardPageRouteLifecycle leaving preview does not cancel when mo
     ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
-    ["renderAll"],
+    ["renderAll", { renderWideTimeline: false }],
   ]);
 });
 
@@ -114,7 +114,7 @@ test("activateStandardPageRouteLifecycle leaving preview cancels when mount acti
     _mountInProgress: true,
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
-    _renderAll: () => calls.push(["renderAll"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
     _stopPreviewMode: () => calls.push(["stopPreviewMode"]),
     _cancelPendingMount: (reason) => calls.push(["cancelPendingMount", reason]),
     _$: () => null,
@@ -136,7 +136,7 @@ test("activateStandardPageRouteLifecycle leaving preview cancels when mount acti
     ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
-    ["renderAll"],
+    ["renderAll", { renderWideTimeline: false }],
   ]);
 });
 
@@ -147,7 +147,7 @@ test("page navigation leaving Preview immediately resumes the retained camera", 
     _mountInProgress: false,
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
-    _renderAll: () => calls.push(["renderAll"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
     _stopPreviewMode: () => calls.push(["stopPreviewMode"]),
     _$: () => null,
     _previewPageController: {
@@ -170,7 +170,7 @@ test("page navigation leaving Preview immediately resumes the retained camera", 
     ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
-    ["renderAll"],
+    ["renderAll", { renderWideTimeline: false }],
     ["resumeRetainedCamera"],
   ]);
 });
@@ -182,7 +182,7 @@ test("activateStandardPageRouteLifecycle applies shell swap during deferred came
     _mountInProgress: false,
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
     _syncTabsShell: () => calls.push(["syncTabsShell"]),
-    _renderAll: () => calls.push(["renderAll"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
     _stopPreviewMode: () => calls.push(["stopPreviewMode"]),
     _cancelPendingMount: (reason) => calls.push(["cancelPendingMount", reason]),
     _$: () => null,
@@ -207,7 +207,7 @@ test("activateStandardPageRouteLifecycle applies shell swap during deferred came
     ["applyRouteFrame"],
     ["renderShellPreserveLive"],
     ["syncTabsShell"],
-    ["renderAll"],
+    ["renderAll", { renderWideTimeline: false }],
   ]);
 });
 

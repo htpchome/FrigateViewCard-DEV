@@ -116,6 +116,7 @@ export class WideViewTimelineController {
     this._clockTimer = null;
     this._pendingRenderOptions = null;
     this._boundViewport = null;
+    this._waitingForInitialLayout = false;
     this._boundWidthToggle = null;
     this._panelWidth = WIDE_TIMELINE_DEFAULT_PANEL_WIDTH;
     this._responsiveLayout = null;
@@ -187,12 +188,15 @@ export class WideViewTimelineController {
     if (this._boundViewport === viewport) {
       this._syncPanelState();
       this._updateResponsiveMode();
-      if (this.isOpen()) this._scheduleRender();
+      if (this.isOpen() && !this._waitingForInitialLayout) {
+        this._scheduleRender();
+      }
       this._syncClockRefresh();
       return;
     }
     this.teardown({ preserveScroll: true });
     this._boundViewport = viewport;
+    this._lastRenderSignature = "";
     viewport.addEventListener("scroll", this._onScroll, { passive: true });
     viewport.addEventListener("wheel", this._onWheel, { passive: false });
     viewport.addEventListener("pointerdown", this._onPointerDown);
@@ -208,26 +212,31 @@ export class WideViewTimelineController {
 
     const colRight = this._host._$("#col-right");
     if (colRight && typeof ResizeObserver !== "undefined") {
+      // Let Wide View's column sizing settle before the expensive first paint.
+      this._waitingForInitialLayout = this.isOpen();
       this._resizeObserver = new ResizeObserver(() => {
+        const initialLayout = this._waitingForInitialLayout;
+        this._waitingForInitialLayout = false;
         this._updateResponsiveMode();
         const nextHeight = viewport.clientHeight || 0;
         const nextWidth = viewport.clientWidth || 0;
         if (
           this.isOpen() &&
-          ((nextHeight > 0 &&
-            Math.abs(nextHeight - this._lastViewportHeight) > 1) ||
+          (initialLayout ||
+            (nextHeight > 0 &&
+              Math.abs(nextHeight - this._lastViewportHeight) > 1) ||
             (nextWidth > 0 &&
               Math.abs(nextWidth - this._lastViewportWidth) > 1))
         ) {
-          this._scheduleRender();
+          this._scheduleRender({ resetToNow: initialLayout });
         }
       });
       this._resizeObserver.observe(colRight);
     }
     this._syncPanelState();
     this._updateResponsiveMode();
-    if (this.isOpen()) {
-      this._scheduleRender({ force: true, resetToNow: true });
+    if (this.isOpen() && !this._waitingForInitialLayout) {
+      this._scheduleRender({ resetToNow: true });
     }
     this._syncClockRefresh();
   }
@@ -277,6 +286,7 @@ export class WideViewTimelineController {
     this._renderRaf = 0;
     this._scrollRaf = 0;
     this._pendingRenderOptions = null;
+    this._waitingForInitialLayout = false;
   }
 
   applyConfigUpdate({

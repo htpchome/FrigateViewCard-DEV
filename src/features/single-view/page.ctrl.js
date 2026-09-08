@@ -320,9 +320,11 @@ export class SingleViewPageController {
     this._browseRenderController.syncBrowseHeadFromScroll();
   }
 
-  renderList() {
+  renderList({ renderWideTimeline = true } = {}) {
     this._browseRenderController.renderList();
-    this._host._wideViewPageController?.renderTimeline?.();
+    if (renderWideTimeline) {
+      this._host._wideViewPageController?.renderTimeline?.();
+    }
   }
 
   setListHtmlIfChanged(list, html) {

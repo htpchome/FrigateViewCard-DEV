@@ -7535,7 +7535,7 @@ export class FrigateViewCard extends HTMLElement {
       this._pageShellRegion(regionKey)?.querySelectorAll?.(selector) || []
     );
   }
-  _renderAll() {
+  _renderAll({ renderWideTimeline = true } = {}) {
     if (this._isPreviewPageActive()) {
       this._renderPreviewPage();
       return;
@@ -7552,7 +7552,7 @@ export class FrigateViewCard extends HTMLElement {
     this._renderLegend();
     this._renderSubtitle();
     this._renderCamSwitcher();
-    this._renderList();
+    this._renderList({ renderWideTimeline });
     this._syncStatus();
     this._wideViewPageController.renderCompanionCameras();
   }
@@ -7729,8 +7729,8 @@ export class FrigateViewCard extends HTMLElement {
     );
   }
 
-  _renderList() {
-    this._activeStandardPageController().renderList();
+  _renderList(options = {}) {
+    this._activeStandardPageController().renderList(options);
   }
 
   _renderControlsSection(list) {
