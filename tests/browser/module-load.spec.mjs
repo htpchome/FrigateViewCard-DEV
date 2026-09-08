@@ -74,16 +74,23 @@ test("loads the runtime and editor modules", async ({ page }) => {
     return {
       card: Boolean(customElements.get("frigate-view-card")),
       editor: Boolean(customElements.get("frigate-view-card-editor")),
+      cardDisplayName: window.customCards.find(
+        ({ type }) => type === "frigate-view-card",
+      )?.name,
     };
   });
 
-  expect(registrations).toEqual({ card: true, editor: true });
+  expect(registrations.card).toBe(true);
+  expect(registrations.editor).toBe(true);
+  expect(registrations.cardDisplayName).toBeTruthy();
   expect(pageErrors).toEqual([]);
   expect(
     consoleMessages.filter(({ type }) => ["warning", "error"].includes(type)),
   ).toEqual([]);
   expect(
-    consoleMessages.filter(({ text }) => text.includes("FRIGATE-VIEW-CARD")),
+    consoleMessages.filter(({ text }) =>
+      text.includes(registrations.cardDisplayName.toUpperCase()),
+    ),
   ).toHaveLength(1);
 });
 

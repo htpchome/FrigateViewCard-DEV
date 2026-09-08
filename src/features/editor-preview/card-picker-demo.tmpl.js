@@ -1,3 +1,5 @@
+import { CARD_NAME } from "../../constants.js";
+
 const buildGenericCameraSceneMarkup = (variant = "entry") => {
   const subjectMarkup =
     variant === "vehicle"
@@ -51,12 +53,12 @@ const buildFrigateViewBrandMarkup = () => `
       <path d="M154 20c-15 24-18 45-15 65 4 31 23 54 54 73 20 13 45 23 69 34 31 15 54 34 71 58l-1-34c-22-28-46-46-81-65-46-25-75-49-91-76-8-13-8-35-6-55Z"></path>
       <path d="M231 343c39-12 74-29 98-52 21-21 28-45 31-90 2-31 16-50 48-56-9-11-19-15-31-15-10-14-22-22-35-23-25 0-43 18-51 50 16-16 37-30 54-25 6 2 11 5 15 9-19 10-28 27-28 49v26c-17-21-36-35-58-45 18 20 26 48 22 76-4 37-27 71-65 96Z"></path>
     </g>
-    <text x="256" y="226" fill="#bdbdbd" font-family="Arial, Helvetica, sans-serif" font-size="45" font-weight="300" letter-spacing=".5" text-anchor="middle">FRIGATEVIEW</text>
+    <text x="256" y="226" fill="#bdbdbd" font-family="Arial, Helvetica, sans-serif" font-size="45" font-weight="300" letter-spacing=".5" text-anchor="middle">${CARD_NAME.toUpperCase()}</text>
     <text x="256" y="259" fill="#f7941d" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="middle">For Home Assistant and Frigate</text>
   </svg>`;
 
 export function buildCardPickerDemoLiveMarkup() {
-  return `<div class="card-picker-demo-live" role="img" aria-label="FrigateView preview branding">
+  return `<div class="card-picker-demo-live" role="img" aria-label="${CARD_NAME} preview branding">
       ${buildFrigateViewBrandMarkup()}
     </div>`;
 }

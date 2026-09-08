@@ -1,6 +1,8 @@
 import {
   VERSION,
   RECOMMENDED_HOME_ASSISTANT_VERSION,
+  CARD_NAME,
+  CARD_DISPLAY_NAME,
   CARD_TAG,
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
@@ -2712,33 +2714,33 @@ export class FrigateViewCardEditor extends HTMLElement {
     )}</strong>`;
     const dashboardSwipeOwnershipMessage = dashboardSwipeOwnership.locked
       ? dashboardSwipeOwnership.conflict
-        ? `This card also claims swipe control in raw YAML, but the FrigateView Card on ${ownerPageMarkup} is first in dashboard ${dashboardNameMarkup} and remains authoritative. Disable this switch here or remove the duplicate YAML setting.`
-        : `The FrigateView Card on ${ownerPageMarkup} controls swipe navigation for dashboard ${dashboardNameMarkup}. Disable control there before enabling it from this card.`
+        ? `This card also claims swipe control in raw YAML, but the ${CARD_DISPLAY_NAME} on ${ownerPageMarkup} is first in dashboard ${dashboardNameMarkup} and remains authoritative. Disable this switch here or remove the duplicate YAML setting.`
+        : `The ${CARD_DISPLAY_NAME} on ${ownerPageMarkup} controls swipe navigation for dashboard ${dashboardNameMarkup}. Disable control there before enabling it from this card.`
       : "";
     const dashboardSwipeOptions = [
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.dashboardWide,
         label: "Dashboard Wide",
         description:
-          "Swipe through dashboard pages and the selected FrigateView pages.",
+          `Swipe through dashboard pages and the selected ${CARD_NAME} pages.`,
       },
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.insideCard,
         label: "Inside Card Only",
         description:
-          "Swipe between selected FrigateView pages. Optionally include other dashboard pages with FrigateView cards.",
+          `Swipe between selected ${CARD_NAME} pages. Optionally include other dashboard pages with ${CARD_NAME} cards.`,
       },
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.landingDashboard,
         label: "Landing Page plus Dashboard Pages",
         description:
-          "Use the configured landing page as the only FrigateView swipe stop between dashboard pages.",
+          `Use the configured landing page as the only ${CARD_NAME} swipe stop between dashboard pages.`,
       },
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.none,
         label: "None",
         description:
-          "Disable FrigateView swipe navigation while retaining ownership of this dashboard setting.",
+          `Disable ${CARD_NAME} swipe navigation while retaining ownership of this dashboard setting.`,
       },
     ];
     const dashboardSwipeChoices = dashboardSwipeOptions
@@ -2757,7 +2759,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="editor-choice-chip-copy"><span class="editor-choice-chip-text">${escapeHtml(label)}</span><span class="editor-choice-chip-description">${escapeHtml(description)}</span></span>
             </span>
           </label>
-          ${isInsideCard ? `<label class="editor-swipe-choice-footer"><span>Include FrigateView Cards on Other Dashboard Pages</span><ha-switch id="ha_dashboard_swipe_include_other_cards" ${this._config?.ha_dashboard_swipe_include_other_cards ? "checked" : ""} ${dashboardSwipeSettingsEnabled && selected ? "" : "disabled"}></ha-switch></label>` : ""}
+          ${isInsideCard ? `<label class="editor-swipe-choice-footer"><span>Include ${CARD_NAME} Cards on Other Dashboard Pages</span><ha-switch id="ha_dashboard_swipe_include_other_cards" ${this._config?.ha_dashboard_swipe_include_other_cards ? "checked" : ""} ${dashboardSwipeSettingsEnabled && selected ? "" : "disabled"}></ha-switch></label>` : ""}
           ${supportsSubviews ? `<label class="editor-swipe-choice-footer"><span>Swipe to Subviews</span><ha-switch data-ha-dashboard-swipe-include-subviews="${escapeHtmlAttribute(value)}" ${this._config?.ha_dashboard_swipe_include_subviews ? "checked" : ""} ${dashboardSwipeSettingsEnabled && selected ? "" : "disabled"}></ha-switch></label>` : ""}
         </div>`;
       })
@@ -3087,7 +3089,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="card-version-status" id="card-version-status" data-update-status="unavailable">
           <span class="environment-item-icon card-version-icon" aria-hidden="true">${ICONS.packageCheck}</span>
           <div class="card-version-copy">
-            <strong>FrigateView Card</strong>
+            <strong>${CARD_DISPLAY_NAME}</strong>
             <span>Version v${escapeHtml(VERSION)} <span aria-hidden="true">•</span> <span id="card-version-update-status" role="status" aria-live="polite">Update status unavailable</span></span>
             <div class="environment-support-items">
               <div class="environment-support-item" data-home-assistant-version-notice data-support-status="unavailable" role="status" aria-live="polite" hidden>
@@ -3291,17 +3293,17 @@ export class FrigateViewCardEditor extends HTMLElement {
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Display FrigateView Logo</span>
+          <span class="field-label" style="margin:0">Display ${CARD_NAME} Logo</span>
           <ha-switch id="display_logo" ${this._config?.display_logo !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Shows FrigateView branding in page footers, or in the mobile Preview header when the HA navbar is at the bottom.</div>
+        <div class="field-helper">Shows ${CARD_NAME} branding in page footers, or in the mobile Preview header when the HA navbar is at the bottom.</div>
       </div>
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Display Version Number</span>
           <ha-switch id="display_version" ${this._config?.display_version !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Shows the installed FrigateView Card version in page footers. The version remains visible here in General Settings.</div>
+        <div class="field-helper">Shows the installed ${CARD_DISPLAY_NAME} version in page footers. The version remains visible here in General Settings.</div>
       </div>`;
     const slideshowPanelContent = `
       <div class="section">
@@ -3517,7 +3519,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Control Swipe Navigation from This Card</span>
           <ha-switch id="ha_dashboard_swipe_navigation_owner" ${dashboardSwipeOwnership.requested ? "checked" : ""} ${dashboardSwipeOwnerSwitchDisabled ? "disabled" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Only one FrigateView Card can control swipe navigation for a dashboard.</div>
+        <div class="field-helper">Only one ${CARD_DISPLAY_NAME} can control swipe navigation for a dashboard.</div>
         ${dashboardSwipeOwnershipMessage ? `<div class="field-helper swipe-owner-warning">${dashboardSwipeOwnershipMessage}</div>` : ""}
       </div>
       <div class="section swipe-navigation-dependent-section" id="ha-dashboard-swipe-settings" style="${dashboardSwipeSettingsEnabled ? "" : "display:none"}">
@@ -3559,7 +3561,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             <span class="field-label" style="margin:0">Use Card View as a Standalone View</span>
             <ha-switch id="card_view_standalone" ${this._config?.card_view_standalone ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">When enabled, Card View becomes the only available FrigateView page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
+          <div class="field-helper">When enabled, Card View becomes the only available ${CARD_NAME} page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
         </div>
         <div class="section">
           <div class="layout-row">

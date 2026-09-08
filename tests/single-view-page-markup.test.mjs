@@ -15,6 +15,7 @@ import {
 } from "../src/features/single-view/page.tmpl.js";
 import { SINGLE_VIEW_PAGE_STYLES } from "../src/features/single-view/page.styles.js";
 import { STYLES } from "../src/styles.js";
+import { CARD_NAME } from "../src/constants.js";
 
 test("Single View camera switcher wraps on desktop and scrolls on phone and tablet devices", () => {
   const start = STYLES.indexOf("/* ── camera switcher ── */");
@@ -50,7 +51,7 @@ test("single view title resolver defaults to FrigateView", () => {
     resolveSingleViewTitleText({
       title: "",
     }),
-    "FrigateView",
+    CARD_NAME,
   );
   assert.equal(
     resolveSingleViewTitleText({

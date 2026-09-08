@@ -6,6 +6,7 @@ import {
   EDITOR_PREVIEW_ROUTE_INTENTS,
   EditorPreviewContextController,
 } from "../src/features/editor-preview/context.ctrl.js";
+import { CARD_NAME } from "../src/constants.js";
 
 const withGlobals = (overrides, fn) => {
   const originalWindow = global.window;
@@ -568,9 +569,10 @@ test("renderCardPickerDemo paints an isolated presentation surface", () => {
   assert.equal(controller.renderCardPickerDemo(), true);
   assert.deepEqual(hostClasses, [["card-picker-demo-host", true]]);
   assert.deepEqual(cardClasses, ["card-picker-demo"]);
-  assert.match(
-    nodes["#stream-fallback"].innerHTML,
-    /FrigateView preview branding/,
+  assert.ok(
+    nodes["#stream-fallback"].innerHTML.includes(
+      `${CARD_NAME} preview branding`,
+    ),
   );
   assert.equal(nodes["#stream-fallback"].hidden, false);
   assert.equal(nodes["#browse"].style.display, "flex");
@@ -580,7 +582,7 @@ test("renderCardPickerDemo paints an isolated presentation surface", () => {
     nodes["#list"].innerHTML.match(/card-picker-demo-alert"/g)?.length,
     2,
   );
-  assert.equal(nodes["#info-title"].textContent, "FrigateView");
+  assert.equal(nodes["#info-title"].textContent, CARD_NAME);
   assert.equal(nodes["#tl-range"].textContent, "Demo Camera");
   assert.equal(nodes["#stream-type"].textContent, "Demo");
   assert.equal(nodes["#alert-count"].textContent, "2");

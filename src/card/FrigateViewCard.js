@@ -1,5 +1,6 @@
 import {
   VERSION,
+  CARD_NAME,
   CARD_TAG,
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
@@ -4848,7 +4849,7 @@ export class FrigateViewCard extends HTMLElement {
 
   _syncFooterVersion() {
     const displayVersion = this._config?.display_version !== false;
-    const label = `FrigateView version ${VERSION}`;
+    const label = `${CARD_NAME} version ${VERSION}`;
     this.shadowRoot
       ?.querySelectorAll?.("#card .footer-version")
       ?.forEach((element) => {

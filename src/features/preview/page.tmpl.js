@@ -1,4 +1,5 @@
 import { buildLivePlaybackControlsMarkup } from "../live/view.tmpl.js";
+import { CARD_NAME } from "../../constants.js";
 import { escapeHtml, escapeHtmlAttribute } from "../../shared/html.js";
 
 /**
@@ -167,7 +168,7 @@ export function buildPreviewLayoutShellMarkup({
   hideFooter = false,
 }) {
   const normalizedVersion = String(version || "").trim();
-  const footerVersion = `<div class="footer-version" ${normalizedVersion ? `aria-label="FrigateView version ${escapeHtmlAttribute(normalizedVersion)}"` : "hidden"}>${normalizedVersion ? `v${escapeHtml(normalizedVersion)}` : ""}</div>`;
+  const footerVersion = `<div class="footer-version" ${normalizedVersion ? `aria-label="${CARD_NAME} version ${escapeHtmlAttribute(normalizedVersion)}"` : "hidden"}>${normalizedVersion ? `v${escapeHtml(normalizedVersion)}` : ""}</div>`;
   return `${previewShellHeader}
           <div class="preview-shell" id="preview-shell"></div>
           <div class="preview-shell-footer" id="preview-shell-footer" ${hideFooter ? "hidden" : ""}>

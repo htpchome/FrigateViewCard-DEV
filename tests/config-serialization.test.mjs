@@ -36,6 +36,7 @@ import {
   PAGE_IDS,
 } from "../src/features/navigation/router.js";
 import {
+  CARD_NAME,
   MAX_CAMERAS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
   MOBILE_BATTERY_SAVER_POLL_SECONDS,
@@ -256,7 +257,7 @@ test("requested editor settings use the shared choice-chip control", () => {
   );
   assert.match(
     editorSource,
-    /Include FrigateView Cards on Other Dashboard Pages/,
+    /Include \$\{CARD_NAME\} Cards on Other Dashboard Pages/,
   );
   assert.match(editorSource, /Swipe to Subviews/);
   assert.match(
@@ -527,7 +528,7 @@ test("editor YAML config omits normalized default values", () => {
         alerts_content: "alerts_only",
       },
     ],
-    title: "FrigateView",
+    title: CARD_NAME,
     subtitle: "{Camera}",
     display_title: true,
     display_subtitle: true,
@@ -665,7 +666,7 @@ test("title, subtitle, logo, and version defaults normalize and hidden states se
   });
   const compact = compactEditorConfigForYaml({
     cameras: [{ entity: "camera.front_door" }],
-    title: "FrigateView",
+    title: CARD_NAME,
     subtitle: "{Camera}",
     display_title: false,
     display_subtitle: false,
@@ -673,7 +674,7 @@ test("title, subtitle, logo, and version defaults normalize and hidden states se
     display_version: false,
   });
 
-  assert.equal(defaults.title, "FrigateView");
+  assert.equal(defaults.title, CARD_NAME);
   assert.equal(defaults.subtitle, "{Camera}");
   assert.equal(defaults.display_title, true);
   assert.equal(defaults.display_subtitle, true);

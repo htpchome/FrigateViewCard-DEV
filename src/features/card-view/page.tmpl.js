@@ -1,4 +1,5 @@
 import { buildLivePlaybackControlsMarkup } from "../live/view.tmpl.js";
+import { CARD_NAME } from "../../constants.js";
 import { escapeHtml } from "../../shared/html.js";
 import {
   CARD_VIEW_VIEW_MODES,
@@ -115,7 +116,7 @@ export function buildCardViewMainLayoutShellMarkup({
       <div class="card-view-footer-end">
         <div class="cal-panel card-view-calendar-panel shadow-small" id="card-view-cal-panel" data-card-view-calendar-panel data-fvc-region="calendar-panel" hidden></div>
         <button class="icon-btn card-view-footer-calendar" type="button" data-card-view-calendar aria-pressed="false" title="Calendar" aria-label="Calendar" hidden>${regions.calendarIcon}</button>
-        <div class="footer-version" ${regions.footerVersion ? `aria-label="FrigateView version ${escapeHtml(regions.footerVersion)}"` : "hidden"}>${regions.footerVersion ? `v${escapeHtml(regions.footerVersion)}` : ""}</div>
+        <div class="footer-version" ${regions.footerVersion ? `aria-label="${CARD_NAME} version ${escapeHtml(regions.footerVersion)}"` : "hidden"}>${regions.footerVersion ? `v${escapeHtml(regions.footerVersion)}` : ""}</div>
       </div>
     </footer>
   </div>`;

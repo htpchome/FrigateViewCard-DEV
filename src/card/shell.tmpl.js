@@ -1,3 +1,4 @@
+import { CARD_NAME } from "../constants.js";
 import { escapeHtml, escapeHtmlAttribute } from "../shared/html.js";
 
 export function buildCamSwitcherRegionMarkup({ markup = "" } = {}) {
@@ -69,7 +70,7 @@ export function buildFooterMarkup({
   if (!includeFrigateView) return "";
   const frigateView = `<div><div class="frigate-view">${displayFrigateView ? icons.frigateView || "" : ""}</div></div>`;
   const normalizedVersion = String(version || "").trim();
-  const footerVersion = `<div class="footer-version" ${normalizedVersion ? `aria-label="FrigateView version ${escapeHtmlAttribute(normalizedVersion)}"` : "hidden"}>${normalizedVersion ? `v${escapeHtml(normalizedVersion)}` : ""}</div>`;
+  const footerVersion = `<div class="footer-version" ${normalizedVersion ? `aria-label="${CARD_NAME} version ${escapeHtmlAttribute(normalizedVersion)}"` : "hidden"}>${normalizedVersion ? `v${escapeHtml(normalizedVersion)}` : ""}</div>`;
   return `<div class="footer" data-fvc-region="footer">
               ${frigateView}
               ${footerVersion}

@@ -16,6 +16,7 @@ import {
 import { MOBILE_VIEW_PAGE_STYLES } from "../src/features/mobile-view/page.styles.js";
 import { CAMERA_PICKER_STYLES } from "../src/features/navigation/camera-picker.styles.js";
 import { STYLES } from "../src/styles.js";
+import { CARD_NAME } from "../src/constants.js";
 
 test("mobile view title resolver defaults to FrigateView", () => {
   const activeCamera = { name: "Driveway" };
@@ -32,7 +33,7 @@ test("mobile view title resolver defaults to FrigateView", () => {
     resolveMobileViewTitleText({
       title: "",
     }),
-    "FrigateView",
+    CARD_NAME,
   );
   assert.equal(
     resolveMobileViewTitleText({

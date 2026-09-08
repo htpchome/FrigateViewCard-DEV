@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { SingleViewPageController } from "../src/features/single-view/page.ctrl.js";
+import { CARD_NAME } from "../src/constants.js";
 
 const PAGE_IDS = {
   preview: "preview",
@@ -871,7 +872,7 @@ test("single-view render helpers update status and title through the controller"
   assert.equal(liveBadge.hidden, false);
   assert.equal(badgeState.has("is-offline"), false);
   assert.equal(badgeAttributes["aria-label"], "Live camera");
-  assert.equal(nodes["#info-title"].textContent, "FrigateView");
+  assert.equal(nodes["#info-title"].textContent, CARD_NAME);
   assert.equal(nodes["#info-title"].hidden, false);
 
   host._config.display_title = false;

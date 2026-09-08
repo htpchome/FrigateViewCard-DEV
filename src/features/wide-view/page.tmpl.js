@@ -1,4 +1,5 @@
 import { buildLivePlaybackControlsMarkup } from "../live/view.tmpl.js";
+import { CARD_NAME } from "../../constants.js";
 import { escapeHtml, escapeHtmlAttribute } from "../../shared/html.js";
 
 function mergeClassNames(...tokens) {
@@ -58,7 +59,7 @@ export function buildWideViewMainLayoutShellMarkup({
     layoutProfile.resizeHandleClass,
   );
   const normalizedFooterVersion = String(regions.footerVersion || "").trim();
-  const footerVersion = `<div class="footer-version" ${normalizedFooterVersion ? `aria-label="FrigateView version ${escapeHtmlAttribute(normalizedFooterVersion)}"` : "hidden"}>${normalizedFooterVersion ? `v${escapeHtml(normalizedFooterVersion)}` : ""}</div>`;
+  const footerVersion = `<div class="footer-version" ${normalizedFooterVersion ? `aria-label="${CARD_NAME} version ${escapeHtmlAttribute(normalizedFooterVersion)}"` : "hidden"}>${normalizedFooterVersion ? `v${escapeHtml(normalizedFooterVersion)}` : ""}</div>`;
 
   return `<div class="${layoutClassName}" id="layout">
           <div class="${leftColumnClassName}" id="col-left">

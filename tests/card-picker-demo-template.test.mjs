@@ -5,13 +5,14 @@ import {
   buildCardPickerDemoAlertsMarkup,
   buildCardPickerDemoLiveMarkup,
 } from "../src/features/editor-preview/card-picker-demo.tmpl.js";
+import { CARD_NAME } from "../src/constants.js";
 
 test("card picker live demo uses self-contained FrigateView branding", () => {
   const markup = buildCardPickerDemoLiveMarkup();
 
-  assert.match(markup, /FrigateView preview branding/);
+  assert.ok(markup.includes(`${CARD_NAME} preview branding`));
   assert.match(markup, /card-picker-demo-brand/);
-  assert.match(markup, /FRIGATEVIEW/);
+  assert.ok(markup.includes(CARD_NAME.toUpperCase()));
   assert.match(markup, /For Home Assistant and Frigate/);
   assert.match(markup, /card-picker-demo-brand-gold/);
   assert.match(markup, /fill="#000000"/);

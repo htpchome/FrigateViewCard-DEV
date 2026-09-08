@@ -2,6 +2,7 @@ import {
   buildCardPickerDemoAlertsMarkup,
   buildCardPickerDemoLiveMarkup,
 } from "./card-picker-demo.tmpl.js";
+import { CARD_NAME } from "../../constants.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 
 const EDITOR_LIFECYCLE_TRANSITION_GRACE_MS = 2000;
@@ -911,7 +912,7 @@ export class EditorPreviewContextController {
     const alertCount = root.querySelector?.("#alert-count");
     const statusLabel = root.querySelector?.("#on-lbl");
     const statusDot = root.querySelector?.("#on-dot");
-    if (title) title.textContent = "FrigateView";
+    if (title) title.textContent = CARD_NAME;
     if (subtitle) subtitle.textContent = "Demo Camera";
     if (streamType) streamType.textContent = "Demo";
     if (alertCount) alertCount.textContent = "2";
