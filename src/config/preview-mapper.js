@@ -18,6 +18,7 @@ import {
   normalizeDashboardSwipeNavigationMode,
   normalizeMobilePageMode,
   normalizePageRoute,
+  resolveDashboardSwipeMobilePageSelection,
   resolveDashboardSwipePageSelection,
 } from "../features/navigation/router.js";
 import {
@@ -105,6 +106,11 @@ export const createEditorPreviewDraft = (config) => ({
     config.ha_dashboard_swipe_pages,
   )
     ? [...config.ha_dashboard_swipe_pages]
+    : undefined,
+  ha_dashboard_swipe_mobile_pages: Array.isArray(
+    config.ha_dashboard_swipe_mobile_pages,
+  )
+    ? [...config.ha_dashboard_swipe_mobile_pages]
     : undefined,
   preview_page_enabled: config.preview_page_enabled,
   preview_page_live_cameras: config.preview_page_live_cameras,
@@ -257,6 +263,11 @@ export const applyEditorPreviewDraftToCardConfig = ({
     )
       ? [...previewConfig.ha_dashboard_swipe_pages]
       : undefined,
+    ha_dashboard_swipe_mobile_pages: Array.isArray(
+      previewConfig.ha_dashboard_swipe_mobile_pages,
+    )
+      ? [...previewConfig.ha_dashboard_swipe_mobile_pages]
+      : undefined,
     preview_page_enabled: previewConfig.preview_page_enabled === true,
     preview_page_live_cameras: previewConfig.preview_page_live_cameras === true,
     preview_page_live_cameras_mobile:
@@ -361,6 +372,8 @@ export const applyEditorPreviewDraftToCardConfig = ({
       applied,
       DEVICE_ROUTE_BUCKETS.desktop,
     );
+  applied.ha_dashboard_swipe_mobile_pages =
+    resolveDashboardSwipeMobilePageSelection(applied);
   delete applied.card_view_drawer_default_open;
   delete applied.card_view_media_drawer_type;
   delete applied.card_view_video_panel_only;

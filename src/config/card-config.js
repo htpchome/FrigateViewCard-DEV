@@ -28,6 +28,7 @@ import {
   DEVICE_ROUTE_BUCKETS,
   getEnabledPageRoutes,
   resolveEnabledMobilePageMode,
+  resolveDashboardSwipeMobilePageSelection,
   resolveDashboardSwipePageSelection,
   normalizePageRoute,
   PAGE_IDS,
@@ -250,6 +251,8 @@ export const normalizeCardConfig = (config) => {
     src,
     DEVICE_ROUTE_BUCKETS.desktop,
   );
+  src.ha_dashboard_swipe_mobile_pages =
+    resolveDashboardSwipeMobilePageSelection(src);
 
   src.grid_rotation_seconds = GRID_ROTATION_OPTIONS_SECONDS.includes(
     Number(src.grid_rotation_seconds),

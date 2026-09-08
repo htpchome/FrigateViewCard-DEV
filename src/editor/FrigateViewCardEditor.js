@@ -68,6 +68,7 @@ import {
   resolveDashboardSwipeNavigationOwnership,
 } from "../integrations/home-assistant/dashboard-swipe-navigation.ctrl.js";
 import {
+  DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS,
   DASHBOARD_SWIPE_PAGE_OPTIONS,
   DASHBOARD_SWIPE_NAVIGATION_MODES,
   DEVICE_ROUTE_BUCKETS,
@@ -78,7 +79,9 @@ import {
   normalizeMobilePageMode,
   normalizePageRoute,
   PAGE_IDS,
+  resolveDashboardSwipeMobilePageSelection,
   resolveDashboardSwipePageSelection,
+  resolveMobileSwipeLandingPage,
 } from "../features/navigation/router.js";
 import { normalizeCardConfig } from "../config/card-config.js";
 import {
@@ -1239,7 +1242,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       DEVICE_ROUTE_BUCKETS.desktop,
     ).join("|");
     const mobile = getEnabledMobilePageModes(normalized).join("|");
-    return `${desktop}::${mobile}::${normalized.landing_page}`;
+    return `${desktop}::${mobile}::${normalized.landing_page}::${normalized.mobile_page}::${resolveMobileSwipeLandingPage(normalized)}`;
   }
 
   _frigateEntities() {
@@ -2523,6 +2526,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#ha_dashboard_swipe_navigation_owner",
       "#ha_dashboard_swipe_navigation",
       '[name="ha_dashboard_swipe_pages"]',
+      '[name="ha_dashboard_swipe_mobile_pages"]',
       "#ha_dashboard_swipe_include_other_cards",
       "[data-ha-dashboard-swipe-include-subviews]",
       "#ha_dashboard_swipe_mouse_enabled",
@@ -2774,12 +2778,19 @@ export class FrigateViewCardEditor extends HTMLElement {
         DEVICE_ROUTE_BUCKETS.desktop,
       ),
     );
+    const enabledMobileSwipePages = new Set(
+      getEnabledPageRoutes(this._config, DEVICE_ROUTE_BUCKETS.mobile),
+    );
+    const mobileSwipeLandingPage = resolveMobileSwipeLandingPage(this._config);
+    const selectedDashboardSwipeMobilePages = new Set(
+      resolveDashboardSwipeMobilePageSelection(this._config),
+    );
     const dashboardSwipePageLabels = {
-      [PAGE_IDS.preview]: "Preview Page",
-      [PAGE_IDS.singleView]: "SingleView Page",
-      [PAGE_IDS.mobileView]: "Mobile View Page",
-      [PAGE_IDS.wideView]: "Wide View Page",
-      [PAGE_IDS.cardView]: "Card View Page",
+      [PAGE_IDS.preview]: "Preview",
+      [PAGE_IDS.singleView]: "Single View",
+      [PAGE_IDS.mobileView]: "Mobile View",
+      [PAGE_IDS.wideView]: "Wide View",
+      [PAGE_IDS.cardView]: "Card View",
     };
     const dashboardSwipePageChoices = DASHBOARD_SWIPE_PAGE_OPTIONS.map(
       (pageId) => {
@@ -2797,6 +2808,21 @@ export class FrigateViewCardEditor extends HTMLElement {
         </label>`;
       },
     ).join("");
+    const dashboardSwipeMobilePageChoices =
+      DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS.map((pageId) => {
+        const isLandingPage = pageId === mobileSwipeLandingPage;
+        const disabled =
+          !dashboardSwipeSettingsEnabled ||
+          !enabledMobileSwipePages.has(pageId) ||
+          isLandingPage;
+        return `<label class="editor-choice-chip">
+          <input class="editor-choice-chip-input" type="checkbox" name="ha_dashboard_swipe_mobile_pages" value="${escapeHtmlAttribute(pageId)}" ${selectedDashboardSwipeMobilePages.has(pageId) ? "checked" : ""} ${isLandingPage ? 'data-dashboard-swipe-landing="true"' : ""} ${disabled ? "disabled" : ""}>
+          <span class="editor-choice-chip-body">
+            <span class="editor-choice-chip-indicator" aria-hidden="true"></span>
+            <span class="editor-choice-chip-text">${escapeHtml(dashboardSwipePageLabels[pageId])}</span>
+          </span>
+        </label>`;
+      }).join("");
     const physicalCameraCount = countPhysicalCameras(cams);
     const physicalGridCameras = flattenCameraMembers(cams);
     const gridOrder = normalizeGridOrderConfig(
@@ -2929,7 +2955,6 @@ export class FrigateViewCardEditor extends HTMLElement {
       [MOBILE_PAGE_MODES.mobile]: "Mobile",
       [MOBILE_PAGE_MODES.card]: "Card View",
       [MOBILE_PAGE_MODES.previewMobile]: "Preview + Mobile",
-      [MOBILE_PAGE_MODES.previewCard]: "Preview + Card View",
       [MOBILE_PAGE_MODES.previewSingle]: "Preview + Single View",
       [MOBILE_PAGE_MODES.single]: "Single View",
     };
@@ -3501,14 +3526,18 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div class="editor-choice-chips editor-choice-chips--detailed editor-swipe-choice-grid">${dashboardSwipeChoices}</div>
         </div>
         <div id="ha-dashboard-swipe-page-selection" class="dashboard-swipe-page-selection" style="${dashboardSwipePageSelectionVisible ? "" : "display:none"}">
-          <div class="editor-choice-field" role="group" aria-label="FrigateView Pages">
-            <div class="field-label">FrigateView Pages</div>
+          <div class="editor-choice-field dashboard-swipe-device-group" role="group" aria-label="Pc/Tablet Pages to Include in Swipe">
+            <div class="field-label">Pc/Tablet Pages to Include in Swipe</div>
             <div class="editor-choice-chips editor-choice-chips--checkbox dashboard-swipe-pages-grid">${dashboardSwipePageChoices}</div>
           </div>
-          <div class="field-helper">Choose the FrigateView pages included in desktop and tablet swipe navigation. Disabled pages must first be enabled in their page settings.</div>
-          <div class="field-helper dashboard-swipe-landing-note">The configured desktop landing page is always included and cannot be removed.</div>
+          <div class="field-helper dashboard-swipe-landing-note">Enabled pages only. The Pc/Tablet landing page is always included.</div>
+          <div class="editor-choice-field dashboard-swipe-device-group" role="group" aria-label="Mobile Phone Pages to Include in Swipe">
+            <div class="field-label">Mobile Phone Pages to Include in Swipe</div>
+            <div class="editor-choice-chips editor-choice-chips--checkbox dashboard-swipe-pages-grid">${dashboardSwipeMobilePageChoices}</div>
+          </div>
+          <div class="field-helper dashboard-swipe-landing-note">Wide View is unavailable on phones. The effective phone landing page is always included.</div>
         </div>
-        <div class="field-helper">Applies on touch devices. A swipe from the far-left edge remains reserved for the Home Assistant menu in every mode.</div>
+        <div class="field-helper">Applies on touch devices. The outermost 18px stays reserved for Home Assistant; when no swipe target exists to the left, the Home Assistant drawer area expands to 56px.</div>
         <div class="layout-row swipe-mouse-navigation-row">
           <span class="field-label" style="margin:0">Mouse Swipe Navigation</span>
           <ha-switch id="ha_dashboard_swipe_mouse_enabled" ${this._config?.ha_dashboard_swipe_mouse_enabled ? "checked" : ""}></ha-switch>
@@ -3802,9 +3831,11 @@ export class FrigateViewCardEditor extends HTMLElement {
             .editor-choice-chips--compact{display:flex;width:auto;gap:6px;}
             .editor-choice-chips--detailed{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));}
             .dashboard-swipe-page-selection{margin-top:16px;padding-top:14px;border-top:1px solid var(--c-border2, var(--editor-border));}
-            .dashboard-swipe-pages-grid{grid-template-columns:repeat(auto-fit,minmax(104px,1fr));align-items:stretch;}
-            .dashboard-swipe-pages-grid > .editor-choice-chip{height:100%;}
-            .dashboard-swipe-pages-grid .editor-choice-chip-body{height:100%;min-height:64px;}
+            .dashboard-swipe-device-group + .dashboard-swipe-device-group{margin-top:12px;}
+            .dashboard-swipe-pages-grid{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));align-items:stretch;gap:6px;}
+            .dashboard-swipe-pages-grid > .editor-choice-chip{display:flex;}
+            .dashboard-swipe-pages-grid .editor-choice-chip-body{flex:1 1 auto;min-height:40px;padding:6px;gap:5px;font-size:11px;line-height:1.15;}
+            .dashboard-swipe-pages-grid .editor-choice-chip-indicator{width:15px;height:15px;}
             .dashboard-swipe-landing-note{font-weight:600;color:var(--c-primary-d, var(--editor-primary-d));}
             .editor-swipe-choice-grid{align-items:stretch;}
             .editor-swipe-choice{position:relative;min-width:0;}

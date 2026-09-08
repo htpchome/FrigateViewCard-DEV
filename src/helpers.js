@@ -22,6 +22,8 @@ import {
   normalizeMobilePageMode,
   normalizePageRoute,
   PAGE_IDS,
+  resolveDashboardSwipeMobilePageSelection,
+  resolveMobileSwipeLandingPage,
   resolveDashboardSwipePageSelection,
 } from "./features/navigation/router.js";
 import { createEditorPreviewDraft as mapEditorPreviewDraft } from "./config/preview-mapper.js";
@@ -1071,6 +1073,27 @@ export const buildEditorConfigFromDom = ({
       nextConfig.mobile_page ||
       MOBILE_PAGE_MODES.single,
   );
+  const previousMobileSwipeLandingPage = resolveMobileSwipeLandingPage(
+    baseConfig,
+  );
+  const nextMobileSwipeLandingPage = resolveMobileSwipeLandingPage(nextConfig);
+  const selectedMobileSwipePages = [
+    ...root.querySelectorAll(
+      '[name="ha_dashboard_swipe_mobile_pages"]:checked',
+    ),
+  ]
+    .map((input) => String(input?.value || ""))
+    .filter(
+      (pageId) =>
+        pageId &&
+        (nextMobileSwipeLandingPage === previousMobileSwipeLandingPage ||
+          pageId !== previousMobileSwipeLandingPage),
+    );
+  nextConfig.ha_dashboard_swipe_mobile_pages =
+    resolveDashboardSwipeMobilePageSelection({
+      ...nextConfig,
+      ha_dashboard_swipe_mobile_pages: selectedMobileSwipePages,
+    });
 
   nextConfig.col_left_width_pct = normalizeWideLeftWidth(
     root.querySelector("#col_left_width_pct")?.value,

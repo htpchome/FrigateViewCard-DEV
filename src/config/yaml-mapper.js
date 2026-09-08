@@ -24,7 +24,9 @@ import {
   normalizeMobilePageMode,
   normalizePageRoute,
   PAGE_IDS,
+  resolveDashboardSwipeMobilePageSelection,
   resolveDashboardSwipePageSelection,
+  resolveDefaultDashboardSwipeMobilePages,
   resolveDefaultDashboardSwipePages,
 } from "../features/navigation/router.js";
 import {
@@ -414,6 +416,18 @@ export const compactEditorConfigForYaml = (
         selectedPages.some((pageId, index) => pageId !== defaultPages[index])
       ) {
         compact.ha_dashboard_swipe_pages = [...selectedPages];
+      }
+      const selectedMobilePages =
+        resolveDashboardSwipeMobilePageSelection(source);
+      const defaultMobilePages =
+        resolveDefaultDashboardSwipeMobilePages(source);
+      if (
+        selectedMobilePages.length !== defaultMobilePages.length ||
+        selectedMobilePages.some(
+          (pageId, index) => pageId !== defaultMobilePages[index],
+        )
+      ) {
+        compact.ha_dashboard_swipe_mobile_pages = [...selectedMobilePages];
       }
     }
     if (

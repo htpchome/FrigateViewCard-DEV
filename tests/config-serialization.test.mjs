@@ -32,6 +32,7 @@ import {
 import { normalizeWideLeftWidth } from "../src/features/wide-view/config.js";
 import {
   DASHBOARD_SWIPE_NAVIGATION_MODES,
+  MOBILE_PAGE_MODES,
   PAGE_IDS,
 } from "../src/features/navigation/router.js";
 import {
@@ -340,20 +341,21 @@ test("editor choice chips avoid native fieldsets while retaining group semantics
   );
   assert.match(
     editorSource,
-    /class="editor-choice-field" role="group" aria-label="FrigateView Pages"/,
+    /aria-label="Pc\/Tablet Pages to Include in Swipe"/,
   );
   assert.match(
     editorSource,
-    /\.dashboard-swipe-pages-grid\{grid-template-columns:repeat\(auto-fit,minmax\(104px,1fr\)\);align-items:stretch;\}/,
+    /aria-label="Mobile Phone Pages to Include in Swipe"/,
   );
   assert.match(
     editorSource,
-    /\.dashboard-swipe-pages-grid > \.editor-choice-chip\{height:100%;\}/,
+    /\.dashboard-swipe-pages-grid\{grid-template-columns:repeat\(auto-fit,minmax\(88px,1fr\)\);align-items:stretch;gap:6px;\}/,
   );
   assert.match(
     editorSource,
-    /\.dashboard-swipe-pages-grid \.editor-choice-chip-body\{height:100%;min-height:64px;\}/,
+    /\.dashboard-swipe-pages-grid \.editor-choice-chip-body\{flex:1 1 auto;min-height:40px;padding:6px;gap:5px;font-size:11px;line-height:1\.15;\}/,
   );
+  assert.doesNotMatch(editorSource, /min-height:64px/);
 });
 
 test("page settings panels use clear names and the requested order", () => {
@@ -1567,6 +1569,11 @@ test("preview draft carries hidden tabs and page routes", () => {
       PAGE_IDS.singleView,
       PAGE_IDS.wideView,
     ],
+    ha_dashboard_swipe_mobile_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+    ],
     preview_page_enabled: true,
     wide_view_page_enabled: true,
     hidden_tabs: ["clips", "snapshots"],
@@ -1617,6 +1624,11 @@ test("preview draft carries hidden tabs and page routes", () => {
     PAGE_IDS.preview,
     PAGE_IDS.singleView,
     PAGE_IDS.wideView,
+  ]);
+  assert.deepEqual(draft.ha_dashboard_swipe_mobile_pages, [
+    PAGE_IDS.preview,
+    PAGE_IDS.singleView,
+    PAGE_IDS.mobileView,
   ]);
   assert.deepEqual(draft.hidden_tabs, ["clips", "snapshots"]);
   assert.equal(draft.landing_page, "preview");
@@ -1675,6 +1687,9 @@ test("preview draft carries hidden tabs and page routes", () => {
   assert.equal("card_view_drawer_default_open" in previewConfig, false);
   assert.equal("card_view_video_panel_only" in previewConfig, false);
   assert.deepEqual(previewConfig.ha_dashboard_swipe_pages, [
+    PAGE_IDS.cardView,
+  ]);
+  assert.deepEqual(previewConfig.ha_dashboard_swipe_mobile_pages, [
     PAGE_IDS.cardView,
   ]);
 });
@@ -2379,6 +2394,80 @@ test("desktop swipe pages default to Preview plus landing and save only custom s
   );
 });
 
+test("phone swipe pages default to Preview plus their effective landing and save only custom selections", () => {
+  const defaults = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    ha_dashboard_swipe_navigation_owner: true,
+    preview_page_enabled: true,
+    mobile_view_page_enabled: true,
+    card_view_page_enabled: true,
+    mobile_page: MOBILE_PAGE_MODES.previewMobile,
+  });
+  assert.deepEqual(defaults.ha_dashboard_swipe_mobile_pages, [
+    PAGE_IDS.preview,
+    PAGE_IDS.mobileView,
+  ]);
+  assert.equal(
+    Object.hasOwn(
+      compactEditorConfigForYaml(defaults),
+      "ha_dashboard_swipe_mobile_pages",
+    ),
+    false,
+  );
+
+  const custom = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    ha_dashboard_swipe_navigation_owner: true,
+    ha_dashboard_swipe_navigation:
+      DASHBOARD_SWIPE_NAVIGATION_MODES.insideCard,
+    preview_page_enabled: true,
+    mobile_view_page_enabled: true,
+    card_view_page_enabled: true,
+    wide_view_page_enabled: true,
+    mobile_page: MOBILE_PAGE_MODES.previewMobile,
+    ha_dashboard_swipe_mobile_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.cardView,
+      PAGE_IDS.wideView,
+    ],
+  });
+  assert.deepEqual(custom.ha_dashboard_swipe_mobile_pages, [
+    PAGE_IDS.preview,
+    PAGE_IDS.singleView,
+    PAGE_IDS.mobileView,
+    PAGE_IDS.cardView,
+  ]);
+  assert.deepEqual(
+    compactEditorConfigForYaml(custom).ha_dashboard_swipe_mobile_pages,
+    [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.cardView,
+    ],
+  );
+
+  const previewExcluded = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    ha_dashboard_swipe_navigation_owner: true,
+    preview_page_enabled: true,
+    mobile_view_page_enabled: true,
+    card_view_page_enabled: true,
+    mobile_page: MOBILE_PAGE_MODES.mobile,
+    ha_dashboard_swipe_mobile_pages: [PAGE_IDS.cardView],
+  });
+  assert.deepEqual(previewExcluded.ha_dashboard_swipe_mobile_pages, [
+    PAGE_IDS.mobileView,
+    PAGE_IDS.cardView,
+  ]);
+  assert.deepEqual(
+    compactEditorConfigForYaml(previewExcluded)
+      .ha_dashboard_swipe_mobile_pages,
+    [PAGE_IDS.mobileView, PAGE_IDS.cardView],
+  );
+});
+
 test("Mobile View HA navbar options are ordered and nested under their master toggle", () => {
   const masterIndex = editorSource.indexOf(
     'id="mobile_view_ha_navbar_bottom"',
@@ -2502,7 +2591,13 @@ test("editor presents general, layout, and Mobile View controls in their request
     editorSource,
     /type="checkbox" name="ha_dashboard_swipe_pages"/,
   );
-  assert.match(swipeSource, /The configured desktop landing page is always included and cannot be removed/);
+  assert.match(
+    editorSource,
+    /type="checkbox" name="ha_dashboard_swipe_mobile_pages"/,
+  );
+  assert.match(swipeSource, /The Pc\/Tablet landing page is always included/);
+  assert.match(swipeSource, /The effective phone landing page is always included/);
+  assert.doesNotMatch(editorSource, /Preview \+ Card View/);
   assert.match(editorSource, /title: "Swipe Navigation"/);
 });
 
@@ -2518,6 +2613,7 @@ test("editor DOM reads the Mobile View HA navbar toggles and swipe mode", () => 
         };
       }
       return selector === "#mobile_view_ha_navbar_bottom" ||
+        selector === "#mobile_view_page_enabled" ||
         selector === "#mobile_view_ha_navbar_stack_tabs" ||
         selector === "#mobile_view_ha_navbar_dashboard" ||
         selector === "#ha_dashboard_swipe_navigation_owner" ||
@@ -2535,6 +2631,12 @@ test("editor DOM reads the Mobile View HA navbar toggles and swipe mode", () => 
             { value: PAGE_IDS.preview },
             { value: PAGE_IDS.singleView },
           ]
+        : selector === '[name="ha_dashboard_swipe_mobile_pages"]:checked'
+          ? [
+              { value: PAGE_IDS.preview },
+              { value: PAGE_IDS.singleView },
+              { value: PAGE_IDS.mobileView },
+            ]
         : [],
   };
 
@@ -2559,6 +2661,11 @@ test("editor DOM reads the Mobile View HA navbar toggles and swipe mode", () => 
   assert.deepEqual(config.ha_dashboard_swipe_pages, [
     PAGE_IDS.preview,
     PAGE_IDS.singleView,
+  ]);
+  assert.deepEqual(config.ha_dashboard_swipe_mobile_pages, [
+    PAGE_IDS.preview,
+    PAGE_IDS.singleView,
+    PAGE_IDS.mobileView,
   ]);
 });
 
@@ -2603,6 +2710,65 @@ test("changing the desktop landing page immediately replaces the locked swipe pa
   ]);
 });
 
+test("changing the phone landing page immediately replaces the locked phone swipe page", () => {
+  const root = {
+    querySelector: (selector) => {
+      if (selector === "#mobile_page") {
+        return {
+          value: MOBILE_PAGE_MODES.card,
+          dataset: { value: MOBILE_PAGE_MODES.card },
+        };
+      }
+      if (
+        selector === "#preview_page_enabled" ||
+        selector === "#mobile_view_page_enabled" ||
+        selector === "#card_view_page_enabled"
+      ) {
+        return { checked: true };
+      }
+      return null;
+    },
+    querySelectorAll: (selector) => {
+      if (selector === '[name="ha_dashboard_swipe_pages"]:checked') {
+        return [{ value: PAGE_IDS.singleView }];
+      }
+      if (
+        selector === '[name="ha_dashboard_swipe_mobile_pages"]:checked'
+      ) {
+        return [
+          { value: PAGE_IDS.preview },
+          { value: PAGE_IDS.singleView },
+          { value: PAGE_IDS.mobileView },
+        ];
+      }
+      return [];
+    },
+  };
+
+  const config = buildEditorConfigFromDom({
+    root,
+    baseConfig: {
+      mobile_page: MOBILE_PAGE_MODES.previewMobile,
+      preview_page_enabled: true,
+      mobile_view_page_enabled: true,
+      card_view_page_enabled: true,
+      ha_dashboard_swipe_mobile_pages: [
+        PAGE_IDS.preview,
+        PAGE_IDS.mobileView,
+      ],
+    },
+    cameras: [{ entity: "camera.front_door" }],
+    themeDraftCache: {},
+  });
+
+  assert.equal(config.mobile_page, MOBILE_PAGE_MODES.card);
+  assert.deepEqual(config.ha_dashboard_swipe_mobile_pages, [
+    PAGE_IDS.preview,
+    PAGE_IDS.singleView,
+    PAGE_IDS.cardView,
+  ]);
+});
+
 test("phone landing flow defaults to Single View and preserves enabled page combinations", () => {
   const defaults = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
@@ -2632,7 +2798,7 @@ test("phone landing flow defaults to Single View and preserves enabled page comb
   assert.equal(legacyPreview.mobile_page, "preview-single-view");
   assert.equal(compact.mobile_page, "preview-mobile-view");
   assert.equal(cardView.mobile_page, "card-view");
-  assert.equal(previewCardView.mobile_page, "preview-card-view");
+  assert.equal(previewCardView.mobile_page, "card-view");
 });
 
 test("disabled landing pages fall back to Single View", () => {

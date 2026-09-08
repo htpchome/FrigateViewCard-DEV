@@ -44,6 +44,13 @@ export const DASHBOARD_SWIPE_PAGE_OPTIONS = Object.freeze([
   PAGE_IDS.cardView,
 ]);
 
+export const DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS = Object.freeze([
+  PAGE_IDS.preview,
+  PAGE_IDS.singleView,
+  PAGE_IDS.mobileView,
+  PAGE_IDS.cardView,
+]);
+
 const PAGE_ROUTE_SET = new Set(PAGE_ROUTE_ORDER);
 const MOBILE_PAGE_MODE_SET = new Set(Object.values(MOBILE_PAGE_MODES));
 const DASHBOARD_SWIPE_NAVIGATION_MODE_SET = new Set(
@@ -71,7 +78,9 @@ export const normalizeMobilePageMode = (value) => {
     .replace(/[_+\s]+/g, "-");
   if (mode === "preview") return MOBILE_PAGE_MODES.previewSingle;
   if (mode === "preview-mobile") return MOBILE_PAGE_MODES.previewMobile;
-  if (mode === "preview-card") return MOBILE_PAGE_MODES.previewCard;
+  if (mode === "preview-card" || mode === MOBILE_PAGE_MODES.previewCard) {
+    return MOBILE_PAGE_MODES.card;
+  }
   if (mode === "preview-single") return MOBILE_PAGE_MODES.previewSingle;
   if (mode === "mobile" || mode === "mobile-view") {
     return MOBILE_PAGE_MODES.mobile;
@@ -160,7 +169,6 @@ export const getMobilePageModes = () => [
   MOBILE_PAGE_MODES.mobile,
   MOBILE_PAGE_MODES.card,
   MOBILE_PAGE_MODES.previewMobile,
-  MOBILE_PAGE_MODES.previewCard,
   MOBILE_PAGE_MODES.previewSingle,
   MOBILE_PAGE_MODES.single,
 ];
@@ -177,12 +185,6 @@ export const getEnabledMobilePageModes = (config) =>
       return (
         isPageEnabled(config, PAGE_IDS.preview) &&
         isPageEnabled(config, PAGE_IDS.mobileView)
-      );
-    }
-    if (mode === MOBILE_PAGE_MODES.previewCard) {
-      return (
-        isPageEnabled(config, PAGE_IDS.preview) &&
-        isPageEnabled(config, PAGE_IDS.cardView)
       );
     }
     if (mode === MOBILE_PAGE_MODES.previewSingle) {
@@ -202,7 +204,6 @@ export const resolveMobilePageEntryRoute = (value) => {
   const mode = normalizeMobilePageMode(value);
   if (
     mode === MOBILE_PAGE_MODES.previewMobile ||
-    mode === MOBILE_PAGE_MODES.previewCard ||
     mode === MOBILE_PAGE_MODES.previewSingle
   ) {
     return PAGE_IDS.preview;
@@ -213,9 +214,26 @@ export const resolveMobilePageEntryRoute = (value) => {
 export const resolveMobilePreviewDestination = (value) => {
   const mode = normalizeMobilePageMode(value);
   if (mode === MOBILE_PAGE_MODES.previewMobile) return PAGE_IDS.mobileView;
-  if (mode === MOBILE_PAGE_MODES.previewCard) return PAGE_IDS.cardView;
   if (mode === MOBILE_PAGE_MODES.previewSingle) return PAGE_IDS.singleView;
   return "";
+};
+
+export const resolveMobileSwipeLandingPage = (config) => {
+  if (
+    config?.card_view_page_enabled === true &&
+    config?.card_view_standalone === true
+  ) {
+    return PAGE_IDS.cardView;
+  }
+  const mode = resolveEnabledMobilePageMode(config, config?.mobile_page);
+  if (
+    mode === MOBILE_PAGE_MODES.mobile ||
+    mode === MOBILE_PAGE_MODES.previewMobile
+  ) {
+    return PAGE_IDS.mobileView;
+  }
+  if (mode === MOBILE_PAGE_MODES.card) return PAGE_IDS.cardView;
+  return PAGE_IDS.singleView;
 };
 
 export const resolveDeepLinkPageRoute = (config, deviceBucket) => {
@@ -233,12 +251,7 @@ export const resolveDeepLinkPageRoute = (config, deviceBucket) => {
   ) {
     return PAGE_IDS.mobileView;
   }
-  if (
-    mode === MOBILE_PAGE_MODES.card ||
-    mode === MOBILE_PAGE_MODES.previewCard
-  ) {
-    return PAGE_IDS.cardView;
-  }
+  if (mode === MOBILE_PAGE_MODES.card) return PAGE_IDS.cardView;
   return PAGE_IDS.singleView;
 };
 
@@ -303,6 +316,33 @@ export const resolveDashboardSwipePageSelection = (
   );
 };
 
+export const resolveDefaultDashboardSwipeMobilePages = (config) => {
+  const available = getEnabledPageRoutes(config, DEVICE_ROUTE_BUCKETS.mobile);
+  const landingPage = resolveMobileSwipeLandingPage(config);
+  const defaults = new Set([landingPage]);
+  if (available.includes(PAGE_IDS.preview)) defaults.add(PAGE_IDS.preview);
+  return DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS.filter(
+    (pageId) => available.includes(pageId) && defaults.has(pageId),
+  );
+};
+
+export const resolveDashboardSwipeMobilePageSelection = (config) => {
+  const available = getEnabledPageRoutes(config, DEVICE_ROUTE_BUCKETS.mobile);
+  const landingPage = resolveMobileSwipeLandingPage(config);
+  const configured = Array.isArray(config?.ha_dashboard_swipe_mobile_pages)
+    ? config.ha_dashboard_swipe_mobile_pages
+    : resolveDefaultDashboardSwipeMobilePages(config);
+  const selected = new Set(
+    configured
+      .map((pageId) => String(pageId || "").trim().toLowerCase())
+      .filter((pageId) => available.includes(pageId)),
+  );
+  if (available.includes(landingPage)) selected.add(landingPage);
+  return DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS.filter((pageId) =>
+    selected.has(pageId),
+  );
+};
+
 export const resolvePageSwipeOrder = (config, deviceBucket) => {
   const swipeMode = normalizeDashboardSwipeNavigationMode(
     config?.ha_dashboard_swipe_navigation,
@@ -319,25 +359,21 @@ export const resolvePageSwipeOrder = (config, deviceBucket) => {
     }
   };
   if (swipeMode === DASHBOARD_SWIPE_NAVIGATION_MODES.landingDashboard) {
-    append(resolveAvailableLandingPage(config, deviceBucket, available));
+    append(
+      deviceBucket === DEVICE_ROUTE_BUCKETS.mobile
+        ? resolveMobileSwipeLandingPage(config)
+        : resolveAvailableLandingPage(config, deviceBucket, available),
+    );
     return ordered;
   }
   if (deviceBucket === DEVICE_ROUTE_BUCKETS.mobile) {
-    const mobileMode = normalizeMobilePageMode(config?.mobile_page);
-    let pairedPage = PAGE_IDS.singleView;
-    if (
-      mobileMode === MOBILE_PAGE_MODES.mobile ||
-      mobileMode === MOBILE_PAGE_MODES.previewMobile
-    ) {
-      pairedPage = PAGE_IDS.mobileView;
-    } else if (
-      mobileMode === MOBILE_PAGE_MODES.card ||
-      mobileMode === MOBILE_PAGE_MODES.previewCard
-    ) {
-      pairedPage = PAGE_IDS.cardView;
-    }
-    append(PAGE_IDS.preview);
-    append(pairedPage);
+    const selectedPages = resolveDashboardSwipeMobilePageSelection(config);
+    const landingPage = resolveMobileSwipeLandingPage(config);
+    if (selectedPages.includes(PAGE_IDS.preview)) append(PAGE_IDS.preview);
+    append(landingPage);
+    DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS.forEach((pageId) => {
+      if (selectedPages.includes(pageId)) append(pageId);
+    });
     return ordered;
   }
   const selectedPages = resolveDashboardSwipePageSelection(
@@ -372,11 +408,10 @@ export const resolveAdjacentPageSwipeRoute = ({
     swipeMode === DASHBOARD_SWIPE_NAVIGATION_MODES.landingDashboard
   ) {
     const available = getEnabledPageRoutes(config, deviceBucket);
-    const landingPage = resolveAvailableLandingPage(
-      config,
-      deviceBucket,
-      available,
-    );
+    const landingPage =
+      deviceBucket === DEVICE_ROUTE_BUCKETS.mobile
+        ? resolveMobileSwipeLandingPage(config)
+        : resolveAvailableLandingPage(config, deviceBucket, available);
     if (
       direction === "previous" &&
       normalizedCurrentPageId !== landingPage &&

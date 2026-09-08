@@ -62,6 +62,7 @@ import {
   normalizePageRoute,
   PAGE_IDS,
   resolveAdjacentPageSwipeRoute,
+  resolveDashboardSwipeMobilePageSelection,
   resolveDashboardSwipePageSelection,
   resolveDeviceRouteBucket,
   resolveEnabledMobilePageMode,
@@ -1836,6 +1837,11 @@ export class FrigateViewCard extends HTMLElement {
       )
         ? [...config.ha_dashboard_swipe_pages]
         : undefined,
+      ha_dashboard_swipe_mobile_pages: Array.isArray(
+        config.ha_dashboard_swipe_mobile_pages,
+      )
+        ? [...config.ha_dashboard_swipe_mobile_pages]
+        : undefined,
       preview_page_enabled: config.preview_page_enabled === true,
       preview_page_live_cameras: config.preview_page_live_cameras === true,
       preview_page_live_cameras_mobile:
@@ -1947,6 +1953,8 @@ export class FrigateViewCard extends HTMLElement {
         nextConfig,
         DEVICE_ROUTE_BUCKETS.desktop,
       );
+    nextConfig.ha_dashboard_swipe_mobile_pages =
+      resolveDashboardSwipeMobilePageSelection(nextConfig);
     const previewEnabledChanged =
       !!prevConfig &&
       prevConfig.preview_page_enabled !== nextConfig.preview_page_enabled;

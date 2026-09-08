@@ -123,7 +123,7 @@ test("dispatches event-tab clicks from the page-shell tabs region", async ({
   expect(selectedTab).toBe("clips");
 });
 
-test("keeps FrigateView swipe-page chips equal and on one row until resized", async ({
+test("keeps desktop and phone swipe-page chips compact, equal, and responsive", async ({
   page,
 }) => {
   await page.goto(baseUrl);
@@ -137,6 +137,7 @@ test("keeps FrigateView swipe-page chips equal and on one row until resized", as
     editor.setConfig({
       cameras: [{ entity: "camera.front", name: "Front" }],
       landing_page: "single-view",
+      mobile_page: "preview-mobile-view",
       preview_page_enabled: true,
       mobile_view_page_enabled: true,
       wide_view_page_enabled: true,
@@ -150,11 +151,18 @@ test("keeps FrigateView swipe-page chips equal and on one row until resized", as
         "wide-view",
         "card-view",
       ],
+      ha_dashboard_swipe_mobile_pages: [
+        "preview",
+        "single-view",
+        "mobile-view",
+        "card-view",
+      ],
     });
 
-    const readRows = () => {
+    const readGroup = (label) => {
+      const group = editor.querySelector(`[aria-label="${label}"]`);
       const chips = [
-        ...editor.querySelectorAll(
+        ...group.querySelectorAll(
           '.dashboard-swipe-pages-grid > .editor-choice-chip',
         ),
       ];
@@ -165,22 +173,91 @@ test("keeps FrigateView swipe-page chips equal and on one row until resized", as
         count: rects.length,
         rowCount: new Set(rects.map(({ top }) => Math.round(top))).size,
         heights: rects.map(({ height }) => height),
+        values: chips.map((chip) => chip.querySelector("input").value),
+        locked: chips
+          .filter((chip) => chip.querySelector("input").disabled)
+          .map((chip) => chip.querySelector("input").value),
+        checked: chips
+          .filter((chip) => chip.querySelector("input").checked)
+          .map((chip) => chip.querySelector("input").value),
       };
     };
+    const readRows = () => ({
+      desktop: readGroup("Pc/Tablet Pages to Include in Swipe"),
+      mobile: readGroup("Mobile Phone Pages to Include in Swipe"),
+    });
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
     const wide = readRows();
-    editor.style.width = "430px";
+    editor.style.width = "330px";
     await new Promise((resolve) => requestAnimationFrame(resolve));
     const narrow = readRows();
-    return { wide, narrow };
+    const readPageSelectionState = () => {
+      const selection = editor.querySelector(
+        "#ha-dashboard-swipe-page-selection",
+      );
+      return {
+        display: getComputedStyle(selection).display,
+        groups: selection.querySelectorAll(".dashboard-swipe-device-group")
+          .length,
+      };
+    };
+    const selectMode = async (mode) => {
+      const input = editor.querySelector(
+        `[name="ha_dashboard_swipe_navigation"][value="${mode}"]`,
+      );
+      input.checked = true;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      return readPageSelectionState();
+    };
+    const dashboardWide = readPageSelectionState();
+    const landingDashboard = await selectMode("landing-dashboard");
+    const insideCard = await selectMode("inside-card");
+    const none = await selectMode("none");
+    return {
+      wide,
+      narrow,
+      modeVisibility: { dashboardWide, landingDashboard, insideCard, none },
+    };
   });
 
-  expect(geometry.wide.count).toBe(5);
-  expect(geometry.wide.rowCount).toBe(1);
-  expect(new Set(geometry.wide.heights.map(Math.round)).size).toBe(1);
-  expect(geometry.narrow.rowCount).toBeGreaterThan(1);
-  expect(new Set(geometry.narrow.heights.map(Math.round)).size).toBe(1);
+  expect(geometry.wide.desktop.count).toBe(5);
+  expect(geometry.wide.desktop.rowCount).toBe(1);
+  expect(geometry.wide.mobile.count).toBe(4);
+  expect(geometry.wide.mobile.rowCount).toBe(1);
+  expect(geometry.wide.mobile.values).toEqual([
+    "preview",
+    "single-view",
+    "mobile-view",
+    "card-view",
+  ]);
+  expect(geometry.wide.mobile.values).not.toContain("wide-view");
+  expect(geometry.wide.desktop.locked).toEqual(["single-view"]);
+  expect(geometry.wide.mobile.locked).toEqual(["mobile-view"]);
+  expect(geometry.wide.desktop.checked).toContain("single-view");
+  expect(geometry.wide.mobile.checked).toContain("mobile-view");
+  for (const group of [
+    geometry.wide.desktop,
+    geometry.wide.mobile,
+    geometry.narrow.desktop,
+    geometry.narrow.mobile,
+  ]) {
+    expect(new Set(group.heights.map(Math.round)).size).toBe(1);
+    expect(Math.max(...group.heights)).toBeLessThanOrEqual(42);
+  }
+  expect(geometry.narrow.desktop.rowCount).toBeGreaterThan(1);
+  expect(geometry.narrow.mobile.rowCount).toBeGreaterThan(1);
+  expect(geometry.modeVisibility.dashboardWide).toEqual({
+    display: "block",
+    groups: 2,
+  });
+  expect(geometry.modeVisibility.landingDashboard.display).toBe("none");
+  expect(geometry.modeVisibility.insideCard).toEqual({
+    display: "block",
+    groups: 2,
+  });
+  expect(geometry.modeVisibility.none.display).toBe("none");
 });
 
 test("positions camera B controls before its stream becomes ready", async ({

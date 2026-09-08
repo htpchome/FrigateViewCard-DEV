@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   allowsDashboardPageSwipeNavigation,
+  DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS,
   DASHBOARD_SWIPE_PAGE_OPTIONS,
   DASHBOARD_SWIPE_NAVIGATION_MODES,
   DEVICE_ROUTE_BUCKETS,
@@ -15,11 +16,14 @@ import {
   normalizeMobilePageMode,
   PAGE_IDS,
   resolveAdjacentPageSwipeRoute,
+  resolveDashboardSwipeMobilePageSelection,
   resolveDashboardSwipePageSelection,
+  resolveDefaultDashboardSwipeMobilePages,
   resolveDefaultDashboardSwipePages,
   resolveDeepLinkPageRoute,
   resolveEnabledMobilePageMode,
   resolveMobilePreviewDestination,
+  resolveMobileSwipeLandingPage,
   resolvePageSwipeOrder,
   resolveStartupPageRoute,
 } from "../src/features/navigation/router.js";
@@ -55,7 +59,7 @@ test("page swipe order starts with the configured landing flow", () => {
   );
 });
 
-test("phone swipe routes stay inside the configured landing pair", () => {
+test("phone swipe routes default to Preview and the effective landing page", () => {
   const enabled = {
     mobile_view_page_enabled: true,
     preview_page_enabled: true,
@@ -103,7 +107,7 @@ test("phone swipe routes stay inside the configured landing pair", () => {
   );
 });
 
-test("phone Card View landing flows use Card View as their paired page", () => {
+test("phone Card View and legacy Preview plus Card settings use Card View as the swipe landing", () => {
   const enabled = {
     mobile_view_page_enabled: true,
     preview_page_enabled: true,
@@ -176,16 +180,16 @@ test("swipe navigation modes control dashboard reach and internal stops", () => 
       landingDashboard,
       DEVICE_ROUTE_BUCKETS.mobile,
     ),
-    [PAGE_IDS.preview],
+    [PAGE_IDS.mobileView],
   );
   assert.equal(
     resolveAdjacentPageSwipeRoute({
       config: landingDashboard,
       deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
       currentPageId: PAGE_IDS.preview,
-      direction: "next",
+      direction: "previous",
     }),
-    null,
+    PAGE_IDS.mobileView,
   );
   assert.equal(
     resolveAdjacentPageSwipeRoute({
@@ -194,7 +198,7 @@ test("swipe navigation modes control dashboard reach and internal stops", () => 
       currentPageId: PAGE_IDS.mobileView,
       direction: "previous",
     }),
-    PAGE_IDS.preview,
+    null,
   );
   assert.equal(
     normalizeDashboardSwipeNavigationMode("preview-dashboard"),
@@ -428,6 +432,76 @@ test("desktop swipe selection never changes the mobile landing-page formula", ()
   );
 });
 
+test("phone swipe selection forces its landing, excludes Wide View, and keeps Preview immediately to the left", () => {
+  const config = {
+    mobile_view_page_enabled: true,
+    preview_page_enabled: true,
+    wide_view_page_enabled: true,
+    card_view_page_enabled: true,
+    mobile_page: MOBILE_PAGE_MODES.previewMobile,
+    ha_dashboard_swipe_mobile_pages: [
+      PAGE_IDS.cardView,
+      PAGE_IDS.singleView,
+      PAGE_IDS.preview,
+      PAGE_IDS.wideView,
+    ],
+  };
+
+  assert.deepEqual(DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS, [
+    PAGE_IDS.preview,
+    PAGE_IDS.singleView,
+    PAGE_IDS.mobileView,
+    PAGE_IDS.cardView,
+  ]);
+  assert.equal(resolveMobileSwipeLandingPage(config), PAGE_IDS.mobileView);
+  assert.deepEqual(resolveDashboardSwipeMobilePageSelection(config), [
+    PAGE_IDS.preview,
+    PAGE_IDS.singleView,
+    PAGE_IDS.mobileView,
+    PAGE_IDS.cardView,
+  ]);
+  assert.deepEqual(
+    resolvePageSwipeOrder(config, DEVICE_ROUTE_BUCKETS.mobile),
+    [
+      PAGE_IDS.preview,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.singleView,
+      PAGE_IDS.cardView,
+    ],
+  );
+
+  const withoutPreview = {
+    ...config,
+    ha_dashboard_swipe_mobile_pages: [PAGE_IDS.cardView],
+  };
+  assert.deepEqual(resolveDashboardSwipeMobilePageSelection(withoutPreview), [
+    PAGE_IDS.mobileView,
+    PAGE_IDS.cardView,
+  ]);
+  assert.deepEqual(
+    resolvePageSwipeOrder(withoutPreview, DEVICE_ROUTE_BUCKETS.mobile),
+    [PAGE_IDS.mobileView, PAGE_IDS.cardView],
+  );
+});
+
+test("phone swipe defaults include Preview when enabled plus the effective landing", () => {
+  const config = {
+    mobile_view_page_enabled: true,
+    preview_page_enabled: true,
+    card_view_page_enabled: true,
+    mobile_page: MOBILE_PAGE_MODES.card,
+  };
+
+  assert.deepEqual(resolveDefaultDashboardSwipeMobilePages(config), [
+    PAGE_IDS.preview,
+    PAGE_IDS.cardView,
+  ]);
+  assert.deepEqual(resolveDashboardSwipeMobilePageSelection(config), [
+    PAGE_IDS.preview,
+    PAGE_IDS.cardView,
+  ]);
+});
+
 test("page swipe order has hard ends and never wraps", () => {
   const config = {
     preview_page_enabled: true,
@@ -462,7 +536,6 @@ test("phone landing modes use the configured editor order", () => {
     MOBILE_PAGE_MODES.mobile,
     MOBILE_PAGE_MODES.card,
     MOBILE_PAGE_MODES.previewMobile,
-    MOBILE_PAGE_MODES.previewCard,
     MOBILE_PAGE_MODES.previewSingle,
     MOBILE_PAGE_MODES.single,
   ]);
@@ -474,7 +547,11 @@ test("phone landing modes use the configured editor order", () => {
   assert.equal(normalizeMobilePageMode("card"), MOBILE_PAGE_MODES.card);
   assert.equal(
     normalizeMobilePageMode("preview-card"),
-    MOBILE_PAGE_MODES.previewCard,
+    MOBILE_PAGE_MODES.card,
+  );
+  assert.equal(
+    normalizeMobilePageMode(MOBILE_PAGE_MODES.previewCard),
+    MOBILE_PAGE_MODES.card,
   );
 });
 
@@ -513,7 +590,6 @@ test("phone landing modes only include enabled page combinations", () => {
     }),
     [
       MOBILE_PAGE_MODES.card,
-      MOBILE_PAGE_MODES.previewCard,
       MOBILE_PAGE_MODES.previewSingle,
       MOBILE_PAGE_MODES.single,
     ],
@@ -798,7 +874,7 @@ test("phone preview combinations start on Preview and resolve their camera desti
   );
   assert.equal(
     resolveMobilePreviewDestination(MOBILE_PAGE_MODES.previewCard),
-    PAGE_IDS.cardView,
+    "",
   );
   assert.equal(
     resolveMobilePreviewDestination(MOBILE_PAGE_MODES.previewSingle),
