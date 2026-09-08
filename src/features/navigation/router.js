@@ -415,31 +415,7 @@ export const resolveAdjacentPageSwipeRoute = ({
   const ordered = resolvePageSwipeOrder(config, deviceBucket);
   const currentIndex = ordered.indexOf(normalizedCurrentPageId);
   const step = direction === "previous" ? -1 : direction === "next" ? 1 : 0;
-  if (!step) return null;
-  if (currentIndex < 0) {
-    const selectionKey =
-      deviceBucket === DEVICE_ROUTE_BUCKETS.mobile
-        ? "ha_dashboard_swipe_mobile_pages"
-        : "ha_dashboard_swipe_pages";
-    const selection =
-      deviceBucket === DEVICE_ROUTE_BUCKETS.mobile
-        ? DASHBOARD_SWIPE_MOBILE_PAGE_OPTIONS
-        : DASHBOARD_SWIPE_PAGE_OPTIONS;
-    const fullOrder = resolvePageSwipeOrder(
-      { ...config, [selectionKey]: selection },
-      deviceBucket,
-    );
-    const fullIndex = fullOrder.indexOf(normalizedCurrentPageId);
-    if (fullIndex < 0) return null;
-    for (
-      let index = fullIndex + step;
-      index >= 0 && index < fullOrder.length;
-      index += step
-    ) {
-      if (ordered.includes(fullOrder[index])) return fullOrder[index];
-    }
-    return null;
-  }
+  if (currentIndex < 0 || !step) return null;
   return ordered[currentIndex + step] || null;
 };
 

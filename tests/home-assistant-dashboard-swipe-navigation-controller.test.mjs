@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { PAGE_IDS } from "../src/features/navigation/router.js";
+import {
+  DEVICE_ROUTE_BUCKETS,
+  MOBILE_PAGE_MODES,
+  PAGE_IDS,
+  resolveAdjacentPageSwipeRoute,
+} from "../src/features/navigation/router.js";
 
 import {
   HomeAssistantDashboardSwipeNavigationController,
@@ -198,7 +203,7 @@ const createRootAndPanel = ({
 
 const createHarness = ({
   hasTouch = true,
-  ownsInternalPages = false,
+  isSwipeNavigationOwner = false,
   deferAnimationFrames = false,
   queueMicrotaskFn = (callback) => callback(),
   resolveInternalPageTarget = () => null,
@@ -284,7 +289,7 @@ const createHarness = ({
         onDashboardScopeExited?.();
       },
       enforceDashboardOwner,
-      ownsInternalPages,
+      isSwipeNavigationOwner: () => isSwipeNavigationOwner,
     },
   );
   return {
@@ -639,6 +644,11 @@ test("interactive, direct-touch, and horizontally scrollable paths are excluded"
     matches: () => false,
     computedStyle: { touchAction: "none", overflowX: "visible" },
   };
+  const video = {
+    tagName: "VIDEO",
+    matches: (selector) => selector.split(",").includes("video"),
+    computedStyle: { touchAction: "none", overflowX: "visible" },
+  };
   const horizontalScroller = {
     tagName: "DIV",
     matches: () => false,
@@ -665,54 +675,15 @@ test("interactive, direct-touch, and horizontally scrollable paths are excluded"
 
   assert.equal(shouldIgnoreDashboardSwipePath([interactive], options), true);
   assert.equal(shouldIgnoreDashboardSwipePath([directTouch], options), true);
+  assert.equal(shouldIgnoreDashboardSwipePath([video], options), true);
   assert.equal(
     shouldIgnoreDashboardSwipePath([horizontalScroller], options),
     true,
-  );
-  assert.equal(
-    shouldIgnoreDashboardSwipePath([horizontalScroller], {
-      ...options,
-      allowedHorizontalScroller: horizontalScroller,
-    }),
-    false,
   );
   assert.equal(shouldIgnoreDashboardSwipePath([ariaSlider], options), true);
   assert.equal(shouldIgnoreDashboardSwipePath([customRange], options), true);
   assert.equal(shouldIgnoreDashboardSwipePath([popupSurface], options), true);
   assert.equal(shouldIgnoreDashboardSwipePath([plainSurface], options), false);
-});
-
-test("explicit page-media allowance keeps controls and zoomed media protected", () => {
-  const video = {
-    tagName: "VIDEO",
-    controls: false,
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === "video"),
-    computedStyle: { touchAction: "none", overflowX: "visible" },
-  };
-  const controlsVideo = { ...video, controls: true };
-  const options = {
-    getComputedStyleFn: (element) => element.computedStyle || {},
-    allowedGestureElements: new Set([video]),
-  };
-
-  assert.equal(shouldIgnoreDashboardSwipePath([video], options), false);
-  assert.equal(
-    shouldIgnoreDashboardSwipePath([controlsVideo], {
-      ...options,
-      allowedGestureElements: new Set(),
-    }),
-    true,
-  );
-  assert.equal(
-    shouldIgnoreDashboardSwipePath(
-      [{ ...video, matches: () => true }],
-      { ...options, allowedGestureElements: new Set() },
-    ),
-    true,
-  );
 });
 
 test("pre-mount navigation recognizes configured dashboard-wide cards", () => {
@@ -829,112 +800,10 @@ test("dashboard-wide swipe policy enables configured subviews", () => {
   assert.equal(policy.mouseNavigationEnabled, true);
 });
 
-test("pre-mount navigation yields the owner view to the mounted card", () => {
-  const rootState = createRootAndPanel({
-    views: [
-      {
-        title: "Cameras",
-        path: "one",
-        cards: [
-          {
-            type: "custom:frigate-view-card",
-            ha_dashboard_swipe_navigation_owner: true,
-            ha_dashboard_swipe_navigation: "dashboard-wide",
-          },
-        ],
-      },
-      { title: "Controls", path: "two", cards: [{ type: "entities" }] },
-    ],
-  });
-  const windowRef = createWindow();
-  const bootstrap = installHomeAssistantDashboardSwipeNavigation({
-    documentRef: {},
-    windowRef,
-    MutationObserverCtor: FakeMutationObserver,
-    hasTouch: true,
-    getComputedStyleFn: (element) => element?.computedStyle || {},
-    queueMicrotaskFn: (callback) => callback(),
-    requestAnimationFrameFn: (callback) => {
-      callback();
-      return 1;
-    },
-    setTimeoutFn: (callback) => callback(),
-    findCurrentHuiRoot: () => rootState.huiRoot,
-    findPanel: () => rootState.panel,
-    findSwipeSurface: () => rootState.swipeSurface,
-  });
-
-  assert.equal(rootState.eventTarget.listenerCount("touchstart"), 0);
-  bootstrap.disconnect();
-});
-
-test("mounted owner remains the route authority while an adjacent dashboard is visible", async () => {
+test("mounted Dashboard Wide owner routes the dashboard surface through internal pages", async () => {
   const h = createHarness({
     enforceDashboardOwner: true,
-    ownsInternalPages: true,
-    rootOptions: {
-      path: "/two",
-      views: [
-        {
-          path: "one",
-          cards: [
-            {
-              type: "custom:frigate-view-card",
-              ha_dashboard_swipe_navigation_owner: true,
-              ha_dashboard_swipe_navigation: "dashboard-wide",
-            },
-          ],
-        },
-        { path: "two", cards: [{ type: "entities" }] },
-      ],
-    },
-    resolveDashboardBoundaryPage: ({ direction, transition }) =>
-      direction === "previous" && transition === "enter"
-        ? PAGE_IDS.cardView
-        : null,
-  });
-  h.windowRef.location.pathname = "/lovelace/two";
-  h.host.isConnected = true;
-  h.controller.sync();
-  h.host.isConnected = false;
-  h.controller.disconnect();
-
-  const bootstrap = installHomeAssistantDashboardSwipeNavigation({
-    documentRef: h.documentRef,
-    windowRef: h.windowRef,
-    MutationObserverCtor: FakeMutationObserver,
-    hasTouch: true,
-    getComputedStyleFn: (element) => element?.computedStyle || {},
-    queueMicrotaskFn: (callback) => callback(),
-    requestAnimationFrameFn: (callback) => {
-      callback();
-      return 1;
-    },
-    setTimeoutFn: (callback) => callback(),
-    createLocationChangedEvent: () => ({ type: "location-changed" }),
-    findCurrentHuiRoot: () => h.rootState.huiRoot,
-    findPanel: () => h.rootState.panel,
-    findSwipeSurface: () => h.rootState.swipeSurface,
-  });
-
-  const result = swipe(h.rootState.eventTarget, {
-    startX: 100,
-    endX: 280,
-    path: [plainSurface],
-  });
-  assert.equal(result.prevented, true);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, [PAGE_IDS.cardView]);
-  assert.deepEqual(h.windowRef.pushes, ["/lovelace/one?kiosk=1#now"]);
-
-  bootstrap.disconnect();
-  h.controller.disconnect({ force: true });
-});
-
-test("mounted Dashboard Wide owner keeps internal routing on a retargeted card gesture", async () => {
-  const h = createHarness({
-    enforceDashboardOwner: true,
-    ownsInternalPages: true,
+    isSwipeNavigationOwner: true,
     resolveInternalPageTarget: (direction) =>
       direction === "next" ? PAGE_IDS.mobileView : null,
     rootOptions: {
@@ -954,29 +823,284 @@ test("mounted Dashboard Wide owner keeps internal routing on a retargeted card g
     },
   });
   h.controller.sync();
+  const bootstrap = installHomeAssistantDashboardSwipeNavigation({
+    documentRef: h.documentRef,
+    windowRef: h.windowRef,
+    MutationObserverCtor: FakeMutationObserver,
+    hasTouch: true,
+    getComputedStyleFn: (element) => element?.computedStyle || {},
+    queueMicrotaskFn: (callback) => callback(),
+    requestAnimationFrameFn: (callback) => {
+      callback();
+      return 1;
+    },
+    setTimeoutFn: (callback) => callback(),
+    createLocationChangedEvent: () => ({ type: "location-changed" }),
+    findCurrentHuiRoot: () => h.rootState.huiRoot,
+    findPanel: () => h.rootState.panel,
+    findSwipeSurface: () => h.rootState.swipeSurface,
+  });
 
-  const video = {
-    tagName: "VIDEO",
-    controls: false,
-    matches: (selector) => selector.split(",").includes("video"),
-  };
-  const liveStage = {
-    tagName: "DIV",
-    matches: (selector) => selector.split(",").includes("#live-stage"),
-  };
   const result = swipe(h.rootState.eventTarget, {
-    path: [video, liveStage],
+    path: [plainSurface],
   });
   assert.equal(result.prevented, true);
   await flushSwipeMotion();
   assert.deepEqual(h.internalNavigations, [PAGE_IDS.mobileView]);
   assert.deepEqual(h.windowRef.pushes, []);
+  bootstrap.disconnect();
+  h.controller.disconnect({ force: true });
+});
+
+test("video pan remains outside Dashboard Wide page navigation", async () => {
+  const h = createHarness({
+    enforceDashboardOwner: true,
+    isSwipeNavigationOwner: true,
+    resolveInternalPageTarget: () => PAGE_IDS.mobileView,
+    rootOptions: {
+      views: [
+        {
+          path: "one",
+          cards: [
+            {
+              type: "custom:frigate-view-card",
+              ha_dashboard_swipe_navigation_owner: true,
+              ha_dashboard_swipe_navigation: "dashboard-wide",
+            },
+          ],
+        },
+        { path: "two", cards: [{ type: "entities" }] },
+      ],
+    },
+  });
+  h.controller.sync();
+  const video = {
+    tagName: "VIDEO",
+    matches: (selector) => selector.split(",").includes("video"),
+    computedStyle: { touchAction: "none", overflowX: "visible" },
+  };
+
+  const result = swipe(h.rootState.eventTarget, {
+    path: [video, h.host],
+  });
+  await flushSwipeMotion();
+
+  assert.equal(result.prevented, false);
+  assert.deepEqual(h.internalNavigations, []);
+  assert.deepEqual(h.windowRef.pushes, []);
+  h.controller.disconnect({ force: true });
+});
+
+test("Card View follows the configured phone and PC/tablet sequence from the dashboard surface", async () => {
+  const baseConfig = {
+    type: "custom:frigate-view-card",
+    ha_dashboard_swipe_navigation_owner: true,
+    ha_dashboard_swipe_navigation: "dashboard-wide",
+    preview_page_enabled: true,
+    mobile_view_page_enabled: true,
+    wide_view_page_enabled: true,
+    card_view_page_enabled: true,
+    ha_dashboard_swipe_mobile_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.cardView,
+    ],
+    ha_dashboard_swipe_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.wideView,
+      PAGE_IDS.cardView,
+    ],
+  };
+  const cases = [
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      config: { ...baseConfig, mobile_page: MOBILE_PAGE_MODES.single },
+      direction: "previous",
+      expected: PAGE_IDS.mobileView,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      config: { ...baseConfig, mobile_page: MOBILE_PAGE_MODES.card },
+      direction: "previous",
+      expected: PAGE_IDS.preview,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      config: { ...baseConfig, mobile_page: MOBILE_PAGE_MODES.card },
+      direction: "next",
+      expected: PAGE_IDS.singleView,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      config: { ...baseConfig, mobile_page: MOBILE_PAGE_MODES.mobile },
+      direction: "previous",
+      expected: PAGE_IDS.singleView,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
+      config: {
+        ...baseConfig,
+        mobile_page: MOBILE_PAGE_MODES.single,
+        ha_dashboard_swipe_mobile_pages: [
+          PAGE_IDS.preview,
+          PAGE_IDS.singleView,
+          PAGE_IDS.cardView,
+        ],
+      },
+      direction: "previous",
+      expected: PAGE_IDS.singleView,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+      config: { ...baseConfig, landing_page: PAGE_IDS.singleView },
+      direction: "previous",
+      expected: PAGE_IDS.wideView,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+      config: { ...baseConfig, landing_page: PAGE_IDS.cardView },
+      direction: "previous",
+      expected: PAGE_IDS.preview,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+      config: { ...baseConfig, landing_page: PAGE_IDS.cardView },
+      direction: "next",
+      expected: PAGE_IDS.singleView,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+      config: {
+        ...baseConfig,
+        landing_page: PAGE_IDS.singleView,
+        wide_view_page_enabled: false,
+      },
+      direction: "previous",
+      expected: PAGE_IDS.mobileView,
+    },
+    {
+      deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+      config: {
+        ...baseConfig,
+        landing_page: PAGE_IDS.singleView,
+        ha_dashboard_swipe_pages: [
+          PAGE_IDS.preview,
+          PAGE_IDS.singleView,
+          PAGE_IDS.cardView,
+        ],
+      },
+      direction: "previous",
+      expected: PAGE_IDS.singleView,
+    },
+  ];
+
+  for (const { config, deviceBucket, direction, expected } of cases) {
+    const h = createHarness({
+      enforceDashboardOwner: true,
+      isSwipeNavigationOwner: true,
+      resolveInternalPageTarget: (swipeDirection) =>
+        resolveAdjacentPageSwipeRoute({
+          config,
+          deviceBucket,
+          currentPageId: PAGE_IDS.cardView,
+          direction: swipeDirection,
+        }),
+      rootOptions: {
+        views: [
+          { path: "one", cards: [config] },
+          { path: "two", cards: [{ type: "entities" }] },
+        ],
+      },
+    });
+    h.controller.sync();
+
+    const result = swipe(h.rootState.eventTarget, {
+      startX: direction === "previous" ? 100 : 300,
+      endX: direction === "previous" ? 280 : 100,
+      path: [plainSurface],
+    });
+    assert.equal(result.prevented, true);
+    await flushSwipeMotion();
+    assert.deepEqual(h.internalNavigations, [expected]);
+    assert.deepEqual(h.windowRef.pushes, []);
+    h.controller.disconnect({ force: true });
+  }
+});
+
+test("the selected internal sequence connects to Home Assistant only at its two ends", async () => {
+  const config = {
+    type: "custom:frigate-view-card",
+    ha_dashboard_swipe_navigation_owner: true,
+    ha_dashboard_swipe_navigation: "dashboard-wide",
+    preview_page_enabled: true,
+    mobile_view_page_enabled: true,
+    wide_view_page_enabled: true,
+    card_view_page_enabled: true,
+    landing_page: PAGE_IDS.singleView,
+    ha_dashboard_swipe_pages: [
+      PAGE_IDS.preview,
+      PAGE_IDS.singleView,
+      PAGE_IDS.mobileView,
+      PAGE_IDS.wideView,
+      PAGE_IDS.cardView,
+    ],
+  };
+  const cases = [
+    {
+      currentPageId: PAGE_IDS.preview,
+      direction: "previous",
+      expectedUrl: "/lovelace/one?kiosk=1#now",
+    },
+    {
+      currentPageId: PAGE_IDS.cardView,
+      direction: "next",
+      expectedUrl: "/lovelace/three?kiosk=1#now",
+    },
+  ];
+
+  for (const { currentPageId, direction, expectedUrl } of cases) {
+    const h = createHarness({
+      enforceDashboardOwner: true,
+      isSwipeNavigationOwner: true,
+      resolveInternalPageTarget: (swipeDirection) =>
+        resolveAdjacentPageSwipeRoute({
+          config,
+          deviceBucket: DEVICE_ROUTE_BUCKETS.desktop,
+          currentPageId,
+          direction: swipeDirection,
+        }),
+      rootOptions: {
+        path: "/two",
+        views: [
+          { path: "one", cards: [{ type: "entities" }] },
+          { path: "two", cards: [config] },
+          { path: "three", cards: [{ type: "entities" }] },
+        ],
+      },
+    });
+    h.windowRef.location.pathname = "/lovelace/two";
+    h.controller.sync();
+
+    const result = swipe(h.rootState.eventTarget, {
+      startX: direction === "previous" ? 100 : 300,
+      endX: direction === "previous" ? 280 : 100,
+      path: [plainSurface],
+    });
+    assert.equal(result.prevented, true);
+    await flushSwipeMotion();
+    assert.deepEqual(h.internalNavigations, []);
+    assert.deepEqual(h.windowRef.pushes, [expectedUrl]);
+    h.controller.disconnect({ force: true });
+  }
 });
 
 test("mounted Inside Card Only owner does not claim gestures outside the card", async () => {
   const h = createHarness({
     enforceDashboardOwner: true,
-    ownsInternalPages: true,
+    isSwipeNavigationOwner: true,
     resolveInternalPageTarget: () => PAGE_IDS.mobileView,
     rootOptions: {
       views: [
@@ -1442,335 +1566,6 @@ test("Frigate pages consume swipes before Home Assistant dashboard pages", async
   assert.deepEqual(h.internalNavigations, ["mobile-view"]);
   assert.deepEqual(h.windowRef.pushes, []);
   assert.deepEqual(h.dashboardSettles, []);
-});
-
-test("Card View horizontal content hands a reverse edge swipe back to page navigation", async () => {
-  const cardViewScroller = {
-    tagName: "DIV",
-    clientWidth: 200,
-    scrollWidth: 600,
-    scrollLeft: 0,
-    computedStyle: { direction: "ltr", overflowX: "auto", touchAction: "pan-x pan-y" },
-    matches: (selector) => selector === ".card-view-scroller",
-  };
-  const h = createHarness({
-    resolveInternalPageTarget: (direction) =>
-      direction === "previous" ? PAGE_IDS.mobileView : null,
-  });
-  h.controller.sync();
-
-  const result = swipe(h.rootState.eventTarget, {
-    startX: 100,
-    endX: 280,
-    path: [cardViewScroller, h.host],
-  });
-  assert.equal(result.prevented, true);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, [PAGE_IDS.mobileView]);
-  assert.deepEqual(h.windowRef.pushes, []);
-});
-
-test("Card View horizontal content gives a configured page target priority", async () => {
-  const cardViewScroller = {
-    tagName: "DIV",
-    clientWidth: 200,
-    scrollWidth: 600,
-    scrollLeft: 200,
-    computedStyle: { direction: "ltr", overflowX: "auto", touchAction: "pan-x pan-y" },
-    matches: (selector) => selector === ".card-view-scroller",
-  };
-  const h = createHarness({
-    resolveInternalPageTarget: (direction) =>
-      direction === "previous" ? PAGE_IDS.mobileView : null,
-  });
-  h.controller.sync();
-
-  const result = swipe(h.rootState.eventTarget, {
-    startX: 100,
-    endX: 280,
-    path: [cardViewScroller, h.host],
-  });
-  assert.equal(result.prevented, true);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, [PAGE_IDS.mobileView]);
-  assert.deepEqual(h.windowRef.pushes, []);
-});
-
-test("Card View horizontal content keeps native scrolling without a navigation target", async () => {
-  const cardViewScroller = {
-    tagName: "DIV",
-    clientWidth: 200,
-    scrollWidth: 600,
-    scrollLeft: 200,
-    computedStyle: {
-      direction: "ltr",
-      overflowX: "auto",
-      touchAction: "pan-x pan-y",
-    },
-    matches: (selector) => selector === ".card-view-scroller",
-  };
-  const h = createHarness();
-  h.controller.sync();
-
-  const result = swipe(h.rootState.eventTarget, {
-    startX: 100,
-    endX: 280,
-    path: [cardViewScroller, h.host],
-  });
-  assert.equal(result.prevented, false);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, []);
-  assert.deepEqual(h.windowRef.pushes, []);
-});
-
-test("live media surfaces on every page pass internal page swipes", async () => {
-  for (const activePageClass of [
-    "single-view-active",
-    "mobile-view-active",
-    "preview-active",
-    "wide-view-active",
-    "card-view-active",
-  ]) {
-    const video = {
-      tagName: "VIDEO",
-      controls: false,
-      computedStyle: { touchAction: "none", overflowX: "visible" },
-      matches: (selector) =>
-        selector
-          .split(",")
-          .some((part) => part.trim() === "video"),
-    };
-    const player = {
-      tagName: "FRIGATE-LIVE-STREAM",
-      clientWidth: 300,
-      scrollWidth: 420,
-      computedStyle: { touchAction: "none", overflowX: "auto" },
-      matches: () => false,
-    };
-    const liveStage = {
-      tagName: "DIV",
-      matches: (selector) =>
-        selector
-          .split(",")
-          .some((part) => part.trim() === "#live-stage"),
-    };
-    const activePage = {
-      tagName: "DIV",
-      matches: (selector) =>
-        selector
-          .split(",")
-          .some((part) => part.trim() === `.card.${activePageClass}`),
-    };
-    const h = createHarness({
-      resolveInternalPageTarget: (direction) =>
-        direction === "next" ? PAGE_IDS.cardView : null,
-    });
-    h.controller.sync();
-
-    const path = [video, player, liveStage, activePage, h.host];
-    const result = swipe(h.rootState.eventTarget, { path });
-    assert.equal(result.prevented, true);
-    await flushSwipeMotion();
-    assert.deepEqual(h.internalNavigations, [PAGE_IDS.cardView]);
-    assert.deepEqual(h.windowRef.pushes, []);
-  }
-});
-
-test("Card View Video Only live media can swipe left to Home Assistant on touch and mouse", async () => {
-  const video = {
-    tagName: "VIDEO",
-    controls: false,
-    computedStyle: { touchAction: "none", overflowX: "visible" },
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === "video"),
-  };
-  const player = {
-    tagName: "FRIGATE-LIVE-STREAM",
-    clientWidth: 300,
-    scrollWidth: 420,
-    computedStyle: { touchAction: "none", overflowX: "auto" },
-    matches: () => false,
-  };
-  const liveStage = {
-    tagName: "DIV",
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === "#live-stage"),
-  };
-  const cardView = {
-    tagName: "DIV",
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === ".card.card-view-active"),
-  };
-  const path = [video, player, liveStage, cardView];
-  const touchHarness = createHarness();
-  touchHarness.controller.sync();
-
-  const touchResult = swipe(touchHarness.rootState.eventTarget, {
-    path: [...path, touchHarness.host],
-  });
-  assert.equal(touchResult.prevented, true);
-  await flushSwipeMotion();
-  assert.deepEqual(touchHarness.internalNavigations, []);
-  assert.deepEqual(touchHarness.windowRef.pushes, [
-    "/lovelace/two?kiosk=1#now",
-  ]);
-
-  const mouseHarness = createHarness({
-    enforceDashboardOwner: true,
-    rootOptions: {
-      views: [
-        {
-          path: "one",
-          cards: [
-            {
-              type: "custom:frigate-view-card",
-              ha_dashboard_swipe_navigation_owner: true,
-              ha_dashboard_swipe_navigation: "dashboard-wide",
-              ha_dashboard_swipe_mouse_enabled: true,
-            },
-          ],
-        },
-        { path: "two", cards: [{ type: "entities" }] },
-      ],
-    },
-  });
-  mouseHarness.controller.sync();
-
-  const mouseResult = mouseSwipe(mouseHarness.rootState.eventTarget, {
-    path: [...path, mouseHarness.host],
-  });
-  assert.equal(mouseResult.prevented, true);
-  await flushSwipeMotion();
-  assert.deepEqual(mouseHarness.internalNavigations, []);
-  assert.deepEqual(mouseHarness.windowRef.pushes, [
-    "/lovelace/two?kiosk=1#now",
-  ]);
-});
-
-test("Card View media passes mouse swipes to internal pages before Home Assistant", async () => {
-  const video = {
-    tagName: "VIDEO",
-    controls: false,
-    computedStyle: { touchAction: "none", overflowX: "visible" },
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === "video"),
-  };
-  const liveStage = {
-    tagName: "DIV",
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === "#live-stage"),
-  };
-  const player = {
-    tagName: "FRIGATE-LIVE-STREAM",
-    computedStyle: { touchAction: "none", overflowX: "visible" },
-    matches: () => false,
-  };
-  const activeCardPage = {
-    tagName: "DIV",
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === ".card.card-view-active"),
-  };
-  const h = createHarness({
-    enforceDashboardOwner: true,
-    resolveInternalPageTarget: (direction) =>
-      direction === "next" ? PAGE_IDS.singleView : null,
-    rootOptions: {
-      views: [
-        {
-          path: "one",
-          cards: [
-            {
-              type: "custom:frigate-view-card",
-              ha_dashboard_swipe_navigation_owner: true,
-              ha_dashboard_swipe_navigation: "dashboard-wide",
-              ha_dashboard_swipe_mouse_enabled: true,
-            },
-          ],
-        },
-        { path: "two", cards: [{ type: "entities" }] },
-      ],
-    },
-  });
-  h.controller.sync();
-
-  const result = mouseSwipe(h.rootState.eventTarget, {
-    path: [video, player, liveStage, activeCardPage, h.host],
-  });
-  assert.equal(result.prevented, true);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, [PAGE_IDS.singleView]);
-  assert.deepEqual(h.windowRef.pushes, []);
-});
-
-test("zoomed Card View media keeps its direct gesture ownership", async () => {
-  const zoomedVideo = {
-    tagName: "VIDEO",
-    controls: false,
-    computedStyle: { touchAction: "none", overflowX: "visible" },
-    matches: (selector) =>
-      selector.split(",").some((part) =>
-        ["video", ".fvc-video-zoomed"].includes(part.trim()),
-      ),
-  };
-  const activeCardPage = {
-    tagName: "DIV",
-    matches: (selector) =>
-      selector
-        .split(",")
-        .some((part) => part.trim() === ".card.card-view-active"),
-  };
-  const h = createHarness({
-    resolveInternalPageTarget: () => PAGE_IDS.singleView,
-  });
-  h.controller.sync();
-
-  const result = swipe(h.rootState.eventTarget, {
-    path: [zoomedVideo, activeCardPage, h.host],
-  });
-  assert.equal(result.prevented, false);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, []);
-  assert.deepEqual(h.windowRef.pushes, []);
-});
-
-test("Card View edge swipe without an internal target remains available to Home Assistant", async () => {
-  const cardViewScroller = {
-    tagName: "DIV",
-    clientWidth: 200,
-    scrollWidth: 600,
-    scrollLeft: 0,
-    computedStyle: {
-      direction: "ltr",
-      overflowX: "auto",
-      touchAction: "pan-x pan-y",
-    },
-    matches: (selector) => selector === ".card-view-scroller",
-  };
-  const h = createHarness({ rootOptions: { path: "/two" } });
-  h.windowRef.location.pathname = "/lovelace/two";
-  h.controller.sync();
-
-  const result = swipe(h.rootState.eventTarget, {
-    startX: 100,
-    endX: 280,
-    path: [cardViewScroller, h.host],
-  });
-  assert.equal(result.prevented, true);
-  await flushSwipeMotion();
-  assert.deepEqual(h.internalNavigations, []);
-  assert.deepEqual(h.windowRef.pushes, ["/lovelace/one?kiosk=1#now"]);
 });
 
 test("dashboard swipe back into the owner card restores its last eligible page", async () => {

@@ -91,16 +91,11 @@ const SWIPE_BLOCK_SELECTOR = [
   ".circle-pad",
   ".wide-timeline-shell",
   ".wide-timeline-resize-handle",
+  ".card-view-scroller",
   ".linked-light-brightness-popover",
   "#filter-panel",
   "#cal-panel",
 ].join(",");
-const PAGE_SWIPE_MEDIA_SURFACE_SELECTOR =
-  "#live-stage,.preview-media-host,.wide-companion-media-host";
-const PAGE_SWIPE_MEDIA_ELEMENT_SELECTOR =
-  `video,audio,canvas,${PAGE_SWIPE_MEDIA_SURFACE_SELECTOR}`;
-const PAGE_SWIPE_ZOOMED_SELECTOR =
-  ".fvc-video-zoomed,.card-view-video-zoomed";
 
 const DIRECT_GESTURE_TAG_PATTERN = /(?:^|-)(?:dial|knob|range|slider)(?:-|$)/;
 const DASHBOARD_WIDE_SWIPE_MODES = new Set([
@@ -155,15 +150,6 @@ const matchesSwipeBlockSelector = (element) => {
   }
 };
 
-const matchesSelector = (element, selector) => {
-  if (typeof element?.matches !== "function") return false;
-  try {
-    return element.matches(selector);
-  } catch (_) {
-    return false;
-  }
-};
-
 const hasDirectGestureSemantics = (element) => {
   const tagName = String(element?.tagName || "").trim().toLowerCase();
   return (
@@ -200,98 +186,21 @@ const reservesDirectTouchGestures = (element, getComputedStyleFn) => {
 
 export const shouldIgnoreDashboardSwipePath = (
   path,
-  {
-    getComputedStyleFn = globalThis.getComputedStyle,
-    allowedHorizontalScroller = null,
-    allowedGestureElements = null,
-  } = {},
+  { getComputedStyleFn = globalThis.getComputedStyle } = {},
 ) => {
   for (const element of Array.isArray(path) ? path : []) {
     if (!isElementLike(element)) continue;
-    const isAllowedHorizontalScroller = element === allowedHorizontalScroller;
-    const isAllowedGestureElement =
-      allowedGestureElements?.has?.(element) === true;
     if (
-      (!isAllowedGestureElement && matchesSwipeBlockSelector(element)) ||
+      matchesSwipeBlockSelector(element) ||
       hasDirectGestureSemantics(element) ||
-      (!isAllowedHorizontalScroller &&
-        !isAllowedGestureElement &&
-        isHorizontallyScrollable(element, getComputedStyleFn)) ||
-      (!isAllowedGestureElement &&
-        reservesDirectTouchGestures(element, getComputedStyleFn))
+      isHorizontallyScrollable(element, getComputedStyleFn) ||
+      reservesDirectTouchGestures(element, getComputedStyleFn)
     ) {
       return true;
     }
     if (String(element.tagName || "").toUpperCase() === "HUI-ROOT") break;
   }
   return false;
-};
-
-const resolveAllowedPageSwipeGestureElements = (path) => {
-  const elements = (Array.isArray(path) ? path : []).filter(isElementLike);
-  const mediaSurfaceIndex = elements.findIndex((element) =>
-    matchesSelector(element, PAGE_SWIPE_MEDIA_SURFACE_SELECTOR),
-  );
-  if (
-    mediaSurfaceIndex < 0 ||
-    elements.some((element) =>
-      matchesSelector(element, PAGE_SWIPE_ZOOMED_SELECTOR),
-    )
-  ) {
-    return null;
-  }
-  const mediaPath = elements.slice(0, mediaSurfaceIndex + 1);
-  if (
-    mediaPath.some(
-      (element) =>
-        String(element.tagName || "").toUpperCase() === "VIDEO" &&
-        element.controls === true,
-    )
-  ) {
-    return null;
-  }
-  const allowed = new Set(
-    mediaPath.filter((element) => {
-      if (hasDirectGestureSemantics(element)) return false;
-      return (
-        !matchesSwipeBlockSelector(element) ||
-        matchesSelector(element, PAGE_SWIPE_MEDIA_ELEMENT_SELECTOR)
-      );
-    }),
-  );
-  return allowed.size ? allowed : null;
-};
-
-const findCardViewHorizontalScroller = (path, getComputedStyleFn) =>
-  (Array.isArray(path) ? path : []).find((element) => {
-    if (!isHorizontallyScrollable(element, getComputedStyleFn)) return false;
-    try {
-      return element.matches?.(".card-view-scroller") === true;
-    } catch (_) {
-      return false;
-    }
-  }) || null;
-
-const canHorizontalScrollerConsume = (
-  scroller,
-  direction,
-  getComputedStyleFn,
-) => {
-  if (!scroller || !["next", "previous"].includes(direction)) return false;
-  try {
-    if (String(getComputedStyleFn?.(scroller)?.direction || "") === "rtl") {
-      return true;
-    }
-  } catch (_) {
-    return true;
-  }
-  const max = Math.max(
-    0,
-    (Number(scroller.scrollWidth) || 0) -
-      (Number(scroller.clientWidth) || 0),
-  );
-  const current = Math.max(0, Math.min(max, Number(scroller.scrollLeft) || 0));
-  return direction === "previous" ? current > 1 : current < max - 1;
 };
 
 const resolveViewportWidth = (windowRef) =>
@@ -858,18 +767,12 @@ const ownerOptionsForPath = (state, path) => {
   const reversed = entries.slice().reverse();
   return (
     reversed.find(
-      (options) =>
-        options.ownsInternalPages === true &&
-        options.host &&
-        composedPath.includes(options.host),
-    ) ||
-    reversed.find(
-      (options) =>
-        options.ownsInternalPages === true &&
-        options.host,
-    ) ||
-    reversed.find(
       (options) => options.host && composedPath.includes(options.host),
+    ) ||
+    reversed.find(
+      (options) =>
+        options.host?.isConnected !== false &&
+        options.isSwipeNavigationOwner?.() === true,
     ) ||
     entries.at(-1) ||
     null
@@ -1225,34 +1128,29 @@ const bindCoordinator = (state) => {
     } catch (_) {
       swipePolicy = null;
     }
-    const pathIncludesOwner = path.includes(options.host);
-    const pageMediaGestureElements =
-      pathIncludesOwner || options.ownsInternalPages === true
-        ? resolveAllowedPageSwipeGestureElements(path)
-        : null;
+    const panel = options.findPanel?.(state.huiRoot) || null;
+    const currentViewName = currentViewRouteName({
+      panel,
+      huiRoot: state.huiRoot,
+      windowRef: options.windowRef,
+    });
+    const ownsDashboardSurface =
+      options.isSwipeNavigationOwner?.() === true &&
+      DASHBOARD_WIDE_SWIPE_MODES.has(swipePolicy?.mode) &&
+      swipePolicy?.owner?.viewName === currentViewName;
     const startsInsideOwner =
       options.host?.isConnected !== false &&
-      (pathIncludesOwner ||
-        (options.ownsInternalPages === true &&
-          Boolean(pageMediaGestureElements)));
-    const inputType =
-      event?.fvcInputType === "mouse" ? "mouse" : "touch";
-    const cardViewHorizontalScroller = startsInsideOwner
-      ? findCardViewHorizontalScroller(path, options.getComputedStyleFn)
-      : null;
-    const allowedGestureElements = startsInsideOwner
-      ? pageMediaGestureElements
-      : null;
+      (path.includes(options.host) || ownsDashboardSurface);
     if (
       shouldIgnoreDashboardSwipePath(path, {
         getComputedStyleFn: options.getComputedStyleFn,
-        allowedHorizontalScroller: cardViewHorizontalScroller,
-        allowedGestureElements,
       })
     ) {
       if (startsInsideOwner) event.stopPropagation?.();
       return;
     }
+    const inputType =
+      event?.fvcInputType === "mouse" ? "mouse" : "touch";
     if (
       inputType === "mouse" &&
       swipePolicy?.mouseNavigationEnabled !== true
@@ -1312,8 +1210,6 @@ const bindCoordinator = (state) => {
         inputType,
         userAgent: options.windowRef?.navigator?.userAgent,
       }),
-      horizontalScroller:
-        inputType === "touch" ? cardViewHorizontalScroller : null,
     };
     gesture.shieldOnly =
       !gesture.allowInternalNavigation && !gesture.allowDashboardNavigation;
@@ -1370,24 +1266,12 @@ const bindCoordinator = (state) => {
       }
     }
     if (gesture.axis !== "horizontal") return;
-    const direction = resolveGestureDirection(gesture, deltaX);
-    const target = resolveGestureTarget(state, gesture, direction);
-    if (
-      gesture.horizontalScroller &&
-      !target &&
-      canHorizontalScrollerConsume(
-        gesture.horizontalScroller,
-        direction,
-        gesture.options.getComputedStyleFn,
-      )
-    ) {
-      resetGesture(state);
-      return;
-    }
     if (gesture.shieldOnly) return;
     if (event.cancelable !== false) event.preventDefault?.();
     if (!gesture.liveMotionEnabled) return;
 
+    const direction = resolveGestureDirection(gesture, deltaX);
+    const target = resolveGestureTarget(state, gesture, direction);
     const motion = ensureGestureMotion(state, gesture);
     if (!motion) return;
     const offset = resolveDashboardSwipeDragOffset({
@@ -1677,7 +1561,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
       onDashboardScopeExited = null,
       cardTag = "frigate-view-card",
       enforceDashboardOwner = false,
-      ownsInternalPages = false,
+      isSwipeNavigationOwner = null,
     } = {},
   ) {
     this._host = host;
@@ -1712,7 +1596,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
     this._onDashboardScopeExited = onDashboardScopeExited;
     this._cardTag = normalizeCardTag(cardTag) || "frigate-view-card";
     this._enforceDashboardOwner = enforceDashboardOwner === true;
-    this._ownsInternalPages = ownsInternalPages === true;
+    this._isSwipeNavigationOwner = isSwipeNavigationOwner;
     this._huiRoot = null;
     this._dashboardKey = null;
     this._hostDashboardKey = null;
@@ -1786,7 +1670,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
       onDashboardNavigationSettled: this._onDashboardNavigationSettled,
       cardTag: this._cardTag,
       resolveSwipePolicy: () => this._resolveSwipePolicy(),
-      ownsInternalPages: this._ownsInternalPages,
+      isSwipeNavigationOwner: this._isSwipeNavigationOwner,
     };
   }
 
@@ -2057,18 +1941,16 @@ export const installHomeAssistantDashboardSwipeNavigation = ({
       const panel = huiRoot ? findPanel?.(huiRoot) || null : null;
       const dashboardConfig = panel?.lovelace?.config || null;
       if (huiRoot && dashboardConfig) {
-        const currentViewName = currentViewRouteName({
-          panel,
-          huiRoot,
-          windowRef,
-        });
         const swipePolicy = resolveDashboardSwipeNavigationPolicy({
           dashboardConfig,
           cardTag,
-          currentViewName,
+          currentViewName: currentViewRouteName({
+            panel,
+            huiRoot,
+            windowRef,
+          }),
         });
         if (
-          swipePolicy.owner?.viewName === currentViewName ||
           (!hasTouch && swipePolicy.mouseNavigationEnabled !== true) ||
           !dashboardConfigEnablesPreMountSwipeNavigation(
             dashboardConfig,

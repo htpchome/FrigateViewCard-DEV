@@ -647,29 +647,6 @@ test("Card View always has a reverse phone swipe target when it is selected", ()
   }
 });
 
-test("an enabled Card View outside the phone swipe selection can return to the landing page", () => {
-  for (const [mobilePage, landingPage] of [
-    [MOBILE_PAGE_MODES.mobile, PAGE_IDS.mobileView],
-    [MOBILE_PAGE_MODES.single, PAGE_IDS.singleView],
-  ]) {
-    const config = {
-      mobile_view_page_enabled: true,
-      card_view_page_enabled: true,
-      mobile_page: mobilePage,
-      ha_dashboard_swipe_mobile_pages: [landingPage],
-    };
-    assert.equal(
-      resolveAdjacentPageSwipeRoute({
-        config,
-        deviceBucket: DEVICE_ROUTE_BUCKETS.mobile,
-        currentPageId: PAGE_IDS.cardView,
-        direction: "previous",
-      }),
-      landingPage,
-    );
-  }
-});
-
 test("standalone Card View never creates an internal swipe target", () => {
   const config = {
     card_view_page_enabled: true,

@@ -824,7 +824,8 @@ export class FrigateViewCard extends HTMLElement {
           this._handleDashboardScopeExited(),
         cardTag: CARD_TAG,
         enforceDashboardOwner: true,
-        ownsInternalPages: true,
+        isSwipeNavigationOwner: () =>
+          this._config?.ha_dashboard_swipe_navigation_owner === true,
       });
     this._haPageBackgroundController =
       new HomeAssistantPageBackgroundController(this);
