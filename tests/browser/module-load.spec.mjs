@@ -157,6 +157,9 @@ test("page routes replace only their layout while preserving live and popup shel
         livePreserved: root.querySelector("#eng-wrap") === outer.live,
         enginePreserved: root.querySelector("#engine") === outer.engine,
         layoutCount: root.querySelectorAll("#layout").length,
+        footerCount: nextLayout.querySelectorAll(
+          '[data-fvc-region="footer"]',
+        ).length,
       });
       previousLayout = nextLayout;
     }
@@ -177,6 +180,7 @@ test("page routes replace only their layout while preserving live and popup shel
       livePreserved: true,
       enginePreserved: true,
       layoutCount: 1,
+      footerCount: 1,
     },
     {
       pageId: "card-view",
@@ -190,9 +194,89 @@ test("page routes replace only their layout while preserving live and popup shel
       livePreserved: true,
       enginePreserved: true,
       layoutCount: 1,
+      footerCount: 1,
     },
   ]);
   expect(pageErrors).toEqual([]);
+});
+
+test("Wide View footer remains singular across landing and route swaps", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      wide_view_page_enabled: true,
+      stream_height: 640,
+      stream_height_unit: "px",
+    });
+
+    const measureWide = () => {
+      const root = card.shadowRoot;
+      const layout = root.querySelector("#layout");
+      const columns = root.querySelector(".wide-view-columns");
+      const footer = root.querySelector(".wide-footer");
+      const layoutRect = layout?.getBoundingClientRect?.();
+      const columnsRect = columns?.getBoundingClientRect?.();
+      const footerRect = footer?.getBoundingClientRect?.();
+      return {
+        footerCount: root.querySelectorAll('[data-fvc-region="footer"]')
+          .length,
+        wideFooterCount: root.querySelectorAll(".wide-footer").length,
+        footerInsideLayout: Boolean(footer && layout?.contains?.(footer)),
+        columnsMeetFooter: Boolean(
+          columnsRect &&
+            footerRect &&
+            Math.abs(columnsRect.bottom - footerRect.top) <= 1,
+        ),
+        footerMeetsLayoutBottom: Boolean(
+          layoutRect &&
+            footerRect &&
+            Math.abs(footerRect.bottom - layoutRect.bottom) <= 1,
+        ),
+      };
+    };
+
+    card._pageId = "wide-view";
+    card._renderShell();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const landing = measureWide();
+
+    card._pageId = "single-view";
+    card._renderShellPreserveLive();
+    const afterLeaving = {
+      footerCount: card.shadowRoot.querySelectorAll(
+        '[data-fvc-region="footer"]',
+      ).length,
+      wideFooterCount:
+        card.shadowRoot.querySelectorAll(".wide-footer").length,
+    };
+
+    card._pageId = "wide-view";
+    card._renderShellPreserveLive();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const afterReturning = measureWide();
+
+    return { landing, afterLeaving, afterReturning };
+  });
+
+  const expectedWide = {
+    footerCount: 1,
+    wideFooterCount: 1,
+    footerInsideLayout: true,
+    columnsMeetFooter: true,
+    footerMeetsLayoutBottom: true,
+  };
+  expect(result).toEqual({
+    landing: expectedWide,
+    afterLeaving: { footerCount: 1, wideFooterCount: 0 },
+    afterReturning: expectedWide,
+  });
 });
 
 test("Wide View Companion Cameras drag upward over controls without resizing live", async ({
@@ -237,6 +321,13 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       panelTop: panel.getBoundingClientRect().top,
       surfaceTop: surface.getBoundingClientRect().top,
       liveHeight: liveStage.getBoundingClientRect().height,
+      surfacePaddingLeft: getComputedStyle(surface).paddingLeft,
+      gridInsetLeft:
+        root.querySelector("#wide-companion-grid").getBoundingClientRect().left -
+        surface.getBoundingClientRect().left,
+      buttonInsetRight:
+        surface.getBoundingClientRect().right -
+        expandButton.getBoundingClientRect().right,
     };
     const pointerId = 7;
     const startY = handle.getBoundingClientRect().top + 10;
@@ -355,6 +446,9 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   });
 
   expect(result.expanded.max).toBeGreaterThan(0);
+  expect(result.before.surfacePaddingLeft).toBe("8px");
+  expect(result.before.gridInsetLeft).toBeCloseTo(8, 0);
+  expect(result.before.buttonInsetRight).toBeCloseTo(8, 0);
   expect(result.expanded.now).toBe(result.expanded.max);
   expect(result.expanded.surfaceTop).toBeLessThan(
     result.before.surfaceTop - 20,

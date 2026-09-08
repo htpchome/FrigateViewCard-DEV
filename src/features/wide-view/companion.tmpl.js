@@ -16,8 +16,8 @@ export function buildWideCompanionMetaMarkup({
   online,
 }) {
   return `<div class="preview-meta wide-companion-meta">
-            <div class="preview-meta-name wide-companion-meta-name">${escapeHtml(name)}</div>
             <div class="preview-meta-status wide-companion-meta-status">${buildWideCompanionStatusMarkup(online)}</div>
+            <div class="preview-meta-name wide-companion-meta-name">${escapeHtml(name)}</div>
           </div>`;
 }
 

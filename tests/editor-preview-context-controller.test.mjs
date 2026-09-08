@@ -697,6 +697,7 @@ test("startEditModeWatchdog resumes and uses guarded stale probes while editing"
   try {
     const controller = new EditorPreviewContextController({
       isConnected: true,
+      _scheduleEditorLayoutSync: () => calls.push(["layout"]),
       _scheduleResumeLive: (reason) => calls.push(["resume", reason]),
       _kickLiveIfStale: (force) => calls.push(["kick", force]),
     });
@@ -711,6 +712,7 @@ test("startEditModeWatchdog resumes and uses guarded stale probes while editing"
     timers[0]();
 
     assert.deepEqual(calls, [
+      ["layout"],
       ["resume", "watchdog-dialog-close"],
       ["resume", "watchdog-edit-exit"],
       ["resume", "watchdog-dashboard-edit-on"],
@@ -917,6 +919,7 @@ test("dashboard edit monitoring is event-driven outside editing", () => {
   const controller = new EditorPreviewContextController(
     {
       isConnected: true,
+      _scheduleEditorLayoutSync: () => calls.push(["layout"]),
       _scheduleResumeLive: (reason) => calls.push(["resume", reason]),
       _kickLiveIfStale: (force) => calls.push(["kick", force]),
     },
@@ -939,6 +942,7 @@ test("dashboard edit monitoring is event-driven outside editing", () => {
   location.href = "https://example.test/lovelace/test?edit=true";
   windowRef.emit("location-changed");
   assert.deepEqual(calls, [
+    ["layout"],
     ["resume", "watchdog-dashboard-edit-on"],
     ["kick", false],
   ]);
@@ -946,9 +950,9 @@ test("dashboard edit monitoring is event-driven outside editing", () => {
 
   location.href = "https://example.test/lovelace/test";
   windowRef.emit("popstate");
-  assert.deepEqual(calls.at(-1), [
-    "resume",
-    "watchdog-dashboard-edit-off",
+  assert.deepEqual(calls.slice(-2), [
+    ["layout"],
+    ["resume", "watchdog-dashboard-edit-off"],
   ]);
   assert.deepEqual(clearedTimers, [1]);
 });

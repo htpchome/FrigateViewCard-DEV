@@ -123,7 +123,7 @@ test("Companion Cameras region exposes an accessible drag handle", () => {
   assert.match(markup, /aria-expanded="false"/);
   assert.match(
     STYLES,
-    /\.wide-companion-surface\{[^}]*position:absolute;[^}]*inset:calc\(0px - var\(--wide-companion-expansion\)\)/,
+    /\.wide-companion-surface\{[^}]*position:absolute;[^}]*inset:calc\(0px - var\(--wide-companion-expansion\)\)[^}]*padding:0 8px 4px/,
   );
   assert.match(
     STYLES,
@@ -145,6 +145,10 @@ test("Companion Cameras render every configured camera in user order", () => {
   assert.match(grid.innerHTML, /data-wide-companion-camidx="1"/);
   assert.match(grid.innerHTML, /Driveway/);
   assert.match(grid.innerHTML, /aria-label="Online">●<\/span>/);
+  assert.match(
+    grid.innerHTML,
+    /wide-companion-meta-status[\s\S]*?aria-label="Online">●<\/span>[\s\S]*?wide-companion-meta-name[^>]*>Driveway/,
+  );
   assert.doesNotMatch(grid.innerHTML, /<\/span>Online/);
   assert.doesNotMatch(grid.innerHTML, /Stream Source:/);
   assert.doesNotMatch(grid.innerHTML, /Alerts:/);

@@ -1346,6 +1346,7 @@ export class FrigateViewCard extends HTMLElement {
       });
     this._wasVisible = false;
     this._resumeLiveT = null;
+    this._editorLayoutSyncRaf = 0;
     this._disconnectTeardownT = null;
     this._dashboardLiveGraceActive = false;
     this._lastLiveKick = 0;
@@ -1611,6 +1612,9 @@ export class FrigateViewCard extends HTMLElement {
         : "100%";
       this._applyTightMargins();
       this._wideViewPageController.applyLayoutAndWideSyncForCard();
+    }
+    if (hadPendingDisconnectTeardown) {
+      this._scheduleEditorLayoutSync();
     }
     this._syncVisualStyleToggles();
     this._haNavbarController?.sync?.();
@@ -2296,6 +2300,10 @@ export class FrigateViewCard extends HTMLElement {
     if (this._resumeLiveT) {
       clearTimeout(this._resumeLiveT);
       this._resumeLiveT = null;
+    }
+    if (this._editorLayoutSyncRaf) {
+      cancelAnimationFrame(this._editorLayoutSyncRaf);
+      this._editorLayoutSyncRaf = 0;
     }
     if (this._disconnectTeardownT) clearTimeout(this._disconnectTeardownT);
     this._disconnectTeardownT = setTimeout(() => {
@@ -4854,7 +4862,10 @@ export class FrigateViewCard extends HTMLElement {
 
     const template = ownerDocument.createElement("template");
     template.innerHTML = this._buildActivePageMainLayoutShellMarkup().trim();
-    const nextLayout = template.content?.firstElementChild || null;
+    const nextLayout =
+      template.content?.childElementCount === 1
+        ? template.content.firstElementChild
+        : null;
     const nextEngWrap = nextLayout?.querySelector?.("#eng-wrap") || null;
     if (nextLayout?.id !== "layout" || !nextEngWrap) {
       this._renderFullShellPreserveLive(preservedEngWrap);
@@ -5624,6 +5635,23 @@ export class FrigateViewCard extends HTMLElement {
   _applyCardStyle() {
     this._cardStyleController.applyCardStyle();
     this._haPageBackgroundController?.sync?.();
+  }
+
+  _scheduleEditorLayoutSync() {
+    if (this._editorLayoutSyncRaf) return;
+    const applyLayout = () => {
+      this._editorLayoutSyncRaf = 0;
+      if (!this.isConnected) return;
+      this._applyCardStyle();
+      this._wideViewPageController?.syncColHeightIfWideView?.();
+    };
+    if (typeof requestAnimationFrame !== "function") {
+      applyLayout();
+      return;
+    }
+    this._editorLayoutSyncRaf = requestAnimationFrame(() => {
+      this._editorLayoutSyncRaf = requestAnimationFrame(applyLayout);
+    });
   }
 
   _isCardVisible() {

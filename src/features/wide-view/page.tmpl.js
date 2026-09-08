@@ -62,44 +62,45 @@ export function buildWideViewMainLayoutShellMarkup({
   const footerVersion = `<div class="footer-version" ${normalizedFooterVersion ? `aria-label="${CARD_NAME} version ${escapeHtmlAttribute(normalizedFooterVersion)}"` : "hidden"}>${normalizedFooterVersion ? `v${escapeHtml(normalizedFooterVersion)}` : ""}</div>`;
 
   return `<div class="${layoutClassName}" id="layout">
-          <div class="${leftColumnClassName}" id="col-left">
-            <div class="live-stage live-stage--overlay" id="live-stage">
-              ${regions.live}
-              ${buildLivePlaybackControlsMarkup(regions)}
-            </div>
+          <div class="wide-view-columns">
+            <div class="${leftColumnClassName}" id="col-left">
+              <div class="live-stage live-stage--overlay" id="live-stage">
+                ${regions.live}
+                ${buildLivePlaybackControlsMarkup(regions)}
+              </div>
 
-            ${regions.information}
-            ${regions.cameraSwitcher}
-            <div class="${tabsHolderClassName} shadow-small">
-              <div class="button-holder button-holder--responsive-toolbar button-holder--no-tabs">
-                <div class="button-holder-row page-nav-row">
-                  ${regions.pageNavigation}
-                </div>
-                <div class="button-holder-row tools-row">
-                  <div class="divider page-tools-divider" aria-hidden="true">${regions.pageToolsDivider}</div>
-                  ${regions.tools}
+              ${regions.information}
+              ${regions.cameraSwitcher}
+              <div class="${tabsHolderClassName} shadow-small">
+                <div class="button-holder button-holder--responsive-toolbar button-holder--no-tabs">
+                  <div class="button-holder-row page-nav-row">
+                    ${regions.pageNavigation}
+                  </div>
+                  <div class="button-holder-row tools-row">
+                    <div class="divider page-tools-divider" aria-hidden="true">${regions.pageToolsDivider}</div>
+                    ${regions.tools}
+                  </div>
                 </div>
               </div>
+
+              ${regions.companionCameras}
+
             </div>
-
-            ${regions.companionCameras}
-
-          </div>
-          <div class="${resizeHandleClassName}" id="resize-handle" title="Resize Video" aria-label="Resize Video"></div>
-          <div class="${rightColumnClassName}" id="col-right">
-            ${regions.timeline}
-            <div class="${tabsHolderClassName} shadow-small">
-              <div class="small-padding">
-                ${regions.tabs}
+            <div class="${resizeHandleClassName}" id="resize-handle" title="Resize Video" aria-label="Resize Video"></div>
+            <div class="${rightColumnClassName}" id="col-right">
+              ${regions.timeline}
+              <div class="${tabsHolderClassName} shadow-small">
+                <div class="small-padding">
+                  ${regions.tabs}
+                </div>
               </div>
+              ${regions.browseHeader}
+              ${regions.browse}
             </div>
-            ${regions.browseHeader}
-            ${regions.browse}
-            ${regions.footer}
           </div>
-        </div>
-        <div class="wide-footer">
-          <div class="frigate-view">${regions.wideFooterIcon}</div>
-          ${footerVersion}
+          <div class="wide-footer" data-fvc-region="footer">
+            <div class="frigate-view">${regions.wideFooterIcon}</div>
+            ${footerVersion}
+          </div>
         </div>`;
 }

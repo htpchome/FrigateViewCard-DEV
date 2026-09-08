@@ -118,17 +118,18 @@ test("route-owned outer templates compose every atomic region once", () => {
   }
 });
 
-test("wide view renders its branded footer separately from the browse footer", () => {
+test("wide view keeps one branded footer inside its atomic page root", () => {
   const markup = buildWideViewMainLayoutShellMarkup({ regions });
 
   assert.match(
     markup,
-    /<div class="col-right"[^>]*>[\s\S]*?data-fvc-region="footer"[\s\S]*?<\/div>\s*<div class="wide-footer">/,
+    /id="layout">\s*<div class="wide-view-columns">[\s\S]*?<\/div>\s*<div class="wide-footer" data-fvc-region="footer">[\s\S]*?<\/div>\s*<\/div>$/,
   );
   assert.match(
     markup,
-    /<div class="wide-footer">\s*<div class="frigate-view"><svg data-wide-footer-icon><\/svg><\/div>/,
+    /<div class="wide-footer" data-fvc-region="footer">\s*<div class="frigate-view"><svg data-wide-footer-icon><\/svg><\/div>/,
   );
+  assert.equal(markup.match(/data-fvc-region="footer"/g)?.length, 1);
   assert.match(markup, /class="footer-version"[^>]*>v1\.0\.0<\/div>/);
 });
 
@@ -237,6 +238,10 @@ test("wide view inserts Companion Cameras below its tool controls", () => {
   assert.match(
     STYLES,
     /\.layout\.wide-view \.resize-handle::after\{content:'Resize ↕ Video';[^}]*opacity:0;/,
+  );
+  assert.match(
+    STYLES,
+    /\.card \.wide-view-columns\{[^}]*isolation:isolate;[^}]*overflow:hidden;/,
   );
 });
 

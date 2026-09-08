@@ -486,6 +486,7 @@ export class EditorPreviewContextController {
     const inEditorPreview = this.isEditorPreviewContext();
     if (this._lastEditorPreviewContext === true && !inEditorPreview) {
       this._markEditorLifecycleTransition();
+      this._notifyEditorLayoutChange();
       this._host._scheduleResumeLive("hass-edit-exit");
     }
     this._lastEditorPreviewContext = inEditorPreview;
@@ -605,6 +606,7 @@ export class EditorPreviewContextController {
       this._dashboardEditLast !== dashboardEdit
     ) {
       this._markEditorLifecycleTransition();
+      this._notifyEditorLayoutChange();
     }
     if (dialogClosed) {
       this._host._scheduleResumeLive("watchdog-dialog-close");
@@ -668,7 +670,10 @@ export class EditorPreviewContextController {
     }
     const wasOpen = this._dialogOpenLast;
     const openNow = this.isCardEditorDialogOpen(dialogHost);
-    if (wasOpen !== openNow) this._markEditorLifecycleTransition();
+    if (wasOpen !== openNow) {
+      this._markEditorLifecycleTransition();
+      this._notifyEditorLayoutChange();
+    }
     if (wasOpen && !openNow) {
       this._host._scheduleResumeLive("card-editor-close");
     }
@@ -694,6 +699,7 @@ export class EditorPreviewContextController {
       const openNow = this.isCardEditorDialogOpen(this._dialogHost);
       if (this._dialogOpenLast !== openNow) {
         this._markEditorLifecycleTransition();
+        this._notifyEditorLayoutChange();
       }
       if (this._dialogOpenLast && !openNow) {
         this._host._scheduleResumeLive("card-editor-close");
@@ -782,6 +788,7 @@ export class EditorPreviewContextController {
       const dashboardEdit = this.isDashboardEditMode();
       if (this._dashboardEditLast !== dashboardEdit) {
         this._markEditorLifecycleTransition();
+        this._notifyEditorLayoutChange();
         this._host._scheduleResumeLive(
           dashboardEdit
             ? "watchdog-dashboard-edit-on"
@@ -794,6 +801,10 @@ export class EditorPreviewContextController {
     };
     windowRef.addEventListener("location-changed", this._onLocationChange);
     windowRef.addEventListener("popstate", this._onLocationChange);
+  }
+
+  _notifyEditorLayoutChange() {
+    this._host._scheduleEditorLayoutSync?.();
   }
 
   _unbindLocationListeners() {
