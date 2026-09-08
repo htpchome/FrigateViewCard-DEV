@@ -923,6 +923,10 @@ test("save-state reminder reserves normal-flow space in clean and dirty states",
   );
   assert.match(
     source,
+    /\.config-save-reminder\{position:sticky;top:8px;z-index:20;[^}]*background:color-mix\(in srgb,var\(--success-color,#2e7d32\) 14%,transparent\);[^}]*backdrop-filter:blur\(8px\);/,
+  );
+  assert.match(
+    source,
     /\.config-save-reminder\[data-config-save-state="dirty"\]/,
   );
   assert.doesNotMatch(source, /\.config-save-reminder\[hidden\]/);
@@ -1632,6 +1636,11 @@ test("editor accordion panels share one compact settings container", () => {
     source,
     /\.settings-panel\.active \.setting-content\{\s*max-height:none;/,
   );
+  assert.match(source, /data-panel-more title="Show more options"/);
+  assert.match(source, />More<\/span>\s*\$\{ICONS\.chevron\}/);
+  assert.match(source, /const hasHiddenOptions = Number\(contentRect\.bottom\) > viewportBottom \+ 3;/);
+  assert.doesNotMatch(source, /nextToggle\?\.scrollIntoView/);
+  assert.doesNotMatch(source, /\.settings-panel\.active \.setting-content\{[^}]*overflow-y:auto;/);
   assert.doesNotMatch(source, /max-height:1400px/);
   assert.doesNotMatch(source, /data-theme-mode-option/);
   assert.doesNotMatch(source, /theme-mode-editor/);
@@ -1656,4 +1665,38 @@ test("editor accordion panels share one compact settings container", () => {
     source,
     /class="section" style="border-top:none;padding-top:0"/,
   );
+});
+
+test("editor accordion More cue is visible only while options remain below", () => {
+  const editor = new FrigateViewCardEditor();
+  const more = { hidden: true };
+  const slot = { style: {} };
+  let contentBottom = 900;
+  const content = {
+    getBoundingClientRect: () => ({
+      top: 100,
+      bottom: contentBottom,
+      height: contentBottom - 100,
+    }),
+    querySelector: (selector) =>
+      selector === "[data-panel-more]"
+        ? more
+        : selector === ".settings-more-slot"
+          ? slot
+          : null,
+  };
+  const panel = {
+    classList: { contains: (name) => name === "active" },
+    querySelector: (selector) =>
+      selector === ".setting-content" ? content : null,
+  };
+  editor._settingsPanelScrollContainer = () => null;
+
+  editor._syncSettingsPanelMoreState(panel);
+  assert.equal(more.hidden, false);
+  assert.equal(slot.style.top, "656px");
+
+  contentBottom = 790;
+  editor._syncSettingsPanelMoreState(panel);
+  assert.equal(more.hidden, true);
 });

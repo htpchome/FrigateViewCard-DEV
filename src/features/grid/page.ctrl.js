@@ -1,8 +1,4 @@
 import { GRID_ROTATION_OPTIONS_SECONDS } from "../../constants.js";
-import {
-  PAGE_START_MODES,
-  normalizePageStartMode,
-} from "../navigation/start-mode.js";
 import { cameraMemberEntities } from "../camera-groups/model.js";
 import { resolveGridCameras } from "./config.js";
 
@@ -146,41 +142,6 @@ export class GridPageController {
       },
       Math.max(0, Number(delayMs) || 0),
     );
-  }
-
-  shouldStartInGridMode() {
-    const legacyMode = this._host._config?.grid_start_in_grid_enabled
-      ? PAGE_START_MODES.grid
-      : PAGE_START_MODES.live;
-    let configuredMode = legacyMode;
-    if (
-      this._host._isCardViewPageActive?.() ||
-      this._host._config?.card_view_standalone === true
-    ) {
-      configuredMode =
-        this._host._config?.card_view_start_mode ?? legacyMode;
-    } else if (
-      this._host._wideViewPageController?.isWideViewPageActive?.()
-    ) {
-      configuredMode =
-        this._host._config?.wide_view_start_mode ?? legacyMode;
-    } else if (this._host._pageId === "single-view") {
-      configuredMode =
-        this._host._config?.single_view_start_mode ?? legacyMode;
-    }
-    return (
-      normalizePageStartMode(configuredMode) === PAGE_START_MODES.grid &&
-      this.isGridModeAvailable()
-    );
-  }
-
-  applyStartInGridMode(_source = "") {
-    if (this._host._isPreviewPageActive()) return;
-    if (!this.shouldStartInGridMode()) return;
-    if (this._host._viewMode === "grid") return;
-    if (this._host._toolbarButtonStates?.().gridDisabled) return;
-    this._host._gridRotationStart = 0;
-    this._host._setViewMode("grid");
   }
 
   scheduleGridRotation() {

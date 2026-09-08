@@ -1909,7 +1909,7 @@ test("Card View settings normalize and serialize only when enabled", () => {
   assert.equal(createEditorPreviewDraft(defaults).card_view_start_mode, "live");
 });
 
-test("page start modes persist and global Grid startup synchronizes all pages", () => {
+test("page start modes persist independently of the inert legacy Grid startup key", () => {
   const defaults = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
   });
@@ -1925,15 +1925,16 @@ test("page start modes persist and global Grid startup synchronizes all pages", 
     wide_view_start_mode: "slideshow",
     card_view_start_mode: "live",
   });
-  assert.equal(normalized.single_view_start_mode, "grid");
-  assert.equal(normalized.wide_view_start_mode, "grid");
-  assert.equal(normalized.card_view_start_mode, "grid");
+  assert.equal(normalized.single_view_start_mode, "live");
+  assert.equal(normalized.wide_view_start_mode, "slideshow");
+  assert.equal(normalized.card_view_start_mode, "live");
 
   const compact = compactEditorConfigForYaml(normalized);
   assert.equal(compact.single_view_alert_takeover, true);
-  assert.equal(compact.single_view_start_mode, "grid");
-  assert.equal(compact.wide_view_start_mode, "grid");
-  assert.equal(compact.card_view_start_mode, "grid");
+  assert.equal(compact.single_view_start_mode, undefined);
+  assert.equal(compact.wide_view_start_mode, "slideshow");
+  assert.equal(compact.card_view_start_mode, undefined);
+  assert.equal(compact.grid_start_in_grid_enabled, true);
 });
 
 test("Card View View Mode normalizes values and migrates legacy presentation settings", () => {
@@ -2103,10 +2104,8 @@ test("Single, Wide, and Mobile page settings are ordered, gated, and dirty-state
   assert.match(livePreviewWire, /#single_view_alert_takeover/);
   assert.match(livePreviewWire, /name="single_view_start_mode"/);
   assert.match(livePreviewWire, /name="wide_view_start_mode"/);
-  assert.match(
-    editorSource,
-    /event\?\.currentTarget\?\.id === "grid_start_in_grid_enabled"[\s\S]*?\[name\$="_view_start_mode"\]\[value="grid"\]/,
-  );
+  assert.doesNotMatch(editorSource, /Start In Grid Mode/);
+  assert.doesNotMatch(editorSource, /#grid_start_in_grid_enabled/);
   assert.match(
     editorSource,
     /if \(configChanged\) \{\s*this\._markHomeAssistantDirty\(/,

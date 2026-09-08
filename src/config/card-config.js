@@ -46,10 +46,7 @@ import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
-import {
-  normalizePageStartMode,
-  synchronizePageStartModesWithGridDefault,
-} from "../features/navigation/start-mode.js";
+import { normalizePageStartMode } from "../features/navigation/start-mode.js";
 
 export const DEFAULT_CAMERA_ENTITY = "camera.doorbell";
 export const PREFERRED_DEFAULT_CAMERA_ENTITIES = Object.freeze([
@@ -155,7 +152,6 @@ export const normalizeCardConfig = (config) => {
 
   src.grid_mode_enabled = src.grid_mode_enabled === true;
   src.grid_order = normalizeGridOrderConfig(src.grid_order, cameras);
-  src.grid_start_in_grid_enabled = src.grid_start_in_grid_enabled === true;
   src.grid_live_view_enabled = src.grid_live_view_enabled !== false;
   src.grid_alert_hold_seconds = normalizeNumberChoice(
     src.grid_alert_hold_seconds,
@@ -196,19 +192,15 @@ export const normalizeCardConfig = (config) => {
       10,
     );
 
-  const synchronizedStartModes = synchronizePageStartModesWithGridDefault({
-    grid_start_in_grid_enabled: src.grid_start_in_grid_enabled,
-    single_view_start_mode: normalizePageStartMode(
-      src.single_view_start_mode,
-    ),
-    wide_view_start_mode: normalizePageStartMode(src.wide_view_start_mode),
-    card_view_start_mode: normalizeCardViewStartMode(
-      src.card_view_start_mode,
-    ),
-  });
-  src.single_view_start_mode = synchronizedStartModes.single_view_start_mode;
-  src.wide_view_start_mode = synchronizedStartModes.wide_view_start_mode;
-  src.card_view_start_mode = synchronizedStartModes.card_view_start_mode;
+  src.single_view_start_mode = normalizePageStartMode(
+    src.single_view_start_mode,
+  );
+  src.wide_view_start_mode = normalizePageStartMode(
+    src.wide_view_start_mode,
+  );
+  src.card_view_start_mode = normalizeCardViewStartMode(
+    src.card_view_start_mode,
+  );
   src.single_view_alert_takeover =
     src.single_view_alert_takeover === true;
 

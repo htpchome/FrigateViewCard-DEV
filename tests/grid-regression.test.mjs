@@ -214,10 +214,8 @@ test("standalone Card View never permits Grid on actual mobile devices", () => {
         { entity: "camera.back" },
       ],
       grid_mode_enabled: true,
-      grid_start_in_grid_enabled: true,
       card_view_page_enabled: true,
       card_view_standalone: false,
-      card_view_start_mode: "live",
     },
     _cardWidth: 400,
     _isLikelyMobileClient: () => isMobile,
@@ -230,9 +228,6 @@ test("standalone Card View never permits Grid on actual mobile devices", () => {
 
   isMobile = false;
   assert.equal(controller.isGridModeAvailable(), true);
-  assert.equal(controller.shouldStartInGridMode(), false);
-  host._config.card_view_start_mode = "grid";
-  assert.equal(controller.shouldStartInGridMode(), true);
 });
 
 test("Slideshow availability is not inferred from card width or device type", () => {

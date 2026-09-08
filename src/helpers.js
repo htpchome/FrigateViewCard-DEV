@@ -778,9 +778,6 @@ export const buildEditorConfigFromDom = ({
   nextConfig.grid_mode_enabled = resolveSwitchChecked(
     root.querySelector("#grid_mode_enabled"),
   );
-  nextConfig.grid_start_in_grid_enabled = resolveSwitchChecked(
-    root.querySelector("#grid_start_in_grid_enabled"),
-  );
   nextConfig.grid_live_view_enabled =
     resolveSwitchChecked(root.querySelector("#grid_live_view_enabled")) !==
     false;

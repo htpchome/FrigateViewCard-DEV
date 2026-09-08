@@ -627,7 +627,7 @@ test("startup resolves initial page through the navigation factory", () => {
     "const initialLoad = this._browseWindowLoaderController.loadWindow(true);",
   );
   const landingPageIndex = cardSource.search(
-    /this\._pageNavigationController\.navigateToConfiguredLandingPage\([\s\S]*?source:\s*"startup"[\s\S]*?startup:\s*true[\s\S]*?startInGrid,[\s\S]*?hasPendingDeepLinkTarget,/,
+    /this\._pageNavigationController\.navigateToConfiguredLandingPage\([\s\S]*?source:\s*"startup"[\s\S]*?startup:\s*true[\s\S]*?hasPendingDeepLinkTarget,/,
   );
 
   assert.equal(
@@ -650,6 +650,8 @@ test("startup resolves initial page through the navigation factory", () => {
   assert.ok(initialLoadIndex >= 0);
   assert.ok(initialLoadIndex > finalShellIndex);
   assert.ok(landingPageIndex > initialLoadIndex);
+  assert.doesNotMatch(cardSource, /_shouldStartInGridMode/);
+  assert.doesNotMatch(cardSource, /_applyStartInGridMode/);
   assert.equal(
     cardSource.includes(
       "this._deepLinkController.consumeDeepLinkReviewOpen();",

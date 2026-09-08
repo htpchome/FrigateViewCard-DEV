@@ -92,10 +92,7 @@ import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
-import {
-  normalizePageStartMode,
-  synchronizePageStartModesWithGridDefault,
-} from "../features/navigation/start-mode.js";
+import { normalizePageStartMode } from "../features/navigation/start-mode.js";
 import { applyEditorPreviewDraftToCardConfig } from "../config/preview-mapper.js";
 import {
   DEFAULT_CAMERA_ENTITY,
@@ -1641,12 +1638,7 @@ export class FrigateViewCard extends HTMLElement {
       }
       this._pageNavigationController.connectToolbarDivider();
       this._startEditModeWatchdog();
-      if (this._shouldStartInGridMode()) {
-        this._applyStartInGridMode("connected");
-        this._scheduleGridRefresh(140);
-      } else {
-        this._scheduleResumeLive("connected");
-      }
+      this._scheduleResumeLive("connected");
     }
     this._startEditorDialogCloseObserver();
   }
@@ -1766,19 +1758,6 @@ export class FrigateViewCard extends HTMLElement {
     cameras = limitCameraConfigsByPhysicalCount(cameras, MAX_CAMERAS);
 
     const legacyWindowHours = parseInt(config.window_hours, 10);
-    const pageStartModes = synchronizePageStartModesWithGridDefault({
-      grid_start_in_grid_enabled:
-        config.grid_start_in_grid_enabled === true,
-      single_view_start_mode: normalizePageStartMode(
-        config.single_view_start_mode,
-      ),
-      wide_view_start_mode: normalizePageStartMode(
-        config.wide_view_start_mode,
-      ),
-      card_view_start_mode: normalizeCardViewStartMode(
-        config.card_view_start_mode,
-      ),
-    });
     const nextConfig = {
       cameras,
       title: String(config.title || "").trim() || DEFAULT_TITLE,
@@ -1824,7 +1803,6 @@ export class FrigateViewCard extends HTMLElement {
       ),
       grid_mode_enabled: config.grid_mode_enabled === true,
       grid_order: normalizeGridOrderConfig(config.grid_order, cameras),
-      grid_start_in_grid_enabled: config.grid_start_in_grid_enabled === true,
       grid_live_view_enabled: config.grid_live_view_enabled !== false,
       grid_alert_hold_seconds: normalizeNumberChoice(
         config.grid_alert_hold_seconds,
@@ -1872,12 +1850,16 @@ export class FrigateViewCard extends HTMLElement {
         ),
       single_view_alert_takeover:
         config.single_view_alert_takeover === true,
-      single_view_start_mode: pageStartModes.single_view_start_mode,
+      single_view_start_mode: normalizePageStartMode(
+        config.single_view_start_mode,
+      ),
       wide_view_page_enabled:
         config.wide_view_page_enabled === true || config.wide_view === true,
       wide_view_live_cameras: config.wide_view_live_cameras === true,
       wide_view_alert_takeover: config.wide_view_alert_takeover === true,
-      wide_view_start_mode: pageStartModes.wide_view_start_mode,
+      wide_view_start_mode: normalizePageStartMode(
+        config.wide_view_start_mode,
+      ),
       wide_view_timeline_enabled:
         config.wide_view_timeline_enabled === true,
       wide_view_timeline_default_open:
@@ -1892,7 +1874,9 @@ export class FrigateViewCard extends HTMLElement {
         config.card_view_standalone === true,
       card_view_media_drawer_enabled:
         config.card_view_media_drawer_enabled === true,
-      card_view_start_mode: pageStartModes.card_view_start_mode,
+      card_view_start_mode: normalizeCardViewStartMode(
+        config.card_view_start_mode,
+      ),
       card_view_view_mode: normalizeCardViewViewMode(
         config.card_view_view_mode,
         {
@@ -2511,11 +2495,9 @@ export class FrigateViewCard extends HTMLElement {
 
     const initialLoad = this._browseWindowLoaderController.loadWindow(true);
     this._browseWindowLoaderController.scheduleWarmOtherCamerasEvents();
-    const startInGrid = this._shouldStartInGridMode();
     this._pageNavigationController.navigateToConfiguredLandingPage({
       source: "startup",
       startup: true,
-      startInGrid,
       hasPendingDeepLinkTarget,
     });
     await initialLoad;
@@ -3341,14 +3323,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _scheduleGridRefresh(delayMs = 80) {
     this._gridPageController.scheduleGridRefresh(delayMs);
-  }
-
-  _shouldStartInGridMode() {
-    return this._gridPageController.shouldStartInGridMode();
-  }
-
-  _applyStartInGridMode(_source = "") {
-    this._gridPageController.applyStartInGridMode(_source);
   }
 
   _gridLiveViewEnabled() {

@@ -217,7 +217,6 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `slideshow_alert_hold_seconds` | number | `10` | Time an alert takeover is held during Slideshow operation. Valid values: `10`, `20`, `30`, `60`, `120`. |
 | `grid_mode_enabled` | boolean | `false` | Enables the 2x2 Grid mode on non-phone devices when at least two cameras exist. |
 | `grid_order` | object | Default camera order | Optional custom Grid-only camera order. Set `mode: custom`, list visible physical camera entity IDs in `included`, and place Grid-excluded IDs in `excluded`. Camera Settings order is not changed, and grouped A/B members are ordered separately. |
-| `grid_start_in_grid_enabled` | boolean | `false` | Starts in Grid mode and returns to it when re-entering the dashboard. |
 | `grid_live_view_enabled` | boolean | `true` | Keeps visible Grid cameras live. When disabled, tiles use snapshots and qualifying alerts temporarily promote a tile to live. |
 | `grid_rotation_seconds` | number | `30` | Grid-page rotation interval when more than four cameras exist. Valid values: `10`, `20`, `30`, `60`. |
 | `grid_alert_hold_seconds` | number | `10` | Time an alerted Grid tile remains promoted. Valid values: `10`, `20`, `30`, `60`. |

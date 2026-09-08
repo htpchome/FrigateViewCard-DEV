@@ -36,15 +36,3 @@ export const pageStartModeOptions = ({
       "Enable Slideshow Mode in Slideshow Settings to use this option.",
   },
 ];
-
-export const synchronizePageStartModesWithGridDefault = (
-  config = {},
-) => {
-  if (config?.grid_start_in_grid_enabled !== true) return config;
-  return {
-    ...config,
-    single_view_start_mode: PAGE_START_MODES.grid,
-    wide_view_start_mode: PAGE_START_MODES.grid,
-    card_view_start_mode: PAGE_START_MODES.grid,
-  };
-};

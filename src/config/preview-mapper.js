@@ -78,7 +78,6 @@ export const createEditorPreviewDraft = (config) => ({
   slideshow_alert_hold_seconds: config.slideshow_alert_hold_seconds,
   grid_mode_enabled: config.grid_mode_enabled,
   grid_order: normalizeGridOrderConfig(config.grid_order, config.cameras),
-  grid_start_in_grid_enabled: config.grid_start_in_grid_enabled,
   grid_live_view_enabled: config.grid_live_view_enabled,
   grid_alert_hold_seconds: config.grid_alert_hold_seconds,
   mobile_view_page_enabled: config.mobile_view_page_enabled !== false,
@@ -219,8 +218,6 @@ export const applyEditorPreviewDraftToCardConfig = ({
         ? previewConfig.cameras
         : base.cameras,
     ),
-    grid_start_in_grid_enabled:
-      previewConfig.grid_start_in_grid_enabled === true,
     grid_live_view_enabled: previewConfig.grid_live_view_enabled !== false,
     grid_alert_hold_seconds: normalizeNumberChoice(
       previewConfig.grid_alert_hold_seconds,

@@ -964,6 +964,10 @@ export class FrigateViewCardEditor extends HTMLElement {
     this._editorPreviewLayoutObserver = null;
     this._editorPreviewLayoutObserverTarget = null;
     this._restoreEditorPreviewLayout();
+    this._settingsPanelScrollCleanup?.();
+    this._settingsPanelScrollCleanup = null;
+    this._settingsPanelResizeObserver?.disconnect?.();
+    this._settingsPanelResizeObserver = null;
     if (Array.isArray(this._boundDialogActionButtons)) {
       this._boundDialogActionButtons.forEach(({ element, handler }) => {
         element?.removeEventListener?.("click", handler, true);
@@ -2175,22 +2179,139 @@ export class FrigateViewCardEditor extends HTMLElement {
         ${iconMarkup}
         <h3>${escapeHtml(title)}</h3>
       </button>
-      <div class="setting-content">${content}</div>
+      <div class="setting-content">
+        ${content}
+        <div class="settings-more-slot">
+          <button type="button" class="settings-more-chip" data-panel-more title="Show more options" aria-label="Show more options" hidden>
+            <span>More</span>
+            ${ICONS.chevron}
+          </button>
+        </div>
+      </div>
     </section>`;
   }
 
+  _settingsPanelScrollContainer() {
+    let node = this;
+    const visited = new Set();
+    while (node && !visited.has(node)) {
+      visited.add(node);
+      const overflowY = String(
+        globalThis.getComputedStyle?.(node)?.overflowY || "",
+      );
+      if (
+        /(auto|scroll|overlay)/.test(overflowY) &&
+        Number(node.clientHeight) > 0 &&
+        Number(node.scrollHeight) > Number(node.clientHeight) + 1
+      ) {
+        return node;
+      }
+      const root = node.getRootNode?.();
+      node = node.assignedSlot || node.parentElement || root?.host || null;
+    }
+    return this.ownerDocument?.scrollingElement || null;
+  }
+
+  _syncSettingsPanelMoreState(panel, viewport = null) {
+    const content = panel?.querySelector?.(".setting-content");
+    const more = content?.querySelector?.("[data-panel-more]");
+    const slot = content?.querySelector?.(".settings-more-slot");
+    if (!more || !slot) return;
+    if (!panel.classList?.contains("active")) {
+      more.hidden = true;
+      return;
+    }
+
+    const scrollViewport = viewport || this._settingsPanelScrollContainer();
+    const contentRect = content.getBoundingClientRect?.();
+    if (!contentRect) {
+      more.hidden = true;
+      return;
+    }
+    const documentScroller = this.ownerDocument?.scrollingElement;
+    const viewportRect = scrollViewport?.getBoundingClientRect?.();
+    const windowBottom =
+      Number(globalThis.innerHeight) ||
+      Number(this.ownerDocument?.documentElement?.clientHeight) ||
+      800;
+    const viewportBottom =
+      scrollViewport && scrollViewport !== documentScroller &&
+      Number.isFinite(viewportRect?.bottom)
+      ? Math.min(windowBottom, viewportRect.bottom)
+      : windowBottom;
+    const hasHiddenOptions = Number(contentRect.bottom) > viewportBottom + 3;
+    more.hidden = !hasHiddenOptions;
+    if (!hasHiddenOptions) return;
+    const cueTop = Math.max(
+      8,
+      Math.min(
+        Number(contentRect.height) - 44,
+        viewportBottom - Number(contentRect.top) - 44,
+      ),
+    );
+    slot.style.top = `${cueTop}px`;
+  }
+
   _wireSettingsPanels() {
+    this._settingsPanelScrollCleanup?.();
+    this._settingsPanelScrollCleanup = null;
+    this._settingsPanelResizeObserver?.disconnect?.();
+    this._settingsPanelResizeObserver = null;
     const panels = Array.from(this.querySelectorAll(".settings-panel"));
     if (!panels.length) return;
 
-    const setActive = (activePanel) => {
+    const viewport = this._settingsPanelScrollContainer();
+    const documentScroller = this.ownerDocument?.scrollingElement;
+    const scrollTarget =
+      viewport && viewport !== documentScroller ? viewport : globalThis;
+    let lastActivePanel = null;
+    const syncMore = () => {
+      const nextActivePanel =
+        panels.find((panel) => panel.classList.contains("active")) || null;
+      if (lastActivePanel && lastActivePanel !== nextActivePanel) {
+        this._syncSettingsPanelMoreState(lastActivePanel, viewport);
+      }
+      lastActivePanel = nextActivePanel;
+      if (nextActivePanel) {
+        this._syncSettingsPanelMoreState(nextActivePanel, viewport);
+      }
+    };
+    const scheduleMoreSync = () => {
+      if (typeof globalThis.requestAnimationFrame === "function") {
+        globalThis.requestAnimationFrame(syncMore);
+      } else {
+        setTimeout(syncMore, 0);
+      }
+    };
+
+    scrollTarget?.addEventListener?.("scroll", syncMore, { passive: true });
+    globalThis.addEventListener?.("resize", scheduleMoreSync, {
+      passive: true,
+    });
+    this._settingsPanelScrollCleanup = () => {
+      scrollTarget?.removeEventListener?.("scroll", syncMore);
+      globalThis.removeEventListener?.("resize", scheduleMoreSync);
+    };
+    if (typeof globalThis.ResizeObserver === "function") {
+      this._settingsPanelResizeObserver = new globalThis.ResizeObserver(
+        scheduleMoreSync,
+      );
+      panels.forEach((panel) => {
+        const content = panel.querySelector?.(".setting-content");
+        if (content) this._settingsPanelResizeObserver.observe(content);
+      });
+    }
+
+    const setActive = (nextActivePanel) => {
       this._activeSettingsPanelId = setSettingsPanelActiveState(
         panels,
-        activePanel,
+        nextActivePanel,
       );
+      scheduleMoreSync();
     };
 
     panels.forEach((panel) => {
+      const content = panel.querySelector?.(".setting-content");
       panel
         .querySelector("[data-panel-toggle]")
         ?.addEventListener("click", () => {
@@ -2198,6 +2319,28 @@ export class FrigateViewCardEditor extends HTMLElement {
             setActive(null);
           } else {
             setActive(panel);
+          }
+        });
+      content
+        ?.querySelector?.("[data-panel-more]")
+        ?.addEventListener?.("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const target = viewport && viewport !== documentScroller
+            ? viewport
+            : globalThis;
+          const distance = Math.max(
+            120,
+            Math.floor(
+              Number(viewport?.clientHeight || globalThis.innerHeight || 600) *
+                0.7,
+            ),
+          );
+          if (typeof target.scrollBy === "function") {
+            target.scrollBy({ top: distance, behavior: "smooth" });
+          } else if (viewport) {
+            viewport.scrollTop += distance;
+            syncMore();
           }
         });
     });
@@ -2315,7 +2458,6 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#slideshow_rotation_seconds",
       "#slideshow_alert_hold_seconds",
       "#grid_mode_enabled",
-      "#grid_start_in_grid_enabled",
       "#grid_live_view_enabled",
       "#grid_rotation_seconds",
       "#grid_alert_hold_seconds",
@@ -3404,13 +3546,6 @@ export class FrigateViewCardEditor extends HTMLElement {
             <div class="field-helper">Default follows Camera Settings. Custom lets you reorder or exclude cameras from Grid mode without changing Camera Settings.</div>
             ${gridOrderCustomMarkup}
           </div>
-          <div id="grid_start_row" style="min-width:210px;display:${this._config?.grid_mode_enabled ? "flex" : "none"};flex-direction:column;gap:6px">
-            <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="field-label" style="margin:0">Start In Grid Mode</span>
-              <ha-switch id="grid_start_in_grid_enabled" ${this._config?.grid_start_in_grid_enabled ? "checked" : ""}></ha-switch>
-            </div>
-            <div class="field-helper">Start this card in grid mode and return to grid mode when re-entering the dashboard.</div>
-          </div>
           <div id="grid_live_row" style="min-width:210px;display:${this._config?.grid_mode_enabled ? "flex" : "none"};flex-direction:column;gap:6px">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
               <span class="field-label" style="margin:0">Live View In Grid</span>
@@ -3526,8 +3661,8 @@ export class FrigateViewCardEditor extends HTMLElement {
                 font-size: var(--ha-font-size, 14px);
             }
             .settings-container{display:flex;flex-direction:column;gap:6px;}
-            .config-save-reminder{box-sizing:border-box;width:100%;min-height:30px;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:1px solid color-mix(in srgb,var(--success-color,#2e7d32) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--success-color,#2e7d32) 10%,var(--editor-card-bg));color:var(--success-color,#2e7d32);font-size:12px;font-weight:600;line-height:1.2;text-align:center;pointer-events:none;}
-            .config-save-reminder[data-config-save-state="dirty"]{border-color:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 55%,transparent);background:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 12%,var(--editor-card-bg));color:var(--warning-color, var(--c-accent, var(--editor-primary)));}
+            .config-save-reminder{position:sticky;top:8px;z-index:20;box-sizing:border-box;width:100%;min-height:30px;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:1px solid color-mix(in srgb,var(--success-color,#2e7d32) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--success-color,#2e7d32) 14%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:var(--success-color,#2e7d32);font-size:12px;font-weight:600;line-height:1.2;text-align:center;pointer-events:none;}
+            .config-save-reminder[data-config-save-state="dirty"]{border-color:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 55%,transparent);background:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 16%,transparent);color:var(--warning-color, var(--c-accent, var(--editor-primary)));}
             .standalone-mobile-note{box-sizing:border-box;width:100%;margin-top:8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 42%,var(--editor-card-bg));color:var(--c-primary-d, var(--editor-text));font-weight:650;line-height:1.3;}
             .config-save-reminder-icon{display:inline-flex;width:17px;height:17px;flex:0 0 17px;}
             .config-save-reminder-icon svg{display:block;width:100%;height:100%;}
@@ -3580,6 +3715,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               .settings-panel.active .setting-title{color:var(--c-accent, var(--editor-primary));}
               .settings-panel.active .setting-title :is(ha-icon,.setting-title-icon){color:var(--c-accent, var(--editor-primary));}
               .setting-content{
+                position:relative;
                 max-height:0;
                 opacity:0;
                 overflow:hidden;
@@ -3591,6 +3727,13 @@ export class FrigateViewCardEditor extends HTMLElement {
                 opacity:1;
                 padding:0 14px 14px;
               }
+              .settings-more-slot{position:absolute;top:8px;right:14px;left:14px;z-index:3;display:flex;justify-content:center;height:0;pointer-events:none;}
+              .settings-more-chip{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:72px;min-height:36px;padding:6px 12px;border:1px solid color-mix(in srgb,var(--c-border2, var(--editor-border)) 82%,transparent);border-radius:999px;background:color-mix(in srgb,var(--c-bg-main, var(--editor-card-bg)) 82%,transparent);box-shadow:0 4px 14px rgba(0,0,0,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:var(--c-text, var(--editor-text));font:inherit;font-size:11px;font-weight:750;line-height:1;cursor:pointer;pointer-events:auto;transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .1s ease;}
+              .settings-more-chip[hidden]{display:none;}
+              .settings-more-chip svg{width:17px;height:17px;fill:currentColor;}
+              .settings-more-chip:focus-visible{border-color:var(--c-primary, var(--editor-primary));background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-primary-d));outline:none;box-shadow:0 5px 17px rgba(0,0,0,.28);}
+              .settings-more-chip:active{transform:scale(.96);}
+              @media (hover:hover) and (pointer:fine){.settings-more-chip:hover{border-color:var(--c-primary, var(--editor-primary));background:var(--c-primary-l, var(--editor-primary-l));color:var(--c-primary-d, var(--editor-primary-d));box-shadow:0 5px 17px rgba(0,0,0,.28);}}
               .field-label{font-size:12px;font-weight:600;margin-bottom:8px;display:block;color:var(--c-text, var(--editor-text));}
             .field-helper{min-height:1.2em;margin:4px 0px;font-size:11px;color:var(--c-text2, var(--editor-muted));}
             .field-helper.error{color:var(--c-alert);}
@@ -4518,7 +4661,6 @@ export class FrigateViewCardEditor extends HTMLElement {
         "slideshow_rotation_enabled",
         "slideshow_rotation_seconds",
         "grid_mode_enabled",
-        "grid_start_in_grid_enabled",
         "grid_live_view_enabled",
         "grid_rotation_seconds",
         "slideshow_alert_hold_seconds",
@@ -4537,13 +4679,10 @@ export class FrigateViewCardEditor extends HTMLElement {
         const enabled =
           this.querySelector("#slideshow_rotation_enabled")?.checked === true;
         const gridRow = this.querySelector("#grid_rotation_row");
-        const gridStartRow = this.querySelector("#grid_start_row");
         const gridLiveRow = this.querySelector("#grid_live_row");
         const gridOrderRow = this.querySelector("#grid_order_row");
         const gridEnabled =
           this.querySelector("#grid_mode_enabled")?.checked === true;
-        const gridStartEnabled =
-          this.querySelector("#grid_start_in_grid_enabled")?.checked === true;
         const cardViewPageOptions = this.querySelector(
           "#card-view-page-options",
         );
@@ -4581,20 +4720,8 @@ export class FrigateViewCardEditor extends HTMLElement {
         };
         syncPageStartOption("slideshow", enabled);
         syncPageStartOption("grid", gridEnabled);
-        if (
-          gridStartEnabled &&
-          event?.currentTarget?.id === "grid_start_in_grid_enabled"
-        ) {
-          this.querySelectorAll(
-            '[name$="_view_start_mode"][value="grid"]',
-          ).forEach((input) => {
-            input.checked = true;
-          });
-        }
         if (slideshowRow)
           slideshowRow.style.display = enabled ? "flex" : "none";
-        if (gridStartRow)
-          gridStartRow.style.display = gridEnabled ? "flex" : "none";
         if (gridLiveRow)
           gridLiveRow.style.display = gridEnabled ? "flex" : "none";
         if (gridOrderRow)
