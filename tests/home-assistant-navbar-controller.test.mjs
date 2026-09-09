@@ -6,6 +6,8 @@ import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelaceRoot,
   HomeAssistantNavbarController,
+  resolveDashboardNavbarCardOwnership,
+  resolveDashboardNavbarOwnership,
   resolveHomeAssistantDashboardKey,
   resolveHomeAssistantNavbarTargets,
   resolveHomeAssistantNavbarStyleText,
@@ -127,6 +129,7 @@ const createWindow = (innerHeight = 844) => {
 };
 
 const createHarness = ({
+  dashboardConfig = null,
   dashboardEditMode = false,
   dashboardScope = false,
   isIOS = true,
@@ -136,6 +139,7 @@ const createHarness = ({
   queueMicrotaskFn = (callback) => callback(),
   rotateFullscreen = true,
   stackTabs = false,
+  sourceConfig = null,
   viewPaddingBottom = "34px",
   viewPaddingTop = "103px",
   viewportHeight = 844,
@@ -164,7 +168,11 @@ const createHarness = ({
     querySelector: (selector) =>
       selector === "hui-root" ? currentHuiRoot : null,
   };
-  const panel = { shadowRoot: panelShadowRoot };
+  const panel = {
+    lovelace: { config: dashboardConfig },
+    route: { path: "mobile", prefix: "/lovelace" },
+    shadowRoot: panelShadowRoot,
+  };
   const mainRoot = {
     querySelector: (selector) =>
       selector === "ha-panel-lovelace" ? panel : null,
@@ -194,6 +202,7 @@ const createHarness = ({
     _isMobileViewPageActive: () => host._mobileViewActive,
     _isDashboardEditMode: () => host._dashboardEditMode,
     _dashboardEditMode: dashboardEditMode,
+    _sourceConfig: sourceConfig,
   };
   const controller = new HomeAssistantNavbarController(host, {
     MutationObserverCtor: FakeMutationObserver,
@@ -339,6 +348,111 @@ test("card-local scope remains active across internal Frigate views", () => {
   h.host.isConnected = false;
   assert.equal(h.controller.sync(), false);
   assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "");
+});
+
+test("Whole Dashboard ownership is deterministic across nested cards", () => {
+  const first = {
+    type: "custom:frigate-view-card",
+    mobile_view_ha_navbar_bottom: true,
+    mobile_view_ha_navbar_dashboard: true,
+  };
+  const local = {
+    type: "custom:frigate-view-card",
+    mobile_view_ha_navbar_bottom: true,
+    mobile_view_ha_navbar_dashboard: false,
+  };
+  const duplicate = {
+    type: "custom:frigate-view-card",
+    mobile_view_ha_navbar_bottom: true,
+    mobile_view_ha_navbar_dashboard: true,
+  };
+  const dashboardConfig = {
+    views: [
+      { title: "Cameras", path: "mobile", cards: [first, local] },
+      {
+        title: "Garage",
+        path: "garage",
+        sections: [{ cards: [duplicate] }],
+      },
+    ],
+  };
+
+  const ownership = resolveDashboardNavbarOwnership(dashboardConfig);
+  assert.equal(ownership.owner.config, first);
+  assert.deepEqual(
+    ownership.claimants.map(({ config }) => config),
+    [first, duplicate],
+  );
+  assert.equal(ownership.conflicts[0].config, duplicate);
+
+  const localState = resolveDashboardNavbarCardOwnership({
+    dashboardConfig,
+    sourceConfig: local,
+    requested: false,
+    currentViewName: "mobile",
+  });
+  assert.equal(localState.isOwner, false);
+  assert.equal(localState.locked, true);
+  assert.equal(localState.conflict, false);
+
+  const duplicateState = resolveDashboardNavbarCardOwnership({
+    dashboardConfig,
+    sourceConfig: duplicate,
+    requested: true,
+    currentViewName: "garage",
+  });
+  assert.equal(duplicateState.isOwner, false);
+  assert.equal(duplicateState.locked, true);
+  assert.equal(duplicateState.conflict, true);
+});
+
+test("only the resolved Whole Dashboard owner survives card disconnect", () => {
+  const ownerConfig = {
+    type: "custom:frigate-view-card",
+    mobile_view_ha_navbar_bottom: true,
+    mobile_view_ha_navbar_dashboard: true,
+  };
+  const duplicateConfig = {
+    type: "custom:frigate-view-card",
+    mobile_view_ha_navbar_bottom: true,
+    mobile_view_ha_navbar_dashboard: true,
+  };
+  const dashboardConfig = {
+    views: [
+      { path: "mobile", cards: [ownerConfig] },
+      { path: "garage", cards: [duplicateConfig] },
+    ],
+  };
+  const owner = createHarness({
+    dashboardConfig,
+    dashboardScope: true,
+    sourceConfig: ownerConfig,
+  });
+  const duplicate = createHarness({
+    dashboardConfig,
+    dashboardScope: true,
+    sourceConfig: duplicateConfig,
+  });
+
+  assert.equal(owner.controller.sync(), true);
+  assert.equal(owner.windowRef.listenerCount("location-changed"), 1);
+  owner.host.isConnected = false;
+  owner.controller.disconnect();
+  assert.equal(
+    owner.getTargets().header.style.getPropertyValue("bottom"),
+    "0px",
+  );
+
+  assert.equal(duplicate.controller.sync(), true);
+  assert.equal(duplicate.windowRef.listenerCount("location-changed"), 0);
+  duplicate.host.isConnected = false;
+  duplicate.controller.disconnect();
+  assert.equal(
+    duplicate.getTargets().header.style.getPropertyValue("bottom"),
+    "",
+  );
+
+  owner.controller.disconnect({ force: true });
 });
 
 test("combines stacked labels with the bottom active-tab indicator", () => {

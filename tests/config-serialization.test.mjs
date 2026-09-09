@@ -2496,6 +2496,19 @@ test("Mobile View HA navbar options are ordered and nested under their master to
     editorSource,
     /\.ha-navbar-dependent-section\{margin-inline-start:14px/,
   );
+  assert.match(
+    editorSource,
+    /id="mobile_view_ha_navbar_dashboard" \$\{dashboardNavbarOwnership\.requested \? "checked" : ""\} \$\{dashboardNavbarOwnerSwitchDisabled \? "disabled" : ""\}/,
+  );
+  assert.match(editorSource, /navbar-owner-warning/);
+  assert.match(
+    editorSource,
+    /controls the bottom navbar for dashboard/,
+  );
+  assert.match(
+    editorSource,
+    /#mobile_view_ha_navbar_dashboard"\)\s*\?\.addEventListener\("change", \(\) => \{\s*update\(\);\s*this\._render\(\);/,
+  );
 });
 
 test("editor presents general, layout, and Mobile View controls in their requested sections", () => {

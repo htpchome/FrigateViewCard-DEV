@@ -94,6 +94,7 @@ import {
   resolveThemeCustomEditorConfig,
 } from "../features/card-style/config.js";
 import { resolveHomeAssistantThemeContext } from "../features/card-style/context.ctrl.js";
+import { resolveDashboardNavbarCardOwnership } from "../integrations/home-assistant/navbar.ctrl.js";
 import {
   WIDE_LEFT_WIDTH_MAX,
   WIDE_LEFT_WIDTH_MIN,
@@ -1232,6 +1233,51 @@ export class FrigateViewCardEditor extends HTMLElement {
       locked,
       conflict,
       owner: ownership.owner,
+      ownerPage,
+      dashboardName,
+    };
+  }
+
+  _dashboardNavbarOwnershipState() {
+    const requested =
+      this._config?.mobile_view_ha_navbar_dashboard === true;
+    const panel = findHomeAssistantLovelacePanel(null, globalThis.document);
+    const dashboardConfig = panel?.lovelace?.config || null;
+    if (!dashboardConfig) {
+      return {
+        requested,
+        isOwner: requested,
+        locked: false,
+        conflict: false,
+        owner: null,
+        ownerPage: "",
+        dashboardName: "",
+      };
+    }
+
+    const currentViewName = resolveCurrentHomeAssistantViewName({
+      panel,
+      windowRef: globalThis.window,
+    });
+    const ownership = resolveDashboardNavbarCardOwnership({
+      dashboardConfig,
+      sourceConfig: this._sourceConfig,
+      requested,
+      cardTag: CARD_TAG,
+      currentViewName,
+    });
+    const dashboardName =
+      String(dashboardConfig?.title || "").trim() ||
+      String(panel?.route?.prefix || "this dashboard")
+        .replace(/^\/+/, "")
+        .replace(/[-_]+/g, " ");
+    const ownerPage =
+      ownership.owner?.viewTitle ||
+      ownership.owner?.viewName ||
+      currentViewName ||
+      "another page";
+    return {
+      ...ownership,
       ownerPage,
       dashboardName,
     };
@@ -2696,6 +2742,25 @@ export class FrigateViewCardEditor extends HTMLElement {
   _render() {
     const frigEntities = this._frigateEntities();
     const cams = this._getCams();
+    const dashboardNavbarOwnership = this._dashboardNavbarOwnershipState();
+    const dashboardNavbarOwnerSwitchDisabled =
+      dashboardNavbarOwnership.locked &&
+      !dashboardNavbarOwnership.requested;
+    const navbarOwnerPageName = String(
+      dashboardNavbarOwnership.ownerPage || "",
+    );
+    const navbarOwnerPageLabel = /^page\b/i.test(navbarOwnerPageName)
+      ? navbarOwnerPageName
+      : `Page ${navbarOwnerPageName}`;
+    const navbarOwnerPageMarkup = `<strong>${escapeHtml(navbarOwnerPageLabel)}</strong>`;
+    const navbarDashboardNameMarkup = `<strong>${escapeHtml(
+      dashboardNavbarOwnership.dashboardName || "this dashboard",
+    )}</strong>`;
+    const dashboardNavbarOwnershipMessage = dashboardNavbarOwnership.locked
+      ? dashboardNavbarOwnership.conflict
+        ? `This card also claims Whole Dashboard navbar control in raw YAML, but the ${CARD_DISPLAY_NAME} on ${navbarOwnerPageMarkup} is first in dashboard ${navbarDashboardNameMarkup} and remains authoritative. Disable Whole Dashboard here or remove the duplicate YAML setting.`
+        : `The ${CARD_DISPLAY_NAME} on ${navbarOwnerPageMarkup} controls the bottom navbar for dashboard ${navbarDashboardNameMarkup}. Disable Whole Dashboard there before enabling it from this card.`
+      : "";
     const dashboardSwipeOwnership = this._dashboardSwipeOwnershipState();
     const dashboardSwipeMode = normalizeDashboardSwipeNavigationMode(
       this._config?.ha_dashboard_swipe_navigation,
@@ -3501,9 +3566,10 @@ export class FrigateViewCardEditor extends HTMLElement {
       <div class="section ha-navbar-dependent-section" id="mobile-view-ha-navbar-dashboard-row" style="${this._config?.mobile_view_ha_navbar_bottom ? "" : "display:none"}">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Whole Dashboard</span>
-          <ha-switch id="mobile_view_ha_navbar_dashboard" ${this._config?.mobile_view_ha_navbar_dashboard ? "checked" : ""}></ha-switch>
+          <ha-switch id="mobile_view_ha_navbar_dashboard" ${dashboardNavbarOwnership.requested ? "checked" : ""} ${dashboardNavbarOwnerSwitchDisabled ? "disabled" : ""}></ha-switch>
         </div>
-        <div class="field-helper">When off, the navbar follows this card across all of its internal views while the card remains on the current Home Assistant page. When on, it remains active as you navigate every page in this dashboard after this card loads.</div>
+        <div class="field-helper">When off, the navbar follows this card across all of its internal views while the card remains on the current Home Assistant page. When on, this card becomes the single owner and keeps the navbar at the bottom on every page in this dashboard after the card loads.</div>
+        ${dashboardNavbarOwnershipMessage ? `<div class="field-helper navbar-owner-warning">${dashboardNavbarOwnershipMessage}</div>` : ""}
       </div>
       <div class="section" id="mobile-view-outer-border-row" style="${this._config?.mobile_view_page_enabled !== false ? "" : "display:none"}">
         <div class="layout-row">
@@ -3848,8 +3914,8 @@ export class FrigateViewCardEditor extends HTMLElement {
             .editor-swipe-choice-footer ha-switch{flex:0 0 auto;}
             .editor-swipe-choice-footer:has(ha-switch[disabled]){opacity:.55;cursor:not-allowed;}
             .swipe-navigation-dependent-section{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid var(--c-primary, var(--editor-primary));}
-            .swipe-owner-warning{padding:8px 10px;border:1px solid var(--c-alert, #d32f2f);border-radius:8px;background:color-mix(in srgb,var(--c-alert, #d32f2f) 9%,transparent);color:var(--c-alert, #d32f2f);line-height:1.35;}
-            .swipe-owner-warning strong{display:inline-block;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--c-alert, #d32f2f) 16%,transparent);color:inherit;font-weight:800;}
+            .swipe-owner-warning,.navbar-owner-warning{padding:8px 10px;border:1px solid var(--c-alert, #d32f2f);border-radius:8px;background:color-mix(in srgb,var(--c-alert, #d32f2f) 9%,transparent);color:var(--c-alert, #d32f2f);line-height:1.35;}
+            .swipe-owner-warning strong,.navbar-owner-warning strong{display:inline-block;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--c-alert, #d32f2f) 16%,transparent);color:inherit;font-weight:800;}
             .editor-choice-chip{position:relative;display:block;min-width:0;cursor:pointer;}
             .editor-choice-chip-input{position:absolute;inline-size:1px;block-size:1px;margin:0;opacity:0;pointer-events:none;}
             .editor-choice-chip-body{display:flex;align-items:center;gap:8px;min-height:40px;box-sizing:border-box;padding:8px 11px;border:1px solid var(--c-border2, var(--editor-border));border-radius:10px;background:var(--c-bg-main, var(--editor-card-bg));color:var(--c-text, var(--editor-text));font-size:12px;font-weight:600;line-height:1.25;transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .1s ease;}
@@ -4647,6 +4713,11 @@ export class FrigateViewCardEditor extends HTMLElement {
     this._syncCardVersionStatus();
     this._syncEnvironmentSupportNotices();
 
+    this.querySelector("#mobile_view_ha_navbar_dashboard")
+      ?.addEventListener("change", () => {
+        update();
+        this._render();
+      });
     this.querySelector("#ha_dashboard_swipe_navigation_owner")
       ?.addEventListener("change", () => {
         update();
@@ -4733,7 +4804,6 @@ export class FrigateViewCardEditor extends HTMLElement {
         "mobile_view_outer_border",
         "mobile_view_ha_navbar_bottom",
         "mobile_view_ha_navbar_stack_tabs",
-        "mobile_view_ha_navbar_dashboard",
         "ha_dashboard_swipe_navigation",
         "ha_dashboard_swipe_include_other_cards",
         "ha_dashboard_swipe_mouse_enabled",

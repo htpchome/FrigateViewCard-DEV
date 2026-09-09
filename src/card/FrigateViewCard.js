@@ -1713,6 +1713,7 @@ export class FrigateViewCard extends HTMLElement {
     };
   }
   setConfig(config) {
+    this._sourceConfig = config;
     const wasStarted = this._started === true;
     const prevConfig = this._config;
     let cameras;
