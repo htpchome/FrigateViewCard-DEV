@@ -364,6 +364,9 @@ export class WideViewCompanionController {
       this._panelExpansionMaxPx,
       Math.max(0, finiteNumber(value)),
     );
+    if (nextExpansion > this._panelExpansionPx + 0.5) {
+      this._closeBrowsePanels();
+    }
     this._panelExpansionPx = nextExpansion;
     panel.style?.setProperty?.(
       "--wide-companion-expansion",
@@ -395,6 +398,17 @@ export class WideViewCompanionController {
       this._host._wideViewPageController?.syncColHeightIfWideView?.();
     }
     return true;
+  }
+
+  _closeBrowsePanels() {
+    let changed = false;
+    for (const region of ["filterPanel", "calendarPanel"]) {
+      const panel = this._host._pageShellRegion?.(region);
+      if (!panel || panel.style?.display === "none") continue;
+      panel.style.display = "none";
+      changed = true;
+    }
+    if (changed) this._host._syncToolbarButtons?.();
   }
 
   _startPanelExpansionDrag(event) {

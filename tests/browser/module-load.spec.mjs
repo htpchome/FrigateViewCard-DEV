@@ -372,6 +372,11 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     );
     const liveStage = root.querySelector("#live-stage");
     const cameraSwitcher = root.querySelector("#cam-switcher");
+    const filterButton = root.querySelector("#filter-btn");
+    const filterPanel = root.querySelector("#filter-panel");
+    const calendarButton = root.querySelector("#cal-btn");
+    const calendarPanel = root.querySelector("#cal-panel");
+    const toolbarHolder = filterButton.closest(".tabs-holder");
     const before = {
       panelTop: panel.getBoundingClientRect().top,
       surfaceTop: surface.getBoundingClientRect().top,
@@ -383,6 +388,20 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       buttonInsetRight:
         surface.getBoundingClientRect().right -
         expandButton.getBoundingClientRect().right,
+    };
+    filterButton.click();
+    const filterRect = filterPanel.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    const overlapX = Math.max(filterRect.left, surfaceRect.left) + 8;
+    const overlapY = Math.max(filterRect.top, surfaceRect.top) + 8;
+    const overlapTarget = root.elementFromPoint(overlapX, overlapY);
+    const filterOpen = {
+      display: filterPanel.style.display,
+      raised: toolbarHolder.classList.contains("has-open-toolbar-panel"),
+      zIndex: getComputedStyle(toolbarHolder).zIndex,
+      aboveCompanion:
+        overlapTarget === filterPanel ||
+        overlapTarget?.closest?.("#filter-panel") === filterPanel,
     };
     const pointerId = 7;
     const startY = handle.getBoundingClientRect().top + 10;
@@ -429,6 +448,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       panelExpanded: panel.classList.contains("is-expanded"),
       buttonExpanded: expandButton.getAttribute("aria-expanded"),
       buttonLabel: expandButton.getAttribute("aria-label"),
+      filterDisplay: filterPanel.style.display,
+      toolbarRaised: toolbarHolder.classList.contains(
+        "has-open-toolbar-panel",
+      ),
     };
 
     const collapseStartY = handle.getBoundingClientRect().top + 10;
@@ -466,6 +489,11 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       now: Number(handle.getAttribute("aria-valuenow")),
       panelExpanded: panel.classList.contains("is-expanded"),
     };
+    calendarButton.click();
+    const calendarOpen = {
+      display: calendarPanel.style.display,
+      raised: toolbarHolder.classList.contains("has-open-toolbar-panel"),
+    };
     expandButton.click();
     await new Promise((resolve) => requestAnimationFrame(resolve));
     const buttonExpanded = {
@@ -473,6 +501,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       max: Number(handle.getAttribute("aria-valuemax")),
       expanded: expandButton.getAttribute("aria-expanded"),
       label: expandButton.getAttribute("aria-label"),
+      calendarDisplay: calendarPanel.style.display,
+      toolbarRaised: toolbarHolder.classList.contains(
+        "has-open-toolbar-panel",
+      ),
     };
     expandButton.click();
     await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -489,8 +521,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
 
     return {
       before,
+      filterOpen,
       expanded,
       collapsed,
+      calendarOpen,
       buttonExpanded,
       buttonCollapsed,
       stopped: {
@@ -504,6 +538,12 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.surfacePaddingLeft).toBe("8px");
   expect(result.before.gridInsetLeft).toBeCloseTo(8, 0);
   expect(result.before.buttonInsetRight).toBeCloseTo(8, 0);
+  expect(result.filterOpen).toEqual({
+    display: "block",
+    raised: true,
+    zIndex: "30",
+    aboveCompanion: true,
+  });
   expect(result.expanded.now).toBe(result.expanded.max);
   expect(result.expanded.surfaceTop).toBeLessThan(
     result.before.surfaceTop - 20,
@@ -526,13 +566,18 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.expanded.panelExpanded).toBe(true);
   expect(result.expanded.buttonExpanded).toBe("true");
   expect(result.expanded.buttonLabel).toBe("Collapse Companion Cameras");
+  expect(result.expanded.filterDisplay).toBe("none");
+  expect(result.expanded.toolbarRaised).toBe(false);
   expect(result.collapsed.now).toBe(0);
   expect(result.collapsed.surfaceTop).toBeCloseTo(result.before.surfaceTop, 0);
   expect(result.collapsed.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
   expect(result.collapsed.panelExpanded).toBe(false);
+  expect(result.calendarOpen).toEqual({ display: "block", raised: true });
   expect(result.buttonExpanded.now).toBe(result.buttonExpanded.max);
   expect(result.buttonExpanded.expanded).toBe("true");
   expect(result.buttonExpanded.label).toBe("Collapse Companion Cameras");
+  expect(result.buttonExpanded.calendarDisplay).toBe("none");
+  expect(result.buttonExpanded.toolbarRaised).toBe(false);
   expect(result.buttonCollapsed).toEqual({
     now: 0,
     expanded: "false",

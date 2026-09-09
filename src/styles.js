@@ -731,6 +731,7 @@ export const STYLES = `
   .preview-cam-btn{}
   .card .layout--wide-view{flex:1 1 0;height:auto;min-height:0;}
   .card .col-left--wide-view{height:100%;max-height:100%;overflow:hidden;}
+  .card .layout--wide-view .tabs-holder.has-open-toolbar-panel{position:relative;z-index:30;}
   .wide-companion-panel{position:relative;z-index:20;display:block;flex:1 1 0;min-width:0;min-height:32px;box-sizing:border-box;overflow:visible;--wide-companion-expansion:0px;}
   .wide-companion-surface{position:absolute;inset:calc(0px - var(--wide-companion-expansion)) 0 0;display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0;padding:0 8px 4px;box-sizing:border-box;overflow:hidden;background:var(--c-bg-main);border-radius:calc(var(--fvc-border-radius,0px) / 2) calc(var(--fvc-border-radius,0px) / 2) 0 0;}
   .wide-companion-panel.is-expanded .wide-companion-surface{box-shadow:0 -8px 20px rgb(0 0 0 / 28%);}

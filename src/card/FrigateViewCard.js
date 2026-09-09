@@ -3808,22 +3808,33 @@ export class FrigateViewCard extends HTMLElement {
     }
 
     const filterBtn = this._pageShellRegionElement("tools", "#filter-btn");
+    let filterOpen = false;
     if (filterBtn) {
       const filterPanel = this._pageShellRegion("filterPanel");
-      const filterOpen = !!filterPanel && filterPanel.style.display !== "none";
+      filterOpen = !!filterPanel && filterPanel.style.display !== "none";
       filterBtn.disabled = buttonStates.filterDisabled;
       filterBtn.classList.toggle("active", filterOpen);
       filterBtn.setAttribute("aria-pressed", filterOpen ? "true" : "false");
     }
 
     const calBtn = this._pageShellRegionElement("tools", "#cal-btn");
+    let calOpen = false;
     if (calBtn) {
       const calPanel = this._pageShellRegion("calendarPanel");
-      const calOpen = !!calPanel && calPanel.style.display !== "none";
+      calOpen = !!calPanel && calPanel.style.display !== "none";
       calBtn.disabled = buttonStates.calendarDisabled;
       calBtn.classList.toggle("active", calOpen);
       calBtn.setAttribute("aria-pressed", calOpen ? "true" : "false");
     }
+
+    const toolbarHolder =
+      filterBtn?.closest?.(".tabs-holder") ||
+      calBtn?.closest?.(".tabs-holder") ||
+      null;
+    toolbarHolder?.classList?.toggle?.(
+      "has-open-toolbar-panel",
+      filterOpen || calOpen,
+    );
 
     if (!buttonStates.controlsVisible && this._tab === "controls") {
       this._setTab(this._resolveControlsReturnTab());

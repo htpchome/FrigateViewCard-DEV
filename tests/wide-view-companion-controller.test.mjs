@@ -129,6 +129,39 @@ test("Companion Cameras region exposes an accessible drag handle", () => {
     STYLES,
     /\.wide-companion-resize-handle\{[^}]*cursor:ns-resize;[^}]*touch-action:none/,
   );
+  assert.match(
+    STYLES,
+    /\.card \.layout--wide-view \.tabs-holder\.has-open-toolbar-panel\{[^}]*z-index:30/,
+  );
+});
+
+test("expanding Companion Cameras closes open browse panels", () => {
+  const { host, calls } = createHost();
+  const filterPanel = { style: { display: "block" } };
+  const calendarPanel = { style: { display: "block" } };
+  host._pageShellRegion = (region) =>
+    region === "filterPanel" ? filterPanel : calendarPanel;
+  const controller = new WideViewCompanionController(host, constants);
+  controller._panelExpansionPanel = {
+    style: { setProperty() {} },
+    classList: { toggle() {} },
+  };
+  controller._panelExpansionHandle = { setAttribute() {} };
+  controller._panelExpansionButton = { setAttribute() {} };
+  controller._panelExpansionMaxPx = 100;
+
+  controller._setPanelExpansion(50, { scheduleLayout: false });
+
+  assert.equal(filterPanel.style.display, "none");
+  assert.equal(calendarPanel.style.display, "none");
+  assert.equal(
+    calls.filter(([name]) => name === "syncToolbar").length,
+    1,
+  );
+
+  filterPanel.style.display = "block";
+  controller._setPanelExpansion(0, { scheduleLayout: false });
+  assert.equal(filterPanel.style.display, "block");
 });
 
 test("Companion Cameras render every configured camera in user order", () => {
