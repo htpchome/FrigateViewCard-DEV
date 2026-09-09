@@ -214,21 +214,6 @@ const dashboardViewName = (view, index) => {
   return configuredPath || String(index);
 };
 
-const currentDashboardViewName = ({ panel, huiRoot, windowRef }) => {
-  const prefix = normalizeDashboardPath(
-    panel?.route?.prefix || huiRoot?.route?.prefix || huiRoot?._route?.prefix,
-  );
-  const pathname = String(windowRef?.location?.pathname || "");
-  if (prefix && pathname.startsWith(`${prefix}/`)) {
-    return pathname
-      .slice(prefix.length)
-      .replace(/^\/+|\/+$/g, "");
-  }
-  return String(panel?.route?.path || pathname.split("/").filter(Boolean).at(-1) || "")
-    .trim()
-    .replace(/^\/+|\/+$/g, "");
-};
-
 const findHomeAssistantLovelacePanel = (huiRoot, documentRef) => {
   let current = huiRoot;
   for (let depth = 0; current && depth < 12; depth += 1) {
@@ -606,16 +591,15 @@ export class HomeAssistantNavbarController {
     return this._host?._isLikelyMobileClient?.() === true;
   }
 
-  _requestedCustomizations() {
-    const moveBottom =
-      this._host?._config?.mobile_view_ha_navbar_bottom === true;
+  _requestedCustomizations(config = this._host?._config) {
+    const moveBottom = config?.mobile_view_ha_navbar_bottom === true;
     const dashboardEdit =
       this._host?._isDashboardEditMode?.() === true;
     return {
       moveBottom,
       stackTabs:
         moveBottom &&
-        this._host?._config?.mobile_view_ha_navbar_stack_tabs === true,
+        config?.mobile_view_ha_navbar_stack_tabs === true,
       promoteViewInLandscape:
         moveBottom &&
         this._host?.isConnected !== false &&
@@ -628,40 +612,36 @@ export class HomeAssistantNavbarController {
     };
   }
 
-  _ownsDashboardScope(huiRoot = null) {
-    const requested =
-      this._host?._config?.mobile_view_ha_navbar_dashboard === true;
-    if (!requested) return false;
-    if (this._dashboardScopeActive && this._host?.isConnected === false) {
-      return true;
-    }
-
+  _dashboardNavbarPolicy(huiRoot = null) {
+    const localConfig = this._host?._config || null;
     const currentRoot =
       huiRoot ||
       findHomeAssistantLovelaceRoot(this._host) ||
       this._findCurrentHuiRoot?.() ||
       null;
     const panel = this._findPanel?.(currentRoot) || null;
-    const ownership = resolveDashboardNavbarCardOwnership({
-      dashboardConfig: panel?.lovelace?.config || null,
-      sourceConfig: this._host?._sourceConfig || null,
-      requested,
-      cardTag: this._cardTag,
-      currentViewName: currentDashboardViewName({
-        panel,
-        huiRoot: currentRoot,
-        windowRef: this._windowRef,
-      }),
-    });
-    return ownership.isOwner;
+    const dashboardConfig = panel?.lovelace?.config || null;
+    const ownership = resolveDashboardNavbarOwnership(
+      dashboardConfig,
+      this._cardTag,
+    );
+    const ownerConfig = ownership.owner?.config || null;
+    const localDashboardScope =
+      localConfig?.mobile_view_ha_navbar_bottom === true &&
+      localConfig?.mobile_view_ha_navbar_dashboard === true;
+    return {
+      config: ownerConfig || localConfig,
+      dashboardScope:
+        Boolean(ownerConfig) || (!dashboardConfig && localDashboardScope),
+    };
   }
 
-  shouldCustomizeNavbar() {
-    const { moveBottom } = this._requestedCustomizations();
+  shouldCustomizeNavbar(policy = this._dashboardNavbarPolicy()) {
+    const { moveBottom } = this._requestedCustomizations(policy.config);
     if (!moveBottom || !this._isMobileDevice()) {
       return false;
     }
-    if (this._ownsDashboardScope()) {
+    if (policy.dashboardScope) {
       return (
         this._host?.isConnected !== false ||
         this._dashboardScopeActive === true
@@ -671,9 +651,10 @@ export class HomeAssistantNavbarController {
   }
 
   shouldMoveNavbarToBottom() {
+    const policy = this._dashboardNavbarPolicy();
     return (
-      this.shouldCustomizeNavbar() &&
-      this._requestedCustomizations().moveBottom
+      this.shouldCustomizeNavbar(policy) &&
+      this._requestedCustomizations(policy.config).moveBottom
     );
   }
 
@@ -715,13 +696,14 @@ export class HomeAssistantNavbarController {
   }
 
   shouldStackNavbarTabs() {
+    const policy = this._dashboardNavbarPolicy();
     return (
-      this.shouldCustomizeNavbar() &&
-      this._requestedCustomizations().stackTabs
+      this.shouldCustomizeNavbar(policy) &&
+      this._requestedCustomizations(policy.config).stackTabs
     );
   }
 
-  _moveToRoot(huiRoot) {
+  _moveToRoot(huiRoot, config = null) {
     if (!huiRoot) {
       this._releaseCurrentRoot();
       return false;
@@ -736,7 +718,9 @@ export class HomeAssistantNavbarController {
       stackTabs,
       promoteViewInLandscape,
       reserveDashboardEditActions,
-    } = this._requestedCustomizations();
+    } = this._requestedCustomizations(
+      config || this._dashboardNavbarPolicy(huiRoot).config,
+    );
     return acquireNavbarCustomization(this, huiRoot, {
       MutationObserverCtor: this._MutationObserverCtor,
       isIOS: this._isIOS,
@@ -833,13 +817,14 @@ export class HomeAssistantNavbarController {
   }
 
   sync() {
-    if (!this.shouldCustomizeNavbar()) {
+    const hostHuiRoot = findHomeAssistantLovelaceRoot(this._host);
+    const policy = this._dashboardNavbarPolicy(hostHuiRoot);
+    if (!this.shouldCustomizeNavbar(policy)) {
       this._deactivate();
       return false;
     }
 
-    const hostHuiRoot = findHomeAssistantLovelaceRoot(this._host);
-    const dashboardScope = this._ownsDashboardScope(hostHuiRoot);
+    const dashboardScope = policy.dashboardScope;
     if (!dashboardScope) this._stopDashboardMonitoring();
 
     const huiRoot = hostHuiRoot;
@@ -849,7 +834,7 @@ export class HomeAssistantNavbarController {
     }
 
     if (dashboardScope) this._startDashboardMonitoring(huiRoot);
-    return this._moveToRoot(huiRoot);
+    return this._moveToRoot(huiRoot, policy.config);
   }
 
   disconnect({ force = false } = {}) {

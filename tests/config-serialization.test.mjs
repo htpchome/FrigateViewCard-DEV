@@ -264,7 +264,7 @@ test("requested editor settings use the shared choice-chip control", () => {
     editorSource,
     /data-ha-dashboard-swipe-include-subviews/,
   );
-  assert.match(editorSource, /`Page \$\{ownerPageName\}`/);
+  assert.match(editorSource, /<strong>Page: \$\{escapeHtml/);
   assert.match(editorSource, /swipe-owner-warning strong/);
   assert.doesNotMatch(
     editorSource,
@@ -2498,12 +2498,25 @@ test("Mobile View HA navbar options are ordered and nested under their master to
   );
   assert.match(
     editorSource,
-    /id="mobile_view_ha_navbar_dashboard" \$\{dashboardNavbarOwnership\.requested \? "checked" : ""\} \$\{dashboardNavbarOwnerSwitchDisabled \? "disabled" : ""\}/,
+    /id="mobile_view_ha_navbar_bottom" \$\{this\._config\?\.mobile_view_ha_navbar_bottom \? "checked" : ""\} \$\{dashboardNavbarMoveSwitchDisabled \? "disabled" : ""\}/,
+  );
+  assert.doesNotMatch(
+    editorSource,
+    /id="mobile_view_ha_navbar_dashboard"[^>]*dashboardNavbarOwnerSwitchDisabled/,
   );
   assert.match(editorSource, /navbar-owner-warning/);
+  assert.match(editorSource, /navbar-owner-info/);
   assert.match(
     editorSource,
-    /controls the bottom navbar for dashboard/,
+    /Move HA Navbar to Bottom is controlled by/,
+  );
+  assert.match(
+    editorSource,
+    /Page: \$\{escapeHtml/,
+  );
+  assert.match(
+    editorSource,
+    /Dashboard: \$\{dashboardNavbarOwnership\.dashboardName/,
   );
   assert.match(
     editorSource,

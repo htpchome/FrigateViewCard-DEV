@@ -139,7 +139,6 @@ const createHarness = ({
   queueMicrotaskFn = (callback) => callback(),
   rotateFullscreen = true,
   stackTabs = false,
-  sourceConfig = null,
   viewPaddingBottom = "34px",
   viewPaddingTop = "103px",
   viewportHeight = 844,
@@ -202,7 +201,6 @@ const createHarness = ({
     _isMobileViewPageActive: () => host._mobileViewActive,
     _isDashboardEditMode: () => host._dashboardEditMode,
     _dashboardEditMode: dashboardEditMode,
-    _sourceConfig: sourceConfig,
   };
   const controller = new HomeAssistantNavbarController(host, {
     MutationObserverCtor: FakeMutationObserver,
@@ -406,53 +404,50 @@ test("Whole Dashboard ownership is deterministic across nested cards", () => {
   assert.equal(duplicateState.conflict, true);
 });
 
-test("only the resolved Whole Dashboard owner survives card disconnect", () => {
+test("a direct-entry card applies the configured Whole Dashboard owner policy", () => {
   const ownerConfig = {
     type: "custom:frigate-view-card",
     mobile_view_ha_navbar_bottom: true,
     mobile_view_ha_navbar_dashboard: true,
+    mobile_view_ha_navbar_stack_tabs: true,
   };
-  const duplicateConfig = {
+  const entryConfig = {
     type: "custom:frigate-view-card",
-    mobile_view_ha_navbar_bottom: true,
-    mobile_view_ha_navbar_dashboard: true,
+    mobile_view_ha_navbar_bottom: false,
+    mobile_view_ha_navbar_dashboard: false,
   };
   const dashboardConfig = {
     views: [
-      { path: "mobile", cards: [ownerConfig] },
-      { path: "garage", cards: [duplicateConfig] },
+      { path: "cameras", cards: [ownerConfig] },
+      { path: "mobile", cards: [entryConfig] },
     ],
   };
-  const owner = createHarness({
+  const entry = createHarness({
     dashboardConfig,
-    dashboardScope: true,
-    sourceConfig: ownerConfig,
-  });
-  const duplicate = createHarness({
-    dashboardConfig,
-    dashboardScope: true,
-    sourceConfig: duplicateConfig,
+    dashboardScope: false,
+    moveBottom: false,
+    stackTabs: false,
   });
 
-  assert.equal(owner.controller.sync(), true);
-  assert.equal(owner.windowRef.listenerCount("location-changed"), 1);
-  owner.host.isConnected = false;
-  owner.controller.disconnect();
+  assert.equal(entry.controller.sync(), true);
+  assert.equal(entry.windowRef.listenerCount("location-changed"), 1);
   assert.equal(
-    owner.getTargets().header.style.getPropertyValue("bottom"),
+    entry.getTargets().header.style.getPropertyValue("bottom"),
+    "0px",
+  );
+  assert.match(
+    entry.getTargets().children[0].textContent,
+    /ha-tab-group-tab\.icon-and-title/,
+  );
+
+  entry.host.isConnected = false;
+  entry.controller.disconnect();
+  assert.equal(
+    entry.getTargets().header.style.getPropertyValue("bottom"),
     "0px",
   );
 
-  assert.equal(duplicate.controller.sync(), true);
-  assert.equal(duplicate.windowRef.listenerCount("location-changed"), 0);
-  duplicate.host.isConnected = false;
-  duplicate.controller.disconnect();
-  assert.equal(
-    duplicate.getTargets().header.style.getPropertyValue("bottom"),
-    "",
-  );
-
-  owner.controller.disconnect({ force: true });
+  entry.controller.disconnect({ force: true });
 });
 
 test("combines stacked labels with the bottom active-tab indicator", () => {
