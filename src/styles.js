@@ -935,8 +935,8 @@ export const STYLES = `
   .controls-presets-note{margin-top:6px;color:var(--c-text2);font-size:.72rem;line-height:1.25;text-align:center;}
   .frigate-view{max-height:24px;pointer-events: none;}
   .frigate-view svg{height:24px;pointer-events: none;}
-  .frigateView-accent svg{color:#ff5733;fill:#ff5733;}
-  .frigateView-accent {color:#ff5733;fill:#ff5733;}
+  .frigate-view-accent svg{color:#ff5733;fill:#ff5733;}
+  .frigate-view-accent {color:#ff5733;fill:#ff5733;}
   
   .recording-scrub {display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-top:10px;}
   .recording-scrub[hidden] {display:none;}
@@ -1072,7 +1072,11 @@ export const STYLES = `
 
 
   /* ── toast ── */
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1600;background:rgba(15,21,40,.96);border:1px solid rgba(239,68,68,.4);color:var(--c-off);padding:8px 14px;border-radius:6px;font-size:0.9rem;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:90%;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1600;padding:8px 14px;border:1px solid transparent;border-radius:999px;color:#fff;font-size:.9rem;font-weight:650;line-height:1.25;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.38);max-width:90%;box-sizing:border-box;overflow-wrap:anywhere;pointer-events:none;}
+  .toast[hidden]{display:none;}
+  .toast.toast--success{background:rgba(22,101,52,.96);background:color-mix(in srgb,#15803d 92%,var(--c-bg-deep));border-color:rgba(74,222,128,.65);}
+  .toast.toast--error{background:rgba(127,29,29,.96);background:color-mix(in srgb,var(--error-color,#dc2626) 72%,var(--c-bg-deep));border-color:rgba(252,165,165,.72);}
+  .toast.toast--browse{position:absolute;left:var(--fvc-toast-browse-left,50%);top:var(--fvc-toast-browse-top,12px);bottom:auto;max-width:var(--fvc-toast-browse-max-width,90%);}
 
 /* ========================================================= */
   .popup-content {position:absolute;bottom:0;left:var(--popup-shell-left,0px);right:auto;width:min(var(--popup-shell-width,100%),calc(100% - var(--popup-shell-left,0px)));max-width:none;height:95%;max-height:95%;min-height:95%;margin-inline:0;box-sizing:border-box;z-index:var(--popup-z-index);background:var(--popup-bg);

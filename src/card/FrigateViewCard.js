@@ -2357,6 +2357,8 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._editorLiveHandoffController?.dispose?.();
     if (this._liveControlsHideTimer) clearTimeout(this._liveControlsHideTimer);
+    if (this._toastT) clearTimeout(this._toastT);
+    this._toastT = null;
     Object.values(this._snapshotResultTimers || {}).forEach((timer) => {
       if (timer) clearTimeout(timer);
     });
@@ -4842,7 +4844,7 @@ export class FrigateViewCard extends HTMLElement {
     <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">
 
         ${mainLayoutShell}
-        <div class="toast" id="toast" style="display:none"></div>
+        <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
           ${popupShell}
       </ha-card>
@@ -7532,37 +7534,52 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._renderList();
     const { clientId } = eventContext || this._cc();
-    this._hass
+    return this._hass
       .callWS({
         type: "frigate/event/retain",
         instance_id: clientId,
         event_id: id,
         retain: optimistic.nextRetained,
       })
-      .catch((err) => {
-        const rollback = buildFavoriteRollbackMutation({
-          id,
-          event: ev,
-          previousRetained: optimistic.previousRetained,
-          events: this._events,
-          camCache: this._camCache,
-          kept,
-          activeEntity: eventEntity,
-        });
-        this._events = rollback.events;
-        this._camCache = rollback.camCache;
-        if (this._config?.favorites_mixed_cameras !== false) {
-          this._kept = this._allGridKeptEvents().sort(
-            (left, right) =>
-              Number(right?.start_time || 0) - Number(left?.start_time || 0),
+      .then(
+        () => {
+          this._toast(
+            optimistic.nextRetained
+              ? "Added to Favorites"
+              : "Removed from Favorites",
+            { tone: "success", placement: "browse" },
           );
-        } else if (eventEntity === activeEntity) {
-          this._kept = rollback.kept;
-        }
-        this._renderList();
-        console.warn("[Frigate] retain failed", err);
-        this._toast("Could not save — check Frigate port config.");
-      });
+        },
+        (err) => {
+          const rollback = buildFavoriteRollbackMutation({
+            id,
+            event: ev,
+            previousRetained: optimistic.previousRetained,
+            events: this._events,
+            camCache: this._camCache,
+            kept,
+            activeEntity: eventEntity,
+          });
+          this._events = rollback.events;
+          this._camCache = rollback.camCache;
+          if (this._config?.favorites_mixed_cameras !== false) {
+            this._kept = this._allGridKeptEvents().sort(
+              (left, right) =>
+                Number(right?.start_time || 0) - Number(left?.start_time || 0),
+            );
+          } else if (eventEntity === activeEntity) {
+            this._kept = rollback.kept;
+          }
+          this._renderList();
+          console.warn("[Frigate] retain failed", err);
+          this._toast(
+            optimistic.nextRetained
+              ? "Could not add to Favorites"
+              : "Could not remove from Favorites",
+            { tone: "error", placement: "browse" },
+          );
+        },
+      );
   }
   // ── browse / filter ───────────────────────────────────────
   _applyBrowse() {
@@ -7573,15 +7590,60 @@ export class FrigateViewCard extends HTMLElement {
     this._browseOpen = !this._browseOpen;
     this._applyBrowse();
   }
-  _toast(msg, ms = 3500) {
+  _toast(msg, options = {}) {
     const t = this._$("#toast");
     if (!t) return;
+    const normalizedOptions =
+      typeof options === "number" ? { duration: options } : options || {};
+    const duration = Number(normalizedOptions.duration) || 3500;
+    const tone =
+      normalizedOptions.tone === "success" ? "success" : "error";
+    let placement = "global";
+
+    t.classList?.remove("toast--success", "toast--error", "toast--browse");
+    t.classList?.add(`toast--${tone}`);
+    t.style?.removeProperty?.("--fvc-toast-browse-left");
+    t.style?.removeProperty?.("--fvc-toast-browse-top");
+    t.style?.removeProperty?.("--fvc-toast-browse-max-width");
+
+    if (normalizedOptions.placement === "browse") {
+      const browse = this._pageShellRegion("browse");
+      const card = this._$("#card");
+      const browseRect = browse?.getBoundingClientRect?.();
+      const cardRect = card?.getBoundingClientRect?.();
+      const browseWidth = Number(browseRect?.width) || 0;
+      const cardWidth = Number(cardRect?.width) || 0;
+      const availableWidth = Math.min(browseWidth, cardWidth) - 20;
+      if (
+        browseRect &&
+        cardRect &&
+        availableWidth >= 80 &&
+        Number.isFinite(browseRect.left) &&
+        Number.isFinite(browseRect.top) &&
+        Number.isFinite(cardRect.left) &&
+        Number.isFinite(cardRect.top)
+      ) {
+        const left = browseRect.left - cardRect.left + browseWidth / 2;
+        const top = Math.max(8, browseRect.top - cardRect.top + 10);
+        t.style?.setProperty?.("--fvc-toast-browse-left", `${left}px`);
+        t.style?.setProperty?.("--fvc-toast-browse-top", `${top}px`);
+        t.style?.setProperty?.(
+          "--fvc-toast-browse-max-width",
+          `${availableWidth}px`,
+        );
+        t.classList?.add("toast--browse");
+        placement = "browse";
+      }
+    }
+
     t.textContent = msg;
-    t.style.display = "block";
+    t.hidden = false;
+    t.dataset.placement = placement;
     clearTimeout(this._toastT);
     this._toastT = setTimeout(() => {
-      t.style.display = "none";
-    }, ms);
+      t.hidden = true;
+      this._toastT = null;
+    }, duration);
   }
   _toggleFilter() {
     this._browseFilterController.toggleFilter();
