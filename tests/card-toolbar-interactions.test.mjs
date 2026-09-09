@@ -203,6 +203,7 @@ test("editor layout changes reevaluate an active rotate overlay", () => {
   const context = {
     _editorLayoutSyncRaf: 0,
     isConnected: true,
+    _haNavbarController: { sync: () => calls.push("navbar") },
     _applyCardStyle: () => calls.push("style"),
     _wideViewPageController: {
       syncColHeightIfWideView: () => calls.push("wide"),
@@ -224,7 +225,7 @@ test("editor layout changes reevaluate an active rotate overlay", () => {
     }
   }
 
-  assert.deepEqual(calls, ["style", "wide", "rotate"]);
+  assert.deepEqual(calls, ["navbar", "style", "wide", "rotate"]);
   assert.equal(context._editorLayoutSyncRaf, 0);
 });
 

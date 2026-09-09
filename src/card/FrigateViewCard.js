@@ -5655,6 +5655,7 @@ export class FrigateViewCard extends HTMLElement {
     const applyLayout = () => {
       this._editorLayoutSyncRaf = 0;
       if (!this.isConnected) return;
+      this._haNavbarController?.sync?.();
       this._applyCardStyle();
       this._wideViewPageController?.syncColHeightIfWideView?.();
       this._scheduleRotateOverlayUpdate();

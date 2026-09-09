@@ -54,13 +54,17 @@ export const resolveHomeAssistantNavbarStyleText = ({
     .filter(Boolean)
     .join("\n");
 
-const resolveViewBottomStyles = (isIOS) => ({
-  "padding-top": HA_SAFE_AREA_TOP,
-  // The relocated HA header contains the toolbar and dashboard-tab rows.
-  "padding-bottom": isIOS
-    ? `calc(var(--header-height, 56px) + var(--header-height, 56px) + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px + (${HA_SAFE_AREA_BOTTOM} * 0.25))`
-    : `calc(var(--header-height, 56px) + var(--header-height, 56px) + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px)`,
-});
+const resolveViewBottomStyles = (isIOS, reserveDashboardEditActions) => {
+  const dashboardEditClearance = reserveDashboardEditActions
+    ? " + var(--header-height, 56px)"
+    : "";
+  return {
+    "padding-top": HA_SAFE_AREA_TOP,
+    "padding-bottom": isIOS
+      ? `calc(var(--header-height, 56px)${dashboardEditClearance} + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px + (${HA_SAFE_AREA_BOTTOM} * 0.25))`
+      : `calc(var(--header-height, 56px)${dashboardEditClearance} + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px)`,
+  };
+};
 
 const TOOLBAR_BOTTOM_STYLES = Object.freeze({
   "border-bottom": "none",
@@ -298,8 +302,14 @@ const applyManagedTargets = (state) => {
   const promoteViewInLandscape = ownerOptions.some(
     (options) => options?.promoteViewInLandscape === true,
   );
+  const reserveDashboardEditActions = ownerOptions.some(
+    (options) => options?.reserveDashboardEditActions === true,
+  );
   const headerStyles = resolveHeaderBottomStyles(isIOS);
-  const viewStyles = resolveViewBottomStyles(isIOS);
+  const viewStyles = resolveViewBottomStyles(
+    isIOS,
+    reserveDashboardEditActions,
+  );
   const targetsChanged =
     state.header !== targets.header ||
     state.toolbar !== targets.toolbar ||
@@ -359,6 +369,7 @@ const acquireNavbarCustomization = (
     moveBottom = false,
     stackTabs = false,
     promoteViewInLandscape = false,
+    reserveDashboardEditActions = false,
   } = {},
 ) => {
   let state = coordinatorByRoot.get(huiRoot);
@@ -397,6 +408,7 @@ const acquireNavbarCustomization = (
     moveBottom,
     stackTabs,
     promoteViewInLandscape,
+    reserveDashboardEditActions,
   });
   return applyManagedTargets(state);
 };
@@ -470,6 +482,8 @@ export class HomeAssistantNavbarController {
         this._host?._isLikelyPhoneClient?.() === true &&
         this._host?._isMobileViewPageActive?.() === true &&
         this._host?._config?.mobile_view_rotate_to_fullscreen === true,
+      reserveDashboardEditActions:
+        moveBottom && this._host?._isDashboardEditMode?.() === true,
     };
   }
 
@@ -551,14 +565,19 @@ export class HomeAssistantNavbarController {
       this._huiRoot = null;
     }
     this._huiRoot = huiRoot;
-    const { moveBottom, stackTabs, promoteViewInLandscape } =
-      this._requestedCustomizations();
+    const {
+      moveBottom,
+      stackTabs,
+      promoteViewInLandscape,
+      reserveDashboardEditActions,
+    } = this._requestedCustomizations();
     return acquireNavbarCustomization(this, huiRoot, {
       MutationObserverCtor: this._MutationObserverCtor,
       isIOS: this._isIOS,
       moveBottom,
       stackTabs,
       promoteViewInLandscape,
+      reserveDashboardEditActions,
     });
   }
 
