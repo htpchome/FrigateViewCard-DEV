@@ -31,10 +31,14 @@ export function buildMobileCamSwitcherMarkup({
 
 export function buildMobileViewBackButtonMarkup({
   previewPageEnabled = false,
+  visible = true,
   icons = {},
 } = {}) {
-  if (!previewPageEnabled) return "";
-  return `<button class="round-btn preview-back-btn mobile-cam-picker__back" type="button" data-preview-back title="Back to preview page" aria-label="Back to preview page">${icons.back || ""}</button>`;
+  if (!visible) return "";
+  const destinationLabel = previewPageEnabled
+    ? "preview page"
+    : "single view";
+  return `<button class="round-btn preview-back-btn mobile-cam-picker__back" type="button" data-page-back title="Back to ${destinationLabel}" aria-label="Back to ${destinationLabel}">${icons.back || ""}</button>`;
 }
 
 export function buildMobileViewInfoRowMarkup({

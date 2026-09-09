@@ -462,6 +462,15 @@ test("pageRouteOptions and isPageRouteAvailable use routed constants", () => {
   assert.equal(controller.isPageRouteAvailable(PAGE_IDS.wideView), false);
 });
 
+test("back target prefers Preview and falls back to Single View", () => {
+  const h = createHarness();
+  const controller = new PageNavigationController(h.host, h.constants);
+
+  assert.equal(controller.resolveBackPageTarget(), PAGE_IDS.preview);
+  h.constants.getEnabledPageRoutes = () => [PAGE_IDS.singleView];
+  assert.equal(controller.resolveBackPageTarget(), PAGE_IDS.singleView);
+});
+
 test("pageRouteLabel returns expected labels", () => {
   const h = createHarness();
   const controller = new PageNavigationController(h.host, h.constants);

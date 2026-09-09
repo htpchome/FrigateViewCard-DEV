@@ -1930,10 +1930,13 @@ export class CardViewPageController {
         const previewAvailable =
           this._host._config?.preview_page_enabled === true &&
           navigation?.isPageRouteAvailable?.(previewPageId) !== false;
-        navigation?.navigateToPageRoute?.(
-          previewAvailable
+        const targetPageId =
+          navigation?.resolveBackPageTarget?.() ||
+          (previewAvailable
             ? previewPageId
-            : this._constants.PAGE_IDS.singleView,
+            : this._constants.PAGE_IDS.singleView);
+        navigation?.navigateToPageRoute?.(
+          targetPageId,
           { source: "card-view-video-back" },
         );
       }

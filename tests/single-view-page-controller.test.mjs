@@ -938,7 +938,7 @@ test("single-view camera switcher uses page navigation instead of a preview back
 
   const markup = controller.camSwitcherMarkup({ includeStatus: true });
 
-  assert.equal(markup.includes("data-preview-back"), false);
+  assert.equal(markup.includes("data-page-back"), false);
   assert.equal(markup.includes('data-camidx="0"'), true);
   assert.equal(markup.includes("Front Door"), true);
 });

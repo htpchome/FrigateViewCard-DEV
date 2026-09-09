@@ -4714,12 +4714,14 @@ export class FrigateViewCard extends HTMLElement {
       liveSourceWebRtcIcon: ICONS.webrtc,
       information: infoRow,
       mobileBackButton: buildMobileViewBackButtonMarkup({
-        previewPageEnabled:
-          this._isPreviewPageEnabled() &&
-          !(
-            this._isCardViewPageActive() &&
-            this._config?.card_view_standalone === true
-          ),
+        previewPageEnabled: this._isPreviewPageEnabled(),
+        visible:
+          this._isMobileViewPageActive() ||
+          (this._isPreviewPageEnabled() &&
+            !(
+              this._isCardViewPageActive() &&
+              this._config?.card_view_standalone === true
+            )),
         icons: ICONS,
       }),
       cameraSwitcherMarkup: camSwitcherMarkup,
@@ -6585,9 +6587,13 @@ export class FrigateViewCard extends HTMLElement {
       );
       return true;
     }
-    const previewBack = target.closest("[data-preview-back]");
-    if (previewBack) {
-      this._returnToPreviewPage();
+    const pageBack = target.closest("[data-page-back]");
+    if (pageBack) {
+      const targetPageId =
+        this._pageNavigationController.resolveBackPageTarget();
+      this._pageNavigationController.navigateToPageRoute(targetPageId, {
+        source: "mobile-view-back",
+      });
       return true;
     }
     return false;

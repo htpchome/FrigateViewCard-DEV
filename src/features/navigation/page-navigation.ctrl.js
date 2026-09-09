@@ -49,6 +49,13 @@ export class PageNavigationController {
     );
   }
 
+  resolveBackPageTarget() {
+    const { PAGE_IDS } = this._constants;
+    return this.isPageRouteAvailable(PAGE_IDS.preview)
+      ? PAGE_IDS.preview
+      : PAGE_IDS.singleView;
+  }
+
   pageSwipeRouteOptions(swipeMode = null) {
     const config = swipeMode
       ? {

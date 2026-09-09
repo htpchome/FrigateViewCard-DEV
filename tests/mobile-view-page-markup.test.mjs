@@ -145,7 +145,7 @@ test("mobile view cam switcher markup renders trigger and picker options", () =>
     isCameraAvailable: (camera) => camera.entity !== "camera.front_door",
   });
 
-  assert.equal(markup.includes("data-preview-back"), false);
+  assert.equal(markup.includes("data-page-back"), false);
   assert.equal(markup.includes("data-mobile-cam-trigger"), true);
   assert.equal(markup.includes('data-mobile-camidx="1"'), true);
   assert.equal(markup.includes('aria-expanded="false"'), true);
@@ -155,20 +155,28 @@ test("mobile view cam switcher markup renders trigger and picker options", () =>
   assert.equal(markup.includes("Driveway"), true);
 });
 
-test("mobile view back button only renders when Preview is enabled", () => {
-  assert.equal(
+test("mobile view back button targets Preview or Single View", () => {
+  assert.match(
     buildMobileViewBackButtonMarkup({
       previewPageEnabled: false,
       icons: { back: "Back" },
     }),
-    "",
+    /data-page-back[\s\S]*Back to single view[\s\S]*Back/,
   );
   assert.match(
     buildMobileViewBackButtonMarkup({
       previewPageEnabled: true,
       icons: { back: "Back" },
     }),
-    /data-preview-back[\s\S]*Back/,
+    /data-page-back[\s\S]*Back to preview page[\s\S]*Back/,
+  );
+  assert.equal(
+    buildMobileViewBackButtonMarkup({
+      previewPageEnabled: true,
+      visible: false,
+      icons: { back: "Back" },
+    }),
+    "",
   );
 });
 
@@ -199,7 +207,7 @@ test("mobile view main layout renders centered two-way-talk slot above tabs", ()
       layoutClass: "layout--mobile-view",
       liveControlsPlacement: "overlay",
     },
-    backButton: `<button data-preview-back>Back</button>`,
+    backButton: `<button data-page-back>Back</button>`,
     cameraSwitcherMarkup: `<div data-mobile-cam-picker>Picker</div>`,
   });
 
@@ -210,7 +218,7 @@ test("mobile view main layout renders centered two-way-talk slot above tabs", ()
   assert.match(markup, /class="live-stage live-stage--overlay"/);
   assert.match(
     markup,
-    /class="cam-switcher"[\s\S]*?mobile-cam-picker__back-slot[\s\S]*?data-preview-back[\s\S]*?data-mobile-cam-switcher-content[\s\S]*?data-mobile-cam-picker/,
+    /class="cam-switcher"[\s\S]*?mobile-cam-picker__back-slot[\s\S]*?data-page-back[\s\S]*?data-mobile-cam-switcher-content[\s\S]*?data-mobile-cam-picker/,
   );
   assert.equal(markup.match(/data-fvc-region="camera-switcher"/g)?.length, 1);
   assert.match(liveStageMarkup, /id="live-playback-controls"/);

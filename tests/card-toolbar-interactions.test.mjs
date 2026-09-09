@@ -137,6 +137,41 @@ test("desktop Mobile View alert takeover reaches its page controller", () => {
   assert.deepEqual(calls, ["toggle"]);
 });
 
+test("Mobile View back navigates to the resolved Preview or Single View target", () => {
+  const calls = [];
+  let destination = "preview";
+  const context = {
+    _pageNavigationController: {
+      resolveBackPageTarget: () => destination,
+      navigateToPageRoute: (pageId, options) =>
+        calls.push([pageId, options]),
+    },
+  };
+  const target = {
+    closest: (selector) => (selector === "[data-page-back]" ? {} : null),
+  };
+
+  assert.equal(
+    FrigateViewCard.prototype._handlePreviewSidebarClick.call(
+      context,
+      target,
+    ),
+    true,
+  );
+  destination = "single-view";
+  assert.equal(
+    FrigateViewCard.prototype._handlePreviewSidebarClick.call(
+      context,
+      target,
+    ),
+    true,
+  );
+  assert.deepEqual(calls, [
+    ["preview", { source: "mobile-view-back" }],
+    ["single-view", { source: "mobile-view-back" }],
+  ]);
+});
+
 test("mobile-device detection disables takeover before page defaults", () => {
   assert.equal(
     FrigateViewCard.prototype._isAlertCameraTakeoverAvailable.call({

@@ -1574,6 +1574,10 @@ test("non-standalone Video Only back prefers Preview and falls back to Single Vi
     },
     _pageNavigationController: {
       isPageRouteAvailable: (pageId) => pageId === "preview",
+      resolveBackPageTarget: () =>
+        host._config.preview_page_enabled
+          ? "preview"
+          : "single-view",
       navigateToPageRoute: (...args) => navigations.push(args),
     },
   };
