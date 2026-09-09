@@ -1916,6 +1916,7 @@ export class CardViewPageController {
   handleClick(event, target) {
     if (!this.isActive()) return false;
     if (this._mediaDrawerController.handleClick(event, target)) return true;
+    if (this._mediaDrawerController.closeForVideoAreaClick(target)) return true;
     if (this._handleMediaDrawerFilterOption(target)) return true;
     if (target.closest?.("[data-card-view-video-back]")) {
       event?.preventDefault?.();

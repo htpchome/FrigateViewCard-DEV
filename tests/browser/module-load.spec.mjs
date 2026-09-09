@@ -1244,6 +1244,7 @@ test.describe("touch input", () => {
       const viewer = root.querySelector("#viewer");
       const actions = root.querySelector("#popup-card-view-actions");
       const mediaBar = root.querySelector("#popup-media-controls");
+      const closeButton = root.querySelector("#close-btn");
       cardRoot.classList.add("mobile-rotate-popup");
       popup.classList.add("popup-content--card-view-drawer", "is-open");
       popup.style.animation = "none";
@@ -1273,6 +1274,7 @@ test.describe("touch input", () => {
       const actionsRect = actions.getBoundingClientRect();
       const sideControlsRect = sideControls.getBoundingClientRect();
       const mediaBarRect = mediaBar.getBoundingClientRect();
+      const closeRect = closeButton.getBoundingClientRect();
 
       return {
         hostHeight: hostRect.height,
@@ -1286,6 +1288,10 @@ test.describe("touch input", () => {
         leftControlInset: actionsRect.left,
         rightControlInset: 844 - sideControlsRect.right,
         bottomBarGap: 390 - mediaBarRect.bottom,
+        closeDisplay: getComputedStyle(closeButton.closest(".popup-close-row"))
+          .display,
+        closeRightInset: 844 - closeRect.right,
+        closeTop: closeRect.top,
       };
     });
 
@@ -1300,6 +1306,9 @@ test.describe("touch input", () => {
     expect(geometry.leftControlInset).toBeCloseTo(20, 0);
     expect(geometry.rightControlInset).toBeCloseTo(20, 0);
     expect(geometry.bottomBarGap).toBeCloseTo(0, 0);
+    expect(geometry.closeDisplay).not.toBe("none");
+    expect(geometry.closeRightInset).toBeCloseTo(20, 0);
+    expect(geometry.closeTop).toBeCloseTo(8, 0);
   });
 
   test("insets rotated Card View live overlays and closes its media carousel", async ({

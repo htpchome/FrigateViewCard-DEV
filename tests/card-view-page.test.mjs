@@ -1002,6 +1002,10 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /:is\(\.card-view-media-drawer-tabs,\.card-view-media-drawer-actions\)::before \{[\s\S]*?inset:-8px;pointer-events:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-media-drawer-tab \{[\s\S]*?border-left:0;border-radius:0 7px 7px 0;[\s\S]*?background:var\(--fvc-media-overlay-bg\);/,
   );
   assert.match(

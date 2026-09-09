@@ -215,8 +215,11 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer.is-open .card-view-media-drawer-tabs {
     visibility:visible;pointer-events:auto;transition-delay:0s;
   }
+  .card.card-view-active.card-view-overlay-presentation :is(.card-view-media-drawer-tabs,.card-view-media-drawer-actions)::before {
+    content:"";position:absolute;inset:-8px;pointer-events:auto;
+  }
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-tab {
-    appearance:none;-webkit-appearance:none;width:100%;min-width:0;min-height:0;height:auto;margin:0;padding:2px 4px;overflow:hidden;
+    position:relative;z-index:1;appearance:none;-webkit-appearance:none;width:100%;min-width:0;min-height:0;height:auto;margin:0;padding:2px 4px;overflow:hidden;
     border:1px solid var(--fvc-media-overlay-border);border-left:0;border-radius:0 7px 7px 0;color:var(--fvc-media-overlay-text-muted);
     background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);font:inherit;font-size:.52rem;font-weight:700;line-height:1;
     text-overflow:ellipsis;white-space:nowrap;cursor:pointer;touch-action:manipulation;
@@ -288,7 +291,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     visibility:visible;pointer-events:auto;transition-delay:0s;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-action {
-    width:28px;height:28px;border-left:0;border-radius:0 7px 7px 0;
+    position:relative;z-index:1;width:28px;height:28px;border-left:0;border-radius:0 7px 7px 0;
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-action svg {width:17px;height:17px;pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-action.active {

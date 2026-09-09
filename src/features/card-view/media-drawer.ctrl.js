@@ -549,6 +549,20 @@ export class CardViewMediaDrawerController {
     return true;
   }
 
+  closeForVideoAreaClick(target) {
+    if (!this.isOpen() || !target?.closest) return false;
+    if (!target.closest(".card-view-live-stage")) return false;
+    if (
+      target.closest(
+        "[data-card-view-media-drawer], [data-media-overlay-ignore], .live-playback-controls, button, a[href], input, select, textarea, [role='button'], [role='slider']",
+      )
+    ) {
+      return false;
+    }
+    this.setOpen(false);
+    return true;
+  }
+
   handleClick(event, target) {
     if (!target?.closest) return false;
     if (target.closest("[data-card-view-media-drawer-toggle]")) {

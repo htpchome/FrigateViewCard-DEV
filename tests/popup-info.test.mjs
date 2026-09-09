@@ -49,6 +49,10 @@ test("rotated live and popup side controls share the safe side inset", () => {
   );
   assert.match(
     STYLES,
+    /\.card\.mobile-rotate-popup #myPopup\.popup-content--card-view-drawer \.popup-close-row,[\s\S]*?\.card\.mobile-rotate-popup-exit #myPopup\.popup-content--card-view-drawer \.popup-close-row \{[\s\S]*?display:block !important;top:8px;right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+  );
+  assert.match(
+    STYLES,
     /\.card\.mobile-rotate-popup \.popup-media-controls,[\s\S]*?\.card\.mobile-rotate-popup-exit \.popup-media-controls \{[^}]*bottom:0;/,
   );
 });

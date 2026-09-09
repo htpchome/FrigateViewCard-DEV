@@ -138,6 +138,60 @@ test("Card View media drawer uses vertical page navigation", () => {
   );
 });
 
+test("open Card View media drawer closes only for an unobstructed video-area click", () => {
+  const root = createElement();
+  const panel = createElement();
+  const handle = createElement();
+  const tabs = { ...createElement(), querySelectorAll: () => [] };
+  const scroller = {
+    ...createElement(),
+    scrollTop: 0,
+    scrollHeight: 0,
+    clientHeight: 0,
+    innerHTML: "",
+    querySelectorAll: () => [],
+  };
+  const elements = new Map([
+    ["[data-card-view-media-drawer]", root],
+    ["[data-card-view-media-drawer-panel]", panel],
+    ["[data-card-view-media-drawer-toggle]", handle],
+    ["[data-card-view-media-drawer-tabs]", tabs],
+    ["[data-card-view-media-drawer-scroller]", scroller],
+  ]);
+  const openChanges = [];
+  const controller = new CardViewMediaDrawerController({
+    query: (selector) => elements.get(selector) || null,
+    isEnabled: () => true,
+    onOpenChange: (open) => openChanges.push(open),
+    resizeObserverCtor: null,
+    requestFrame: (callback) => callback(),
+  });
+  const target = ({ inStage = true, protectedControl = false } = {}) => ({
+    closest: (selector) => {
+      if (selector === ".card-view-live-stage") return inStage ? {} : null;
+      return protectedControl ? {} : null;
+    },
+  });
+
+  controller.bind();
+  controller.setOpen(true);
+  assert.equal(controller.closeForVideoAreaClick(target()), true);
+  assert.equal(controller.isOpen(), false);
+  assert.deepEqual(openChanges, [true, false]);
+
+  controller.setOpen(true);
+  assert.equal(
+    controller.closeForVideoAreaClick(target({ protectedControl: true })),
+    false,
+  );
+  assert.equal(controller.isOpen(), true);
+  assert.equal(
+    controller.closeForVideoAreaClick(target({ inStage: false })),
+    false,
+  );
+  assert.equal(controller.isOpen(), true);
+});
+
 test("closed Card View media drawer hides navigation without layout reads", () => {
   const root = createElement();
   const panel = createElement();

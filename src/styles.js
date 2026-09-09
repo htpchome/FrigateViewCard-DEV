@@ -1212,6 +1212,10 @@ export const STYLES = `
   .popup-content.popup-content--card-view-drawer .viewer img.snap {object-fit:contain !important;object-position:center center;background:var(--c-bg-deep);}
   .popup-content.popup-content--card-view-drawer :is(#popup-info,#popup-carousel-wrap,#recording-scrub,#recording-segment-manager) {display:none !important;}
   .popup-content.popup-content--card-view-drawer .popup-close-row {top:6px;right:6px;z-index:20;}
+  .card.mobile-rotate-popup #myPopup.popup-content--card-view-drawer .popup-close-row,
+  .card.mobile-rotate-popup-exit #myPopup.popup-content--card-view-drawer .popup-close-row {
+    display:block !important;top:8px;right:max(20px,env(safe-area-inset-right,0px));
+  }
   .popup-content.popup-content--card-view-drawer .close-btn {
     width:30px;height:30px;min-width:30px;min-height:30px;padding:4px;color:var(--fvc-media-overlay-text);
     background:var(--fvc-media-overlay-bg);background-image:none;border:1px solid var(--fvc-media-overlay-border);box-shadow:var(--fvc-media-overlay-shadow);
