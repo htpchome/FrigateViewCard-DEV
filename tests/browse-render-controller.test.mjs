@@ -298,6 +298,88 @@ test("first cached Alerts paint renders six rows before expanding", () => {
   }
 });
 
+test("completed progressive Alerts paint reacts to source-event favorite changes", () => {
+  const { host, nodes } = createHost();
+  const frameCallbacks = [];
+  const sourceEvents = new Map();
+  const previousAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    frameCallbacks.push(callback);
+    return frameCallbacks.length;
+  };
+  host._reviews = Array.from({ length: 12 }, (_, index) => {
+    const eventId = `event-${index}`;
+    sourceEvents.set(eventId, {
+      id: eventId,
+      end_time: 200,
+      retain_indefinitely: false,
+    });
+    return {
+      id: `review-${index}`,
+      start_time: 300 - index,
+      data: { detections: [eventId] },
+    };
+  });
+  host._browseFilterController.reviewSourceEvent = (review) =>
+    sourceEvents.get(review?.data?.detections?.[0]) || null;
+  host._reviewListItemHTML = (review) => {
+    const event = host._browseFilterController.reviewSourceEvent(review);
+    return `<article class="review" data-favorite="${event?.retain_indefinitely === true}">${review.id}</article>`;
+  };
+  const controller = new BrowseRenderController(host, {
+    appendProgressiveListMarkup: (list, html) => {
+      list.innerHTML += html;
+      return true;
+    },
+  });
+  host._renderList = () => controller.renderList();
+
+  const flushFrame = () => {
+    const callbacks = frameCallbacks.splice(0);
+    callbacks.forEach((callback) => callback());
+  };
+
+  try {
+    controller.renderList();
+    flushFrame();
+    flushFrame();
+    assert.equal(
+      nodes.list.innerHTML.includes(
+        'data-favorite="false">review-0</article>',
+      ),
+      true,
+    );
+
+    sourceEvents.set("event-0", {
+      ...sourceEvents.get("event-0"),
+      retain_indefinitely: true,
+    });
+    controller.renderList();
+
+    assert.equal(
+      nodes.list.innerHTML.includes(
+        'data-favorite="true">review-0</article>',
+      ),
+      true,
+    );
+
+    sourceEvents.set("event-0", {
+      ...sourceEvents.get("event-0"),
+      retain_indefinitely: false,
+    });
+    controller.renderList();
+
+    assert.equal(
+      nodes.list.innerHTML.includes(
+        'data-favorite="false">review-0</article>',
+      ),
+      true,
+    );
+  } finally {
+    globalThis.requestAnimationFrame = previousAnimationFrame;
+  }
+});
+
 test("cached Clips expansion appends small batches without rebuilding the list", () => {
   const { host, nodes, listWrites } = createHost();
   const frameCallbacks = [];

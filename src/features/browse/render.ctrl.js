@@ -498,10 +498,25 @@ export class BrowseRenderController {
     return `${camera}|${mode}|${day}|${tab}`;
   }
 
+  _browseItemsSignature(entries) {
+    const items = Array.isArray(entries) ? entries : [];
+    const itemSignature = browseItemsSignature(items);
+    if (this._host._tab !== "alerts") return itemSignature;
+
+    const favoriteSignature = items.map((review) => {
+      const eventId = String(review?.data?.detections?.[0] || "");
+      if (!eventId) return ["", false];
+      const sourceEvent =
+        this._host._browseFilterController?.reviewSourceEvent?.(review) || null;
+      return [eventId, sourceEvent?.retain_indefinitely === true];
+    });
+    return JSON.stringify([itemSignature, favoriteSignature]);
+  }
+
   _resolveBrowseFirstPaint(entries, list = null) {
     const items = Array.isArray(entries) ? entries : [];
     const key = this._browseFirstPaintKey();
-    const signature = browseItemsSignature(items);
+    const signature = this._browseItemsSignature(items);
     if (list && list !== this._browseFirstPaintList) {
       this._browseFirstPaintList = list;
       this._renderedBrowseKey = "";
@@ -642,7 +657,7 @@ export class BrowseRenderController {
       }
       state.status = "complete";
       state.incremental = true;
-      if (browseItemsSignature(getCurrentItems()) !== signature) {
+      if (this._browseItemsSignature(getCurrentItems()) !== signature) {
         this._host._renderList?.();
       }
     };
