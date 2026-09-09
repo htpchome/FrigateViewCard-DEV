@@ -551,6 +551,89 @@ test("applyCardStyle resolves percent host height and clears view-height", () =>
   );
 });
 
+test("fixed Home Assistant grid rows constrain the card to its assigned cell", () => {
+  const hostStyleCalls = [];
+  const cardStyleCalls = [];
+  const sectionsView = {
+    tagName: "HUI-SECTIONS-VIEW",
+    parentNode: null,
+  };
+  const parentElement = {
+    tagName: "HUI-CARD",
+    parentNode: sectionsView,
+    style: { height: "auto" },
+  };
+  const card = {
+    style: {
+      setProperty: (name, value) => cardStyleCalls.push(["set", name, value]),
+      removeProperty: (name) => cardStyleCalls.push(["remove", name]),
+    },
+  };
+  const host = {
+    _sourceConfig: { grid_options: { rows: 8 } },
+    _config: {
+      stream_height: 100,
+      stream_height_unit: "dvh",
+      theme: "default",
+    },
+    _isPreviewContext: () => false,
+    _isCardViewPageActive: () => true,
+    parentElement,
+    parentNode: parentElement,
+    shadowRoot: { querySelector: () => card },
+    style: {
+      setProperty: (name, value) => hostStyleCalls.push(["set", name, value]),
+      removeProperty: (name) => hostStyleCalls.push(["remove", name]),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.applyTightMargins = () => {};
+  controller.syncHostOuterStyles = () => {};
+
+  withGlobals(
+    {
+      document: global.document,
+      window: { innerHeight: 900, visualViewport: null },
+      getComputedStyle: () => ({ getPropertyValue: () => "" }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls, [
+    ["set", "--card-host-height", "100%"],
+  ]);
+  assert.equal(
+    cardStyleCalls.some(
+      ([action, name, value]) =>
+        action === "set" && name === "--view-height" && value === "100%",
+    ),
+    true,
+  );
+  assert.equal(parentElement.style.height, "100%");
+});
+
+test("Home Assistant Auto height remains the opt-out from grid constraints", () => {
+  for (const tagName of ["HUI-SECTIONS-VIEW", "HUI-SIDEBAR-VIEW"]) {
+    const view = { tagName, parentNode: null };
+    const host = {
+      _sourceConfig: { grid_options: { rows: 8 } },
+      _isPreviewContext: () => false,
+      parentNode: view,
+    };
+    const controller = new CardStyleContextController(host);
+
+    assert.equal(
+      controller.shouldConstrainToHomeAssistantGridHeight(),
+      true,
+    );
+    host._sourceConfig.grid_options.rows = "auto";
+    assert.equal(
+      controller.shouldConstrainToHomeAssistantGridHeight(),
+      false,
+    );
+  }
+});
+
 test("Card View ignores configured height and keeps its parent naturally sized", () => {
   const hostStyleCalls = [];
   const cardStyleCalls = [];

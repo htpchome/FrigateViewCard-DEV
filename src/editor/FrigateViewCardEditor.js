@@ -3324,7 +3324,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             })}
           </div>
         </div>
-        <div class="field-helper">Constrain the card to 50–100% of its available height or the dynamic viewport. At any configured height, the card can grow when needed to keep its controls and approximately two browse items usable.</div>
+        <div class="field-helper">Constrain the card to 50–100% of its available height or the dynamic viewport. In Home Assistant Sections and Sidebar views, this limit only applies when Layout → Auto height is enabled; otherwise Home Assistant's selected row height constrains the card. Panel and Masonry views apply this limit normally.</div>
         <div class="field-helper" id="stream_height-output">${streamHeight}${streamHeightUnit}</div>
         <div class="field-helper" id="stream_height-helper"></div>
       </div>

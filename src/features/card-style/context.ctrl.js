@@ -16,6 +16,10 @@ const DARK_PRIMARY_THEME_KEYS = Object.freeze([
 ]);
 const MOBILE_SECTIONS_FULL_BLEED_CLASS =
   "mobile-view-sections-full-bleed";
+const HA_HEIGHT_MANAGED_VIEW_TAGS = new Set([
+  "HUI-SECTIONS-VIEW",
+  "HUI-SIDEBAR-VIEW",
+]);
 // Includes the heading and approximately two standard event rows.
 const MINIMUM_BROWSE_REGION_HEIGHT_PX = 244;
 const MINIMUM_CARD_HEIGHT_BUFFER_PX = 8;
@@ -327,14 +331,19 @@ export class CardStyleContextController {
       numericHeight > 0 &&
       !this._host._isPreviewContext();
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
-    const hostComputedStyle = naturalCardView
+    const constrainToHaGrid =
+      this.shouldConstrainToHomeAssistantGridHeight();
+    const hostComputedStyle = naturalCardView && !constrainToHaGrid
       ? null
       : getComputedStyle(this._host);
     const haCardHeight =
       hostComputedStyle?.getPropertyValue("--ha-card-height").trim() || "";
     let expandedForMinimumBrowseHeight = false;
 
-    if (naturalCardView) {
+    if (constrainToHaGrid) {
+      this._host.style.setProperty("--card-host-height", "100%");
+      card.style.setProperty("--view-height", "100%");
+    } else if (naturalCardView) {
       this._host.style.removeProperty("--card-host-height");
       card.style.removeProperty("--view-height");
     } else if (configuredHeight) {
@@ -417,7 +426,9 @@ export class CardStyleContextController {
       }
     }
 
-    this.syncViewportMinimumParentHeight(expandedForMinimumBrowseHeight);
+    this.syncViewportMinimumParentHeight(expandedForMinimumBrowseHeight, {
+      constrainToHaGrid,
+    });
 
     const { mode } = this.resolveThemeContext();
     const customTheme =
@@ -438,6 +449,26 @@ export class CardStyleContextController {
     }
 
     this.syncHostOuterStyles();
+  }
+
+  shouldConstrainToHomeAssistantGridHeight() {
+    if (this._host._isPreviewContext?.() === true) return false;
+
+    const configuredRows = this._host._sourceConfig?.grid_options?.rows;
+    if (String(configuredRows ?? "").trim().toLowerCase() === "auto") {
+      return false;
+    }
+
+    let element = this._host;
+    for (let depth = 0; element && depth < 20; depth += 1) {
+      if (HA_HEIGHT_MANAGED_VIEW_TAGS.has(element.tagName)) {
+        return (
+          element.tagName !== "HUI-SECTIONS-VIEW" || !this.isPanelView()
+        );
+      }
+      element = element.parentNode || element.host;
+    }
+    return false;
   }
 
   resolvePercentHostHeightPx({ ratio, haCardHeight, headerHeight }) {
@@ -578,12 +609,15 @@ export class CardStyleContextController {
     return Number.isFinite(height) && height > 0 ? height : 0;
   }
 
-  syncViewportMinimumParentHeight(active) {
+  syncViewportMinimumParentHeight(
+    active,
+    { constrainToHaGrid = false } = {},
+  ) {
     this._viewportMinimumActive = active === true;
     if (
       !this._host.parentElement?.style ||
       this._host._isPreviewContext?.() === true ||
-      this._host._isCardViewPageActive?.() === true
+      (this._host._isCardViewPageActive?.() === true && !constrainToHaGrid)
     ) {
       return;
     }
