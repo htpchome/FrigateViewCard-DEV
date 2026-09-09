@@ -205,8 +205,11 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer.is-open .card-view-media-drawer-panel {transform:translateX(0);pointer-events:auto;}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-tabs {
-    position:absolute;z-index:3;top:6px;left:calc(100% - 1px);display:grid;grid-template-rows:repeat(4,minmax(0,24px));align-items:stretch;
+    position:absolute;z-index:3;top:6px;left:calc(100% - 1px);display:grid;grid-template-rows:repeat(var(--card-view-media-drawer-tab-count,4),minmax(0,24px));align-items:stretch;
     gap:2px;width:70px;height:min(102px,max(48px,calc(50% - 39px)));min-width:0;visibility:hidden;pointer-events:none;transition:visibility 0s linear 180ms;
+  }
+  .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer[data-card-view-media-tab-count="5"] .card-view-media-drawer-tabs {
+    gap:1px;height:min(124px,max(54px,calc(50% - 34px)));
   }
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-tabs[hidden] {display:none;}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer.is-open .card-view-media-drawer-tabs {
@@ -601,8 +604,11 @@ export const CARD_VIEW_PAGE_STYLES = `
     .card.card-view-active.card-view-overlay-presentation.card-view-media-drawer-enabled .card-view-media-drawer:not([hidden]) {width:clamp(110px,34%,132px);}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-panel {padding:5px 4px 4px;}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-tabs {top:5px;width:64px;}
+    .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer[data-card-view-media-tab-count="5"] .card-view-media-drawer-tabs {height:min(124px,max(54px,calc(54% - 34px)));}
+    .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer[data-card-view-media-tab-count="5"] .card-view-media-drawer-handle {top:54%;}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-tab {padding-inline:3px;font-size:.45rem;}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-actions {top:calc(50% + 30px);width:26px;}
+    .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer[data-card-view-media-tab-count="5"] .card-view-media-drawer-actions {top:calc(54% + 30px);gap:1px;}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-action {width:26px;height:26px;}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-action svg {width:16px;height:16px;}
     .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover {left:calc(100% + 30px);width:calc(100cqw - 100% - 36px);padding:7px;}

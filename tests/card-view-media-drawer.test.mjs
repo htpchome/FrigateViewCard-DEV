@@ -12,6 +12,7 @@ import {
 import {
   CARD_VIEW_MEDIA_DRAWER_TYPES,
   normalizeCardViewMediaDrawerType,
+  resolveCardViewMediaDrawerTypes,
 } from "../src/features/card-view/config.js";
 
 const createClassList = () => {
@@ -27,10 +28,15 @@ const createClassList = () => {
 
 const createElement = () => {
   const attributes = new Map();
+  const properties = new Map();
   return {
     attributes,
     classList: createClassList(),
     hidden: false,
+    style: {
+      setProperty: (name, value) => properties.set(name, String(value)),
+    },
+    styleProperties: properties,
     setAttribute: (name, value) => attributes.set(name, String(value)),
     addEventListener() {},
     removeEventListener() {},
@@ -46,6 +52,22 @@ test("Card View media drawer normalizes choices to existing popup media types", 
   assert.equal(resolveCardViewMediaDrawerPopupType("snapshots"), "snapshot");
   assert.equal(normalizeCardViewMediaDrawerType("recording"), "recordings");
   assert.equal(resolveCardViewMediaDrawerPopupType("recordings"), "recording");
+  assert.equal(normalizeCardViewMediaDrawerType("favorites"), "kept");
+  assert.equal(resolveCardViewMediaDrawerPopupType("kept"), "kept");
+});
+
+test("Card View media drawer choices follow the configured active tabs", () => {
+  assert.deepEqual(resolveCardViewMediaDrawerTypes([]), [
+    "alerts",
+    "clips",
+    "snapshots",
+    "recordings",
+    "kept",
+  ]);
+  assert.deepEqual(
+    resolveCardViewMediaDrawerTypes(["alerts", "snapshot", "kept"]),
+    ["clips", "recordings"],
+  );
 });
 
 test("Card View media drawer recording markup identifies a popup range", () => {
@@ -194,6 +216,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
     CARD_VIEW_MEDIA_DRAWER_TYPES.clips,
     CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots,
     CARD_VIEW_MEDIA_DRAWER_TYPES.recordings,
+    CARD_VIEW_MEDIA_DRAWER_TYPES.favorites,
   ].map((mediaType) => ({
     ...createElement(),
     dataset: { cardViewMediaDrawerType: mediaType },
@@ -290,7 +313,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   assert.equal(tabs.attributes.get("aria-hidden"), "false");
   assert.deepEqual(
     typeTabs.map((tab) => tab.attributes.get("aria-selected")),
-    ["false", "false", "true", "false"],
+    ["false", "false", "true", "false", "false"],
   );
   assert.match(scroller.innerHTML, /data-card-view-media-event="event-1"/);
   assert.match(scroller.innerHTML, /src="\/front_door\/event-1\/thumbnail.jpg"/);
@@ -320,7 +343,7 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   assert.match(scroller.innerHTML, /data-card-view-media-type="clip"/);
   assert.deepEqual(
     typeTabs.map((tab) => tab.attributes.get("aria-selected")),
-    ["false", "true", "false", "false"],
+    ["false", "true", "false", "false", "false"],
   );
 
   controller.scroll(1);
@@ -337,6 +360,73 @@ test("Card View media drawer defers thumbnails until opened and reuses popup sel
   controller.syncState();
   assert.equal(root.hidden, true);
   assert.equal(controller.isOpen(), false);
+});
+
+test("Card View media drawer hides inactive tabs and rejects their selection", () => {
+  const root = createElement();
+  const panel = createElement();
+  const handle = createElement();
+  const typeTabs = [
+    CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,
+    CARD_VIEW_MEDIA_DRAWER_TYPES.clips,
+    CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots,
+    CARD_VIEW_MEDIA_DRAWER_TYPES.recordings,
+    CARD_VIEW_MEDIA_DRAWER_TYPES.favorites,
+  ].map((mediaType) => ({
+    ...createElement(),
+    dataset: { cardViewMediaDrawerType: mediaType },
+    tabIndex: 0,
+  }));
+  const tabs = {
+    ...createElement(),
+    querySelectorAll: () => typeTabs,
+  };
+  const scroller = {
+    ...createElement(),
+    scrollTop: 0,
+    scrollHeight: 0,
+    clientHeight: 0,
+    innerHTML: "",
+    querySelectorAll: () => [],
+  };
+  const elements = new Map([
+    ["[data-card-view-media-drawer]", root],
+    ["[data-card-view-media-drawer-panel]", panel],
+    ["[data-card-view-media-drawer-toggle]", handle],
+    ["[data-card-view-media-drawer-tabs]", tabs],
+    ["[data-card-view-media-drawer-scroller]", scroller],
+  ]);
+  const controller = new CardViewMediaDrawerController({
+    query: (selector) => elements.get(selector) || null,
+    isEnabled: () => true,
+    getAvailableTypes: () => [
+      CARD_VIEW_MEDIA_DRAWER_TYPES.clips,
+      CARD_VIEW_MEDIA_DRAWER_TYPES.favorites,
+    ],
+    resizeObserverCtor: null,
+    requestFrame: (callback) => callback(),
+  });
+
+  controller.bind();
+
+  assert.equal(controller.selectedType(), CARD_VIEW_MEDIA_DRAWER_TYPES.clips);
+  assert.equal(root.attributes.get("data-card-view-media-tab-count"), "2");
+  assert.equal(
+    tabs.styleProperties.get("--card-view-media-drawer-tab-count"),
+    "2",
+  );
+  assert.deepEqual(
+    typeTabs.map((tab) => tab.hidden),
+    [true, false, true, true, false],
+  );
+  assert.equal(
+    controller.selectType(CARD_VIEW_MEDIA_DRAWER_TYPES.alerts),
+    false,
+  );
+  assert.equal(
+    controller.selectType(CARD_VIEW_MEDIA_DRAWER_TYPES.favorites),
+    true,
+  );
 });
 
 test("Card View media drawer loads recordings and opens their existing popup path", () => {

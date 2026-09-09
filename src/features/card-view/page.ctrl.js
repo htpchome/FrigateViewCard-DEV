@@ -35,6 +35,7 @@ import {
   CARD_VIEW_START_MODES,
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
+  resolveCardViewMediaDrawerTypes,
 } from "./config.js";
 import { CardViewMediaDrawerController } from "./media-drawer.ctrl.js";
 import { resolveLiveSourceIndicatorState } from "../../shared/media/source-indicator.js";
@@ -122,6 +123,7 @@ export class CardViewPageController {
     this._recordings = [];
     this._alertsLoading = false;
     this._recordingsLoading = false;
+    this._favoritesLoading = false;
     this._selectedDayTs = null;
     this._calendarMonth = null;
     this._calendarOpen = false;
@@ -130,6 +132,7 @@ export class CardViewPageController {
     this._columns = 1;
     this._alertLoadToken = 0;
     this._recordingLoadToken = 0;
+    this._favoritesLoadToken = 0;
     this._alertRefreshTimer = null;
     this._cleanup = new CleanupController();
     this._activityContent = null;
@@ -154,10 +157,15 @@ export class CardViewPageController {
       query: (selector) => this._host.shadowRoot?.querySelector?.(selector),
       isEnabled: () =>
         this.usesOverlayPresentation() &&
-        this._host._config?.card_view_media_drawer_enabled === true,
+        this._host._config?.card_view_media_drawer_enabled === true &&
+        this._availableMediaDrawerTypes().length > 0,
+      getAvailableTypes: () => this._availableMediaDrawerTypes(),
       getEvents: (mediaType) =>
         this._mediaDrawerEvents(mediaType),
       getRecordings: () => this._recordingRows(),
+      isEventsLoading: (drawerType) =>
+        drawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.favorites &&
+        this._favoritesLoading,
       isRecordingsLoading: () => this._recordingsLoading,
       mediaUrl: (id, file, camera = "") =>
         this._host._mediaForCamera?.(id, file, camera) || "",
@@ -177,7 +185,13 @@ export class CardViewPageController {
       onSelectType: (drawerType) =>
         this._handleMediaDrawerTypeSelected(drawerType),
       onOpenChange: (open) => {
-        if (!open) this._closeMediaDrawerPopovers();
+        if (!open) {
+          this._closeMediaDrawerPopovers();
+          return;
+        }
+        this._loadMediaDrawerTypeData(
+          this._mediaDrawerController.selectedType(),
+        );
       },
       onToggleCalendar: () => this._toggleMediaDrawerCalendar(),
       onToggleFilter: () => this._toggleMediaDrawerFilter(),
@@ -304,6 +318,8 @@ export class CardViewPageController {
   deactivate() {
     this._alertLoadToken += 1;
     this._recordingLoadToken += 1;
+    this._favoritesLoadToken += 1;
+    this._favoritesLoading = false;
     this._cleanup.dispose();
     this._cleanup = new CleanupController();
     if (this._alertRefreshTimer) clearTimeout(this._alertRefreshTimer);
@@ -691,6 +707,12 @@ export class CardViewPageController {
     return this._mediaDrawerController.render(options);
   }
 
+  _availableMediaDrawerTypes() {
+    return resolveCardViewMediaDrawerTypes(
+      this._host._config?.hidden_tabs,
+    );
+  }
+
   _mediaDrawerEvents(mediaType) {
     const events =
       this._host._popupCarouselController?.eventsForMediaType?.(mediaType) ||
@@ -731,9 +753,39 @@ export class CardViewPageController {
     this._mediaDrawerFilterOpen = false;
     this.renderMediaDrawerCalendar();
     this.renderMediaDrawerFilter();
-    if (drawerType !== CARD_VIEW_MEDIA_DRAWER_TYPES.recordings) return;
-    this._recordingsLoading = true;
-    void this.loadRecordings();
+    this._loadMediaDrawerTypeData(drawerType);
+  }
+
+  _loadMediaDrawerTypeData(drawerType) {
+    if (drawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.recordings) {
+      this._recordingsLoading = true;
+      void this.loadRecordings();
+      return;
+    }
+    if (drawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.favorites) {
+      void this._loadMediaDrawerFavorites();
+    }
+  }
+
+  async _loadMediaDrawerFavorites() {
+    if (!this.isActive()) return;
+    const token = ++this._favoritesLoadToken;
+    this._favoritesLoading = true;
+    this.renderMediaDrawer({ force: true });
+    try {
+      await this._host._loadKept?.();
+    } catch (_) {
+      // The existing Favorites loader owns its transport failure handling.
+    }
+    if (token !== this._favoritesLoadToken || !this.isActive()) return;
+    this._favoritesLoading = false;
+    if (
+      this._mediaDrawerController.isOpen() &&
+      this._mediaDrawerController.selectedType() ===
+        CARD_VIEW_MEDIA_DRAWER_TYPES.favorites
+    ) {
+      this.renderMediaDrawer({ force: true });
+    }
   }
 
   _toggleMediaDrawerCalendar() {
@@ -1541,8 +1593,13 @@ export class CardViewPageController {
     this.renderToolbar();
     this.renderMediaDrawer({ force: true });
     void this._discoverPtzSupport();
+    const mediaDrawerType = this._mediaDrawerController.isOpen()
+      ? this._mediaDrawerController.selectedType()
+      : "";
     if (this._mode === "recordings" || this._mediaDrawerRecordingsActive()) {
       await this.loadRecordings();
+    } else if (mediaDrawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.favorites) {
+      await this._loadMediaDrawerFavorites();
     } else if (this._mode === "alerts") {
       this.renderActivity();
     }

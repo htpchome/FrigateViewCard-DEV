@@ -63,6 +63,7 @@ export function buildCardViewMainLayoutShellMarkup({
               <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="clips" role="tab" aria-selected="false">Clips</button>
               <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="snapshots" role="tab" aria-selected="false">Snapshots</button>
               <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="recordings" role="tab" aria-selected="false">Recordings</button>
+              <button class="card-view-media-drawer-tab" type="button" data-card-view-media-drawer-type="kept" role="tab" aria-selected="false">Favorites</button>
             </div>
             <div class="card-view-media-drawer-actions" data-card-view-media-drawer-actions aria-hidden="true" hidden>
               <button class="card-view-media-drawer-action" type="button" data-card-view-media-drawer-calendar aria-pressed="false" title="Choose day" aria-label="Choose day">${regions.calendarIcon}</button>

@@ -190,6 +190,7 @@ test("toast reuses the card notification and places favorite feedback over brows
   assert.equal(toast.textContent, "Added to Favorites");
   assert.equal(toast.hidden, false);
   assert.equal(toast.classList.contains("toast--success"), true);
+  assert.equal(toast.classList.contains("toast--warning"), false);
   assert.equal(toast.classList.contains("toast--error"), false);
   assert.equal(toast.classList.contains("toast--browse"), true);
   assert.equal(toast.dataset.placement, "browse");
@@ -199,16 +200,16 @@ test("toast reuses the card notification and places favorite feedback over brows
   clearTimeout(context._toastT);
 });
 
-const createFavoriteContext = ({ callWS }) => {
+const createFavoriteContext = ({ callWS, retained = false }) => {
   const event = {
     id: "event-1",
     camera: "front",
-    retain_indefinitely: false,
+    retain_indefinitely: retained,
   };
   const cameraContext = {
     clientId: "frigate",
     events: [event],
-    kept: [],
+    kept: retained ? [event] : [],
   };
   const notifications = [];
   const context = {
@@ -219,7 +220,7 @@ const createFavoriteContext = ({ callWS }) => {
       favorites_mixed_cameras: false,
     },
     _events: [event],
-    _kept: [],
+    _kept: retained ? [event] : [],
     _findEventById: () => event,
     _frigateContextForCameraName: () => cameraContext,
     _cc: () => cameraContext,
@@ -250,6 +251,24 @@ test("favorite confirmation uses the browse success toast after Frigate accepts 
     [
       "Added to Favorites",
       { tone: "success", placement: "browse" },
+    ],
+  ]);
+});
+
+test("favorite removal uses the browse warning toast after Frigate accepts it", async () => {
+  const requests = [];
+  const { context, notifications } = createFavoriteContext({
+    retained: true,
+    callWS: async (payload) => requests.push(payload),
+  });
+
+  await FrigateViewCard.prototype._toggleFav.call(context, "event-1");
+
+  assert.equal(requests[0].retain, false);
+  assert.deepEqual(notifications, [
+    [
+      "Removed from Favorites",
+      { tone: "warning", placement: "browse" },
     ],
   ]);
 });

@@ -194,6 +194,7 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /data-card-view-media-drawer-type="clips"/);
   assert.match(markup, /data-card-view-media-drawer-type="snapshots"/);
   assert.match(markup, /data-card-view-media-drawer-type="recordings"/);
+  assert.match(markup, /data-card-view-media-drawer-type="kept"[^>]*>Favorites</);
   assert.match(markup, /data-card-view-media-drawer-calendar/);
   assert.match(markup, /data-card-view-media-drawer-filter/);
   assert.match(markup, /data-card-view-media-drawer-calendar-panel/);
@@ -985,7 +986,15 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-media-drawer-tabs \{[\s\S]*?top:6px;left:calc\(100% - 1px\);[\s\S]*?grid-template-rows:repeat\(4,minmax\(0,24px\)\);[\s\S]*?width:70px;height:min\(102px,max\(48px,calc\(50% - 39px\)\)\);[\s\S]*?visibility:hidden;pointer-events:none;transition:visibility 0s linear 180ms;/,
+    /card-view-media-drawer-tabs \{[\s\S]*?top:6px;left:calc\(100% - 1px\);[\s\S]*?grid-template-rows:repeat\(var\(--card-view-media-drawer-tab-count,4\),minmax\(0,24px\)\);[\s\S]*?width:70px;height:min\(102px,max\(48px,calc\(50% - 39px\)\)\);[\s\S]*?visibility:hidden;pointer-events:none;transition:visibility 0s linear 180ms;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /data-card-view-media-tab-count="5"\] \.card-view-media-drawer-tabs \{[\s\S]*?gap:1px;height:min\(124px,max\(54px,calc\(50% - 34px\)\)\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /@container card-view-live \(max-width:440px\)[\s\S]*?data-card-view-media-tab-count="5"\] \.card-view-media-drawer-handle \{top:54%;\}[\s\S]*?data-card-view-media-tab-count="5"\] \.card-view-media-drawer-actions \{top:calc\(54% \+ 30px\);gap:1px;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -2240,6 +2249,43 @@ test("standalone media drawer opens the focused Card View popup", () => {
       { presentation: "card-view-drawer" },
     ],
   ]);
+});
+
+test("Card View Favorites drawer uses Active Tabs and the existing Favorites loader", async () => {
+  let finishLoad;
+  const loadFinished = new Promise((resolve) => {
+    finishLoad = resolve;
+  });
+  let favoriteLoads = 0;
+  const host = {
+    _pageId: "card-view",
+    _config: {
+      hidden_tabs: ["alerts", "snapshot", "recordings"],
+    },
+    _loadKept: async () => {
+      favoriteLoads += 1;
+      await loadFinished;
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  controller._mediaDrawerController.isOpen = () => true;
+  controller._mediaDrawerController.selectedType = () => "kept";
+  const loadingStates = [];
+  controller.renderMediaDrawer = () => {
+    loadingStates.push(controller._favoritesLoading);
+  };
+
+  assert.deepEqual(controller._availableMediaDrawerTypes(), ["clips", "kept"]);
+  const loading = controller._loadMediaDrawerFavorites();
+  assert.equal(favoriteLoads, 1);
+  assert.deepEqual(loadingStates, [true]);
+
+  finishLoad();
+  await loading;
+
+  assert.deepEqual(loadingStates, [true, false]);
 });
 
 test("Card View media drawer opens a grouped recording with its camera context", () => {

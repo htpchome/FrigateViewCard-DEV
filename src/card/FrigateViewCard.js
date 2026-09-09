@@ -7547,7 +7547,10 @@ export class FrigateViewCard extends HTMLElement {
             optimistic.nextRetained
               ? "Added to Favorites"
               : "Removed from Favorites",
-            { tone: "success", placement: "browse" },
+            {
+              tone: optimistic.nextRetained ? "success" : "warning",
+              placement: "browse",
+            },
           );
         },
         (err) => {
@@ -7596,11 +7599,17 @@ export class FrigateViewCard extends HTMLElement {
     const normalizedOptions =
       typeof options === "number" ? { duration: options } : options || {};
     const duration = Number(normalizedOptions.duration) || 3500;
-    const tone =
-      normalizedOptions.tone === "success" ? "success" : "error";
+    const tone = ["success", "warning"].includes(normalizedOptions.tone)
+      ? normalizedOptions.tone
+      : "error";
     let placement = "global";
 
-    t.classList?.remove("toast--success", "toast--error", "toast--browse");
+    t.classList?.remove(
+      "toast--success",
+      "toast--warning",
+      "toast--error",
+      "toast--browse",
+    );
     t.classList?.add(`toast--${tone}`);
     t.style?.removeProperty?.("--fvc-toast-browse-left");
     t.style?.removeProperty?.("--fvc-toast-browse-top");

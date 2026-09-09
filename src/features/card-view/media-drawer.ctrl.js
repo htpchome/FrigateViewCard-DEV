@@ -2,6 +2,7 @@ import { cap } from "../../helpers.js";
 import { CleanupController } from "../../shared/cleanup.js";
 import { escapeHtml, escapeHtmlAttribute } from "../../shared/html.js";
 import {
+  CARD_VIEW_MEDIA_DRAWER_ORDER,
   CARD_VIEW_MEDIA_DRAWER_TYPES,
   normalizeCardViewMediaDrawerType,
 } from "./config.js";
@@ -14,6 +15,7 @@ const POPUP_MEDIA_TYPES = Object.freeze({
   [CARD_VIEW_MEDIA_DRAWER_TYPES.clips]: "clip",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots]: "snapshot",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.recordings]: "recording",
+  [CARD_VIEW_MEDIA_DRAWER_TYPES.favorites]: "kept",
 });
 
 const DRAWER_LABELS = Object.freeze({
@@ -21,6 +23,7 @@ const DRAWER_LABELS = Object.freeze({
   [CARD_VIEW_MEDIA_DRAWER_TYPES.clips]: "Clips",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.snapshots]: "Snapshots",
   [CARD_VIEW_MEDIA_DRAWER_TYPES.recordings]: "Recordings",
+  [CARD_VIEW_MEDIA_DRAWER_TYPES.favorites]: "Favorites",
 });
 
 export const resolveCardViewMediaDrawerPopupType = (value) =>
@@ -132,8 +135,10 @@ export class CardViewMediaDrawerController {
     query = () => null,
     isEnabled = () => false,
     getConfiguredType = () => CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,
+    getAvailableTypes = () => CARD_VIEW_MEDIA_DRAWER_ORDER,
     getEvents = () => [],
     getRecordings = () => [],
+    isEventsLoading = () => false,
     isRecordingsLoading = () => false,
     mediaUrl = () => "",
     formatDateTime = () => "",
@@ -154,8 +159,10 @@ export class CardViewMediaDrawerController {
     this._query = query;
     this._isEnabled = isEnabled;
     this._getConfiguredType = getConfiguredType;
+    this._getAvailableTypes = getAvailableTypes;
     this._getEvents = getEvents;
     this._getRecordings = getRecordings;
+    this._isEventsLoading = isEventsLoading;
     this._isRecordingsLoading = isRecordingsLoading;
     this._mediaUrl = mediaUrl;
     this._formatDateTime = formatDateTime;
@@ -256,7 +263,6 @@ export class CardViewMediaDrawerController {
     panel?.setAttribute?.("aria-hidden", String(!open));
     const tabs = this._query("[data-card-view-media-drawer-tabs]");
     if (tabs) {
-      tabs.hidden = false;
       tabs.setAttribute?.("aria-hidden", String(!open));
     }
     const actions = this._query("[data-card-view-media-drawer-actions]");
@@ -285,6 +291,11 @@ export class CardViewMediaDrawerController {
     }
 
     const drawerType = this._syncSelectedDrawerType();
+    if (!drawerType) {
+      this._syncTabs("");
+      this._resetContent(scroller);
+      return null;
+    }
     const popupMediaType = resolveCardViewMediaDrawerPopupType(drawerType);
     this._syncTabs(drawerType);
     this._syncActions(drawerType);
@@ -322,11 +333,14 @@ export class CardViewMediaDrawerController {
     if (force || contentKey !== this._contentKey) {
       const previousScrollTop = typeChanged ? 0 : scroller.scrollTop;
       const items = isRecording ? recordings : events;
+      const isLoading = isRecording
+        ? this._isRecordingsLoading()
+        : this._isEventsLoading(drawerType);
       scroller.innerHTML = items.length
         ? isRecording
           ? recordings.map((recording) => this._recordingMarkup(recording)).join("")
           : events.map((event) => this._eventMarkup(event, drawerType)).join("")
-        : `<div class="card-view-media-drawer-empty">${isRecording && this._isRecordingsLoading() ? "Loading recordings…" : `No ${DRAWER_LABELS[drawerType].toLowerCase()} available`}</div>`;
+        : `<div class="card-view-media-drawer-empty">${isLoading ? `Loading ${DRAWER_LABELS[drawerType].toLowerCase()}…` : `No ${DRAWER_LABELS[drawerType].toLowerCase()} available`}</div>`;
       scroller.scrollTop = previousScrollTop;
       for (const image of scroller.querySelectorAll?.(
         "[data-card-view-media-thumbnail]",
@@ -349,6 +363,7 @@ export class CardViewMediaDrawerController {
 
   selectType(value) {
     const drawerType = normalizeCardViewMediaDrawerType(value);
+    if (!this._availableDrawerTypes().includes(drawerType)) return false;
     if (drawerType === this._selectedDrawerType) return false;
     this._selectedDrawerType = drawerType;
     this._resetContent();
@@ -358,26 +373,70 @@ export class CardViewMediaDrawerController {
   }
 
   _syncSelectedDrawerType() {
+    const availableTypes = this._availableDrawerTypes();
+    if (!availableTypes.length) {
+      this._selectedDrawerType = "";
+      this._configuredDrawerType = "";
+      return "";
+    }
     const configuredType = normalizeCardViewMediaDrawerType(
       this._getConfiguredType(),
     );
     if (
       !this._selectedDrawerType ||
-      configuredType !== this._configuredDrawerType
+      configuredType !== this._configuredDrawerType ||
+      !availableTypes.includes(this._selectedDrawerType)
     ) {
-      this._selectedDrawerType = configuredType;
+      this._selectedDrawerType = availableTypes.includes(configuredType)
+        ? configuredType
+        : availableTypes[0];
       this._configuredDrawerType = configuredType;
     }
     return this._selectedDrawerType;
   }
 
+  _availableDrawerTypes() {
+    const configured = this._getAvailableTypes?.();
+    const source = Array.isArray(configured)
+      ? configured
+      : CARD_VIEW_MEDIA_DRAWER_ORDER;
+    return [...new Set(source.map(normalizeCardViewMediaDrawerType))].filter(
+      (drawerType) => CARD_VIEW_MEDIA_DRAWER_ORDER.includes(drawerType),
+    );
+  }
+
   _syncTabs(activeType) {
     const tabs = this._query("[data-card-view-media-drawer-tabs]");
+    const availableTypes = this._availableDrawerTypes();
+    const available = new Set(availableTypes);
+    const root = this._query("[data-card-view-media-drawer]");
+    root?.setAttribute?.(
+      "data-card-view-media-tab-count",
+      String(availableTypes.length),
+    );
+    if (tabs) {
+      tabs.hidden = availableTypes.length === 0;
+      tabs.style?.setProperty?.(
+        "--card-view-media-drawer-tab-count",
+        String(availableTypes.length),
+      );
+      tabs.setAttribute?.(
+        "aria-hidden",
+        String(!this._open || availableTypes.length === 0),
+      );
+    }
     for (const tab of tabs?.querySelectorAll?.(
       "[data-card-view-media-drawer-type]",
     ) || []) {
-      const active = tab.dataset.cardViewMediaDrawerType === activeType;
+      const drawerType = normalizeCardViewMediaDrawerType(
+        tab.dataset.cardViewMediaDrawerType,
+      );
+      const visible = available.has(drawerType);
+      const active = visible && drawerType === activeType;
+      tab.hidden = !visible;
+      tab.disabled = !visible;
       tab.classList?.toggle?.("active", active);
+      tab.setAttribute?.("aria-hidden", String(!visible));
       tab.setAttribute?.("aria-selected", String(active));
       tab.tabIndex = active ? 0 : -1;
     }
