@@ -1,3 +1,5 @@
+import { DEFAULT_WINDOW_DAYS } from "../../constants.js";
+
 export class BrowseCalendarPanelController {
   constructor(host, deps = {}) {
     this._host = host;
@@ -69,7 +71,8 @@ export class BrowseCalendarPanelController {
     this._host._calMonth = null;
     this._host._winEnd = now;
     this._host._winStart =
-      now - (this._host._config?.window_days || 1) * 86400;
+      now -
+      (this._host._config?.window_days || DEFAULT_WINDOW_DAYS) * 86400;
     this._host._exhausted = false;
     this._closeAndReloadWindow();
   }

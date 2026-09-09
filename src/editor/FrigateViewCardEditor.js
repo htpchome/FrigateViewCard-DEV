@@ -7,6 +7,8 @@ import {
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DEFAULT_HIDDEN_TABS,
+  DEFAULT_WINDOW_DAYS,
+  DEFAULT_ALERTS_REVIEWS_DAYS,
   REALTIME_POLL_OPTIONS_SECONDS,
   SNAPSHOT_UPDATE_SECONDS,
   SNAPSHOT_UPDATE_OPTIONS_SECONDS,
@@ -2692,7 +2694,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     const windowDaysValue =
       this.querySelector("#window_days")?.dataset.value ||
       this.querySelector("#window_days")?.value ||
-      "3";
+      String(DEFAULT_WINDOW_DAYS);
     const windowDays = Number(windowDaysValue);
     const windowDaysMessage =
       Number.isInteger(windowDays) && windowDays >= 1 && windowDays <= 15
@@ -2704,7 +2706,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     const alertsReviewsDaysValue =
       this.querySelector("#alerts_reviews_days")?.dataset.value ||
       this.querySelector("#alerts_reviews_days")?.value ||
-      "3";
+      String(DEFAULT_ALERTS_REVIEWS_DAYS);
     const alertsReviewsDays = Number(alertsReviewsDaysValue);
     const alertsReviewsDaysMessage =
       Number.isInteger(alertsReviewsDays) &&
@@ -4410,9 +4412,9 @@ export class FrigateViewCardEditor extends HTMLElement {
         const value = String(index + 1);
         return { value, label: value };
       }),
-      initialValue: String(this._config?.window_days ?? 3),
-      fallbackValue: "3",
-      normalize: (value) => String(value ?? "3"),
+      initialValue: String(this._config?.window_days ?? DEFAULT_WINDOW_DAYS),
+      fallbackValue: String(DEFAULT_WINDOW_DAYS),
+      normalize: (value) => String(value ?? DEFAULT_WINDOW_DAYS),
       onChange: () => update(),
     });
 
@@ -4423,9 +4425,11 @@ export class FrigateViewCardEditor extends HTMLElement {
         const value = String(index + 1);
         return { value, label: value };
       }),
-      initialValue: String(this._config?.alerts_reviews_days ?? 3),
-      fallbackValue: "3",
-      normalize: (value) => String(value ?? "3"),
+      initialValue: String(
+        this._config?.alerts_reviews_days ?? DEFAULT_ALERTS_REVIEWS_DAYS,
+      ),
+      fallbackValue: String(DEFAULT_ALERTS_REVIEWS_DAYS),
+      normalize: (value) => String(value ?? DEFAULT_ALERTS_REVIEWS_DAYS),
       onChange: () => update(),
     });
 

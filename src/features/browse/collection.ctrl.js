@@ -1,3 +1,4 @@
+import { DEFAULT_ALERTS_REVIEWS_DAYS } from "../../constants.js";
 import { reviewMatchesAlertsOnlyMode } from "./filter-state.js";
 import { flattenCameraMembers } from "../camera-groups/model.js";
 
@@ -118,7 +119,8 @@ export class BrowseCollectionController {
 
   async loadGridMixedTabData(tab, { onProgress = null } = {}) {
     const before = this._host._winEnd;
-    const reviewDays = this._host._config?.alerts_reviews_days || 3;
+    const reviewDays =
+      this._host._config?.alerts_reviews_days || DEFAULT_ALERTS_REVIEWS_DAYS;
     const selectedDay =
       this._host._isCardViewPageActive?.() === true
         ? ""

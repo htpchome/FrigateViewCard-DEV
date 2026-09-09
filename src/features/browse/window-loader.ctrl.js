@@ -1,5 +1,7 @@
 import {
   DAY,
+  DEFAULT_WINDOW_DAYS,
+  DEFAULT_ALERTS_REVIEWS_DAYS,
   EVENT_FETCH_BATCH,
   INITIAL_BROWSE_PAINT_LIMIT,
   INACTIVE_WARM_EVENT_LIMIT,
@@ -298,7 +300,8 @@ export class BrowseWindowLoaderController {
     const after = Math.max(
       0,
       Math.floor(
-        before - (this._host._config?.window_days || 1) * DAY,
+        before -
+          (this._host._config?.window_days || DEFAULT_WINDOW_DAYS) * DAY,
       ),
     );
     const results = await Promise.allSettled(
@@ -422,7 +425,8 @@ export class BrowseWindowLoaderController {
     const token = (Number(this._host._warmReviewsToken) || 0) + 1;
     this._host._warmReviewsToken = token;
     const before = this._host._winEnd;
-    const dayCount = this._host._config?.alerts_reviews_days || 3;
+    const dayCount =
+      this._host._config?.alerts_reviews_days || DEFAULT_ALERTS_REVIEWS_DAYS;
 
     const activeEntities = new Set(cameraMemberEntities(this._host._activeCam));
     for (const camera of flattenCameraMembers(
@@ -835,7 +839,7 @@ export class BrowseWindowLoaderController {
             clientId,
             cam,
             before,
-            this._host._config?.window_days || 1,
+            this._host._config?.window_days || DEFAULT_WINDOW_DAYS,
             {
               debugLabel: "group-events-window",
               onProgress: this._activeGroupWindowPublishState()
@@ -954,7 +958,8 @@ export class BrowseWindowLoaderController {
             clientId,
             cam,
             before,
-            this._host._config?.alerts_reviews_days || 3,
+            this._host._config?.alerts_reviews_days ||
+              DEFAULT_ALERTS_REVIEWS_DAYS,
             {
               debugLabel: "group-alerts-window",
               severity: reviewSeverity,
@@ -1235,7 +1240,7 @@ export class BrowseWindowLoaderController {
   }
 
   eventWindowCacheKey(clientId, cam, before) {
-    const days = this._host._config?.window_days || 1;
+    const days = this._host._config?.window_days || DEFAULT_WINDOW_DAYS;
     const windowScope = this._host._calSelectedDay
       ? `day:${this._host._calSelectedDay}`
       : days;
@@ -1243,7 +1248,7 @@ export class BrowseWindowLoaderController {
   }
 
   eventWindowContextKey(clientId, cam) {
-    const days = this._host._config?.window_days || 1;
+    const days = this._host._config?.window_days || DEFAULT_WINDOW_DAYS;
     const windowScope = this._host._calSelectedDay
       ? `day:${this._host._calSelectedDay}`
       : days;
@@ -1312,7 +1317,8 @@ export class BrowseWindowLoaderController {
   }
 
   reviewWindowCacheKeyForContent(clientId, cam, before, alertsContent) {
-    const days = this._host._config?.alerts_reviews_days || 3;
+    const days =
+      this._host._config?.alerts_reviews_days || DEFAULT_ALERTS_REVIEWS_DAYS;
     const contentMode = this._reviewContentMode(alertsContent);
     const windowScope = this._host._calSelectedDay
       ? `day:${this._host._calSelectedDay}`
@@ -1321,7 +1327,8 @@ export class BrowseWindowLoaderController {
   }
 
   reviewWindowContextKeyForContent(clientId, cam, alertsContent) {
-    const days = this._host._config?.alerts_reviews_days || 3;
+    const days =
+      this._host._config?.alerts_reviews_days || DEFAULT_ALERTS_REVIEWS_DAYS;
     const contentMode = this._reviewContentMode(alertsContent);
     const windowScope = this._host._calSelectedDay
       ? `day:${this._host._calSelectedDay}`
@@ -1450,7 +1457,7 @@ export class BrowseWindowLoaderController {
     }
     const merged = this._filterToRecentDaysWithData(
       [...byId.values()],
-      this._host._config?.alerts_reviews_days || 3,
+      this._host._config?.alerts_reviews_days || DEFAULT_ALERTS_REVIEWS_DAYS,
     );
     if (this._sameWindowItems(cache.reviews, merged)) return false;
     cache.reviews = merged;
@@ -1631,7 +1638,7 @@ export class BrowseWindowLoaderController {
             clientId,
             cam,
             before,
-            this._host._config?.window_days || 1,
+            this._host._config?.window_days || DEFAULT_WINDOW_DAYS,
             {
               debugLabel: "events-window",
               onProgress: groupPublishState ? null : publishProgress,
@@ -2016,7 +2023,8 @@ export class BrowseWindowLoaderController {
             clientId,
             cam,
             before,
-            this._host._config?.alerts_reviews_days || 3,
+            this._host._config?.alerts_reviews_days ||
+              DEFAULT_ALERTS_REVIEWS_DAYS,
             {
               debugLabel: "alerts-window",
               severity: reviewSeverity,

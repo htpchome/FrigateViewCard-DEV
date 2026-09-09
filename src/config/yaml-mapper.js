@@ -4,6 +4,8 @@ import {
   DEFAULT_CAMERA_CONNECTION_TYPE,
   DEFAULT_HIDDEN_TABS,
   DEFAULT_TITLE,
+  DEFAULT_WINDOW_DAYS,
+  DEFAULT_ALERTS_REVIEWS_DAYS,
   GRID_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
   GRID_ROTATION_OPTIONS_SECONDS,
@@ -230,17 +232,25 @@ export const compactEditorConfigForYaml = (
     true,
   );
 
-  const windowDays = normalizePositiveInteger(source.window_days, 3);
-  addIfNotDefault(compact, "window_days", windowDays, 3);
+  const windowDays = normalizePositiveInteger(
+    source.window_days,
+    DEFAULT_WINDOW_DAYS,
+  );
+  addIfNotDefault(
+    compact,
+    "window_days",
+    windowDays,
+    DEFAULT_WINDOW_DAYS,
+  );
   const alertsReviewsDays = normalizePositiveInteger(
     source.alerts_reviews_days,
-    windowDays,
+    DEFAULT_ALERTS_REVIEWS_DAYS,
   );
   addIfNotDefault(
     compact,
     "alerts_reviews_days",
     alertsReviewsDays,
-    windowDays,
+    DEFAULT_ALERTS_REVIEWS_DAYS,
   );
 
   const realtimePollSeconds = REALTIME_POLL_OPTIONS_SECONDS.includes(

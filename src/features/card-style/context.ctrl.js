@@ -308,9 +308,7 @@ export class CardStyleContextController {
       this._host._isPreviewContext() &&
       this._host._config?.compact_preview === true &&
       configuredHeightUnit === "%" &&
-      Number(rawHeight) === 100 &&
-      this._host._config?.title === "Frigate Preview" &&
-      this._host._config?.subtitle === "Compact preview";
+      Number(rawHeight) === 100;
     const configuredHeight = isDefaultStubPreview ? 50 : rawHeight;
     const previewHeightFallback =
       isCompactPreview && !configuredHeight ? "320px" : "";

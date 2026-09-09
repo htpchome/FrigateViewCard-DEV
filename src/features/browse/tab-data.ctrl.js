@@ -1,4 +1,4 @@
-import { DAY } from "../../constants.js";
+import { DAY, DEFAULT_ALERTS_REVIEWS_DAYS } from "../../constants.js";
 import { isCameraGroup } from "../camera-groups/model.js";
 import { reviewMatchesAlertsOnlyMode } from "./filter-state.js";
 
@@ -47,7 +47,8 @@ export class BrowseTabDataController {
     try {
       const after = this._host._winStart;
       const before = this._host._winEnd;
-      const days = this._host._config?.alerts_reviews_days || 3;
+      const days =
+        this._host._config?.alerts_reviews_days || DEFAULT_ALERTS_REVIEWS_DAYS;
       const selectedDay = this._host._calSelectedDay || "";
       const windowLoader = this._host._browseWindowLoaderController;
       if (isCameraGroup(this._host._activeCam)) {

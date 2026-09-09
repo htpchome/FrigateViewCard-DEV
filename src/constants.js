@@ -1,4 +1,4 @@
-export const VERSION = "1.1.5-dev.156";
+export const VERSION = "1.1.5-dev.157";
 
 export const RECOMMENDED_HOME_ASSISTANT_VERSION = "2026.9.0";
 
@@ -7,6 +7,8 @@ export const CARD_DISPLAY_NAME = `${CARD_NAME} Card`;
 export const CARD_TAG = "frigate-view-card";
 export const DEFAULT_TITLE = CARD_NAME;
 export const DEFAULT_SUBTITLE = "{Camera}";
+export const DEFAULT_WINDOW_DAYS = 5;
+export const DEFAULT_ALERTS_REVIEWS_DAYS = 5;
 export const DAY = 86400;
 export const RECORDINGS_WINDOW = 24 * 3600;
 export const EVENT_FETCH_BATCH = 100;

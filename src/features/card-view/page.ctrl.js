@@ -3,6 +3,7 @@ import { ICONS } from "../../icons.js";
 import {
   DEFAULT_SUBTITLE,
   DEFAULT_TITLE,
+  DEFAULT_WINDOW_DAYS,
   GRID_ALERT_HOLD_MS,
 } from "../../constants.js";
 import { CleanupController } from "../../shared/cleanup.js";
@@ -1264,7 +1265,7 @@ export class CardViewPageController {
       const now = Math.floor(Date.now() / 1000);
       this._host._winEnd = now;
       this._host._winStart = now -
-        (this._host._config?.window_days || 3) * 86400;
+        (this._host._config?.window_days || DEFAULT_WINDOW_DAYS) * 86400;
       this._host._followNowWindow = true;
     }
     const useProgressivePaint = this._alerts.length === 0;

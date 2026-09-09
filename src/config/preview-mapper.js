@@ -2,6 +2,8 @@ import {
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DEFAULT_HIDDEN_TABS,
+  DEFAULT_WINDOW_DAYS,
+  DEFAULT_ALERTS_REVIEWS_DAYS,
   GRID_ROTATION_OPTIONS_SECONDS,
   REALTIME_POLL_OPTIONS_SECONDS,
   GRID_ALERT_HOLD_MS,
@@ -184,10 +186,13 @@ export const applyEditorPreviewDraftToCardConfig = ({
     cameras: Array.isArray(previewConfig.cameras)
       ? previewConfig.cameras
       : base.cameras,
-    window_days: normalizePositiveInteger(previewConfig.window_days, 3),
+    window_days: normalizePositiveInteger(
+      previewConfig.window_days,
+      DEFAULT_WINDOW_DAYS,
+    ),
     alerts_reviews_days: normalizePositiveInteger(
       previewConfig.alerts_reviews_days,
-      normalizePositiveInteger(previewConfig.window_days, 3),
+      DEFAULT_ALERTS_REVIEWS_DAYS,
     ),
     window_hours: Number(previewConfig.window_hours) || null,
     realtime_poll_seconds: REALTIME_POLL_OPTIONS_SECONDS.includes(

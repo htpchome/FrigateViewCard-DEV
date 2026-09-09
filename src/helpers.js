@@ -11,6 +11,8 @@ import {
   PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
   DEFAULT_CAMERA_CONNECTION_TYPE,
   ALLOWED_HIDDEN_TABS,
+  DEFAULT_WINDOW_DAYS,
+  DEFAULT_ALERTS_REVIEWS_DAYS,
   THEME_CUSTOM_KEYS,
   THEME_MODES,
 } from "./constants.js";
@@ -706,14 +708,14 @@ export const buildEditorConfigFromDom = ({
   nextConfig.window_days = normalizePositiveInteger(
     root.querySelector("#window_days")?.dataset.value ||
       root.querySelector("#window_days")?.value ||
-      "3",
-    3,
+      String(DEFAULT_WINDOW_DAYS),
+    DEFAULT_WINDOW_DAYS,
   );
   nextConfig.alerts_reviews_days = normalizePositiveInteger(
     root.querySelector("#alerts_reviews_days")?.dataset.value ||
       root.querySelector("#alerts_reviews_days")?.value ||
-      String(nextConfig.window_days || 3),
-    nextConfig.window_days || 3,
+      String(DEFAULT_ALERTS_REVIEWS_DAYS),
+    DEFAULT_ALERTS_REVIEWS_DAYS,
   );
   nextConfig.window_hours = nextConfig.window_days * 24;
   const realtimePollSeconds = Number(

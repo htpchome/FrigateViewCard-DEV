@@ -4,6 +4,8 @@ import {
   DEFAULT_SUBTITLE,
   DEFAULT_CAMERA_CONNECTION_TYPE,
   DEFAULT_HIDDEN_TABS,
+  DEFAULT_WINDOW_DAYS,
+  DEFAULT_ALERTS_REVIEWS_DAYS,
   GRID_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
   GRID_ROTATION_OPTIONS_SECONDS,
@@ -259,9 +261,16 @@ export const normalizeCardConfig = (config) => {
   )
     ? Number(src.grid_rotation_seconds)
     : 30;
+  const legacyWindowHours = parseInt(src.window_hours, 10);
+  src.window_days = normalizePositiveInteger(
+    src.window_days,
+    Number.isFinite(legacyWindowHours) && legacyWindowHours > 0
+      ? Math.max(1, Math.ceil(legacyWindowHours / 24))
+      : DEFAULT_WINDOW_DAYS,
+  );
   src.alerts_reviews_days = normalizePositiveInteger(
     src.alerts_reviews_days,
-    normalizePositiveInteger(src.window_days, 3),
+    DEFAULT_ALERTS_REVIEWS_DAYS,
   );
 
   delete src.wide_view;

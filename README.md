@@ -199,8 +199,8 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `display_subtitle` | boolean | `true` | Displays the subtitle when enabled. |
 | `display_logo` | boolean | `true` | Displays the FrigateView logo in page footers. The footer keeps its normal height when disabled. |
 | `display_version` | boolean | `true` | Displays the FrigateView version number in page footers. The editor always shows the running version. |
-| `window_days` | number | `3` | Number of recent days containing event data to load for event-media browsing. The editor offers 1–15. |
-| `alerts_reviews_days` | number | `window_days` | Number of recent days containing qualifying Alerts/Reviews to load and count. The editor offers 1–15. |
+| `window_days` | number | `5` | Number of recent days containing event data to load for event-media browsing. The editor offers 1–15. |
+| `alerts_reviews_days` | number | `5` | Number of recent days containing qualifying Alerts/Reviews to load and count. The editor offers 1–15. |
 | `realtime_poll_seconds` | number | `5` | How often the card checks for new alerts and reviews when realtime notifications are delayed or missed. Valid values: `2`, `5`, `10`, `15`, `30`, `60`. |
 | `mobile_poll_battery_saver` | boolean | `false` | Uses 60-second polling on mobile devices to reduce battery and data use. |
 | `snapshot_update_seconds` | number | `60` | Snapshot refresh interval for snapshot-based Preview, Grid, and Wide View Companion Camera tiles. Valid values: `10`, `20`, `30`, `60`, `120`, `300`. |

@@ -8,6 +8,7 @@ import {
   findNewestReviewCandidateAcrossCameras,
 } from "../../data/review-candidate.js";
 import { parseRealtimeAlertMessage } from "../../data/realtime-alert.js";
+import { DEFAULT_ALERTS_REVIEWS_DAYS } from "../../constants.js";
 import {
   cameraMemberEntities,
   flattenCameraMembers,
@@ -227,7 +228,8 @@ export class SlideshowAlertController {
         0,
         Math.floor(
           before -
-            (this._host._config?.alerts_reviews_days || 3) *
+            (this._host._config?.alerts_reviews_days ||
+              DEFAULT_ALERTS_REVIEWS_DAYS) *
               this._constants.DAY,
         ),
       );

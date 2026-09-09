@@ -30,6 +30,8 @@ import {
   DEFAULT_CAMERA_CONNECTION_TYPE,
   DEFAULT_HIDDEN_TABS,
   ALLOWED_HIDDEN_TABS,
+  DEFAULT_WINDOW_DAYS,
+  DEFAULT_ALERTS_REVIEWS_DAYS,
 } from "../constants.js";
 import { ICONS } from "../icons.js";
 import { STYLES } from "../styles.js";
@@ -713,7 +715,7 @@ export class FrigateViewCard extends HTMLElement {
       getWindowStart: () =>
         this._winStart ||
         (this._winEnd || Date.now() / 1000) -
-          (this._config?.window_days || 1) * DAY,
+          (this._config?.window_days || DEFAULT_WINDOW_DAYS) * DAY,
       getWindowEnd: () => this._winEnd || Date.now() / 1000,
       getCameraKey: () =>
         resolveWideTimelineCameraContextKey({
@@ -1703,13 +1705,13 @@ export class FrigateViewCard extends HTMLElement {
           alerts_content: "alerts_only",
         },
       ],
-      title: "Frigate Preview",
-      subtitle: "Compact preview",
+      title: DEFAULT_TITLE,
+      subtitle: DEFAULT_SUBTITLE,
       compact_preview: true,
       stream_height: 100,
       stream_height_unit: "%",
-      window_days: 1,
-      alerts_reviews_days: 1,
+      window_days: DEFAULT_WINDOW_DAYS,
+      alerts_reviews_days: DEFAULT_ALERTS_REVIEWS_DAYS,
     };
   }
   setConfig(config) {
@@ -1779,10 +1781,10 @@ export class FrigateViewCard extends HTMLElement {
         normalizePositiveInteger(config.window_days, null) ||
         (Number.isFinite(legacyWindowHours) && legacyWindowHours > 0
           ? Math.max(1, Math.ceil(legacyWindowHours / 24))
-          : 3),
+          : DEFAULT_WINDOW_DAYS),
       alerts_reviews_days: normalizePositiveInteger(
         config.alerts_reviews_days,
-        normalizePositiveInteger(config.window_days, 3),
+        DEFAULT_ALERTS_REVIEWS_DAYS,
       ),
       refresh_seconds: Math.max(15, config.refresh_seconds || 45),
       realtime_poll_seconds: REALTIME_POLL_OPTIONS_SECONDS.includes(
