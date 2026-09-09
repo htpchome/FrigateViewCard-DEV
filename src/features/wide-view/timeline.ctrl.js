@@ -224,18 +224,33 @@ export class WideViewTimelineController {
           const contentBox = Array.isArray(entry?.contentBoxSize)
             ? entry.contentBoxSize[0]
             : entry?.contentBoxSize;
-          const width = Number(
+          const borderBox = Array.isArray(entry?.borderBoxSize)
+            ? entry.borderBoxSize[0]
+            : entry?.borderBoxSize;
+          const contentWidth = Number(
             contentBox?.inlineSize ?? entry?.contentRect?.width,
           );
-          const height = Number(
+          const contentHeight = Number(
             contentBox?.blockSize ?? entry?.contentRect?.height,
           );
-          if (entry?.target === colRight && width > 0) {
-            this._observedColumnWidth = width;
+          if (entry?.target === colRight && contentWidth > 0) {
+            const borderWidth = Number(borderBox?.inlineSize);
+            const appliedPushWidth =
+              this._responsiveLayout?.mode === "push"
+                ? this._responsiveLayout.panelWidth
+                : 0;
+            this._observedColumnWidth =
+              borderWidth > 0
+                ? borderWidth
+                : contentWidth + appliedPushWidth;
           }
           if (entry?.target === viewport) {
-            if (width > 0) this._observedViewportWidth = width;
-            if (height > 0) this._observedViewportHeight = height;
+            if (contentWidth > 0) {
+              this._observedViewportWidth = contentWidth;
+            }
+            if (contentHeight > 0) {
+              this._observedViewportHeight = contentHeight;
+            }
           }
         }
         const initialLayout = this._waitingForInitialLayout;

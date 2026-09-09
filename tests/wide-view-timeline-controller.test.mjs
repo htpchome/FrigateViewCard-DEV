@@ -180,7 +180,8 @@ test("Timeline waits for observed Wide layout before its initial paint", () => {
     const entries = [
       {
         target: colRight,
-        contentBoxSize: [{ inlineSize: 800, blockSize: 480 }],
+        contentBoxSize: [{ inlineSize: 392, blockSize: 480 }],
+        borderBoxSize: [{ inlineSize: 800, blockSize: 480 }],
       },
       {
         target: viewport,
@@ -189,6 +190,11 @@ test("Timeline waits for observed Wide layout before its initial paint", () => {
     ];
     observers[0].callback(entries);
     observers[0].callback(entries);
+    assert.equal(colRight.classList.contains("wide-timeline-push"), true);
+    assert.equal(
+      colRight.style.values.get("--wide-timeline-panel-width"),
+      "408px",
+    );
     assert.equal(frameCallbacks.length, 1);
     frameCallbacks[0]();
     assert.equal(renders.length, 0);

@@ -587,6 +587,62 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(pageErrors).toEqual([]);
 });
 
+test("Wide View timeline push width remains stable across wide breakpoints", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_900, height: 1_000 });
+  await page.goto(baseUrl);
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const results = {};
+    for (const cardWidth of [1_720, 1_790]) {
+      const card = document.createElement("frigate-view-card");
+      card.style.display = "block";
+      card.style.width = `${cardWidth}px`;
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        wide_view_page_enabled: true,
+        wide_view_timeline_enabled: true,
+        wide_view_timeline_default_open: true,
+        stream_height: 640,
+        stream_height_unit: "px",
+      });
+      card._pageId = "wide-view";
+      card._renderShell();
+      card._wideViewPageController.startWideViewMode();
+
+      const root = card.shadowRoot;
+      const colRight = root.querySelector("#col-right");
+      const panel = root.querySelector("#wide-timeline-panel");
+      const samples = [];
+      for (let frame = 0; frame < 20; frame += 1) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      for (let frame = 0; frame < 30; frame += 1) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        samples.push({
+          mode: colRight.classList.contains("wide-timeline-push")
+            ? "push"
+            : "overlay",
+          panelWidth: Math.round(panel.getBoundingClientRect().width),
+        });
+      }
+      results[cardWidth] = samples;
+      card.remove();
+    }
+    return results;
+  });
+
+  for (const samples of Object.values(result)) {
+    expect(new Set(samples.map(({ mode }) => mode))).toEqual(
+      new Set(["push"]),
+    );
+    expect(new Set(samples.map(({ panelWidth }) => panelWidth)).size).toBe(1);
+  }
+});
+
 test("dispatches event-tab clicks from the page-shell tabs region", async ({
   page,
 }) => {
