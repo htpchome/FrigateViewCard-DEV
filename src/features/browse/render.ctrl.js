@@ -29,6 +29,52 @@ import { syncPreservedBrowseThumbnail } from "./thumbnail.tmpl.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
 const REVIEW_ROW_MARKUP_CACHE_LIMIT = 512;
+const BROWSE_PROGRESSIVE_BATCH_SIZE = 12;
+
+const browseItemsSignature = (items) => {
+  try {
+    return JSON.stringify(items || []);
+  } catch (_) {
+    return (items || [])
+      .map((item) => `${item?.id || ""}:${item?.start_time || 0}`)
+      .join("|");
+  }
+};
+
+const appendProgressiveListMarkup = (list, html) => {
+  const documentRef = list?.ownerDocument || globalThis.document;
+  if (
+    !documentRef?.createElement ||
+    typeof list?.append !== "function" ||
+    !String(html || "")
+  ) {
+    return false;
+  }
+
+  const template = documentRef.createElement("template");
+  template.innerHTML = html;
+  const fragment = template.content;
+  const lastSection = list.lastElementChild?.matches?.(".list-day-sec")
+    ? list.lastElementChild
+    : null;
+  const firstSection = fragment.firstElementChild?.matches?.(".list-day-sec")
+    ? fragment.firstElementChild
+    : null;
+  if (
+    lastSection?.dataset?.dayKey &&
+    lastSection.dataset.dayKey === firstSection?.dataset?.dayKey
+  ) {
+    const label = firstSection.firstElementChild;
+    while (label?.nextSibling) lastSection.append(label.nextSibling);
+    firstSection.remove();
+  } else {
+    firstSection?.firstElementChild?.classList?.remove?.(
+      "list-day-label-first",
+    );
+  }
+  list.append(fragment);
+  return true;
+};
 
 const listItemKey = (element) => {
   if (!element?.dataset) return "";
@@ -83,11 +129,14 @@ const replaceListMarkupPreservingMedia = (list, html) => {
 };
 
 export class BrowseRenderController {
-  constructor(host) {
+  constructor(host, deps = {}) {
     this._host = host;
+    this._appendProgressiveListMarkup =
+      deps.appendProgressiveListMarkup || appendProgressiveListMarkup;
     this._lastListElement = null;
     this._browseFirstPaintList = null;
     this._browseFirstPaintState = new Map();
+    this._renderedBrowseKey = "";
     this._reviewRowMarkupCache = new Map();
     this._reviewRowMarkupContext = "";
     this._reviewRowMarkupConfig = null;
@@ -308,11 +357,13 @@ export class BrowseRenderController {
     if (!list) return;
 
     if (this._host._tab === "controls") {
+      this._renderedBrowseKey = "";
       this.syncOlderHint(true);
       return this._host._renderControlsSection(list);
     }
 
     if (this._host._tab === "recordings") {
+      this._renderedBrowseKey = "";
       return this._renderRecordingsTabList(list);
     }
 
@@ -321,6 +372,7 @@ export class BrowseRenderController {
     }
 
     if (this._host._tab === "kept") {
+      this._renderedBrowseKey = "";
       return this._renderKeptList(list);
     }
 
@@ -384,6 +436,10 @@ export class BrowseRenderController {
   _renderEventsList(list) {
     const allEvents = this._host._browseFilterController.filtered();
     const firstPaint = this._resolveBrowseFirstPaint(allEvents, list);
+    if (firstPaint.skipRender) {
+      this.renderListLabel(resolveListLabelTimestamp(allEvents));
+      return;
+    }
     const events = firstPaint.items;
     this.renderListLabel(resolveListLabelTimestamp(events));
     this._renderStandardListMarkup(list, {
@@ -399,8 +455,22 @@ export class BrowseRenderController {
       contentForceHide: null,
       syncOnContent: false,
     });
+    this._renderedBrowseKey = this._browseFirstPaintKey();
     if (firstPaint.scheduleKey) {
-      this._scheduleBrowseFirstPaintCompletion(firstPaint.scheduleKey, list);
+      this._scheduleBrowseFirstPaintCompletion(
+        firstPaint.scheduleKey,
+        list,
+        {
+          items: allEvents,
+          signature: firstPaint.signature,
+          getCurrentItems: () =>
+            this._host._browseFilterController.filtered(),
+          buildBatchMarkup: (items, isFinal) =>
+            this.renderEventsContent(items, {
+              exhausted: isFinal ? this._host._exhausted : false,
+            }),
+        },
+      );
     }
   }
 
@@ -431,30 +501,89 @@ export class BrowseRenderController {
   _resolveBrowseFirstPaint(entries, list = null) {
     const items = Array.isArray(entries) ? entries : [];
     const key = this._browseFirstPaintKey();
+    const signature = browseItemsSignature(items);
     if (list && list !== this._browseFirstPaintList) {
       this._browseFirstPaintList = list;
+      this._renderedBrowseKey = "";
       if (key) this._browseFirstPaintState.delete(key);
     }
     if (!key || items.length <= INITIAL_BROWSE_PAINT_LIMIT) {
       if (key && items.length > 0) {
-        this._browseFirstPaintState.set(key, "complete");
+        this._browseFirstPaintState.set(key, {
+          status: "complete",
+          signature,
+          renderedCount: items.length,
+          incremental: false,
+        });
       }
-      return { items, limited: false, scheduleKey: "" };
+      return { items, limited: false, scheduleKey: "", signature };
     }
 
     const state = this._browseFirstPaintState.get(key);
-    if (state === "complete") {
-      return { items, limited: false, scheduleKey: "" };
+    if (state?.status === "complete") {
+      const sameItems = state.signature === signature;
+      if (
+        state.incremental === true &&
+        sameItems &&
+        this._lastListElement === list &&
+        this._renderedBrowseKey === key &&
+        this._host._lastRenderedListHtml
+      ) {
+        return {
+          items: [],
+          limited: false,
+          scheduleKey: "",
+          signature,
+          skipRender: true,
+        };
+      }
+      if (sameItems && this._renderedBrowseKey !== key) {
+        this._browseFirstPaintState.set(key, {
+          status: "pending",
+          signature,
+          renderedCount: INITIAL_BROWSE_PAINT_LIMIT,
+          incremental: false,
+        });
+        return {
+          items: items.slice(0, INITIAL_BROWSE_PAINT_LIMIT),
+          limited: true,
+          scheduleKey: key,
+          signature,
+        };
+      }
+      state.signature = signature;
+      state.renderedCount = items.length;
+      state.incremental = false;
+      return { items, limited: false, scheduleKey: "", signature };
     }
-    if (state === "pending") {
+    if (state?.status === "pending" && state.signature === signature) {
+      if (
+        this._lastListElement === list &&
+        this._renderedBrowseKey === key &&
+        this._host._lastRenderedListHtml
+      ) {
+        return {
+          items: [],
+          limited: true,
+          scheduleKey: "",
+          signature,
+          skipRender: true,
+        };
+      }
       return {
         items: items.slice(0, INITIAL_BROWSE_PAINT_LIMIT),
         limited: true,
         scheduleKey: "",
+        signature,
       };
     }
 
-    this._browseFirstPaintState.set(key, "pending");
+    this._browseFirstPaintState.set(key, {
+      status: "pending",
+      signature,
+      renderedCount: INITIAL_BROWSE_PAINT_LIMIT,
+      incremental: false,
+    });
     while (this._browseFirstPaintState.size > 64) {
       this._browseFirstPaintState.delete(
         this._browseFirstPaintState.keys().next().value,
@@ -464,12 +593,23 @@ export class BrowseRenderController {
       items: items.slice(0, INITIAL_BROWSE_PAINT_LIMIT),
       limited: true,
       scheduleKey: key,
+      signature,
     };
   }
 
-  _scheduleBrowseFirstPaintCompletion(key, list) {
-    const complete = () => {
-      if (this._browseFirstPaintState.get(key) !== "pending") return;
+  _scheduleBrowseFirstPaintCompletion(
+    key,
+    list,
+    {
+      items = [],
+      signature = "",
+      getCurrentItems = () => items,
+      buildBatchMarkup = () => "",
+    } = {},
+  ) {
+    const appendNextBatch = () => {
+      const state = this._browseFirstPaintState.get(key);
+      if (state?.status !== "pending" || state.signature !== signature) return;
       const currentList = this._host._pageShellRegionElement?.(
         "browse",
         "#list",
@@ -478,16 +618,49 @@ export class BrowseRenderController {
         this._browseFirstPaintState.delete(key);
         return;
       }
-      this._browseFirstPaintState.set(key, "complete");
-      this._host._renderList?.();
+      const start = state.renderedCount;
+      const end = Math.min(
+        items.length,
+        start + BROWSE_PROGRESSIVE_BATCH_SIZE,
+      );
+      const isFinal = end >= items.length;
+      const appended = this._appendProgressiveListMarkup(
+        list,
+        buildBatchMarkup(items.slice(start, end), isFinal),
+      );
+      if (!appended) {
+        state.status = "complete";
+        state.signature = "";
+        state.renderedCount = items.length;
+        this._host._renderList?.();
+        return;
+      }
+      state.renderedCount = end;
+      if (!isFinal) {
+        this._scheduleBrowseProgressiveFrame(appendNextBatch);
+        return;
+      }
+      state.status = "complete";
+      state.incremental = true;
+      if (browseItemsSignature(getCurrentItems()) !== signature) {
+        this._host._renderList?.();
+      }
     };
     if (typeof globalThis.requestAnimationFrame === "function") {
       globalThis.requestAnimationFrame(() =>
-        globalThis.requestAnimationFrame(complete),
+        globalThis.requestAnimationFrame(appendNextBatch),
       );
       return;
     }
-    setTimeout(complete, 0);
+    setTimeout(appendNextBatch, 0);
+  }
+
+  _scheduleBrowseProgressiveFrame(callback) {
+    if (typeof globalThis.requestAnimationFrame === "function") {
+      globalThis.requestAnimationFrame(callback);
+      return;
+    }
+    setTimeout(callback, 0);
   }
 
   _renderStandardListMarkup(
@@ -568,6 +741,10 @@ export class BrowseRenderController {
       (a, b) => b.start_time - a.start_time,
     );
     const firstPaint = this._resolveBrowseFirstPaint(allReviews, list);
+    if (firstPaint.skipRender) {
+      this.renderListLabel(resolveListLabelTimestamp(allReviews));
+      return;
+    }
     const reviews = firstPaint.items;
 
     this.renderListLabel(resolveListLabelTimestamp(reviews));
@@ -579,8 +756,20 @@ export class BrowseRenderController {
       contentForceHide: false,
       syncOnContent: false,
     });
+    this._renderedBrowseKey = this._browseFirstPaintKey();
     if (firstPaint.scheduleKey) {
-      this._scheduleBrowseFirstPaintCompletion(firstPaint.scheduleKey, list);
+      this._scheduleBrowseFirstPaintCompletion(
+        firstPaint.scheduleKey,
+        list,
+        {
+          items: allReviews,
+          signature: firstPaint.signature,
+          getCurrentItems: () => [
+            ...this._host._browseFilterController.filteredReviews(),
+          ].sort((a, b) => b.start_time - a.start_time),
+          buildBatchMarkup: (items) => this.renderReviewsContent(items),
+        },
+      );
     }
   }
 }

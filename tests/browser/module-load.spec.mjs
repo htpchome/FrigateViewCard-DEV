@@ -105,6 +105,61 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
+test("cached browse rows expand in append-only batches across sticky days", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+    });
+    card._pageId = "single-view";
+    card._renderShell();
+    card._tab = "clips";
+
+    const today = Date.UTC(2026, 8, 9, 12) / 1000;
+    const events = Array.from({ length: 31 }, (_, index) => ({
+      id: `event-${index}`,
+      start_time: index < 18 ? today - index : today - 86_400 - index,
+    }));
+    card._browseFilterController.filtered = () => events;
+    card._eventCardHTML = (event) =>
+      `<article class="list-item" data-ev="${event.id}">${event.id}</article>`;
+
+    const controller =
+      card._singleViewPageController._browseRenderController;
+    controller.renderList();
+    const list = card._pageShellRegionElement("browse", "#list");
+    const initialRows = list.querySelectorAll(".list-item").length;
+    for (let frame = 0; frame < 8; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+
+    return {
+      initialRows,
+      finalRows: list.querySelectorAll(".list-item").length,
+      sections: [...list.querySelectorAll(".list-day-sec")].map(
+        (section) => ({
+          dayKey: section.dataset.dayKey,
+          firstLabel: section
+            .querySelector(".list-day-label")
+            ?.classList.contains("list-day-label-first"),
+        }),
+      ),
+    };
+  });
+
+  expect(result.initialRows).toBe(6);
+  expect(result.finalRows).toBe(31);
+  expect(result.sections).toHaveLength(2);
+  expect(result.sections[0].firstLabel).toBe(true);
+  expect(result.sections[1].firstLabel).toBe(false);
+  expect(result.sections[0].dayKey).not.toBe(result.sections[1].dayKey);
+});
+
 test("page routes replace only their layout while preserving live and popup shells", async ({
   page,
 }) => {

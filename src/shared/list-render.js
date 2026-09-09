@@ -22,6 +22,7 @@ export function buildStickyDaySectionsHtml(items, deps) {
     if (dayKey !== currentDay) {
       currentDay = dayKey;
       sections.push({
+        dayKey,
         ts: Math.floor(ts || 0),
         label: getLabel(ts || null),
         rows: [],
@@ -34,7 +35,7 @@ export function buildStickyDaySectionsHtml(items, deps) {
     .map((section, idx) => {
       const extraClass = idx === 0 ? " list-day-label-first" : "";
       const ts = Number.isFinite(section.ts) ? Math.floor(section.ts) : 0;
-      return `<section class="list-day-sec"><div class="list-day-label${extraClass}" data-day-ts="${ts}" data-day-label="${escapeHtmlAttribute(section.label)}">${escapeHtml(section.label)}</div>${section.rows.join("")}</section>`;
+      return `<section class="list-day-sec" data-day-key="${escapeHtmlAttribute(section.dayKey)}"><div class="list-day-label${extraClass}" data-day-ts="${ts}" data-day-label="${escapeHtmlAttribute(section.label)}">${escapeHtml(section.label)}</div>${section.rows.join("")}</section>`;
     })
     .join("");
 }

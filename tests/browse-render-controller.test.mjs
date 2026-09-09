@@ -298,6 +298,72 @@ test("first cached Alerts paint renders six rows before expanding", () => {
   }
 });
 
+test("cached Clips expansion appends small batches without rebuilding the list", () => {
+  const { host, nodes, listWrites } = createHost();
+  const frameCallbacks = [];
+  const appendedBatches = [];
+  const previousAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    frameCallbacks.push(callback);
+    return frameCallbacks.length;
+  };
+  const controller = new BrowseRenderController(host, {
+    appendProgressiveListMarkup: (_list, html) => {
+      appendedBatches.push(html);
+      return true;
+    },
+  });
+  host._tab = "clips";
+  host._events = Array.from({ length: 31 }, (_, index) => ({
+    id: `event-${index}`,
+    start_time: 300 - index,
+  }));
+  host._renderList = () => controller.renderList();
+
+  const flushFrame = () => {
+    const callbacks = frameCallbacks.splice(0);
+    callbacks.forEach((callback) => callback());
+  };
+
+  try {
+    controller.renderList();
+    assert.equal(listWrites(), 1);
+
+    controller.renderList();
+    assert.equal(listWrites(), 1);
+
+    flushFrame();
+    assert.equal(appendedBatches.length, 0);
+    flushFrame();
+    flushFrame();
+    flushFrame();
+
+    assert.equal(appendedBatches.length, 3);
+    assert.equal(
+      appendedBatches[0].match(/class="event"/g)?.length,
+      12,
+    );
+    assert.equal(
+      appendedBatches[1].match(/class="event"/g)?.length,
+      12,
+    );
+    assert.equal(
+      appendedBatches[2].match(/class="event"/g)?.length,
+      1,
+    );
+    assert.match(appendedBatches[0], />event-6<\/article>/);
+    assert.match(appendedBatches[2], />event-30<\/article>/);
+    assert.equal(listWrites(), 1);
+
+    controller.renderList();
+    assert.equal(listWrites(), 1);
+    assert.equal(appendedBatches.length, 3);
+    assert.equal(nodes.list.innerHTML.includes(">event-5</article>"), true);
+  } finally {
+    globalThis.requestAnimationFrame = previousAnimationFrame;
+  }
+});
+
 test("a replaced browse list receives a limited first paint again", () => {
   const { host, nodes } = createHost();
   const controller = new BrowseRenderController(host);
@@ -346,6 +412,47 @@ test("a replaced browse list receives a limited first paint again", () => {
     controller.renderList();
     assert.equal(replacementHtml.includes(">review-5</article>"), true);
     assert.equal(replacementHtml.includes(">review-6</article>"), false);
+  } finally {
+    globalThis.requestAnimationFrame = previousAnimationFrame;
+  }
+});
+
+test("returning to a completed browse tab starts with its limited paint", () => {
+  const { host, nodes } = createHost();
+  const controller = new BrowseRenderController(host);
+  const frameCallbacks = [];
+  const previousAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    frameCallbacks.push(callback);
+    return frameCallbacks.length;
+  };
+  host._tab = "clips";
+  host._events = Array.from({ length: 12 }, (_, index) => ({
+    id: `event-${index}`,
+    start_time: 300 - index,
+  }));
+  host._reviews = [{ id: "review-1", start_time: 400 }];
+  host._renderList = () => controller.renderList();
+
+  const flushFrame = () => {
+    const callbacks = frameCallbacks.splice(0);
+    callbacks.forEach((callback) => callback());
+  };
+
+  try {
+    controller.renderList();
+    flushFrame();
+    flushFrame();
+    assert.equal(nodes.list.innerHTML.includes(">event-11</article>"), true);
+
+    host._tab = "alerts";
+    controller.renderList();
+    assert.equal(nodes.list.innerHTML.includes(">review-1</article>"), true);
+
+    host._tab = "clips";
+    controller.renderList();
+    assert.equal(nodes.list.innerHTML.includes(">event-5</article>"), true);
+    assert.equal(nodes.list.innerHTML.includes(">event-6</article>"), false);
   } finally {
     globalThis.requestAnimationFrame = previousAnimationFrame;
   }

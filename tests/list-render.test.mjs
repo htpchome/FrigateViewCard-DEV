@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildStickyDaySectionsHtml,
   resolveActiveDayLabelFromScroll,
   resolveActiveListScroller,
   resolveOlderHintMetrics,
@@ -9,6 +10,25 @@ import {
   syncDayLabelAlignmentFromScroll,
 } from "../src/shared/list-render.js";
 import { STYLES } from "../src/styles.js";
+
+test("sticky day sections expose stable day keys for progressive merging", () => {
+  const html = buildStickyDaySectionsHtml(
+    [
+      { id: "one", start_time: 200 },
+      { id: "two", start_time: 100 },
+    ],
+    {
+      getStartTime: (item) => item.start_time,
+      getDayKey: (timestamp) => (timestamp >= 200 ? "day-a" : "day-b"),
+      getLabel: (timestamp) => (timestamp >= 200 ? "Day A" : "Day B"),
+      renderItem: (item) => `<article>${item.id}</article>`,
+    },
+  );
+
+  assert.match(html, /data-day-key="day-a"/);
+  assert.match(html, /data-day-key="day-b"/);
+  assert.equal(html.match(/list-day-label-first/g)?.length, 1);
+});
 
 test("resolveActiveListScroller prefers browse when list is not a scroll container", () => {
   const list = {
