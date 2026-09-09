@@ -2263,7 +2263,7 @@ export class FrigateViewCard extends HTMLElement {
   getGridOptions() {
     return {
       columns: 12,
-      rows: full,
+      rows: auto,
       min_rows: 6,
       min_columns: 6,
     };
