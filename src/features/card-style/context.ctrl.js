@@ -211,10 +211,13 @@ export class CardStyleContextController {
     const tightMarginsEnabled = this._host._config?.tight_margins === true;
     const inPreviewContext = this._host._isPreviewContext();
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
+    const homeAssistantAutoHeight =
+      this.resolveHomeAssistantGridHeightMode() === "auto";
     if (this._host.parentElement) {
       this._host.parentElement.style.height =
         inPreviewContext ||
         naturalCardView ||
+        homeAssistantAutoHeight ||
         this._viewportMinimumActive === true
           ? "auto"
           : "100%";
@@ -331,8 +334,9 @@ export class CardStyleContextController {
       numericHeight > 0 &&
       !this._host._isPreviewContext();
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
-    const constrainToHaGrid =
-      this.shouldConstrainToHomeAssistantGridHeight();
+    const homeAssistantGridHeightMode =
+      this.resolveHomeAssistantGridHeightMode();
+    const constrainToHaGrid = homeAssistantGridHeightMode === "fixed";
     const hostComputedStyle = naturalCardView && !constrainToHaGrid
       ? null
       : getComputedStyle(this._host);
@@ -428,6 +432,7 @@ export class CardStyleContextController {
 
     this.syncViewportMinimumParentHeight(expandedForMinimumBrowseHeight, {
       constrainToHaGrid,
+      homeAssistantAutoHeight: homeAssistantGridHeightMode === "auto",
     });
 
     const { mode } = this.resolveThemeContext();
@@ -452,23 +457,36 @@ export class CardStyleContextController {
   }
 
   shouldConstrainToHomeAssistantGridHeight() {
-    if (this._host._isPreviewContext?.() === true) return false;
+    return this.resolveHomeAssistantGridHeightMode() === "fixed";
+  }
 
-    const configuredRows = this._host._sourceConfig?.grid_options?.rows;
-    if (String(configuredRows ?? "").trim().toLowerCase() === "auto") {
-      return false;
-    }
+  resolveHomeAssistantGridHeightMode() {
+    if (this._host._isPreviewContext?.() === true) return null;
 
+    let heightManagedView = null;
     let element = this._host;
     for (let depth = 0; element && depth < 20; depth += 1) {
       if (HA_HEIGHT_MANAGED_VIEW_TAGS.has(element.tagName)) {
-        return (
-          element.tagName !== "HUI-SECTIONS-VIEW" || !this.isPanelView()
-        );
+        heightManagedView = element;
+        break;
       }
       element = element.parentNode || element.host;
     }
-    return false;
+    if (!heightManagedView) return null;
+    if (
+      heightManagedView.tagName === "HUI-SECTIONS-VIEW" &&
+      this.isPanelView()
+    ) {
+      return null;
+    }
+
+    const configuredRows = this._host._sourceConfig?.grid_options?.rows;
+    const normalizedRows = String(configuredRows ?? "").trim().toLowerCase();
+    if (!normalizedRows || normalizedRows === "auto") {
+      return "auto";
+    }
+    const numericRows = Number(normalizedRows);
+    return Number.isFinite(numericRows) && numericRows > 0 ? "fixed" : "auto";
   }
 
   resolvePercentHostHeightPx({ ratio, haCardHeight, headerHeight }) {
@@ -478,9 +496,13 @@ export class CardStyleContextController {
       (window.visualViewport?.height || window.innerHeight || 0) -
         headerHeightPx,
     );
+    const parsedHaCardHeightPx = this.parsePxLength(haCardHeight);
     const referenceHeightPx =
-      this.parsePxLength(haCardHeight) ??
-      (viewportHeightPx > 0 ? viewportHeightPx : null);
+      parsedHaCardHeightPx != null && parsedHaCardHeightPx > 0
+        ? parsedHaCardHeightPx
+        : viewportHeightPx > 0
+          ? viewportHeightPx
+          : null;
     if (referenceHeightPx == null) return null;
     const legacyAvailableHeightPx = Math.max(
       1,
@@ -611,7 +633,10 @@ export class CardStyleContextController {
 
   syncViewportMinimumParentHeight(
     active,
-    { constrainToHaGrid = false } = {},
+    {
+      constrainToHaGrid = false,
+      homeAssistantAutoHeight = false,
+    } = {},
   ) {
     this._viewportMinimumActive = active === true;
     if (
@@ -621,9 +646,10 @@ export class CardStyleContextController {
     ) {
       return;
     }
-    this._host.parentElement.style.height = this._viewportMinimumActive
-      ? "auto"
-      : "100%";
+    this._host.parentElement.style.height =
+      this._viewportMinimumActive || homeAssistantAutoHeight
+        ? "auto"
+        : "100%";
   }
 
   resolveHeightWrapperViewportPx() {

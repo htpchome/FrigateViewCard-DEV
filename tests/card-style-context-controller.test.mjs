@@ -415,6 +415,7 @@ test("applyTightMargins updates parent spacing and sections row gap", () => {
     style: { height: "", margin: "8px", padding: "6px" },
   };
   const host = {
+    _sourceConfig: { grid_options: { rows: 8 } },
     _config: { tight_margins: true },
     _parentOrigStyle: { margin: "10px", padding: "12px" },
     _isPreviewContext: () => false,
@@ -631,7 +632,80 @@ test("Home Assistant Auto height remains the opt-out from grid constraints", () 
       controller.shouldConstrainToHomeAssistantGridHeight(),
       false,
     );
+    delete host._sourceConfig.grid_options.rows;
+    assert.equal(controller.resolveHomeAssistantGridHeightMode(), "auto");
   }
+});
+
+test("omitted HA grid rows use intrinsic wrapper sizing instead of collapsing", () => {
+  const hostStyleCalls = [];
+  const cardStyleCalls = [];
+  const sectionsView = {
+    tagName: "HUI-SECTIONS-VIEW",
+    parentNode: null,
+  };
+  const parentElement = {
+    tagName: "HUI-CARD",
+    parentNode: sectionsView,
+    style: { height: "100%" },
+    getBoundingClientRect: () => ({ top: 56 }),
+  };
+  const card = {
+    querySelector: () => null,
+    style: {
+      setProperty: (name, value) => cardStyleCalls.push(["set", name, value]),
+      removeProperty: (name) => cardStyleCalls.push(["remove", name]),
+    },
+  };
+  const host = {
+    _sourceConfig: { grid_options: {} },
+    _config: {
+      stream_height: 100,
+      stream_height_unit: "%",
+      tight_margins: true,
+      theme: "default",
+    },
+    _isPreviewContext: () => false,
+    _isCardViewPageActive: () => false,
+    parentElement,
+    parentNode: parentElement,
+    shadowRoot: { querySelector: () => card },
+    style: {
+      setProperty: (name, value) => hostStyleCalls.push(["set", name, value]),
+      removeProperty: (name) => hostStyleCalls.push(["remove", name]),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.applyTightMargins = () => {
+    parentElement.style.height = "auto";
+  };
+  controller.syncHostOuterStyles = () => {};
+
+  withGlobals(
+    {
+      document: global.document,
+      window: { innerHeight: 900, visualViewport: null },
+      getComputedStyle: () => ({
+        getPropertyValue: (name) => {
+          if (name === "--ha-card-height") return "0px";
+          if (name === "--header-height") return "56px";
+          return "";
+        },
+      }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls, [
+    ["set", "--card-host-height", "844px"],
+  ]);
+  assert.equal(
+    cardStyleCalls.some(
+      ([action, name]) => action === "remove" && name === "--view-height",
+    ),
+    true,
+  );
+  assert.equal(parentElement.style.height, "auto");
 });
 
 test("Card View ignores configured height and keeps its parent naturally sized", () => {

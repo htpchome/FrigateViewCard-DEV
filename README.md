@@ -279,7 +279,7 @@ grid_order:
 | Variable | Type | Default | Description |
 | --- | --- | --- | --- |
 | `hidden_tabs` | list | `[snapshot]` | Browse tabs to hide. Values: `alerts`, `clips`, `snapshot`, `recordings`, `kept` (Favorites). |
-| `stream_height` | number | `100` | Card Height Limit from `50` to `100`. Does not apply to Card View. In Sections and Sidebar views, it only applies when Home Assistant Layout → Auto height is enabled; otherwise Home Assistant's selected row height constrains the card. Panel and Masonry views apply the limit normally. |
+| `stream_height` | number | `100` | Card Height Limit from `50` to `100`. Does not apply to Card View. New cards request Auto height in Sections and Sidebar views. When Auto height is disabled, Home Assistant's fixed row height constrains the card and its editor currently allows at most eight rows. Panel and Masonry views apply the limit normally. |
 | `stream_height_unit` | string | `%` | Height unit. Values: `%`, `dvh`. When Home Assistant is not imposing a fixed row height, the card can grow when needed to preserve its controls and approximately two browse items. |
 | `tight_margins` | boolean | `false` | Removes Home Assistant Sections-view padding where available so the card can fill its assigned space. |
 | `mobile_view_outer_border` | boolean | `false` | Shows the theme-colored outer border around Mobile View on any device. |

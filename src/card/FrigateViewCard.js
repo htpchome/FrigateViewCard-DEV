@@ -2260,15 +2260,12 @@ export class FrigateViewCard extends HTMLElement {
     }
     return 12;
   }
-getGridOptions() {
-  return {
-    columns: 12,
-    rows: 12,
-    min_rows: 3,
-    max_rows: 24,
-    min_columns: 6,
-  };
-}
+  getGridOptions() {
+    return {
+      columns: 12,
+      min_columns: 6,
+    };
+  }
   disconnectedCallback() {
     void this._stopPtzMotion("disconnected");
     this._wideViewPageController?.disconnectResizeHandle?.();
