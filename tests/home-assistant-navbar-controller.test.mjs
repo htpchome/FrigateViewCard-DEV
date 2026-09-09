@@ -362,6 +362,24 @@ test("promotes the dashboard view above the relocated header in landscape", () =
     tablet.getTargets().children[0].textContent,
     /@media \(orientation: landscape\)/,
   );
+
+  const editing = createHarness({ dashboardEditMode: true });
+  editing.controller.sync();
+  assert.doesNotMatch(
+    editing.getTargets().children[0].textContent,
+    /@media \(orientation: landscape\)/,
+  );
+  assert.equal(
+    editing.getTargets().view.style.getPropertyValue("padding-bottom"),
+    "calc(var(--header-height, 56px) + var(--header-height, 56px) + 10px + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
+  );
+
+  editing.host._dashboardEditMode = false;
+  editing.controller.sync();
+  assert.match(
+    editing.getTargets().children[0].textContent,
+    /@media \(orientation: landscape\)/,
+  );
 });
 
 test("applies the proven bottom-header details and restores exact styles", () => {

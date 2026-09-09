@@ -471,6 +471,8 @@ export class HomeAssistantNavbarController {
   _requestedCustomizations() {
     const moveBottom =
       this._host?._config?.mobile_view_ha_navbar_bottom === true;
+    const dashboardEdit =
+      this._host?._isDashboardEditMode?.() === true;
     return {
       moveBottom,
       stackTabs:
@@ -481,9 +483,10 @@ export class HomeAssistantNavbarController {
         this._host?.isConnected !== false &&
         this._host?._isLikelyPhoneClient?.() === true &&
         this._host?._isMobileViewPageActive?.() === true &&
+        !dashboardEdit &&
         this._host?._config?.mobile_view_rotate_to_fullscreen === true,
       reserveDashboardEditActions:
-        moveBottom && this._host?._isDashboardEditMode?.() === true,
+        moveBottom && dashboardEdit,
     };
   }
 
