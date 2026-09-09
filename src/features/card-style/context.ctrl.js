@@ -16,7 +16,6 @@ const DARK_PRIMARY_THEME_KEYS = Object.freeze([
 ]);
 const MOBILE_SECTIONS_FULL_BLEED_CLASS =
   "mobile-view-sections-full-bleed";
-const FULL_VIEWPORT_HEIGHT_PERCENT = 100;
 // Includes the heading and approximately two standard event rows.
 const MINIMUM_BROWSE_REGION_HEIGHT_PX = 244;
 const MINIMUM_CARD_HEIGHT_BUFFER_PX = 8;
@@ -367,7 +366,6 @@ export class CardStyleContextController {
           );
           const usableHeight = this.resolveUsableHostHeight({
             card,
-            configuredHeightPercent: numericHeight,
             resolvedHeightPx: resolvedCardHeightPx,
           });
           expandedForMinimumBrowseHeight = usableHeight.expanded;
@@ -386,7 +384,6 @@ export class CardStyleContextController {
         if (resolvedViewportHeightPx != null) {
           const usableHeight = this.resolveUsableHostHeight({
             card,
-            configuredHeightPercent: numericHeight,
             resolvedHeightPx: resolvedViewportHeightPx,
           });
           expandedForMinimumBrowseHeight = usableHeight.expanded;
@@ -551,15 +548,9 @@ export class CardStyleContextController {
     );
   }
 
-  resolveUsableHostHeight({
-    card,
-    configuredHeightPercent,
-    resolvedHeightPx,
-  }) {
+  resolveUsableHostHeight({ card, resolvedHeightPx }) {
     const minimumUsableHeightPx =
-      configuredHeightPercent >= FULL_VIEWPORT_HEIGHT_PERCENT
-        ? this.resolveMinimumUsableHostHeightPx(card)
-        : null;
+      this.resolveMinimumUsableHostHeightPx(card);
     const heightPx =
       minimumUsableHeightPx != null
         ? Math.max(resolvedHeightPx, minimumUsableHeightPx)

@@ -1017,7 +1017,7 @@ test("viewport height reserves non-tight sections bottom padding", () => {
   );
 });
 
-test("full percent and viewport heights preserve Mobile View controls and browse space", () => {
+test("configured percent and viewport heights preserve Mobile View controls and browse space", () => {
   const hostStyleCalls = [];
   const cardStyleCalls = [];
   const measuredElement = (height) => ({
@@ -1136,7 +1136,7 @@ test("full percent and viewport heights preserve Mobile View controls and browse
   assert.equal(parentElement.style.height, "auto");
 });
 
-test("viewport minimum does not override an intentionally compact dvh height", () => {
+test("minimum usable height overrides compact percent and dvh heights", () => {
   const hostStyleCalls = [];
   const measuredElement = (height) => ({
     getBoundingClientRect: () => ({ height }),
@@ -1194,12 +1194,32 @@ test("viewport minimum does not override an intentionally compact dvh height", (
   );
 
   assert.deepEqual(hostStyleCalls, [
-    ["set", "--card-host-height", "444px"],
+    ["set", "--card-host-height", "652px"],
   ]);
-  assert.equal(parentElement.style.height, "100%");
+  assert.equal(parentElement.style.height, "auto");
+
+  host._config.stream_height_unit = "%";
+  withGlobals(
+    {
+      document: global.document,
+      window: {
+        innerHeight: 500,
+        visualViewport: { height: 500, offsetTop: 0 },
+      },
+      getComputedStyle: () => ({ getPropertyValue: () => "" }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls.at(-1), [
+    "set",
+    "--card-host-height",
+    "652px",
+  ]);
+  assert.equal(parentElement.style.height, "auto");
 });
 
-test("full viewport minimum follows the rendered Single and Wide View chrome", () => {
+test("minimum usable height follows the rendered Single and Wide View chrome", () => {
   const measuredElement = (height) => ({
     getBoundingClientRect: () => ({ height }),
   });

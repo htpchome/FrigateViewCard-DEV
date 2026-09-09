@@ -280,7 +280,7 @@ grid_order:
 | --- | --- | --- | --- |
 | `hidden_tabs` | list | `[snapshot]` | Browse tabs to hide. Values: `alerts`, `clips`, `snapshot`, `recordings`, `kept` (Favorites). |
 | `stream_height` | number | `100` | Card Height Limit from `50` to `100`. Does not apply to Card View. |
-| `stream_height_unit` | string | `%` | Height unit. Values: `%`, `dvh`. At full height (`100%` or `100dvh`), the card can grow to preserve its controls and approximately two browse items. |
+| `stream_height_unit` | string | `%` | Height unit. Values: `%`, `dvh`. At any configured height, the card can grow when needed to preserve its controls and approximately two browse items. |
 | `tight_margins` | boolean | `false` | Removes Home Assistant Sections-view padding where available so the card can fill its assigned space. |
 | `mobile_view_outer_border` | boolean | `false` | Shows the theme-colored outer border around Mobile View on any device. |
 | `shadows` | boolean | `true` | Displays shadows inside the card. |
