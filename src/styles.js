@@ -508,6 +508,10 @@ export const STYLES = `
     .card.mobile-rotate-popup-exit .popup-card-view-actions{
       left:max(20px,env(safe-area-inset-left,0px));
     }
+    .card.mobile-rotate-popup .toast.toast--popup,
+    .card.mobile-rotate-popup-exit .toast.toast--popup{
+      position:fixed;top:44px;left:50%;max-width:calc(100vw - 20px);
+    }
   #stream-fallback{position:absolute;inset:0;z-index:2;background:var(--c-bg-deep);
     pointer-events:none;line-height:0;}
   #stream-fallback[hidden]{display:block;z-index:0;}
@@ -1077,7 +1081,12 @@ export const STYLES = `
   .toast.toast--success{background:rgba(21,128,61,.78);background:color-mix(in srgb,#15803d 78%,transparent);border-color:rgba(74,222,128,.72);}
   .toast.toast--warning{color:#171717;background:rgba(245,158,11,.78);background:color-mix(in srgb,var(--warning-color,#f59e0b) 78%,transparent);border-color:color-mix(in srgb,var(--warning-color,#f59e0b) 90%,#fff);text-shadow:0 1px 1px rgba(255,255,255,.3);}
   .toast.toast--error{background:rgba(220,38,38,.78);background:color-mix(in srgb,var(--error-color,#dc2626) 78%,transparent);border-color:rgba(252,165,165,.76);}
+  .toast:is(.toast--browse,.toast--popup){padding:6px 13px;font-size:.86rem;line-height:1.15;box-shadow:0 6px 20px rgba(0,0,0,.28);}
+  .toast:is(.toast--browse,.toast--popup).toast--success{background:rgba(21,128,61,.68);background:color-mix(in srgb,#15803d 68%,transparent);}
+  .toast:is(.toast--browse,.toast--popup).toast--warning{background:rgba(245,158,11,.68);background:color-mix(in srgb,var(--warning-color,#f59e0b) 68%,transparent);}
+  .toast:is(.toast--browse,.toast--popup).toast--error{background:rgba(220,38,38,.68);background:color-mix(in srgb,var(--error-color,#dc2626) 68%,transparent);}
   .toast.toast--browse{position:absolute;left:var(--fvc-toast-browse-left,50%);top:var(--fvc-toast-browse-top,12px);bottom:auto;max-width:var(--fvc-toast-browse-max-width,90%);}
+  .toast.toast--popup{position:absolute;left:var(--fvc-toast-popup-left,50%);top:var(--fvc-toast-popup-top,44px);bottom:auto;max-width:var(--fvc-toast-popup-max-width,90%);}
 
 /* ========================================================= */
   .popup-content {position:absolute;bottom:0;left:var(--popup-shell-left,0px);right:auto;width:min(var(--popup-shell-width,100%),calc(100% - var(--popup-shell-left,0px)));max-width:none;height:95%;max-height:95%;min-height:95%;margin-inline:0;box-sizing:border-box;z-index:var(--popup-z-index);background:var(--popup-bg);
@@ -1223,6 +1232,11 @@ export const STYLES = `
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);
   }
   .popup-card-view-actions .popup-action svg {width:23px;height:23px;color:currentColor;opacity:1;}
+  .popup-card-view-actions .popup-action--favorite.active {color:var(--warning-color,#f59e0b);border-color:currentColor;background:color-mix(in srgb,var(--warning-color,#f59e0b) 20%,var(--fvc-media-overlay-bg));}
+  .popup-card-view-actions .popup-action--favorite .popup-favorite-icon--active,
+  .popup-card-view-actions .popup-action--favorite.active .popup-favorite-icon--inactive {display:none;}
+  .popup-card-view-actions .popup-action--favorite.active .popup-favorite-icon--active {display:block;}
+  .popup-card-view-actions .popup-action--favorite[aria-busy="true"] {opacity:.7;cursor:wait;}
   .popup-card-view-resize-host {position:absolute;z-index:16;right:0;bottom:0;left:0;height:20px;pointer-events:none;}
   :is(.popup-card-view-label,.popup-card-view-actions,.popup-card-view-resize-host)[hidden] {display:none !important;}
   .popup-view-resize-grip.popup-view-resize-grip--card-view {
@@ -1244,7 +1258,7 @@ export const STYLES = `
     .popup-content.popup-content--card-view-drawer #viewer:hover ~ .popup-card-view-actions,
     .popup-content.popup-content--card-view-drawer .popup-card-view-actions:hover,
     .popup-content.popup-content--card-view-drawer .popup-card-view-actions:focus-within {opacity:1;pointer-events:auto;}
-    .popup-content.popup-content--card-view-drawer :is(.close-btn,.popup-action):hover {
+    .popup-content.popup-content--card-view-drawer :is(.close-btn,.popup-action:not(.active)):hover {
       color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);
     }
   }

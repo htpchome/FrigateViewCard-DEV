@@ -193,8 +193,22 @@ export const buildPopupInfoDownloadButtonMarkup = (action, icons) => {
   return `<button class="popup-action" data-dl="${escapeHtmlAttribute(action.id)}" data-dl-file="${escapeHtmlAttribute(action.file)}" type="button" title="${label}" aria-label="${label}">${icon}</button>`;
 };
 
+export const buildCardViewPopupFavoriteButtonMarkup = ({
+  id = "",
+  retained = false,
+  icons = ICONS,
+} = {}) => {
+  if (!id) return "";
+  const active = retained === true;
+  const label = active ? "Remove from Favorites" : "Add to Favorites";
+  const activeIcon = icons.star || ICONS.star;
+  const inactiveIcon = icons.starO || ICONS.starO;
+  return `<button class="popup-action popup-action--favorite${active ? " active" : ""}" data-popup-favorite="${escapeHtmlAttribute(id)}" type="button" title="${label}" aria-label="${label}" aria-pressed="${active}"><span class="popup-favorite-icon popup-favorite-icon--active" aria-hidden="true">${activeIcon}</span><span class="popup-favorite-icon popup-favorite-icon--inactive" aria-hidden="true">${inactiveIcon}</span></button>`;
+};
+
 export const buildCardViewPopupOverlayMarkup = ({
   model,
+  event = null,
   fullDate = "-",
   icons = ICONS,
 } = {}) => {
@@ -204,10 +218,18 @@ export const buildCardViewPopupOverlayMarkup = ({
     .replace(/\s+(am|pm)$/i, "$1");
   const camera = cap(String(model.camera || "-").toLowerCase());
   const labelText = `${camera} ${compactTime} - ${String(fullDate || "-")}`;
-  const actionsHtml = (model.downloadActions || [])
+  const favoriteHtml = model.mediaType === "recording"
+    ? ""
+    : buildCardViewPopupFavoriteButtonMarkup({
+        id: model.id,
+        retained: event?.retain_indefinitely === true,
+        icons,
+      });
+  const contextualActionsHtml = (model.downloadActions || [])
     .slice(0, 2)
     .map((action) => buildPopupInfoDownloadButtonMarkup(action, icons))
     .join("");
+  const actionsHtml = `${favoriteHtml}${contextualActionsHtml}`;
   return { labelText, actionsHtml };
 };
 

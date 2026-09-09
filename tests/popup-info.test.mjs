@@ -45,6 +45,10 @@ test("rotated live and popup side controls share the safe side inset", () => {
   );
   assert.match(
     STYLES,
+    /\.card\.mobile-rotate-popup \.toast\.toast--popup,[\s\S]*?\.card\.mobile-rotate-popup-exit \.toast\.toast--popup\{[\s\S]*?position:fixed;top:44px;left:50%;max-width:calc\(100vw - 20px\);/,
+  );
+  assert.match(
+    STYLES,
     /\.card\.mobile-rotate-popup \.popup-media-controls,[\s\S]*?\.card\.mobile-rotate-popup-exit \.popup-media-controls \{[^}]*bottom:0;/,
   );
 });
@@ -101,6 +105,14 @@ test("Card View drawer popup overlays the live footprint with focused controls",
   assert.match(
     STYLES,
     /popup-content--card-view-drawer \.popup-media-controls\.mobile-tablet-layout\.is-hidden \{opacity:0;pointer-events:none;\}/,
+  );
+  assert.match(
+    STYLES,
+    /popup-card-view-actions \.popup-action--favorite\.active \{[^}]*color:var\(--warning-color,#f59e0b\);[^}]*background:color-mix/,
+  );
+  assert.match(
+    STYLES,
+    /popup-action--favorite\.active \.popup-favorite-icon--inactive \{display:none;\}[\s\S]*?popup-action--favorite\.active \.popup-favorite-icon--active \{display:block;\}/,
   );
   assert.match(
     STYLES,
@@ -372,10 +384,13 @@ test("Card View drawer popup reuses contextual actions in a compact date overlay
   });
   const overlay = buildCardViewPopupOverlayMarkup({
     model,
+    event: { ...event, retain_indefinitely: true },
     fullDate: "Tue, May 2, 2026",
     icons: {
       download: "<download />",
       snapshot: "<snapshot />",
+      star: "<star />",
+      starO: "<star-outline />",
     },
   });
 
@@ -383,9 +398,31 @@ test("Card View drawer popup reuses contextual actions in a compact date overlay
     overlay.labelText,
     "Front door 8:44pm - Tue, May 2, 2026",
   );
+  assert.match(
+    overlay.actionsHtml,
+    /data-popup-favorite="event-1"[^>]*aria-pressed="true"/,
+  );
+  assert.ok(
+    overlay.actionsHtml.indexOf("data-popup-favorite") <
+      overlay.actionsHtml.indexOf("data-dl-file"),
+  );
   assert.match(overlay.actionsHtml, /data-dl-file="clip\.mp4"/);
   assert.match(overlay.actionsHtml, /data-popup-media-target="snapshot"/);
-  assert.equal((overlay.actionsHtml.match(/<button/g) || []).length, 2);
+  assert.equal((overlay.actionsHtml.match(/<button/g) || []).length, 3);
+});
+
+test("Card View recording popup does not offer an event favorite action", () => {
+  const model = buildPopupInfoModel({
+    options: {
+      mediaType: "recording",
+      camera: "front_door",
+      recStart: 100,
+      recEnd: 160,
+    },
+  });
+  const overlay = buildCardViewPopupOverlayMarkup({ model });
+
+  assert.doesNotMatch(overlay.actionsHtml, /data-popup-favorite/);
 });
 
 test("popup custom tags use the same compact pill treatment as event rows", () => {
@@ -685,6 +722,7 @@ test("popup info controller replaces metadata and preserves Card View media navi
   assert.equal(label.hidden, false);
   assert.equal(label.textContent, "Front door 8:44pm - Tue, May 2, 2026");
   assert.equal(actions.hidden, false);
+  assert.match(actions.innerHTML, /data-popup-favorite="event-1"/);
   assert.match(actions.innerHTML, /data-dl-file="clip\.mp4"/);
   assert.match(actions.innerHTML, /data-popup-media-target="snapshot"/);
 
@@ -713,4 +751,68 @@ test("popup info controller replaces metadata and preserves Card View media navi
   controller.hide();
   assert.equal(label.hidden, true);
   assert.equal(actions.hidden, true);
+});
+
+test("Card View popup favorite action updates immediately and confirms retained state", async () => {
+  const attributes = new Map([["aria-pressed", "false"]]);
+  const classes = new Set(["popup-action", "popup-action--favorite"]);
+  const favoriteAction = {
+    dataset: { popupFavorite: "event-1" },
+    disabled: false,
+    isConnected: true,
+    classList: {
+      toggle: (name, enabled) => {
+        if (enabled) classes.add(name);
+        else classes.delete(name);
+      },
+    },
+    getAttribute: (name) => attributes.get(name),
+    setAttribute: (name, value) => attributes.set(name, String(value)),
+    removeAttribute: (name) => attributes.delete(name),
+  };
+  let finishToggle;
+  const toggleFinished = new Promise((resolve) => {
+    finishToggle = resolve;
+  });
+  const favoriteCalls = [];
+  const controller = new PopupInfoController({
+    onToggleFavorite: async (id) => {
+      favoriteCalls.push(id);
+      return toggleFinished;
+    },
+  });
+  let prevented = 0;
+  let stopped = 0;
+
+  assert.equal(
+    controller.handleClick(
+      {
+        preventDefault: () => (prevented += 1),
+        stopPropagation: () => (stopped += 1),
+      },
+      {
+        closest: (selector) =>
+          selector === ".popup-action[data-popup-favorite]"
+            ? favoriteAction
+            : null,
+      },
+    ),
+    true,
+  );
+
+  assert.deepEqual(favoriteCalls, ["event-1"]);
+  assert.equal(attributes.get("aria-pressed"), "true");
+  assert.equal(attributes.get("aria-label"), "Remove from Favorites");
+  assert.equal(classes.has("active"), true);
+  assert.equal(favoriteAction.disabled, true);
+  assert.equal(attributes.get("aria-busy"), "true");
+  assert.equal(prevented, 1);
+  assert.equal(stopped, 1);
+
+  finishToggle(true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(attributes.get("aria-pressed"), "true");
+  assert.equal(favoriteAction.disabled, false);
+  assert.equal(attributes.has("aria-busy"), false);
 });

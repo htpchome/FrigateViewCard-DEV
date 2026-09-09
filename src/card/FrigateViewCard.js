@@ -1008,6 +1008,8 @@ export class FrigateViewCard extends HTMLElement {
           },
         );
       },
+      onToggleFavorite: (id) =>
+        this._toggleFav(id, { toastPlacement: "popup" }),
       onDownloadEvent: (id, file) =>
         void this._frigateMediaDownloadController.downloadEvent(id, file),
       onDownloadRecording: (start, end) => {
@@ -7503,9 +7505,10 @@ export class FrigateViewCard extends HTMLElement {
     });
   }
   // ── favorites (realtime) ──────────────────────────────────
-  _toggleFav(id) {
+  _toggleFav(id, options = {}) {
     const ev = this._findEventById(id);
-    if (!ev) return;
+    if (!ev) return false;
+    const toastPlacement = options.toastPlacement || "browse";
     const activeEntity = this._activeCam?.entity || "";
     const eventContext = this._frigateContextForCameraName(ev?.camera);
     const eventEntity =
@@ -7549,9 +7552,10 @@ export class FrigateViewCard extends HTMLElement {
               : "Removed from Favorites",
             {
               tone: optimistic.nextRetained ? "success" : "warning",
-              placement: "browse",
+              placement: toastPlacement,
             },
           );
+          return optimistic.nextRetained;
         },
         (err) => {
           const rollback = buildFavoriteRollbackMutation({
@@ -7579,8 +7583,9 @@ export class FrigateViewCard extends HTMLElement {
             optimistic.nextRetained
               ? "Could not add to Favorites"
               : "Could not remove from Favorites",
-            { tone: "error", placement: "browse" },
+            { tone: "error", placement: toastPlacement },
           );
+          return optimistic.previousRetained;
         },
       );
   }
@@ -7609,11 +7614,15 @@ export class FrigateViewCard extends HTMLElement {
       "toast--warning",
       "toast--error",
       "toast--browse",
+      "toast--popup",
     );
     t.classList?.add(`toast--${tone}`);
     t.style?.removeProperty?.("--fvc-toast-browse-left");
     t.style?.removeProperty?.("--fvc-toast-browse-top");
     t.style?.removeProperty?.("--fvc-toast-browse-max-width");
+    t.style?.removeProperty?.("--fvc-toast-popup-left");
+    t.style?.removeProperty?.("--fvc-toast-popup-top");
+    t.style?.removeProperty?.("--fvc-toast-popup-max-width");
 
     if (normalizedOptions.placement === "browse") {
       const browse = this._pageShellRegion("browse");
@@ -7642,6 +7651,36 @@ export class FrigateViewCard extends HTMLElement {
         );
         t.classList?.add("toast--browse");
         placement = "browse";
+      }
+    }
+
+    if (normalizedOptions.placement === "popup") {
+      const viewer = this._$("#viewer");
+      const card = this._$("#card");
+      const viewerRect = viewer?.getBoundingClientRect?.();
+      const cardRect = card?.getBoundingClientRect?.();
+      const viewerWidth = Number(viewerRect?.width) || 0;
+      const cardWidth = Number(cardRect?.width) || 0;
+      const availableWidth = Math.min(viewerWidth, cardWidth) - 20;
+      if (
+        viewerRect &&
+        cardRect &&
+        availableWidth >= 80 &&
+        Number.isFinite(viewerRect.left) &&
+        Number.isFinite(viewerRect.top) &&
+        Number.isFinite(cardRect.left) &&
+        Number.isFinite(cardRect.top)
+      ) {
+        const left = viewerRect.left - cardRect.left + viewerWidth / 2;
+        const top = Math.max(8, viewerRect.top - cardRect.top + 44);
+        t.style?.setProperty?.("--fvc-toast-popup-left", `${left}px`);
+        t.style?.setProperty?.("--fvc-toast-popup-top", `${top}px`);
+        t.style?.setProperty?.(
+          "--fvc-toast-popup-max-width",
+          `${availableWidth}px`,
+        );
+        t.classList?.add("toast--popup");
+        placement = "popup";
       }
     }
 

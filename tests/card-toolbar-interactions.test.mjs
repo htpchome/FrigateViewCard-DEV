@@ -200,6 +200,45 @@ test("toast reuses the card notification and places favorite feedback over brows
   clearTimeout(context._toastT);
 });
 
+test("favorite feedback can be placed over a Card View popup", () => {
+  const properties = new Map();
+  const toast = {
+    classList: createClassList("toast"),
+    dataset: {},
+    hidden: true,
+    style: {
+      removeProperty: (name) => properties.delete(name),
+      setProperty: (name, value) => properties.set(name, value),
+    },
+    textContent: "",
+  };
+  const card = {
+    getBoundingClientRect: () => ({ left: 100, top: 50, width: 600 }),
+  };
+  const viewer = {
+    getBoundingClientRect: () => ({ left: 120, top: 80, width: 400 }),
+  };
+  const context = {
+    _$: (selector) =>
+      selector === "#toast" ? toast : selector === "#viewer" ? viewer : card,
+    _pageShellRegion: () => null,
+    _toastT: null,
+  };
+
+  FrigateViewCard.prototype._toast.call(context, "Added to Favorites", {
+    duration: 10000,
+    placement: "popup",
+    tone: "success",
+  });
+
+  assert.equal(toast.classList.contains("toast--popup"), true);
+  assert.equal(toast.dataset.placement, "popup");
+  assert.equal(properties.get("--fvc-toast-popup-left"), "220px");
+  assert.equal(properties.get("--fvc-toast-popup-top"), "74px");
+  assert.equal(properties.get("--fvc-toast-popup-max-width"), "380px");
+  clearTimeout(context._toastT);
+});
+
 const createFavoriteContext = ({ callWS, retained = false }) => {
   const event = {
     id: "event-1",
@@ -255,6 +294,23 @@ test("favorite confirmation uses the browse success toast after Frigate accepts 
   ]);
 });
 
+test("popup favorite confirmation returns state and uses popup placement", async () => {
+  const { context, notifications } = createFavoriteContext({
+    callWS: async () => {},
+  });
+
+  const retained = await FrigateViewCard.prototype._toggleFav.call(
+    context,
+    "event-1",
+    { toastPlacement: "popup" },
+  );
+
+  assert.equal(retained, true);
+  assert.deepEqual(notifications, [
+    ["Added to Favorites", { tone: "success", placement: "popup" }],
+  ]);
+});
+
 test("favorite removal uses the browse warning toast after Frigate accepts it", async () => {
   const requests = [];
   const { context, notifications } = createFavoriteContext({
@@ -262,8 +318,12 @@ test("favorite removal uses the browse warning toast after Frigate accepts it", 
     callWS: async (payload) => requests.push(payload),
   });
 
-  await FrigateViewCard.prototype._toggleFav.call(context, "event-1");
+  const retained = await FrigateViewCard.prototype._toggleFav.call(
+    context,
+    "event-1",
+  );
 
+  assert.equal(retained, false);
   assert.equal(requests[0].retain, false);
   assert.deepEqual(notifications, [
     [
@@ -283,7 +343,11 @@ test("favorite failure rolls back and uses the browse error toast", async () => 
   console.warn = () => {};
 
   try {
-    await FrigateViewCard.prototype._toggleFav.call(context, "event-1");
+    const retained = await FrigateViewCard.prototype._toggleFav.call(
+      context,
+      "event-1",
+    );
+    assert.equal(retained, false);
   } finally {
     console.warn = originalWarn;
   }

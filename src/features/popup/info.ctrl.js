@@ -17,6 +17,7 @@ export class PopupInfoController {
     onResetRecordingScrub,
     onMediaCameraChange,
     onNavigateEventMedia,
+    onToggleFavorite,
     onDownloadEvent,
     onDownloadRecording,
   } = {}) {
@@ -30,6 +31,7 @@ export class PopupInfoController {
     this._onResetRecordingScrub = onResetRecordingScrub;
     this._onMediaCameraChange = onMediaCameraChange;
     this._onNavigateEventMedia = onNavigateEventMedia;
+    this._onToggleFavorite = onToggleFavorite;
     this._onDownloadEvent = onDownloadEvent;
     this._onDownloadRecording = onDownloadRecording;
     this._navigationPresentation = "";
@@ -64,6 +66,7 @@ export class PopupInfoController {
       info.hidden = true;
       const overlay = buildCardViewPopupOverlayMarkup({
         model,
+        event,
         fullDate: this._formatFullDate?.(
           options.startTime ?? event?.start_time,
         ),
@@ -116,6 +119,16 @@ export class PopupInfoController {
   }
 
   handleClick(event, target = event?.target) {
+    const favoriteAction = target?.closest?.(
+      ".popup-action[data-popup-favorite]",
+    );
+    if (favoriteAction) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      this._toggleFavorite(favoriteAction);
+      return true;
+    }
+
     const mediaNavigationAction = target?.closest?.(
       ".popup-action[data-popup-media-target]",
     );
@@ -152,5 +165,39 @@ export class PopupInfoController {
       eventAction.dataset.dlFile,
     );
     return true;
+  }
+
+  _toggleFavorite(action) {
+    if (action?.disabled) return;
+    const id = String(action?.dataset?.popupFavorite || "");
+    if (!id) return;
+    const previous = action.getAttribute?.("aria-pressed") === "true";
+    const requested = !previous;
+    this._syncFavoriteAction(action, requested);
+    action.disabled = true;
+    action.setAttribute?.("aria-busy", "true");
+    Promise.resolve(this._onToggleFavorite?.(id))
+      .then((retained) => {
+        this._syncFavoriteAction(
+          action,
+          typeof retained === "boolean" ? retained : requested,
+        );
+      })
+      .catch(() => this._syncFavoriteAction(action, previous))
+      .finally(() => {
+        if (action.isConnected === false) return;
+        action.disabled = false;
+        action.removeAttribute?.("aria-busy");
+      });
+  }
+
+  _syncFavoriteAction(action, retained) {
+    if (!action || action.isConnected === false) return;
+    const active = retained === true;
+    const label = active ? "Remove from Favorites" : "Add to Favorites";
+    action.classList?.toggle?.("active", active);
+    action.setAttribute?.("aria-pressed", String(active));
+    action.setAttribute?.("aria-label", label);
+    action.setAttribute?.("title", label);
   }
 }
