@@ -113,6 +113,10 @@ export function syncOlderHintFromScroll({
   forceHide = null,
 }) {
   if (!returnToTopEl) return;
+  if (forceHide === true) {
+    applyReturnToTopChipDomState(returnToTopEl, { hidden: true });
+    return;
+  }
 
   const metrics = resolveOlderHintMetrics({ list, browse });
   const returnToTopState = resolveReturnToTopChipState({
@@ -188,32 +192,6 @@ export function syncDayLabelAlignmentFromScroll({ list, browse }) {
     style.setProperty("--fvc-day-label-scrollbar-width", value);
   }
   return scrollbarWidth;
-}
-
-export function runListPostRenderSync({
-  syncBrowseHead,
-  syncOlderHint,
-  forceHide = null,
-  scheduleDeferredOlderHint = false,
-}) {
-  const sync = () => {
-    if (typeof syncBrowseHead === "function") syncBrowseHead();
-    if (typeof syncOlderHint === "function") syncOlderHint(forceHide);
-  };
-  if (!scheduleDeferredOlderHint) {
-    sync();
-    return;
-  }
-
-  if (typeof globalThis.requestAnimationFrame === "function") {
-    // List markup can contain hundreds of nodes. Let it receive a browser
-    // layout pass before reading scroll geometry for the sticky heading/chip.
-    globalThis.requestAnimationFrame(() =>
-      globalThis.requestAnimationFrame(sync),
-    );
-    return;
-  }
-  setTimeout(sync, 0);
 }
 
 export function resolveListMarkup({

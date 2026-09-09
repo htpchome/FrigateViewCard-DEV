@@ -164,7 +164,7 @@ test("ListScrollController resyncs browse geometry when dimensions change", () =
   resizeCallback();
 
   assert.deepEqual(observed, [list, browse]);
-  assert.equal(hintSyncs, 1);
+  assert.equal(hintSyncs, 0);
   assert.equal(headSyncs, 1);
 
   controller.dispose();

@@ -96,7 +96,7 @@ export function resolveWideCompanionGridLayout({
 }
 
 export class WideViewCompanionController {
-  constructor(host, constants) {
+  constructor(host, constants, { resizeObserverCtor = undefined } = {}) {
     this._host = host;
     this._constants = constants;
     this._mediaState = null;
@@ -109,6 +109,10 @@ export class WideViewCompanionController {
     this._panelExpansionButton = null;
     this._panelExpansionDrag = null;
     this._panelExpansionCleanup = new CleanupController();
+    this._layoutResizeObserver = null;
+    this._layoutGrid = null;
+    this._lastLayoutColumns = null;
+    this._ResizeObserver = resizeObserverCtor;
     this._alertController = new WideViewCompanionAlertController(
       host,
       constants,
@@ -192,26 +196,58 @@ export class WideViewCompanionController {
     return DEVICE_PROFILE.isIOS ? "webrtc" : "mse";
   }
 
-  updateLayout() {
+  updateLayout({ width = null, height = null, metadataHeight = null } = {}) {
     if (!this.isActive()) return;
     const grid = this._host._$("#wide-companion-grid");
     if (!grid) return;
     const cameraCount = flattenCameraMembers(
       this._host._config?.cameras,
     ).length;
-    const metadataHeight =
+    const resolvedMetadataHeight =
+      finiteNumber(metadataHeight) ||
       grid.querySelector?.(".wide-companion-meta")?.offsetHeight ||
       COMPANION_META_HEIGHT_PX;
     const layout = resolveWideCompanionGridLayout({
       cameraCount,
-      width: grid.clientWidth,
-      height: grid.clientHeight,
-      metadataHeight,
+      width: finiteNumber(width) || grid.clientWidth,
+      height: finiteNumber(height) || grid.clientHeight,
+      metadataHeight: resolvedMetadataHeight,
     });
+    if (layout.columns === this._lastLayoutColumns) return;
+    this._lastLayoutColumns = layout.columns;
     grid.style?.setProperty?.(
       "--wide-companion-columns",
       String(layout.columns),
     );
+  }
+
+  _bindLayoutObserver(grid) {
+    if (grid === this._layoutGrid && this._layoutResizeObserver) return;
+    this._disposeLayoutObserver();
+    const ResizeObserverCtor =
+      this._ResizeObserver !== undefined
+        ? this._ResizeObserver
+        : grid?.ownerDocument?.defaultView?.ResizeObserver ||
+          globalThis.ResizeObserver;
+    if (!grid || typeof ResizeObserverCtor !== "function") return;
+    this._layoutGrid = grid;
+    this._layoutResizeObserver = new ResizeObserverCtor((entries) => {
+      const entry = entries.find?.(({ target }) => target === grid) || entries[0];
+      if (!entry || !this.isActive()) return;
+      this.updateLayout({
+        width: entry.contentRect?.width,
+        height: entry.contentRect?.height,
+        metadataHeight: COMPANION_META_HEIGHT_PX,
+      });
+    });
+    this._layoutResizeObserver.observe(grid);
+  }
+
+  _disposeLayoutObserver() {
+    this._layoutResizeObserver?.disconnect?.();
+    this._layoutResizeObserver = null;
+    this._layoutGrid = null;
+    this._lastLayoutColumns = null;
   }
 
   bindPanelExpansion() {
@@ -474,6 +510,7 @@ export class WideViewCompanionController {
   render() {
     if (!this.isActive()) {
       this._disposePanelExpansion({ reset: true });
+      this._disposeLayoutObserver();
       this.teardownMedia();
       this._host._syncSnapshotRefreshTimer?.();
       return;
@@ -481,6 +518,7 @@ export class WideViewCompanionController {
     this.bindPanelExpansion();
     const grid = this._host._$("#wide-companion-grid");
     if (!grid) return;
+    this._bindLayoutObserver(grid);
     const cameras = flattenCameraMembers(this._host._config?.cameras);
     const liveStreamHint = this.liveStreamHint();
     const hassReady = !!this._host._hass?.states;
@@ -616,6 +654,7 @@ export class WideViewCompanionController {
   stop() {
     this._alertController.stop();
     this._disposePanelExpansion({ reset: true });
+    this._disposeLayoutObserver();
     this.teardownMedia();
     this._host._clearSnapshotRefreshTimer?.();
   }

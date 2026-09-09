@@ -52,6 +52,59 @@ test("page/tools divider appears only for adjacent groups on the collapsed row",
   );
 });
 
+test("toolbar divider waits for observed layout after toolbar mutations", () => {
+  let resizeCallback = null;
+  let geometryReads = 0;
+  class FakeResizeObserver {
+    constructor(callback) {
+      resizeCallback = callback;
+    }
+
+    observe() {}
+    disconnect() {}
+  }
+  const pageNavigationRow = {
+    getBoundingClientRect: () => {
+      geometryReads += 1;
+      return rect({ left: 100, top: 10, width: 160, height: 36 });
+    },
+  };
+  const toolsRow = {
+    getBoundingClientRect: () => {
+      geometryReads += 1;
+      return rect({ left: 268, top: 10, width: 120, height: 36 });
+    },
+  };
+  const holder = {
+    querySelector: (selector) =>
+      selector === ".page-nav-row" ? pageNavigationRow : toolsRow,
+    classList: { toggle() {}, remove() {} },
+  };
+  const host = {
+    shadowRoot: {
+      querySelector: () => holder,
+    },
+  };
+  const controller = new PageNavigationController(
+    host,
+    {},
+    { resizeObserverCtor: FakeResizeObserver },
+  );
+
+  const previousGetComputedStyle = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = () => ({ display: "flex" });
+  try {
+    controller.connectToolbarDivider();
+    controller.syncToolbarDividerAfterMutation();
+    assert.equal(geometryReads, 0);
+
+    resizeCallback();
+    assert.equal(geometryReads, 2);
+  } finally {
+    globalThis.getComputedStyle = previousGetComputedStyle;
+  }
+});
+
 const createHarness = () => {
   const calls = [];
   let capturedFactoryInput = null;

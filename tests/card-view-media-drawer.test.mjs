@@ -116,6 +116,45 @@ test("Card View media drawer uses vertical page navigation", () => {
   );
 });
 
+test("closed Card View media drawer hides navigation without layout reads", () => {
+  const root = createElement();
+  const panel = createElement();
+  const handle = createElement();
+  const tabs = { ...createElement(), querySelectorAll: () => [] };
+  const up = createElement();
+  const down = createElement();
+  const scroller = {
+    ...createElement(),
+    get scrollTop() {
+      throw new Error("closed drawer read scrollTop");
+    },
+    get scrollHeight() {
+      throw new Error("closed drawer read scrollHeight");
+    },
+    get clientHeight() {
+      throw new Error("closed drawer read clientHeight");
+    },
+  };
+  const elements = new Map([
+    ["[data-card-view-media-drawer]", root],
+    ["[data-card-view-media-drawer-panel]", panel],
+    ["[data-card-view-media-drawer-toggle]", handle],
+    ["[data-card-view-media-drawer-tabs]", tabs],
+    ["[data-card-view-media-drawer-scroller]", scroller],
+    ['[data-card-view-media-drawer-scroll="-1"]', up],
+    ['[data-card-view-media-drawer-scroll="1"]', down],
+  ]);
+  const controller = new CardViewMediaDrawerController({
+    query: (selector) => elements.get(selector) || null,
+    isEnabled: () => true,
+    resizeObserverCtor: null,
+  });
+
+  assert.doesNotThrow(() => controller.bind());
+  assert.equal(up.hidden, true);
+  assert.equal(down.hidden, true);
+});
+
 test("Card View media drawer defers thumbnails until opened and reuses popup selection", () => {
   const root = createElement();
   const panel = createElement();

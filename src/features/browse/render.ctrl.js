@@ -6,7 +6,6 @@ import {
   resolveActiveDayLabelFromScroll,
   resolveListLabelTimestamp,
   resolveListMarkup,
-  runListPostRenderSync,
   syncDayLabelAlignmentFromScroll,
   syncOlderHintFromScroll,
 } from "../../shared/list-render.js";
@@ -276,9 +275,11 @@ export class BrowseRenderController {
     );
     if (!list || !browse || !label) return;
 
-    syncDayLabelAlignmentFromScroll({ list, browse });
     const nextLabel = resolveActiveDayLabelFromScroll({ list, browse });
-    if (nextLabel) label.textContent = nextLabel;
+    syncDayLabelAlignmentFromScroll({ list, browse });
+    if (nextLabel && label.textContent !== nextLabel) {
+      label.textContent = nextLabel;
+    }
   }
 
   renderLegend() {
@@ -397,8 +398,6 @@ export class BrowseRenderController {
       emptyForceHide: false,
       contentForceHide: null,
       syncOnContent: false,
-      syncBrowseHead: true,
-      scheduleDeferredOlderHint: true,
     });
     if (firstPaint.scheduleKey) {
       this._scheduleBrowseFirstPaintCompletion(firstPaint.scheduleKey, list);
@@ -501,8 +500,6 @@ export class BrowseRenderController {
       emptyForceHide = null,
       contentForceHide = null,
       syncOnContent = false,
-      syncBrowseHead = false,
-      scheduleDeferredOlderHint = true,
     } = {},
   ) {
     const listIsCurrent = () =>
@@ -516,7 +513,7 @@ export class BrowseRenderController {
       emptyHint,
       buildContentHtml,
     });
-    const hasContent = applyListMarkupWithOlderHint({
+    applyListMarkupWithOlderHint({
       setHtml: (html) => this.setListHtmlIfChanged(list, html),
       html: renderState.html,
       isEmpty: renderState.isEmpty,
@@ -524,18 +521,6 @@ export class BrowseRenderController {
       emptyForceHide,
       contentForceHide,
       syncOnContent,
-    });
-    if (!hasContent) return;
-
-    runListPostRenderSync({
-      syncBrowseHead: syncBrowseHead
-        ? () => {
-            if (listIsCurrent()) this.syncBrowseHeadFromScroll();
-          }
-        : null,
-      syncOlderHint,
-      forceHide: contentForceHide,
-      scheduleDeferredOlderHint,
     });
   }
 
@@ -555,7 +540,7 @@ export class BrowseRenderController {
         ? "Loading recordings…"
         : "No recordings in the last 24 hours",
     );
-    const hasContent = applyListMarkupWithOlderHint({
+    applyListMarkupWithOlderHint({
       setHtml: (nextHtml) => this.setListHtmlIfChanged(list, nextHtml),
       html,
       isEmpty: !recordings.length,
@@ -564,13 +549,6 @@ export class BrowseRenderController {
       contentForceHide: false,
       syncOnContent: false,
     });
-    if (hasContent) {
-      runListPostRenderSync({
-        syncOlderHint,
-        forceHide: false,
-        scheduleDeferredOlderHint: true,
-      });
-    }
     this._host._recordingsBrowseNavController?.scheduleBrowseNavUpdate?.();
   }
 
@@ -600,8 +578,6 @@ export class BrowseRenderController {
       emptyForceHide: true,
       contentForceHide: false,
       syncOnContent: false,
-      scheduleDeferredOlderHint: true,
-      syncBrowseHead: true,
     });
     if (firstPaint.scheduleKey) {
       this._scheduleBrowseFirstPaintCompletion(firstPaint.scheduleKey, list);

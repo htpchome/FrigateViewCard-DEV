@@ -39,7 +39,6 @@ export class ListScrollController {
     }
     if (typeof this._resizeObserverCtor === "function") {
       this._resizeObserver = new this._resizeObserverCtor(() => {
-        this._syncOlderHint?.();
         this._syncBrowseHeadFromScroll?.();
       });
       if (this._list) this._resizeObserver.observe(this._list);

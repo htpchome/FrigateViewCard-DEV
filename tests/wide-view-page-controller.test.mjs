@@ -459,6 +459,46 @@ test("syncColHeight applies right-column maxHeight from left-column height", () 
   assert.equal(right.style.maxHeight, "240px");
 });
 
+test("syncColHeight uses ResizeObserver measurements without offset reads", () => {
+  const { host } = createHost({ isWide: true });
+  let resizeCallback = null;
+  let observed = null;
+  class FakeResizeObserver {
+    constructor(callback) {
+      resizeCallback = callback;
+    }
+
+    observe(target) {
+      observed = target;
+    }
+
+    disconnect() {}
+  }
+  const left = {};
+  Object.defineProperty(left, "offsetHeight", {
+    get: () => {
+      throw new Error("read offsetHeight");
+    },
+  });
+  const right = { style: { maxHeight: "" } };
+  host.shadowRoot = {
+    querySelector: (selector) =>
+      selector === ".col-left" ? left : right,
+  };
+  const controller = new WideViewPageController(
+    host,
+    { PAGE_IDS },
+    { resizeObserverCtor: FakeResizeObserver },
+  );
+
+  controller.syncColHeight();
+  assert.equal(observed, left);
+  resizeCallback([
+    { target: left, borderBoxSize: [{ blockSize: 315 }] },
+  ]);
+  assert.equal(right.style.maxHeight, "315px");
+});
+
 test("syncColHeight is a no-op when columns are missing", () => {
   const { host } = createHost({ isWide: true });
   const controller = new WideViewPageController(host, { PAGE_IDS });

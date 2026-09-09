@@ -243,6 +243,45 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   );
 });
 
+test("Companion Camera layout uses observed dimensions without grid reads", () => {
+  const { host, grid } = createHost();
+  let resizeCallback = null;
+  let observed = null;
+  class FakeResizeObserver {
+    constructor(callback) {
+      resizeCallback = callback;
+    }
+
+    observe(target) {
+      observed = target;
+    }
+
+    disconnect() {}
+  }
+  Object.defineProperty(grid, "clientWidth", {
+    get: () => {
+      throw new Error("read clientWidth");
+    },
+  });
+  Object.defineProperty(grid, "clientHeight", {
+    get: () => {
+      throw new Error("read clientHeight");
+    },
+  });
+  const controller = new WideViewCompanionController(host, constants, {
+    resizeObserverCtor: FakeResizeObserver,
+  });
+
+  controller.render();
+  assert.equal(observed, grid);
+  assert.doesNotThrow(() =>
+    resizeCallback([
+      { target: grid, contentRect: { width: 745, height: 550 } },
+    ]),
+  );
+  assert.equal(grid.style.values["--wide-companion-columns"], "2");
+});
+
 test("Companion Camera layout uses the full row at the largest fitting size", () => {
   const layout = resolveWideCompanionGridLayout({
     cameraCount: 5,

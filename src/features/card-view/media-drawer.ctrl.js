@@ -294,7 +294,7 @@ export class CardViewMediaDrawerController {
         this._resetContent(scroller);
       }
       this._popupMediaType = popupMediaType;
-      this.syncNavigation();
+      this._hideNavigation();
       return { drawerType, popupMediaType, count: 0, deferred: true };
     }
 
@@ -434,7 +434,14 @@ export class CardViewMediaDrawerController {
     }
     this._contentKey = "";
     this._popupMediaType = "";
-    this.syncNavigation(scroller);
+    this._hideNavigation();
+  }
+
+  _hideNavigation() {
+    const up = this._query('[data-card-view-media-drawer-scroll="-1"]');
+    const down = this._query('[data-card-view-media-drawer-scroll="1"]');
+    if (up) up.hidden = true;
+    if (down) down.hidden = true;
   }
 
   _scheduleNavigationSync() {

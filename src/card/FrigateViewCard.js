@@ -1421,8 +1421,6 @@ export class FrigateViewCard extends HTMLElement {
         viewportWidth !== this._lastViewportWidth ||
         viewportHeight !== this._lastViewportHeight;
 
-      this._syncRotateOverlayViewportState();
-
       if (viewportSizeChanged) {
         this._lastViewportWidth = viewportWidth;
         this._lastViewportHeight = viewportHeight;
@@ -3833,7 +3831,7 @@ export class FrigateViewCard extends HTMLElement {
     if (this._isCardViewPageActive()) {
       this._cardViewPageController.renderToolbar(buttonStates);
     }
-    this._pageNavigationController.syncToolbarDivider();
+    this._pageNavigationController.syncToolbarDividerAfterMutation();
   }
 
   _syncPlaybackTargetButtons() {
@@ -4582,7 +4580,7 @@ export class FrigateViewCard extends HTMLElement {
     const tabsMarkup = this._buildTabsMarkup();
     if (tabs) tabs.innerHTML = tabsMarkup;
     if (toolsSlot) toolsSlot.innerHTML = this._getToolsMarkup();
-    this._pageNavigationController.syncToolbarDivider();
+    this._pageNavigationController.syncToolbarDividerAfterMutation();
     if (this._tab !== prevTab) {
       void this._loadTabData(this._tab);
     }
@@ -5922,6 +5920,13 @@ export class FrigateViewCard extends HTMLElement {
     controlsPlan.retryDelaysMs.forEach((delay) => setTimeout(apply, delay));
   }
   _scheduleRotateOverlayUpdate() {
+    if (
+      !DEVICE_PROFILE.hasTouch &&
+      !this._rotateOverlayActive &&
+      !this._rotateOverlayExitT
+    ) {
+      return;
+    }
     if (this._rotateOverlayRaf) cancelAnimationFrame(this._rotateOverlayRaf);
     this._rotateOverlayRaf = requestAnimationFrame(() => {
       this._rotateOverlayRaf = 0;
@@ -5929,6 +5934,13 @@ export class FrigateViewCard extends HTMLElement {
     });
   }
   _syncRotateOverlayViewportState() {
+    if (
+      !DEVICE_PROFILE.hasTouch &&
+      !this._rotateOverlayActive &&
+      !this._rotateOverlayExitT
+    ) {
+      return;
+    }
     const viewportVars = resolveRotateOverlayViewportVariables({
       visualViewport: window.visualViewport,
       innerWidth: window.innerWidth,

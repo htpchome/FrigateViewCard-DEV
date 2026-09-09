@@ -31,10 +31,13 @@ export class WideViewPageController {
     this._cancelFrame =
       options.cancelFrame ||
       ((frameId) => globalThis.cancelAnimationFrame?.(frameId));
+    this._ResizeObserver = options.resizeObserverCtor;
     this._resizeHandleCleanup = null;
     this._resizeDragCleanup = null;
     this._resizeDragState = null;
     this._syncColHeightFrame = null;
+    this._columnResizeObserver = null;
+    this._columnResizeTarget = null;
     this._startModeApplied = false;
   }
 
@@ -178,6 +181,7 @@ export class WideViewPageController {
 
   stopWideViewMode() {
     this._cancelResizeDrag();
+    this._disconnectColumnResizeObserver();
     this.stopCompanionMode();
     this.teardownTimeline({ preserveScroll: true });
   }
@@ -190,6 +194,7 @@ export class WideViewPageController {
   disconnectResizeHandle() {
     this._disposeResizeHandle();
     this._cancelSyncColHeight();
+    this._disconnectColumnResizeObserver();
   }
 
   handleCompanionRealtimeMessage(msg) {
@@ -259,14 +264,44 @@ export class WideViewPageController {
   }
 
   syncColHeight() {
+    const l = this._host.shadowRoot?.querySelector(".col-left");
+    const r = this._host.shadowRoot?.querySelector(".col-right");
+    if (!l || !r) return;
+
+    const ResizeObserverCtor =
+      this._ResizeObserver !== undefined
+        ? this._ResizeObserver
+        : l.ownerDocument?.defaultView?.ResizeObserver ||
+          globalThis.ResizeObserver;
+    if (typeof ResizeObserverCtor === "function") {
+      if (l !== this._columnResizeTarget) {
+        this._disconnectColumnResizeObserver();
+        this._columnResizeTarget = l;
+        this._columnResizeObserver = new ResizeObserverCtor((entries) => {
+          const entry =
+            entries.find?.(({ target }) => target === l) || entries[0];
+          const borderBox = Array.isArray(entry?.borderBoxSize)
+            ? entry.borderBoxSize[0]
+            : entry?.borderBoxSize;
+          const height = Number(
+            borderBox?.blockSize ?? entry?.contentRect?.height ?? 0,
+          );
+          const currentRight =
+            this._host.shadowRoot?.querySelector(".col-right");
+          if (height > 0 && currentRight) {
+            currentRight.style.maxHeight = `${height}px`;
+          }
+        });
+        this._columnResizeObserver.observe(l);
+      }
+      return;
+    }
+
     if (this._syncColHeightFrame !== null) return;
     this._syncColHeightFrame = true;
     const frameId = this._requestFrame(() => {
       this._syncColHeightFrame = null;
       this._companionController?.updateLayout?.();
-      const l = this._host.shadowRoot?.querySelector(".col-left");
-      const r = this._host.shadowRoot?.querySelector(".col-right");
-      if (!l || !r) return;
       const h = l.offsetHeight;
       if (h > 0) r.style.maxHeight = h + "px";
     });
@@ -387,5 +422,11 @@ export class WideViewPageController {
     this._syncColHeightFrame = null;
     if (frameId === null || frameId === true || frameId === undefined) return;
     this._cancelFrame(frameId);
+  }
+
+  _disconnectColumnResizeObserver() {
+    this._columnResizeObserver?.disconnect?.();
+    this._columnResizeObserver = null;
+    this._columnResizeTarget = null;
   }
 }

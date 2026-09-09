@@ -21,10 +21,18 @@ export const shouldShowPageToolsDivider = ({
 };
 
 export class PageNavigationController {
-  constructor(host, constants, { mapConfiguredLandingPage = null } = {}) {
+  constructor(
+    host,
+    constants,
+    {
+      mapConfiguredLandingPage = null,
+      resizeObserverCtor = globalThis.ResizeObserver,
+    } = {},
+  ) {
     this._host = host;
     this._constants = constants;
     this._mapConfiguredLandingPage = mapConfiguredLandingPage;
+    this._ResizeObserver = resizeObserverCtor;
     this._toolbarDividerResizeObserver = null;
   }
 
@@ -154,7 +162,7 @@ export class PageNavigationController {
     const nav = this._host._pageShellRegion("pageNavigation");
     if (nav) nav.innerHTML = this.pageNavButtonsMarkup();
     this.syncPageNavigationButtons();
-    this.syncToolbarDivider();
+    this.syncToolbarDividerAfterMutation();
   }
 
   syncPageNavigationButtons() {
@@ -194,6 +202,11 @@ export class PageNavigationController {
     return visible;
   }
 
+  syncToolbarDividerAfterMutation() {
+    if (this._toolbarDividerResizeObserver) return false;
+    return this.syncToolbarDivider();
+  }
+
   connectToolbarDivider() {
     this.disconnectToolbarDivider();
     const holder = this._host.shadowRoot?.querySelector?.(
@@ -201,9 +214,11 @@ export class PageNavigationController {
     );
     if (!holder) return;
 
-    this.syncToolbarDivider();
-    const ResizeObserverCtor = globalThis.ResizeObserver;
-    if (typeof ResizeObserverCtor !== "function") return;
+    const ResizeObserverCtor = this._ResizeObserver;
+    if (typeof ResizeObserverCtor !== "function") {
+      this.syncToolbarDivider();
+      return;
+    }
     this._toolbarDividerResizeObserver = new ResizeObserverCtor(() => {
       this.syncToolbarDivider();
     });
