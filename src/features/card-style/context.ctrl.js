@@ -16,6 +16,10 @@ const DARK_PRIMARY_THEME_KEYS = Object.freeze([
 ]);
 const MOBILE_SECTIONS_FULL_BLEED_CLASS =
   "mobile-view-sections-full-bleed";
+const FULL_VIEWPORT_HEIGHT_PERCENT = 100;
+// Includes the heading and approximately one standard event row.
+const MINIMUM_BROWSE_REGION_HEIGHT_PX = 136;
+const MINIMUM_CARD_HEIGHT_BUFFER_PX = 8;
 
 const normalizeThemeName = (value) =>
   String(value || "").trim().toLowerCase();
@@ -205,9 +209,12 @@ export class CardStyleContextController {
     const inPreviewContext = this._host._isPreviewContext();
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
     if (this._host.parentElement) {
-      this._host.parentElement.style.height = inPreviewContext || naturalCardView
-        ? "auto"
-        : "100%";
+      this._host.parentElement.style.height =
+        inPreviewContext ||
+        naturalCardView ||
+        this._viewportMinimumActive === true
+          ? "auto"
+          : "100%";
       if (tightMarginsEnabled) {
         this._host.parentElement.style.margin = "0";
         this._host.parentElement.style.padding = "0";
@@ -328,6 +335,7 @@ export class CardStyleContextController {
       : getComputedStyle(this._host);
     const haCardHeight =
       hostComputedStyle?.getPropertyValue("--ha-card-height").trim() || "";
+    let expandedForMinimumBrowseHeight = false;
 
     if (naturalCardView) {
       this._host.style.removeProperty("--card-host-height");
@@ -369,7 +377,17 @@ export class CardStyleContextController {
           Math.max(0.01, numericHeight / 100),
         );
         if (resolvedViewportHeightPx != null) {
-          const resolvedHeightValue = `${resolvedViewportHeightPx}px`;
+          const minimumUsableHeightPx =
+            numericHeight >= FULL_VIEWPORT_HEIGHT_PERCENT
+              ? this.resolveMinimumUsableHostHeightPx(card)
+              : null;
+          const targetHeightPx =
+            minimumUsableHeightPx != null
+              ? Math.max(resolvedViewportHeightPx, minimumUsableHeightPx)
+              : resolvedViewportHeightPx;
+          expandedForMinimumBrowseHeight =
+            targetHeightPx > resolvedViewportHeightPx;
+          const resolvedHeightValue = `${targetHeightPx}px`;
           this._host.style.setProperty(
             "--card-host-height",
             resolvedHeightValue,
@@ -400,6 +418,8 @@ export class CardStyleContextController {
         card.style.removeProperty("--view-height");
       }
     }
+
+    this.syncViewportMinimumParentHeight(expandedForMinimumBrowseHeight);
 
     const { mode } = this.resolveThemeContext();
     const customTheme =
@@ -476,6 +496,89 @@ export class CardStyleContextController {
         this.resolveHeightSectionsBottomPaddingPx(),
     );
     return Math.max(1, Math.min(configuredHeight, availableCardHeight));
+  }
+
+  resolveMinimumUsableHostHeightPx(card) {
+    if (!card?.querySelector) return null;
+
+    const mobileLayout = card.querySelector(".layout--mobile-view");
+    if (mobileLayout) {
+      return this.sumRenderedHeights([
+        mobileLayout.querySelector("#mobile-top"),
+        mobileLayout.querySelector(".mobile-video-controls-container"),
+        mobileLayout.querySelector(".mobile-tab-container"),
+        mobileLayout.querySelector('[data-fvc-region="footer"]'),
+      ]);
+    }
+
+    const singleLayout = card.querySelector(".layout--single-view");
+    if (singleLayout) {
+      return this.sumRenderedHeights([
+        singleLayout.querySelector(".view-top"),
+        singleLayout.querySelector(".tabs-holder"),
+        singleLayout.querySelector('[data-fvc-region="footer"]'),
+      ]);
+    }
+
+    const wideLayout = card.querySelector(".layout--wide-view");
+    if (!wideLayout) return null;
+    const leftColumn = wideLayout.querySelector(".col-left--wide-view");
+    const rightColumn = wideLayout.querySelector(".col-right--wide-view");
+    const leftHeight = this.sumRenderedHeights(
+      [
+        leftColumn?.querySelector(".live-stage"),
+        leftColumn?.querySelector(".info-row"),
+        leftColumn?.querySelector(".cam-switcher"),
+        leftColumn?.querySelector(".tabs-holder"),
+        leftColumn?.querySelector(".wide-companion-header"),
+      ],
+      { includeBrowseViewport: false },
+    );
+    const rightHeight = this.sumRenderedHeights([
+      rightColumn?.querySelector(".tabs-holder"),
+    ]);
+    const footerHeight = this.measureRenderedHeight(
+      wideLayout.querySelector('[data-fvc-region="footer"]'),
+    );
+    if (leftHeight == null || rightHeight == null || footerHeight <= 0) {
+      return null;
+    }
+    return Math.ceil(
+      Math.max(leftHeight, rightHeight) + footerHeight,
+    );
+  }
+
+  sumRenderedHeights(elements, { includeBrowseViewport = true } = {}) {
+    const heights = elements.map((element) =>
+      this.measureRenderedHeight(element),
+    );
+    if (heights.some((height) => height <= 0)) return null;
+    return Math.ceil(
+      heights.reduce((total, height) => total + height, 0) +
+        (includeBrowseViewport ? MINIMUM_BROWSE_REGION_HEIGHT_PX : 0) +
+        MINIMUM_CARD_HEIGHT_BUFFER_PX,
+    );
+  }
+
+  measureRenderedHeight(element) {
+    const height = Number(
+      element?.getBoundingClientRect?.().height || element?.clientHeight || 0,
+    );
+    return Number.isFinite(height) && height > 0 ? height : 0;
+  }
+
+  syncViewportMinimumParentHeight(active) {
+    this._viewportMinimumActive = active === true;
+    if (
+      !this._host.parentElement?.style ||
+      this._host._isPreviewContext?.() === true ||
+      this._host._isCardViewPageActive?.() === true
+    ) {
+      return;
+    }
+    this._host.parentElement.style.height = this._viewportMinimumActive
+      ? "auto"
+      : "100%";
   }
 
   resolveHeightWrapperViewportPx() {

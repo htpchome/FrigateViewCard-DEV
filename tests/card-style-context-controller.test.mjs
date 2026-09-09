@@ -1017,6 +1017,205 @@ test("viewport height reserves non-tight sections bottom padding", () => {
   );
 });
 
+test("full viewport height expands to preserve Mobile View controls and browse space", () => {
+  const hostStyleCalls = [];
+  const cardStyleCalls = [];
+  const measuredElement = (height) => ({
+    getBoundingClientRect: () => ({ height }),
+  });
+  const mobileElements = new Map([
+    ["#mobile-top", measuredElement(260)],
+    [".mobile-video-controls-container", measuredElement(44)],
+    [".mobile-tab-container", measuredElement(50)],
+    ['[data-fvc-region="footer"]', measuredElement(46)],
+  ]);
+  const mobileLayout = {
+    querySelector: (selector) => mobileElements.get(selector) || null,
+  };
+  const card = {
+    querySelector: (selector) =>
+      selector === ".layout--mobile-view" ? mobileLayout : null,
+    style: {
+      setProperty: (name, value) => cardStyleCalls.push(["set", name, value]),
+      removeProperty: (name) => cardStyleCalls.push(["remove", name]),
+    },
+  };
+  const parentElement = {
+    style: { height: "100%" },
+    getBoundingClientRect: () => ({ top: 56 }),
+  };
+  const host = {
+    _config: {
+      stream_height: 100,
+      stream_height_unit: "dvh",
+      tight_margins: true,
+      theme: "default",
+    },
+    _isPreviewContext: () => false,
+    _isCardViewPageActive: () => false,
+    parentElement,
+    shadowRoot: { querySelector: () => card },
+    style: {
+      setProperty: (name, value) => hostStyleCalls.push(["set", name, value]),
+      removeProperty: (name) => hostStyleCalls.push(["remove", name]),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.applyTightMargins = () => {
+    parentElement.style.height = "100%";
+  };
+  controller.syncHostOuterStyles = () => {};
+
+  withGlobals(
+    {
+      document: global.document,
+      window: {
+        innerHeight: 500,
+        visualViewport: { height: 500, offsetTop: 0 },
+      },
+      getComputedStyle: () => ({ getPropertyValue: () => "" }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls, [
+    ["set", "--card-host-height", "544px"],
+  ]);
+  assert.equal(
+    cardStyleCalls.some(
+      ([action, name, value]) =>
+        action === "set" && name === "--view-height" && value === "544px",
+    ),
+    true,
+  );
+  assert.equal(parentElement.style.height, "auto");
+
+  withGlobals(
+    {
+      document: global.document,
+      window: {
+        innerHeight: 900,
+        visualViewport: { height: 900, offsetTop: 0 },
+      },
+      getComputedStyle: () => ({ getPropertyValue: () => "" }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls.at(-1), [
+    "set",
+    "--card-host-height",
+    "844px",
+  ]);
+  assert.equal(parentElement.style.height, "100%");
+});
+
+test("viewport minimum does not override an intentionally compact dvh height", () => {
+  const hostStyleCalls = [];
+  const measuredElement = (height) => ({
+    getBoundingClientRect: () => ({ height }),
+  });
+  const mobileElements = new Map([
+    ["#mobile-top", measuredElement(260)],
+    [".mobile-video-controls-container", measuredElement(44)],
+    [".mobile-tab-container", measuredElement(50)],
+    ['[data-fvc-region="footer"]', measuredElement(46)],
+  ]);
+  const mobileLayout = {
+    querySelector: (selector) => mobileElements.get(selector) || null,
+  };
+  const card = {
+    querySelector: (selector) =>
+      selector === ".layout--mobile-view" ? mobileLayout : null,
+    style: { setProperty: () => {}, removeProperty: () => {} },
+  };
+  const parentElement = {
+    style: { height: "100%" },
+    getBoundingClientRect: () => ({ top: 56 }),
+  };
+  const host = {
+    _config: {
+      stream_height: 90,
+      stream_height_unit: "dvh",
+      tight_margins: true,
+      theme: "default",
+    },
+    _isPreviewContext: () => false,
+    _isCardViewPageActive: () => false,
+    parentElement,
+    shadowRoot: { querySelector: () => card },
+    style: {
+      setProperty: (name, value) => hostStyleCalls.push(["set", name, value]),
+      removeProperty: () => {},
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.applyTightMargins = () => {
+    parentElement.style.height = "100%";
+  };
+  controller.syncHostOuterStyles = () => {};
+
+  withGlobals(
+    {
+      document: global.document,
+      window: {
+        innerHeight: 500,
+        visualViewport: { height: 500, offsetTop: 0 },
+      },
+      getComputedStyle: () => ({ getPropertyValue: () => "" }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls, [
+    ["set", "--card-host-height", "444px"],
+  ]);
+  assert.equal(parentElement.style.height, "100%");
+});
+
+test("full viewport minimum follows the rendered Single and Wide View chrome", () => {
+  const measuredElement = (height) => ({
+    getBoundingClientRect: () => ({ height }),
+  });
+  const makeLayout = (entries) => {
+    const elements = new Map(entries);
+    return { querySelector: (selector) => elements.get(selector) || null };
+  };
+  const controller = new CardStyleContextController({});
+
+  const singleLayout = makeLayout([
+    [".view-top", measuredElement(360)],
+    [".tabs-holder", measuredElement(50)],
+    ['[data-fvc-region="footer"]', measuredElement(46)],
+  ]);
+  const singleCard = {
+    querySelector: (selector) =>
+      selector === ".layout--single-view" ? singleLayout : null,
+  };
+  assert.equal(controller.resolveMinimumUsableHostHeightPx(singleCard), 600);
+
+  const leftColumn = makeLayout([
+    [".live-stage", measuredElement(330)],
+    [".info-row", measuredElement(42)],
+    [".cam-switcher", measuredElement(40)],
+    [".tabs-holder", measuredElement(50)],
+    [".wide-companion-header", measuredElement(32)],
+  ]);
+  const rightColumn = makeLayout([
+    [".tabs-holder", measuredElement(50)],
+  ]);
+  const wideLayout = makeLayout([
+    [".col-left--wide-view", leftColumn],
+    [".col-right--wide-view", rightColumn],
+    ['[data-fvc-region="footer"]', measuredElement(46)],
+  ]);
+  const wideCard = {
+    querySelector: (selector) =>
+      selector === ".layout--wide-view" ? wideLayout : null,
+  };
+  assert.equal(controller.resolveMinimumUsableHostHeightPx(wideCard), 548);
+});
+
 test("applyCardStyle resolves vh and dvh units to the available viewport", () => {
   for (const streamHeightUnit of ["vh", "dvh"]) {
     const hostStyleCalls = [];
