@@ -1017,7 +1017,7 @@ test("viewport height reserves non-tight sections bottom padding", () => {
   );
 });
 
-test("full viewport height expands to preserve Mobile View controls and browse space", () => {
+test("full percent and viewport heights preserve Mobile View controls and browse space", () => {
   const hostStyleCalls = [];
   const cardStyleCalls = [];
   const measuredElement = (height) => ({
@@ -1079,12 +1079,12 @@ test("full viewport height expands to preserve Mobile View controls and browse s
   );
 
   assert.deepEqual(hostStyleCalls, [
-    ["set", "--card-host-height", "544px"],
+    ["set", "--card-host-height", "652px"],
   ]);
   assert.equal(
     cardStyleCalls.some(
       ([action, name, value]) =>
-        action === "set" && name === "--view-height" && value === "544px",
+        action === "set" && name === "--view-height" && value === "652px",
     ),
     true,
   );
@@ -1108,6 +1108,32 @@ test("full viewport height expands to preserve Mobile View controls and browse s
     "844px",
   ]);
   assert.equal(parentElement.style.height, "100%");
+
+  host._config.stream_height_unit = "%";
+  withGlobals(
+    {
+      document: global.document,
+      window: {
+        innerHeight: 500,
+        visualViewport: { height: 500, offsetTop: 0 },
+      },
+      getComputedStyle: () => ({ getPropertyValue: () => "" }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls.at(-1), [
+    "set",
+    "--card-host-height",
+    "652px",
+  ]);
+  assert.equal(
+    cardStyleCalls.some(
+      ([action, name]) => action === "remove" && name === "--view-height",
+    ),
+    true,
+  );
+  assert.equal(parentElement.style.height, "auto");
 });
 
 test("viewport minimum does not override an intentionally compact dvh height", () => {
@@ -1192,7 +1218,7 @@ test("full viewport minimum follows the rendered Single and Wide View chrome", (
     querySelector: (selector) =>
       selector === ".layout--single-view" ? singleLayout : null,
   };
-  assert.equal(controller.resolveMinimumUsableHostHeightPx(singleCard), 600);
+  assert.equal(controller.resolveMinimumUsableHostHeightPx(singleCard), 708);
 
   const leftColumn = makeLayout([
     [".live-stage", measuredElement(330)],

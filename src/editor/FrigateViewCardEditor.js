@@ -3247,7 +3247,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             })}
           </div>
         </div>
-        <div class="field-helper">Constrain the card to 50–100% of its available height or the dynamic viewport. At 100dvh, the card can grow beyond a short viewport to keep its controls and part of the browse area usable.</div>
+        <div class="field-helper">Constrain the card to 50–100% of its available height or the dynamic viewport. At full height (100% or 100dvh), the card can grow to keep its controls and approximately two browse items usable.</div>
         <div class="field-helper" id="stream_height-output">${streamHeight}${streamHeightUnit}</div>
         <div class="field-helper" id="stream_height-helper"></div>
       </div>

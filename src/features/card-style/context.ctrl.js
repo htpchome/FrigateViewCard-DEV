@@ -17,8 +17,8 @@ const DARK_PRIMARY_THEME_KEYS = Object.freeze([
 const MOBILE_SECTIONS_FULL_BLEED_CLASS =
   "mobile-view-sections-full-bleed";
 const FULL_VIEWPORT_HEIGHT_PERCENT = 100;
-// Includes the heading and approximately one standard event row.
-const MINIMUM_BROWSE_REGION_HEIGHT_PX = 136;
+// Includes the heading and approximately two standard event rows.
+const MINIMUM_BROWSE_REGION_HEIGHT_PX = 244;
 const MINIMUM_CARD_HEIGHT_BUFFER_PX = 8;
 
 const normalizeThemeName = (value) =>
@@ -359,14 +359,21 @@ export class CardStyleContextController {
           const wrapperPaddingPx = this.resolveHeightWrapperPaddingPx();
           const sectionsBottomPaddingPx =
             this.resolveHeightSectionsBottomPaddingPx();
+          const resolvedCardHeightPx = Math.max(
+            1,
+            constrainedHeightPx -
+              wrapperPaddingPx -
+              sectionsBottomPaddingPx,
+          );
+          const usableHeight = this.resolveUsableHostHeight({
+            card,
+            configuredHeightPercent: numericHeight,
+            resolvedHeightPx: resolvedCardHeightPx,
+          });
+          expandedForMinimumBrowseHeight = usableHeight.expanded;
           this._host.style.setProperty(
             "--card-host-height",
-            `${Math.max(
-              1,
-              constrainedHeightPx -
-                wrapperPaddingPx -
-                sectionsBottomPaddingPx,
-            )}px`,
+            `${usableHeight.heightPx}px`,
           );
         } else {
           this._host.style.removeProperty("--card-host-height");
@@ -377,17 +384,13 @@ export class CardStyleContextController {
           Math.max(0.01, numericHeight / 100),
         );
         if (resolvedViewportHeightPx != null) {
-          const minimumUsableHeightPx =
-            numericHeight >= FULL_VIEWPORT_HEIGHT_PERCENT
-              ? this.resolveMinimumUsableHostHeightPx(card)
-              : null;
-          const targetHeightPx =
-            minimumUsableHeightPx != null
-              ? Math.max(resolvedViewportHeightPx, minimumUsableHeightPx)
-              : resolvedViewportHeightPx;
-          expandedForMinimumBrowseHeight =
-            targetHeightPx > resolvedViewportHeightPx;
-          const resolvedHeightValue = `${targetHeightPx}px`;
+          const usableHeight = this.resolveUsableHostHeight({
+            card,
+            configuredHeightPercent: numericHeight,
+            resolvedHeightPx: resolvedViewportHeightPx,
+          });
+          expandedForMinimumBrowseHeight = usableHeight.expanded;
+          const resolvedHeightValue = `${usableHeight.heightPx}px`;
           this._host.style.setProperty(
             "--card-host-height",
             resolvedHeightValue,
@@ -546,6 +549,25 @@ export class CardStyleContextController {
     return Math.ceil(
       Math.max(leftHeight, rightHeight) + footerHeight,
     );
+  }
+
+  resolveUsableHostHeight({
+    card,
+    configuredHeightPercent,
+    resolvedHeightPx,
+  }) {
+    const minimumUsableHeightPx =
+      configuredHeightPercent >= FULL_VIEWPORT_HEIGHT_PERCENT
+        ? this.resolveMinimumUsableHostHeightPx(card)
+        : null;
+    const heightPx =
+      minimumUsableHeightPx != null
+        ? Math.max(resolvedHeightPx, minimumUsableHeightPx)
+        : resolvedHeightPx;
+    return {
+      heightPx,
+      expanded: heightPx > resolvedHeightPx,
+    };
   }
 
   sumRenderedHeights(elements, { includeBrowseViewport = true } = {}) {
