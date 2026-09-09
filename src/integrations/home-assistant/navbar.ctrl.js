@@ -501,10 +501,7 @@ export class HomeAssistantNavbarController {
         this._dashboardScopeActive === true
       );
     }
-    return (
-      this._host?.isConnected !== false &&
-      this._host?._isMobileViewPageActive?.() === true
-    );
+    return this._host?.isConnected !== false;
   }
 
   shouldMoveNavbarToBottom() {

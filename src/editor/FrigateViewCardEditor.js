@@ -3503,7 +3503,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Whole Dashboard</span>
           <ha-switch id="mobile_view_ha_navbar_dashboard" ${this._config?.mobile_view_ha_navbar_dashboard ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">When off, the navbar applies only while this card's Mobile View page is active. When on, it remains active as you navigate every page in this dashboard after this card loads.</div>
+        <div class="field-helper">When off, the navbar follows this card across all of its internal views while the card remains on the current Home Assistant page. When on, it remains active as you navigate every page in this dashboard after this card loads.</div>
       </div>
       <div class="section" id="mobile-view-outer-border-row" style="${this._config?.mobile_view_page_enabled !== false ? "" : "display:none"}">
         <div class="layout-row">

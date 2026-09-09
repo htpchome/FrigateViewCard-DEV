@@ -324,6 +324,23 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.equal(h.getTargets().children.length, 0);
 });
 
+test("card-local scope remains active across internal Frigate views", () => {
+  const h = createHarness({ dashboardScope: false });
+
+  assert.equal(h.controller.sync(), true);
+  h.host._mobileViewActive = false;
+  assert.equal(h.controller.sync(), true);
+  assert.equal(h.controller.shouldMoveNavbarToBottom(), true);
+  assert.equal(
+    h.getTargets().header.style.getPropertyValue("bottom"),
+    "0px",
+  );
+
+  h.host.isConnected = false;
+  assert.equal(h.controller.sync(), false);
+  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "");
+});
+
 test("combines stacked labels with the bottom active-tab indicator", () => {
   const styleText = resolveHomeAssistantNavbarStyleText({
     moveBottom: true,
@@ -445,7 +462,7 @@ test("applies the proven bottom-header details and restores exact styles", () =>
   assert.equal(targets.children.length, 1);
   assert.match(targets.children[0].textContent, /border-block-start/);
 
-  h.host._mobileViewActive = false;
+  h.host.isConnected = false;
   assert.equal(h.controller.sync(), false);
   assert.equal(targets.header.style.getPropertyValue("top"), "6px");
   assert.equal(targets.header.style.getPropertyValue("bottom"), "");
