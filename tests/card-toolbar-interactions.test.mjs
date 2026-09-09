@@ -157,6 +157,77 @@ test("mobile-device detection disables takeover before page defaults", () => {
   assert.equal(enabled, false);
 });
 
+test("rotate-to-fullscreen is limited to opted-in phones outside editor contexts", () => {
+  const context = {
+    _config: { mobile_view_rotate_to_fullscreen: true },
+    _isLikelyPhoneClient: () => true,
+    _isPreviewContext: () => false,
+    _isDashboardEditMode: () => false,
+    _isCardEditorDialogOpen: () => false,
+  };
+  const enabled = () =>
+    FrigateViewCard.prototype._isRotateToFullscreenEnabled.call(context);
+
+  assert.equal(enabled(), true);
+
+  context._config.mobile_view_rotate_to_fullscreen = false;
+  assert.equal(enabled(), false);
+  delete context._config.mobile_view_rotate_to_fullscreen;
+  assert.equal(enabled(), false);
+
+  context._config.mobile_view_rotate_to_fullscreen = true;
+  context._isLikelyPhoneClient = () => false;
+  assert.equal(enabled(), false);
+
+  context._isLikelyPhoneClient = () => true;
+  context._isPreviewContext = () => true;
+  assert.equal(enabled(), false);
+
+  context._isPreviewContext = () => false;
+  context._isDashboardEditMode = () => true;
+  assert.equal(enabled(), false);
+
+  context._isDashboardEditMode = () => false;
+  context._isCardEditorDialogOpen = () => true;
+  assert.equal(enabled(), false);
+});
+
+test("editor layout changes reevaluate an active rotate overlay", () => {
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const frames = [];
+  const calls = [];
+  globalThis.requestAnimationFrame = (callback) => {
+    frames.push(callback);
+    return frames.length;
+  };
+  const context = {
+    _editorLayoutSyncRaf: 0,
+    isConnected: true,
+    _applyCardStyle: () => calls.push("style"),
+    _wideViewPageController: {
+      syncColHeightIfWideView: () => calls.push("wide"),
+    },
+    _scheduleRotateOverlayUpdate: () => calls.push("rotate"),
+  };
+
+  try {
+    FrigateViewCard.prototype._scheduleEditorLayoutSync.call(context);
+    assert.equal(frames.length, 1);
+    frames.shift()();
+    assert.equal(frames.length, 1);
+    frames.shift()();
+  } finally {
+    if (originalRequestAnimationFrame === undefined) {
+      delete globalThis.requestAnimationFrame;
+    } else {
+      globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+    }
+  }
+
+  assert.deepEqual(calls, ["style", "wide", "rotate"]);
+  assert.equal(context._editorLayoutSyncRaf, 0);
+});
+
 test("toast reuses the card notification and places favorite feedback over browse", () => {
   const properties = new Map();
   const toast = {

@@ -1609,7 +1609,7 @@ test.describe("touch input", () => {
     expect(geometry.slideshowGap).toBeGreaterThanOrEqual(6);
   });
 
-  test("fits four Card View media tabs above the handle on a narrow video", async ({
+  test("fits five Card View media tabs above the handle on a narrow video", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -1671,7 +1671,7 @@ test.describe("touch input", () => {
     });
 
     expect(geometry).toEqual({
-      tabLabels: ["Alerts", "Clips", "Snapshots", "Recordings"],
+      tabLabels: ["Alerts", "Clips", "Snapshots", "Recordings", "Favorites"],
       tabsBeforeHandle: true,
       actionsAfterHandle: true,
       actionCount: 2,

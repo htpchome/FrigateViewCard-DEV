@@ -3473,9 +3473,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Rotate to Fullscreen</span>
-          <ha-switch id="mobile_view_rotate_to_fullscreen" ${this._config?.mobile_view_rotate_to_fullscreen !== false ? "checked" : ""}></ha-switch>
+          <ha-switch id="mobile_view_rotate_to_fullscreen" ${this._config?.mobile_view_rotate_to_fullscreen === true ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">On supported touch devices, rotating to landscape expands live and popup media to fullscreen.</div>
+        <div class="field-helper">On mobile phones, rotating to landscape expands live and popup media to fullscreen. Tablets, PCs, Home Assistant editing, and card-picker demos are excluded.</div>
       </div>
       <div class="section">
         <div class="layout-row">

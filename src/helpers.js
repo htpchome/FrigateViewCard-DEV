@@ -802,7 +802,7 @@ export const buildEditorConfigFromDom = ({
   );
   nextConfig.mobile_view_rotate_to_fullscreen = rotateToFullscreenToggle
     ? resolveSwitchChecked(rotateToFullscreenToggle)
-    : baseConfig?.mobile_view_rotate_to_fullscreen !== false;
+    : baseConfig?.mobile_view_rotate_to_fullscreen === true;
   nextConfig.mobile_view_outer_border = resolveSwitchChecked(
     root.querySelector("#mobile_view_outer_border"),
   );

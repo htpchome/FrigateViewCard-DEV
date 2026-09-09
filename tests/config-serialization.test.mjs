@@ -2160,7 +2160,7 @@ test("Mobile View presentation settings omit defaults and preserve swipe mode", 
 
   assert.equal(defaults.mobile_view_outer_border, false);
   assert.equal(defaults.mobile_view_page_enabled, true);
-  assert.equal(defaults.mobile_view_rotate_to_fullscreen, true);
+  assert.equal(defaults.mobile_view_rotate_to_fullscreen, false);
   assert.equal(defaults.mobile_view_ha_navbar_bottom, false);
   assert.equal(defaults.mobile_view_ha_navbar_stack_tabs, false);
   assert.equal(defaults.mobile_view_ha_navbar_dashboard, false);
@@ -2203,11 +2203,11 @@ test("Mobile View presentation settings omit defaults and preserve swipe mode", 
   assert.deepEqual(
     compactEditorConfigForYaml({
       cameras: [{ entity: "camera.front_door" }],
-      mobile_view_rotate_to_fullscreen: false,
+      mobile_view_rotate_to_fullscreen: true,
     }),
     {
       cameras: [{ entity: "camera.front_door" }],
-      mobile_view_rotate_to_fullscreen: false,
+      mobile_view_rotate_to_fullscreen: true,
     },
   );
   assert.equal(
@@ -2580,7 +2580,7 @@ test("editor presents general, layout, and Mobile View controls in their request
   );
   assert.match(
     mobileSource,
-    /mobile_view_rotate_to_fullscreen !== false \? "checked" : ""/,
+    /mobile_view_rotate_to_fullscreen === true \? "checked" : ""/,
   );
   assert.doesNotMatch(mobileSource, /id="ha_dashboard_swipe_navigation"/);
   const swipeStart = editorSource.indexOf("const swipeNavigationPanelContent");

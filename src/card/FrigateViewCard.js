@@ -1819,7 +1819,7 @@ export class FrigateViewCard extends HTMLElement {
       ),
       mobile_view_page_enabled: config.mobile_view_page_enabled !== false,
       mobile_view_rotate_to_fullscreen:
-        config.mobile_view_rotate_to_fullscreen !== false,
+        config.mobile_view_rotate_to_fullscreen === true,
       mobile_view_outer_border: config.mobile_view_outer_border === true,
       mobile_view_ha_navbar_bottom:
         config.mobile_view_ha_navbar_bottom === true,
@@ -5657,6 +5657,7 @@ export class FrigateViewCard extends HTMLElement {
       if (!this.isConnected) return;
       this._applyCardStyle();
       this._wideViewPageController?.syncColHeightIfWideView?.();
+      this._scheduleRotateOverlayUpdate();
     };
     if (typeof requestAnimationFrame !== "function") {
       applyLayout();
@@ -6016,6 +6017,15 @@ export class FrigateViewCard extends HTMLElement {
       }
     }, exitPlan.delayMs);
   }
+  _isRotateToFullscreenEnabled() {
+    return (
+      this._config?.mobile_view_rotate_to_fullscreen === true &&
+      this._isLikelyPhoneClient() &&
+      !this._isPreviewContext() &&
+      !this._isDashboardEditMode() &&
+      !this._isCardEditorDialogOpen()
+    );
+  }
   _updateRotateOverlayState() {
     const card = this._$("#card");
     if (!card) return;
@@ -6032,8 +6042,7 @@ export class FrigateViewCard extends HTMLElement {
         this._liveFullscreenLifecycleController?.active,
     );
     const rotateState = resolveRotateOverlayState({
-      rotateEnabled:
-        this._config?.mobile_view_rotate_to_fullscreen !== false,
+      rotateEnabled: this._isRotateToFullscreenEnabled(),
       isMobileTabletViewport: this._isMobileTabletViewport(),
       isLandscapeViewport: this._isLandscapeViewport(),
       popupOpen,

@@ -237,7 +237,7 @@ export const applyEditorPreviewDraftToCardConfig = ({
       : 30,
     mobile_view_page_enabled: previewConfig.mobile_view_page_enabled !== false,
     mobile_view_rotate_to_fullscreen:
-      previewConfig.mobile_view_rotate_to_fullscreen !== false,
+      previewConfig.mobile_view_rotate_to_fullscreen === true,
     mobile_view_outer_border:
       previewConfig.mobile_view_outer_border === true,
     mobile_view_ha_navbar_bottom:

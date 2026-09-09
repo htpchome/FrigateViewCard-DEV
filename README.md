@@ -221,7 +221,7 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `grid_rotation_seconds` | number | `30` | Grid-page rotation interval when more than four cameras exist. Valid values: `10`, `20`, `30`, `60`. |
 | `grid_alert_hold_seconds` | number | `10` | Time an alerted Grid tile remains promoted. Valid values: `10`, `20`, `30`, `60`. |
 | `mobile_view_page_enabled` | boolean | `true` | Enables Mobile View in navigation and eligible landing-page choices. |
-| `mobile_view_rotate_to_fullscreen` | boolean | `true` | Expands live and popup media to fullscreen when a supported touch device rotates to landscape. |
+| `mobile_view_rotate_to_fullscreen` | boolean | `false` | Expands live and popup media to fullscreen when a mobile phone rotates to landscape. Tablets, PCs, Home Assistant editing, and card-picker demos are excluded. |
 | `mobile_view_ha_navbar_bottom` | boolean | `false` | Moves the Home Assistant dashboard navbar to the bottom on phones while Mobile View is active. |
 | `mobile_view_ha_navbar_stack_tabs` | boolean | `false` | With the bottom navbar enabled, centers supported Home Assistant page titles beneath their icons. |
 | `mobile_view_ha_navbar_dashboard` | boolean | `false` | Keeps the bottom-navbar layout active across the whole dashboard after this card loads. |

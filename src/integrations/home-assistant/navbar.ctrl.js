@@ -466,8 +466,9 @@ export class HomeAssistantNavbarController {
       promoteViewInLandscape:
         moveBottom &&
         this._host?.isConnected !== false &&
+        this._host?._isLikelyPhoneClient?.() === true &&
         this._host?._isMobileViewPageActive?.() === true &&
-        this._host?._config?.mobile_view_rotate_to_fullscreen !== false,
+        this._host?._config?.mobile_view_rotate_to_fullscreen === true,
     };
   }
 

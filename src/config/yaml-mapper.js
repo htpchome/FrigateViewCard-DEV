@@ -345,8 +345,8 @@ export const compactEditorConfigForYaml = (
   addIfNotDefault(
     compact,
     "mobile_view_rotate_to_fullscreen",
-    source.mobile_view_rotate_to_fullscreen !== false,
-    true,
+    source.mobile_view_rotate_to_fullscreen === true,
+    false,
   );
   addIfNotDefault(
     compact,

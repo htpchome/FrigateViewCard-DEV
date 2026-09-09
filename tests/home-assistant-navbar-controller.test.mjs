@@ -130,6 +130,7 @@ const createHarness = ({
   dashboardScope = false,
   isIOS = true,
   mobileDevice = true,
+  phoneDevice = mobileDevice,
   moveBottom = true,
   queueMicrotaskFn = (callback) => callback(),
   rotateFullscreen = true,
@@ -185,8 +186,10 @@ const createHarness = ({
       mobile_view_rotate_to_fullscreen: rotateFullscreen,
     },
     _mobileDevice: mobileDevice,
+    _phoneDevice: phoneDevice,
     _mobileViewActive: true,
     _isLikelyMobileClient: () => host._mobileDevice,
+    _isLikelyPhoneClient: () => host._phoneDevice,
     _isMobileViewPageActive: () => host._mobileViewActive,
   };
   const controller = new HomeAssistantNavbarController(host, {
@@ -347,6 +350,13 @@ test("promotes the dashboard view above the relocated header in landscape", () =
   disabled.controller.sync();
   assert.doesNotMatch(
     disabled.getTargets().children[0].textContent,
+    /@media \(orientation: landscape\)/,
+  );
+
+  const tablet = createHarness({ phoneDevice: false });
+  tablet.controller.sync();
+  assert.doesNotMatch(
+    tablet.getTargets().children[0].textContent,
     /@media \(orientation: landscape\)/,
   );
 });
