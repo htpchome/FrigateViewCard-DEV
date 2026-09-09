@@ -155,6 +155,36 @@ test("closed Card View media drawer hides navigation without layout reads", () =
   assert.equal(down.hidden, true);
 });
 
+test("resetting Card View media drawer content does not write scroll position", () => {
+  const root = createElement();
+  const up = createElement();
+  const down = createElement();
+  const scroller = {
+    ...createElement(),
+    firstChild: {},
+    replaceChildren() {
+      this.firstChild = null;
+    },
+    set scrollTop(_) {
+      throw new Error("drawer reset wrote scrollTop");
+    },
+  };
+  const elements = new Map([
+    ["[data-card-view-media-drawer]", root],
+    ["[data-card-view-media-drawer-scroller]", scroller],
+    ['[data-card-view-media-drawer-scroll="-1"]', up],
+    ['[data-card-view-media-drawer-scroll="1"]', down],
+  ]);
+  const controller = new CardViewMediaDrawerController({
+    query: (selector) => elements.get(selector) || null,
+    isEnabled: () => false,
+    resizeObserverCtor: null,
+  });
+
+  assert.doesNotThrow(() => controller.bind());
+  assert.equal(scroller.firstChild, null);
+});
+
 test("Card View media drawer defers thumbnails until opened and reuses popup selection", () => {
   const root = createElement();
   const panel = createElement();

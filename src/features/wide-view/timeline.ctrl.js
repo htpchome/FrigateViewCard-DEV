@@ -109,6 +109,9 @@ export class WideViewTimelineController {
     this._clockOffsetSeconds = 0;
     this._lastViewportHeight = 0;
     this._lastViewportWidth = 0;
+    this._observedViewportHeight = 0;
+    this._observedViewportWidth = 0;
+    this._observedColumnWidth = 0;
     this._savedScrollTop = 0;
     this._resizeObserver = null;
     this._renderRaf = 0;
@@ -216,12 +219,32 @@ export class WideViewTimelineController {
     if (colRight && typeof ResizeObserver !== "undefined") {
       // Let Wide View's column sizing settle before the expensive first paint.
       this._waitingForInitialLayout = this.isOpen();
-      this._resizeObserver = new ResizeObserver(() => {
+      this._resizeObserver = new ResizeObserver((entries = []) => {
+        for (const entry of entries) {
+          const contentBox = Array.isArray(entry?.contentBoxSize)
+            ? entry.contentBoxSize[0]
+            : entry?.contentBoxSize;
+          const width = Number(
+            contentBox?.inlineSize ?? entry?.contentRect?.width,
+          );
+          const height = Number(
+            contentBox?.blockSize ?? entry?.contentRect?.height,
+          );
+          if (entry?.target === colRight && width > 0) {
+            this._observedColumnWidth = width;
+          }
+          if (entry?.target === viewport) {
+            if (width > 0) this._observedViewportWidth = width;
+            if (height > 0) this._observedViewportHeight = height;
+          }
+        }
         const initialLayout = this._waitingForInitialLayout;
         this._waitingForInitialLayout = false;
-        this._updateResponsiveMode();
-        const nextHeight = viewport.clientHeight || 0;
-        const nextWidth = viewport.clientWidth || 0;
+        this._updateResponsiveMode(this._observedColumnWidth);
+        const nextHeight = this._observedViewportHeight ||
+          viewport.clientHeight || 0;
+        const nextWidth = this._observedViewportWidth ||
+          viewport.clientWidth || 0;
         if (
           this.isOpen() &&
           (initialLayout ||
@@ -234,6 +257,7 @@ export class WideViewTimelineController {
         }
       });
       this._resizeObserver.observe(colRight);
+      this._resizeObserver.observe(viewport);
     }
     this._syncPanelState();
     this._updateResponsiveMode();
@@ -292,6 +316,9 @@ export class WideViewTimelineController {
     this._pendingRenderOptions = null;
     this._pendingRenderCommit = null;
     this._waitingForInitialLayout = false;
+    this._observedViewportHeight = 0;
+    this._observedViewportWidth = 0;
+    this._observedColumnWidth = 0;
   }
 
   applyConfigUpdate({
@@ -458,9 +485,13 @@ export class WideViewTimelineController {
     this._boundViewport = viewport;
     const viewportWidth = Math.max(
       1,
-      viewport.clientWidth || viewport.getBoundingClientRect?.().width || 320,
+      this._observedViewportWidth || viewport.clientWidth ||
+        viewport.getBoundingClientRect?.().width || 320,
     );
-    const viewportHeight = Math.max(220, viewport.clientHeight || 0);
+    const viewportHeight = Math.max(
+      220,
+      this._observedViewportHeight || viewport.clientHeight || 0,
+    );
     const contextKey = this._contextKey();
     const contextChanged = contextKey !== this._lastContextKey;
     const previousScrollTop = contextChanged || resetToNow
@@ -619,11 +650,13 @@ export class WideViewTimelineController {
       : this._deps.icons.right || "";
   }
 
-  _updateResponsiveMode() {
+  _updateResponsiveMode(widthHint = this._observedColumnWidth) {
     const colRight = this._host._$("#col-right");
     if (!colRight || !this.enabled()) return;
-    const width =
-      colRight.getBoundingClientRect?.().width || colRight.clientWidth || 0;
+    const observedWidth = Number(widthHint);
+    const width = observedWidth > 0
+      ? observedWidth
+      : colRight.getBoundingClientRect?.().width || colRight.clientWidth || 0;
     const layout = resolveWideTimelineResponsiveLayout(
       width,
       this._panelWidth,

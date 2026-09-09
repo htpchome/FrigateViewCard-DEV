@@ -115,13 +115,16 @@ test("Timeline waits for observed Wide layout before its initial paint", () => {
   const previousRequestAnimationFrame = globalThis.requestAnimationFrame;
   const frameCallbacks = [];
   const observers = [];
+  const observedElements = [];
   globalThis.ResizeObserver = class {
     constructor(callback) {
       this.callback = callback;
       observers.push(this);
     }
 
-    observe() {}
+    observe(element) {
+      observedElements.push(element);
+    }
 
     disconnect() {}
   };
@@ -155,9 +158,37 @@ test("Timeline waits for observed Wide layout before its initial paint", () => {
     controller.bind();
     assert.equal(frameCallbacks.length, 0);
     assert.equal(observers.length, 1);
+    assert.deepEqual(observedElements, [colRight, viewport]);
 
-    observers[0].callback();
-    observers[0].callback();
+    colRight.getBoundingClientRect = () => {
+      throw new Error("ResizeObserver callback reread timeline column layout");
+    };
+    Object.defineProperties(viewport, {
+      clientWidth: {
+        configurable: true,
+        get() {
+          throw new Error("ResizeObserver callback reread timeline width");
+        },
+      },
+      clientHeight: {
+        configurable: true,
+        get() {
+          throw new Error("ResizeObserver callback reread timeline height");
+        },
+      },
+    });
+    const entries = [
+      {
+        target: colRight,
+        contentBoxSize: [{ inlineSize: 800, blockSize: 480 }],
+      },
+      {
+        target: viewport,
+        contentBoxSize: [{ inlineSize: 300, blockSize: 480 }],
+      },
+    ];
+    observers[0].callback(entries);
+    observers[0].callback(entries);
     assert.equal(frameCallbacks.length, 1);
     frameCallbacks[0]();
     assert.equal(renders.length, 0);

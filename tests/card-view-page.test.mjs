@@ -2007,7 +2007,15 @@ test("Card View recording breakpoints update sizing without repainting tiles", (
     assert.equal(renders, 0);
 
     width = 900;
-    resizeCallback();
+    content.getBoundingClientRect = () => {
+      throw new Error("ResizeObserver callback reread Card View layout");
+    };
+    resizeCallback([
+      {
+        target: content,
+        borderBoxSize: [{ inlineSize: width, blockSize: 400 }],
+      },
+    ]);
     assert.equal(content.dataset.cardViewColumns, "3");
     assert.equal(renders, 0);
   } finally {

@@ -117,6 +117,9 @@ export class VideoZoomController {
       VIDEO_ZOOM_DOUBLE_TAP,
       Number(options.maxScale) || VIDEO_ZOOM_MAX,
     );
+    this._ResizeObserver = options.resizeObserverCtor === undefined
+      ? globalThis.ResizeObserver
+      : options.resizeObserverCtor;
     this._cleanup = new CleanupController();
     this._pointers = new Map();
     this._scale = VIDEO_ZOOM_MIN;
@@ -257,10 +260,22 @@ export class VideoZoomController {
       );
     }
 
-    const ResizeObserverCtor =
-      typeof ResizeObserver !== "undefined" ? ResizeObserver : null;
+    const ResizeObserverCtor = this._ResizeObserver;
     if (ResizeObserverCtor) {
-      this._resizeObserver = new ResizeObserverCtor(() => this.refresh());
+      this._resizeObserver = new ResizeObserverCtor((entries) => {
+        const entry = entries?.find?.(({ target }) => target === this._host) ||
+          entries?.[0];
+        const borderBox = Array.isArray(entry?.borderBoxSize)
+          ? entry.borderBoxSize[0]
+          : entry?.borderBoxSize;
+        const width = Number(
+          borderBox?.inlineSize ?? entry?.contentRect?.width,
+        );
+        const height = Number(
+          borderBox?.blockSize ?? entry?.contentRect?.height,
+        );
+        this.refresh({ width, height });
+      });
       this._resizeObserver.observe(this._host);
       this._cleanup.addCleanup(() => this._resizeObserver?.disconnect?.());
     }
@@ -353,8 +368,12 @@ export class VideoZoomController {
     this.refresh();
   }
 
-  refresh() {
-    const bounds = this._bounds();
+  refresh(size = null) {
+    const measuredWidth = Number(size?.width);
+    const measuredHeight = Number(size?.height);
+    const bounds = measuredWidth > 0 && measuredHeight > 0
+      ? { left: 0, top: 0, width: measuredWidth, height: measuredHeight }
+      : this._bounds();
     const pan = clampVideoPan({
       x: this._x,
       y: this._y,

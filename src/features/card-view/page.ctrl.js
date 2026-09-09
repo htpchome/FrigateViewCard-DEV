@@ -355,8 +355,18 @@ export class CardViewPageController {
     const content = this._host._pageShellRegion?.("cardViewActivity");
     if (!content) return;
 
-    const syncLayout = () => {
-      const width = content.getBoundingClientRect?.().width || content.clientWidth;
+    const syncLayout = (entries = []) => {
+      const entry = entries.find?.(({ target }) => target === content) ||
+        entries[0];
+      const borderBox = Array.isArray(entry?.borderBoxSize)
+        ? entry.borderBoxSize[0]
+        : entry?.borderBoxSize;
+      const observedWidth = Number(
+        borderBox?.inlineSize ?? entry?.contentRect?.width,
+      );
+      const width = observedWidth > 0
+        ? observedWidth
+        : content.getBoundingClientRect?.().width || content.clientWidth;
       const nextColumns = resolveCardViewColumnCount({
         width,
         mode: this._mode,
@@ -371,13 +381,13 @@ export class CardViewPageController {
       if (nextColumns !== this._columns) {
         this._columns = nextColumns;
         if (this._mode === "recordings") {
-          this.syncScrollControls();
+          this._scheduleScrollControlsSync();
           return;
         }
         this.renderActivity();
         return;
       }
-      this.syncScrollControls();
+      this._scheduleScrollControlsSync();
     };
     if (typeof ResizeObserver === "function") {
       const observer = new ResizeObserver(syncLayout);

@@ -429,8 +429,11 @@ export class CardViewMediaDrawerController {
 
   _resetContent(scroller = this._scroller) {
     if (scroller) {
-      scroller.innerHTML = "";
-      scroller.scrollTop = 0;
+      if (scroller.firstChild && typeof scroller.replaceChildren === "function") {
+        scroller.replaceChildren();
+      } else if (scroller.innerHTML) {
+        scroller.innerHTML = "";
+      }
     }
     this._contentKey = "";
     this._popupMediaType = "";

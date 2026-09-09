@@ -84,6 +84,7 @@ function createZoomFixture({
   objectFit = "",
   onInteractionStart = null,
   onZoomStateChange = null,
+  resizeObserverCtor = null,
 } = {}) {
   const host = {
     style: new FakeStyle(),
@@ -151,9 +152,39 @@ function createZoomFixture({
     nativeCoverPan,
     onInteractionStart,
     onZoomStateChange,
+    resizeObserverCtor,
   }).bind();
   return { controller, host, interactionTarget, video };
 }
+
+test("video zoom reuses ResizeObserver dimensions without rereading layout", () => {
+  let resizeCallback = null;
+  const { controller, host, video } = createZoomFixture({
+    resizeObserverCtor: class {
+      constructor(callback) {
+        resizeCallback = callback;
+      }
+
+      observe() {}
+
+      disconnect() {}
+    },
+  });
+  controller.zoomToCenter(2);
+  host.getBoundingClientRect = () => {
+    throw new Error("ResizeObserver callback reread zoom layout");
+  };
+
+  assert.doesNotThrow(() => resizeCallback([
+    {
+      target: host,
+      borderBoxSize: [{ inlineSize: 360, blockSize: 240 }],
+    },
+  ]));
+  assert.deepEqual(controller.state, { scale: 2, x: -150, y: -100 });
+  controller.dispose();
+  assert.equal(video.style.getPropertyValue("transform"), "");
+});
 
 function touchEvent(pointerId, clientX, clientY, extra = {}) {
   return {

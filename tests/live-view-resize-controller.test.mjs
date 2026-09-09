@@ -72,6 +72,7 @@ const createFixture = ({
   videoWidth = 1024,
   videoHeight = 768,
   availableGrowth = null,
+  resizeObserverCtor = null,
 } = {}) => {
   const classes = new Set();
   const attributes = new Map();
@@ -106,6 +107,7 @@ const createFixture = ({
     },
     onZoomScaleChange: (scale) => zoomScales.push(scale),
     getAvailableGrowth: () => availableGrowth,
+    resizeObserverCtor,
   });
   controller.bind();
   controller.attachMedia(video);
@@ -124,6 +126,32 @@ const createFixture = ({
     zoomScales,
   };
 };
+
+test("live resize reuses ResizeObserver width without rereading layout", () => {
+  let resizeCallback = null;
+  const fixture = createFixture({
+    resizeObserverCtor: class {
+      constructor(callback) {
+        resizeCallback = callback;
+      }
+
+      observe() {}
+
+      disconnect() {}
+    },
+  });
+  fixture.wrap.getBoundingClientRect = () => {
+    throw new Error("ResizeObserver callback reread live layout");
+  };
+
+  assert.doesNotThrow(() => resizeCallback([
+    {
+      target: fixture.wrap,
+      borderBoxSize: [{ inlineSize: 420, blockSize: 240 }],
+    },
+  ]));
+  assert.equal(fixture.controller._bounds.containerWidth, 420);
+});
 
 test("resize bounds preserve natural and portrait stop rules", () => {
   const wide = resolveLiveViewResizeBounds({

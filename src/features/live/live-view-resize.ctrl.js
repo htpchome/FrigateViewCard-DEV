@@ -79,6 +79,7 @@ export class LiveViewResizeController {
     onZoomScaleChange = () => {},
     getMediaDimensions = null,
     getAvailableGrowth = null,
+    resizeObserverCtor = globalThis.ResizeObserver,
   } = {}) {
     this._getLiveWrap = getLiveWrap;
     this._isContextEligible = isContextEligible;
@@ -86,6 +87,7 @@ export class LiveViewResizeController {
     this._onZoomScaleChange = onZoomScaleChange;
     this._getMediaDimensions = getMediaDimensions;
     this._getAvailableGrowth = getAvailableGrowth;
+    this._ResizeObserver = resizeObserverCtor;
     this._wrap = null;
     this._grip = null;
     this._video = null;
@@ -93,6 +95,7 @@ export class LiveViewResizeController {
     this._bounds = null;
     this._heightRatio = LIVE_VIEW_MIN_HEIGHT_RATIO;
     this._drag = null;
+    this._observedContainerWidth = 0;
     this._lastActivationAt = 0;
     this._gripCleanup = new CleanupController();
     this._mediaCleanup = new CleanupController();
@@ -109,6 +112,7 @@ export class LiveViewResizeController {
     if (nextWrap !== this._wrap) {
       this._heightRatio = LIVE_VIEW_MIN_HEIGHT_RATIO;
       this._lastActivationAt = 0;
+      this._observedContainerWidth = 0;
     }
     this._gripCleanup.dispose();
     this._gripCleanup = new CleanupController();
@@ -143,8 +147,19 @@ export class LiveViewResizeController {
         this._onKeyDown,
       );
     }
-    if (this._wrap && typeof ResizeObserver === "function") {
-      const resizeObserver = new ResizeObserver(() => this._syncEligibility());
+    if (this._wrap && typeof this._ResizeObserver === "function") {
+      const resizeObserver = new this._ResizeObserver((entries) => {
+        const entry = entries?.find?.(({ target }) => target === this._wrap) ||
+          entries?.[0];
+        const borderBox = Array.isArray(entry?.borderBoxSize)
+          ? entry.borderBoxSize[0]
+          : entry?.borderBoxSize;
+        const observedWidth = positiveNumber(
+          borderBox?.inlineSize ?? entry?.contentRect?.width,
+        );
+        if (observedWidth) this._observedContainerWidth = observedWidth;
+        this._syncEligibility(observedWidth);
+      });
       resizeObserver.observe(this._wrap);
       this._gripCleanup.addCleanup(() => resizeObserver.disconnect());
     }
@@ -210,6 +225,7 @@ export class LiveViewResizeController {
     this._video = null;
     this._bounds = null;
     this._drag = null;
+    this._observedContainerWidth = 0;
   }
 
   _hasMediaDimensions(video) {
@@ -219,10 +235,14 @@ export class LiveViewResizeController {
     );
   }
 
-  _syncEligibility() {
+  _syncEligibility(containerWidthHint = this._observedContainerWidth) {
     if (!this._wrap || !this._grip) return;
-    const rect = this._wrap.getBoundingClientRect?.();
-    const containerWidth = positiveNumber(rect?.width || this._wrap.clientWidth);
+    let containerWidth = positiveNumber(containerWidthHint);
+    if (!containerWidth) {
+      const rect = this._wrap.getBoundingClientRect?.();
+      containerWidth = positiveNumber(rect?.width || this._wrap.clientWidth);
+    }
+    if (containerWidth) this._observedContainerWidth = containerWidth;
     const dimensions = this._getMediaDimensions?.(this._video) || {};
     const bounds = resolveLiveViewResizeBounds({
       containerWidth,
