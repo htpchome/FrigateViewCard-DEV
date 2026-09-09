@@ -419,7 +419,7 @@ test("applies the proven bottom-header details and restores exact styles", () =>
   );
   assert.equal(
     targets.view.style.getPropertyValue("padding-bottom"),
-    "calc(var(--header-height, 56px) + 10px + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
+    "calc(var(--header-height, 56px) + var(--header-height, 56px) + 10px + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
   );
   assert.equal(targets.children.length, 1);
   assert.match(targets.children[0].textContent, /border-block-start/);
@@ -458,6 +458,20 @@ test("applies the proven bottom-header details and restores exact styles", () =>
   );
   assert.equal(targets.view.style.getPropertyValue("padding-bottom"), "11px");
   assert.equal(targets.children.length, 0);
+});
+
+test("reserves both relocated header rows above final dashboard actions", () => {
+  const h = createHarness({ isIOS: false });
+
+  assert.equal(h.controller.sync(), true);
+  assert.equal(
+    h.getTargets().view.style.getPropertyValue("padding-bottom"),
+    "calc(var(--header-height, 56px) + var(--header-height, 56px) + 10px)",
+  );
+
+  h.host._mobileDevice = false;
+  assert.equal(h.controller.sync(), false);
+  assert.equal(h.getTargets().view.style.getPropertyValue("padding-bottom"), "");
 });
 
 test("measures the mobile Lovelace content area with either navbar position", () => {

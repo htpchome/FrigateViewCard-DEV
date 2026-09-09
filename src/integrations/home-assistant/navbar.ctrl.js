@@ -56,9 +56,10 @@ export const resolveHomeAssistantNavbarStyleText = ({
 
 const resolveViewBottomStyles = (isIOS) => ({
   "padding-top": HA_SAFE_AREA_TOP,
+  // The relocated HA header contains the toolbar and dashboard-tab rows.
   "padding-bottom": isIOS
-    ? `calc(var(--header-height, 56px) + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px + (${HA_SAFE_AREA_BOTTOM} * 0.25))`
-    : `calc(var(--header-height, 56px) + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px)`,
+    ? `calc(var(--header-height, 56px) + var(--header-height, 56px) + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px + (${HA_SAFE_AREA_BOTTOM} * 0.25))`
+    : `calc(var(--header-height, 56px) + var(--header-height, 56px) + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px)`,
 });
 
 const TOOLBAR_BOTTOM_STYLES = Object.freeze({
