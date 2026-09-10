@@ -183,6 +183,73 @@ test("Panel view centers page-specific aspect width caps", async ({ page }) => {
   }
 });
 
+test("Panel Single and Mobile Views keep their footer inside the viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_900, height: 1_000 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const panel = document.createElement("hui-panel-view");
+    panel.style.display = "block";
+    panel.style.width = "100vw";
+    const wrapper = document.createElement("div");
+    wrapper.style.width = "100%";
+    panel.append(wrapper);
+    document.body.append(panel);
+
+    const card = document.createElement("frigate-view-card");
+    wrapper.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      stream_height: 100,
+      stream_height_unit: "%",
+      mobile_view_page_enabled: true,
+    });
+
+    const sample = async (pageId) => {
+      card._pageId = pageId;
+      card._renderShell();
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      card._applyCardStyle();
+
+      const hostRect = card.getBoundingClientRect();
+      const footerRect = card.shadowRoot
+        .querySelector('[data-fvc-region="footer"]')
+        .getBoundingClientRect();
+      const browse = card.shadowRoot.querySelector('[data-fvc-region="browse"]');
+      return {
+        configuredHeight: card.style.getPropertyValue("--card-host-height"),
+        hostBottom: Math.round(hostRect.bottom),
+        footerBottom: Math.round(footerRect.bottom),
+        footerVisible: footerRect.height > 0,
+        browseHeight: Math.round(browse.getBoundingClientRect().height),
+        browseOverflowY: getComputedStyle(browse).overflowY,
+        wrapperHeight: wrapper.style.height,
+      };
+    };
+
+    return {
+      single: await sample("single-view"),
+      mobile: await sample("mobile-view"),
+    };
+  });
+
+  for (const view of [result.single, result.mobile]) {
+    expect(view.configuredHeight).toBe("944px");
+    expect(view.hostBottom).toBeLessThanOrEqual(944);
+    expect(view.footerBottom).toBeLessThanOrEqual(view.hostBottom);
+    expect(view.footerVisible).toBe(true);
+    expect(view.browseHeight).toBeGreaterThan(0);
+    expect(view.browseOverflowY).toBe("auto");
+    expect(view.wrapperHeight).toBe("100%");
+  }
+});
+
 test("cached browse rows expand in append-only batches across sticky days", async ({
   page,
 }) => {

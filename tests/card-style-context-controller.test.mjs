@@ -1500,6 +1500,45 @@ test("minimum usable height overrides compact percent and dvh heights", () => {
   assert.equal(parentElement.style.height, "auto");
 });
 
+test("Panel Single and Mobile Views keep requested height for an internal scroller", () => {
+  let page = "single";
+  const host = {
+    _isMobileViewPageActive: () => page === "mobile",
+    _singleViewPageController: {
+      isActive: () => page === "single",
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.isPanelView = () => true;
+  controller.resolveMinimumUsableHostHeightPx = () => 652;
+
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 444, expanded: false },
+  );
+
+  page = "mobile";
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 444, expanded: false },
+  );
+
+  page = "wide";
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 652, expanded: true },
+  );
+});
+
 test("minimum usable height follows the rendered Single and Wide View chrome", () => {
   const measuredElement = (height) => ({
     getBoundingClientRect: () => ({ height }),

@@ -688,6 +688,17 @@ export class CardStyleContextController {
   }
 
   resolveUsableHostHeight({ card, resolvedHeightPx }) {
+    const keepPanelHeight =
+      this.isPanelView() &&
+      (this._host._isMobileViewPageActive?.() === true ||
+        this._host._singleViewPageController?.isActive?.() === true);
+    if (keepPanelHeight) {
+      return {
+        heightPx: resolvedHeightPx,
+        expanded: false,
+      };
+    }
+
     const minimumUsableHeightPx =
       this.resolveMinimumUsableHostHeightPx(card);
     const heightPx =
