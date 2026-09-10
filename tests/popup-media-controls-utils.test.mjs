@@ -263,6 +263,31 @@ test("buildPopupClipRenderPlan resolves clip defaults and iOS media file selecti
       },
     },
   );
+
+  assert.equal(
+    buildPopupClipRenderPlan({
+      id: "safari-event",
+      isSafari: true,
+      supportsNativeHls: true,
+    }).mediaFile,
+    "master.m3u8",
+  );
+  assert.equal(
+    buildPopupClipRenderPlan({
+      id: "chromium-event",
+      isSafari: false,
+      supportsNativeHls: true,
+    }).mediaFile,
+    "clip.mp4",
+  );
+  assert.equal(
+    buildPopupClipRenderPlan({
+      id: "unsupported-safari-event",
+      isSafari: true,
+      supportsNativeHls: false,
+    }).mediaFile,
+    "clip.mp4",
+  );
 });
 
 test("buildPopupSnapshotRenderPlan resolves snapshot defaults", () => {

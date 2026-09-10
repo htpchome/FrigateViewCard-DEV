@@ -1657,6 +1657,7 @@ export class FrigateViewCard extends HTMLElement {
       this._scheduleResumeLive("connected");
     }
     this._startEditorDialogCloseObserver();
+    this._deepLinkController.connect();
   }
 
   _visualStyleToggleRules() {
@@ -2284,6 +2285,7 @@ export class FrigateViewCard extends HTMLElement {
     };
   }
   disconnectedCallback() {
+    this._deepLinkController.disconnect();
     void this._stopPtzMotion("disconnected");
     this._wideViewPageController?.disconnectResizeHandle?.();
     this._editorLiveHandoffController?.returnIfPossible?.();
@@ -2547,6 +2549,7 @@ export class FrigateViewCard extends HTMLElement {
     this._startEditorDialogCloseObserver();
     this._deepLinkController.consumeDeepLinkReviewOpen();
     this._deepLinkController.consumeDeepLinkEventOpen();
+    this._deepLinkController.connect();
     this._refresh = setInterval(() => {
       if (this._isNowWindow()) {
         if (this._isCardViewPageActive()) {
@@ -3678,6 +3681,7 @@ export class FrigateViewCard extends HTMLElement {
     return resolveToolbarModeButtonStates({
       controlsVisible: this._isControlsButtonVisible(),
       controlsActive: this._tab === "controls" || cardViewPtzActive,
+      recordingsActive: this._tab === "recordings",
       gridActive: this._isGridSessionActive(),
       slideshowActive: this._slideshowActive === true,
       wideAlertTakeoverActive:
@@ -4257,10 +4261,12 @@ export class FrigateViewCard extends HTMLElement {
       .forEach((p) =>
         p.classList.toggle("active", p.dataset.viewmode === "single"),
       );
-    void this._browseWindowLoaderController.loadWindow(true, {
-      supersede: true,
-      reuseRecentCache: true,
-    });
+    if (opts?.skipBrowseLoad !== true) {
+      void this._browseWindowLoaderController.loadWindow(true, {
+        supersede: true,
+        reuseRecentCache: true,
+      });
+    }
     this._syncTabsShell();
     this._renderCamSwitcher();
     this._syncStatus();

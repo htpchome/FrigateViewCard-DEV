@@ -52,6 +52,147 @@ const withWindow = async (windowShape, run) => {
   }
 };
 
+const navigationWindow = () => {
+  const target = new EventTarget();
+  target.location = new URL("https://example.local/dashboard/view");
+  target.history = {
+    state: null,
+    replaceState: (_state, _title, url) => {
+      target.location = new URL(url, target.location);
+    },
+  };
+  target.navigate = (url, event = "location-changed") => {
+    target.location = new URL(url, target.location);
+    target.dispatchEvent(new Event(event));
+  };
+  return target;
+};
+
+const navigationHarness = () => {
+  const harness = createHarness();
+  const { host, calls } = harness;
+  host._started = true;
+  host.isConnected = true;
+  host._switchCamera = async (idx, options) => {
+    calls.push(["switchCamera", idx, options]);
+    host._activeCamIdx = idx;
+  };
+  host._browseWindowLoaderController = {
+    invalidateActiveWindowCaches: () =>
+      calls.push(["invalidateActiveWindowCaches"]),
+    loadWindow: async (...args) => calls.push(["loadWindow", ...args]),
+  };
+  return harness;
+};
+
+const settleNavigation = () => new Promise((resolve) => setImmediate(resolve));
+
+test("mounted card consumes cached notification navigation", async () => {
+  const { host, calls, controller } = navigationHarness();
+  const win = navigationWindow();
+  await withWindow(win, async () => {
+    controller.connect();
+    win.navigate("?camera=camera.driveway&event=event-2&media=snapshot");
+    await settleNavigation();
+
+    assert.equal(host._activeCamIdx, 1);
+    assert.equal(host._deepLinkApplied, true);
+    assert.deepEqual(calls, [
+      ["switchCamera", 1, { skipBrowseLoad: true }],
+      ["showSnapshot", "event-2"],
+      [
+        "loadWindow",
+        true,
+        { supersede: true, reuseRecentCache: true },
+      ],
+    ]);
+    assert.equal(win.location.search, "");
+    controller.disconnect();
+  });
+});
+
+test("cached same-camera navigation opens without refreshing the window", async () => {
+  const { calls, controller } = navigationHarness();
+  const win = navigationWindow();
+  await withWindow(win, async () => {
+    controller.connect();
+    win.navigate("?event=event-1&media=clip");
+    await settleNavigation();
+
+    assert.deepEqual(calls, [
+      ["showClip", "event-1", { mediaType: "clip" }],
+    ]);
+    controller.disconnect();
+  });
+});
+
+test("missing different-camera event bypasses caches before opening", async () => {
+  const { host, calls, controller } = navigationHarness();
+  const win = navigationWindow();
+  let loaded = false;
+  host._findEventById = (id) =>
+    loaded && id === "new-event"
+      ? { id, camera: "driveway", has_clip: true }
+      : null;
+  host._browseWindowLoaderController.loadWindow = async (...args) => {
+    calls.push(["loadWindow", ...args]);
+    loaded = true;
+  };
+
+  await withWindow(win, async () => {
+    controller.connect();
+    win.navigate("?camera=drive-way&event=new-event&media=clip");
+    await settleNavigation();
+
+    assert.equal(host._activeCamIdx, 1);
+    assert.equal(host._deepLinkApplied, true);
+    assert.deepEqual(calls, [
+      ["switchCamera", 1, { skipBrowseLoad: true }],
+      ["invalidateActiveWindowCaches"],
+      ["loadWindow", true, { supersede: true }],
+      ["showClip", "new-event", { mediaType: "clip" }],
+    ]);
+    controller.disconnect();
+  });
+});
+
+for (const navigationEvent of ["location-changed", "popstate", "hashchange"]) {
+  test(`${navigationEvent} listeners are idempotent and cleaned up`, async () => {
+    const { calls, controller } = navigationHarness();
+    const win = navigationWindow();
+    await withWindow(win, async () => {
+      controller.connect();
+      controller.connect();
+      win.navigate("?event=event-1&media=clip", navigationEvent);
+      await settleNavigation();
+      assert.equal(calls.filter(([name]) => name === "showClip").length, 1);
+
+      controller.disconnect();
+      win.navigate("?event=event-1&media=clip", navigationEvent);
+      await settleNavigation();
+      assert.equal(calls.filter(([name]) => name === "showClip").length, 1);
+    });
+  });
+}
+
+test("navigation listeners wait until card startup is complete", async () => {
+  const { host, calls, controller } = navigationHarness();
+  const win = navigationWindow();
+  host._started = false;
+  await withWindow(win, async () => {
+    controller.connect();
+    win.navigate("?event=event-1&media=clip");
+    await settleNavigation();
+    assert.deepEqual(calls, []);
+
+    host._started = true;
+    controller.connect();
+    await settleNavigation();
+    assert.equal(calls.filter(([name]) => name === "showClip").length, 1);
+    controller.disconnect();
+  });
+});
+
 test("mergedUrlSearchParams merges search and hash query params", async () => {
   const { controller } = createHarness();
 
@@ -120,6 +261,17 @@ test("initDeepLinkFromUrl and camera hint helpers populate host state", async ()
       assert.equal(controller.hasPendingDeepLinkTarget(), true);
     },
   );
+});
+
+test("camera hints match entity IDs, Frigate names, and display-name punctuation", () => {
+  const { host, controller } = createHarness();
+  const hints = ["camera.driveway", "driveway", "Drive-Way", "drive way"];
+  host._config.cameras[1].name = "Drive Way";
+
+  for (const hint of hints) {
+    host._deepLinkCameraHint = hint;
+    assert.equal(controller.deepLinkCameraHintIndex(), 1);
+  }
 });
 
 test("camera-only query params do not become startup deep links", async () => {

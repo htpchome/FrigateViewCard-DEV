@@ -1067,6 +1067,60 @@ test("camera switches reuse recently completed event and review windows", async 
   );
 });
 
+test("deep-link refresh invalidates active camera-group windows without discarding rows", () => {
+  const activeEvents = [{ id: "event-1" }];
+  const activeReviews = [{ id: "review-1" }];
+  const createCache = () => ({
+    events: activeEvents,
+    reviews: activeReviews,
+    eventsWindowKey: "events-key",
+    eventsWindowContextKey: "events-context",
+    eventsWindowFetchedAt: 100,
+    reviewsWindowKey: "reviews-key",
+    reviewsWindowContextKey: "reviews-context",
+    reviewsWindowFetchedAt: 100,
+    reviewEventMetadataWindows: { metadata: 100 },
+  });
+  const frontCache = createCache();
+  const packageCache = createCache();
+  const inactiveCache = createCache();
+  const host = {
+    _activeCam: {
+      entity: "camera.front",
+      group: {
+        secondary_entity: "camera.package",
+        layout: "stacked",
+      },
+    },
+    _camCache: {
+      "camera.front": frontCache,
+      "camera.package": packageCache,
+      "camera.inactive": inactiveCache,
+    },
+    _warmCamsToken: 2,
+    _warmReviewsToken: 3,
+  };
+  const controller = new BrowseWindowLoaderController(host);
+
+  controller.invalidateActiveWindowCaches();
+
+  for (const cache of [frontCache, packageCache]) {
+    assert.equal(cache.eventsWindowKey, "");
+    assert.equal(cache.eventsWindowContextKey, "");
+    assert.equal(cache.eventsWindowFetchedAt, 0);
+    assert.equal(cache.reviewsWindowKey, "");
+    assert.equal(cache.reviewsWindowContextKey, "");
+    assert.equal(cache.reviewsWindowFetchedAt, 0);
+    assert.deepEqual(cache.reviewEventMetadataWindows, {});
+    assert.equal(cache.events, activeEvents);
+    assert.equal(cache.reviews, activeReviews);
+  }
+  assert.equal(inactiveCache.eventsWindowKey, "events-key");
+  assert.equal(inactiveCache.reviewsWindowKey, "reviews-key");
+  assert.equal(host._warmCamsToken, 3);
+  assert.equal(host._warmReviewsToken, 4);
+});
+
 test("loadWindowEvents paints six newest clips before loading the full window", async () => {
   const firstEvents = Array.from({ length: 6 }, (_, index) => ({
     id: `event-${index}`,

@@ -95,6 +95,45 @@ test("data-tab outside the tabs region is not treated as a toolbar tab", () => {
   assert.equal(handled, false);
 });
 
+test("recordings keeps the shared Filter control disabled across page layouts", () => {
+  const inactivePage = {
+    isActive: () => false,
+    alertTakeoverEnabled: () => false,
+  };
+  const context = {
+    _tab: "recordings",
+    _slideshowActive: false,
+    _twoWayTalkStarting: false,
+    _twoWayTalkSession: null,
+    _singleViewPageController: inactivePage,
+    _wideViewPageController: {
+      isWideViewPageActive: () => false,
+      companionAlertTakeoverEnabled: () => false,
+    },
+    _mobileViewPageController: inactivePage,
+    _cardViewPageController: {
+      isPtzActive: () => false,
+      alertTakeoverEnabled: () => false,
+    },
+    _isCardViewPageActive: () => false,
+    _isControlsButtonVisible: () => false,
+    _isGridSessionActive: () => false,
+  };
+
+  assert.equal(
+    FrigateViewCard.prototype._toolbarButtonStates.call(context)
+      .filterDisabled,
+    true,
+  );
+
+  context._tab = "alerts";
+  assert.equal(
+    FrigateViewCard.prototype._toolbarButtonStates.call(context)
+      .filterDisabled,
+    false,
+  );
+});
+
 test("Single View alert takeover toolbar button reaches its controller", () => {
   const calls = [];
   const button = { disabled: false };

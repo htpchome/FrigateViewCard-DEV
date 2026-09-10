@@ -122,6 +122,19 @@ test("touch PTZ buttons reset retained hover styling when inactive", () => {
   );
 });
 
+test("filter and calendar toolbar hover styles require a hover-capable pointer", () => {
+  assert.match(
+    stylesSource,
+    /@media \(hover:hover\) and \(pointer:fine\)\{[\s\S]*?\.icon-btn:hover:not\(:disabled\)/,
+  );
+  assert.match(
+    stylesSource,
+    /@media \(hover:hover\) and \(pointer:fine\)\{[\s\S]*?\.tool:hover/,
+  );
+  assert.match(stylesSource, /\.icon-btn\{[^}]*touch-action:manipulation/);
+  assert.match(stylesSource, /\.tool\{[^}]*touch-action:manipulation/);
+});
+
 test("two-way talk start and end paths synchronize the live audio state", () => {
   assert.match(
     cardSource,

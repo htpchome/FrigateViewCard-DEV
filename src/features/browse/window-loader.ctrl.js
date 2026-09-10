@@ -624,6 +624,24 @@ export class BrowseWindowLoaderController {
     );
   }
 
+  invalidateActiveWindowCaches() {
+    this._host._warmCamsToken =
+      (Number(this._host._warmCamsToken) || 0) + 1;
+    this._host._warmReviewsToken =
+      (Number(this._host._warmReviewsToken) || 0) + 1;
+    for (const entity of cameraMemberEntities(this._host._activeCam)) {
+      const cache = this._host._camCache?.[entity];
+      if (!cache) continue;
+      cache.eventsWindowKey = "";
+      cache.eventsWindowContextKey = "";
+      cache.eventsWindowFetchedAt = 0;
+      cache.reviewsWindowKey = "";
+      cache.reviewsWindowContextKey = "";
+      cache.reviewsWindowFetchedAt = 0;
+      cache.reviewEventMetadataWindows = {};
+    }
+  }
+
   pruneNonActiveCamWindowCaches() {
     this._host._warmCamsToken++;
     this._host._warmReviewsToken =

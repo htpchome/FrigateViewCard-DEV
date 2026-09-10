@@ -141,6 +141,68 @@ test("showClipById routes clip loading through popup media rendering", () => {
   assert.equal(typeof rendered.onMediaError, "function");
 });
 
+for (const method of ["showClip", "showClipById"]) {
+  test(`${method} uses native HLS for direct clips in desktop Safari`, () => {
+    const event = {
+      id: "safari-event",
+      camera: "front_door",
+      has_clip: true,
+    };
+    const host = {
+      _findEventById: () => event,
+      _media: (id, file) => `/media/${id}/${file}`,
+      _isSafari: () => true,
+      _supportsNativeHlsPlayback: () => true,
+    };
+    const controller = new PopupMediaLoaderController(host, {
+      isIOS: false,
+      buildVideoOptionsForView: (_view, options) => options,
+      createVideoElement: (options) => ({ options }),
+    });
+    let rendered = null;
+    controller.renderPopupMedia = (payload) => {
+      rendered = payload;
+    };
+
+    controller[method](method === "showClip" ? event : event.id);
+
+    assert.equal(
+      rendered.mediaElement.options.src.includes(
+        "/safari-event/master.m3u8",
+      ),
+      true,
+    );
+  });
+}
+
+test("Chromium keeps MP4 when native HLS is available", () => {
+  const event = { id: "chromium-event", has_clip: true };
+  const host = {
+    _findEventById: () => event,
+    _media: (id, file) => `/media/${id}/${file}`,
+    _isSafari: () => false,
+    _supportsNativeHlsPlayback: () => true,
+  };
+  const controller = new PopupMediaLoaderController(host, {
+    isIOS: false,
+    buildVideoOptionsForView: (_view, options) => options,
+    createVideoElement: (options) => ({ options }),
+  });
+  let rendered = null;
+  controller.renderPopupMedia = (payload) => {
+    rendered = payload;
+  };
+
+  controller.showClip(event);
+
+  assert.equal(
+    rendered.mediaElement.options.src.includes(
+      "/chromium-event/clip.mp4",
+    ),
+    true,
+  );
+});
+
 test("unavailable event clips fall back to snapshots and then clear messaging", () => {
   const event = {
     id: "event-1",

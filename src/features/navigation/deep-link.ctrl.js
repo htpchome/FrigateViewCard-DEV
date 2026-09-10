@@ -1,8 +1,142 @@
 import { cameraMemberEntities } from "../camera-groups/model.js";
 
+const normalizeCameraHintToken = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^camera\./, "")
+    .replace(/[^a-z0-9]+/g, "");
+
 export class DeepLinkController {
   constructor(host) {
     this._host = host;
+    this._onNavigation = () => this.handleNavigation();
+    this._navigationPath = null;
+    this._pendingNavigationUrl = null;
+  }
+
+  connect() {
+    if (
+      typeof window === "undefined" ||
+      !this._host._started ||
+      !this._host.isConnected
+    ) {
+      return;
+    }
+    if (this._navigationPath === null) {
+      this._navigationPath = window.location.pathname;
+      for (const event of ["location-changed", "popstate", "hashchange"]) {
+        window.addEventListener(event, this._onNavigation);
+      }
+    }
+    this.handleNavigation();
+  }
+
+  disconnect() {
+    if (typeof window !== "undefined") {
+      for (const event of ["location-changed", "popstate", "hashchange"]) {
+        window.removeEventListener(event, this._onNavigation);
+      }
+    }
+    this._navigationPath = null;
+    this._pendingNavigationUrl = null;
+  }
+
+  handleNavigation() {
+    if (
+      typeof window === "undefined" ||
+      !this._host._started ||
+      !this._host.isConnected ||
+      !this.isDeepLinkHandlingEnabled() ||
+      window.location.pathname !== this._navigationPath
+    ) {
+      return;
+    }
+    const params = this.mergedUrlSearchParams();
+    const hasTarget = [
+      "event",
+      "event_id",
+      "frigate_event",
+      "frigate_event_id",
+      "review",
+      "review_id",
+      "frigate_review",
+      "frigate_review_id",
+    ].some((key) => String(params.get(key) || "").trim());
+    if (!hasTarget || this._pendingNavigationUrl === window.location.href) {
+      return;
+    }
+
+    this.initDeepLinkFromUrl();
+    if (!this.isDeepLinkCandidateForCard()) return;
+    const navigationUrl = window.location.href;
+    this._pendingNavigationUrl = navigationUrl;
+    void this._handlePendingNavigation(navigationUrl);
+  }
+
+  _isPendingNavigation(navigationUrl) {
+    return (
+      this._pendingNavigationUrl === navigationUrl &&
+      this._host.isConnected &&
+      window.location.href === navigationUrl
+    );
+  }
+
+  _consumePendingNavigationTarget() {
+    let cameraChanged = false;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const previousCameraIndex = this._host._activeCamIdx;
+      this.consumeDeepLinkReviewOpen({ skipCameraBrowseLoad: true });
+      this.consumeDeepLinkEventOpen({ skipCameraBrowseLoad: true });
+      const changed = previousCameraIndex !== this._host._activeCamIdx;
+      cameraChanged ||= changed;
+      if (this._host._deepLinkApplied || !changed) break;
+    }
+    return cameraChanged;
+  }
+
+  async _handlePendingNavigation(navigationUrl) {
+    const loader = this._host._browseWindowLoaderController;
+    let cameraChanged = false;
+    try {
+      const hintedCameraIndex = this.deepLinkCameraHintIndex();
+      if (
+        hintedCameraIndex >= 0 &&
+        hintedCameraIndex !== this._host._activeCamIdx
+      ) {
+        await this._host._switchCamera(hintedCameraIndex, {
+          skipBrowseLoad: true,
+        });
+        cameraChanged = true;
+      }
+      if (!this._isPendingNavigation(navigationUrl)) return;
+
+      cameraChanged =
+        this._consumePendingNavigationTarget() || cameraChanged;
+      if (this._host._deepLinkApplied) {
+        if (cameraChanged) {
+          void loader?.loadWindow?.(true, {
+            supersede: true,
+            reuseRecentCache: true,
+          });
+        }
+        return;
+      }
+
+      loader?.invalidateActiveWindowCaches?.();
+      await loader?.loadWindow?.(true, { supersede: true });
+      if (!this._isPendingNavigation(navigationUrl)) return;
+      this._consumePendingNavigationTarget();
+    } catch (_) {
+      // Keep navigation failures isolated from the mounted card lifecycle.
+    } finally {
+      if (
+        this._pendingNavigationUrl === navigationUrl &&
+        !this._host._deepLinkApplied
+      ) {
+        this._pendingNavigationUrl = null;
+      }
+    }
   }
 
   isDeepLinkHandlingEnabled() {
@@ -61,6 +195,7 @@ export class DeepLinkController {
 
       const nextUrl = `${url.pathname}${url.search}${url.hash}`;
       window.history.replaceState(window.history.state, "", nextUrl);
+      this._pendingNavigationUrl = null;
     } catch (_) {}
   }
 
@@ -106,15 +241,17 @@ export class DeepLinkController {
 
   deepLinkCameraHintIndex() {
     if (!this._host._deepLinkCameraHint) return -1;
+    const normalizedHint = normalizeCameraHintToken(
+      this._host._deepLinkCameraHint,
+    );
+    if (!normalizedHint) return -1;
     return this._host._config.cameras.findIndex((camera) => {
-      const name = String(camera.name || "").toLowerCase();
-      const memberTokens = cameraMemberEntities(camera).flatMap((entity) => [
-        String(entity || "").toLowerCase(),
-        String(this._host._camCache[entity]?.cam || "").toLowerCase(),
-      ]);
-      return (
-        name === this._host._deepLinkCameraHint ||
-        memberTokens.includes(this._host._deepLinkCameraHint)
+      const cameraTokens = [camera.name];
+      for (const entity of cameraMemberEntities(camera)) {
+        cameraTokens.push(entity, this._host._camCache[entity]?.cam);
+      }
+      return cameraTokens.some(
+        (token) => normalizeCameraHintToken(token) === normalizedHint,
       );
     });
   }
@@ -131,7 +268,7 @@ export class DeepLinkController {
     return this.deepLinkCameraHintIndex() >= 0;
   }
 
-  consumeDeepLinkEventOpen() {
+  consumeDeepLinkEventOpen({ skipCameraBrowseLoad = false } = {}) {
     if (!this.isDeepLinkHandlingEnabled()) return;
     if (!this.isDeepLinkCandidateForCard()) return;
     if (!this._host._deepLinkEventId || this._host._deepLinkApplied) return;
@@ -153,7 +290,11 @@ export class DeepLinkController {
         ),
       );
       if (idx >= 0 && idx !== this._host._activeCamIdx) {
-        this._host._switchCamera(idx);
+        if (skipCameraBrowseLoad) {
+          this._host._switchCamera(idx, { skipBrowseLoad: true });
+        } else {
+          this._host._switchCamera(idx);
+        }
         return;
       }
     }
@@ -176,7 +317,7 @@ export class DeepLinkController {
     this.clearDeepLinkParamsFromUrl();
   }
 
-  consumeDeepLinkReviewOpen() {
+  consumeDeepLinkReviewOpen({ skipCameraBrowseLoad = false } = {}) {
     if (!this.isDeepLinkHandlingEnabled()) return;
     if (!this.isDeepLinkCandidateForCard()) return;
     if (this._host._deepLinkApplied) return;
@@ -191,7 +332,7 @@ export class DeepLinkController {
     if (reviewEventId) {
       this._host._deepLinkEventId = reviewEventId;
       this._host._deepLinkEventLookupTried = false;
-      this.consumeDeepLinkEventOpen();
+      this.consumeDeepLinkEventOpen({ skipCameraBrowseLoad });
       return;
     }
 
@@ -201,8 +342,8 @@ export class DeepLinkController {
       ._loadReviews()
       .catch(() => {})
       .finally(() => {
-        this.consumeDeepLinkReviewOpen();
-        this.consumeDeepLinkEventOpen();
+        this.consumeDeepLinkReviewOpen({ skipCameraBrowseLoad });
+        this.consumeDeepLinkEventOpen({ skipCameraBrowseLoad });
       });
   }
 

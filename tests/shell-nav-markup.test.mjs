@@ -183,6 +183,25 @@ test("buildTabsMarkup marks filter and calendar active only when open", () => {
   assert.match(toolsMarkup, /id="cal-btn"[^>]*aria-pressed="true"/);
 });
 
+test("buildToolsMarkup disables Filter but keeps Calendar available for recordings", () => {
+  const markup = buildToolsMarkup({
+    tab: "recordings",
+    viewMode: "single",
+    icons,
+    isFilterPanelOpen: false,
+    isCalendarPanelOpen: false,
+    isGridModeAvailable: false,
+    isSlideshowRotationAvailable: false,
+    isSlideshowActive: false,
+    isControlsVisible: false,
+    gridButtonIcon: "G",
+    slideshowButtonIcon: "L",
+  });
+
+  assert.match(markup, /id="filter-btn"[^>]* disabled/);
+  assert.doesNotMatch(markup, /id="cal-btn"[^>]* disabled/);
+});
+
 test("buildTabsMarkup supports custom tab button class", () => {
   const { markup } = buildTabsMarkup({
     tab: "alerts",
@@ -359,6 +378,17 @@ test("Alert takeover remains available with Grid and Slideshow", () => {
         slideshowDisabled: true,
         wideAlertTakeoverDisabled: true,
         filterDisabled: false,
+        calendarDisabled: false,
+      },
+    },
+    {
+      active: { recordingsActive: true },
+      expected: {
+        controlsDisabled: false,
+        gridDisabled: false,
+        slideshowDisabled: false,
+        wideAlertTakeoverDisabled: false,
+        filterDisabled: true,
         calendarDisabled: false,
       },
     },

@@ -55,12 +55,17 @@ export const buildPopupClipRenderPlan = ({
   opts = {},
   infoEvent = null,
   isIos = false,
+  isSafari = false,
+  supportsNativeHls = false,
   includeLookupInfo = false,
 }) => {
   const mediaType = opts.mediaType || "clip";
   return {
     playingId: id,
-    mediaFile: isIos ? "master.m3u8" : "clip.mp4",
+    mediaFile:
+      isIos || (isSafari && supportsNativeHls)
+        ? "master.m3u8"
+        : "clip.mp4",
     mediaType,
     infoEvent,
     infoOpts: includeLookupInfo

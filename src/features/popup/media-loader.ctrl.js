@@ -149,6 +149,9 @@ export class PopupMediaLoaderController {
       createVideoElement,
       mountNodeIntoSlot,
       isIOS,
+      isSafari: () => host._isSafari?.() === true,
+      supportsNativeHls: () =>
+        host._supportsNativeHlsPlayback?.() === true,
       preferRecordingHls: () =>
         isIOS || host._isFirefox?.() || host._isEdge?.(),
       isEventPrePostRollEnabled: () =>
@@ -423,6 +426,8 @@ export class PopupMediaLoaderController {
       opts,
       infoEvent: event,
       isIos: this._deps.isIOS,
+      isSafari: this._deps.isSafari(),
+      supportsNativeHls: this._deps.supportsNativeHls(),
     });
     const src = this.buildPopupClipSrc(
       event.id,
@@ -456,6 +461,8 @@ export class PopupMediaLoaderController {
       opts,
       infoEvent: event,
       isIos: this._deps.isIOS,
+      isSafari: this._deps.isSafari(),
+      supportsNativeHls: this._deps.supportsNativeHls(),
       includeLookupInfo: true,
     });
     const src = this.buildPopupClipSrc(

@@ -372,13 +372,17 @@ export const STYLES = `
   .circle-btn:hover svg{color:var(--c-primary-d);}
   .circle-btn.active {background:var(--c-primary-d);} 
   .circle-btn.active svg{color:var(--c-text-rev);}
-  .icon-btn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;min-width:36px;margin:0;padding:1px;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--c-text2);font:inherit;font-size:1rem;font-weight:600;cursor:pointer;}
+  .icon-btn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;min-width:36px;margin:0;padding:1px;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--c-text2);font:inherit;font-size:1rem;font-weight:600;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
   .icon-btn svg{width:24px;height:24px;opacity:0.85;color:var(--c-text2)}
-  .icon-btn:hover:not(:disabled),.icon-btn:active:not(:disabled),.icon-btn.active{color:var(--c-primary-d);}
-  .icon-btn:hover:not(:disabled) svg,.icon-btn:active:not(:disabled) svg,.icon-btn.active svg{color:var(--c-primary-d);}
+  .icon-btn:active:not(:disabled),.icon-btn.active{color:var(--c-primary-d);}
+  .icon-btn:active:not(:disabled) svg,.icon-btn.active svg{color:var(--c-primary-d);}
   .icon-btn:disabled{opacity:.45;cursor:not-allowed;}
-  .icon-btn:disabled:hover{color:var(--c-text2);}
-  .icon-btn:disabled:hover svg{color:var(--c-text2);}
+  @media (hover:hover) and (pointer:fine){
+    .icon-btn:hover:not(:disabled){color:var(--c-primary-d);}
+    .icon-btn:hover:not(:disabled) svg{color:var(--c-primary-d);}
+    .icon-btn:disabled:hover{color:var(--c-text2);}
+    .icon-btn:disabled:hover svg{color:var(--c-text2);}
+  }
 
   .round-btn, .close-btn {
   display: inline-flex;
@@ -873,17 +877,19 @@ export const STYLES = `
   /* ── timeline ── */
   .tl-tools{position:relative;display:flex;gap:4px;}
   .tl-tools-slot{display:flex;align-items:center;justify-content:flex-end;min-width:0;}
-  .tool{display:inline-flex;gap:4px;align-items:center;justify-content:center;background:var(--c-bg);border:1px solid var(--c-border2);color:var(--c-text2);border-radius: calc(var(--fvc-border-radius, 0px) / 2);cursor:pointer;padding:2px;transition: all 0.2s ease;min-height:36px;min-width:36px;}
+  .tool{display:inline-flex;gap:4px;align-items:center;justify-content:center;background:var(--c-bg);border:1px solid var(--c-border2);color:var(--c-text2);border-radius: calc(var(--fvc-border-radius, 0px) / 2);cursor:pointer;padding:2px;transition: all 0.2s ease;min-height:36px;min-width:36px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
   .tool svg{width:24px;height:24px;opacity:0.85;color:var(--c-text2)}
   .tool ha-icon{width:24px;height:24px;--mdc-icon-size:24px;color:var(--c-text2);opacity:0.85;}
-  .tool:hover{color:var(--c-primary-d);border-color:var(--c-primary-d);opacity:1;}
-  .tool:hover svg{color:var(--c-primary-d);}
-  .tool:hover ha-icon{color:var(--c-primary-d);opacity:1;}
   .tool.active{background:var(--c-primary-d);color:var(--c-text-rev);border-color:var(--c-primary-d);}
   .tool.active svg{color:var(--c-text-rev);opacity:1;}
   .tool.active ha-icon{color:var(--c-text-rev);opacity:1;}
   .tool:disabled{opacity:.45;cursor:not-allowed;color:var(--c-text4);border-color:var(--c-border2);}
-  .tool:disabled:hover{color:var(--c-text4);border-color:var(--c-border2);}
+  @media (hover:hover) and (pointer:fine){
+    .tool:hover{color:var(--c-primary-d);border-color:var(--c-primary-d);opacity:1;}
+    .tool:hover svg{color:var(--c-primary-d);}
+    .tool:hover ha-icon{color:var(--c-primary-d);opacity:1;}
+    .tool:disabled:hover{color:var(--c-text4);border-color:var(--c-border2);}
+  }
   .ico{min-width:30px !important;min-height:30px !important;width:30px !important;height:30px !important;background:var(--c-bg-panel);}
   .ico svg{width:24px;height:24px;} .ico:hover{color:var(--c-primary-d);border-color:var(--c-primary-d);}
   .ico.fav.on{color:var(--c-accent);border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.12);}

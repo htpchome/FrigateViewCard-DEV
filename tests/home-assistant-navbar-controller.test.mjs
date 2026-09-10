@@ -322,6 +322,8 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.match(styleText, /font-size: var\(--ha-font-size-xs, 10px\)/);
   assert.match(styleText, /margin-inline-end: 0 !important/);
   assert.match(styleText, /border-block-start/);
+  assert.match(styleText, /#view \{[\s\S]*?z-index: 1 !important;/);
+  assert.match(styleText, /\.header \{[\s\S]*?z-index: 2 !important;/);
   assert.match(styleText, /@media \(orientation: landscape\)/);
 
   h.host._config.mobile_view_ha_navbar_bottom = false;
@@ -470,6 +472,10 @@ test("promotes the dashboard view above the relocated header in landscape", () =
   assert.match(styleText, /@media \(orientation: landscape\)/);
   assert.match(styleText, /#view \{[\s\S]*?z-index: 2 !important;/);
   assert.match(styleText, /\.header \{[\s\S]*?z-index: 1 !important;/);
+  assert.ok(
+    styleText.lastIndexOf("z-index: 2 !important;") <
+      styleText.lastIndexOf("z-index: 1 !important;"),
+  );
   assert.doesNotMatch(
     resolveHomeAssistantNavbarStyleText({ moveBottom: true }),
     /@media \(orientation: landscape\)/,

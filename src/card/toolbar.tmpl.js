@@ -33,6 +33,7 @@ export function buildTabsMarkup({
 export function resolveToolbarModeButtonStates({
   controlsVisible = false,
   controlsActive = false,
+  recordingsActive = false,
   gridActive = false,
   slideshowActive = false,
   wideAlertTakeoverActive = false,
@@ -52,7 +53,7 @@ export function resolveToolbarModeButtonStates({
       twoWayTalkActive,
     wideAlertTakeoverDisabled:
       controlsActive || twoWayTalkActive,
-    filterDisabled: controlsActive,
+    filterDisabled: controlsActive || recordingsActive,
     calendarDisabled: controlsActive,
   };
 }

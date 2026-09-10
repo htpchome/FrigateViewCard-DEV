@@ -6,7 +6,14 @@ const HA_SAFE_AREA_TOP =
 const HA_SAFE_AREA_BOTTOM =
   "var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))";
 
-const BOTTOM_TAB_INDICATOR_STYLE_TEXT = `
+const BOTTOM_NAVBAR_STYLE_TEXT = `
+#view {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.header {
+  z-index: 2 !important;
+}
 ha-tab-group-tab[active],
 ha-tab-group-tab[aria-selected="true"] {
   border-block-end: none !important;
@@ -47,7 +54,7 @@ export const resolveHomeAssistantNavbarStyleText = ({
   promoteViewInLandscape = false,
 } = {}) =>
   [
-    moveBottom ? BOTTOM_TAB_INDICATOR_STYLE_TEXT : "",
+    moveBottom ? BOTTOM_NAVBAR_STYLE_TEXT : "",
     stackTabs ? STACKED_TAB_STYLE_TEXT : "",
     promoteViewInLandscape ? LANDSCAPE_VIEW_PROMOTION_STYLE_TEXT : "",
   ]
