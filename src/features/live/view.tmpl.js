@@ -35,6 +35,10 @@ export function buildLiveEngineWrapMarkup({ icons }) {
               </div>`;
 }
 
+export function buildRotateOverlayDismissButtonMarkup({ icons = {} } = {}) {
+  return `<button class="rotate-overlay-dismiss" type="button" data-rotate-overlay-dismiss data-media-overlay-ignore title="Close rotated fullscreen view" aria-label="Close rotated fullscreen view">${icons.close || ""}</button>`;
+}
+
 const resolveLiveControlButtonClass = (buttonClass) =>
   String(buttonClass || "square-btn").trim() || "square-btn";
 

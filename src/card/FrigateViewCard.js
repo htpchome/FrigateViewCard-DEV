@@ -151,6 +151,7 @@ import {
 import {
   resolveRotateOverlayExitPlan,
   resolveFullscreenButtonVisibility,
+  resolveRotateOverlayLiveDismissal,
   resolveRotateOverlayNativeControlsPlan,
   resolveRotateOverlayState,
   resolveRotateOverlayUiPlan,
@@ -197,6 +198,7 @@ import {
   buildLiveEngineWrapMarkup,
   buildLiveFullscreenControlMarkup,
   buildLivePictureInPictureControlMarkup,
+  buildRotateOverlayDismissButtonMarkup,
   buildLiveTakeSnapshotControlMarkup,
   buildLiveMuteControlMarkup,
 } from "../features/live/view.tmpl.js";
@@ -1357,6 +1359,7 @@ export class FrigateViewCard extends HTMLElement {
     this._lastLiveKick = 0;
     this._rotateOverlayActive = false;
     this._rotateOverlayMode = "none";
+    this._rotateLiveOverlayDismissed = false;
     this._rotateOverlayRaf = 0;
     this._rotateOverlayExitT = null;
     this._rotateOverlaySyncVideo = null;
@@ -1892,7 +1895,7 @@ export class FrigateViewCard extends HTMLElement {
         config.card_view_page_enabled === true &&
         config.card_view_standalone === true,
       card_view_media_drawer_enabled:
-        config.card_view_media_drawer_enabled === true,
+        config.card_view_media_drawer_enabled !== false,
       card_view_start_mode: normalizeCardViewStartMode(
         config.card_view_start_mode,
       ),
@@ -1905,7 +1908,7 @@ export class FrigateViewCard extends HTMLElement {
         },
       ),
       card_view_hide_camera_name:
-        config.card_view_hide_camera_name === true,
+        config.card_view_hide_camera_name !== false,
       landing_page: normalizePageRoute(config.landing_page),
       mobile_page: normalizeMobilePageMode(config.mobile_page),
       deep_link_enabled: config.deep_link_enabled !== false,
@@ -2475,6 +2478,7 @@ export class FrigateViewCard extends HTMLElement {
     this._rotateOverlayRaf = 0;
     if (this._rotateOverlayExitT) clearTimeout(this._rotateOverlayExitT);
     this._rotateOverlayExitT = null;
+    this._rotateLiveOverlayDismissed = false;
     this.classList?.remove?.(MOBILE_VIEW_ROTATE_COVER_CLASS);
     this._clearRotateOverlayAudioSync();
     this._clearRotateVideoFullscreenStyle();
@@ -4862,6 +4866,7 @@ export class FrigateViewCard extends HTMLElement {
     <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">
 
         ${mainLayoutShell}
+        ${buildRotateOverlayDismissButtonMarkup({ icons: ICONS })}
         <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
           ${popupShell}
@@ -6058,13 +6063,19 @@ export class FrigateViewCard extends HTMLElement {
         document.webkitFullscreenElement ||
         this._liveFullscreenLifecycleController?.active,
     );
+    const isLandscapeViewport = this._isLandscapeViewport();
+    this._rotateLiveOverlayDismissed = resolveRotateOverlayLiveDismissal({
+      dismissed: this._rotateLiveOverlayDismissed,
+      isLandscapeViewport,
+    });
     const rotateState = resolveRotateOverlayState({
       rotateEnabled: this._isRotateToFullscreenEnabled(),
       isMobileTabletViewport: this._isMobileTabletViewport(),
-      isLandscapeViewport: this._isLandscapeViewport(),
+      isLandscapeViewport,
       popupOpen,
       popupMediaVisible,
       fullscreenActive,
+      liveDismissed: this._rotateLiveOverlayDismissed,
       currentMode: this._rotateOverlayMode,
       isActive: this._rotateOverlayActive,
       isExitPending: Boolean(this._rotateOverlayExitT),
@@ -6124,6 +6135,14 @@ export class FrigateViewCard extends HTMLElement {
     }
 
     this._scheduleRotateOverlayExitCleanup(exitPlan);
+  }
+  _dismissRotateOverlay() {
+    if (!this._rotateOverlayActive || this._rotateOverlayMode !== "live") {
+      return false;
+    }
+    this._rotateLiveOverlayDismissed = true;
+    this._updateRotateOverlayState();
+    return true;
   }
   _kickLiveIfStale(
     force = false,
@@ -6308,6 +6327,10 @@ export class FrigateViewCard extends HTMLElement {
   _click(e) {
     const target = e.target;
     this._popupMediaControlsController?.hideForOutsideVideoClick?.(target);
+    if (target.closest("[data-rotate-overlay-dismiss]")) {
+      this._dismissRotateOverlay();
+      return;
+    }
     if (this._linkedLightController?.handleClick?.(e, target)) return;
     if (this._mobileCamSwitcherController.handleClickTarget(target)) return;
     this._mobileCamSwitcherController.closeIfOutside(target);

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   resolveRotateOverlayExitPlan,
   resolveFullscreenButtonVisibility,
+  resolveRotateOverlayLiveDismissal,
   resolveRotateOverlayNativeControlsPlan,
   resolveRotateOverlayState,
   resolveRotateOverlayTargetMode,
@@ -11,6 +12,53 @@ import {
   resolveRotateOverlayVideoStyles,
   resolveRotateOverlayViewportVariables,
 } from "../src/features/live/rotate-overlay-state.js";
+
+test("live overlay dismissal lasts only for the current landscape session", () => {
+  assert.equal(
+    resolveRotateOverlayLiveDismissal({
+      dismissed: true,
+      isLandscapeViewport: true,
+    }),
+    true,
+  );
+  assert.equal(
+    resolveRotateOverlayLiveDismissal({
+      dismissed: true,
+      isLandscapeViewport: false,
+    }),
+    false,
+  );
+  assert.equal(
+    resolveRotateOverlayLiveDismissal({
+      dismissed: false,
+      isLandscapeViewport: true,
+    }),
+    false,
+  );
+});
+
+test("dismissing live rotation does not suppress popup rotation", () => {
+  assert.equal(
+    resolveRotateOverlayTargetMode({
+      isMobileTabletViewport: true,
+      isLandscapeViewport: true,
+      popupOpen: false,
+      popupMediaVisible: false,
+      liveDismissed: true,
+    }),
+    "none",
+  );
+  assert.equal(
+    resolveRotateOverlayTargetMode({
+      isMobileTabletViewport: true,
+      isLandscapeViewport: true,
+      popupOpen: true,
+      popupMediaVisible: true,
+      liveDismissed: true,
+    }),
+    "popup",
+  );
+});
 
 test("resolveRotateOverlayTargetMode keeps overlay off outside eligible viewport", () => {
   assert.equal(

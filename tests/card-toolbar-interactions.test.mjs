@@ -227,6 +227,38 @@ test("rotate-to-fullscreen is limited to opted-in phones outside editor contexts
   assert.equal(enabled(), false);
 });
 
+test("rotated fullscreen dismissal ends only the active overlay session", () => {
+  const calls = [];
+  const context = {
+    _rotateOverlayActive: true,
+    _rotateOverlayMode: "live",
+    _rotateLiveOverlayDismissed: false,
+    _updateRotateOverlayState: () => calls.push("update"),
+  };
+
+  assert.equal(
+    FrigateViewCard.prototype._dismissRotateOverlay.call(context),
+    true,
+  );
+  assert.equal(context._rotateLiveOverlayDismissed, true);
+  assert.deepEqual(calls, ["update"]);
+
+  context._rotateOverlayActive = false;
+  assert.equal(
+    FrigateViewCard.prototype._dismissRotateOverlay.call(context),
+    false,
+  );
+  assert.deepEqual(calls, ["update"]);
+
+  context._rotateOverlayActive = true;
+  context._rotateOverlayMode = "popup";
+  assert.equal(
+    FrigateViewCard.prototype._dismissRotateOverlay.call(context),
+    false,
+  );
+  assert.deepEqual(calls, ["update"]);
+});
+
 test("editor layout changes reevaluate an active rotate overlay", () => {
   const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
   const frames = [];

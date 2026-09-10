@@ -479,6 +479,19 @@ export const STYLES = `
     .card.mobile-rotate-live-exit .live-playback-controls{
       right:max(20px,env(safe-area-inset-right,0px));z-index:7;
     }
+    .rotate-overlay-dismiss{
+      position:fixed;z-index:2400;top:calc(var(--rotate-oy,0px) + max(8px,env(safe-area-inset-top,0px)));left:calc(var(--rotate-ox,0px) + max(20px,env(safe-area-inset-left,0px)));
+      display:none;place-items:center;width:40px;height:40px;margin:0;padding:7px;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;
+      color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);cursor:pointer;appearance:none;-webkit-appearance:none;
+      backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);-webkit-tap-highlight-color:transparent;
+    }
+    .rotate-overlay-dismiss svg{width:24px;height:24px;color:currentColor;fill:currentColor;opacity:1;pointer-events:none;}
+    .rotate-overlay-dismiss:active{transform:scale(.95);}
+    .rotate-overlay-dismiss:focus-visible{outline:2px solid var(--c-primary-l);outline-offset:3px;}
+    .card.mobile-rotate-live > .rotate-overlay-dismiss{display:grid;}
+    @media (hover:hover) and (pointer:fine){
+      .rotate-overlay-dismiss:hover{background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
+    }
     .card.mobile-rotate-popup,
     .card.mobile-rotate-popup-exit{overflow:hidden;height:var(--rotate-vh);max-height:var(--rotate-vh);}
     .card.mobile-rotate-popup #myPopup,

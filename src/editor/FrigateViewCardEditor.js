@@ -3633,6 +3633,13 @@ export class FrigateViewCardEditor extends HTMLElement {
       </div>
       <div class="card-view-page-options" id="card-view-page-options" style="${this._config?.card_view_page_enabled ? "" : "display:none"}">
         <div class="section">
+          <div class="editor-choice-field" role="radiogroup" aria-label="Card View Start Mode">
+            <div class="field-label">Start Mode</div>
+            ${cardViewStartModeControl}
+          </div>
+          <div class="field-helper">Sets the Video Only live mode. Enable Grid or Slideshow before selecting it.</div>
+        </div>
+        <div class="section">
           <div class="layout-row">
             <span class="field-label" style="margin:0">Standalone Card View</span>
             <ha-switch id="card_view_standalone" ${this._config?.card_view_standalone ? "checked" : ""}></ha-switch>
@@ -3653,26 +3660,21 @@ export class FrigateViewCardEditor extends HTMLElement {
           </div>
           <div class="field-helper">Starts with video only, or with the activity panel open or closed.</div>
         </div>
-        <div class="section">
-          <div class="editor-choice-field" role="radiogroup" aria-label="Card View Start Mode">
-            <div class="field-label">Start Mode</div>
-            ${cardViewStartModeControl}
+        <div class="card-view-video-only-options" id="card-view-video-only-options" style="${cardViewViewMode === CARD_VIEW_VIEW_MODES.videoOnly ? "" : "display:none"}">
+          <div class="section">
+            <div class="layout-row">
+              <span class="field-label" style="margin:0">Enable Media Drawer</span>
+              <ha-switch id="card_view_media_drawer_enabled" ${this._config?.card_view_media_drawer_enabled !== false ? "checked" : ""}></ha-switch>
+            </div>
+            <div class="field-helper">Shows a media drawer on the left in Video Only mode.</div>
           </div>
-          <div class="field-helper">Sets the Video Only live mode. Enable Grid or Slideshow before selecting it.</div>
-        </div>
-        <div class="section">
-          <div class="layout-row">
-            <span class="field-label" style="margin:0">Enable Media Drawer</span>
-            <ha-switch id="card_view_media_drawer_enabled" ${this._config?.card_view_media_drawer_enabled ? "checked" : ""}></ha-switch>
+          <div class="section">
+            <div class="layout-row">
+              <span class="field-label" style="margin:0">Hide Camera Name</span>
+              <ha-switch id="card_view_hide_camera_name" ${this._config?.card_view_hide_camera_name !== false ? "checked" : ""}></ha-switch>
+            </div>
+            <div class="field-helper">Hides the camera picker until the video is hovered or touched. Also applies in Grid mode.</div>
           </div>
-          <div class="field-helper">Shows a media drawer on the left in Video Only mode.</div>
-        </div>
-        <div class="section">
-          <div class="layout-row">
-            <span class="field-label" style="margin:0">Hide Camera Name</span>
-            <ha-switch id="card_view_hide_camera_name" ${this._config?.card_view_hide_camera_name ? "checked" : ""}></ha-switch>
-          </div>
-          <div class="field-helper">Hides the camera picker in Video Only until the video is hovered or touched. Also applies in Grid mode.</div>
         </div>
       </div>`;
     const landingPanelContent = `
@@ -4918,6 +4920,26 @@ export class FrigateViewCardEditor extends HTMLElement {
         scheduleUpdate();
       },
     });
+
+    const cardViewVideoOnlyOptions = this.querySelector(
+      "#card-view-video-only-options",
+    );
+    const cardViewViewModeInputs = Array.from(
+      this.querySelectorAll('[name="card_view_view_mode"]'),
+    );
+    if (cardViewVideoOnlyOptions && cardViewViewModeInputs.length) {
+      const syncCardViewVideoOnlyOptions = () => {
+        const selectedMode = this.querySelector(
+          '[name="card_view_view_mode"]:checked',
+        )?.value;
+        cardViewVideoOnlyOptions.style.display =
+          selectedMode === CARD_VIEW_VIEW_MODES.videoOnly ? "" : "none";
+      };
+      cardViewViewModeInputs.forEach((input) => {
+        input.addEventListener("change", syncCardViewVideoOnlyOptions);
+      });
+      syncCardViewVideoOnlyOptions();
+    }
 
     const wideCb = this.querySelector("#wide_view_page_enabled");
     const widePageOptions = this.querySelector("#wide-view-page-options");

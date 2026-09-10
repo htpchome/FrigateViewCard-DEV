@@ -1998,13 +1998,13 @@ test("Card View settings normalize and serialize only when enabled", () => {
   assert.equal(defaults.card_view_page_enabled, false);
   assert.equal(defaults.card_view_alert_takeover, false);
   assert.equal(defaults.card_view_standalone, false);
-  assert.equal(defaults.card_view_media_drawer_enabled, false);
+  assert.equal(defaults.card_view_media_drawer_enabled, true);
   assert.equal(defaults.card_view_start_mode, "live");
   assert.equal(
     defaults.card_view_view_mode,
     CARD_VIEW_VIEW_MODES.bottomPanelOpen,
   );
-  assert.equal(defaults.card_view_hide_camera_name, false);
+  assert.equal(defaults.card_view_hide_camera_name, true);
   assert.equal("card_view_drawer_default_open" in defaults, false);
   assert.equal("card_view_media_drawer_type" in defaults, false);
   assert.equal("card_view_video_panel_only" in defaults, false);
@@ -2012,12 +2012,22 @@ test("Card View settings normalize and serialize only when enabled", () => {
     cameras: [{ entity: "camera.front_door" }],
     card_view_page_enabled: true,
     card_view_alert_takeover: true,
-    card_view_media_drawer_enabled: true,
     card_view_start_mode: "grid",
     card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
-    card_view_hide_camera_name: true,
     landing_page: "card-view",
   });
+  assert.deepEqual(
+    compactEditorConfigForYaml({
+      cameras: [{ entity: "camera.front_door" }],
+      card_view_media_drawer_enabled: false,
+      card_view_hide_camera_name: false,
+    }),
+    {
+      cameras: [{ entity: "camera.front_door" }],
+      card_view_media_drawer_enabled: false,
+      card_view_hide_camera_name: false,
+    },
+  );
   assert.equal(
     createEditorPreviewDraft(defaults).card_view_view_mode,
     CARD_VIEW_VIEW_MODES.bottomPanelOpen,
@@ -2116,13 +2126,13 @@ test("standalone Card View forces the desktop landing page and serializes explic
   );
   assert.equal(normalized.card_view_hide_camera_name, true);
   assert.equal(compact.card_view_standalone, true);
-  assert.equal(compact.card_view_media_drawer_enabled, true);
+  assert.equal("card_view_media_drawer_enabled" in compact, false);
   assert.equal(compact.card_view_start_mode, "slideshow");
   assert.equal(
     compact.card_view_view_mode,
     CARD_VIEW_VIEW_MODES.bottomPanelClosed,
   );
-  assert.equal(compact.card_view_hide_camera_name, true);
+  assert.equal("card_view_hide_camera_name" in compact, false);
   assert.equal(compact.landing_page, "card-view");
 
   const disabled = normalizeCardConfig({
@@ -2150,6 +2160,14 @@ test("Card View editor gates and orders all settings beneath the page toggle", (
   assert.match(editorSource, /id="card_view_media_drawer_enabled"/);
   assert.match(editorSource, /name="card_view_start_mode"/);
   assert.match(editorSource, /id="card_view_hide_camera_name"/);
+  assert.match(
+    panelSource,
+    /id="card-view-video-only-options" style="\$\{cardViewViewMode === CARD_VIEW_VIEW_MODES\.videoOnly \? "" : "display:none"\}"/,
+  );
+  assert.match(
+    editorSource,
+    /const syncCardViewVideoOnlyOptions = \(\) => \{[\s\S]*?selectedMode === CARD_VIEW_VIEW_MODES\.videoOnly \? "" : "none";/,
+  );
   assert.doesNotMatch(editorSource, /name="card_view_media_drawer_type"/);
   assert.doesNotMatch(editorSource, /Which Media will load in Drawer/);
   assert.doesNotMatch(editorSource, /Start with Drawer Open/);
@@ -2159,11 +2177,19 @@ test("Card View editor gates and orders all settings beneath the page toggle", (
       panelSource.indexOf(">Standalone Card View<"),
   );
   assert.ok(
+    panelSource.indexOf(">Enable Card View Page<") <
+      panelSource.indexOf(">Start Mode<"),
+  );
+  assert.ok(
+    panelSource.indexOf(">Start Mode<") <
+      panelSource.indexOf(">Standalone Card View<"),
+  );
+  assert.ok(
     panelSource.indexOf(">Standalone Card View<") <
       panelSource.indexOf(">Start with Alert Takeover<"),
   );
   assert.ok(
-    panelSource.indexOf(">Start Mode<") <
+    panelSource.indexOf(">View Mode<") <
       panelSource.indexOf(">Enable Media Drawer<"),
   );
   assert.ok(

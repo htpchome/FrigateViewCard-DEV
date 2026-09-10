@@ -325,7 +325,7 @@ export const applyEditorPreviewDraftToCardConfig = ({
       previewConfig.card_view_page_enabled === true &&
       previewConfig.card_view_standalone === true,
     card_view_media_drawer_enabled:
-      previewConfig.card_view_media_drawer_enabled === true,
+      previewConfig.card_view_media_drawer_enabled !== false,
     card_view_start_mode: normalizeCardViewStartMode(
       previewConfig.card_view_start_mode,
     ),
@@ -339,7 +339,7 @@ export const applyEditorPreviewDraftToCardConfig = ({
       },
     ),
     card_view_hide_camera_name:
-      previewConfig.card_view_hide_camera_name === true,
+      previewConfig.card_view_hide_camera_name !== false,
     landing_page: normalizePageRoute(previewConfig.landing_page),
     mobile_page: normalizeMobilePageMode(previewConfig.mobile_page),
     col_left_width_pct: normalizeWideLeftWidth(

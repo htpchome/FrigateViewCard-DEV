@@ -223,7 +223,7 @@ export const normalizeCardConfig = (config) => {
   src.card_view_standalone =
     src.card_view_page_enabled && src.card_view_standalone === true;
   src.card_view_media_drawer_enabled =
-    src.card_view_media_drawer_enabled === true;
+    src.card_view_media_drawer_enabled !== false;
   src.card_view_view_mode = normalizeCardViewViewMode(
     src.card_view_view_mode,
     {
@@ -235,7 +235,7 @@ export const normalizeCardConfig = (config) => {
   delete src.card_view_media_drawer_type;
   delete src.card_view_video_panel_only;
   src.card_view_hide_camera_name =
-    src.card_view_hide_camera_name === true;
+    src.card_view_hide_camera_name !== false;
 
   src.landing_page = normalizePageRoute(src.landing_page);
   if (src.card_view_standalone) {

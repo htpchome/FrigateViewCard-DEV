@@ -560,8 +560,8 @@ export const compactEditorConfigForYaml = (
   addIfNotDefault(
     compact,
     "card_view_media_drawer_enabled",
-    source.card_view_media_drawer_enabled === true,
-    false,
+    source.card_view_media_drawer_enabled !== false,
+    true,
   );
   addIfNotDefault(
     compact,
@@ -581,8 +581,8 @@ export const compactEditorConfigForYaml = (
   addIfNotDefault(
     compact,
     "card_view_hide_camera_name",
-    source.card_view_hide_camera_name === true,
-    false,
+    source.card_view_hide_camera_name !== false,
+    true,
   );
   addIfNotDefault(
     compact,

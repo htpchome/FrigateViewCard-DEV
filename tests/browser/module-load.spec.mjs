@@ -1337,6 +1337,71 @@ test("keeps desktop and phone swipe-page chips compact, equal, and responsive", 
   expect(geometry.modeVisibility.none.display).toBe("none");
 });
 
+test("shows default Card View media options only for Video Only mode", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      card_view_page_enabled: true,
+      card_view_view_mode: "bottom-panel-open",
+    });
+
+    const options = editor.querySelector("#card-view-video-only-options");
+    const drawer = editor.querySelector("#card_view_media_drawer_enabled");
+    const cameraName = editor.querySelector("#card_view_hide_camera_name");
+    const initialDisplay = options.style.display;
+
+    editor.querySelector(
+      '[name="card_view_view_mode"][value="video-only"]',
+    ).click();
+    const videoOnlyDisplay = options.style.display;
+
+    editor.querySelector(
+      '[name="card_view_view_mode"][value="bottom-panel-closed"]',
+    ).click();
+
+    const startModeSection = editor
+      .querySelector('[aria-label="Card View Start Mode"]')
+      .closest(".section");
+    const standaloneSection = editor
+      .querySelector("#card_view_standalone")
+      .closest(".section");
+    const viewModeSection = editor
+      .querySelector('[aria-label="View Mode"]')
+      .closest(".section");
+    return {
+      initialDisplay,
+      videoOnlyDisplay,
+      finalDisplay: options.style.display,
+      drawerDefaultChecked: drawer.hasAttribute("checked"),
+      cameraNameDefaultChecked: cameraName.hasAttribute("checked"),
+      startBeforeStandalone: Boolean(
+        startModeSection.compareDocumentPosition(standaloneSection) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+      mediaOptionsAfterViewMode: Boolean(
+        viewModeSection.compareDocumentPosition(options) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    };
+  });
+
+  expect(state).toEqual({
+    initialDisplay: "none",
+    videoOnlyDisplay: "",
+    finalDisplay: "none",
+    drawerDefaultChecked: true,
+    cameraNameDefaultChecked: true,
+    startBeforeStandalone: true,
+    mediaOptionsAfterViewMode: true,
+  });
+});
+
 test("positions camera B controls before its stream becomes ready", async ({
   page,
 }) => {
@@ -1743,6 +1808,101 @@ test.describe("touch input", () => {
       liveColumnZIndex: "2000",
       alertBadgeCovered: true,
       popupUsesSingleViewLiveCover: false,
+    });
+  });
+
+  test("dismisses rotated fullscreen until the phone leaves landscape", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto(baseUrl);
+    const state = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      document.body.style.margin = "0";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        mobile_view_rotate_to_fullscreen: true,
+      });
+      card._pageId = "single-view";
+      card._renderShell();
+      card.style.setProperty("--rotate-vw", "844px");
+      card.style.setProperty("--rotate-vh", "390px");
+      card.style.setProperty("--rotate-ox", "0px");
+      card.style.setProperty("--rotate-oy", "0px");
+
+      let landscape = true;
+      card._isRotateToFullscreenEnabled = () => true;
+      card._isMobileTabletViewport = () => true;
+      card._isLandscapeViewport = () => landscape;
+      card._updateRotateOverlayState();
+
+      const root = card.shadowRoot;
+      const cardRoot = root.querySelector("#card");
+      const dismiss = root.querySelector("[data-rotate-overlay-dismiss]");
+      const initialDisplay = getComputedStyle(dismiss).display;
+      const initialRect = dismiss.getBoundingClientRect();
+
+      dismiss.click();
+      const dismissedInLandscape = card._rotateLiveOverlayDismissed;
+      const activeAfterDismiss = card._rotateOverlayActive;
+      await new Promise((resolve) => setTimeout(resolve, 360));
+      card._updateRotateOverlayState();
+      const reopenedDuringSameLandscape = cardRoot.classList.contains(
+        "mobile-rotate-live",
+      );
+
+      const popup = root.querySelector("#myPopup");
+      const viewer = root.querySelector("#viewer");
+      popup.classList.add("is-open");
+      viewer.style.display = "flex";
+      viewer.append(document.createElement("div"));
+      card._updateRotateOverlayState();
+      const popupStillRotates = cardRoot.classList.contains(
+        "mobile-rotate-popup",
+      );
+      const popupOverlayDisplay = getComputedStyle(dismiss).display;
+      popup.classList.remove("is-open");
+      viewer.replaceChildren();
+      viewer.style.display = "none";
+      card._updateRotateOverlayState();
+
+      landscape = false;
+      card._updateRotateOverlayState();
+      const dismissalAfterPortrait = card._rotateLiveOverlayDismissed;
+
+      landscape = true;
+      card._updateRotateOverlayState();
+      const reopenedOnNextLandscape = cardRoot.classList.contains(
+        "mobile-rotate-live",
+      );
+
+      return {
+        initialDisplay,
+        initialLeft: Math.round(initialRect.left),
+        initialTop: Math.round(initialRect.top),
+        dismissedInLandscape,
+        activeAfterDismiss,
+        reopenedDuringSameLandscape,
+        popupStillRotates,
+        popupOverlayDisplay,
+        dismissalAfterPortrait,
+        reopenedOnNextLandscape,
+      };
+    });
+
+    expect(state).toEqual({
+      initialDisplay: "grid",
+      initialLeft: 20,
+      initialTop: 8,
+      dismissedInLandscape: true,
+      activeAfterDismiss: false,
+      reopenedDuringSameLandscape: false,
+      popupStillRotates: true,
+      popupOverlayDisplay: "none",
+      dismissalAfterPortrait: false,
+      reopenedOnNextLandscape: true,
     });
   });
 

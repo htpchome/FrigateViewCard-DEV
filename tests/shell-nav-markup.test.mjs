@@ -31,6 +31,7 @@ import {
   buildLiveFullscreenControlMarkup,
   buildLivePictureInPictureControlMarkup,
   buildLivePlaybackControlsMarkup,
+  buildRotateOverlayDismissButtonMarkup,
   buildLiveTakeSnapshotControlMarkup,
   buildLiveMuteControlMarkup,
 } from "../src/features/live/view.tmpl.js";
@@ -537,6 +538,9 @@ test("shared shell builders expose stable page region anchors", () => {
   const liveTakeSnapshot = buildLiveTakeSnapshotControlMarkup({
     icons: { takeSnapshot: "S" },
   });
+  const rotateOverlayDismiss = buildRotateOverlayDismissButtonMarkup({
+    icons: { close: "X" },
+  });
   const liveMute = buildLiveMuteControlMarkup({
     icons: { volOff: "M", volOn: "V" },
     streamMuted: true,
@@ -561,6 +565,10 @@ test("shared shell builders expose stable page region anchors", () => {
   );
   assert.match(liveTakeSnapshot, /title="Take Snapshot"[^>]*>S<\/button>$/);
   assert.match(liveMute, /class="square-btn mute-btn"/);
+  assert.match(
+    rotateOverlayDismiss,
+    /class="rotate-overlay-dismiss"[^>]*data-rotate-overlay-dismiss[^>]*aria-label="Close rotated fullscreen view"[^>]*>X<\/button>/,
+  );
   const livePlaybackControls = buildLivePlaybackControlsMarkup({
     livePictureInPicture,
     liveTakeSnapshot,

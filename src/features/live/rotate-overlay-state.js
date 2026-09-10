@@ -5,6 +5,7 @@ export const resolveRotateOverlayTargetMode = ({
   popupOpen = false,
   popupMediaVisible = false,
   fullscreenActive = false,
+  liveDismissed = false,
 }) => {
   if (!rotateEnabled) return "none";
   if (fullscreenActive) return "none";
@@ -13,9 +14,14 @@ export const resolveRotateOverlayTargetMode = ({
   );
   if (!rotateEligible) return "none";
   if (popupMediaVisible) return "popup";
-  if (!popupOpen) return "live";
+  if (!popupOpen && !liveDismissed) return "live";
   return "none";
 };
+
+export const resolveRotateOverlayLiveDismissal = ({
+  dismissed = false,
+  isLandscapeViewport = false,
+} = {}) => Boolean(dismissed && isLandscapeViewport);
 
 export const resolveRotateOverlayState = ({
   rotateEnabled = true,
@@ -24,6 +30,7 @@ export const resolveRotateOverlayState = ({
   popupOpen = false,
   popupMediaVisible = false,
   fullscreenActive = false,
+  liveDismissed = false,
   currentMode = "none",
   isActive = false,
   isExitPending = false,
@@ -35,6 +42,7 @@ export const resolveRotateOverlayState = ({
     popupOpen,
     popupMediaVisible,
     fullscreenActive,
+    liveDismissed,
   });
 
   if (nextMode === "live") {

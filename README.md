@@ -247,8 +247,8 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `card_view_view_mode` | string | `bottom-panel-open` | Initial Card View layout: `video-only`, `bottom-panel-open`, or `bottom-panel-closed`. |
 | `card_view_standalone` | boolean | `false` | Makes Card View the only FrigateView page and landing page on every device. |
 | `card_view_start_mode` | string | `live` | Initial standalone video mode: `live`, `slideshow`, or `grid`. |
-| `card_view_media_drawer_enabled` | boolean | `false` | Adds the tabbed Alerts, Clips, and Snapshots drawer to the left side of Card View in Video Only mode. |
-| `card_view_hide_camera_name` | boolean | `false` | In Card View Video Only mode, hides the camera picker until hover or touch reveals the center controls. |
+| `card_view_media_drawer_enabled` | boolean | `true` | Adds the tabbed Alerts, Clips, and Snapshots drawer to the left side of Card View in Video Only mode. |
+| `card_view_hide_camera_name` | boolean | `true` | In Card View Video Only mode, hides the camera picker until hover or touch reveals the center controls. |
 | `landing_page` | string | `single-view` | Desktop/tablet landing page. Choices are limited to enabled, supported views. |
 | `mobile_page` | string | `single-view` | Phone landing flow: `mobile-view`, `card-view`, `preview-mobile-view`, `preview-card-view`, `preview-single-view`, or `single-view`. Choices requiring Mobile, Card View, or Preview are available only when those pages are enabled. |
 
