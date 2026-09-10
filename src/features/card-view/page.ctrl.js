@@ -222,6 +222,12 @@ export class CardViewPageController {
     );
   }
 
+  liveFullscreenTarget() {
+    const liveStage = this._host._$?.("#live-stage") || null;
+    if (!this.usesOverlayPresentation()) return liveStage;
+    return this._host._$?.("#card") || liveStage;
+  }
+
   handleRotateOverlayState({ active = false } = {}) {
     if (
       active !== true ||
@@ -1916,6 +1922,11 @@ export class CardViewPageController {
 
   handleClick(event, target) {
     if (!this.isActive()) return false;
+    if (target.closest?.("[data-card-view-native-fullscreen-exit]")) {
+      event?.preventDefault?.();
+      this._host._exitFullscreen?.();
+      return true;
+    }
     if (this._mediaDrawerController.handleClick(event, target)) return true;
     if (this._mediaDrawerController.closeForVideoAreaClick(target)) return true;
     if (this._handleMediaDrawerFilterOption(target)) return true;

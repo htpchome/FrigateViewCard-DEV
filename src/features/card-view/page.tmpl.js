@@ -14,6 +14,7 @@ const normalizeRegions = (regions = {}) => ({
   liveMute: "",
   mobileBackButton: "",
   cardViewVideoBackIcon: "",
+  cardViewFullscreenExitIcon: "",
   cardViewWebRtcIcon: "",
   cameraSwitcherMarkup: "",
   pageNavigation: "",
@@ -43,6 +44,7 @@ export function buildCardViewMainLayoutShellMarkup({
     .filter(Boolean)
     .join(" ");
   return `<div class="${layoutClass}" id="layout">
+    <button class="round-btn card-view-native-fullscreen-exit" type="button" data-card-view-native-fullscreen-exit title="Exit Fullscreen" aria-label="Exit Fullscreen">${regions.cardViewFullscreenExitIcon}</button>
     <div class="card-view-live-panel">
       <div class="card-view-camera-row cam-switcher" id="cam-switcher" data-fvc-region="camera-switcher">
         <div class="card-view-back-slot mobile-cam-picker__back-slot">${regions.mobileBackButton}</div>

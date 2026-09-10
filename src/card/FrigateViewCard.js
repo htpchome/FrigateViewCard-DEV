@@ -4708,6 +4708,7 @@ export class FrigateViewCard extends HTMLElement {
         buttonClass: shellProfile?.liveMuteButtonClass,
       }),
       cardViewVideoBackIcon: ICONS.back,
+      cardViewFullscreenExitIcon: ICONS.close,
       cardViewWebRtcIcon: ICONS.webrtc,
       liveSourceWebRtcIcon: ICONS.webrtc,
       information: infoRow,
@@ -6394,7 +6395,13 @@ export class FrigateViewCard extends HTMLElement {
       return true;
     }
     if (target.closest("#live-fs-btn")) {
-      this._fullscreen(this._$("#live-stage"), { preferLive: true });
+      const liveStage = this._$("#live-stage");
+      const fullscreenTarget =
+        this._cardViewPageController?.liveFullscreenTarget?.() || liveStage;
+      this._fullscreen(fullscreenTarget, {
+        preferLive: true,
+        preferElementFullscreen: fullscreenTarget !== liveStage,
+      });
       return true;
     }
     return false;
@@ -7436,9 +7443,14 @@ export class FrigateViewCard extends HTMLElement {
     const iOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const elementFullscreenRequest =
+      el.requestFullscreen || el.webkitRequestFullscreen;
+    const preferElementFullscreen =
+      opts.preferElementFullscreen === true &&
+      typeof elementFullscreenRequest === "function";
 
     // iOS Safari often only supports fullscreen via the video element API.
-    if (iOS && video) {
+    if (iOS && video && !preferElementFullscreen) {
       const enterVideoFs =
         video.webkitEnterFullscreen || video.webkitEnterFullScreen;
       if (typeof enterVideoFs === "function") {
@@ -7459,7 +7471,7 @@ export class FrigateViewCard extends HTMLElement {
     }
 
     let reqTarget = el;
-    let req = el.requestFullscreen || el.webkitRequestFullscreen;
+    let req = elementFullscreenRequest;
     if (!req && video) {
       reqTarget = video;
       req = video.requestFullscreen || video.webkitRequestFullscreen;
@@ -7480,6 +7492,22 @@ export class FrigateViewCard extends HTMLElement {
           this._liveFullscreenLifecycleController?.cancel();
         }
       }
+    }
+  }
+
+  _exitFullscreen() {
+    const documentObj = this.ownerDocument || globalThis.document;
+    const exit =
+      documentObj?.exitFullscreen ||
+      documentObj?.webkitExitFullscreen ||
+      documentObj?.webkitCancelFullScreen;
+    if (typeof exit !== "function") return false;
+    try {
+      const exitResult = exit.call(documentObj);
+      exitResult?.catch?.(() => {});
+      return true;
+    } catch (_) {
+      return false;
     }
   }
   _frigateContextForCameraName(cameraName = "") {

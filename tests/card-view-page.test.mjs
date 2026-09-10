@@ -143,6 +143,7 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
         '<button data-fvc-region="live-take-snapshot"></button>',
       liveMute: '<button data-fvc-region="live-mute"></button>',
       cardViewVideoBackIcon: "back-icon",
+      cardViewFullscreenExitIcon: "close-icon",
       cardViewWebRtcIcon: "webrtc-icon",
       linkedEntitiesLeft: "left-light-control",
       linkedEntitiesRight: "right-light-control",
@@ -176,6 +177,10 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(
     markup,
     /card-view-video-only-back[^>]*data-card-view-video-back[^>]*>back-icon</,
+  );
+  assert.match(
+    markup,
+    /card-view-native-fullscreen-exit[^>]*data-card-view-native-fullscreen-exit[^>]*>close-icon</,
   );
   assert.match(markup, /data-card-view-media-drawer/);
   assert.match(markup, /data-card-view-media-drawer-toggle/);
@@ -725,6 +730,33 @@ test("non-standalone Video Only uses the complete in-video overlay presentation"
   assert.equal(cardClasses.has("card-view-grid-mode"), true);
 });
 
+test("Card View Video Only fullscreens the card root so popup media stays visible", () => {
+  const cardRoot = { id: "card" };
+  const liveStage = { id: "live-stage" };
+  const host = {
+    _pageId: "card-view",
+    _config: { card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly },
+    _$: (selector) =>
+      selector === "#card"
+        ? cardRoot
+        : selector === "#live-stage"
+          ? liveStage
+          : null,
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  assert.equal(controller.liveFullscreenTarget(), cardRoot);
+
+  host._config.card_view_view_mode = CARD_VIEW_VIEW_MODES.bottomPanelOpen;
+  assert.equal(controller.liveFullscreenTarget(), liveStage);
+
+  host._pageId = "single-view";
+  host._config.card_view_view_mode = CARD_VIEW_VIEW_MODES.videoOnly;
+  assert.equal(controller.liveFullscreenTarget(), liveStage);
+});
+
 test("Card View toolbar swaps alert and recording controls without a day heading", () => {
   const markup = buildCardViewToolbarMarkup({
     mode: "recordings",
@@ -1051,6 +1083,26 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   assert.match(
     CARD_VIEW_PAGE_STYLES,
     /card-view-video-panel-only:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-live-status-overlay \{\s*right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) \.card-view-native-fullscreen-exit \{[\s\S]*?z-index:1100;top:max\(8px,env\(safe-area-inset-top,0px\)\);left:max\(8px,env\(safe-area-inset-left,0px\)\)/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) :is\(\.card-view-video-only-back,\.live-fs-btn,\.live-resize-grip\) \{\s*display:none !important;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) \.card-view-camera-row \{[\s\S]*?safe-area-inset-left[\s\S]*?safe-area-inset-right/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) #myPopup\.popup-content--card-view-drawer \{[\s\S]*?inset:0;width:100%;height:100%;min-height:100%;max-height:none;[\s\S]*?z-index:1000/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) #myPopup\.popup-content--card-view-drawer #viewer :is\(video,img\.snap\) \{[\s\S]*?object-fit:contain !important;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -1608,6 +1660,39 @@ test("non-standalone Video Only back prefers Preview and falls back to Single Vi
   host._config.card_view_standalone = true;
   assert.equal(controller.handleClick(null, target), true);
   assert.equal(navigations.length, 2);
+});
+
+test("Card View native fullscreen exit uses the dedicated X control", () => {
+  let exits = 0;
+  let prevented = 0;
+  const host = {
+    _pageId: "card-view",
+    _config: { card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly },
+    _exitFullscreen: () => {
+      exits += 1;
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  const target = {
+    closest: (selector) =>
+      selector === "[data-card-view-native-fullscreen-exit]" ? {} : null,
+  };
+
+  assert.equal(
+    controller.handleClick(
+      {
+        preventDefault: () => {
+          prevented += 1;
+        },
+      },
+      target,
+    ),
+    true,
+  );
+  assert.equal(exits, 1);
+  assert.equal(prevented, 1);
 });
 
 test("standalone presentation-only config changes do not reload activity data", () => {
