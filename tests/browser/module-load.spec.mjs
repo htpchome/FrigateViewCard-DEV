@@ -167,10 +167,10 @@ test("Panel view centers page-specific aspect width caps", async ({ page }) => {
     expect(result[key].left).toBe(result[key].right);
     expect(result[key].maxWidth).toBe(`${result[key].width}px`);
   }
-  expect(result.single.width).toBe(1_227);
-  expect(result.mobile.width).toBe(1_227);
-  expect(result.card.width).toBe(1_500);
-  expect(result.cardVideoOnly.width).toBe(1_700);
+  expect(result.single.width).toBe(1_133);
+  expect(result.mobile.width).toBe(1_133);
+  expect(result.card.width).toBe(1_400);
+  expect(result.cardVideoOnly.width).toBe(1_750);
 
   for (const key of ["wide", "preview"]) {
     expect(result[key]).toEqual({

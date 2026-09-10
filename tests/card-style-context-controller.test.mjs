@@ -514,13 +514,13 @@ test("Panel View applies page-specific width-to-height ratios", () => {
   const controller = new CardStyleContextController(host);
 
   assert.equal(controller.isPanelView(), true);
-  assert.equal(controller.resolvePanelViewAspectRatio(), 1.3);
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.2);
   page = "mobile";
-  assert.equal(controller.resolvePanelViewAspectRatio(), 1.3);
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.2);
   page = "card";
-  assert.equal(controller.resolvePanelViewAspectRatio(), 1.5);
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.4);
   cardViewVideoOnly = true;
-  assert.equal(controller.resolvePanelViewAspectRatio(), 1.7);
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.75);
   page = "wide";
   assert.equal(controller.resolvePanelViewAspectRatio(), null);
   page = "preview";
@@ -548,17 +548,17 @@ test("Panel View ratio caps and centers the card from its applied height", () =>
     },
   };
   const controller = new CardStyleContextController(host);
-  let ratio = 1.3;
+  let ratio = 1.2;
   controller.resolvePanelViewAspectRatio = () => ratio;
   controller.resolveHeightWrapperViewportPx = () => 900;
 
   controller.syncPanelViewAspectConstraint(null);
-  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "780px");
+  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "720px");
 
   styleValues.delete("--card-host-height");
-  ratio = 1.7;
+  ratio = 1.75;
   controller.syncPanelViewAspectConstraint(null);
-  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "1530px");
+  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "1575px");
 
   styleValues.delete("--card-host-height");
   controller.resolveHeightWrapperViewportPx = () => null;
@@ -598,7 +598,7 @@ test("Panel View ratio uses requested height before minimum-height expansion", (
     },
   };
   const controller = new CardStyleContextController(host);
-  controller.resolvePanelViewAspectRatio = () => 1.3;
+  controller.resolvePanelViewAspectRatio = () => 1.2;
   controller.resolveHeightWrapperViewportPx = () => 1_000;
 
   controller.syncPanelViewAspectConstraint(null, {
@@ -607,7 +607,7 @@ test("Panel View ratio uses requested height before minimum-height expansion", (
 
   assert.equal(
     styleValues.get("--fvc-panel-view-max-width"),
-    "1227px",
+    "1133px",
   );
 });
 

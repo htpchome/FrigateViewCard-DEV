@@ -315,14 +315,14 @@ export class CardStyleContextController {
     if (this._host._isCardViewPageActive?.() === true) {
       return this._host._cardViewPageController?.usesOverlayPresentation?.() ===
         true
-        ? 1.7
-        : 1.5;
+        ? 1.75
+        : 1.4;
     }
     if (
       this._host._isMobileViewPageActive?.() === true ||
       this._host._singleViewPageController?.isActive?.() === true
     ) {
-      return 1.3;
+      return 1.2;
     }
     return null;
   }
