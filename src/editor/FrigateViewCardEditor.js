@@ -2766,12 +2766,12 @@ export class FrigateViewCardEditor extends HTMLElement {
       `${navbarOwnerPageMarkup} ${navbarDashboardNameMarkup}`;
     const dashboardNavbarOwnershipMessage = dashboardNavbarOwnership.locked
       ? dashboardNavbarOwnership.conflict
-        ? `This card also claims Whole Dashboard navbar control in raw YAML, but the ${CARD_DISPLAY_NAME} at ${dashboardNavbarOwnerLocationMarkup} is first and remains authoritative. Disable Whole Dashboard here or remove the duplicate YAML setting.`
-        : `Move HA Navbar to Bottom is controlled by the ${CARD_DISPLAY_NAME} at ${dashboardNavbarOwnerLocationMarkup}. Disable Whole Dashboard on that card before changing this setting here.`
+        ? `This card also claims Whole Dashboard in raw YAML, but the ${CARD_DISPLAY_NAME} at ${dashboardNavbarOwnerLocationMarkup} controls it. Turn off Whole Dashboard here or remove the duplicate YAML setting.`
+        : `The ${CARD_DISPLAY_NAME} at ${dashboardNavbarOwnerLocationMarkup} controls Move HA Navbar to Bottom. Turn off Whole Dashboard there to change this setting.`
       : "";
     const dashboardNavbarOwnerMessage =
       dashboardNavbarOwnership.isOwner && dashboardNavbarOwnership.owner
-      ? `This card controls Move HA Navbar to Bottom across the whole dashboard. ${dashboardNavbarOwnerLocationMarkup}`
+      ? `This card controls Move HA Navbar to Bottom for the whole dashboard. ${dashboardNavbarOwnerLocationMarkup}`
       : "";
     const dashboardSwipeOwnership = this._dashboardSwipeOwnershipState();
     const dashboardSwipeMode = normalizeDashboardSwipeNavigationMode(
@@ -2791,33 +2791,33 @@ export class FrigateViewCardEditor extends HTMLElement {
       `${ownerPageMarkup} ${dashboardNameMarkup}`;
     const dashboardSwipeOwnershipMessage = dashboardSwipeOwnership.locked
       ? dashboardSwipeOwnership.conflict
-        ? `This card also claims swipe control in raw YAML, but the ${CARD_DISPLAY_NAME} at ${dashboardSwipeOwnerLocationMarkup} is first and remains authoritative. Disable this switch here or remove the duplicate YAML setting.`
-        : `Swipe navigation is controlled by the ${CARD_DISPLAY_NAME} at ${dashboardSwipeOwnerLocationMarkup}. Disable control on that card before enabling it here.`
+        ? `This card also claims swipe control in raw YAML, but the ${CARD_DISPLAY_NAME} at ${dashboardSwipeOwnerLocationMarkup} controls it. Turn off this switch here or remove the duplicate YAML setting.`
+        : `The ${CARD_DISPLAY_NAME} at ${dashboardSwipeOwnerLocationMarkup} controls Swipe Navigation. Turn it off there before enabling it here.`
       : "";
     const dashboardSwipeOptions = [
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.dashboardWide,
         label: "Dashboard Wide",
         description:
-          `Swipe through dashboard pages and the selected ${CARD_NAME} pages.`,
+          `Swipe between dashboard pages and selected ${CARD_NAME} pages.`,
       },
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.insideCard,
         label: "Inside Card Only",
         description:
-          `Swipe between selected ${CARD_NAME} pages. Optionally include other dashboard pages with ${CARD_NAME} cards.`,
+          `Swipe between selected ${CARD_NAME} pages. Other cards can be included.`,
       },
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.landingDashboard,
-        label: "Landing Page plus Dashboard Pages",
+        label: "Landing Page + Dashboard Pages",
         description:
-          `Use the configured landing page as the only ${CARD_NAME} swipe stop between dashboard pages.`,
+          `Swipe between dashboard pages with the landing page as the only ${CARD_NAME} stop.`,
       },
       {
         value: DASHBOARD_SWIPE_NAVIGATION_MODES.none,
         label: "None",
         description:
-          `Disable ${CARD_NAME} swipe navigation while retaining ownership of this dashboard setting.`,
+          `Keep ownership but disable ${CARD_NAME} swipe navigation.`,
       },
     ];
     const dashboardSwipeChoices = dashboardSwipeOptions
@@ -3158,7 +3158,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         <span class="field-label">Cameras ${frigEntities.length ? '<small style="font-weight:400;color:var(--c-text2)">(Frigate cameras detected)</small>' : ""}</span>
         <div class="cam-wrap" id="cam-list">${cameraRows}</div>
         ${canAddCamera ? '<div class="cam-toolbar"><button id="camera-add" class="cam-add" type="button">Add</button></div>' : ""}
-        <span class="cam-helper">Maximum ${physicalCameraCount}/${MAX_CAMERAS} Cameras</span>
+        <span class="cam-helper">${physicalCameraCount} of ${MAX_CAMERAS} cameras configured</span>
       </div>`;
 
     const generalPanelContent = `
@@ -3190,16 +3190,16 @@ export class FrigateViewCardEditor extends HTMLElement {
         <ha-input label="Subtitle" name="subtitle" id="subtitle" type="text" value="${escapeHtmlAttribute(this._config?.subtitle || DEFAULT_SUBTITLE)}" placeholder="${escapeHtmlAttribute(DEFAULT_SUBTITLE)}"></ha-input>
         <label class="text-display-checkbox"><input id="display_subtitle" type="checkbox" ${this._config?.display_subtitle !== false ? "checked" : ""}> <span>Display</span></label>
       </div>
-      <div class="field-helper text-display-token-helper">Use <code>{camera}</code> in either field to show the active camera name. In Grid mode it displays <strong>Grid</strong>.</div>
+      <div class="field-helper text-display-token-helper">Use <code>{camera}</code> to show the active camera name. Grid mode shows <strong>Grid</strong>.</div>
       <div class="section">
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
           <div style="min-width:160px;display:flex;flex-direction:column;gap:6px">
-            <span class="field-label" style="margin:0">Event history days</span>
+            <span class="field-label" style="margin:0">Event History Days</span>
             <ha-selector id="window_days" style="width:160px"></ha-selector>
             <div class="field-helper" id="window_days-helper"></div>
           </div>
           <div style="min-width:160px;display:flex;flex-direction:column;gap:6px">
-            <span class="field-label" style="margin:0">Alerts/Reviews Days</span>
+            <span class="field-label" style="margin:0">Alert/Review History Days</span>
             <ha-selector id="alerts_reviews_days" style="width:160px"></ha-selector>
             <div class="field-helper" id="alerts_reviews_days-helper"></div>
           </div>
@@ -3210,35 +3210,35 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Pre-Roll/Post-Roll</span>
               <ha-switch id="event_pre_post_roll_enabled" ${this._config?.event_pre_post_roll_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Adds ${EVENT_PRE_POST_ROLL_SECONDS} seconds before and after Alerts and Clips for popup playback and downloads. Requires Frigate recording footage around the event.</div>
+            <div class="field-helper">Adds ${EVENT_PRE_POST_ROLL_SECONDS} seconds before and after alert and clip playback or downloads. Requires Frigate recordings.</div>
           </div>
         </div>
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px">
           <div style="display:flex;flex-direction:column;gap:6px;max-width:460px">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="field-label" style="margin:0">Show Favorites from All Cameras</span>
+              <span class="field-label" style="margin:0">Favorites from All Cameras</span>
               <ha-switch id="favorites_mixed_cameras" ${this._config?.favorites_mixed_cameras !== false ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Combine favorites from every configured camera in the Favorites tab. Disable this to show favorites only for the active camera.</div>
+            <div class="field-helper">Shows favorites from all configured cameras. Turn off to show only the active camera.</div>
           </div>
         </div>
       </div>
       <div class="section">
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
-          <div class="editor-choice-field editor-choice-field--fit" id="realtime_poll_seconds" role="radiogroup" aria-label="Realtime Update Poll">
-            <div class="field-label">Realtime Update Poll</div>
+          <div class="editor-choice-field editor-choice-field--fit" id="realtime_poll_seconds" role="radiogroup" aria-label="Fallback Update Check">
+            <div class="field-label">Fallback Update Check</div>
             ${buildEditorBubbleSelectorMarkup({
               name: "realtime_poll_seconds",
               options: durationEditorChoices(REALTIME_POLL_OPTIONS_SECONDS),
               selectedValue: realtimePollSeconds,
             })}
-            <div class="field-helper">How often the card checks for new Frigate alerts and reviews when realtime notifications are delayed or missed. Lower values update faster but use more battery and data.</div>
+            <div class="field-helper">Fallback interval for checking new alerts and reviews. Shorter intervals use more battery and data.</div>
           </div>
         </div>
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px">
           <div id="snapshot_update_row" style="min-width:210px;display:flex;flex-direction:column;gap:6px;width:100%">
-            <div class="editor-choice-field" id="snapshot_update_seconds" role="radiogroup" aria-label="Snapshot Update Frequency">
-              <div class="field-label">Snapshot Update Frequency</div>
+            <div class="editor-choice-field" id="snapshot_update_seconds" role="radiogroup" aria-label="Snapshot Refresh">
+              <div class="field-label">Snapshot Refresh</div>
               ${buildEditorBubbleSelectorMarkup({
                 name: "snapshot_update_seconds",
                 options: durationEditorChoices(
@@ -3247,13 +3247,13 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: snapshotUpdateSeconds,
               })}
             </div>
-            <div class="field-helper">When Live View is disabled for a page, this determines how often a new snapshot is loaded.</div>
+            <div class="field-helper">How often snapshots refresh when Live View is off.</div>
           </div>
         </div>
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px">
           <div id="preview_alert_live_duration_row" style="min-width:210px;display:flex;flex-direction:column;gap:6px;width:100%">
-            <div class="editor-choice-field" id="preview_page_alert_live_duration_seconds" role="radiogroup" aria-label="Alert Camera Live Duration">
-              <div class="field-label">Alert Camera Live Duration</div>
+            <div class="editor-choice-field" id="preview_page_alert_live_duration_seconds" role="radiogroup" aria-label="Alert Live Duration">
+              <div class="field-label">Alert Live Duration</div>
               ${buildEditorBubbleSelectorMarkup({
                 name: "preview_page_alert_live_duration_seconds",
                 options: durationEditorChoices(
@@ -3262,7 +3262,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: previewAlertLiveDurationSeconds,
               })}
             </div>
-            <div class="field-helper">How long an alerted snapshot camera remains live on Preview and in Wide View Companion Cameras.</div>
+            <div class="field-helper">How long an alerted Preview or Wide View snapshot switches to live.</div>
           </div>
         </div>
       </div>
@@ -3274,7 +3274,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             <span>${escapeHtml(timezoneDisplay)}</span>
           </span>
         </div>
-        <div class="field-helper timezone-helper">Timezones are determined by the Home Assistant User Profile Timezone Setting. The setting can be adjusted in the user's <a href="/profile/general" target="_blank" rel="noopener noreferrer">Home Assistant Profile</a>.</div>
+        <div class="field-helper timezone-helper">Uses the timezone in your <a href="/profile/general" target="_blank" rel="noopener noreferrer">Home Assistant profile</a>.</div>
       </div>`;
 
     const themePanelContent = `
@@ -3299,7 +3299,7 @@ export class FrigateViewCardEditor extends HTMLElement {
 
     const layoutPanelContent = `
       <div class="section">
-        <span class="field-label">Active tabs</span>
+        <span class="field-label">Active Tabs</span>
         <div class="chk-row">
           ${tabToggle("alerts", "Alerts")}
           ${tabToggle("clips", "Clips")}
@@ -3311,7 +3311,10 @@ export class FrigateViewCardEditor extends HTMLElement {
       <div class="section">
         <span class="field-label">Card Height Limit</span>
         <div class="card-height-control">
-          <input name="stream_height" id="stream_height" type="range" min="${CARD_HEIGHT_MIN}" max="${CARD_HEIGHT_MAX}" step="1" value="${streamHeight}">
+          <div class="card-height-slider-control">
+            <input name="stream_height" id="stream_height" type="range" min="${CARD_HEIGHT_MIN}" max="${CARD_HEIGHT_MAX}" step="1" value="${streamHeight}">
+            <div class="field-helper card-height-value" id="stream_height-output">${streamHeight}${streamHeightUnit}</div>
+          </div>
           <div class="editor-choice-field editor-choice-field--compact" id="stream_height_unit" role="radiogroup" aria-label="Card height unit">
             ${buildEditorChoiceChipsMarkup({
               name: "stream_height_unit",
@@ -3324,8 +3327,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             })}
           </div>
         </div>
-        <div class="field-helper">Constrain the card to 50–100% of its available height or the dynamic viewport. New cards request Auto height in Home Assistant Sections and Sidebar views. If Auto height is disabled, Home Assistant's fixed row height constrains the card and its editor currently allows at most eight rows. Panel and Masonry views apply this limit normally.</div>
-        <div class="field-helper" id="stream_height-output">${streamHeight}${streamHeightUnit}</div>
+        <div class="field-helper">Card needs to be set to Auto Height for this to work properly.</div>
         <div class="field-helper" id="stream_height-helper"></div>
       </div>
       <div class="section">
@@ -3333,54 +3335,49 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Tight Margins</span>
           <ha-switch id="tight_margins" ${this._config?.tight_margins ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Enable or Disable Tight Margins.  This setting essentially removes the default Home Assistant Padding around an item in a Sections View.  Doing this allows the Card to span the full height of the available space.  This could be useful on phones or tablets.
-        </div>
+        <div class="field-helper">Removes Home Assistant's default padding around the card in Sections views.</div>
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Shadows (Inside Card)</span>
+          <span class="field-label" style="margin:0">Inside Shadows</span>
           <ha-switch id="shadows" ${this._config?.shadows !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Enable or Disable Inner Shadows - these are the shadows around things like the events list items.  This could be useful on phones or tablets.
-        </div>
+        <div class="field-helper">Adds shadows to elements inside the card, including event items.</div>
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Shadows (Outside Card)</span>
+          <span class="field-label" style="margin:0">Card Shadow</span>
           <ha-switch id="outer_shadows" ${this._config?.outer_shadows !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Enable or Disable Outer Shadows - this is the shadow around the entire card. It is automatically hidden on phones for Preview, Wide View, and Mobile View.
-        </div>
+        <div class="field-helper">Adds a shadow around the card. Hidden automatically on phones in Preview, Wide View, and Mobile View.</div>
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Borders on Event Items</span>
+          <span class="field-label" style="margin:0">Event Item Borders</span>
           <ha-switch id="borders" ${this._config?.borders !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Enable or Disable Borders on Event List Items.  This may be usefull if Shadows are disabled to visually seperate the event list items.
-        </div>
+        <div class="field-helper">Adds borders to event items. Useful when inside shadows are off.</div>
       </div>
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Rounded Corners</span>
           <ha-switch id="rounded_corners" ${this._config?.rounded_corners !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Enable or Disable Rounded Corners.  This could be useful on phones or tablets.
-        </div>
+        <div class="field-helper">Rounds the card and media corners.</div>
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Display ${CARD_NAME} Logo</span>
+          <span class="field-label" style="margin:0">Show ${CARD_NAME} Logo</span>
           <ha-switch id="display_logo" ${this._config?.display_logo !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Shows ${CARD_NAME} branding in page footers, or in the mobile Preview header when the HA navbar is at the bottom.</div>
+        <div class="field-helper">Shows ${CARD_NAME} branding in page footers and the mobile Preview header when the HA navbar is at the bottom.</div>
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Display Version Number</span>
+          <span class="field-label" style="margin:0">Show Version Number</span>
           <ha-switch id="display_version" ${this._config?.display_version !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Shows the installed ${CARD_DISPLAY_NAME} version in page footers. The version remains visible here in General Settings.</div>
+        <div class="field-helper">Shows the installed version in page footers. General Settings always shows it.</div>
       </div>`;
     const slideshowPanelContent = `
       <div class="section">
@@ -3390,11 +3387,11 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Slideshow Mode</span>
               <ha-switch id="slideshow_rotation_enabled" ${this._config?.slideshow_rotation_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enables Slideshow mode. Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation.</div>
+            <div class="field-helper">Makes Slideshow available. Start or stop it with the Slideshow button.</div>
           </div>
           <div id="slideshow_rotation_row" style="display:${this._config?.slideshow_rotation_enabled ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
-            <div class="editor-choice-field editor-choice-field--single-row" id="slideshow_rotation_seconds" role="radiogroup" aria-label="Slideshow Rotation Frequency">
-              <div class="field-label">Slideshow Rotation Frequency</div>
+            <div class="editor-choice-field editor-choice-field--single-row" id="slideshow_rotation_seconds" role="radiogroup" aria-label="Camera Rotation Interval">
+              <div class="field-label">Camera Rotation Interval</div>
               ${buildEditorBubbleSelectorMarkup({
                 name: "slideshow_rotation_seconds",
                 options: durationEditorChoices(
@@ -3403,13 +3400,13 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: slideshowRotationSeconds,
               })}
             </div>
-            <div class="field-helper">How often Slideshow advances to the next configured camera.</div>
+            <div class="field-helper">Time between cameras during Slideshow.</div>
           </div>
         </div>
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px">
           <div id="slideshow_alert_hold_row" style="min-width:210px;display:flex;flex-direction:column;gap:6px;width:100%">
-            <div class="editor-choice-field" id="slideshow_alert_hold_seconds" role="radiogroup" aria-label="Slideshow Alert Hold Duration">
-              <div class="field-label">Slideshow Alert Hold Duration</div>
+            <div class="editor-choice-field" id="slideshow_alert_hold_seconds" role="radiogroup" aria-label="Alert Hold Duration">
+              <div class="field-label">Alert Hold Duration</div>
               ${buildEditorBubbleSelectorMarkup({
                 name: "slideshow_alert_hold_seconds",
                 options: durationEditorChoices(
@@ -3418,7 +3415,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: slideshowAlertHoldSeconds,
               })}
             </div>
-            <div class="field-helper">How long Slideshow stays on a camera selected by a qualifying alert before automatic rotation resumes.</div>
+            <div class="field-helper">How long an alert-selected camera remains before rotation resumes.</div>
           </div>
         </div>
       </div>`;
@@ -3429,28 +3426,28 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Enable Preview Page</span>
           <ha-switch id="preview_page_enabled" ${this._config?.preview_page_enabled ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">When enabled, Preview becomes available in navigation and as a landing page option.</div>
+        <div class="field-helper">Adds Preview to navigation and landing-page options.</div>
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Live Cameras</span>
+          <span class="field-label" style="margin:0">Live Cameras on Desktop</span>
           <ha-switch id="preview_page_live_cameras" ${this._config?.preview_page_live_cameras ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Controls whether all Preview cameras load live on desktop devices. When off, snapshots are used and qualifying alert/review cameras are promoted to temporary live view.</div>
+        <div class="field-helper">Keeps all Preview cameras live on desktops. Otherwise, qualifying alerts and reviews switch snapshots to live.</div>
       </div>
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Live View on Mobile Devices</span>
+          <span class="field-label" style="margin:0">Live Cameras on Mobile</span>
           <ha-switch id="preview_page_live_cameras_mobile" ${this._config?.preview_page_live_cameras_mobile ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Controls whether all Preview cameras load live on phones and tablets. When off, snapshots are used and qualifying alert/review cameras are promoted to temporary live view.</div>
+        <div class="field-helper">Keeps all Preview cameras live on phones and tablets. Otherwise, qualifying alerts and reviews switch snapshots to live.</div>
       </div>
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Show Title Bars</span>
           <ha-switch id="preview_page_show_title_bars" ${this._config?.preview_page_show_title_bars !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Shows per-camera metadata under each preview tile (name, source, events, and online status).</div>
+        <div class="field-helper">Shows each camera's name, source, alert count, and status.</div>
       </div>`;
     const gridAlertHoldSeconds = normalizeNumberChoice(
       this._config?.grid_alert_hold_seconds,
@@ -3460,17 +3457,17 @@ export class FrigateViewCardEditor extends HTMLElement {
     const singleViewPanelContent = `
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
+          <span class="field-label" style="margin:0">Start with Alert Takeover</span>
           <ha-switch id="single_view_alert_takeover" ${this._config?.single_view_alert_takeover ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Sets the initial state of the Single View toolbar button that allows alerted cameras to take over the live view.</div>
+        <div class="field-helper">Sets whether alert takeover is on when Single View opens.</div>
       </div>
       <div class="section">
-        <div class="editor-choice-field" role="radiogroup" aria-label="Single View Start Card Mode">
-          <div class="field-label">Start Card Mode</div>
+        <div class="editor-choice-field" role="radiogroup" aria-label="Single View Start Mode">
+          <div class="field-label">Start Mode</div>
           ${singleViewStartModeControl}
         </div>
-        <div class="field-helper">Choose the mode used when Single View starts. Grid and Slideshow must also be enabled in their own settings.</div>
+        <div class="field-helper">Sets the opening mode. Enable Grid or Slideshow before selecting it.</div>
       </div>`;
     const wideViewPanelContent = `
       <div class="section">
@@ -3478,29 +3475,29 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Enable Wide View Page</span>
           <ha-switch id="wide_view_page_enabled" ${this._config?.wide_view_page_enabled ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">When enabled, Wide View becomes available in navigation and as a desktop/tablet landing page option.</div>
+        <div class="field-helper">Adds Wide View to navigation and desktop/tablet landing-page options.</div>
       </div>
       <div id="wide-view-page-options" style="display:${this._config?.wide_view_page_enabled ? "contents" : "none"}">
         <div class="section">
-          <div class="editor-choice-field" role="radiogroup" aria-label="Wide View Start Card Mode">
-            <div class="field-label">Start Card Mode</div>
+          <div class="editor-choice-field" role="radiogroup" aria-label="Wide View Start Mode">
+            <div class="field-label">Start Mode</div>
             ${wideViewStartModeControl}
           </div>
-          <div class="field-helper">Choose the mode used when Wide View starts. Grid and Slideshow must also be enabled in their own settings.</div>
+          <div class="field-helper">Sets the opening mode. Enable Grid or Slideshow before selecting it.</div>
         </div>
         <div class="section">
           <div class="layout-row">
             <span class="field-label" style="margin:0">Live Companion Cameras</span>
             <ha-switch id="wide_view_live_cameras" ${this._config?.wide_view_live_cameras ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">On = all Companion Cameras remain live. Off = refreshed snapshots, with alerted cameras temporarily promoted to live.</div>
+          <div class="field-helper">Keeps all companion cameras live. Otherwise, qualifying alerts switch snapshots to live.</div>
         </div>
         <div class="section">
           <div class="layout-row">
-            <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
+            <span class="field-label" style="margin:0">Start with Alert Takeover</span>
             <ha-switch id="wide_view_alert_takeover" ${this._config?.wide_view_alert_takeover ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">Sets the initial state of the Wide View toolbar button that allows alerted cameras to take over the main live view.</div>
+          <div class="field-helper">Sets whether alert takeover is on when Wide View opens.</div>
         </div>
       </div>
       <div class="section" id="wide-timeline-enabled-row" style="${this._config?.wide_view_page_enabled ? "" : "display:none"}">
@@ -3508,18 +3505,18 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Enable Timeline Panel</span>
           <ha-switch id="wide_view_timeline_enabled" ${this._config?.wide_view_timeline_enabled ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Shows a collapsible, time-scaled stream of alert and event thumbnails beside the Wide View event list. It follows the active camera normally and mixes all cameras while Grid mode is active.</div>
+        <div class="field-helper">Adds a collapsible timeline beside the event list. It follows the active camera, or all cameras in Grid mode.</div>
       </div>
       <div class="section timeline-dependent-section" id="wide-timeline-default-open-row" style="${this._config?.wide_view_page_enabled && this._config?.wide_view_timeline_enabled ? "" : "display:none"}">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Open Timeline by Default</span>
           <ha-switch id="wide_view_timeline_default_open" ${this._config?.wide_view_timeline_default_open ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Opens the Timeline when Wide View starts. When off, the translucent drawer handle remains available.</div>
+        <div class="field-helper">Opens the Timeline with Wide View. Its drawer handle remains available when closed.</div>
       </div>
       <div class="section timeline-dependent-section" id="wide-timeline-default-scale-row" style="${this._config?.wide_view_page_enabled && this._config?.wide_view_timeline_enabled ? "" : "display:none"}">
-        <div class="editor-choice-field" id="wide_view_timeline_default_scale" role="radiogroup" aria-label="Default Timeline Time Range">
-          <div class="field-label">Default Timeline Time Range</div>
+        <div class="editor-choice-field" id="wide_view_timeline_default_scale" role="radiogroup" aria-label="Initial Timeline Range">
+          <div class="field-label">Initial Timeline Range</div>
           ${buildEditorBubbleSelectorMarkup({
             name: "wide_view_timeline_default_scale",
             options: WIDE_TIMELINE_SCALE_OPTIONS_HOURS.map((value) => ({
@@ -3529,12 +3526,12 @@ export class FrigateViewCardEditor extends HTMLElement {
             selectedValue: timelineDefaultScale,
           })}
         </div>
-        <div class="field-helper">Sets the initial Timeline range. The Timeline still starts at the current time and can be changed from its header.</div>
+        <div class="field-helper">Sets the initial time range. Change it later from the Timeline header.</div>
       </div>
       <div class="section" id="col-width-row" style="${this._config?.wide_view_page_enabled ? "" : "display:none"}">
-        <span class="field-label">Wide View Left Width</span>
+        <span class="field-label">Left Column Width</span>
         <input id="col_left_width_pct" type="range" min="${WIDE_LEFT_WIDTH_MIN}" max="${WIDE_LEFT_WIDTH_MAX}" step="1" value="${wideLeftWidth}" style="width:100%">
-        <div class="field-helper">Controls the left column width when Wide View is active.</div>
+        <div class="field-helper">Sets the width of Wide View's left column.</div>
         <div class="field-helper" id="col_left_width_pct-output">${wideLeftWidth}%</div>
         <div class="field-helper" id="col_left_width_pct-helper"></div>
       </div>
@@ -3545,28 +3542,28 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Enable Mobile View Page</span>
           <ha-switch id="mobile_view_page_enabled" ${this._config?.mobile_view_page_enabled !== false ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">When enabled, Mobile appears in navigation and as a landing page option for both desktop/tablet and phone devices.</div>
+        <div class="field-helper">Adds Mobile View to navigation and landing-page options on all devices.</div>
       </div>
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Rotate to Fullscreen</span>
           <ha-switch id="mobile_view_rotate_to_fullscreen" ${this._config?.mobile_view_rotate_to_fullscreen === true ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">On mobile phones, rotating to landscape expands live and popup media to fullscreen. Tablets, PCs, Home Assistant editing, and card-picker demos are excluded.</div>
+        <div class="field-helper">On phones, landscape rotation expands live and popup media to fullscreen. Disabled while editing or previewing the card.</div>
       </div>
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Mobile Battery Saver</span>
           <ha-switch id="mobile_poll_battery_saver" ${this._config?.mobile_poll_battery_saver ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">On mobile devices, check for new alerts and reviews every 60 seconds to reduce battery and data use.</div>
+        <div class="field-helper">Checks for new alerts and reviews every 60 seconds on mobile to reduce battery and data use.</div>
       </div>
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Move HA Navbar to Bottom</span>
           <ha-switch id="mobile_view_ha_navbar_bottom" ${this._config?.mobile_view_ha_navbar_bottom ? "checked" : ""} ${dashboardNavbarMoveSwitchDisabled ? "disabled" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Moves the Home Assistant dashboard navbar to the bottom on Mobile Phones.</div>
+        <div class="field-helper">Moves the Home Assistant dashboard navbar to the bottom on phones.</div>
         ${dashboardNavbarOwnershipMessage ? `<div class="field-helper navbar-owner-warning">${dashboardNavbarOwnershipMessage}</div>` : ""}
         ${dashboardNavbarOwnerMessage ? `<div class="field-helper navbar-owner-info">${dashboardNavbarOwnerMessage}</div>` : ""}
       </div>
@@ -3575,30 +3572,30 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Stack Home Assistant Icon and Label</span>
           <ha-switch id="mobile_view_ha_navbar_stack_tabs" ${this._config?.mobile_view_ha_navbar_stack_tabs ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">For Home Assistant views using Show Icon and Title, this option centers a smaller title below its icon. Icon-only and title-only tabs are unchanged.</div>
+        <div class="field-helper">For tabs showing an icon and title, centers a smaller title below the icon. Other tab styles are unchanged.</div>
       </div>
       <div class="section ha-navbar-dependent-section" id="mobile-view-ha-navbar-dashboard-row" style="${this._config?.mobile_view_ha_navbar_bottom ? "" : "display:none"}">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Whole Dashboard</span>
           <ha-switch id="mobile_view_ha_navbar_dashboard" ${dashboardNavbarOwnership.requested ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">When off, the navbar follows this card across all of its internal views while the card remains on the current Home Assistant page. When on, this card becomes the single configured owner; any ${CARD_DISPLAY_NAME} loaded on the dashboard applies its navbar layout across every dashboard page.</div>
+        <div class="field-helper">Off: applies only on this card's Home Assistant page. On: applies across the dashboard and makes this card the owner.</div>
       </div>
       <div class="section" id="mobile-view-outer-border-row" style="${this._config?.mobile_view_page_enabled !== false ? "" : "display:none"}">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Outer Border on Mobile View Page</span>
+          <span class="field-label" style="margin:0">Mobile View Outer Border</span>
           <ha-switch id="mobile_view_outer_border" ${this._config?.mobile_view_outer_border ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Shows the theme-colored outer border around Mobile View on any device. Turn off for clean full-width edges.</div>
+        <div class="field-helper">Adds the theme-colored border around Mobile View on all devices.</div>
       </div>
       `;
     const swipeNavigationPanelContent = `
       <div class="section">
         <div class="layout-row">
-          <span class="field-label" style="margin:0">Control Swipe Navigation from This Card</span>
+          <span class="field-label" style="margin:0">Control Swipe Navigation</span>
           <ha-switch id="ha_dashboard_swipe_navigation_owner" ${dashboardSwipeOwnership.requested ? "checked" : ""} ${dashboardSwipeOwnerSwitchDisabled ? "disabled" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Only one ${CARD_DISPLAY_NAME} can control swipe navigation for a dashboard.</div>
+        <div class="field-helper">Only one ${CARD_DISPLAY_NAME} can control swipe navigation per dashboard.</div>
         ${dashboardSwipeOwnershipMessage ? `<div class="field-helper swipe-owner-warning">${dashboardSwipeOwnershipMessage}</div>` : ""}
       </div>
       <div class="section swipe-navigation-dependent-section" id="ha-dashboard-swipe-settings" style="${dashboardSwipeSettingsEnabled ? "" : "display:none"}">
@@ -3607,23 +3604,23 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div class="editor-choice-chips editor-choice-chips--detailed editor-swipe-choice-grid">${dashboardSwipeChoices}</div>
         </div>
         <div id="ha-dashboard-swipe-page-selection" class="dashboard-swipe-page-selection" style="${dashboardSwipePageSelectionVisible ? "" : "display:none"}">
-          <div class="editor-choice-field dashboard-swipe-device-group" role="group" aria-label="Pc/Tablet Pages to Include in Swipe">
-            <div class="field-label">Pc/Tablet Pages to Include in Swipe</div>
+          <div class="editor-choice-field dashboard-swipe-device-group" role="group" aria-label="PC/Tablet Swipe Pages">
+            <div class="field-label">PC/Tablet Swipe Pages</div>
             <div class="editor-choice-chips editor-choice-chips--checkbox dashboard-swipe-pages-grid">${dashboardSwipePageChoices}</div>
           </div>
-          <div class="field-helper dashboard-swipe-landing-note">Enabled pages only. The Pc/Tablet landing page is always included.</div>
-          <div class="editor-choice-field dashboard-swipe-device-group" role="group" aria-label="Mobile Phone Pages to Include in Swipe">
-            <div class="field-label">Mobile Phone Pages to Include in Swipe</div>
+          <div class="field-helper dashboard-swipe-landing-note">Only enabled pages are shown. The PC/tablet landing page is always included.</div>
+          <div class="editor-choice-field dashboard-swipe-device-group" role="group" aria-label="Phone Swipe Pages">
+            <div class="field-label">Phone Swipe Pages</div>
             <div class="editor-choice-chips editor-choice-chips--checkbox dashboard-swipe-pages-grid">${dashboardSwipeMobilePageChoices}</div>
           </div>
-          <div class="field-helper dashboard-swipe-landing-note">Wide View is unavailable on phones. The effective phone landing page is always included.</div>
+          <div class="field-helper dashboard-swipe-landing-note">Wide View is unavailable on phones. The phone landing page is always included.</div>
         </div>
-        <div class="field-helper">Applies on touch devices. The outermost 18px stays reserved for Home Assistant; when no swipe target exists to the left, the Home Assistant drawer area expands to 56px.</div>
+        <div class="field-helper">On touch devices, edge swipes remain available for Home Assistant navigation.</div>
         <div class="layout-row swipe-mouse-navigation-row">
           <span class="field-label" style="margin:0">Mouse Swipe Navigation</span>
           <ha-switch id="ha_dashboard_swipe_mouse_enabled" ${this._config?.ha_dashboard_swipe_mouse_enabled ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Allows a primary-button mouse drag to use the same swipe navigation. Off by default.</div>
+        <div class="field-helper">Enables the same navigation with a primary-button mouse drag.</div>
       </div>
       `;
     const cardViewPanelContent = `
@@ -3632,63 +3629,63 @@ export class FrigateViewCardEditor extends HTMLElement {
           <span class="field-label" style="margin:0">Enable Card View Page</span>
           <ha-switch id="card_view_page_enabled" ${this._config?.card_view_page_enabled ? "checked" : ""}></ha-switch>
         </div>
-        <div class="field-helper">Adds a naturally sized live-camera card view for desktop, tablet, and phone dashboards. Card Height Limit does not apply to this view.</div>
+        <div class="field-helper">Adds a naturally sized live-camera page on any device. Card Height Limit does not apply.</div>
       </div>
       <div class="card-view-page-options" id="card-view-page-options" style="${this._config?.card_view_page_enabled ? "" : "display:none"}">
         <div class="section">
           <div class="layout-row">
-            <span class="field-label" style="margin:0">Use Card View as a Standalone View</span>
+            <span class="field-label" style="margin:0">Standalone Card View</span>
             <ha-switch id="card_view_standalone" ${this._config?.card_view_standalone ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">When enabled, Card View becomes the only available ${CARD_NAME} page on every device. Page links and the Card View back button are removed, and desktop, tablet, and phone landing behavior all use Card View.</div>
+          <div class="field-helper">Makes Card View the only ${CARD_NAME} page on all devices. Removes page links and the back button.</div>
         </div>
         <div class="section">
           <div class="layout-row">
-            <span class="field-label" style="margin:0">Alert Camera Takeover Default</span>
+            <span class="field-label" style="margin:0">Start with Alert Takeover</span>
             <ha-switch id="card_view_alert_takeover" ${this._config?.card_view_alert_takeover ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">Sets the initial state of the Card View control that allows a qualifying alert to switch the main live camera.</div>
+          <div class="field-helper">Sets whether alert takeover is on when Card View opens.</div>
         </div>
         <div class="section">
           <div class="editor-choice-field" role="radiogroup" aria-label="View Mode">
             <div class="field-label">View Mode</div>
             <div class="theme-scope-seg card-view-start-seg card-view-mode-seg">${cardViewViewModeControl}</div>
           </div>
-          <div class="field-helper">Choose whether Card View starts with only video or with its bottom activity panel open or closed.</div>
+          <div class="field-helper">Starts with video only, or with the activity panel open or closed.</div>
         </div>
         <div class="section">
-          <div class="editor-choice-field" role="radiogroup" aria-label="Card View Start Card Mode">
-            <div class="field-label">Start Card Mode</div>
+          <div class="editor-choice-field" role="radiogroup" aria-label="Card View Start Mode">
+            <div class="field-label">Start Mode</div>
             ${cardViewStartModeControl}
           </div>
-          <div class="field-helper">Choose the initial Video Only live mode. Slideshow and Grid must also be enabled in their own settings.</div>
+          <div class="field-helper">Sets the Video Only live mode. Enable Grid or Slideshow before selecting it.</div>
         </div>
         <div class="section">
           <div class="layout-row">
             <span class="field-label" style="margin:0">Enable Media Drawer</span>
             <ha-switch id="card_view_media_drawer_enabled" ${this._config?.card_view_media_drawer_enabled ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">Adds a vertical media drawer over the left side of Card View in Video Only mode.</div>
+          <div class="field-helper">Shows a media drawer on the left in Video Only mode.</div>
         </div>
         <div class="section">
           <div class="layout-row">
             <span class="field-label" style="margin:0">Hide Camera Name</span>
             <ha-switch id="card_view_hide_camera_name" ${this._config?.card_view_hide_camera_name ? "checked" : ""}></ha-switch>
           </div>
-          <div class="field-helper">In Card View Video Only mode, hides the camera picker until the video is hovered or touched, including in Grid mode.</div>
+          <div class="field-helper">Hides the camera picker in Video Only until the video is hovered or touched. Also applies in Grid mode.</div>
         </div>
       </div>`;
     const landingPanelContent = `
       <div class="section">
         <span class="field-label">Landing Page</span>
         <ha-selector id="landing_page" style="width:220px"></ha-selector>
-        <div class="field-helper">Choose the default starting page for desktop and tablet devices.</div>
+        <div class="field-helper">Selects the starting page for desktops and tablets.</div>
       </div>
       <div class="section">
-        <span class="field-label">Mobile Page</span>
+        <span class="field-label">Phone Landing Page</span>
         <ha-selector id="mobile_page" style="width:220px" ${this._config?.card_view_standalone ? "disabled" : ""}></ha-selector>
-        <div class="field-helper">Choose the phone starting flow. Preview combinations open Preview first, then send a selected camera to Mobile, Card View, or Single View. Options involving Mobile, Card View, or Preview require those pages to be enabled.</div>
-        ${this._config?.card_view_standalone ? '<div class="field-helper standalone-mobile-note">Mobile Page is unavailable while Card View is standalone because phones use the same Card View landing page as desktop and tablet.</div>' : ""}
+        <div class="field-helper">Sets the phone landing flow. Preview combinations open Preview first, then the selected camera in the paired view. Required pages must be enabled.</div>
+        ${this._config?.card_view_standalone ? '<div class="field-helper standalone-mobile-note">Unavailable while Card View is standalone because all devices start in Card View.</div>' : ""}
       </div>`;
     const gridviewPanelContent = `
       <div class="section">
@@ -3698,7 +3695,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0">Enable Grid Mode</span>
               <ha-switch id="grid_mode_enabled" ${this._config?.grid_mode_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Enable a 2x2 camera grid. It requires at least 2 cameras and is not available on mobile devices.</div>
+            <div class="field-helper">Adds a 2×2 grid for at least two cameras. Unavailable on mobile devices.</div>
           </div>
           <div id="grid_order_row" class="grid-order-config" style="display:${this._config?.grid_mode_enabled ? "flex" : "none"}">
             <span class="field-label" style="margin:0">Grid Order</span>
@@ -3706,19 +3703,19 @@ export class FrigateViewCardEditor extends HTMLElement {
               <button type="button" class="theme-opt ${gridOrder.mode === GRID_ORDER_MODES.default ? "active" : ""}" data-grid-order-mode="default" role="radio" aria-checked="${gridOrder.mode === GRID_ORDER_MODES.default ? "true" : "false"}">Default</button>
               <button type="button" class="theme-opt ${gridOrder.mode === GRID_ORDER_MODES.custom ? "active" : ""}" data-grid-order-mode="custom" role="radio" aria-checked="${gridOrder.mode === GRID_ORDER_MODES.custom ? "true" : "false"}">Custom</button>
             </div>
-            <div class="field-helper">Default follows Camera Settings. Custom lets you reorder or exclude cameras from Grid mode without changing Camera Settings.</div>
+            <div class="field-helper">Default follows Camera Settings. Custom reorders or excludes cameras only in Grid mode.</div>
             ${gridOrderCustomMarkup}
           </div>
           <div id="grid_live_row" style="min-width:210px;display:${this._config?.grid_mode_enabled ? "flex" : "none"};flex-direction:column;gap:6px">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="field-label" style="margin:0">Live View In Grid</span>
+              <span class="field-label" style="margin:0">Live View in Grid</span>
               <ha-switch id="grid_live_view_enabled" ${this._config?.grid_live_view_enabled !== false ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper">Off = snapshots by default. Alerted cameras switch to live temporarily and show border. On = all visible grid cameras stay live.</div>
+            <div class="field-helper">Keeps all visible cameras live. Otherwise, alerts temporarily switch snapshots to live.</div>
           </div>
           <div id="grid_rotation_row" style="display:${this._config?.grid_mode_enabled && gridVisibleCameraCount > 4 ? "flex" : "none"};flex:1 1 100%;width:100%;flex-direction:column;gap:6px">
-            <div class="editor-choice-field editor-choice-field--single-row" id="grid_rotation_seconds" role="radiogroup" aria-label="Grid Rotation Frequency">
-              <div class="field-label">Grid Rotation Frequency</div>
+            <div class="editor-choice-field editor-choice-field--single-row" id="grid_rotation_seconds" role="radiogroup" aria-label="Grid Rotation Interval">
+              <div class="field-label">Grid Rotation Interval</div>
               ${buildEditorBubbleSelectorMarkup({
                 name: "grid_rotation_seconds",
                 options: durationEditorChoices(
@@ -3727,7 +3724,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: gridRotationSeconds,
               })}
             </div>
-            <div class="field-helper">How often Grid mode advances to the next set of cameras when more than four cameras are included.</div>
+            <div class="field-helper">Time between camera sets when more than four cameras are included.</div>
           </div>
         </div>
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px">
@@ -3742,7 +3739,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: gridAlertHoldSeconds,
               })}
             </div>
-            <div class="field-helper">How long an alerted Grid tile remains highlighted and, when Grid live view is off, temporarily live.</div>
+            <div class="field-helper">How long an alerted tile stays highlighted and, when needed, live.</div>
           </div>
         </div>
       </div>`;
@@ -3955,8 +3952,10 @@ export class FrigateViewCardEditor extends HTMLElement {
             .editor-choice-field--compact{flex:0 0 auto;}
             .editor-choice-field--compact .editor-choice-chip-body{min-height:36px;padding:6px 9px;}
             .editor-choice-field--compact .editor-choice-chip-indicator{width:15px;height:15px;}
-            .card-height-control{display:flex;gap:8px;align-items:center;min-width:0;}
-            .card-height-control > #stream_height{flex:1 1 auto;min-width:120px;}
+            .card-height-control{display:flex;gap:8px;align-items:flex-start;min-width:0;}
+            .card-height-slider-control{display:flex;flex:1 1 auto;min-width:120px;flex-direction:column;}
+            .card-height-slider-control > #stream_height{width:100%;margin-top:7px;}
+            .card-height-value{align-self:flex-start;margin-top:0;}
             .chk-row{display:flex;flex-wrap:wrap;gap:8px 16px;}
             .text-display-row{display:flex;align-items:center;gap:12px;min-width:0;}
             .text-display-row + .text-display-row{margin-top:8px;}
@@ -4190,7 +4189,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           </div>
           <details id="camera-modal-secondary-help" class="camera-group-help">
             <summary>What is a second camera?</summary>
-            <div class="camera-group-help-copy">Use this for devices with two camera entities, such as a doorbell with main and package cameras, a dual-camera wide view, or a PTZ camera paired with a stationary camera. Only the main camera above can provide PTZ or two-way talk controls.</div>
+            <div class="camera-group-help-copy">Combines two camera entities into one view, such as main and package cameras. Only the main camera provides PTZ or two-way talk.</div>
           </details>
           <div id="camera-modal-group-fields" class="camera-group-fields" hidden>
             <div class="camera-group-fields-head">
@@ -4218,7 +4217,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: CAMERA_GROUP_LAYOUTS.sideBySide,
               })}
             </div>
-            <div class="field-helper">The first camera is the main camera. PTZ and two-way talk capability are detected only on the main camera, not the second camera. Put the controllable camera first.</div>
+            <div class="field-helper">Only the main camera provides PTZ and two-way talk. Put the controllable camera first.</div>
             <div class="camera-group-fields-footer">
               <button type="button" id="camera-modal-remove-secondary" class="cam-inline-remove camera-group-action">Cancel</button>
             </div>
@@ -4253,7 +4252,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: LINKED_LIGHT_POSITIONS.right,
               })}
             </div>
-            <div class="field-helper">Adds a Home Assistant light control to this camera. Button Position places it to the left or right of the microphone; Right is the default. The same light may be linked to more than one camera.</div>
+            <div class="field-helper">Adds a Home Assistant light button beside the microphone. A light can be linked to multiple cameras.</div>
             <div class="camera-group-fields-footer">
               <button type="button" id="camera-modal-remove-light" class="cam-inline-remove camera-group-action">Cancel</button>
             </div>
@@ -4288,7 +4287,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 selectedValue: LINKED_LIGHT_POSITIONS.right,
               })}
             </div>
-            <div class="field-helper">The second light can be placed on either side of the microphone independently of the first light.</div>
+            <div class="field-helper">Places the second light independently on either side of the microphone.</div>
             <div class="camera-group-fields-footer">
               <button type="button" id="camera-modal-remove-light-2" class="cam-inline-remove camera-group-action">Cancel</button>
             </div>
@@ -4300,14 +4299,14 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div class="cam-modal-field">
             <span class="cam-modal-label">Connection Type</span>
             <ha-selector id="camera-modal-connection-type"></ha-selector>
-            <div class="field-helper">The Home Assistant Frigate integration is required for the card to function properly.</div>
+            <div class="field-helper">Requires the Home Assistant Frigate integration.</div>
           </div>
           <div class="cam-modal-field">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="cam-modal-label" style="margin:0">Alerts Area Content: All Reviews</span>
+              <span class="cam-modal-label" style="margin:0">Show All Reviews in Alerts</span>
               <ha-switch id="camera-modal-all-reviews"></ha-switch>
             </div>
-            <div class="field-helper">In Frigate, Reviews can include Alerts, Detections, or both. Off = Alerts Only (default). On = All Reviews.</div>
+            <div class="field-helper">Includes Frigate detections as well as alerts.</div>
           </div>
           <div class="cam-modal-field">
             <div id="camera-modal-ptz-toggle-row">
@@ -4315,10 +4314,10 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="cam-modal-label" style="margin:0">Enable PTZ Controls</span>
               <ha-switch id="camera-modal-ptz-enabled"></ha-switch>
             </div>
-            <div class="field-helper">Turn on PTZ controls. PTZ controls allow for Pan and Tilt.</div>
+            <div class="field-helper">Adds pan and tilt controls when supported.</div>
             <div id="camera-modal-ptz-rotation-row" hidden>
-              <div class="editor-choice-field camera-group-layout-field" role="radiogroup" aria-label="Rotate PTZ Controls">
-                <div class="cam-modal-label">Rotate PTZ Controls</div>
+              <div class="editor-choice-field camera-group-layout-field" role="radiogroup" aria-label="PTZ Control Rotation">
+                <div class="cam-modal-label">PTZ Control Rotation</div>
                 ${buildEditorChoiceChipsMarkup({
                   name: "camera-modal-ptz-rotation",
                   options: PTZ_CONTROL_ROTATIONS.map((rotation) => ({
@@ -4329,17 +4328,17 @@ export class FrigateViewCardEditor extends HTMLElement {
                   compact: true,
                 })}
               </div>
-              <div class="field-helper">Remaps the directional commands to match a rotated camera image. At 90°, Up sends Left.</div>
+              <div class="field-helper">Rotates directional commands to match the camera image. At 90°, Up sends Left.</div>
             </div>
             </div>
             <div class="field-helper camera-capability-status" id="camera-modal-ptz-state" style="display:none"></div>
           </div>
           <div class="cam-modal-field" id="camera-modal-two-way-talk-toggle-row" style="display:none">
             <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="cam-modal-label" style="margin:0">Enable Two-way Talk</span>
+              <span class="cam-modal-label" style="margin:0">Enable Two-Way Talk</span>
               <ha-switch id="camera-modal-two-way-talk-enabled"></ha-switch>
             </div>
-            <div class="field-helper">Frigate mode requires a detected backchannel (WEBRTC). Home Assistant mode is an experimental option when HA reports WebRTC playback.</div>
+            <div class="field-helper">Frigate requires a WebRTC backchannel. Home Assistant is experimental and requires HA WebRTC playback.</div>
           </div>
           <div class="field-helper camera-capability-status" id="camera-modal-two-way-talk-state" style="display:none"></div>
           <div class="cam-modal-helper" id="camera-modal-helper"></div>

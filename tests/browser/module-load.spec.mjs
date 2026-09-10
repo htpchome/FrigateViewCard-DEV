@@ -728,8 +728,8 @@ test("keeps desktop and phone swipe-page chips compact, equal, and responsive", 
       };
     };
     const readRows = () => ({
-      desktop: readGroup("Pc/Tablet Pages to Include in Swipe"),
-      mobile: readGroup("Mobile Phone Pages to Include in Swipe"),
+      desktop: readGroup("PC/Tablet Swipe Pages"),
+      mobile: readGroup("Phone Swipe Pages"),
     });
 
     await new Promise((resolve) => requestAnimationFrame(resolve));

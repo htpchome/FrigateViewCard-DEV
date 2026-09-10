@@ -169,11 +169,11 @@ test("card runtime preserves editor-backed favorite and alert hold settings", ()
 test("alert hold controls explain their runtime behavior", () => {
   assert.match(
     editorSource,
-    /How long Slideshow stays on a camera selected by a qualifying alert/,
+    /How long an alert-selected camera remains before rotation resumes/,
   );
   assert.match(
     editorSource,
-    /How long an alerted Grid tile remains highlighted/,
+    /How long an alerted tile stays highlighted/,
   );
 });
 
@@ -252,14 +252,14 @@ test("requested editor settings use the shared choice-chip control", () => {
   );
   assert.match(
     editorSource,
-    /How often Grid mode advances to the next set of cameras/,
+    /Time between camera sets when more than four cameras are included/,
   );
   assert.match(editorSource, /editor-choice-chips--detailed/);
   assert.match(editorSource, /label: "Dashboard Wide"/);
   assert.match(editorSource, /label: "Inside Card Only"/);
   assert.match(
     editorSource,
-    /label: "Landing Page plus Dashboard Pages"/,
+    /label: "Landing Page \+ Dashboard Pages"/,
   );
   assert.match(editorSource, /label: "None"/);
   assert.match(
@@ -337,11 +337,11 @@ test("realtime polling offers slower choices and Battery Saver uses one minute",
   );
   assert.match(
     editorSource,
-    /checks for new Frigate alerts and reviews when realtime notifications are delayed or missed/,
+    /Fallback interval for checking new alerts and reviews/,
   );
   assert.match(
     editorSource,
-    /check for new alerts and reviews every 60 seconds to reduce battery and data use/,
+    /Checks for new alerts and reviews every 60 seconds on mobile/,
   );
   assert.match(
     editorSource,
@@ -353,15 +353,15 @@ test("editor choice chips avoid native fieldsets while retaining group semantics
   assert.doesNotMatch(editorSource, /<fieldset\b|<legend\b/);
   assert.match(
     editorSource,
-    /id="realtime_poll_seconds" role="radiogroup" aria-label="Realtime Update Poll"/,
+    /id="realtime_poll_seconds" role="radiogroup" aria-label="Fallback Update Check"/,
   );
   assert.match(
     editorSource,
-    /aria-label="Pc\/Tablet Pages to Include in Swipe"/,
+    /aria-label="PC\/Tablet Swipe Pages"/,
   );
   assert.match(
     editorSource,
-    /aria-label="Mobile Phone Pages to Include in Swipe"/,
+    /aria-label="Phone Swipe Pages"/,
   );
   assert.match(
     editorSource,
@@ -405,13 +405,13 @@ test("page settings panels use clear names and the requested order", () => {
   assert.ok(cardIndex < mobileIndex);
 });
 
-test("Grid, Card View, and Slideshow enable controls explain their behavior", () => {
+test("Grid, Card View, and Slideshow controls explain their behavior", () => {
   assert.match(editorSource, />Enable Grid Mode<\/span>/);
   assert.match(editorSource, />Enable Card View Page<\/span>/);
   assert.match(editorSource, />Enable Slideshow Mode<\/span>/);
   assert.match(
     editorSource,
-    /Slideshow does not start automatically; use the Slideshow button on the card to start or stop camera rotation\./,
+    /Makes Slideshow available\. Start or stop it with the Slideshow button\./,
   );
   assert.doesNotMatch(
     editorSource,
@@ -419,11 +419,30 @@ test("Grid, Card View, and Slideshow enable controls explain their behavior", ()
   );
   assert.match(
     editorSource,
-    /Enable a 2x2 camera grid\. It requires at least 2 cameras and is not available on mobile devices\./,
+    /Adds a 2×2 grid for at least two cameras\. Unavailable on mobile devices\./,
   );
   assert.doesNotMatch(
     editorSource,
     /Grid[^.]*available on (?:phones|mobile devices) when Card View is standalone or uses Video Only mode/,
+  );
+});
+
+test("configuration helper copy is concise and action-oriented", () => {
+  assert.match(
+    editorSource,
+    /Card needs to be set to Auto Height for this to work properly\./,
+  );
+  assert.match(
+    editorSource,
+    /Adds borders to event items\. Useful when inside shadows are off\./,
+  );
+  assert.match(
+    editorSource,
+    /Sets whether alert takeover is on when Single View opens\./,
+  );
+  assert.doesNotMatch(
+    editorSource,
+    /Enable or Disable|This setting essentially|Controls whether|Sets the initial state|On =|Off =|usefull|seperate/,
   );
 });
 
@@ -528,9 +547,9 @@ test("custom theme mode scope uses a touch-safe three-way bubble", () => {
 test("editor documents the camera token for title and subtitle", () => {
   assert.match(
     editorSource,
-    /Use <code>\{camera\}<\/code> in either field to show the active camera name\./,
+    /Use <code>\{camera\}<\/code> to show the active camera name\./,
   );
-  assert.match(editorSource, /In Grid mode it displays <strong>Grid<\/strong>\./);
+  assert.match(editorSource, /Grid mode shows <strong>Grid<\/strong>\./);
 });
 
 test("editor YAML config omits normalized default values", () => {
@@ -802,7 +821,7 @@ test("Preview live view on mobile devices defaults off and serializes when enabl
 
   assert.equal(defaults.preview_page_live_cameras_mobile, false);
   assert.equal(compact.preview_page_live_cameras_mobile, true);
-  assert.match(editorSource, /Live View on Mobile Devices/);
+  assert.match(editorSource, /Live Cameras on Mobile/);
   assert.match(editorSource, /id="preview_page_live_cameras_mobile"/);
 });
 
@@ -2089,14 +2108,14 @@ test("Card View editor gates and orders all settings beneath the page toggle", (
   assert.doesNotMatch(editorSource, /id="card_view_video_panel_only"/);
   assert.ok(
     panelSource.indexOf(">Enable Card View Page<") <
-      panelSource.indexOf(">Use Card View as a Standalone View<"),
+      panelSource.indexOf(">Standalone Card View<"),
   );
   assert.ok(
-    panelSource.indexOf(">Use Card View as a Standalone View<") <
-      panelSource.indexOf(">Alert Camera Takeover Default<"),
+    panelSource.indexOf(">Standalone Card View<") <
+      panelSource.indexOf(">Start with Alert Takeover<"),
   );
   assert.ok(
-    panelSource.indexOf(">Start Card Mode<") <
+    panelSource.indexOf(">Start Mode<") <
       panelSource.indexOf(">Enable Media Drawer<"),
   );
   assert.ok(
@@ -2147,7 +2166,7 @@ test("Single, Wide, and Mobile page settings are ordered, gated, and dirty-state
   );
   const mobilePanel = editorSource.slice(mobilePanelStart, mobilePanelEnd);
   assert.ok(
-    mobilePanel.indexOf("Outer Border on Mobile View Page") >
+    mobilePanel.indexOf("Mobile View Outer Border") >
       mobilePanel.indexOf("Whole Dashboard"),
   );
 
@@ -2541,7 +2560,7 @@ test("Mobile View HA navbar options are ordered and nested under their master to
   assert.match(editorSource, /navbar-owner-info/);
   assert.match(
     editorSource,
-    /Move HA Navbar to Bottom is controlled by/,
+    /controls Move HA Navbar to Bottom/,
   );
   assert.match(
     editorSource,
@@ -2583,6 +2602,18 @@ test("editor presents general, layout, and Mobile View controls in their request
 
   assert.match(layoutSource, /id="display_logo"/);
   assert.match(layoutSource, /id="display_version"/);
+  assert.match(
+    layoutSource,
+    /class="card-height-slider-control">[\s\S]*?id="stream_height"[\s\S]*?id="stream_height-output"/,
+  );
+  assert.match(
+    layoutSource,
+    /Card needs to be set to Auto Height for this to work properly\./,
+  );
+  assert.doesNotMatch(
+    layoutSource,
+    /Home Assistant's fixed row height constrains the card/,
+  );
   assert.ok(
     layoutSource.indexOf('id="display_logo"') >
       layoutSource.indexOf('id="rounded_corners"'),
@@ -2655,8 +2686,8 @@ test("editor presents general, layout, and Mobile View controls in their request
     editorSource,
     /type="checkbox" name="ha_dashboard_swipe_mobile_pages"/,
   );
-  assert.match(swipeSource, /The Pc\/Tablet landing page is always included/);
-  assert.match(swipeSource, /The effective phone landing page is always included/);
+  assert.match(swipeSource, /The PC\/tablet landing page is always included/);
+  assert.match(swipeSource, /The phone landing page is always included/);
   assert.doesNotMatch(editorSource, /Preview \+ Card View/);
   assert.match(editorSource, /title: "Swipe Navigation"/);
 });

@@ -216,7 +216,7 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
     source,
     /id="camera-modal-name-label">Camera Name<\/span>\s*<ha-input id="camera-modal-name"[^>]*placeholder="Display name \(optional\)"/,
   );
-  assert.match(source, /The same light may be linked to more than one camera/);
+  assert.match(source, /A light can be linked to multiple cameras/);
   assert.match(
     source,
     /class="field-helper camera-capability-status" id="camera-modal-ptz-state"/,
@@ -717,11 +717,11 @@ test("camera PTZ editor removes speed tuning and uses the simplified copy", () =
 
   assert.match(
     source,
-    /Turn on PTZ controls\. PTZ controls allow for Pan and Tilt\./,
+    /Adds pan and tilt controls when supported\./,
   );
   assert.doesNotMatch(source, /camera-modal-ptz-speed/);
   assert.doesNotMatch(source, /Move Speed/);
-  assert.match(source, /Rotate PTZ Controls/);
+  assert.match(source, /PTZ Control Rotation/);
   assert.match(source, /At 90°, Up sends Left./);
   assert.match(source, /name: "camera-modal-ptz-rotation"/);
 });
@@ -749,7 +749,7 @@ test("camera modal close control uses the shared button class and close icon", (
   assert.doesNotMatch(source, /id="camera-modal-close"[^>]*>x<\/button>/);
   assert.match(
     source,
-    /Maximum \$\{physicalCameraCount\}\/\$\{MAX_CAMERAS\} Cameras/,
+    /\$\{physicalCameraCount\} of \$\{MAX_CAMERAS\} cameras configured/,
   );
   assert.match(
     source,
@@ -761,7 +761,7 @@ test("camera modal close control uses the shared button class and close icon", (
   );
   assert.match(
     source,
-    /The Home Assistant Frigate integration is required for the card to function properly\./,
+    /Requires the Home Assistant Frigate integration\./,
   );
   assert.match(
     source,
@@ -787,7 +787,7 @@ test("camera modal close control uses the shared button class and close icon", (
   assert.match(source, /Stacked/);
   assert.match(
     source,
-    /PTZ and two-way talk capability are detected only on the main camera/,
+    /Only the main camera provides PTZ and two-way talk/,
   );
 });
 

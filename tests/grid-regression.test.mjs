@@ -41,8 +41,8 @@ test("grid mode config is wired through card and editor", () => {
   assert.equal(source.includes("grid_mode_enabled"), true);
   assert.equal(source.includes("grid_live_view_enabled"), true);
   assert.equal(editorBundleSource.includes("grid_rotation_seconds"), true);
-  assert.equal(editorBundleSource.includes("Live View In Grid"), true);
-  assert.equal(editorBundleSource.includes("Grid Rotation Frequency"), true);
+  assert.equal(editorBundleSource.includes("Live View in Grid"), true);
+  assert.equal(editorBundleSource.includes("Grid Rotation Interval"), true);
   assert.equal(editorBundleSource.includes("grid_rotation_row"), true);
 });
 

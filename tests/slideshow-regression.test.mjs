@@ -22,7 +22,7 @@ test("slideshow config is wired through the card", () => {
   assert.equal(source.includes("slideshow_rotation_enabled"), true);
   assert.equal(source.includes("slideshow_rotation_seconds"), true);
   assert.equal(
-    editorBundleSource.includes("Slideshow Rotation Frequency"),
+    editorBundleSource.includes("Camera Rotation Interval"),
     true,
   );
   assert.equal(editorBundleSource.includes("slideshow_rotation_row"), true);
