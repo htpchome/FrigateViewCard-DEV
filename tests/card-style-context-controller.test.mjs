@@ -494,6 +494,130 @@ test("phone Mobile View full bleed uses the inherited Sections gutter", () => {
   );
 });
 
+test("Panel View applies page-specific width-to-height ratios", () => {
+  let page = "single";
+  let cardViewVideoOnly = false;
+  const panelView = { tagName: "HUI-PANEL-VIEW", parentNode: null };
+  const host = {
+    parentNode: panelView,
+    _isPreviewPageActive: () => page === "preview",
+    _isMobileViewPageActive: () => page === "mobile",
+    _isCardViewPageActive: () => page === "card",
+    _singleViewPageController: { isActive: () => page === "single" },
+    _wideViewPageController: {
+      isWideViewPageActive: () => page === "wide",
+    },
+    _cardViewPageController: {
+      usesOverlayPresentation: () => cardViewVideoOnly,
+    },
+  };
+  const controller = new CardStyleContextController(host);
+
+  assert.equal(controller.isPanelView(), true);
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.3);
+  page = "mobile";
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.3);
+  page = "card";
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.5);
+  cardViewVideoOnly = true;
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.7);
+  page = "wide";
+  assert.equal(controller.resolvePanelViewAspectRatio(), null);
+  page = "preview";
+  assert.equal(controller.resolvePanelViewAspectRatio(), null);
+});
+
+test("Panel View ratio caps and centers the card from its applied height", () => {
+  const styleValues = new Map([["--card-host-height", "600px"]]);
+  const styleCalls = [];
+  const classCalls = [];
+  const host = {
+    classList: {
+      toggle: (name, enabled) => classCalls.push([name, enabled]),
+    },
+    style: {
+      getPropertyValue: (name) => styleValues.get(name) || "",
+      setProperty: (name, value) => {
+        styleValues.set(name, value);
+        styleCalls.push(["set", name, value]);
+      },
+      removeProperty: (name) => {
+        styleValues.delete(name);
+        styleCalls.push(["remove", name]);
+      },
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  let ratio = 1.3;
+  controller.resolvePanelViewAspectRatio = () => ratio;
+  controller.resolveHeightWrapperViewportPx = () => 900;
+
+  controller.syncPanelViewAspectConstraint(null);
+  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "780px");
+
+  styleValues.delete("--card-host-height");
+  ratio = 1.7;
+  controller.syncPanelViewAspectConstraint(null);
+  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "1530px");
+
+  styleValues.delete("--card-host-height");
+  controller.resolveHeightWrapperViewportPx = () => null;
+  controller.syncPanelViewAspectConstraint(null);
+  assert.equal(styleValues.has("--fvc-panel-view-max-width"), false);
+
+  controller.resolveHeightWrapperViewportPx = () => 900;
+  controller.syncPanelViewAspectConstraint(null);
+  ratio = null;
+  controller.syncPanelViewAspectConstraint(null);
+  assert.deepEqual(classCalls, [
+    ["panel-view-aspect-constrained", true],
+    ["panel-view-aspect-constrained", true],
+    ["panel-view-aspect-constrained", false],
+    ["panel-view-aspect-constrained", true],
+    ["panel-view-aspect-constrained", false],
+  ]);
+  assert.equal(
+    styleCalls.some(
+      ([action, name]) =>
+        action === "remove" && name === "--fvc-panel-view-max-width",
+    ),
+    true,
+  );
+});
+
+test("Panel View ratio uses requested height before minimum-height expansion", () => {
+  const styleValues = new Map([
+    ["--card-host-height", "1492px"],
+  ]);
+  const host = {
+    classList: { toggle: () => {} },
+    style: {
+      getPropertyValue: (name) => styleValues.get(name) || "",
+      setProperty: (name, value) => styleValues.set(name, value),
+      removeProperty: (name) => styleValues.delete(name),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.resolvePanelViewAspectRatio = () => 1.3;
+  controller.resolveHeightWrapperViewportPx = () => 1_000;
+
+  controller.syncPanelViewAspectConstraint(null, {
+    requestedHeightPx: 944,
+  });
+
+  assert.equal(
+    styleValues.get("--fvc-panel-view-max-width"),
+    "1227px",
+  );
+});
+
+test("Panel View width constraint is centered and never exceeds its parent", () => {
+  assert.match(
+    STYLES,
+    /:host\(\.panel-view-aspect-constrained\)\s*\{[\s\S]*?width:\s*min\(100%, var\(--fvc-panel-view-max-width\)\) !important;[\s\S]*?max-width:\s*var\(--fvc-panel-view-max-width\) !important;[\s\S]*?margin-inline:\s*auto !important;/,
+  );
+});
+
 test("applyCardStyle resolves percent host height and clears view-height", () => {
   const hostStyleCalls = [];
   const cardStyleCalls = [];

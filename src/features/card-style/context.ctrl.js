@@ -16,10 +16,15 @@ const DARK_PRIMARY_THEME_KEYS = Object.freeze([
 ]);
 const MOBILE_SECTIONS_FULL_BLEED_CLASS =
   "mobile-view-sections-full-bleed";
+const PANEL_ASPECT_CONSTRAINED_CLASS =
+  "panel-view-aspect-constrained";
+const PANEL_ASPECT_MAX_WIDTH_PROPERTY =
+  "--fvc-panel-view-max-width";
 const HA_HEIGHT_MANAGED_VIEW_TAGS = new Set([
   "HUI-SECTIONS-VIEW",
   "HUI-SIDEBAR-VIEW",
 ]);
+const HA_PANEL_VIEW_TAGS = new Set(["HUI-PANEL-VIEW"]);
 // Includes the heading and approximately two standard event rows.
 const MINIMUM_BROWSE_REGION_HEIGHT_PX = 244;
 const MINIMUM_CARD_HEIGHT_BUFFER_PX = 8;
@@ -277,6 +282,7 @@ export class CardStyleContextController {
   isPanelView() {
     let element = this._host;
     while (element) {
+      if (HA_PANEL_VIEW_TAGS.has(element.tagName)) return true;
       if (element.tagName === "HUI-SECTIONS-VIEW" && element.shadowRoot) {
         return !this.hasAncestorInShadow(element.shadowRoot, this._host);
       }
@@ -296,6 +302,83 @@ export class CardStyleContextController {
       return false;
     };
     return walk(root, 0);
+  }
+
+  resolvePanelViewAspectRatio() {
+    if (!this.isPanelView()) return null;
+    if (this._host._isPreviewPageActive?.() === true) return null;
+    if (
+      this._host._wideViewPageController?.isWideViewPageActive?.() === true
+    ) {
+      return null;
+    }
+    if (this._host._isCardViewPageActive?.() === true) {
+      return this._host._cardViewPageController?.usesOverlayPresentation?.() ===
+        true
+        ? 1.7
+        : 1.5;
+    }
+    if (
+      this._host._isMobileViewPageActive?.() === true ||
+      this._host._singleViewPageController?.isActive?.() === true
+    ) {
+      return 1.3;
+    }
+    return null;
+  }
+
+  clearPanelViewAspectConstraint() {
+    this._host.classList?.toggle?.(
+      PANEL_ASPECT_CONSTRAINED_CLASS,
+      false,
+    );
+    if (this._panelAspectConstraintActive) {
+      this._host.style?.removeProperty?.(
+        PANEL_ASPECT_MAX_WIDTH_PROPERTY,
+      );
+    }
+    this._panelAspectConstraintActive = false;
+  }
+
+  syncPanelViewAspectConstraint(
+    card,
+    { requestedHeightPx = null } = {},
+  ) {
+    const ratio = this.resolvePanelViewAspectRatio();
+    if (ratio == null) {
+      this.clearPanelViewAspectConstraint();
+      return;
+    }
+
+    const appliedHeightPx = this.parsePxLength(
+      this._host.style?.getPropertyValue?.("--card-host-height"),
+    );
+    const availableHeightPx = this.resolveHeightWrapperViewportPx();
+    const measuredHeightPx = Math.max(
+      this.measureRenderedHeight(this._host),
+      this.measureRenderedHeight(card),
+    );
+    const referenceHeightPx =
+      (Number.isFinite(requestedHeightPx) && requestedHeightPx > 0
+        ? requestedHeightPx
+        : null) ??
+      appliedHeightPx ??
+      availableHeightPx ??
+      measuredHeightPx;
+    if (!Number.isFinite(referenceHeightPx) || referenceHeightPx <= 0) {
+      this.clearPanelViewAspectConstraint();
+      return;
+    }
+
+    this._panelAspectConstraintActive = true;
+    this._host.classList?.toggle?.(
+      PANEL_ASPECT_CONSTRAINED_CLASS,
+      true,
+    );
+    this._host.style?.setProperty?.(
+      PANEL_ASPECT_MAX_WIDTH_PROPERTY,
+      `${Math.max(1, Math.round(referenceHeightPx * ratio))}px`,
+    );
   }
 
   applyCardStyle() {
@@ -337,6 +420,7 @@ export class CardStyleContextController {
     const homeAssistantGridHeightMode =
       this.resolveHomeAssistantGridHeightMode();
     const constrainToHaGrid = homeAssistantGridHeightMode === "fixed";
+    let requestedHeightPx = null;
     const hostComputedStyle = naturalCardView && !constrainToHaGrid
       ? null
       : getComputedStyle(this._host);
@@ -375,6 +459,7 @@ export class CardStyleContextController {
               wrapperPaddingPx -
               sectionsBottomPaddingPx,
           );
+          requestedHeightPx = resolvedCardHeightPx;
           const usableHeight = this.resolveUsableHostHeight({
             card,
             resolvedHeightPx: resolvedCardHeightPx,
@@ -393,6 +478,7 @@ export class CardStyleContextController {
           Math.max(0.01, numericHeight / 100),
         );
         if (resolvedViewportHeightPx != null) {
+          requestedHeightPx = resolvedViewportHeightPx;
           const usableHeight = this.resolveUsableHostHeight({
             card,
             resolvedHeightPx: resolvedViewportHeightPx,
@@ -412,6 +498,7 @@ export class CardStyleContextController {
           card.style.setProperty("--view-height", configuredHeightValue);
         }
       } else {
+        requestedHeightPx = this.parsePxLength(configuredHeightValue);
         this._host.style.setProperty(
           "--card-host-height",
           configuredHeightValue,
@@ -434,6 +521,7 @@ export class CardStyleContextController {
       constrainToHaGrid,
       homeAssistantAutoHeight: homeAssistantGridHeightMode === "auto",
     });
+    this.syncPanelViewAspectConstraint(card, { requestedHeightPx });
 
     const { mode } = this.resolveThemeContext();
     const customTheme =

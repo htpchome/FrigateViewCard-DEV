@@ -42,6 +42,11 @@ export const STYLES = `
       0px - var(--ha-view-sections-column-gap, 8px)
     ) !important;
   }
+  :host(.panel-view-aspect-constrained) {
+    width: min(100%, var(--fvc-panel-view-max-width)) !important;
+    max-width: var(--fvc-panel-view-max-width) !important;
+    margin-inline: auto !important;
+  }
   :host {
     --popup-z-index: 1000;
     --popup-bg: var(--card-background-color);

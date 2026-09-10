@@ -105,6 +105,84 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
+test("Panel view centers page-specific aspect width caps", async ({ page }) => {
+  await page.setViewportSize({ width: 1_900, height: 1_000 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const panel = document.createElement("hui-panel-view");
+    panel.style.display = "block";
+    panel.style.width = "100vw";
+    const wrapper = document.createElement("div");
+    wrapper.style.width = "100%";
+    panel.append(wrapper);
+    document.body.append(panel);
+
+    const card = document.createElement("frigate-view-card");
+    wrapper.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      stream_height: 100,
+      stream_height_unit: "%",
+      preview_page_enabled: true,
+      wide_view_page_enabled: true,
+      card_view_page_enabled: true,
+    });
+    card._pageId = "single-view";
+    card._renderShell();
+
+    const sample = (pageId, cardViewMode = "bottom-panel-open") => {
+      card._pageId = pageId;
+      card._config.card_view_view_mode = cardViewMode;
+      card._applyCardStyle();
+      const rect = card.getBoundingClientRect();
+      return {
+        constrained: card.classList.contains(
+          "panel-view-aspect-constrained",
+        ),
+        maxWidth: card.style.getPropertyValue(
+          "--fvc-panel-view-max-width",
+        ),
+        width: Math.round(rect.width),
+        left: Math.round(rect.left),
+        right: Math.round(window.innerWidth - rect.right),
+      };
+    };
+
+    return {
+      single: sample("single-view"),
+      mobile: sample("mobile-view"),
+      card: sample("card-view"),
+      cardVideoOnly: sample("card-view", "video-only"),
+      wide: sample("wide-view"),
+      preview: sample("preview"),
+    };
+  });
+
+  for (const key of ["single", "mobile", "card", "cardVideoOnly"]) {
+    expect(result[key].constrained).toBe(true);
+    expect(result[key].left).toBe(result[key].right);
+    expect(result[key].maxWidth).toBe(`${result[key].width}px`);
+  }
+  expect(result.single.width).toBe(1_227);
+  expect(result.mobile.width).toBe(1_227);
+  expect(result.card.width).toBe(1_500);
+  expect(result.cardVideoOnly.width).toBe(1_700);
+
+  for (const key of ["wide", "preview"]) {
+    expect(result[key]).toEqual({
+      constrained: false,
+      maxWidth: "",
+      width: 1_900,
+      left: 0,
+      right: 0,
+    });
+  }
+});
+
 test("cached browse rows expand in append-only batches across sticky days", async ({
   page,
 }) => {
