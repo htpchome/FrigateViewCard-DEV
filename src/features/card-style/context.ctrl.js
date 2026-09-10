@@ -407,13 +407,16 @@ export class CardStyleContextController {
       availableWidthPx > 0
         ? Math.min(availableWidthPx, maxWidthPx)
         : maxWidthPx;
-    const useAvailablePanelHeight =
+    const useNaturalPanelHeight =
       this.isPanelView() &&
       this._host._isCardViewPageActive?.() === true &&
       this._host._cardViewPageController?.usesOverlayPresentation?.() ===
         false;
-    const constrainedHeightPx = useAvailablePanelHeight
-      ? referenceHeightPx
+    const naturalPanelHeightPx = useNaturalPanelHeight
+      ? this.resolvePanelCardViewNaturalHeightPx(card, constrainedWidthPx)
+      : null;
+    const constrainedHeightPx = naturalPanelHeightPx != null
+      ? Math.min(referenceHeightPx, naturalPanelHeightPx)
       : constrainedWidthPx / ratio;
 
     this._panelAspectConstraintActive = true;
@@ -795,6 +798,50 @@ export class CardStyleContextController {
       element?.getBoundingClientRect?.().width || element?.clientWidth || 0,
     );
     return Number.isFinite(width) && width > 0 ? width : 0;
+  }
+
+  resolvePanelCardViewNaturalHeightPx(card, widthPx) {
+    if (!card?.querySelector || !Number.isFinite(widthPx) || widthPx <= 0) {
+      return null;
+    }
+    const cameraRow = card.querySelector(".card-view-camera-row");
+    const drawer = card.querySelector("[data-card-view-drawer]");
+    const footer = card.querySelector('[data-fvc-region="footer"]');
+    const fixedHeights = [cameraRow, drawer, footer].map((element) =>
+      this.measureRenderedHeight(element),
+    );
+    if (fixedHeights.some((height) => height <= 0)) return null;
+
+    const liveWrap = card.querySelector("#eng-wrap");
+    const configuredAspectRatio = liveWrap?.style?.getPropertyValue?.(
+      "--live-view-aspect-ratio",
+    );
+    const aspectRatio =
+      this.parseAspectRatio(configuredAspectRatio) ?? 16 / 9;
+    const liveHeightPx = widthPx / aspectRatio;
+    return Math.ceil(
+      fixedHeights.reduce((total, height) => total + height, 0) +
+        liveHeightPx +
+        MINIMUM_CARD_HEIGHT_BUFFER_PX,
+    );
+  }
+
+  parseAspectRatio(value) {
+    const normalized = String(value || "").trim();
+    if (!normalized) return null;
+    const [width, height, ...rest] = normalized.split("/");
+    if (rest.length) return null;
+    const numerator = Number(width);
+    const denominator = height == null ? 1 : Number(height);
+    if (
+      !Number.isFinite(numerator) ||
+      !Number.isFinite(denominator) ||
+      numerator <= 0 ||
+      denominator <= 0
+    ) {
+      return null;
+    }
+    return numerator / denominator;
   }
 
   syncViewportMinimumParentHeight(

@@ -712,7 +712,7 @@ test("Panel View derives the card height from a narrower parent", () => {
   assert.equal(styleValues.get("--fvc-panel-view-card-height"), "400px");
 });
 
-test("Panel Card View reserves the available height for an open bottom panel", () => {
+test("Panel Card View uses natural height while Sidebar retains its ratio height", () => {
   const styleValues = new Map();
   const host = {
     parentElement: {
@@ -733,16 +733,42 @@ test("Panel Card View reserves the available height for an open bottom panel", (
   controller.isPanelView = () => true;
   controller.resolvePanelViewAspectRatio = () => 1.4;
   controller.resolveHeightWrapperViewportPx = () => 900;
+  controller.resolvePanelCardViewNaturalHeightPx = () => 620;
 
   controller.syncPanelViewAspectConstraint(null);
 
   assert.equal(styleValues.get("--fvc-panel-view-max-width"), "1260px");
-  assert.equal(styleValues.get("--fvc-panel-view-card-height"), "900px");
+  assert.equal(styleValues.get("--fvc-panel-view-card-height"), "620px");
 
   controller.isPanelView = () => false;
   controller.syncPanelViewAspectConstraint(null);
 
   assert.equal(styleValues.get("--fvc-panel-view-card-height"), "400px");
+});
+
+test("Panel Card View derives its natural height from video and chrome", () => {
+  const elements = new Map([
+    [".card-view-camera-row", { clientHeight: 44 }],
+    ["[data-card-view-drawer]", { clientHeight: 150 }],
+    ['[data-fvc-region="footer"]', { clientHeight: 48 }],
+    [
+      "#eng-wrap",
+      {
+        style: {
+          getPropertyValue: () => "4 / 3",
+        },
+      },
+    ],
+  ]);
+  const controller = new CardStyleContextController({});
+  const height = controller.resolvePanelCardViewNaturalHeightPx(
+    { querySelector: (selector) => elements.get(selector) || null },
+    560,
+  );
+
+  assert.equal(height, 670);
+  assert.equal(controller.parseAspectRatio("16 / 9"), 16 / 9);
+  assert.equal(controller.parseAspectRatio("auto"), null);
 });
 
 test("Panel View width constraint is centered and never exceeds its parent", () => {

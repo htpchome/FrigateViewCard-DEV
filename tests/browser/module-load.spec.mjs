@@ -306,13 +306,13 @@ test("Panel Single and Mobile Views keep their footer inside the viewport", asyn
   }
 });
 
-test("Panel Card View keeps an open bottom panel inside a short viewport", async ({
+test("Panel Card View naturally sizes and caps an open bottom panel", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 640, height: 768 });
   await page.goto(baseUrl);
 
-  const result = await page.evaluate(async () => {
+  await page.evaluate(async () => {
     await import("/frigate-view-card.js");
     document.body.style.margin = "0";
 
@@ -342,6 +342,11 @@ test("Panel Card View keeps an open bottom panel inside a short viewport", async
     await new Promise((resolve) => requestAnimationFrame(resolve));
     card._applyCardStyle();
 
+  });
+
+  const sample = () => page.evaluate(() => {
+    const card = document.querySelector("frigate-view-card");
+    card._applyCardStyle();
     const hostRect = card.getBoundingClientRect();
     const stageRect = card.shadowRoot
       .querySelector(".card-view-live-stage")
@@ -361,19 +366,37 @@ test("Panel Card View keeps an open bottom panel inside a short viewport", async
       hostWidth: Math.round(hostRect.width),
       hostBottom: Math.round(hostRect.bottom),
       stageHeight: Math.round(stageRect.height),
+      stageWidth: Math.round(stageRect.width),
       drawerHeight: Math.round(drawerRect.height),
       footerBottom: Math.round(footerRect.bottom),
     };
   });
 
-  expect(result.constrainedHeight).toBe("740px");
-  expect(result.openClass).toBe(true);
-  expect(result.hostHeight).toBe(740);
-  expect(result.hostWidth).toBeLessThanOrEqual(640);
-  expect(result.hostBottom).toBeLessThanOrEqual(768);
-  expect(result.stageHeight).toBeGreaterThan(300);
-  expect(result.drawerHeight).toBeGreaterThan(0);
-  expect(result.footerBottom).toBeLessThanOrEqual(result.hostBottom);
+  const roomy = await sample();
+  expect(roomy.constrainedHeight).toBe(`${roomy.hostHeight}px`);
+  expect(roomy.openClass).toBe(true);
+  expect(roomy.hostHeight).toBeLessThan(740);
+  expect(roomy.hostWidth).toBeLessThanOrEqual(640);
+  expect(roomy.hostBottom).toBeLessThan(768);
+  expect(roomy.stageWidth / roomy.stageHeight).toBeCloseTo(16 / 9, 1);
+  expect(roomy.drawerHeight).toBeGreaterThan(0);
+  expect(Math.abs(roomy.footerBottom - roomy.hostBottom)).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 640, height: 500 });
+  await page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    document.querySelector("frigate-view-card")._applyCardStyle();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
+
+  const cramped = await sample();
+  expect(cramped.constrainedHeight).toBe("472px");
+  expect(cramped.hostHeight).toBe(472);
+  expect(cramped.hostBottom).toBeLessThanOrEqual(500);
+  expect(cramped.stageHeight).toBeLessThan(roomy.stageHeight);
+  expect(cramped.stageHeight).toBeGreaterThan(0);
+  expect(cramped.drawerHeight).toBeGreaterThan(0);
+  expect(Math.abs(cramped.footerBottom - cramped.hostBottom)).toBeLessThanOrEqual(1);
 });
 
 test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport", async ({

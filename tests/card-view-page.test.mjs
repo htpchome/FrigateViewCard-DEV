@@ -975,6 +975,10 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-standalone \.card-view-back-slot \{display:none;\}/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /card-view-video-only-back \{[\s\S]*?background:var\(--fvc-media-overlay-bg\);background-image:none;[\s\S]*?opacity:0;visibility:hidden;pointer-events:none;/,
   );
   assert.match(

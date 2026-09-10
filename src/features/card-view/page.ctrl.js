@@ -1233,6 +1233,7 @@ export class CardViewPageController {
     this._activityContent = content;
     this._activityMarkup = normalized;
     this._boundScroller = null;
+    this._host._applyCardStyle?.();
     return true;
   }
 
