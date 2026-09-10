@@ -95,6 +95,7 @@ import { normalizeGridOrderConfig } from "../features/grid/config.js";
 import {
   normalizeCardViewStartMode,
   normalizeCardViewViewMode,
+  resolveCardViewMasonrySizeHint,
 } from "../features/card-view/config.js";
 import { normalizePageStartMode } from "../features/navigation/start-mode.js";
 import { applyEditorPreviewDraftToCardConfig } from "../config/preview-mapper.js";
@@ -2258,6 +2259,19 @@ export class FrigateViewCard extends HTMLElement {
   getCardSize() {
     if (this._isCardPickerPreviewContext()) return 2;
     if (this._isPreviewContext()) return 3;
+    // HA may request the Masonry hint before startup applies landing_page.
+    const configuredCardViewLanding =
+      this._config?.card_view_standalone === true ||
+      (this._config?.card_view_page_enabled === true &&
+        normalizePageRoute(this._config?.landing_page) === PAGE_IDS.cardView);
+    const cardViewExpected =
+      this._isCardViewPageActive() ||
+      (this._started !== true && configuredCardViewLanding);
+    if (cardViewExpected) {
+      return resolveCardViewMasonrySizeHint(
+        this._config?.card_view_view_mode,
+      );
+    }
     return 12;
   }
   getGridOptions() {

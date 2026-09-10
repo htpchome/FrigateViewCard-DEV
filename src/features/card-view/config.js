@@ -42,6 +42,12 @@ export const CARD_VIEW_VIEW_MODES = Object.freeze({
   bottomPanelClosed: "bottom-panel-closed",
 });
 
+const CARD_VIEW_MASONRY_SIZE_HINTS = Object.freeze({
+  [CARD_VIEW_VIEW_MODES.videoOnly]: 6,
+  [CARD_VIEW_VIEW_MODES.bottomPanelOpen]: 11,
+  [CARD_VIEW_VIEW_MODES.bottomPanelClosed]: 7,
+});
+
 export const normalizeCardViewStartMode = normalizePageStartMode;
 
 const CARD_VIEW_VIEW_MODE_SET = new Set(
@@ -67,6 +73,10 @@ export const normalizeCardViewViewMode = (
     ? CARD_VIEW_VIEW_MODES.bottomPanelClosed
     : CARD_VIEW_VIEW_MODES.bottomPanelOpen;
 };
+
+export const resolveCardViewMasonrySizeHint = (viewMode) =>
+  CARD_VIEW_MASONRY_SIZE_HINTS[normalizeCardViewViewMode(viewMode)] ||
+  CARD_VIEW_MASONRY_SIZE_HINTS[CARD_VIEW_VIEW_MODES.bottomPanelOpen];
 
 const CARD_VIEW_MEDIA_DRAWER_TYPE_ALIASES = Object.freeze({
   alert: CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,

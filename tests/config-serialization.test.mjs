@@ -28,6 +28,7 @@ import {
 import {
   CARD_VIEW_VIEW_MODES,
   normalizeCardViewViewMode,
+  resolveCardViewMasonrySizeHint,
 } from "../src/features/card-view/config.js";
 import { normalizeWideLeftWidth } from "../src/features/wide-view/config.js";
 import {
@@ -2060,6 +2061,18 @@ test("Card View View Mode normalizes values and migrates legacy presentation set
       legacyVideoPanelOnly: true,
     }),
     CARD_VIEW_VIEW_MODES.bottomPanelOpen,
+  );
+  assert.equal(
+    resolveCardViewMasonrySizeHint(CARD_VIEW_VIEW_MODES.videoOnly),
+    6,
+  );
+  assert.equal(
+    resolveCardViewMasonrySizeHint(CARD_VIEW_VIEW_MODES.bottomPanelOpen),
+    11,
+  );
+  assert.equal(
+    resolveCardViewMasonrySizeHint(CARD_VIEW_VIEW_MODES.bottomPanelClosed),
+    7,
   );
 });
 

@@ -105,7 +105,7 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
-test("runtime cards report their full Masonry size despite the compact picker stub", async ({
+test("runtime cards report page-specific Masonry sizes despite the compact picker stub", async ({
   page,
 }) => {
   await page.goto(baseUrl);
@@ -128,11 +128,25 @@ test("runtime cards report their full Masonry size despite the compact picker st
     editorCard.setConfig(stub);
     editorPreview.append(editorCard);
 
+    const cardView = (viewMode) => {
+      const card = document.createElement("frigate-view-card");
+      card.setConfig({
+        ...stub,
+        card_view_page_enabled: true,
+        landing_page: "card-view",
+        card_view_view_mode: viewMode,
+      });
+      return card.getCardSize();
+    };
+
     return {
       compactPreview: stub.compact_preview,
       runtime: runtimeCard.getCardSize(),
       picker: pickerCard.getCardSize(),
       editor: editorCard.getCardSize(),
+      cardViewVideoOnly: cardView("video-only"),
+      cardViewPanelOpen: cardView("bottom-panel-open"),
+      cardViewPanelClosed: cardView("bottom-panel-closed"),
     };
   });
 
@@ -141,6 +155,9 @@ test("runtime cards report their full Masonry size despite the compact picker st
     runtime: 12,
     picker: 2,
     editor: 3,
+    cardViewVideoOnly: 6,
+    cardViewPanelOpen: 11,
+    cardViewPanelClosed: 7,
   });
 });
 
