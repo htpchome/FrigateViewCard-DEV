@@ -360,6 +360,73 @@ test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport"
   }
 });
 
+test("Panel and Sidebar 50% heights preserve the minimum browse region", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_500, height: 876 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const measure = async (viewTagName) => {
+      const view = document.createElement(viewTagName);
+      view.style.display = "block";
+      view.style.width = "100vw";
+      const wrapper = document.createElement("div");
+      wrapper.style.width = "100%";
+      view.append(wrapper);
+      document.body.append(view);
+
+      const card = document.createElement("frigate-view-card");
+      wrapper.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        stream_height: 50,
+        stream_height_unit: "%",
+      });
+      card._pageId = "single-view";
+      card._renderShell();
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      card._applyCardStyle();
+
+      const hostRect = card.getBoundingClientRect();
+      const browseRect = card.shadowRoot
+        .querySelector('[data-fvc-region="browse"]')
+        .getBoundingClientRect();
+      const footerRect = card.shadowRoot
+        .querySelector('[data-fvc-region="footer"]')
+        .getBoundingClientRect();
+      const measurement = {
+        configuredHeight: card.style.getPropertyValue("--card-host-height"),
+        maxWidth: card.style.getPropertyValue("--fvc-panel-view-max-width"),
+        hostHeight: Math.round(hostRect.height),
+        browseHeight: Math.round(browseRect.height),
+        footerInsideHost: footerRect.bottom <= hostRect.bottom,
+        wrapperHeight: wrapper.style.height,
+      };
+      view.remove();
+      return measurement;
+    };
+
+    return {
+      panel: await measure("hui-panel-view"),
+      sidebar: await measure("hui-sidebar-view"),
+    };
+  });
+
+  for (const view of [result.panel, result.sidebar]) {
+    expect(view.configuredHeight).not.toBe("410px");
+    expect(view.maxWidth).toBe("492px");
+    expect(view.hostHeight).toBeGreaterThan(410);
+    expect(view.browseHeight).toBeGreaterThanOrEqual(244);
+    expect(view.footerInsideHost).toBe(true);
+    expect(view.wrapperHeight).toBe("auto");
+  }
+});
+
 test("single-camera Preview keeps the same tile width as a two-camera Preview", async ({
   page,
 }) => {

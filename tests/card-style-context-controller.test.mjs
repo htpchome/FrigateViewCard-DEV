@@ -1571,9 +1571,13 @@ test("minimum usable height overrides compact percent and dvh heights", () => {
   assert.equal(parentElement.style.height, "auto");
 });
 
-test("Panel Single and Mobile Views keep requested height for an internal scroller", () => {
+test("Panel Single and Mobile Views keep full height for an internal scroller", () => {
   let page = "single";
   const host = {
+    _config: {
+      stream_height: 100,
+      stream_height_unit: "%",
+    },
     _isMobileViewPageActive: () => page === "mobile",
     _singleViewPageController: {
       isActive: () => page === "single",
@@ -1608,11 +1612,25 @@ test("Panel Single and Mobile Views keep requested height for an internal scroll
     }),
     { heightPx: 652, expanded: true },
   );
+
+  page = "single";
+  host._config.stream_height = 50;
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 222,
+    }),
+    { heightPx: 652, expanded: true },
+  );
 });
 
-test("Sidebar Single and Mobile Views keep requested height for an internal scroller", () => {
+test("Sidebar Single and Mobile Views keep full height for an internal scroller", () => {
   let page = "single";
   const host = {
+    _config: {
+      stream_height: 100,
+      stream_height_unit: "%",
+    },
     _isMobileViewPageActive: () => page === "mobile",
     _singleViewPageController: {
       isActive: () => page === "single",
@@ -1645,6 +1663,16 @@ test("Sidebar Single and Mobile Views keep requested height for an internal scro
     controller.resolveUsableHostHeight({
       card: {},
       resolvedHeightPx: 444,
+    }),
+    { heightPx: 652, expanded: true },
+  );
+
+  page = "single";
+  host._config.stream_height = 50;
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 222,
     }),
     { heightPx: 652, expanded: true },
   );

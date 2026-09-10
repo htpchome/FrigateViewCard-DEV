@@ -709,7 +709,17 @@ export class CardStyleContextController {
   }
 
   resolveUsableHostHeight({ card, resolvedHeightPx }) {
+    const configuredHeight = Number(this._host._config?.stream_height);
+    const configuredHeightUnit = String(
+      this._host._config?.stream_height_unit || "%",
+    )
+      .trim()
+      .toLowerCase();
+    const usesFullAvailableHeight =
+      configuredHeight === 100 &&
+      ["%", "vh", "dvh"].includes(configuredHeightUnit);
     const keepConstrainedViewHeight =
+      usesFullAvailableHeight &&
       (this.isPanelView() || this.isSidebarView()) &&
       (this._host._isMobileViewPageActive?.() === true ||
         this._host._singleViewPageController?.isActive?.() === true);
