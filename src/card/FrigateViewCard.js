@@ -6574,6 +6574,18 @@ export class FrigateViewCard extends HTMLElement {
     return false;
   }
   _handlePreviewSidebarClick(target) {
+    const pageBack = target.closest("[data-page-back]");
+    if (pageBack) {
+      const targetPageId =
+        this._pageNavigationController?.resolveBackPageTarget?.();
+      if (targetPageId) {
+        this._pageNavigationController?.navigateToPageRoute?.(
+          targetPageId,
+          { source: "mobile-view-back" },
+        );
+      }
+      return true;
+    }
     const previewButton = target.closest("[data-preview-select-camidx]");
     if (previewButton && this._isPreviewPageActive()) {
       this._exitPreviewPageToCamera(

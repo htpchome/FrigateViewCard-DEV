@@ -255,6 +255,50 @@ test("page routes replace only their layout while preserving live and popup shel
   expect(pageErrors).toEqual([]);
 });
 
+test("Mobile View back routes to Preview when enabled and Single View otherwise", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const results = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const destinations = [];
+
+    for (const previewPageEnabled of [true, false]) {
+      const card = document.createElement("frigate-view-card");
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        mobile_view_page_enabled: true,
+        preview_page_enabled: previewPageEnabled,
+      });
+      card._pageId = "mobile-view";
+      card._renderShell();
+      card._pageNavigationController.navigateToPageRoute = (
+        pageId,
+        context,
+      ) => destinations.push({ previewPageEnabled, pageId, context });
+
+      card.shadowRoot.querySelector("[data-page-back]").click();
+      card.remove();
+    }
+
+    return destinations;
+  });
+
+  expect(results).toEqual([
+    {
+      previewPageEnabled: true,
+      pageId: "preview",
+      context: { source: "mobile-view-back" },
+    },
+    {
+      previewPageEnabled: false,
+      pageId: "single-view",
+      context: { source: "mobile-view-back" },
+    },
+  ]);
+});
+
 test("Wide View footer remains singular across landing and route swaps", async ({
   page,
 }) => {
