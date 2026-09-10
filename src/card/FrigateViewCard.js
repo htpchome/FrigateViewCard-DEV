@@ -2534,6 +2534,9 @@ export class FrigateViewCard extends HTMLElement {
     this._followNowWindow = true;
     this._winEnd = now;
     this._winStart = now - this._config.event_days * DAY;
+    if (deepLinkHandlingEnabled) {
+      await this._deepLinkController.prepareStartupCameraTarget();
+    }
 
     const initialLoad = this._browseWindowLoaderController.loadWindow(true);
     this._browseWindowLoaderController.scheduleWarmOtherCamerasEvents();

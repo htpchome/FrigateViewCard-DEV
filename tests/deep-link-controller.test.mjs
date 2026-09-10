@@ -25,6 +25,7 @@ const createHarness = () => {
     _deepLinkEventLookupTried: false,
     _deepLinkReviewLookupTried: false,
     _activeCamIdx: 0,
+    _activeGroupMemberOverride: "",
     _reviews: [],
     _findEventById: (eventId) =>
       eventId === "event-1"
@@ -151,6 +152,46 @@ test("missing different-camera event bypasses caches before opening", async () =
       ["invalidateActiveWindowCaches"],
       ["loadWindow", true, { supersede: true }],
       ["showClip", "new-event", { mediaType: "clip" }],
+    ]);
+    controller.disconnect();
+  });
+});
+
+test("missing camera hint locates the event before switching and opening", async () => {
+  const { host, calls, controller } = navigationHarness();
+  const win = navigationWindow();
+  let located = false;
+  const event = {
+    id: "unhinted-event",
+    camera: "driveway",
+    has_clip: true,
+  };
+  host._findEventById = (id) =>
+    located && id === event.id ? event : null;
+  host._browseWindowLoaderController.findAndCacheDeepLinkEvent = async (
+    id,
+  ) => {
+    calls.push(["findAndCacheDeepLinkEvent", id]);
+    located = true;
+    return event;
+  };
+
+  await withWindow(win, async () => {
+    controller.connect();
+    win.navigate("?event=unhinted-event&media=clip");
+    await settleNavigation();
+
+    assert.equal(host._activeCamIdx, 1);
+    assert.equal(host._deepLinkApplied, true);
+    assert.deepEqual(calls, [
+      ["findAndCacheDeepLinkEvent", "unhinted-event"],
+      ["switchCamera", 1, { skipBrowseLoad: true }],
+      ["showClip", "unhinted-event", { mediaType: "clip" }],
+      [
+        "loadWindow",
+        true,
+        { supersede: true, reuseRecentCache: true },
+      ],
     ]);
     controller.disconnect();
   });
@@ -304,6 +345,45 @@ test("parsed deep-link targets are available before camera discovery", () => {
   assert.equal(controller.hasPendingDeepLinkTarget(), false);
 });
 
+test("startup resolves an unhinted event camera before the initial view mounts", async () => {
+  const { host, controller } = createHarness();
+  const event = {
+    id: "startup-event",
+    camera: "driveway",
+    has_clip: true,
+  };
+  host._deepLinkEventId = event.id;
+  host._findEventById = () => null;
+  host._browseWindowLoaderController = {
+    findAndCacheDeepLinkEvent: async () => event,
+  };
+
+  assert.equal(await controller.prepareStartupCameraTarget(), 1);
+  assert.equal(host._activeCamIdx, 1);
+  assert.equal(host._activeGroupMemberOverride, "");
+});
+
+test("startup preserves the matched A/B member for an unhinted event", async () => {
+  const { host, controller } = createHarness();
+  host._config.cameras[0].group = {
+    secondary_entity: "camera.package",
+    layout: "stacked",
+  };
+  host._camCache["camera.package"] = {
+    cam: "package_cam",
+  };
+  host._deepLinkEventId = "package-event";
+  host._findEventById = () => ({
+    id: "package-event",
+    camera: "package_cam",
+    has_clip: true,
+  });
+
+  assert.equal(await controller.prepareStartupCameraTarget(), 0);
+  assert.equal(host._activeCamIdx, 0);
+  assert.equal(host._activeGroupMemberOverride, "camera.package");
+});
+
 test("consumeDeepLinkEventOpen opens event popup and clears params", async () => {
   const { host, calls, controller } = createHarness();
   let cleared = 0;
@@ -380,6 +460,10 @@ test("deep links for a secondary member select its logical camera group", () => 
   });
 
   assert.equal(controller.deepLinkCameraHintIndex(), 0);
+  assert.deepEqual(controller.deepLinkCameraHintTarget(), {
+    index: 0,
+    memberEntity: "camera.package",
+  });
   controller.consumeDeepLinkEventOpen();
 
   assert.deepEqual(calls, [["switchCamera", 0]]);

@@ -86,9 +86,14 @@ export class DeepLinkController {
     let cameraChanged = false;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const previousCameraIndex = this._host._activeCamIdx;
+      const previousMemberOverride =
+        this._host._activeGroupMemberOverride || "";
       this.consumeDeepLinkReviewOpen({ skipCameraBrowseLoad: true });
       this.consumeDeepLinkEventOpen({ skipCameraBrowseLoad: true });
-      const changed = previousCameraIndex !== this._host._activeCamIdx;
+      const changed =
+        previousCameraIndex !== this._host._activeCamIdx ||
+        previousMemberOverride !==
+          (this._host._activeGroupMemberOverride || "");
       cameraChanged ||= changed;
       if (this._host._deepLinkApplied || !changed) break;
     }
@@ -99,13 +104,20 @@ export class DeepLinkController {
     const loader = this._host._browseWindowLoaderController;
     let cameraChanged = false;
     try {
-      const hintedCameraIndex = this.deepLinkCameraHintIndex();
+      const cameraTarget = await this.resolveDeepLinkCameraTarget({
+        lookupEvent: true,
+      });
       if (
-        hintedCameraIndex >= 0 &&
-        hintedCameraIndex !== this._host._activeCamIdx
+        cameraTarget &&
+        (cameraTarget.index !== this._host._activeCamIdx ||
+          cameraTarget.memberEntity !==
+            (this._host._activeGroupMemberOverride || ""))
       ) {
-        await this._host._switchCamera(hintedCameraIndex, {
+        await this._host._switchCamera(cameraTarget.index, {
           skipBrowseLoad: true,
+          ...(cameraTarget.memberEntity
+            ? { groupMemberEntity: cameraTarget.memberEntity }
+            : {}),
         });
         cameraChanged = true;
       }
@@ -240,26 +252,90 @@ export class DeepLinkController {
   }
 
   deepLinkCameraHintIndex() {
-    if (!this._host._deepLinkCameraHint) return -1;
-    const normalizedHint = normalizeCameraHintToken(
-      this._host._deepLinkCameraHint,
-    );
-    if (!normalizedHint) return -1;
-    return this._host._config.cameras.findIndex((camera) => {
-      const cameraTokens = [camera.name];
-      for (const entity of cameraMemberEntities(camera)) {
-        cameraTokens.push(entity, this._host._camCache[entity]?.cam);
+    return this.deepLinkCameraHintTarget()?.index ?? -1;
+  }
+
+  _cameraTargetForToken(value, { includeLogicalName = true } = {}) {
+    const normalizedValue = normalizeCameraHintToken(value);
+    if (!normalizedValue) return null;
+    for (let index = 0; index < this._host._config.cameras.length; index += 1) {
+      const camera = this._host._config.cameras[index];
+      if (
+        includeLogicalName &&
+        normalizeCameraHintToken(camera.name) === normalizedValue
+      ) {
+        return { index, memberEntity: "" };
       }
-      return cameraTokens.some(
-        (token) => normalizeCameraHintToken(token) === normalizedHint,
-      );
+      const memberEntities = cameraMemberEntities(camera);
+      for (const entity of memberEntities) {
+        const matchesMember = [
+          entity,
+          this._host._camCache[entity]?.cam,
+        ].some(
+          (token) => normalizeCameraHintToken(token) === normalizedValue,
+        );
+        if (matchesMember) {
+          return {
+            index,
+            memberEntity: memberEntities.length > 1 ? entity : "",
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  deepLinkCameraHintTarget() {
+    if (!this._host._deepLinkCameraHint) return null;
+    return this._cameraTargetForToken(this._host._deepLinkCameraHint);
+  }
+
+  _eventCameraIndex(event) {
+    return this._eventCameraTarget(event)?.index ?? -1;
+  }
+
+  _eventCameraTarget(event) {
+    return this._cameraTargetForToken(event?.camera, {
+      includeLogicalName: false,
     });
+  }
+
+  async resolveDeepLinkCameraTarget({ lookupEvent = false } = {}) {
+    const hintedCameraTarget = this.deepLinkCameraHintTarget();
+    if (hintedCameraTarget) return hintedCameraTarget;
+    if (!this._host._deepLinkEventId) return null;
+
+    let event = this._host._findEventById?.(
+      this._host._deepLinkEventId,
+    );
+    if (!event && lookupEvent) {
+      event = await this._host._browseWindowLoaderController
+        ?.findAndCacheDeepLinkEvent?.(this._host._deepLinkEventId);
+    }
+    return this._eventCameraTarget(event);
+  }
+
+  async resolveDeepLinkCameraIndex(options = {}) {
+    return (await this.resolveDeepLinkCameraTarget(options))?.index ?? -1;
+  }
+
+  async prepareStartupCameraTarget() {
+    if (!this.hasParsedDeepLinkTarget()) return -1;
+    const target = await this.resolveDeepLinkCameraTarget({
+      lookupEvent: true,
+    });
+    if (!target) return -1;
+    this._host._activeCamIdx = target.index;
+    this._host._activeGroupMemberOverride = target.memberEntity;
+    return target.index;
   }
 
   applyDeepLinkCameraHint() {
     if (!this._host._deepLinkCameraHint) return;
-    const idx = this.deepLinkCameraHintIndex();
-    if (idx >= 0) this._host._activeCamIdx = idx;
+    const target = this.deepLinkCameraHintTarget();
+    if (!target) return;
+    this._host._activeCamIdx = target.index;
+    this._host._activeGroupMemberOverride = target.memberEntity;
   }
 
   isDeepLinkCandidateForCard() {
@@ -280,26 +356,41 @@ export class DeepLinkController {
     }
     this._host._deepLinkEventLookupTried = true;
 
-    const eventCam = String(event.camera || "").toLowerCase();
-    if (eventCam) {
-      const idx = this._host._config.cameras.findIndex((camera) =>
-        cameraMemberEntities(camera).some(
-          (entity) =>
-            String(this._host._camCache[entity]?.cam || "").toLowerCase() ===
-            eventCam,
-        ),
-      );
-      if (idx >= 0 && idx !== this._host._activeCamIdx) {
+    if (event?.camera) {
+      const target = this._eventCameraTarget(event);
+      if (
+        target &&
+        (target.index !== this._host._activeCamIdx ||
+          target.memberEntity !==
+            (this._host._activeGroupMemberOverride || ""))
+      ) {
         if (skipCameraBrowseLoad) {
-          this._host._switchCamera(idx, { skipBrowseLoad: true });
+          this._host._switchCamera(target.index, {
+            skipBrowseLoad: true,
+            ...(target.memberEntity
+              ? { groupMemberEntity: target.memberEntity }
+              : {}),
+          });
         } else {
-          this._host._switchCamera(idx);
+          this._host._switchCamera(target.index, {
+            ...(target.memberEntity
+              ? { groupMemberEntity: target.memberEntity }
+              : {}),
+          });
         }
         return;
       }
     }
 
     this._host._deepLinkApplied = true;
+    if (
+      this._host._cardViewPageController?.openDeepLinkEvent?.(event, {
+        mediaHint: this._host._deepLinkMediaHint,
+      })
+    ) {
+      this.clearDeepLinkParamsFromUrl();
+      return;
+    }
     if (this._host._deepLinkMediaHint === "snapshot") {
       this._host._popupMediaLoaderController?.showSnapshot?.(event) ??
         this._host._showSnapshot?.(event);

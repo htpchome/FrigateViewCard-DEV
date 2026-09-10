@@ -48,6 +48,41 @@ test("Card View groups tiles into full-width scroll pages", () => {
   ]);
 });
 
+test("Video Only Card View opens deep links in its overlay presentation", () => {
+  const calls = [];
+  const host = {
+    _pageId: "card-view",
+    _config: { card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly },
+    _popupMediaLoaderController: {
+      showClip: (...args) => calls.push(["clip", ...args]),
+      showSnapshot: (...args) => calls.push(["snapshot", ...args]),
+    },
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+  const clip = { id: "clip-event", has_clip: true };
+  const snapshot = { id: "snapshot-event", has_clip: false };
+
+  assert.equal(controller.openDeepLinkEvent(clip), true);
+  assert.equal(
+    controller.openDeepLinkEvent(snapshot, { mediaHint: "snapshot" }),
+    true,
+  );
+  assert.deepEqual(calls, [
+    [
+      "clip",
+      clip,
+      { presentation: "card-view-drawer", mediaType: "clip" },
+    ],
+    [
+      "snapshot",
+      snapshot,
+      { presentation: "card-view-drawer" },
+    ],
+  ]);
+});
+
 test("Card View overlay calendar keeps the current day readable", () => {
   assert.match(
     CARD_VIEW_PAGE_STYLES,

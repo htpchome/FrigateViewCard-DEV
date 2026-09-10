@@ -84,6 +84,76 @@ test("review metadata hydration caches referenced events outside the event windo
   assert.equal(requests.length, 1);
 });
 
+test("deep-link event lookup batches custom and grouped cameras by Frigate instance", async () => {
+  const requests = [];
+  const target = {
+    id: "linked-event",
+    camera: "package_cam",
+    start_time: 180,
+    has_clip: true,
+  };
+  const host = {
+    _winStart: 100,
+    _winEnd: 200,
+    _config: {
+      event_days: 1,
+      cameras: [
+        { entity: "camera.custom_front", name: "Front Porch" },
+        {
+          entity: "camera.doorbell",
+          name: "Entry A/B",
+          group: {
+            secondary_entity: "camera.package",
+            layout: "stacked",
+          },
+        },
+      ],
+    },
+    _camCache: {
+      "camera.custom_front": {
+        clientId: "frigate-main",
+        cam: "front_porch_cam",
+        reviewEvents: [],
+      },
+      "camera.doorbell": {
+        clientId: "frigate-main",
+        cam: "doorbell_cam",
+        reviewEvents: [],
+      },
+      "camera.package": {
+        clientId: "frigate-main",
+        cam: "package_cam",
+        reviewEvents: [],
+      },
+    },
+    _findEventById: () => null,
+    _ws: async (payload) => {
+      requests.push(payload);
+      return [target];
+    },
+  };
+  const controller = new BrowseWindowLoaderController(host);
+
+  assert.equal(
+    await controller.findAndCacheDeepLinkEvent("linked-event"),
+    target,
+  );
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].cameras, [
+    "front_porch_cam",
+    "doorbell_cam",
+    "package_cam",
+  ]);
+  assert.deepEqual(
+    host._camCache["camera.package"].reviewEvents,
+    [target],
+  );
+  assert.deepEqual(
+    host._camCache["camera.custom_front"].reviewEvents,
+    [],
+  );
+});
+
 test("loadWindow updates active slices and finishes the browse load cycle", async () => {
   const calls = [];
   let eventFetchCount = 0;

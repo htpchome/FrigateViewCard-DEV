@@ -26,6 +26,8 @@ const REVIEW_EVENT_METADATA_CACHE_MS = 5 * 60 * 1000;
 const REVIEW_EVENT_METADATA_BATCH = 500;
 const REVIEW_EVENT_METADATA_LIMIT = 250;
 const REVIEW_EVENT_METADATA_PAGE_LIMIT = 2;
+const normalizeCameraName = (value) =>
+  String(value || "").trim().toLowerCase();
 
 export class BrowseWindowLoaderController {
   constructor(host, deps = {}) {
@@ -366,6 +368,102 @@ export class BrowseWindowLoaderController {
       getItemStartTime: (item, fallbackBefore) =>
         item?.start_time || fallbackBefore,
     });
+  }
+
+  async findAndCacheDeepLinkEvent(eventId) {
+    const targetId = String(eventId || "").trim();
+    if (!targetId) return null;
+    const cachedEvent = this._host._findEventById?.(targetId);
+    if (cachedEvent) return cachedEvent;
+
+    const before = Math.floor(
+      Number(this._host._winEnd) || Date.now() / 1000,
+    );
+    const after = Math.max(
+      0,
+      Math.floor(
+        Number(this._host._winStart) ||
+          before -
+            (this._host._config?.event_days || DEFAULT_EVENT_DAYS) * DAY,
+      ),
+    );
+    const contextsByInstance = new Map();
+    for (const camera of flattenCameraMembers(
+      this._host._config?.cameras || [],
+    )) {
+      const cache = this._host._camCache?.[camera.entity];
+      if (!cache?.clientId || !cache?.cam) continue;
+      const group = contextsByInstance.get(cache.clientId) || {
+        clientId: cache.clientId,
+        cameras: new Set(),
+        entitiesByCamera: new Map(),
+      };
+      group.cameras.add(cache.cam);
+      group.entitiesByCamera.set(
+        normalizeCameraName(cache.cam),
+        camera.entity,
+      );
+      contextsByInstance.set(cache.clientId, group);
+    }
+    if (!contextsByInstance.size) return null;
+
+    let resolvedEvent = null;
+    await Promise.all(
+      [...contextsByInstance.values()].map(async (group) => {
+        let cursorBefore = before;
+        for (
+          let page = 0;
+          page < WINDOW_FETCH_PAGE_LIMIT && !resolvedEvent;
+          page += 1
+        ) {
+          const batch = await this._requestBrowseItems({
+            type: "frigate/events/get",
+            instance_id: group.clientId,
+            cameras: [...group.cameras],
+            after,
+            before: cursorBefore,
+            limit: EVENT_FETCH_BATCH,
+          });
+          if (!Array.isArray(batch) || !batch.length) return;
+          const event = batch.find(
+            (item) => String(item?.id || "") === targetId,
+          );
+          if (event) {
+            const entity = group.entitiesByCamera.get(
+              normalizeCameraName(event.camera),
+            );
+            const cache = entity
+              ? this._host._camCache?.[entity]
+              : null;
+            if (cache) {
+              const known = new Map(
+                (cache.reviewEvents || []).map((item) => [
+                  String(item?.id || ""),
+                  item,
+                ]),
+              );
+              known.set(targetId, event);
+              cache.reviewEvents = [...known.values()]
+                .sort(
+                  (left, right) =>
+                    Number(right?.start_time || 0) -
+                    Number(left?.start_time || 0),
+                )
+                .slice(0, REVIEW_EVENT_METADATA_LIMIT);
+            }
+            resolvedEvent = event;
+            return;
+          }
+          if (batch.length < EVENT_FETCH_BATCH) return;
+          const oldest = Math.min(
+            ...batch.map((item) => Number(item?.start_time) || cursorBefore),
+          );
+          if (!Number.isFinite(oldest) || oldest <= after) return;
+          cursorBefore = Math.floor(oldest) - 1;
+        }
+      }),
+    );
+    return resolvedEvent;
   }
 
   _reviewEventContext(review, entity = "") {

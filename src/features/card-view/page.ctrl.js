@@ -220,6 +220,25 @@ export class CardViewPageController {
     );
   }
 
+  openDeepLinkEvent(event, { mediaHint = "" } = {}) {
+    if (!this.usesOverlayPresentation() || !event?.id) return false;
+    const options = {
+      presentation: POPUP_PRESENTATION_CARD_VIEW_DRAWER,
+    };
+    if (mediaHint === "snapshot" || !event.has_clip) {
+      this._host._popupMediaLoaderController?.showSnapshot?.(
+        event,
+        options,
+      );
+      return true;
+    }
+    this._host._popupMediaLoaderController?.showClip?.(event, {
+      ...options,
+      mediaType: "clip",
+    });
+    return true;
+  }
+
   liveFullscreenTarget() {
     const liveStage = this._host._$?.("#live-stage") || null;
     if (!this.usesOverlayPresentation()) return liveStage;
