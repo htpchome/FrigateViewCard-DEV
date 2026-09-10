@@ -105,6 +105,45 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
+test("runtime cards report their full Masonry size despite the compact picker stub", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const Card = customElements.get("frigate-view-card");
+    const stub = Card.getStubConfig();
+
+    const runtimeCard = document.createElement("frigate-view-card");
+    runtimeCard.setConfig(stub);
+
+    const picker = document.createElement("hui-card-picker");
+    const pickerCard = document.createElement("frigate-view-card");
+    pickerCard.setConfig(stub);
+    picker.append(pickerCard);
+
+    const editorPreview = document.createElement("hui-card-preview");
+    const editorCard = document.createElement("frigate-view-card");
+    editorCard.setConfig(stub);
+    editorPreview.append(editorCard);
+
+    return {
+      compactPreview: stub.compact_preview,
+      runtime: runtimeCard.getCardSize(),
+      picker: pickerCard.getCardSize(),
+      editor: editorCard.getCardSize(),
+    };
+  });
+
+  expect(result).toEqual({
+    compactPreview: true,
+    runtime: 12,
+    picker: 2,
+    editor: 3,
+  });
+});
+
 test("Panel view centers page-specific aspect width caps", async ({ page }) => {
   await page.setViewportSize({ width: 1_900, height: 1_000 });
   await page.goto(baseUrl);

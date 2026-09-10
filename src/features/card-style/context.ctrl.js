@@ -25,6 +25,7 @@ const HA_HEIGHT_MANAGED_VIEW_TAGS = new Set([
   "HUI-SIDEBAR-VIEW",
 ]);
 const HA_PANEL_VIEW_TAGS = new Set(["HUI-PANEL-VIEW"]);
+const HA_MASONRY_VIEW_TAGS = new Set(["HUI-MASONRY-VIEW"]);
 // Includes the heading and approximately two standard event rows.
 const MINIMUM_BROWSE_REGION_HEIGHT_PX = 244;
 const MINIMUM_CARD_HEIGHT_BUFFER_PX = 8;
@@ -218,11 +219,13 @@ export class CardStyleContextController {
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
     const homeAssistantAutoHeight =
       this.resolveHomeAssistantGridHeightMode() === "auto";
+    const homeAssistantMasonry = this.isInMasonryView();
     if (this._host.parentElement) {
       this._host.parentElement.style.height =
         inPreviewContext ||
         naturalCardView ||
         homeAssistantAutoHeight ||
+        homeAssistantMasonry ||
         this._viewportMinimumActive === true
           ? "auto"
           : "100%";
@@ -259,6 +262,15 @@ export class CardStyleContextController {
     let element = this._host;
     while (element) {
       if (element.tagName === "HUI-SECTIONS-VIEW") return true;
+      element = element.parentNode || element.host;
+    }
+    return false;
+  }
+
+  isInMasonryView() {
+    let element = this._host;
+    while (element) {
+      if (HA_MASONRY_VIEW_TAGS.has(element.tagName)) return true;
       element = element.parentNode || element.host;
     }
     return false;
@@ -746,7 +758,9 @@ export class CardStyleContextController {
       return;
     }
     this._host.parentElement.style.height =
-      this._viewportMinimumActive || homeAssistantAutoHeight
+      this._viewportMinimumActive ||
+      homeAssistantAutoHeight ||
+      this.isInMasonryView()
         ? "auto"
         : "100%";
   }

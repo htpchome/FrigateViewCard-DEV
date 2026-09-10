@@ -446,6 +446,40 @@ test("applyTightMargins updates parent spacing and sections row gap", () => {
   ]);
 });
 
+test("Masonry View keeps the Home Assistant card wrapper naturally sized", () => {
+  const masonryView = {
+    tagName: "HUI-MASONRY-VIEW",
+    parentNode: null,
+  };
+  const parentElement = {
+    tagName: "DIV",
+    parentNode: masonryView,
+    style: { height: "100%", margin: "8px", padding: "6px" },
+  };
+  const host = {
+    _sourceConfig: {},
+    _config: { tight_margins: false },
+    _parentOrigStyle: { margin: "8px", padding: "6px" },
+    _isPreviewContext: () => false,
+    _isCardViewPageActive: () => false,
+    parentElement,
+    parentNode: parentElement,
+    classList: { toggle: () => {} },
+    shadowRoot: {
+      querySelector: () => ({ classList: { toggle: () => {} } }),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+
+  assert.equal(controller.isInMasonryView(), true);
+  controller.applyTightMargins();
+  assert.equal(parentElement.style.height, "auto");
+
+  parentElement.style.height = "100%";
+  controller.syncViewportMinimumParentHeight(false);
+  assert.equal(parentElement.style.height, "auto");
+});
+
 test("tight margins make only phone Mobile View full bleed in Sections View", () => {
   const hostToggles = [];
   const sectionsView = {

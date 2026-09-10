@@ -1609,7 +1609,9 @@ export class FrigateViewCard extends HTMLElement {
         padding: this.parentElement.style.padding,
       };
       this.parentElement.style.height =
-        this._isPreviewContext() || this._isCardViewPageActive?.()
+        this._isPreviewContext() ||
+        this._isCardViewPageActive?.() ||
+        this._cardStyleController.isInMasonryView()
         ? "auto"
         : "100%";
       this._applyTightMargins();
@@ -2255,9 +2257,7 @@ export class FrigateViewCard extends HTMLElement {
   }
   getCardSize() {
     if (this._isCardPickerPreviewContext()) return 2;
-    if (this._isPreviewContext() || this._config?.compact_preview === true) {
-      return 3;
-    }
+    if (this._isPreviewContext()) return 3;
     return 12;
   }
   getGridOptions() {
