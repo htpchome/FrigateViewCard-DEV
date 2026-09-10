@@ -344,6 +344,41 @@ export class DeepLinkController {
     return this.deepLinkCameraHintIndex() >= 0;
   }
 
+  _openResolvedEvent(event) {
+    if (
+      this._host._cardViewPageController?.openDeepLinkEvent?.(event, {
+        mediaHint: this._host._deepLinkMediaHint,
+      })
+    ) {
+      return true;
+    }
+
+    const loader = this._host._popupMediaLoaderController;
+    const useSnapshot =
+      this._host._deepLinkMediaHint === "snapshot" || !event.has_clip;
+    if (useSnapshot) {
+      if (typeof loader?.showSnapshot === "function") {
+        loader.showSnapshot(event);
+        return true;
+      }
+      if (typeof this._host._showSnapshot === "function") {
+        this._host._showSnapshot(event);
+        return true;
+      }
+      return false;
+    }
+
+    if (typeof loader?.showClip === "function") {
+      loader.showClip(event, { mediaType: "clip" });
+      return true;
+    }
+    if (typeof this._host._showClip === "function") {
+      this._host._showClip(event, { mediaType: "clip" });
+      return true;
+    }
+    return false;
+  }
+
   consumeDeepLinkEventOpen({ skipCameraBrowseLoad = false } = {}) {
     if (!this.isDeepLinkHandlingEnabled()) return;
     if (!this.isDeepLinkCandidateForCard()) return;
@@ -382,29 +417,13 @@ export class DeepLinkController {
       }
     }
 
+    try {
+      if (!this._openResolvedEvent(event)) return;
+    } catch (_) {
+      // Leave the target pending so startup or the window reload can retry it.
+      return;
+    }
     this._host._deepLinkApplied = true;
-    if (
-      this._host._cardViewPageController?.openDeepLinkEvent?.(event, {
-        mediaHint: this._host._deepLinkMediaHint,
-      })
-    ) {
-      this.clearDeepLinkParamsFromUrl();
-      return;
-    }
-    if (this._host._deepLinkMediaHint === "snapshot") {
-      this._host._popupMediaLoaderController?.showSnapshot?.(event) ??
-        this._host._showSnapshot?.(event);
-      this.clearDeepLinkParamsFromUrl();
-      return;
-    }
-    if (this._host._deepLinkMediaHint === "clip" && event.has_clip) {
-      this._host._popupMediaLoaderController?.showClip?.(event, {
-        mediaType: "clip",
-      }) ?? this._host._showClip?.(event, { mediaType: "clip" });
-      this.clearDeepLinkParamsFromUrl();
-      return;
-    }
-    this._host._open(this._host._deepLinkEventId);
     this.clearDeepLinkParamsFromUrl();
   }
 

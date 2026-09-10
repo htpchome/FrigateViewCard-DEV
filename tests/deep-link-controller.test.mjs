@@ -178,7 +178,7 @@ test("missing camera hint locates the event before switching and opening", async
 
   await withWindow(win, async () => {
     controller.connect();
-    win.navigate("?event=unhinted-event&media=clip");
+    win.navigate("?event=unhinted-event");
     await settleNavigation();
 
     assert.equal(host._activeCamIdx, 1);
@@ -252,6 +252,35 @@ test("mergedUrlSearchParams merges search and hash query params", async () => {
       assert.equal(params.get("media"), "snapshot");
     },
   );
+});
+
+test("unqualified event links open the resolved event without a rendered-list lookup", () => {
+  const { host, calls, controller } = createHarness();
+  host._deepLinkEventId = "event-1";
+  controller.clearDeepLinkParamsFromUrl = () => calls.push(["clear"]);
+
+  controller.consumeDeepLinkEventOpen();
+
+  assert.deepEqual(calls, [
+    ["showClip", "event-1", { mediaType: "clip" }],
+    ["clear"],
+  ]);
+  assert.equal(host._deepLinkApplied, true);
+});
+
+test("failed popup dispatch leaves the deep link pending for startup retry", () => {
+  const { host, calls, controller } = createHarness();
+  host._deepLinkEventId = "event-1";
+  host._showClip = () => {
+    calls.push(["showClip"]);
+    throw new Error("popup shell is not mounted");
+  };
+  controller.clearDeepLinkParamsFromUrl = () => calls.push(["clear"]);
+
+  controller.consumeDeepLinkEventOpen();
+
+  assert.deepEqual(calls, [["showClip"]]);
+  assert.equal(host._deepLinkApplied, false);
 });
 
 test("clearDeepLinkParamsFromUrl removes deep link params", async () => {

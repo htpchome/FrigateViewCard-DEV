@@ -222,17 +222,17 @@ export class CardViewPageController {
 
   openDeepLinkEvent(event, { mediaHint = "" } = {}) {
     if (!this.usesOverlayPresentation() || !event?.id) return false;
+    const loader = this._host._popupMediaLoaderController;
     const options = {
       presentation: POPUP_PRESENTATION_CARD_VIEW_DRAWER,
     };
     if (mediaHint === "snapshot" || !event.has_clip) {
-      this._host._popupMediaLoaderController?.showSnapshot?.(
-        event,
-        options,
-      );
+      if (typeof loader?.showSnapshot !== "function") return false;
+      loader.showSnapshot(event, options);
       return true;
     }
-    this._host._popupMediaLoaderController?.showClip?.(event, {
+    if (typeof loader?.showClip !== "function") return false;
+    loader.showClip(event, {
       ...options,
       mediaType: "clip",
     });
