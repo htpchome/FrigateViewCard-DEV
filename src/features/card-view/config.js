@@ -44,7 +44,7 @@ export const CARD_VIEW_VIEW_MODES = Object.freeze({
 
 const CARD_VIEW_MASONRY_SIZE_HINTS = Object.freeze({
   [CARD_VIEW_VIEW_MODES.videoOnly]: 6,
-  [CARD_VIEW_VIEW_MODES.bottomPanelOpen]: 11,
+  [CARD_VIEW_VIEW_MODES.bottomPanelOpen]: 10,
   [CARD_VIEW_VIEW_MODES.bottomPanelClosed]: 7,
 });
 

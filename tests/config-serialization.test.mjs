@@ -733,6 +733,21 @@ test("compact YAML omits the camera token only when it is the subtitle default",
   assert.equal(config.subtitle, undefined);
 });
 
+test("event item borders default off and serialize only when enabled", () => {
+  const defaults = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+  });
+  const enabled = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    borders: true,
+  });
+
+  assert.equal(defaults.borders, false);
+  assert.equal(enabled.borders, true);
+  assert.equal(compactEditorConfigForYaml(defaults).borders, undefined);
+  assert.equal(compactEditorConfigForYaml(enabled).borders, true);
+});
+
 test("title, subtitle, logo, and version defaults normalize and hidden states serialize", () => {
   const defaults = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
@@ -2068,7 +2083,7 @@ test("Card View View Mode normalizes values and migrates legacy presentation set
   );
   assert.equal(
     resolveCardViewMasonrySizeHint(CARD_VIEW_VIEW_MODES.bottomPanelOpen),
-    11,
+    10,
   );
   assert.equal(
     resolveCardViewMasonrySizeHint(CARD_VIEW_VIEW_MODES.bottomPanelClosed),

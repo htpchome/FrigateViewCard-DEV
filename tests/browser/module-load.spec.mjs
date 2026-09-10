@@ -156,7 +156,7 @@ test("runtime cards report page-specific Masonry sizes despite the compact picke
     picker: 2,
     editor: 3,
     cardViewVideoOnly: 6,
-    cardViewPanelOpen: 11,
+    cardViewPanelOpen: 10,
     cardViewPanelClosed: 7,
   });
 });
@@ -304,6 +304,74 @@ test("Panel Single and Mobile Views keep their footer inside the viewport", asyn
     expect(view.browseOverflowY).toBe("auto");
     expect(view.wrapperHeight).toBe("100%");
   }
+});
+
+test("Panel Card View keeps an open bottom panel inside a short viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_200, height: 768 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const panel = document.createElement("hui-panel-view");
+    panel.style.display = "block";
+    panel.style.width = "100vw";
+    const wrapper = document.createElement("div");
+    wrapper.style.width = "100%";
+    wrapper.style.position = "relative";
+    wrapper.style.top = "28px";
+    panel.append(wrapper);
+    document.body.append(panel);
+
+    const card = document.createElement("frigate-view-card");
+    wrapper.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      stream_height: 100,
+      stream_height_unit: "%",
+      card_view_page_enabled: true,
+      card_view_view_mode: "bottom-panel-open",
+    });
+    card._pageId = "card-view";
+    card._renderShell();
+    card._cardViewPageController.syncDrawerState();
+    card._applyCardStyle();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    card._applyCardStyle();
+
+    const hostRect = card.getBoundingClientRect();
+    const stageRect = card.shadowRoot
+      .querySelector(".card-view-live-stage")
+      .getBoundingClientRect();
+    const drawerRect = card.shadowRoot
+      .querySelector("[data-card-view-drawer]")
+      .getBoundingClientRect();
+    const footerRect = card.shadowRoot
+      .querySelector('[data-fvc-region="footer"]')
+      .getBoundingClientRect();
+    return {
+      constrainedHeight: card.style.getPropertyValue(
+        "--fvc-panel-view-card-height",
+      ),
+      openClass: card.classList.contains("card-view-bottom-panel-open"),
+      hostHeight: Math.round(hostRect.height),
+      hostBottom: Math.round(hostRect.bottom),
+      stageHeight: Math.round(stageRect.height),
+      drawerHeight: Math.round(drawerRect.height),
+      footerBottom: Math.round(footerRect.bottom),
+    };
+  });
+
+  expect(result.constrainedHeight).toBe("740px");
+  expect(result.openClass).toBe(true);
+  expect(result.hostHeight).toBe(740);
+  expect(result.hostBottom).toBeLessThanOrEqual(768);
+  expect(result.stageHeight).toBeGreaterThan(0);
+  expect(result.drawerHeight).toBeGreaterThan(0);
+  expect(result.footerBottom).toBeLessThanOrEqual(result.hostBottom);
 });
 
 test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport", async ({

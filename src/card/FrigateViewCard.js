@@ -1930,7 +1930,7 @@ export class FrigateViewCard extends HTMLElement {
       compact_preview: config.compact_preview === true,
       tight_margins: config.tight_margins === true,
       shadows: config.shadows !== false,
-      borders: config.borders !== false,
+      borders: config.borders === true,
       rounded_corners: config.rounded_corners !== false,
       outer_shadows: config.outer_shadows !== false,
       col_left_width_pct: normalizeWideLeftWidth(config.col_left_width_pct),

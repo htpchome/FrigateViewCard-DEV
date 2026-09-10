@@ -26,6 +26,7 @@ import {
   buildCardViewPtzMarkup,
   buildCardViewStandaloneModeControlsMarkup,
   buildCardViewToolbarMarkup,
+  CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS,
 } from "./page.tmpl.js";
 import {
   CARD_VIEW_MEDIA_DRAWER_TYPES,
@@ -349,6 +350,10 @@ export class CardViewPageController {
     this._toolbarMarkup = "";
     this._boundScroller = null;
     this._cancelScrollControlsSync();
+    this._host.classList?.toggle?.(
+      CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS,
+      false,
+    );
   }
 
   bind() {
@@ -496,6 +501,10 @@ export class CardViewPageController {
   syncDrawerState() {
     if (!this.isActive()) return;
     this._ensureDrawerState();
+    this._host.classList?.toggle?.(
+      CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS,
+      this._drawerOpen && !this.usesOverlayPresentation(),
+    );
     const drawer = this._host.shadowRoot?.querySelector?.(
       "[data-card-view-drawer]",
     );

@@ -301,7 +301,7 @@ export const applyEditorPreviewDraftToCardConfig = ({
     ),
     tight_margins: previewConfig.tight_margins === true,
     shadows: previewConfig.shadows !== false,
-    borders: previewConfig.borders !== false,
+    borders: previewConfig.borders === true,
     rounded_corners: previewConfig.rounded_corners !== false,
     outer_shadows: previewConfig.outer_shadows !== false,
     wide_view_page_enabled: previewConfig.wide_view_page_enabled === true,

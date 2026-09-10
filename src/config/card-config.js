@@ -119,7 +119,7 @@ export const normalizeCardConfig = (config) => {
   );
 
   src.shadows = src.shadows !== false;
-  src.borders = src.borders !== false;
+  src.borders = src.borders === true;
   src.rounded_corners = src.rounded_corners !== false;
   src.outer_shadows = src.outer_shadows !== false;
   src.stream_height = normalizeCardHeight(src.stream_height);

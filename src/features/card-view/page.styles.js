@@ -79,6 +79,28 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active .card-view-live-panel {position:relative;display:flex;flex:0 0 auto;flex-direction:column;width:100%;min-width:0;container-type:inline-size;container-name:card-view-live;}
   .card.card-view-active .card-view-live-stage {width:100%;flex:0 0 auto;}
   .card.card-view-active #eng-wrap {max-height:none;}
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) {
+    height:var(--fvc-panel-view-card-height) !important;
+    max-height:var(--fvc-panel-view-card-height) !important;
+    overflow:hidden;
+  }
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) ha-card,
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) .card.card-view-active,
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) .card.card-view-active .card-view-layout {
+    height:100% !important;max-height:100% !important;overflow:hidden !important;
+  }
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) .card.card-view-active .card-view-live-panel {
+    flex:1 1 0;min-height:0;
+  }
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) .card.card-view-active .card-view-live-stage {
+    flex:1 1 0;min-height:0;overflow:hidden;
+  }
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) .card.card-view-active .card-view-drawer {
+    flex:0 0 auto;
+  }
+  :host(.card-view-natural-height.panel-view-aspect-constrained.card-view-bottom-panel-open) .card.card-view-active #eng-wrap {
+    height:100%;max-height:100%;aspect-ratio:auto;
+  }
   .card.card-view-active .card-view-drawer {
     display:grid;grid-template-rows:minmax(0,1fr);min-height:0;overflow:visible;
     transition:grid-template-rows 240ms cubic-bezier(.22,.61,.36,1);

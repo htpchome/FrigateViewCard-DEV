@@ -694,7 +694,7 @@ export const compactEditorConfigForYaml = (
     false,
   );
   addIfNotDefault(compact, "shadows", source.shadows !== false, true);
-  addIfNotDefault(compact, "borders", source.borders !== false, true);
+  addIfNotDefault(compact, "borders", source.borders === true, false);
   addIfNotDefault(
     compact,
     "rounded_corners",

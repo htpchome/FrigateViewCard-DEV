@@ -20,6 +20,8 @@ const PANEL_ASPECT_CONSTRAINED_CLASS =
   "panel-view-aspect-constrained";
 const PANEL_ASPECT_MAX_WIDTH_PROPERTY =
   "--fvc-panel-view-max-width";
+const PANEL_ASPECT_HEIGHT_PROPERTY =
+  "--fvc-panel-view-card-height";
 const HA_HEIGHT_MANAGED_VIEW_TAGS = new Set([
   "HUI-SECTIONS-VIEW",
   "HUI-SIDEBAR-VIEW",
@@ -357,6 +359,9 @@ export class CardStyleContextController {
       this._host.style?.removeProperty?.(
         PANEL_ASPECT_MAX_WIDTH_PROPERTY,
       );
+      this._host.style?.removeProperty?.(
+        PANEL_ASPECT_HEIGHT_PROPERTY,
+      );
     }
     this._panelAspectConstraintActive = false;
   }
@@ -391,6 +396,18 @@ export class CardStyleContextController {
       return;
     }
 
+    const maxWidthPx = Math.max(1, referenceHeightPx * ratio);
+    const availableWidthPx =
+      this.measureRenderedWidth(this._host.parentElement) ||
+      Math.max(
+        this.measureRenderedWidth(this._host),
+        this.measureRenderedWidth(card),
+      );
+    const constrainedWidthPx =
+      availableWidthPx > 0
+        ? Math.min(availableWidthPx, maxWidthPx)
+        : maxWidthPx;
+
     this._panelAspectConstraintActive = true;
     this._host.classList?.toggle?.(
       PANEL_ASPECT_CONSTRAINED_CLASS,
@@ -398,7 +415,11 @@ export class CardStyleContextController {
     );
     this._host.style?.setProperty?.(
       PANEL_ASPECT_MAX_WIDTH_PROPERTY,
-      `${Math.max(1, Math.round(referenceHeightPx * ratio))}px`,
+      `${Math.round(maxWidthPx)}px`,
+    );
+    this._host.style?.setProperty?.(
+      PANEL_ASPECT_HEIGHT_PROPERTY,
+      `${Math.max(1, Math.round(constrainedWidthPx / ratio))}px`,
     );
   }
 
@@ -759,6 +780,13 @@ export class CardStyleContextController {
       element?.getBoundingClientRect?.().height || element?.clientHeight || 0,
     );
     return Number.isFinite(height) && height > 0 ? height : 0;
+  }
+
+  measureRenderedWidth(element) {
+    const width = Number(
+      element?.getBoundingClientRect?.().width || element?.clientWidth || 0,
+    );
+    return Number.isFinite(width) && width > 0 ? width : 0;
   }
 
   syncViewportMinimumParentHeight(

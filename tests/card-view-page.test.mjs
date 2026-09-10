@@ -15,6 +15,7 @@ import {
   buildCardViewMainLayoutShellMarkup,
   buildCardViewStandaloneModeControlsMarkup,
   buildCardViewToolbarMarkup,
+  CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS,
 } from "../src/features/card-view/page.tmpl.js";
 import { CARD_VIEW_PAGE_STYLES } from "../src/features/card-view/page.styles.js";
 import { CAMERA_GROUP_LIVE_STYLES } from "../src/features/camera-groups/live.styles.js";
@@ -1237,6 +1238,10 @@ test("Card View shares the Mobile View camera picker and uses a two-state drawer
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
+    /card-view-natural-height\.panel-view-aspect-constrained\.card-view-bottom-panel-open[\s\S]*height:var\(--fvc-panel-view-card-height\) !important;[\s\S]*card-view-live-panel \{[\s\S]*flex:1 1 0;min-height:0;[\s\S]*card-view-live-stage \{[\s\S]*flex:1 1 0;min-height:0;overflow:hidden;[\s\S]*card-view-drawer \{[\s\S]*flex:0 0 auto;[\s\S]*#eng-wrap \{[\s\S]*height:100%;max-height:100%;aspect-ratio:auto;/,
+  );
+  assert.match(
+    CARD_VIEW_PAGE_STYLES,
     /@container card-view-activity \(max-width:440px\)[\s\S]*grid-template-areas:"start start start" "\. center actions"/,
   );
   assert.match(
@@ -1336,6 +1341,7 @@ test("Card View drawer swipes settle fully open or closed", () => {
 
 test("Card View drawer follows its configured starting state and updates in place", () => {
   const classes = new Set(["is-open"]);
+  const hostClasses = new Set();
   const attributes = new Map();
   const drawer = {
     dataset: {},
@@ -1363,6 +1369,12 @@ test("Card View drawer follows its configured starting state and updates in plac
       _config: {
         card_view_view_mode: CARD_VIEW_VIEW_MODES.bottomPanelClosed,
       },
+      classList: {
+        toggle: (name, enabled) => {
+          if (enabled) hostClasses.add(name);
+          else hostClasses.delete(name);
+        },
+      },
       shadowRoot,
     },
     { PAGE_IDS: { cardView: "card-view" } },
@@ -1373,11 +1385,19 @@ test("Card View drawer follows its configured starting state and updates in plac
   assert.equal(drawer.dataset.drawerState, "closed");
   assert.equal(attributes.get("aria-hidden"), "true");
   assert.equal(handles[0].values.get("aria-expanded"), "false");
+  assert.equal(
+    hostClasses.has(CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS),
+    false,
+  );
 
   assert.equal(controller.toggleDrawer(), true);
   assert.equal(classes.has("is-open"), true);
   assert.equal(attributes.get("aria-hidden"), "false");
   assert.equal(handles[1].values.get("aria-expanded"), "true");
+  assert.equal(
+    hostClasses.has(CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS),
+    true,
+  );
 });
 
 test("Card View footer calendar follows the open Alerts and Recordings drawer", () => {

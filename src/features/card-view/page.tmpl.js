@@ -34,6 +34,8 @@ const normalizeRegions = (regions = {}) => ({
 
 export const CARD_VIEW_ACTIVE_CLASS = "card-view-active";
 export const CARD_VIEW_HOST_CLASS = "card-view-natural-height";
+export const CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS =
+  "card-view-bottom-panel-open";
 
 export function buildCardViewMainLayoutShellMarkup({
   regions: suppliedRegions = {},
@@ -265,6 +267,12 @@ export function applyCardViewPageMarkup({ host, pageIds } = {}) {
     overlayPresentation &&
     host?._config?.card_view_media_drawer_enabled === true;
   host?.classList?.toggle(CARD_VIEW_HOST_CLASS, active);
+  if (!active || videoPanelOnly) {
+    host?.classList?.toggle(
+      CARD_VIEW_BOTTOM_PANEL_OPEN_HOST_CLASS,
+      false,
+    );
+  }
   const card = host?._$?.("#card");
   card?.classList?.toggle(CARD_VIEW_ACTIVE_CLASS, active);
   card?.classList?.toggle("card-view-standalone", standalone);

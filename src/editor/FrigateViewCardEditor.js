@@ -3354,7 +3354,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       <div class="section">
         <div class="layout-row">
           <span class="field-label" style="margin:0">Event Item Borders</span>
-          <ha-switch id="borders" ${this._config?.borders !== false ? "checked" : ""}></ha-switch>
+          <ha-switch id="borders" ${this._config?.borders === true ? "checked" : ""}></ha-switch>
         </div>
         <div class="field-helper">Adds borders to event items. Useful when inside shadows are off.</div>
       </div>

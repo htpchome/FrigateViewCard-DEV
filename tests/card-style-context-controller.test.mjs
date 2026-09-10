@@ -625,16 +625,19 @@ test("Panel View ratio caps and centers the card from its applied height", () =>
 
   controller.syncPanelViewAspectConstraint(null);
   assert.equal(styleValues.get("--fvc-panel-view-max-width"), "720px");
+  assert.equal(styleValues.get("--fvc-panel-view-card-height"), "600px");
 
   styleValues.delete("--card-host-height");
   ratio = 1.75;
   controller.syncPanelViewAspectConstraint(null);
   assert.equal(styleValues.get("--fvc-panel-view-max-width"), "1575px");
+  assert.equal(styleValues.get("--fvc-panel-view-card-height"), "900px");
 
   styleValues.delete("--card-host-height");
   controller.resolveHeightWrapperViewportPx = () => null;
   controller.syncPanelViewAspectConstraint(null);
   assert.equal(styleValues.has("--fvc-panel-view-max-width"), false);
+  assert.equal(styleValues.has("--fvc-panel-view-card-height"), false);
 
   controller.resolveHeightWrapperViewportPx = () => 900;
   controller.syncPanelViewAspectConstraint(null);
@@ -680,6 +683,33 @@ test("Panel View ratio uses requested height before minimum-height expansion", (
     styleValues.get("--fvc-panel-view-max-width"),
     "1133px",
   );
+  assert.equal(
+    styleValues.get("--fvc-panel-view-card-height"),
+    "944px",
+  );
+});
+
+test("Panel View derives the card height from a narrower parent", () => {
+  const styleValues = new Map();
+  const host = {
+    parentElement: {
+      getBoundingClientRect: () => ({ width: 560 }),
+    },
+    classList: { toggle: () => {} },
+    style: {
+      getPropertyValue: (name) => styleValues.get(name) || "",
+      setProperty: (name, value) => styleValues.set(name, value),
+      removeProperty: (name) => styleValues.delete(name),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.resolvePanelViewAspectRatio = () => 1.4;
+  controller.resolveHeightWrapperViewportPx = () => 900;
+
+  controller.syncPanelViewAspectConstraint(null);
+
+  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "1260px");
+  assert.equal(styleValues.get("--fvc-panel-view-card-height"), "400px");
 });
 
 test("Panel View width constraint is centered and never exceeds its parent", () => {

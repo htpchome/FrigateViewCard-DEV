@@ -1036,8 +1036,7 @@ export const buildEditorConfigFromDom = ({
   );
   nextConfig.shadows =
     resolveSwitchChecked(root.querySelector("#shadows")) !== false;
-  nextConfig.borders =
-    resolveSwitchChecked(root.querySelector("#borders")) !== false;
+  nextConfig.borders = resolveSwitchChecked(root.querySelector("#borders"));
   nextConfig.rounded_corners =
     resolveSwitchChecked(root.querySelector("#rounded_corners")) !== false;
   nextConfig.outer_shadows =
