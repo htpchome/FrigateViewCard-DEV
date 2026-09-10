@@ -1,6 +1,6 @@
 import {
   DAY,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
   EVENT_FETCH_BATCH,
   INITIAL_BROWSE_PAINT_LIMIT,
@@ -22,6 +22,10 @@ import {
 import { reviewMatchesAlertsOnlyMode } from "./filter-state.js";
 
 const sharedBrowseRequestsByConnection = new WeakMap();
+const REVIEW_EVENT_METADATA_CACHE_MS = 5 * 60 * 1000;
+const REVIEW_EVENT_METADATA_BATCH = 500;
+const REVIEW_EVENT_METADATA_LIMIT = 250;
+const REVIEW_EVENT_METADATA_PAGE_LIMIT = 2;
 
 export class BrowseWindowLoaderController {
   constructor(host, deps = {}) {
@@ -301,7 +305,7 @@ export class BrowseWindowLoaderController {
       0,
       Math.floor(
         before -
-          (this._host._config?.window_days || DEFAULT_WINDOW_DAYS) * DAY,
+          (this._host._config?.event_days || DEFAULT_EVENT_DAYS) * DAY,
       ),
     );
     const results = await Promise.allSettled(
@@ -362,6 +366,129 @@ export class BrowseWindowLoaderController {
       getItemStartTime: (item, fallbackBefore) =>
         item?.start_time || fallbackBefore,
     });
+  }
+
+  _reviewEventContext(review, entity = "") {
+    const preferredEntity = String(
+      entity || review?._fvc_camera_entity || "",
+    ).trim();
+    if (preferredEntity) {
+      const preferred = this._host._camCache?.[preferredEntity];
+      if (preferred?.clientId && preferred?.cam) {
+        return { entity: preferredEntity, cache: preferred };
+      }
+    }
+
+    const cameraName = String(review?.camera || "").trim();
+    const activeEntities = cameraMemberEntities(this._host._activeCam);
+    const cameras = flattenCameraMembers(this._host._config?.cameras || []);
+    const ordered = [
+      ...cameras.filter((camera) => activeEntities.includes(camera.entity)),
+      ...cameras.filter((camera) => !activeEntities.includes(camera.entity)),
+    ];
+    const camera = ordered.find((candidate) => {
+      const context = this._host._camCache?.[candidate.entity];
+      return context?.cam === cameraName;
+    });
+    const cache = camera ? this._host._camCache?.[camera.entity] : null;
+    return cache?.clientId && cache?.cam
+      ? { entity: camera.entity, cache }
+      : null;
+  }
+
+  async hydrateReviewEventMetadata(
+    reviews,
+    { force = false, entity = "" } = {},
+  ) {
+    const groups = new Map();
+    const now = Date.now();
+    for (const review of Array.isArray(reviews) ? reviews : []) {
+      const eventId = String(review?.data?.detections?.[0] || "").trim();
+      if (!eventId || this._host._findEventById?.(eventId)) continue;
+      const context = this._reviewEventContext(review, entity);
+      if (!context) continue;
+      const startTime = Math.floor(Number(review?.start_time || 0));
+      const endTime = Math.ceil(
+        Number(review?.end_time || review?.start_time || 0),
+      );
+      if (!startTime || endTime < startTime) continue;
+      const dayBucket = Math.floor(startTime / DAY);
+      const key = `${context.cache.clientId}|${context.cache.cam}|${dayBucket}`;
+      const fetchedAt = Number(
+        context.cache.reviewEventMetadataWindows?.[key] || 0,
+      );
+      if (
+        !force &&
+        fetchedAt &&
+        now - fetchedAt < REVIEW_EVENT_METADATA_CACHE_MS
+      ) {
+        continue;
+      }
+      const current = groups.get(key) || {
+        ...context,
+        key,
+        after: Math.max(0, startTime - 30),
+        before: endTime + 30,
+        eventIds: new Set(),
+      };
+      current.after = Math.min(current.after, Math.max(0, startTime - 30));
+      current.before = Math.max(current.before, endTime + 30);
+      current.eventIds.add(eventId);
+      groups.set(key, current);
+    }
+    if (!groups.size) return false;
+
+    let changed = false;
+    await Promise.all(
+      [...groups.values()].map(async (group) => {
+        try {
+          const fetched = await this.fetchWindowedEvents(
+            group.cache.clientId,
+            group.cache.cam,
+            group.after,
+            group.before,
+            {
+              debugLabel: "review-event-metadata",
+              limit: REVIEW_EVENT_METADATA_BATCH,
+              pageLimit: REVIEW_EVENT_METADATA_PAGE_LIMIT,
+            },
+          );
+          const known = new Map(
+            (group.cache.reviewEvents || []).map((event) => [
+              String(event?.id || ""),
+              event,
+            ]),
+          );
+          for (const event of fetched) {
+            const id = String(event?.id || "");
+            if (!group.eventIds.has(id)) continue;
+            known.set(id, event);
+          }
+          const nextEvents = [...known.values()]
+            .filter((event) => event?.id)
+            .sort(
+              (left, right) =>
+                Number(right?.start_time || 0) -
+                Number(left?.start_time || 0),
+            )
+            .slice(0, REVIEW_EVENT_METADATA_LIMIT);
+          if (nextEvents.length !== (group.cache.reviewEvents || []).length) {
+            changed = true;
+          }
+          group.cache.reviewEvents = nextEvents;
+          group.cache.reviewEventMetadataWindows = Object.fromEntries(
+            Object.entries({
+              ...(group.cache.reviewEventMetadataWindows || {}),
+              [group.key]: Date.now(),
+            }).filter(
+              ([, timestamp]) =>
+                now - Number(timestamp || 0) < REVIEW_EVENT_METADATA_CACHE_MS,
+            ),
+          );
+        } catch (_) {}
+      }),
+    );
+    return changed;
   }
 
   async warmOtherCamerasEvents() {
@@ -839,7 +966,7 @@ export class BrowseWindowLoaderController {
             clientId,
             cam,
             before,
-            this._host._config?.window_days || DEFAULT_WINDOW_DAYS,
+            this._host._config?.event_days || DEFAULT_EVENT_DAYS,
             {
               debugLabel: "group-events-window",
               onProgress: this._activeGroupWindowPublishState()
@@ -1024,7 +1151,7 @@ export class BrowseWindowLoaderController {
     if (this._host._followNowWindow) {
       const now = Math.floor(Date.now() / 1000);
       this._host._winEnd = now;
-      this._host._winStart = now - this._host._config.window_days * DAY;
+      this._host._winStart = now - this._host._config.event_days * DAY;
     }
     const { clientId, cam } = this._host._cc();
     if (!clientId || !cam) {
@@ -1075,6 +1202,15 @@ export class BrowseWindowLoaderController {
       return;
     }
     this._finishActiveGroupWindowPublish(loadToken);
+    if (this._host._tab === "alerts") {
+      await this.hydrateReviewEventMetadata(this._host._reviews);
+    }
+    if (
+      this._host._windowLoadToken !== loadToken ||
+      !this._windowContextMatches(clientId, cam, before)
+    ) {
+      return;
+    }
     if (
       entity &&
       this._host._camCache[entity] &&
@@ -1240,7 +1376,7 @@ export class BrowseWindowLoaderController {
   }
 
   eventWindowCacheKey(clientId, cam, before) {
-    const days = this._host._config?.window_days || DEFAULT_WINDOW_DAYS;
+    const days = this._host._config?.event_days || DEFAULT_EVENT_DAYS;
     const windowScope = this._host._calSelectedDay
       ? `day:${this._host._calSelectedDay}`
       : days;
@@ -1248,7 +1384,7 @@ export class BrowseWindowLoaderController {
   }
 
   eventWindowContextKey(clientId, cam) {
-    const days = this._host._config?.window_days || DEFAULT_WINDOW_DAYS;
+    const days = this._host._config?.event_days || DEFAULT_EVENT_DAYS;
     const windowScope = this._host._calSelectedDay
       ? `day:${this._host._calSelectedDay}`
       : days;
@@ -1638,7 +1774,7 @@ export class BrowseWindowLoaderController {
             clientId,
             cam,
             before,
-            this._host._config?.window_days || DEFAULT_WINDOW_DAYS,
+            this._host._config?.event_days || DEFAULT_EVENT_DAYS,
             {
               debugLabel: "events-window",
               onProgress: groupPublishState ? null : publishProgress,
@@ -2066,7 +2202,7 @@ export class BrowseWindowLoaderController {
     this._host._followNowWindow = true;
     const now = Math.floor(Date.now() / 1000);
     this._host._winEnd = now;
-    this._host._winStart = now - this._host._config.window_days * DAY;
+    this._host._winStart = now - this._host._config.event_days * DAY;
     this._host._calSelectedDay = null;
     this._host._exhausted = false;
     this._host._calMonth = null;

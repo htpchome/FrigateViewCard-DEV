@@ -2,7 +2,7 @@ import {
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DEFAULT_HIDDEN_TABS,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
   GRID_ROTATION_OPTIONS_SECONDS,
   REALTIME_POLL_OPTIONS_SECONDS,
@@ -68,9 +68,8 @@ export const createEditorPreviewDraft = (config) => ({
           : {}),
       }))
     : [],
-  window_days: config.window_days,
+  event_days: config.event_days,
   alerts_reviews_days: config.alerts_reviews_days,
-  window_hours: config.window_hours,
   realtime_poll_seconds: config.realtime_poll_seconds,
   snapshot_update_seconds: config.snapshot_update_seconds,
   mobile_poll_battery_saver: config.mobile_poll_battery_saver,
@@ -186,15 +185,14 @@ export const applyEditorPreviewDraftToCardConfig = ({
     cameras: Array.isArray(previewConfig.cameras)
       ? previewConfig.cameras
       : base.cameras,
-    window_days: normalizePositiveInteger(
-      previewConfig.window_days,
-      DEFAULT_WINDOW_DAYS,
+    event_days: normalizePositiveInteger(
+      previewConfig.event_days,
+      DEFAULT_EVENT_DAYS,
     ),
     alerts_reviews_days: normalizePositiveInteger(
       previewConfig.alerts_reviews_days,
       DEFAULT_ALERTS_REVIEWS_DAYS,
     ),
-    window_hours: Number(previewConfig.window_hours) || null,
     realtime_poll_seconds: REALTIME_POLL_OPTIONS_SECONDS.includes(
       Number(previewConfig.realtime_poll_seconds),
     )

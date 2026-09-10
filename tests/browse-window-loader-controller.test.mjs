@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { BrowseCollectionController } from "../src/features/browse/collection.ctrl.js";
 import { BrowseWindowLoaderController } from "../src/features/browse/window-loader.ctrl.js";
 import { RecordingsDayCache } from "../src/features/recordings/day-cache.js";
 
@@ -23,6 +24,66 @@ test("fetchWindowedReviews applies severity at the data boundary", async () => {
   assert.equal("severity" in requests[1], false);
 });
 
+test("review metadata hydration caches referenced events outside the event window", async () => {
+  const requests = [];
+  const cache = {
+    clientId: "frigate",
+    cam: "front",
+    events: [{ id: "recent-event", start_time: 900000 }],
+    reviewEvents: [],
+    reviewEventMetadataWindows: {},
+  };
+  const host = {
+    _activeCam: { entity: "camera.front" },
+    _config: { cameras: [{ entity: "camera.front" }] },
+    _camCache: { "camera.front": cache },
+    _ws: async (payload) => {
+      requests.push(payload);
+      return [
+        {
+          id: "older-alert",
+          camera: "front",
+          start_time: 864100,
+          has_clip: true,
+          has_snapshot: true,
+        },
+        { id: "unrelated", camera: "front", start_time: 864110 },
+      ];
+    },
+  };
+  const collection = new BrowseCollectionController(host);
+  host._findEventById = (id) => collection.findEventById(id);
+  const controller = new BrowseWindowLoaderController(host);
+  const reviews = [
+    {
+      id: "review-1",
+      camera: "front",
+      start_time: 864100,
+      end_time: 864130,
+      data: { detections: ["older-alert"] },
+    },
+  ];
+
+  assert.equal(await controller.hydrateReviewEventMetadata(reviews), true);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(cache.events, [
+    { id: "recent-event", start_time: 900000 },
+  ]);
+  assert.deepEqual(cache.reviewEvents, [
+    {
+      id: "older-alert",
+      camera: "front",
+      start_time: 864100,
+      has_clip: true,
+      has_snapshot: true,
+    },
+  ]);
+  assert.equal(collection.findEventById("older-alert")?.has_clip, true);
+
+  assert.equal(await controller.hydrateReviewEventMetadata(reviews), false);
+  assert.equal(requests.length, 1);
+});
+
 test("loadWindow updates active slices and finishes the browse load cycle", async () => {
   const calls = [];
   let eventFetchCount = 0;
@@ -35,7 +96,7 @@ test("loadWindow updates active slices and finishes the browse load cycle", asyn
     _reloadAfterLoad: false,
     _exhausted: true,
     _followNowWindow: false,
-    _config: { window_days: 1, alerts_reviews_days: 3 },
+    _config: { event_days: 1, alerts_reviews_days: 3 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _events: [],
@@ -130,7 +191,7 @@ test("loadWindow renders alerts before the event request finishes", async () => 
     _reloadAfterLoad: false,
     _exhausted: false,
     _followNowWindow: false,
-    _config: { window_days: 1, alerts_reviews_days: 1 },
+    _config: { event_days: 1, alerts_reviews_days: 1 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _events: [],
@@ -200,7 +261,7 @@ test("camera groups fetch both members concurrently and publish one mixed window
     _followNowWindow: false,
     _calSelectedDay: "2026-08-27",
     _config: {
-      window_days: 1,
+      event_days: 1,
       alerts_reviews_days: 1,
       cameras: [
         {
@@ -332,7 +393,7 @@ test("camera group merge retains each member's bounded active-day cache", () => 
     severity: "alert",
   };
   const host = {
-    _config: { window_days: 1, alerts_reviews_days: 1 },
+    _config: { event_days: 1, alerts_reviews_days: 1 },
     _activeCam: {
       entity: "camera.porch",
       group: {
@@ -376,7 +437,7 @@ test("A/B realtime polling compares each camera with its own cached head", async
   ]);
   const requests = [];
   const host = {
-    _config: { window_days: 1 },
+    _config: { event_days: 1 },
     _activeCam: {
       entity: "camera.porch",
       group: {
@@ -458,7 +519,7 @@ test("cold A/B alerts paint one combined six-item batch before the full mixed li
     _reloadAfterLoad: false,
     _exhausted: false,
     _followNowWindow: false,
-    _config: { window_days: 1, alerts_reviews_days: 1 },
+    _config: { event_days: 1, alerts_reviews_days: 1 },
     _activeCam: {
       entity: "camera.porch",
       alerts_content: "alerts_only",
@@ -585,7 +646,7 @@ test("cold camera group load keeps the prior host unchanged until both members f
     _exhausted: false,
     _followNowWindow: false,
     _config: {
-      window_days: 1,
+      event_days: 1,
       alerts_reviews_days: 1,
       cameras: [
         {
@@ -752,7 +813,7 @@ test("camera group refresh retains its coherent mixed snapshot until both member
     _exhausted: false,
     _followNowWindow: false,
     _config: {
-      window_days: 1,
+      event_days: 1,
       alerts_reviews_days: 1,
       cameras: [
         {
@@ -959,7 +1020,7 @@ test("camera switches reuse recently completed event and review windows", async 
     _tab: "clips",
     _followNowWindow: true,
     _config: {
-      window_days: 1,
+      event_days: 1,
       alerts_reviews_days: 3,
       refresh_seconds: 45,
     },
@@ -1029,7 +1090,7 @@ test("loadWindowEvents paints six newest clips before loading the full window", 
     events: [],
   };
   const host = {
-    _config: { window_days: 1 },
+    _config: { event_days: 1 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _events: [],
@@ -1144,7 +1205,7 @@ test("a selected calendar day fetches and keeps only its exact event window", as
   };
   const host = {
     _calSelectedDay: "2026-08-05",
-    _config: { window_days: 4 },
+    _config: { event_days: 4 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _events: [],
@@ -1209,7 +1270,7 @@ test("loadWindowEvents never replaces a complete cache with a partial refresh", 
     events: cachedEvents,
   };
   const host = {
-    _config: { window_days: 1 },
+    _config: { event_days: 1 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _events: cachedEvents,
@@ -1248,7 +1309,7 @@ test("loadWindowEvents keeps a complete cache when its refresh fails", async () 
     events: cachedEvents,
   };
   const host = {
-    _config: { window_days: 1 },
+    _config: { event_days: 1 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _events: cachedEvents,
@@ -1326,7 +1387,7 @@ test("a superseding camera load is not blocked by an in-flight load", async () =
     _reloadAfterLoad: false,
     _exhausted: false,
     _followNowWindow: false,
-    _config: { window_days: 1 },
+    _config: { event_days: 1 },
     _events: [],
     _recordings: [],
     _camCache: caches,
@@ -1382,7 +1443,7 @@ test("a superseded event load stops paging the previous camera", async () => {
     events: [],
   };
   const host = {
-    _config: { window_days: 1 },
+    _config: { event_days: 1 },
     _activeCam: { entity: "camera.front" },
     _camCache: { "camera.front": activeCache },
     _events: [],

@@ -118,6 +118,7 @@ export class BrowseCollectionController {
   }
 
   async loadGridMixedTabData(tab, { onProgress = null } = {}) {
+    const reviewMetadataBatches = [];
     const before = this._host._winEnd;
     const reviewDays =
       this._host._config?.alerts_reviews_days || DEFAULT_ALERTS_REVIEWS_DAYS;
@@ -225,6 +226,7 @@ export class BrowseCollectionController {
             cache.reviews = nextReviews;
             cache.reviewsWindowKey = "";
           }
+          reviewMetadataBatches.push({ entity, reviews: nextReviews });
         }
         if (tab === "kept") {
           const kept = await this._host._ws({
@@ -242,6 +244,16 @@ export class BrowseCollectionController {
           onProgress({ entity, tab });
         } catch (_) {}
       }
+    }
+    if (tab === "alerts") {
+      await Promise.all(
+        reviewMetadataBatches.map(({ entity, reviews }) =>
+          this._host._browseWindowLoaderController?.hydrateReviewEventMetadata?.(
+            reviews,
+            { entity },
+          ),
+        ),
+      );
     }
   }
 
@@ -279,6 +291,7 @@ export class BrowseCollectionController {
       this._host._config?.cameras || [],
     )) {
       add(this._host._camCache?.[camera.entity]?.events);
+      add(this._host._camCache?.[camera.entity]?.reviewEvents);
     }
     add(this._host._kept);
     return sources;

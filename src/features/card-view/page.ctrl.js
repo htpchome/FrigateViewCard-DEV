@@ -3,7 +3,7 @@ import { ICONS } from "../../icons.js";
 import {
   DEFAULT_SUBTITLE,
   DEFAULT_TITLE,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   GRID_ALERT_HOLD_MS,
 } from "../../constants.js";
 import { CleanupController } from "../../shared/cleanup.js";
@@ -20,10 +20,7 @@ import { resolveRecordingsDayBounds } from "../recordings/utils/day.js";
 import { splitRecordingsHourly } from "../recordings/utils/segment.js";
 import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycle.js";
 import { buildCameraPickerMarkup } from "../navigation/camera-picker.tmpl.js";
-import {
-  cameraMemberEntities,
-  flattenCameraMembers,
-} from "../camera-groups/model.js";
+import { cameraMemberEntities } from "../camera-groups/model.js";
 import {
   applyCardViewPageMarkup,
   buildCardViewPtzMarkup,
@@ -1271,7 +1268,7 @@ export class CardViewPageController {
       const now = Math.floor(Date.now() / 1000);
       this._host._winEnd = now;
       this._host._winStart = now -
-        (this._host._config?.window_days || DEFAULT_WINDOW_DAYS) * 86400;
+        (this._host._config?.event_days || DEFAULT_EVENT_DAYS) * 86400;
       this._host._followNowWindow = true;
     }
     const useProgressivePaint = this._alerts.length === 0;
@@ -1635,41 +1632,11 @@ export class CardViewPageController {
   async _ensureReviewEvent(review, eventId) {
     const cached = this._host._findEventById?.(eventId);
     if (cached) return cached;
-    const cameraName = String(review?.camera || "").trim();
-    const camera = flattenCameraMembers(
-      this._host._config?.cameras || [],
-    ).find((candidate) => {
-      const context = this._host._camCache?.[candidate.entity];
-      return context?.cam === cameraName;
-    });
-    const context = camera ? this._host._camCache?.[camera.entity] : null;
-    if (!context?.clientId || !context?.cam) return null;
-    const start = Math.max(0, Math.floor(Number(review?.start_time || 0)) - 30);
-    const end = Math.ceil(Number(review?.end_time || review?.start_time || 0)) + 30;
-    if (!start || end <= start) return null;
-    try {
-      const events = await this._host._ws({
-        type: "frigate/events/get",
-        instance_id: context.clientId,
-        cameras: [context.cam],
-        after: start,
-        before: end,
-        limit: 100,
-      });
-      const fetched = Array.isArray(events) ? events : [];
-      const known = new Map(
-        (context.events || []).map((event) => [String(event?.id || ""), event]),
-      );
-      fetched.forEach((event) => known.set(String(event?.id || ""), event));
-      context.events = [...known.values()].sort(
-        (a, b) => Number(b?.start_time || 0) - Number(a?.start_time || 0),
-      );
-      return context.events.find(
-        (event) => String(event?.id || "") === String(eventId || ""),
-      ) || null;
-    } catch (_) {
-      return null;
-    }
+    await this._host._browseWindowLoaderController?.hydrateReviewEventMetadata?.(
+      [review],
+      { force: true },
+    );
+    return this._host._findEventById?.(eventId) || null;
   }
 
   async _openReview(review, eventId) {

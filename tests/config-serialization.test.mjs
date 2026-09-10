@@ -39,7 +39,7 @@ import {
   CARD_NAME,
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
   MAX_CAMERAS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
@@ -103,7 +103,7 @@ test("new cards fall back to doorbell when no preferred camera exists", () => {
 test("new card stub uses persisted defaults instead of demo labels", () => {
   assert.match(
     cardSource,
-    /static getStubConfig\(hass\) \{[\s\S]*?title: DEFAULT_TITLE,[\s\S]*?subtitle: DEFAULT_SUBTITLE,[\s\S]*?window_days: DEFAULT_WINDOW_DAYS,[\s\S]*?alerts_reviews_days: DEFAULT_ALERTS_REVIEWS_DAYS,/,
+    /static getStubConfig\(hass\) \{[\s\S]*?title: DEFAULT_TITLE,[\s\S]*?subtitle: DEFAULT_SUBTITLE,[\s\S]*?event_days: DEFAULT_EVENT_DAYS,[\s\S]*?alerts_reviews_days: DEFAULT_ALERTS_REVIEWS_DAYS,/,
   );
   assert.doesNotMatch(cardSource, /title: "Frigate Preview"/);
   assert.doesNotMatch(cardSource, /subtitle: "Compact preview"/);
@@ -569,7 +569,7 @@ test("editor YAML config omits normalized default values", () => {
     display_logo: true,
     theme: "default",
     shadows: true,
-    window_days: 5,
+    event_days: 5,
     alerts_reviews_days: 5,
     realtime_poll_seconds: 5,
     mobile_poll_battery_saver: false,
@@ -615,7 +615,7 @@ test("a fully normalized default config saves no redundant YAML options", () => 
   assert.deepEqual(compactEditorConfigForYaml(normalized), {
     cameras: [{ entity: "camera.front_door" }],
   });
-  assert.equal(normalized.window_days, DEFAULT_WINDOW_DAYS);
+  assert.equal(normalized.event_days, DEFAULT_EVENT_DAYS);
   assert.equal(
     normalized.alerts_reviews_days,
     DEFAULT_ALERTS_REVIEWS_DAYS,
@@ -625,14 +625,34 @@ test("a fully normalized default config saves no redundant YAML options", () => 
 test("event and Alerts/Reviews day defaults remain independent", () => {
   const normalized = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
-    window_days: 10,
+    event_days: 10,
   });
 
-  assert.equal(normalized.window_days, 10);
+  assert.equal(normalized.event_days, 10);
   assert.equal(
     normalized.alerts_reviews_days,
     DEFAULT_ALERTS_REVIEWS_DAYS,
   );
+});
+
+test("legacy event window keys normalize to event_days", () => {
+  const fromDays = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    window_days: 7,
+  });
+  const fromHours = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    window_hours: 72,
+  });
+
+  assert.equal(fromDays.event_days, 7);
+  assert.equal(fromHours.event_days, 3);
+  assert.equal("window_days" in fromDays, false);
+  assert.equal("window_hours" in fromHours, false);
+  assert.deepEqual(compactEditorConfigForYaml(fromDays), {
+    cameras: [{ entity: "camera.front_door" }],
+    event_days: 7,
+  });
 });
 
 test("Grid order defaults are omitted and custom order is serialized", () => {

@@ -4,7 +4,7 @@ import {
   DEFAULT_CAMERA_CONNECTION_TYPE,
   DEFAULT_HIDDEN_TABS,
   DEFAULT_TITLE,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
   GRID_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_OPTIONS_SECONDS,
@@ -232,15 +232,15 @@ export const compactEditorConfigForYaml = (
     true,
   );
 
-  const windowDays = normalizePositiveInteger(
-    source.window_days,
-    DEFAULT_WINDOW_DAYS,
+  const eventDays = normalizePositiveInteger(
+    source.event_days,
+    DEFAULT_EVENT_DAYS,
   );
   addIfNotDefault(
     compact,
-    "window_days",
-    windowDays,
-    DEFAULT_WINDOW_DAYS,
+    "event_days",
+    eventDays,
+    DEFAULT_EVENT_DAYS,
   );
   const alertsReviewsDays = normalizePositiveInteger(
     source.alerts_reviews_days,

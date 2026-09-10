@@ -7,7 +7,7 @@ import {
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DEFAULT_HIDDEN_TABS,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
   REALTIME_POLL_OPTIONS_SECONDS,
   SNAPSHOT_UPDATE_SECONDS,
@@ -2564,7 +2564,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#display_subtitle",
       "#display_logo",
       "#display_version",
-      "#window_days",
+      "#event_days",
       "#alerts_reviews_days",
       "#realtime_poll_seconds",
       "#snapshot_update_seconds",
@@ -2691,17 +2691,17 @@ export class FrigateViewCardEditor extends HTMLElement {
   _validateEditorFields() {
     let valid = true;
 
-    const windowDaysValue =
-      this.querySelector("#window_days")?.dataset.value ||
-      this.querySelector("#window_days")?.value ||
-      String(DEFAULT_WINDOW_DAYS);
-    const windowDays = Number(windowDaysValue);
-    const windowDaysMessage =
-      Number.isInteger(windowDays) && windowDays >= 1 && windowDays <= 15
+    const eventDaysValue =
+      this.querySelector("#event_days")?.dataset.value ||
+      this.querySelector("#event_days")?.value ||
+      String(DEFAULT_EVENT_DAYS);
+    const eventDays = Number(eventDaysValue);
+    const eventDaysMessage =
+      Number.isInteger(eventDays) && eventDays >= 1 && eventDays <= 15
         ? ""
         : "Select a value from 1 to 15.";
-    this._setEditorFieldError("#window_days", windowDaysMessage);
-    if (windowDaysMessage) valid = false;
+    this._setEditorFieldError("#event_days", eventDaysMessage);
+    if (eventDaysMessage) valid = false;
 
     const alertsReviewsDaysValue =
       this.querySelector("#alerts_reviews_days")?.dataset.value ||
@@ -3195,8 +3195,8 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
           <div style="min-width:160px;display:flex;flex-direction:column;gap:6px">
             <span class="field-label" style="margin:0">Event History Days</span>
-            <ha-selector id="window_days" style="width:160px"></ha-selector>
-            <div class="field-helper" id="window_days-helper"></div>
+            <ha-selector id="event_days" style="width:160px"></ha-selector>
+            <div class="field-helper" id="event_days-helper"></div>
           </div>
           <div style="min-width:160px;display:flex;flex-direction:column;gap:6px">
             <span class="field-label" style="margin:0">Alert/Review History Days</span>
@@ -4405,15 +4405,15 @@ export class FrigateViewCardEditor extends HTMLElement {
     });
 
     setupSelectSelector({
-      element: this.querySelector("#window_days"),
+      element: this.querySelector("#event_days"),
       hass: this._hass,
       options: Array.from({ length: 15 }, (_, index) => {
         const value = String(index + 1);
         return { value, label: value };
       }),
-      initialValue: String(this._config?.window_days ?? DEFAULT_WINDOW_DAYS),
-      fallbackValue: String(DEFAULT_WINDOW_DAYS),
-      normalize: (value) => String(value ?? DEFAULT_WINDOW_DAYS),
+      initialValue: String(this._config?.event_days ?? DEFAULT_EVENT_DAYS),
+      fallbackValue: String(DEFAULT_EVENT_DAYS),
+      normalize: (value) => String(value ?? DEFAULT_EVENT_DAYS),
       onChange: () => update(),
     });
 

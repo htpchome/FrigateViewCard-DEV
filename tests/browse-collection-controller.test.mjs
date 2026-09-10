@@ -124,6 +124,23 @@ test("findEventById preserves active, all-camera, and kept precedence", () => {
   assert.equal(controller.findEventById("shared"), kept);
 });
 
+test("findEventById includes review-only event metadata without displaying it", () => {
+  const reviewEvent = { id: "older-alert", has_clip: true };
+  const host = {
+    _eventsMode: "camera",
+    _events: [],
+    _kept: [],
+    _config: { cameras: [{ entity: "camera.front" }] },
+    _camCache: {
+      "camera.front": { events: [], reviewEvents: [reviewEvent] },
+    },
+  };
+  const controller = new BrowseCollectionController(host);
+
+  assert.equal(controller.findEventById("older-alert"), reviewEvent);
+  assert.deepEqual(controller.allDisplayEvents(), []);
+});
+
 test("loadGridMixedTabData discovers cameras and fills cross-camera review and kept caches", async () => {
   const calls = [];
   const host = {

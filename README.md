@@ -199,7 +199,7 @@ Card View also supports Grid, Slideshow, alert takeover, two-way talk, linked li
 | `display_subtitle` | boolean | `true` | Displays the subtitle when enabled. |
 | `display_logo` | boolean | `true` | Displays the FrigateView logo in page footers. The footer keeps its normal height when disabled. |
 | `display_version` | boolean | `true` | Displays the FrigateView version number in page footers. The editor always shows the running version. |
-| `window_days` | number | `5` | Number of recent days containing event data to load for event-media browsing. The editor offers 1–15. |
+| `event_days` | number | `5` | Number of recent days containing event data to load for event-media browsing. The editor offers 1–15. |
 | `alerts_reviews_days` | number | `5` | Number of recent days containing qualifying Alerts/Reviews to load and count. The editor offers 1–15. |
 | `realtime_poll_seconds` | number | `5` | How often the card checks for new alerts and reviews when realtime notifications are delayed or missed. Valid values: `2`, `5`, `10`, `15`, `30`, `60`. |
 | `mobile_poll_battery_saver` | boolean | `false` | Uses 60-second polling on mobile devices to reduce battery and data use. |
@@ -510,7 +510,7 @@ This setting controls more than the Alerts browse list. It also determines which
 | Variable | Notes |
 | --- | --- |
 | `camera_entity`, `camera`, `entity`, `entities` | Older camera formats are normalized into `cameras`. New configurations should use `cameras`. |
-| `window_hours` | Legacy event window. New configurations should use `window_days`. |
+| `window_days`, `window_hours` | Legacy event-window keys. New configurations should use `event_days`. |
 | `refresh_seconds` | Legacy background refresh interval with a minimum of 15 seconds. Realtime polling is controlled by `realtime_poll_seconds`. |
 | `wide_view` | Legacy Wide View enablement alias. New configurations should use `wide_view_page_enabled`. |
 | `reviews` in `hidden_tabs` | Normalized to `alerts`. New configurations should use `alerts`. |

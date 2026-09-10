@@ -164,6 +164,13 @@ export class BrowseTabDataController {
       ) {
         await this._host._loadGridMixedTabData(tab);
       }
+      if (tab === "alerts") {
+        await this._host._browseWindowLoaderController?.hydrateReviewEventMetadata?.(
+          this._host._isGridMixedListMode()
+            ? this._host._allGridReviews?.() || []
+            : this._host._reviews,
+        );
+      }
       if (tab === "recordings") {
         const { clientId, cam } = this._host._cc();
         if (clientId && cam) {

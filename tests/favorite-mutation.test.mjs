@@ -15,6 +15,7 @@ test("buildFavoriteOptimisticMutation retains matching events and prepends kept 
     camCache: {
       "camera.front": {
         events: [target],
+        reviewEvents: [target],
         kept: [],
       },
       "camera.back": {
@@ -31,6 +32,10 @@ test("buildFavoriteOptimisticMutation retains matching events and prepends kept 
   assert.equal(state.events[0].retain_indefinitely, true);
   assert.equal(
     state.camCache["camera.front"].events[0].retain_indefinitely,
+    true,
+  );
+  assert.equal(
+    state.camCache["camera.front"].reviewEvents[0].retain_indefinitely,
     true,
   );
   assert.equal(

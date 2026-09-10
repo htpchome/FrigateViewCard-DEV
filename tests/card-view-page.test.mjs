@@ -2208,7 +2208,7 @@ test("Card View progressively paints only the first non-empty alert batch", asyn
   const progressRenderCounts = [];
   const host = {
     _pageId: "card-view",
-    _config: { window_days: 3 },
+    _config: { event_days: 3 },
     _allGridReviews: () => cachedReviews,
     _loadGridMixedTabData: async (_tab, { onProgress }) => {
       for (let index = 1; index <= 3; index += 1) {

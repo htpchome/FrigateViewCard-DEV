@@ -11,7 +11,7 @@ import {
   PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS,
   DEFAULT_CAMERA_CONNECTION_TYPE,
   ALLOWED_HIDDEN_TABS,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
   THEME_CUSTOM_KEYS,
   THEME_MODES,
@@ -705,11 +705,11 @@ export const buildEditorConfigFromDom = ({
     ? resolveSwitchChecked(displayVersion)
     : baseConfig?.display_version !== false;
 
-  nextConfig.window_days = normalizePositiveInteger(
-    root.querySelector("#window_days")?.dataset.value ||
-      root.querySelector("#window_days")?.value ||
-      String(DEFAULT_WINDOW_DAYS),
-    DEFAULT_WINDOW_DAYS,
+  nextConfig.event_days = normalizePositiveInteger(
+    root.querySelector("#event_days")?.dataset.value ||
+      root.querySelector("#event_days")?.value ||
+      String(DEFAULT_EVENT_DAYS),
+    DEFAULT_EVENT_DAYS,
   );
   nextConfig.alerts_reviews_days = normalizePositiveInteger(
     root.querySelector("#alerts_reviews_days")?.dataset.value ||
@@ -717,7 +717,6 @@ export const buildEditorConfigFromDom = ({
       String(DEFAULT_ALERTS_REVIEWS_DAYS),
     DEFAULT_ALERTS_REVIEWS_DAYS,
   );
-  nextConfig.window_hours = nextConfig.window_days * 24;
   const realtimePollSeconds = Number(
     root.querySelector('[name="realtime_poll_seconds"]:checked')?.value ||
       root.querySelector("#realtime_poll_seconds")?.dataset.value ||
@@ -1159,6 +1158,8 @@ export function mkCamState() {
     clientId: "frigate",
     cam: "",
     events: [],
+    reviewEvents: [],
+    reviewEventMetadataWindows: {},
     eventsWindowKey: "",
     eventsWindowContextKey: "",
     eventsWindowFetchedAt: 0,

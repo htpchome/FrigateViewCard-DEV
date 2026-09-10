@@ -152,7 +152,7 @@ test("resetCalendarSelection restores the default window and reloads immediately
     _followNowWindow: false,
     _calSelectedDay: "2026-08-05",
     _calMonth: new Date(Date.UTC(2026, 7, 15)),
-    _config: { window_days: 4 },
+    _config: { event_days: 4 },
     _events: [{ id: "old-event" }],
     _reviews: [{ id: "old-review" }],
     _recordings: [{ id: "old-recording" }],

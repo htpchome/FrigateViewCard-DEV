@@ -58,9 +58,14 @@ const applyFavoriteMutationState = ({
       id,
       retained,
     });
+    const reviewEventResult = updateEventRetention({
+      events: state?.reviewEvents || [],
+      id,
+      retained,
+    });
     const shouldSyncKept = entity === activeEntity && state?.kept !== nextKept;
 
-    if (!eventResult.changed && !shouldSyncKept) {
+    if (!eventResult.changed && !reviewEventResult.changed && !shouldSyncKept) {
       continue;
     }
 
@@ -72,6 +77,9 @@ const applyFavoriteMutationState = ({
     nextCamCache[entity] = {
       ...state,
       ...(eventResult.changed ? { events: eventResult.events } : null),
+      ...(reviewEventResult.changed
+        ? { reviewEvents: reviewEventResult.events }
+        : null),
       ...(shouldSyncKept ? { kept: nextKept } : null),
     };
   }

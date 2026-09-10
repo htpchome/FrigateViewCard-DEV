@@ -30,7 +30,7 @@ import {
   DEFAULT_CAMERA_CONNECTION_TYPE,
   DEFAULT_HIDDEN_TABS,
   ALLOWED_HIDDEN_TABS,
-  DEFAULT_WINDOW_DAYS,
+  DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
 } from "../constants.js";
 import { ICONS } from "../icons.js";
@@ -715,7 +715,7 @@ export class FrigateViewCard extends HTMLElement {
       getWindowStart: () =>
         this._winStart ||
         (this._winEnd || Date.now() / 1000) -
-          (this._config?.window_days || DEFAULT_WINDOW_DAYS) * DAY,
+          (this._config?.event_days || DEFAULT_EVENT_DAYS) * DAY,
       getWindowEnd: () => this._winEnd || Date.now() / 1000,
       getCameraKey: () =>
         resolveWideTimelineCameraContextKey({
@@ -1712,7 +1712,7 @@ export class FrigateViewCard extends HTMLElement {
       compact_preview: true,
       stream_height: 100,
       stream_height_unit: "%",
-      window_days: DEFAULT_WINDOW_DAYS,
+      event_days: DEFAULT_EVENT_DAYS,
       alerts_reviews_days: DEFAULT_ALERTS_REVIEWS_DAYS,
     };
   }
@@ -1779,11 +1779,11 @@ export class FrigateViewCard extends HTMLElement {
       display_subtitle: config.display_subtitle !== false,
       display_logo: config.display_logo !== false,
       display_version: config.display_version !== false,
-      window_days:
-        normalizePositiveInteger(config.window_days, null) ||
+      event_days:
+        normalizePositiveInteger(config.event_days ?? config.window_days, null) ||
         (Number.isFinite(legacyWindowHours) && legacyWindowHours > 0
           ? Math.max(1, Math.ceil(legacyWindowHours / 24))
-          : DEFAULT_WINDOW_DAYS),
+          : DEFAULT_EVENT_DAYS),
       alerts_reviews_days: normalizePositiveInteger(
         config.alerts_reviews_days,
         DEFAULT_ALERTS_REVIEWS_DAYS,
@@ -2513,7 +2513,7 @@ export class FrigateViewCard extends HTMLElement {
     const now = Math.floor(Date.now() / 1000);
     this._followNowWindow = true;
     this._winEnd = now;
-    this._winStart = now - this._config.window_days * DAY;
+    this._winStart = now - this._config.event_days * DAY;
 
     const initialLoad = this._browseWindowLoaderController.loadWindow(true);
     this._browseWindowLoaderController.scheduleWarmOtherCamerasEvents();
