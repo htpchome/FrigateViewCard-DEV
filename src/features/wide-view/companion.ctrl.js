@@ -44,7 +44,11 @@ export function resolveWideCompanionGridLayout({
   height,
   metadataHeight = COMPANION_META_HEIGHT_PX,
 } = {}) {
-  const count = Math.max(1, Math.floor(Number(cameraCount) || 0));
+  const configuredCount = Math.max(
+    0,
+    Math.floor(Number(cameraCount) || 0),
+  );
+  const count = configuredCount === 1 ? 2 : Math.max(1, configuredCount);
   const availableWidth = Math.max(0, Number(width) || 0);
   const availableHeight = Math.max(0, Number(height) || 0);
   const resolvedMetaHeight = Math.max(

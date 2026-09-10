@@ -250,6 +250,62 @@ test("Panel Single and Mobile Views keep their footer inside the viewport", asyn
   }
 });
 
+test("single-camera Preview keeps the same tile width as a two-camera Preview", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_200, height: 900 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const measure = async (cameraCount) => {
+      const wrapper = document.createElement("div");
+      wrapper.style.width = "1000px";
+      const card = document.createElement("frigate-view-card");
+      wrapper.append(card);
+      document.body.append(wrapper);
+      card.setConfig({
+        cameras: Array.from({ length: cameraCount }, (_, index) => ({
+          entity: `camera.camera_${index + 1}`,
+          name: `Camera ${index + 1}`,
+        })),
+        preview_page_enabled: true,
+      });
+      card._pageId = "preview";
+      card._renderShell();
+      card._previewPageController.renderPreviewPage();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const grid = card.shadowRoot.querySelector("#preview-grid");
+      const camera = grid.querySelector("[data-preview-camidx]");
+      const emptySlot = grid.querySelector(".preview-grid-empty-slot");
+      const measurements = {
+        gridWidth: Math.round(grid.getBoundingClientRect().width),
+        cameraWidth: Math.round(camera.getBoundingClientRect().width),
+        emptySlotWidth: emptySlot
+          ? Math.round(emptySlot.getBoundingClientRect().width)
+          : 0,
+        hasEmptySlot: Boolean(emptySlot),
+      };
+      wrapper.remove();
+      return measurements;
+    };
+
+    return {
+      single: await measure(1),
+      pair: await measure(2),
+    };
+  });
+
+  expect(result.single.hasEmptySlot).toBe(true);
+  expect(result.pair.hasEmptySlot).toBe(false);
+  expect(result.single.cameraWidth).toBe(result.pair.cameraWidth);
+  expect(result.single.emptySlotWidth).toBe(result.single.cameraWidth);
+  expect(result.single.cameraWidth).toBeLessThan(result.single.gridWidth * 0.6);
+});
+
 test("cached browse rows expand in append-only batches across sticky days", async ({
   page,
 }) => {

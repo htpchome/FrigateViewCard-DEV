@@ -385,6 +385,7 @@ export class PreviewPageController {
     shell.innerHTML = buildPreviewShellMarkup({
       cellsMarkup,
       buttonsMarkup,
+      cameraCount: cameras.length,
     });
     this.mountPreviewMedia();
     this._host._linkedLightController?.sync?.();

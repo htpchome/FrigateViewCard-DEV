@@ -131,10 +131,19 @@ export function buildPreviewCameraButtonMarkup({ index, entity, name }) {
  * @param {object} args Shell arguments.
  * @param {string} args.cellsMarkup Joined grid cell markup.
  * @param {string} args.buttonsMarkup Joined camera button markup.
+ * @param {number} args.cameraCount Number of rendered cameras.
  * @returns {string}
  */
-export function buildPreviewShellMarkup({ cellsMarkup, buttonsMarkup }) {
-  return `<div class="preview-grid" id="preview-grid">${cellsMarkup}</div>
+export function buildPreviewShellMarkup({
+  cellsMarkup,
+  buttonsMarkup,
+  cameraCount = 0,
+}) {
+  const emptySlotMarkup =
+    Number(cameraCount) === 1
+      ? '<div class="preview-grid-empty-slot" aria-hidden="true"></div>'
+      : "";
+  return `<div class="preview-grid" id="preview-grid">${cellsMarkup}${emptySlotMarkup}</div>
       <div class="preview-cam-buttons">${buttonsMarkup}</div>`;
 }
 

@@ -209,6 +209,19 @@ test("visible Companion Camera snapshots receive LCP priority", () => {
 });
 
 test("Companion Camera columns resize responsively within useful bounds", () => {
+  const singleCameraLayout = resolveWideCompanionGridLayout({
+    cameraCount: 1,
+    width: 745,
+    height: 550,
+  });
+  const twoCameraLayout = resolveWideCompanionGridLayout({
+    cameraCount: 2,
+    width: 745,
+    height: 550,
+  });
+  assert.deepEqual(singleCameraLayout, twoCameraLayout);
+  assert.deepEqual(singleCameraLayout, { columns: 2, cellWidth: 368.5 });
+
   assert.deepEqual(
     resolveWideCompanionGridLayout({
       cameraCount: 7,

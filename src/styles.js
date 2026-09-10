@@ -688,6 +688,7 @@ export const STYLES = `
     grid-template-columns: repeat(auto-fit,minmax(max(min(100%, 420px), calc(33.333% - 10px)),1fr));
   }
   .preview-grid > div {min-width: 0;}
+  .preview-grid-empty-slot{visibility:hidden;pointer-events:none;}
 
   .preview-cell{display:flex;flex-direction:column;cursor:pointer;-webkit-backface-visibility: hidden;backface-visibility: hidden;border-radius:var(--fvc-border-radius);container-type:inline-size;container-name:preview-cell;}
   .preview-media-frame{position:relative;flex:0 0 auto;min-width:0;}

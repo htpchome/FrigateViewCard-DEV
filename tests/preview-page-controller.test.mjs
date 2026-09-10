@@ -8,6 +8,7 @@ import {
   buildPreviewCellMarkup,
   buildPreviewLightRegionMarkup,
   buildPreviewMetaMarkup,
+  buildPreviewShellMarkup,
 } from "../src/features/preview/page.tmpl.js";
 
 const createHost = ({
@@ -251,6 +252,53 @@ test("Preview metadata stays two-column until its own card is very narrow", () =
   assert.doesNotMatch(
     STYLES,
     /@media \(max-width: 720px\)\{\s*\.preview-meta/,
+  );
+});
+
+test("Preview reserves a second camera slot when only one camera is configured", () => {
+  const singleCameraMarkup = buildPreviewShellMarkup({
+    cellsMarkup: '<div class="preview-cell">Camera</div>',
+    buttonsMarkup: "",
+    cameraCount: 1,
+  });
+  const twoCameraMarkup = buildPreviewShellMarkup({
+    cellsMarkup:
+      '<div class="preview-cell">Camera 1</div><div class="preview-cell">Camera 2</div>',
+    buttonsMarkup: "",
+    cameraCount: 2,
+  });
+
+  assert.match(singleCameraMarkup, /class="preview-grid-empty-slot"/);
+  assert.doesNotMatch(twoCameraMarkup, /preview-grid-empty-slot/);
+  assert.match(
+    STYLES,
+    /\.preview-grid-empty-slot\{visibility:hidden;pointer-events:none;\}/,
+  );
+});
+
+test("Preview controller reserves the empty slot only for a single camera", () => {
+  const { controller, host } = createHost({
+    previewEnabled: true,
+    pageId: "preview",
+  });
+  const shell = { firstElementChild: null, innerHTML: "" };
+  host._config.cameras = host._config.cameras.slice(0, 1);
+  host._hass = {
+    states: {
+      "camera.front_door": { state: "recording", attributes: {} },
+    },
+  };
+  controller.ensurePreviewLayoutShell = () => shell;
+  controller.teardownPreviewMedia = () => {};
+  controller.mountPreviewMedia = () => {};
+  controller.applyPreviewShellVisibility = () => {};
+
+  controller.renderPreviewPage();
+
+  assert.match(shell.innerHTML, /class="preview-grid-empty-slot"/);
+  assert.equal(
+    (shell.innerHTML.match(/data-preview-camidx=/g) || []).length,
+    1,
   );
 });
 
