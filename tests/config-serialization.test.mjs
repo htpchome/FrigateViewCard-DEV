@@ -2083,7 +2083,7 @@ test("Card View View Mode normalizes values and migrates legacy presentation set
   );
   assert.equal(
     resolveCardViewMasonrySizeHint(CARD_VIEW_VIEW_MODES.bottomPanelOpen),
-    10,
+    8,
   );
   assert.equal(
     resolveCardViewMasonrySizeHint(CARD_VIEW_VIEW_MODES.bottomPanelClosed),

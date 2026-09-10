@@ -156,7 +156,7 @@ test("runtime cards report page-specific Masonry sizes despite the compact picke
     picker: 2,
     editor: 3,
     cardViewVideoOnly: 6,
-    cardViewPanelOpen: 10,
+    cardViewPanelOpen: 8,
     cardViewPanelClosed: 7,
   });
 });
@@ -309,7 +309,7 @@ test("Panel Single and Mobile Views keep their footer inside the viewport", asyn
 test("Panel Card View keeps an open bottom panel inside a short viewport", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1_200, height: 768 });
+  await page.setViewportSize({ width: 640, height: 768 });
   await page.goto(baseUrl);
 
   const result = await page.evaluate(async () => {
@@ -358,6 +358,7 @@ test("Panel Card View keeps an open bottom panel inside a short viewport", async
       ),
       openClass: card.classList.contains("card-view-bottom-panel-open"),
       hostHeight: Math.round(hostRect.height),
+      hostWidth: Math.round(hostRect.width),
       hostBottom: Math.round(hostRect.bottom),
       stageHeight: Math.round(stageRect.height),
       drawerHeight: Math.round(drawerRect.height),
@@ -368,8 +369,9 @@ test("Panel Card View keeps an open bottom panel inside a short viewport", async
   expect(result.constrainedHeight).toBe("740px");
   expect(result.openClass).toBe(true);
   expect(result.hostHeight).toBe(740);
+  expect(result.hostWidth).toBeLessThanOrEqual(640);
   expect(result.hostBottom).toBeLessThanOrEqual(768);
-  expect(result.stageHeight).toBeGreaterThan(0);
+  expect(result.stageHeight).toBeGreaterThan(300);
   expect(result.drawerHeight).toBeGreaterThan(0);
   expect(result.footerBottom).toBeLessThanOrEqual(result.hostBottom);
 });

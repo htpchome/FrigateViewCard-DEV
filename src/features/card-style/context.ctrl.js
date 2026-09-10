@@ -407,6 +407,14 @@ export class CardStyleContextController {
       availableWidthPx > 0
         ? Math.min(availableWidthPx, maxWidthPx)
         : maxWidthPx;
+    const useAvailablePanelHeight =
+      this.isPanelView() &&
+      this._host._isCardViewPageActive?.() === true &&
+      this._host._cardViewPageController?.usesOverlayPresentation?.() ===
+        false;
+    const constrainedHeightPx = useAvailablePanelHeight
+      ? referenceHeightPx
+      : constrainedWidthPx / ratio;
 
     this._panelAspectConstraintActive = true;
     this._host.classList?.toggle?.(
@@ -419,7 +427,7 @@ export class CardStyleContextController {
     );
     this._host.style?.setProperty?.(
       PANEL_ASPECT_HEIGHT_PROPERTY,
-      `${Math.max(1, Math.round(constrainedWidthPx / ratio))}px`,
+      `${Math.max(1, Math.round(constrainedHeightPx))}px`,
     );
   }
 

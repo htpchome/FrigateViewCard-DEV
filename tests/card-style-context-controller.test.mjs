@@ -712,6 +712,39 @@ test("Panel View derives the card height from a narrower parent", () => {
   assert.equal(styleValues.get("--fvc-panel-view-card-height"), "400px");
 });
 
+test("Panel Card View reserves the available height for an open bottom panel", () => {
+  const styleValues = new Map();
+  const host = {
+    parentElement: {
+      getBoundingClientRect: () => ({ width: 560 }),
+    },
+    _isCardViewPageActive: () => true,
+    _cardViewPageController: {
+      usesOverlayPresentation: () => false,
+    },
+    classList: { toggle: () => {} },
+    style: {
+      getPropertyValue: (name) => styleValues.get(name) || "",
+      setProperty: (name, value) => styleValues.set(name, value),
+      removeProperty: (name) => styleValues.delete(name),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.isPanelView = () => true;
+  controller.resolvePanelViewAspectRatio = () => 1.4;
+  controller.resolveHeightWrapperViewportPx = () => 900;
+
+  controller.syncPanelViewAspectConstraint(null);
+
+  assert.equal(styleValues.get("--fvc-panel-view-max-width"), "1260px");
+  assert.equal(styleValues.get("--fvc-panel-view-card-height"), "900px");
+
+  controller.isPanelView = () => false;
+  controller.syncPanelViewAspectConstraint(null);
+
+  assert.equal(styleValues.get("--fvc-panel-view-card-height"), "400px");
+});
+
 test("Panel View width constraint is centered and never exceeds its parent", () => {
   assert.match(
     STYLES,
