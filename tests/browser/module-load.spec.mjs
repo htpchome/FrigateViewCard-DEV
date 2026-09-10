@@ -289,6 +289,77 @@ test("Panel Single and Mobile Views keep their footer inside the viewport", asyn
   }
 });
 
+test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_500, height: 876 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const sidebar = document.createElement("hui-sidebar-view");
+    sidebar.style.display = "block";
+    sidebar.style.width = "100vw";
+    const wrapper = document.createElement("div");
+    wrapper.style.width = "100%";
+    sidebar.append(wrapper);
+    document.body.append(sidebar);
+
+    const card = document.createElement("frigate-view-card");
+    wrapper.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      stream_height: 100,
+      stream_height_unit: "%",
+      mobile_view_page_enabled: true,
+    });
+
+    const sample = async (pageId) => {
+      card._pageId = pageId;
+      card._renderShell();
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      card._applyCardStyle();
+
+      const hostRect = card.getBoundingClientRect();
+      const footerRect = card.shadowRoot
+        .querySelector('[data-fvc-region="footer"]')
+        .getBoundingClientRect();
+      const browse = card.shadowRoot.querySelector('[data-fvc-region="browse"]');
+      return {
+        configuredHeight: card.style.getPropertyValue("--card-host-height"),
+        maxWidth: card.style.getPropertyValue("--fvc-panel-view-max-width"),
+        hostWidth: Math.round(hostRect.width),
+        hostBottom: Math.round(hostRect.bottom),
+        footerBottom: Math.round(footerRect.bottom),
+        footerVisible: footerRect.height > 0,
+        browseHeight: Math.round(browse.getBoundingClientRect().height),
+        browseOverflowY: getComputedStyle(browse).overflowY,
+        wrapperHeight: wrapper.style.height,
+      };
+    };
+
+    return {
+      single: await sample("single-view"),
+      mobile: await sample("mobile-view"),
+    };
+  });
+
+  for (const view of [result.single, result.mobile]) {
+    expect(view.configuredHeight).toBe("820px");
+    expect(view.maxWidth).toBe("984px");
+    expect(view.hostWidth).toBe(984);
+    expect(view.hostBottom).toBeLessThanOrEqual(820);
+    expect(view.footerBottom).toBeLessThanOrEqual(view.hostBottom);
+    expect(view.footerVisible).toBe(true);
+    expect(view.browseHeight).toBeGreaterThan(0);
+    expect(view.browseOverflowY).toBe("auto");
+    expect(view.wrapperHeight).toBe("auto");
+  }
+});
+
 test("single-camera Preview keeps the same tile width as a two-camera Preview", async ({
   page,
 }) => {

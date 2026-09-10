@@ -561,6 +561,43 @@ test("Panel View applies page-specific width-to-height ratios", () => {
   assert.equal(controller.resolvePanelViewAspectRatio(), null);
 });
 
+test("Sidebar View applies the Panel page-specific width-to-height ratios", () => {
+  let page = "single";
+  let cardViewVideoOnly = false;
+  const sidebarView = {
+    tagName: "HUI-SIDEBAR-VIEW",
+    parentNode: null,
+  };
+  const host = {
+    parentNode: sidebarView,
+    _isPreviewPageActive: () => page === "preview",
+    _isMobileViewPageActive: () => page === "mobile",
+    _isCardViewPageActive: () => page === "card",
+    _singleViewPageController: { isActive: () => page === "single" },
+    _wideViewPageController: {
+      isWideViewPageActive: () => page === "wide",
+    },
+    _cardViewPageController: {
+      usesOverlayPresentation: () => cardViewVideoOnly,
+    },
+  };
+  const controller = new CardStyleContextController(host);
+
+  assert.equal(controller.isPanelView(), false);
+  assert.equal(controller.isSidebarView(), true);
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.2);
+  page = "mobile";
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.2);
+  page = "card";
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.4);
+  cardViewVideoOnly = true;
+  assert.equal(controller.resolvePanelViewAspectRatio(), 1.75);
+  page = "wide";
+  assert.equal(controller.resolvePanelViewAspectRatio(), null);
+  page = "preview";
+  assert.equal(controller.resolvePanelViewAspectRatio(), null);
+});
+
 test("Panel View ratio caps and centers the card from its applied height", () => {
   const styleValues = new Map([["--card-host-height", "600px"]]);
   const styleCalls = [];
@@ -1544,6 +1581,46 @@ test("Panel Single and Mobile Views keep requested height for an internal scroll
   };
   const controller = new CardStyleContextController(host);
   controller.isPanelView = () => true;
+  controller.resolveMinimumUsableHostHeightPx = () => 652;
+
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 444, expanded: false },
+  );
+
+  page = "mobile";
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 444, expanded: false },
+  );
+
+  page = "wide";
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 652, expanded: true },
+  );
+});
+
+test("Sidebar Single and Mobile Views keep requested height for an internal scroller", () => {
+  let page = "single";
+  const host = {
+    _isMobileViewPageActive: () => page === "mobile",
+    _singleViewPageController: {
+      isActive: () => page === "single",
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.isPanelView = () => false;
+  controller.isSidebarView = () => true;
   controller.resolveMinimumUsableHostHeightPx = () => 652;
 
   assert.deepEqual(

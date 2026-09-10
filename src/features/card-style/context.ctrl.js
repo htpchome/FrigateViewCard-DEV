@@ -276,6 +276,15 @@ export class CardStyleContextController {
     return false;
   }
 
+  isSidebarView() {
+    let element = this._host;
+    while (element) {
+      if (element.tagName === "HUI-SIDEBAR-VIEW") return true;
+      element = element.parentNode || element.host;
+    }
+    return false;
+  }
+
   setSectionsRowGap(tightMarginsEnabled) {
     let element = this._host;
     while (element) {
@@ -317,7 +326,7 @@ export class CardStyleContextController {
   }
 
   resolvePanelViewAspectRatio() {
-    if (!this.isPanelView()) return null;
+    if (!this.isPanelView() && !this.isSidebarView()) return null;
     if (this._host._isPreviewPageActive?.() === true) return null;
     if (
       this._host._wideViewPageController?.isWideViewPageActive?.() === true
@@ -700,11 +709,11 @@ export class CardStyleContextController {
   }
 
   resolveUsableHostHeight({ card, resolvedHeightPx }) {
-    const keepPanelHeight =
-      this.isPanelView() &&
+    const keepConstrainedViewHeight =
+      (this.isPanelView() || this.isSidebarView()) &&
       (this._host._isMobileViewPageActive?.() === true ||
         this._host._singleViewPageController?.isActive?.() === true);
-    if (keepPanelHeight) {
+    if (keepConstrainedViewHeight) {
       return {
         heightPx: resolvedHeightPx,
         expanded: false,
