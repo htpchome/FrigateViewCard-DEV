@@ -86,6 +86,7 @@ export class BrowserPlaybackTargetController {
     this._sources = new Map();
     this._sourceInFlight = new Map();
     this._videos = new Map();
+    this._displayedVideos = new Map();
   }
 
   _contextForScope(scope) {
@@ -173,6 +174,44 @@ export class BrowserPlaybackTargetController {
     }
   }
 
+  _playVideo(video) {
+    try {
+      video?.play?.()?.catch?.(() => {});
+    } catch (_) {}
+  }
+
+  _bindDisplayedVideo(scope, video) {
+    const existing = this._displayedVideos.get(scope);
+    if (existing?.video === video) return;
+    this._releaseDisplayedVideo(scope);
+
+    const onWirelessTargetChanged = () => {
+      if (video.webkitCurrentPlaybackTargetIsWireless === true) {
+        this._playVideo(video);
+        return;
+      }
+      this._releaseDisplayedVideo(scope);
+    };
+    video.addEventListener?.(
+      "webkitcurrentplaybacktargetiswirelesschanged",
+      onWirelessTargetChanged,
+    );
+    this._displayedVideos.set(scope, {
+      video,
+      onWirelessTargetChanged,
+    });
+  }
+
+  _releaseDisplayedVideo(scope) {
+    const entry = this._displayedVideos.get(scope);
+    if (!entry) return;
+    entry.video.removeEventListener?.(
+      "webkitcurrentplaybacktargetiswirelesschanged",
+      entry.onWirelessTargetChanged,
+    );
+    this._displayedVideos.delete(scope);
+  }
+
   getSupport() {
     return resolveBrowserPlaybackTargetSupport({
       windowObj: this._getWindow?.(),
@@ -234,9 +273,12 @@ export class BrowserPlaybackTargetController {
     if (target !== PLAYBACK_TARGET_AIRPLAY) return Promise.resolve(false);
     if (displayedVideo) {
       allowAirPlayVideo(displayedVideo);
+      this._bindDisplayedVideo(scope, displayedVideo);
+      this._playVideo(displayedVideo);
       const prompted =
         this._promptAirPlay?.(displayedVideo, { load: false }) === true;
       if (prompted) return Promise.resolve(true);
+      this._releaseDisplayedVideo(scope);
     }
 
     const context = this._contextForScope(scope);
@@ -261,10 +303,16 @@ export class BrowserPlaybackTargetController {
   release(scope = "") {
     if (scope) {
       this._releaseVideo(scope);
+      this._releaseDisplayedVideo(scope);
       return;
     }
-    for (const activeScope of [...this._videos.keys()]) {
+    const scopes = new Set([
+      ...this._videos.keys(),
+      ...this._displayedVideos.keys(),
+    ]);
+    for (const activeScope of scopes) {
       this._releaseVideo(activeScope);
+      this._releaseDisplayedVideo(activeScope);
     }
   }
 

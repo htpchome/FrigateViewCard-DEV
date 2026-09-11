@@ -27,7 +27,10 @@ import {
   buildRecordingPlaybackPlan,
   shouldPreferRecordingHls,
 } from "../recordings/index.js";
-import { resolveFrigateEventPrePostRollRange } from "../../integrations/frigate/event-media.js";
+import {
+  resolveFrigateEventPrePostRollRange,
+  resolveFrigateEventRecordingRange,
+} from "../../integrations/frigate/event-media.js";
 import {
   POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
   POPUP_VIEW_MAX_HEIGHT_DVH,
@@ -417,13 +420,25 @@ export class PopupMediaLoaderController {
     );
   }
 
-  showClip(event, opts = {}) {
-    const range = resolveFrigateEventPrePostRollRange({
+  _resolveEventRecordingRange(event, opts = {}) {
+    const configuredRange = resolveFrigateEventPrePostRollRange({
       event,
       enabled:
         opts.skipPrePostRoll !== true &&
         this._deps.isEventPrePostRollEnabled(),
     });
+    if (configuredRange) return configuredRange;
+
+    const shouldUseNativeHlsRange =
+      this._deps.isIOS ||
+      (this._deps.isSafari() && this._deps.supportsNativeHls());
+    return shouldUseNativeHlsRange
+      ? resolveFrigateEventRecordingRange({ event })
+      : null;
+  }
+
+  showClip(event, opts = {}) {
+    const range = this._resolveEventRecordingRange(event, opts);
     if (range) {
       return this.showEventRecording(event, opts, range);
     }
@@ -457,12 +472,7 @@ export class PopupMediaLoaderController {
   showClipById(id, opts = {}) {
     if (!id) return;
     const event = this._host._findEventById(id);
-    const range = resolveFrigateEventPrePostRollRange({
-      event,
-      enabled:
-        opts.skipPrePostRoll !== true &&
-        this._deps.isEventPrePostRollEnabled(),
-    });
+    const range = this._resolveEventRecordingRange(event, opts);
     if (range) {
       return this.showEventRecording(event, opts, range);
     }

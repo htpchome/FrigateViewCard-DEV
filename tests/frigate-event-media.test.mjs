@@ -2,7 +2,23 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { EVENT_PRE_POST_ROLL_SECONDS } from "../src/constants.js";
-import { resolveFrigateEventPrePostRollRange } from "../src/integrations/frigate/event-media.js";
+import {
+  resolveFrigateEventPrePostRollRange,
+  resolveFrigateEventRecordingRange,
+} from "../src/integrations/frigate/event-media.js";
+
+test("Frigate event recording range can use the exact event bounds", () => {
+  assert.deepEqual(
+    resolveFrigateEventRecordingRange({
+      event: { start_time: 100.8, end_time: 110.2 },
+    }),
+    {
+      start: 100,
+      end: 111,
+      durationSec: 11,
+    },
+  );
+});
 
 test("Frigate event playback range adds the configured pre-roll and post-roll", () => {
   assert.equal(EVENT_PRE_POST_ROLL_SECONDS, 5);
@@ -31,6 +47,12 @@ test("Frigate event playback range requires the toggle and a completed event", (
     resolveFrigateEventPrePostRollRange({
       event: { start_time: 100, end_time: null },
       enabled: true,
+    }),
+    null,
+  );
+  assert.equal(
+    resolveFrigateEventRecordingRange({
+      event: { start_time: null, end_time: 110 },
     }),
     null,
   );

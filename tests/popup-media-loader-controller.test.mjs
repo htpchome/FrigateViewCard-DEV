@@ -205,6 +205,97 @@ test("Chromium keeps MP4 when native HLS is available", () => {
   );
 });
 
+test("Safari clips use the exact camera VOD range without configured padding", async () => {
+  const calls = [];
+  const viewer = { innerHTML: "", appended: null };
+  const video = {
+    paused: false,
+    seeking: false,
+    currentSrc: "",
+    src: "",
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    pause: () => {},
+    play: () => Promise.resolve(),
+    canPlayType: () => "probably",
+  };
+  const event = {
+    id: "event-1",
+    camera: "front_door",
+    start_time: 100.8,
+    end_time: 110.2,
+    has_clip: true,
+  };
+  const host = {
+    _playSeq: 0,
+    _cc: () => ({ clientId: "frigate", cam: "front_door" }),
+    _frigateContextForCameraName: () => ({
+      clientId: "frigate",
+      cam: "front_door",
+    }),
+    _findEventById: () => event,
+    _popupInfoController: { render: () => {} },
+    _popupCarouselController: { render: () => {} },
+    _popupMediaControlsController: {
+      initialize: () => {},
+      ensurePlaybackButtons: () => {},
+      showTemporarily: () => {},
+      syncPlaybackButtons: () => {},
+      update: () => {},
+    },
+    _popupRecordingScrubController: {},
+    _popupLifecycleController: {
+      enter: () => {},
+      clearMediaCleanup: () => {},
+      setMediaState: (state) => calls.push(["state", state]),
+      setMediaCleanup: () => {},
+      setMediaCamera: () => {},
+    },
+    shadowRoot: { querySelector: () => viewer },
+    _signed: async (path) => {
+      calls.push(["signed", path]);
+      return `signed:${path}`;
+    },
+    _isSafari: () => true,
+    _supportsNativeHlsPlayback: () => true,
+    _attachPopupVideoZoom: () => {},
+    _scheduleRotateOverlayUpdate: () => {},
+    _preparePopupPlaybackTarget: () => {},
+  };
+  const controller = new PopupMediaLoaderController(host, {
+    isIOS: false,
+    isEventPrePostRollEnabled: () => false,
+    buildVideoOptionsForView: (_view, options) => options,
+    createVideoElement: () => video,
+    mountNodeIntoSlot: (slot, node) => {
+      slot.appended = node;
+    },
+  });
+  controller.tryRecordingSource = async (_video, source) => {
+    calls.push(["try-source", source]);
+    return true;
+  };
+
+  await controller.showClipById(event.id, { mediaType: "alert" });
+
+  assert.equal(
+    calls.some(
+      ([kind, path]) =>
+        kind === "signed" &&
+        path.includes("/vod/front_door/start/100/end/111/index.m3u8"),
+    ),
+    true,
+  );
+  assert.deepEqual(
+    calls.find(([kind]) => kind === "state")?.[1]?.playing,
+    {
+      id: "event-1",
+      eventRecordingStart: 100,
+      eventRecordingEnd: 111,
+    },
+  );
+});
+
 test("unavailable event clips fall back to snapshots and then clear messaging", () => {
   const event = {
     id: "event-1",

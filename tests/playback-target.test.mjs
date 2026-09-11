@@ -20,6 +20,9 @@ function createFakeVideo({ airplay = false } = {}) {
     preload: "",
     controls: true,
     playsInline: false,
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
     disableRemotePlayback: true,
     style: { cssText: "" },
     loadCalls: 0,
@@ -104,6 +107,9 @@ test("AirPlay uses a dedicated prepared video instead of the displayed stream", 
   assert.equal(video.controls, false);
   assert.equal(video.disableRemotePlayback, false);
   assert.equal(video.hasAttribute("x-webkit-airplay"), true);
+  assert.equal(video.muted, true);
+  assert.equal(video.defaultMuted, true);
+  assert.equal(video.volume, 0);
   assert.equal(video.loadCalls, 0);
   assert.equal(promptAirPlayVideo(video), true);
   assert.equal(video.loadCalls, 1);
@@ -137,7 +143,24 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
   assert.equal(displayedVideo.loadCalls, 0);
   assert.equal(displayedVideo.disableRemotePlayback, false);
   assert.equal(displayedVideo.getAttribute("x-webkit-airplay"), "allow");
+  assert.equal(displayedVideo.muted, true);
+  assert.equal(displayedVideo.defaultMuted, true);
+  assert.equal(displayedVideo.volume, 0);
+  assert.equal(displayedVideo.playCalls, 1);
   assert.equal(displayedVideo.airplayPrompted, true);
+
+  displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
+  displayedVideo.dispatch(
+    "webkitcurrentplaybacktargetiswirelesschanged",
+  );
+  assert.equal(displayedVideo.playCalls, 2);
+
+  controller.release("popup");
+  displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
+  displayedVideo.dispatch(
+    "webkitcurrentplaybacktargetiswirelesschanged",
+  );
+  assert.equal(displayedVideo.playCalls, 2);
 });
 
 test("receiver URL resolution rejects browser-local blobs", () => {
