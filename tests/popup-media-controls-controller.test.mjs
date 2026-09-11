@@ -571,7 +571,7 @@ test("popup media controls surface renders tablet video actions in shared order"
     },
   });
   const video = {};
-  const viewer = createElement("div");
+  const viewer = { ...createElement("div"), classList: createTarget().classList };
   let playbackControls = null;
   viewer.querySelector = (selector) => {
     if (selector === "#popup-playback-controls") return playbackControls;
@@ -626,4 +626,8 @@ test("popup media controls surface renders tablet video actions in shared order"
   assert.equal(overlayOptions.surface, viewer);
   assert.equal(overlayOptions.revealDurationMs, 1800);
   assert.equal(overlayBound, true);
+  overlayOptions.show();
+  assert.equal(viewer.classList.contains("popup-controls-visible"), true);
+  overlayOptions.hideNow();
+  assert.equal(viewer.classList.contains("popup-controls-visible"), false);
 });

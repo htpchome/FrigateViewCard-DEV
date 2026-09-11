@@ -2068,6 +2068,9 @@ test.describe("touch input", () => {
         closeButton.closest(".popup-close-row"),
       ).display;
       viewer.classList.add("popup-controls-visible");
+      const closeDisplayWithOverlayControls = getComputedStyle(
+        closeButton.closest(".popup-close-row"),
+      ).display;
 
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const hostRect = card.getBoundingClientRect();
@@ -2098,6 +2101,7 @@ test.describe("touch input", () => {
         bottomBarGap: 390 - mediaBarRect.bottom,
         closeDisplayWithoutControls,
         closeDisplayWithMediaControls,
+        closeDisplayWithOverlayControls,
         closeDisplay: getComputedStyle(closeButton.closest(".popup-close-row"))
           .display,
         closeRightInset: 844 - closeRect.right,
@@ -2129,7 +2133,8 @@ test.describe("touch input", () => {
     expect(geometry.rightControlInset).toBeCloseTo(20, 0);
     expect(geometry.bottomBarGap).toBeCloseTo(0, 0);
     expect(geometry.closeDisplayWithoutControls).toBe("none");
-    expect(geometry.closeDisplayWithMediaControls).toBe("block");
+    expect(geometry.closeDisplayWithMediaControls).toBe("none");
+    expect(geometry.closeDisplayWithOverlayControls).toBe("block");
     expect(geometry.closeDisplay).not.toBe("none");
     expect(geometry.closeRightInset).toBeCloseTo(20, 0);
     expect(geometry.closeTop).toBeCloseTo(8, 0);
@@ -2215,7 +2220,7 @@ test.describe("touch input", () => {
     expect(geometry.statusRightInset).toBeCloseTo(20, 0);
     expect(geometry.liveControlsVisible).toBe(true);
     expect(geometry.dismissDisplayBeforeDrawer).toBe("grid");
-    expect(geometry.dismissDisplayWithDrawer).toBe("none");
+    expect(geometry.dismissDisplayWithDrawer).toBe("grid");
   });
 
   test("keeps remounted live video on custom controls throughout rotation", async ({
