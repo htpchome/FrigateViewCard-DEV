@@ -14,13 +14,14 @@ import { resolveAbsoluteReceiverSourceUrl } from "../src/integrations/home-assis
 function createFakeVideo({ airplay = false } = {}) {
   const attributes = new Map();
   const listeners = new Map();
+  const mutedWrites = [];
+  let muted = true;
   const video = {
     src: "",
     srcObject: { active: true },
     preload: "",
     controls: true,
     playsInline: false,
-    muted: true,
     defaultMuted: true,
     volume: 0,
     disableRemotePlayback: true,
@@ -61,7 +62,16 @@ function createFakeVideo({ airplay = false } = {}) {
     remove() {
       this.removed = true;
     },
+    mutedWrites,
   };
+  Object.defineProperty(video, "muted", {
+    configurable: true,
+    get: () => muted,
+    set: (value) => {
+      muted = value === true;
+      mutedWrites.push(muted);
+    },
+  });
   if (airplay) {
     video.webkitShowPlaybackTargetPicker = () => {
       video.airplayPrompted = true;
@@ -110,6 +120,7 @@ test("AirPlay uses a dedicated prepared video instead of the displayed stream", 
   assert.equal(video.muted, true);
   assert.equal(video.defaultMuted, true);
   assert.equal(video.volume, 0);
+  assert.deepEqual(video.mutedWrites, []);
   assert.equal(video.loadCalls, 0);
   assert.equal(promptAirPlayVideo(video), true);
   assert.equal(video.loadCalls, 1);
@@ -147,6 +158,7 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
   assert.equal(displayedVideo.defaultMuted, true);
   assert.equal(displayedVideo.volume, 0);
   assert.equal(displayedVideo.playCalls, 1);
+  assert.deepEqual(displayedVideo.mutedWrites, [false, true]);
   assert.equal(displayedVideo.airplayPrompted, true);
 
   displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
@@ -161,6 +173,27 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
   assert.equal(displayedVideo.playCalls, 2);
+});
+
+test("AirPlay activation leaves an unmuted displayed video unchanged", async () => {
+  const displayedVideo = createFakeVideo({ airplay: true });
+  displayedVideo.muted = false;
+  displayedVideo.mutedWrites.length = 0;
+
+  const controller = new BrowserPlaybackTargetController({
+    getWindow: () => ({}),
+  });
+
+  assert.equal(
+    await controller.prompt(PLAYBACK_TARGET_AIRPLAY, {
+      scope: "popup",
+      displayedVideo,
+    }),
+    true,
+  );
+  assert.equal(displayedVideo.muted, false);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
+  assert.equal(displayedVideo.playCalls, 1);
 });
 
 test("receiver URL resolution rejects browser-local blobs", () => {

@@ -180,6 +180,13 @@ export class BrowserPlaybackTargetController {
     } catch (_) {}
   }
 
+  _activateDisplayedVideoForAirPlay(video) {
+    const restoreMuted = video?.muted === true;
+    if (restoreMuted) video.muted = false;
+    this._playVideo(video);
+    if (restoreMuted) video.muted = true;
+  }
+
   _bindDisplayedVideo(scope, video) {
     const existing = this._displayedVideos.get(scope);
     if (existing?.video === video) return;
@@ -274,7 +281,7 @@ export class BrowserPlaybackTargetController {
     if (displayedVideo) {
       allowAirPlayVideo(displayedVideo);
       this._bindDisplayedVideo(scope, displayedVideo);
-      this._playVideo(displayedVideo);
+      this._activateDisplayedVideoForAirPlay(displayedVideo);
       const prompted =
         this._promptAirPlay?.(displayedVideo, { load: false }) === true;
       if (prompted) return Promise.resolve(true);
