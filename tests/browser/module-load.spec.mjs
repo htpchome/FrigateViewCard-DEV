@@ -1944,6 +1944,7 @@ test.describe("touch input", () => {
 
       const root = card.shadowRoot;
       const cardRoot = root.querySelector("#card");
+      root.querySelector("#live-stage")?.classList.add("live-controls-visible");
       const dismiss = root.querySelector("[data-rotate-overlay-dismiss]");
       const initialDisplay = getComputedStyle(dismiss).display;
       const initialRect = dismiss.getBoundingClientRect();
@@ -2046,6 +2047,9 @@ test.describe("touch input", () => {
       popup.style.animation = "none";
       popup.style.transition = "none";
       viewer.style.display = "flex";
+      const closeDisplayWithoutControls = getComputedStyle(
+        closeButton.closest(".popup-close-row"),
+      ).display;
 
       const video = document.createElement("video");
       video.style.aspectRatio = "16 / 9";
@@ -2060,6 +2064,10 @@ test.describe("touch input", () => {
       viewer.append(sideControls);
       mediaBar.hidden = false;
       mediaBar.classList.add("mobile-tablet-layout");
+      const closeDisplayWithMediaControls = getComputedStyle(
+        closeButton.closest(".popup-close-row"),
+      ).display;
+      viewer.classList.add("popup-controls-visible");
 
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const hostRect = card.getBoundingClientRect();
@@ -2088,6 +2096,8 @@ test.describe("touch input", () => {
         leftControlInset: actionsRect.left,
         rightControlInset: 844 - sideControlsRect.right,
         bottomBarGap: 390 - mediaBarRect.bottom,
+        closeDisplayWithoutControls,
+        closeDisplayWithMediaControls,
         closeDisplay: getComputedStyle(closeButton.closest(".popup-close-row"))
           .display,
         closeRightInset: 844 - closeRect.right,
@@ -2101,7 +2111,9 @@ test.describe("touch input", () => {
           "borderTopColor",
           "borderRadius",
           "boxShadow",
-        ].filter((property) => closeStyle[property] !== overlayDismissStyle[property]),
+        ].filter(
+          (property) => closeStyle[property] !== overlayDismissStyle[property],
+        ),
       };
     });
 
@@ -2116,6 +2128,8 @@ test.describe("touch input", () => {
     expect(geometry.leftControlInset).toBeCloseTo(20, 0);
     expect(geometry.rightControlInset).toBeCloseTo(20, 0);
     expect(geometry.bottomBarGap).toBeCloseTo(0, 0);
+    expect(geometry.closeDisplayWithoutControls).toBe("none");
+    expect(geometry.closeDisplayWithMediaControls).toBe("block");
     expect(geometry.closeDisplay).not.toBe("none");
     expect(geometry.closeRightInset).toBeCloseTo(20, 0);
     expect(geometry.closeTop).toBeCloseTo(8, 0);
@@ -2152,6 +2166,9 @@ test.describe("touch input", () => {
       const cameraRow = root.querySelector(".card-view-camera-row");
       const playback = root.querySelector("#live-playback-controls");
       const status = root.querySelector(".card-view-live-status-overlay");
+      const liveStage = root.querySelector("#live-stage");
+      const dismiss = root.querySelector("[data-rotate-overlay-dismiss]");
+      liveStage.classList.add("live-controls-visible");
       playback.append(document.createElement("button"));
       cardRoot.classList.add("card-view-overlays-visible");
       card._cardViewPageController._mediaDrawerController.setOpen(true);
@@ -2169,6 +2186,10 @@ test.describe("touch input", () => {
       const cameraRowRect = cameraRow.getBoundingClientRect();
       const playbackRect = playback.getBoundingClientRect();
       const statusRect = status.getBoundingClientRect();
+      const dismissDisplayBeforeDrawer = getComputedStyle(dismiss).display;
+      card._cardViewPageController._mediaDrawerController.setOpen(true);
+      const dismissDisplayWithDrawer = getComputedStyle(dismiss).display;
+      card._cardViewPageController._mediaDrawerController.setOpen(false);
       return {
         viewportCover: card.classList.contains("mobile-view-rotate-cover"),
         drawerOpen: drawer.classList.contains("is-open"),
@@ -2177,6 +2198,11 @@ test.describe("touch input", () => {
         cameraRowRightInset: 844 - cameraRowRect.right,
         playbackRightInset: 844 - playbackRect.right,
         statusRightInset: 844 - statusRect.right,
+        liveControlsVisible: liveStage.classList.contains(
+          "live-controls-visible",
+        ),
+        dismissDisplayBeforeDrawer,
+        dismissDisplayWithDrawer,
       };
     });
 
@@ -2187,6 +2213,9 @@ test.describe("touch input", () => {
     expect(geometry.cameraRowRightInset).toBeCloseTo(20, 0);
     expect(geometry.playbackRightInset).toBeCloseTo(20, 0);
     expect(geometry.statusRightInset).toBeCloseTo(20, 0);
+    expect(geometry.liveControlsVisible).toBe(true);
+    expect(geometry.dismissDisplayBeforeDrawer).toBe("grid");
+    expect(geometry.dismissDisplayWithDrawer).toBe("none");
   });
 
   test("keeps remounted live video on custom controls throughout rotation", async ({
@@ -2245,6 +2274,10 @@ test.describe("touch input", () => {
 
         const root = card.shadowRoot;
         const cardRoot = root.querySelector("#card");
+        const liveStage = root.querySelector("#live-stage");
+        const rotateDismiss = root.querySelector(
+          "[data-rotate-overlay-dismiss]",
+        );
         cardRoot.classList.add("mobile-rotate-live");
         card._rotateOverlayActive = true;
         card._rotateOverlayMode = "live";
@@ -2258,7 +2291,12 @@ test.describe("touch input", () => {
 
         // Successful remount paths historically request native controls here.
         card._setLiveNativeControls(true);
+        const liveDismissWithoutControls =
+          getComputedStyle(rotateDismiss).display;
+        liveStage.classList.add("live-controls-visible");
         await new Promise((resolve) => requestAnimationFrame(resolve));
+        const liveDismissWithControls =
+          getComputedStyle(rotateDismiss).display;
         const liveSideInset = Math.round(
           844 - liveSideControls.getBoundingClientRect().right,
         );
@@ -2277,6 +2315,11 @@ test.describe("touch input", () => {
         popup.style.animation = "none";
         popup.style.transition = "none";
         viewer.style.display = "flex";
+        const popupCloseButton = root.querySelector("#close-btn");
+        const popupCloseWithoutControls = getComputedStyle(
+          popupCloseButton.closest(".popup-close-row"),
+        ).display;
+        viewer.classList.add("popup-controls-visible");
         const popupSideControls = document.createElement("div");
         popupSideControls.className = "popup-playback-controls";
         popupSideControls.append(document.createElement("button"));
@@ -2285,7 +2328,6 @@ test.describe("touch input", () => {
         const popupSideInset = Math.round(
           844 - popupSideControls.getBoundingClientRect().right,
         );
-        const popupCloseButton = root.querySelector("#close-btn");
         const popupCloseRect = popupCloseButton.getBoundingClientRect();
         const popupCloseStyle = getComputedStyle(popupCloseButton);
         const overlayDismissStyle = getComputedStyle(
@@ -2300,7 +2342,10 @@ test.describe("touch input", () => {
           playsInline: video.hasAttribute("playsinline"),
           webkitPlaysInline: video.getAttribute("webkit-playsinline"),
           liveSideInset,
+          liveDismissWithoutControls,
+          liveDismissWithControls,
           popupSideInset,
+          popupCloseWithoutControls,
           popupCloseDisplay: getComputedStyle(
             popupCloseButton.closest(".popup-close-row"),
           ).display,
@@ -2335,7 +2380,10 @@ test.describe("touch input", () => {
         playsInline: true,
         webkitPlaysInline: "true",
         liveSideInset: 20,
+        liveDismissWithoutControls: "none",
+        liveDismissWithControls: "grid",
         popupSideInset: 20,
+        popupCloseWithoutControls: "none",
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
@@ -2350,7 +2398,10 @@ test.describe("touch input", () => {
         playsInline: true,
         webkitPlaysInline: "true",
         liveSideInset: 20,
+        liveDismissWithoutControls: "none",
+        liveDismissWithControls: "grid",
         popupSideInset: 20,
+        popupCloseWithoutControls: "none",
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
@@ -2365,7 +2416,10 @@ test.describe("touch input", () => {
         playsInline: true,
         webkitPlaysInline: "true",
         liveSideInset: 20,
+        liveDismissWithoutControls: "none",
+        liveDismissWithControls: "grid",
         popupSideInset: 20,
+        popupCloseWithoutControls: "none",
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
@@ -2380,7 +2434,10 @@ test.describe("touch input", () => {
         playsInline: true,
         webkitPlaysInline: "true",
         liveSideInset: 20,
+        liveDismissWithoutControls: "none",
+        liveDismissWithControls: "grid",
         popupSideInset: 20,
+        popupCloseWithoutControls: "none",
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
@@ -2395,7 +2452,10 @@ test.describe("touch input", () => {
         playsInline: true,
         webkitPlaysInline: "true",
         liveSideInset: 20,
+        liveDismissWithoutControls: "none",
+        liveDismissWithControls: "grid",
         popupSideInset: 20,
+        popupCloseWithoutControls: "none",
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,

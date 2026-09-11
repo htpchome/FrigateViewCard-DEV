@@ -49,7 +49,15 @@ test("rotated live and popup side controls share the safe side inset", () => {
   );
   assert.match(
     STYLES,
-    /\.card\.mobile-rotate-popup #myPopup\.popup-content--card-view-drawer \.popup-close-row,[\s\S]*?\.card\.mobile-rotate-popup-exit #myPopup\.popup-content--card-view-drawer \.popup-close-row \{[\s\S]*?display:block !important;top:8px;right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+    /\.card\.mobile-rotate-popup #myPopup\.popup-content--card-view-drawer \.popup-close-row,[\s\S]*?\.card\.mobile-rotate-popup-exit #myPopup\.popup-content--card-view-drawer \.popup-close-row \{[\s\S]*?top:8px;right:max\(20px,env\(safe-area-inset-right,0px\)\);/,
+  );
+  assert.match(
+    STYLES,
+    /\.card:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\):has\(#live-stage\.live-controls-visible\):not\(:has\(\.card-view-media-drawer\.is-open\)\) > \.rotate-overlay-dismiss\{display:grid;\}/,
+  );
+  assert.match(
+    STYLES,
+    /#myPopup:has\(#viewer\.popup-controls-visible,#popup-media-controls:not\(\[hidden\]\):not\(\.is-hidden\)\) \.popup-close-row\{[\s\S]*?display:block !important;/,
   );
   assert.match(
     STYLES,
