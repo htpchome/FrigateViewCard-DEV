@@ -6,6 +6,7 @@ import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelaceRoot,
   HomeAssistantNavbarController,
+  installHomeAssistantDashboardNavbarCustomization,
   resolveDashboardNavbarCardOwnership,
   resolveDashboardNavbarOwnership,
   resolveHomeAssistantDashboardKey,
@@ -279,6 +280,41 @@ test("finds both the containing and current Lovelace roots", () => {
   });
 });
 
+test("finds the current Lovelace root inside HA's panel resolver", () => {
+  const huiRoot = { tagName: "HUI-ROOT" };
+  const panel = {
+    shadowRoot: {
+      querySelector: (selector) => (selector === "hui-root" ? huiRoot : null),
+    },
+  };
+  const resolver = {
+    querySelector: () => null,
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "ha-panel-lovelace" ? panel : null,
+    },
+  };
+  const main = {
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "partial-panel-resolver" ? resolver : null,
+    },
+  };
+  const documentRef = {
+    querySelector: (selector) =>
+      selector === "home-assistant"
+        ? {
+            shadowRoot: {
+              querySelector: (childSelector) =>
+                childSelector === "home-assistant-main" ? main : null,
+            },
+          }
+        : null,
+  };
+
+  assert.equal(findCurrentHomeAssistantLovelaceRoot(documentRef), huiRoot);
+});
+
 test("dependent options cannot activate the navbar without the master toggle", () => {
   const h = createHarness({
     moveBottom: false,
@@ -451,6 +487,49 @@ test("a direct-entry card applies the configured Whole Dashboard owner policy", 
   );
 
   entry.controller.disconnect({ force: true });
+});
+
+test("Whole Dashboard navbar starts before its FrigateView owner page is visited", () => {
+  const ownerConfig = {
+    type: "custom:frigate-view-card",
+    mobile_view_ha_navbar_bottom: true,
+    mobile_view_ha_navbar_dashboard: true,
+    mobile_view_ha_navbar_stack_tabs: true,
+  };
+  const h = createHarness({
+    dashboardConfig: {
+      views: [
+        { path: "mobile", cards: [{ type: "entities" }] },
+        { path: "cameras", cards: [ownerConfig] },
+      ],
+    },
+    dashboardScope: false,
+    moveBottom: false,
+  });
+
+  const bootstrap = installHomeAssistantDashboardNavbarCustomization({
+    documentRef: h.documentRef,
+    windowRef: h.windowRef,
+    MutationObserverCtor: FakeMutationObserver,
+    getComputedStyleFn: () => ({}),
+    queueMicrotaskFn: (callback) => callback(),
+    isMobile: true,
+    isPhone: true,
+    isIOS: true,
+  });
+
+  assert.ok(bootstrap);
+  assert.equal(
+    h.getTargets().header.style.getPropertyValue("bottom"),
+    "0px",
+  );
+  assert.match(
+    h.getTargets().children[0].textContent,
+    /ha-tab-group-tab\.icon-and-title/,
+  );
+
+  bootstrap.disconnect();
+  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "");
 });
 
 test("combines stacked labels with the bottom active-tab indicator", () => {

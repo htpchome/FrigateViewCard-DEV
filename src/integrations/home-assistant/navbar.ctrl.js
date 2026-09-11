@@ -83,6 +83,9 @@ const TOOLBAR_BOTTOM_STYLES = Object.freeze({
 });
 
 const coordinatorByRoot = new WeakMap();
+const DASHBOARD_NAVBAR_BOOTSTRAP_KEY = Symbol.for(
+  "frigate-view-card.dashboard-navbar-customization",
+);
 
 const resolveHeaderBottomStyles = (isIOS) => ({
   top: "auto",
@@ -167,12 +170,14 @@ export const findCurrentHomeAssistantLovelaceRoot = (
   documentRef = globalThis.document,
 ) => {
   const homeAssistant = documentRef?.querySelector?.("home-assistant");
-  const main = homeAssistant?.shadowRoot?.querySelector?.(
+  const mainRoot = homeAssistant?.shadowRoot?.querySelector?.(
     "home-assistant-main",
-  );
-  const lovelacePanel = main?.shadowRoot?.querySelector?.(
-    "ha-panel-lovelace",
-  );
+  )?.shadowRoot;
+  const resolver = mainRoot?.querySelector?.("partial-panel-resolver");
+  const lovelacePanel =
+    resolver?.querySelector?.("ha-panel-lovelace") ||
+    resolver?.shadowRoot?.querySelector?.("ha-panel-lovelace") ||
+    mainRoot?.querySelector?.("ha-panel-lovelace");
   return lovelacePanel?.shadowRoot?.querySelector?.("hui-root") || null;
 };
 
@@ -240,6 +245,31 @@ const findHomeAssistantLovelacePanel = (huiRoot, documentRef) => {
     resolver?.shadowRoot?.querySelector?.("ha-panel-lovelace") ||
     mainRoot?.querySelector?.("ha-panel-lovelace") ||
     null
+  );
+};
+
+const findNavbarBootstrapObserverTargets = (documentRef) => {
+  const homeAssistant = documentRef?.querySelector?.("home-assistant");
+  const homeAssistantRoot = homeAssistant?.shadowRoot || null;
+  const mainRoot = homeAssistantRoot?.querySelector?.(
+    "home-assistant-main",
+  )?.shadowRoot;
+  const resolver = mainRoot?.querySelector?.("partial-panel-resolver") || null;
+  const panel =
+    resolver?.querySelector?.("ha-panel-lovelace") ||
+    resolver?.shadowRoot?.querySelector?.("ha-panel-lovelace") ||
+    mainRoot?.querySelector?.("ha-panel-lovelace") ||
+    null;
+  return [
+    documentRef?.documentElement,
+    homeAssistantRoot,
+    mainRoot,
+    resolver,
+    resolver?.shadowRoot,
+    panel?.shadowRoot,
+  ].filter(
+    (target, index, targets) =>
+      Boolean(target) && targets.indexOf(target) === index,
   );
 };
 
@@ -827,7 +857,9 @@ export class HomeAssistantNavbarController {
 
   sync() {
     const hostHuiRoot = findHomeAssistantLovelaceRoot(this._host);
-    const policy = this._dashboardNavbarPolicy(hostHuiRoot);
+    const currentHuiRoot =
+      hostHuiRoot || this._findCurrentHuiRoot?.() || null;
+    const policy = this._dashboardNavbarPolicy(currentHuiRoot);
     if (!this.shouldCustomizeNavbar(policy)) {
       this._deactivate();
       return false;
@@ -836,7 +868,7 @@ export class HomeAssistantNavbarController {
     const dashboardScope = policy.dashboardScope;
     if (!dashboardScope) this._stopDashboardMonitoring();
 
-    const huiRoot = hostHuiRoot;
+    const huiRoot = hostHuiRoot || (dashboardScope ? currentHuiRoot : null);
     if (!huiRoot) {
       if (!dashboardScope) this._releaseCurrentRoot();
       return false;
@@ -854,3 +886,110 @@ export class HomeAssistantNavbarController {
     this._deactivate();
   }
 }
+
+export const installHomeAssistantDashboardNavbarCustomization = ({
+  cardTag = "frigate-view-card",
+  documentRef = globalThis.document,
+  windowRef = globalThis.window,
+  MutationObserverCtor = globalThis.MutationObserver,
+  getComputedStyleFn = globalThis.getComputedStyle,
+  queueMicrotaskFn = globalThis.queueMicrotask,
+  isMobile = false,
+  isPhone = false,
+  isIOS = false,
+  findCurrentHuiRoot = () =>
+    findCurrentHomeAssistantLovelaceRoot(documentRef),
+  findPanel = (huiRoot) =>
+    findHomeAssistantLovelacePanel(huiRoot, documentRef),
+} = {}) => {
+  if (!windowRef || !documentRef || isMobile !== true) return null;
+  if (windowRef[DASHBOARD_NAVBAR_BOOTSTRAP_KEY]) {
+    return windowRef[DASHBOARD_NAVBAR_BOOTSTRAP_KEY];
+  }
+
+  const bootstrapHost = {
+    isConnected: true,
+    _config: null,
+    _isLikelyMobileClient: () => true,
+    _isLikelyPhoneClient: () => isPhone === true,
+    _isRotateOverlayViewportCoverActive: () => false,
+    _isDashboardEditMode: () => false,
+  };
+  const controller = new HomeAssistantNavbarController(bootstrapHost, {
+    MutationObserverCtor,
+    documentRef,
+    getComputedStyleFn,
+    windowRef,
+    isIOS,
+    queueMicrotaskFn,
+    findCurrentHuiRoot,
+    findPanel,
+    cardTag,
+  });
+  const queueMicrotaskSafe =
+    typeof queueMicrotaskFn === "function"
+      ? queueMicrotaskFn.bind(windowRef)
+      : (callback) => Promise.resolve().then(callback);
+  let observer = null;
+  let observedTargets = [];
+  let syncQueued = false;
+  let disconnected = false;
+
+  const scheduleSync = () => {
+    if (disconnected || syncQueued) return;
+    syncQueued = true;
+    queueMicrotaskSafe(() => {
+      syncQueued = false;
+      if (!disconnected) controller.sync();
+    });
+  };
+  const observeShell = () => {
+    const targets = findNavbarBootstrapObserverTargets(documentRef);
+    if (
+      targets.length === observedTargets.length &&
+      targets.every((target, index) => target === observedTargets[index])
+    ) {
+      return;
+    }
+    observer?.disconnect?.();
+    observer = null;
+    observedTargets = targets;
+    if (!targets.length || typeof MutationObserverCtor !== "function") return;
+    observer = new MutationObserverCtor(() => {
+      observeShell();
+      scheduleSync();
+    });
+    for (const target of targets) {
+      observer.observe(target, { childList: true, subtree: true });
+    }
+  };
+  const onLocationChanged = () => {
+    observeShell();
+    scheduleSync();
+  };
+  const disconnect = () => {
+    if (disconnected) return;
+    disconnected = true;
+    controller.disconnect({ force: true });
+    observer?.disconnect?.();
+    observer = null;
+    observedTargets = [];
+    windowRef.removeEventListener?.("location-changed", onLocationChanged);
+    windowRef.removeEventListener?.("popstate", onLocationChanged);
+    if (
+      windowRef[DASHBOARD_NAVBAR_BOOTSTRAP_KEY]?.disconnect === disconnect
+    ) {
+      delete windowRef[DASHBOARD_NAVBAR_BOOTSTRAP_KEY];
+    }
+  };
+  const bootstrap = { disconnect, sync: scheduleSync };
+  windowRef[DASHBOARD_NAVBAR_BOOTSTRAP_KEY] = bootstrap;
+  windowRef.addEventListener?.("location-changed", onLocationChanged);
+  windowRef.addEventListener?.("popstate", onLocationChanged);
+  observeShell();
+  scheduleSync();
+  void windowRef.customElements
+    ?.whenDefined?.("hui-root")
+    ?.then?.(onLocationChanged);
+  return bootstrap;
+};

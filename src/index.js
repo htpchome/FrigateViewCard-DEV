@@ -1,12 +1,20 @@
 import { CARD_DISPLAY_NAME, CARD_TAG, VERSION } from "./constants.js";
 import { FrigateViewCard } from "./card/FrigateViewCard.js";
 import { registerLiveStreamHostElement } from "./features/live/stream.element.js";
+import { DEVICE_PROFILE } from "./helpers.js";
+import { installHomeAssistantDashboardNavbarCustomization } from "./integrations/home-assistant/navbar.ctrl.js";
 import { installHomeAssistantDashboardSwipeNavigation } from "./integrations/home-assistant/dashboard-swipe-navigation.ctrl.js";
 
 // index.js — registers custom elements and announces card to HA
 if (!customElements.get(CARD_TAG))
   customElements.define(CARD_TAG, FrigateViewCard);
 registerLiveStreamHostElement();
+installHomeAssistantDashboardNavbarCustomization({
+  cardTag: CARD_TAG,
+  isMobile: DEVICE_PROFILE.isMobile,
+  isPhone: DEVICE_PROFILE.isPhone,
+  isIOS: DEVICE_PROFILE.isIOS,
+});
 installHomeAssistantDashboardSwipeNavigation({ cardTag: CARD_TAG });
 window.customCards = window.customCards || [];
 
