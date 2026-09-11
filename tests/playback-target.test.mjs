@@ -56,8 +56,8 @@ function createFakeVideo({ airplay = false } = {}) {
     removeEventListener(type) {
       listeners.delete(type);
     },
-    dispatch(type) {
-      listeners.get(type)?.();
+    dispatch(type, event = {}) {
+      listeners.get(type)?.(event);
     },
     remove() {
       this.removed = true;
@@ -157,33 +157,42 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
   assert.equal(displayedVideo.muted, true);
   assert.equal(displayedVideo.defaultMuted, true);
   assert.equal(displayedVideo.volume, 0);
-  assert.equal(displayedVideo.playCalls, 1);
-  assert.deepEqual(displayedVideo.mutedWrites, [false, true]);
+  assert.equal(displayedVideo.playCalls, 0);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
   assert.equal(displayedVideo.airplayPrompted, true);
 
   displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
   displayedVideo.dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
-  assert.equal(displayedVideo.playCalls, 2);
+  assert.equal(displayedVideo.playCalls, 0);
 
   controller.release("popup");
   displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
   displayedVideo.dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
-  assert.equal(displayedVideo.playCalls, 2);
+  assert.equal(displayedVideo.playCalls, 0);
 });
 
-test("AirPlay activation leaves an unmuted displayed video unchanged", async () => {
+test("AirPlay observes availability without changing displayed playback", async () => {
   const displayedVideo = createFakeVideo({ airplay: true });
-  displayedVideo.muted = false;
-  displayedVideo.mutedWrites.length = 0;
+  const supportChanges = [];
 
   const controller = new BrowserPlaybackTargetController({
     getWindow: () => ({}),
+    onSupportChange: () => supportChanges.push(true),
   });
 
+  assert.equal(controller.observe("popup", displayedVideo), true);
+  displayedVideo.dispatch("webkitplaybacktargetavailabilitychanged", {
+    availability: "not-available",
+  });
+  assert.equal(controller.getSupport("popup").airplay, false);
+  displayedVideo.dispatch("webkitplaybacktargetavailabilitychanged", {
+    availability: "available",
+  });
+  assert.equal(controller.getSupport("popup").airplay, true);
   assert.equal(
     await controller.prompt(PLAYBACK_TARGET_AIRPLAY, {
       scope: "popup",
@@ -191,9 +200,16 @@ test("AirPlay activation leaves an unmuted displayed video unchanged", async () 
     }),
     true,
   );
-  assert.equal(displayedVideo.muted, false);
+  assert.equal(displayedVideo.muted, true);
   assert.deepEqual(displayedVideo.mutedWrites, []);
-  assert.equal(displayedVideo.playCalls, 1);
+  assert.equal(displayedVideo.playCalls, 0);
+  assert.equal(supportChanges.length, 2);
+
+  controller.release("popup");
+  displayedVideo.dispatch("webkitplaybacktargetavailabilitychanged", {
+    availability: "not-available",
+  });
+  assert.equal(supportChanges.length, 2);
 });
 
 test("receiver URL resolution rejects browser-local blobs", () => {
@@ -260,6 +276,7 @@ test("controller prewarms popup AirPlay and tears down its wireless media sessio
   const mounted = [];
   const airplayCalls = [];
   const sourceCalls = [];
+  const supportChanges = [];
   const mediaSession = {
     playbackState: "playing",
     metadata: { title: "Clip" },
@@ -290,6 +307,7 @@ test("controller prewarms popup AirPlay and tears down its wireless media sessio
     },
     getWindow: () => ({}),
     getNavigator: () => ({ mediaSession }),
+    onSupportChange: () => supportChanges.push(true),
   });
 
   await controller.prepare("popup");
@@ -306,6 +324,16 @@ test("controller prewarms popup AirPlay and tears down its wireless media sessio
     "https://ha.local/clip:frigate:event-1.mp4",
   );
   assert.equal(mounted.length, 1);
+
+  airplayCalls[0].dispatch("webkitplaybacktargetavailabilitychanged", {
+    availability: "not-available",
+  });
+  assert.equal(controller.getSupport("popup").airplay, false);
+  airplayCalls[0].dispatch("webkitplaybacktargetavailabilitychanged", {
+    availability: "available",
+  });
+  assert.equal(controller.getSupport("popup").airplay, true);
+  assert.equal(supportChanges.length, 2);
 
   airplayCalls[0].webkitCurrentPlaybackTargetIsWireless = true;
   airplayCalls[0].dispatch(

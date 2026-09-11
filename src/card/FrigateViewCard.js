@@ -1106,6 +1106,7 @@ export class FrigateViewCard extends HTMLElement {
         this._resolvePlaybackTargetSource(context),
       getMount: () => this.shadowRoot,
       onStatus: (message) => this._toast(message),
+      onSupportChange: () => this._syncPlaybackTargetButtons(),
     });
     this._viewportContextController = new ViewportContextController(this);
     this._twoWayTalkSoundwaveController =
@@ -3883,7 +3884,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _syncPlaybackTargetButtons() {
-    const support = this._playbackTargetController?.getSupport?.() || {
+    const support = this._playbackTargetController?.getSupport?.("popup") || {
       airplay: false,
     };
     const sync = (selector, supported, fallbackTitle) => {
@@ -7455,6 +7456,10 @@ export class FrigateViewCard extends HTMLElement {
     ) {
       return;
     }
+    const displayedVideo =
+      this._popupMediaControlsController.video() ||
+      this._findVideoDeep(this._$("#viewer"));
+    this._playbackTargetController.observe("popup", displayedVideo);
     void this._playbackTargetController.prepare("popup");
     this._syncPlaybackTargetButtons();
   }

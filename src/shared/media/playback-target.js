@@ -73,6 +73,7 @@ export class BrowserPlaybackTargetController {
     getNavigator = () => globalThis.navigator,
     getNowMs = () => Date.now(),
     onStatus = () => {},
+    onSupportChange = () => {},
   } = {}) {
     this._getContext = getContext;
     this._resolveSource = resolveSource;
@@ -83,6 +84,7 @@ export class BrowserPlaybackTargetController {
     this._getNavigator = getNavigator;
     this._getNowMs = getNowMs;
     this._onStatus = onStatus;
+    this._onSupportChange = onSupportChange;
     this._sources = new Map();
     this._sourceInFlight = new Map();
     this._videos = new Map();
@@ -110,6 +112,18 @@ export class BrowserPlaybackTargetController {
       video.style.cssText =
         "position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;opacity:0;pointer-events:none";
     }
+    const entry = {
+      video,
+      availability: null,
+      onAvailabilityChanged: null,
+      onWirelessTargetChanged: null,
+      playOnWirelessTarget: null,
+      releaseOnTerminal: null,
+    };
+    const onAvailabilityChanged = (event) => {
+      entry.availability = event?.availability || null;
+      this._onSupportChange?.();
+    };
     const playOnWirelessTarget = () => {
       if (video.webkitCurrentPlaybackTargetIsWireless !== true) return;
       video.play?.().catch?.(() => {});
@@ -122,6 +136,15 @@ export class BrowserPlaybackTargetController {
       }
       this._releaseVideo(scope);
     };
+    entry.onAvailabilityChanged = onAvailabilityChanged;
+    entry.onWirelessTargetChanged = onWirelessTargetChanged;
+    entry.playOnWirelessTarget = playOnWirelessTarget;
+    entry.releaseOnTerminal = releaseOnTerminal;
+    this._videos.set(scope, entry);
+    video.addEventListener?.(
+      "webkitplaybacktargetavailabilitychanged",
+      onAvailabilityChanged,
+    );
     video.addEventListener?.(
       "webkitcurrentplaybacktargetiswirelesschanged",
       onWirelessTargetChanged,
@@ -131,12 +154,6 @@ export class BrowserPlaybackTargetController {
     video.addEventListener?.("ended", releaseOnTerminal);
     video.addEventListener?.("error", releaseOnTerminal);
     this._getMount?.()?.appendChild?.(video);
-    this._videos.set(scope, {
-      video,
-      onWirelessTargetChanged,
-      playOnWirelessTarget,
-      releaseOnTerminal,
-    });
     return video;
   }
 
@@ -147,10 +164,15 @@ export class BrowserPlaybackTargetController {
       entry.video.webkitCurrentPlaybackTargetIsWireless === true;
     const {
       video,
+      onAvailabilityChanged,
       onWirelessTargetChanged,
       playOnWirelessTarget,
       releaseOnTerminal,
     } = entry;
+    video.removeEventListener?.(
+      "webkitplaybacktargetavailabilitychanged",
+      onAvailabilityChanged,
+    );
     video.removeEventListener?.(
       "webkitcurrentplaybacktargetiswirelesschanged",
       onWirelessTargetChanged,
@@ -180,38 +202,43 @@ export class BrowserPlaybackTargetController {
     } catch (_) {}
   }
 
-  _activateDisplayedVideoForAirPlay(video) {
-    const restoreMuted = video?.muted === true;
-    if (restoreMuted) video.muted = false;
-    this._playVideo(video);
-    if (restoreMuted) video.muted = true;
-  }
-
   _bindDisplayedVideo(scope, video) {
     const existing = this._displayedVideos.get(scope);
     if (existing?.video === video) return;
     this._releaseDisplayedVideo(scope);
 
-    const onWirelessTargetChanged = () => {
-      if (video.webkitCurrentPlaybackTargetIsWireless === true) {
-        this._playVideo(video);
-        return;
-      }
-      this._releaseDisplayedVideo(scope);
+    const entry = {
+      video,
+      availability: null,
+      onAvailabilityChanged: null,
+      onWirelessTargetChanged: null,
     };
+    const onAvailabilityChanged = (event) => {
+      entry.availability = event?.availability || null;
+      this._onSupportChange?.();
+    };
+    const onWirelessTargetChanged = () => this._onSupportChange?.();
+    entry.onAvailabilityChanged = onAvailabilityChanged;
+    entry.onWirelessTargetChanged = onWirelessTargetChanged;
+    this._displayedVideos.set(scope, entry);
+    // WebKit discovers and monitors routes while this listener is present.
+    video.addEventListener?.(
+      "webkitplaybacktargetavailabilitychanged",
+      onAvailabilityChanged,
+    );
     video.addEventListener?.(
       "webkitcurrentplaybacktargetiswirelesschanged",
       onWirelessTargetChanged,
     );
-    this._displayedVideos.set(scope, {
-      video,
-      onWirelessTargetChanged,
-    });
   }
 
   _releaseDisplayedVideo(scope) {
     const entry = this._displayedVideos.get(scope);
     if (!entry) return;
+    entry.video.removeEventListener?.(
+      "webkitplaybacktargetavailabilitychanged",
+      entry.onAvailabilityChanged,
+    );
     entry.video.removeEventListener?.(
       "webkitcurrentplaybacktargetiswirelesschanged",
       entry.onWirelessTargetChanged,
@@ -219,10 +246,28 @@ export class BrowserPlaybackTargetController {
     this._displayedVideos.delete(scope);
   }
 
-  getSupport() {
-    return resolveBrowserPlaybackTargetSupport({
+  observe(scope = "popup", video = null) {
+    if (!video) {
+      this._releaseDisplayedVideo(scope);
+      return false;
+    }
+    allowAirPlayVideo(video);
+    this._bindDisplayedVideo(scope, video);
+    return true;
+  }
+
+  getSupport(scope = "popup") {
+    const observedEntry =
+      this._displayedVideos.get(scope) || this._videos.get(scope);
+    const support = resolveBrowserPlaybackTargetSupport({
+      video: observedEntry?.video,
       windowObj: this._getWindow?.(),
     });
+    const availability = observedEntry?.availability;
+    return {
+      ...support,
+      airplay: support.airplay && availability !== "not-available",
+    };
   }
 
   _freshSource(sourceKey) {
@@ -279,9 +324,7 @@ export class BrowserPlaybackTargetController {
   prompt(target, { scope = "popup", displayedVideo = null } = {}) {
     if (target !== PLAYBACK_TARGET_AIRPLAY) return Promise.resolve(false);
     if (displayedVideo) {
-      allowAirPlayVideo(displayedVideo);
-      this._bindDisplayedVideo(scope, displayedVideo);
-      this._activateDisplayedVideoForAirPlay(displayedVideo);
+      this.observe(scope, displayedVideo);
       const prompted =
         this._promptAirPlay?.(displayedVideo, { load: false }) === true;
       if (prompted) return Promise.resolve(true);
