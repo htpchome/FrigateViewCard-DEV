@@ -370,10 +370,14 @@ export class BrowserPlaybackTargetController {
     if (target !== PLAYBACK_TARGET_AIRPLAY) return Promise.resolve(false);
     if (displayedVideo) {
       this.observe(scope, displayedVideo);
+      const entry = this._displayedVideos.get(scope);
+      if (entry && displayedVideo.muted === true) {
+        entry.restoreMuted = true;
+        displayedVideo.muted = false;
+      }
       const prompted =
         this._promptAirPlay?.(displayedVideo, { load: false }) === true;
       if (prompted) {
-        const entry = this._displayedVideos.get(scope);
         if (entry) entry.prompted = true;
         return Promise.resolve(true);
       }
@@ -392,6 +396,7 @@ export class BrowserPlaybackTargetController {
 
     const video = this._videoForScope(scope);
     configureReceiverVideo(video, source);
+    if (video.muted === true) video.muted = false;
     const prompted = this._promptAirPlay?.(video, { load: true }) === true;
     const entry = this._videos.get(scope);
     if (entry) entry.prompted = prompted;

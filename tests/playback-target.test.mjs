@@ -77,6 +77,7 @@ function createFakeVideo({ airplay = false } = {}) {
   });
   if (airplay) {
     video.webkitShowPlaybackTargetPicker = () => {
+      video.mutedAtAirplayPrompt = video.muted;
       video.airplayPrompted = true;
     };
   }
@@ -157,12 +158,13 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
   assert.equal(displayedVideo.loadCalls, 0);
   assert.equal(displayedVideo.disableRemotePlayback, false);
   assert.equal(displayedVideo.getAttribute("x-webkit-airplay"), "allow");
-  assert.equal(displayedVideo.muted, true);
+  assert.equal(displayedVideo.muted, false);
   assert.equal(displayedVideo.defaultMuted, true);
   assert.equal(displayedVideo.volume, 0);
   assert.equal(displayedVideo.playCalls, 0);
-  assert.deepEqual(displayedVideo.mutedWrites, []);
+  assert.deepEqual(displayedVideo.mutedWrites, [false]);
   assert.equal(displayedVideo.airplayPrompted, true);
+  assert.equal(displayedVideo.mutedAtAirplayPrompt, false);
 
   displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
   displayedVideo.dispatch(
@@ -187,7 +189,7 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
   assert.equal(displayedVideo.playCalls, 0);
 });
 
-test("AirPlay observes availability without changing displayed playback", async () => {
+test("AirPlay observes availability and unmutes from the picker gesture", async () => {
   const displayedVideo = createFakeVideo({ airplay: true });
   const supportChanges = [];
 
@@ -212,8 +214,8 @@ test("AirPlay observes availability without changing displayed playback", async 
     }),
     true,
   );
-  assert.equal(displayedVideo.muted, true);
-  assert.deepEqual(displayedVideo.mutedWrites, []);
+  assert.equal(displayedVideo.muted, false);
+  assert.deepEqual(displayedVideo.mutedWrites, [false]);
   assert.equal(displayedVideo.playCalls, 0);
   assert.equal(supportChanges.length, 2);
 
