@@ -11,9 +11,10 @@ import {
 import { buildFrigateReceiverMediaPath } from "../src/integrations/frigate/receiver-media.js";
 import { resolveAbsoluteReceiverSourceUrl } from "../src/integrations/home-assistant/receiver-source.js";
 
-function createFakeVideo({ airplay = false } = {}) {
+function createFakeVideo({ airplay = false, remotePlayback = false } = {}) {
   const attributes = new Map();
   const listeners = new Map();
+  const remoteListeners = new Map();
   const mutedWrites = [];
   let muted = true;
   const video = {
@@ -81,6 +82,25 @@ function createFakeVideo({ airplay = false } = {}) {
       video.airplayPrompted = true;
     };
   }
+  if (remotePlayback) {
+    video.remote = {
+      state: "disconnected",
+      promptCalls: 0,
+      prompt() {
+        this.promptCalls += 1;
+        return Promise.resolve();
+      },
+      addEventListener(type, handler) {
+        remoteListeners.set(type, handler);
+      },
+      removeEventListener(type) {
+        remoteListeners.delete(type);
+      },
+      dispatch(type, event = {}) {
+        remoteListeners.get(type)?.(event);
+      },
+    };
+  }
   return video;
 }
 
@@ -107,9 +127,16 @@ test("browser target support detects AirPlay capability", () => {
     resolveBrowserPlaybackTargetSupport({ windowObj: {} }).airplay,
     false,
   );
+  assert.deepEqual(
+    resolveBrowserPlaybackTargetSupport({
+      video: createFakeVideo({ remotePlayback: true }),
+      windowObj: {},
+    }),
+    { airplay: true },
+  );
 });
 
-test("AirPlay uses a dedicated prepared video instead of the displayed stream", () => {
+test("AirPlay uses a dedicated prepared video instead of the displayed stream", async () => {
   const video = createFakeVideo({ airplay: true });
   const source = {
     url: "https://ha.local/api/frigate/client/notifications/event/clip.mp4",
@@ -126,10 +153,21 @@ test("AirPlay uses a dedicated prepared video instead of the displayed stream", 
   assert.equal(video.volume, 0);
   assert.deepEqual(video.mutedWrites, []);
   assert.equal(video.loadCalls, 0);
-  assert.equal(promptAirPlayVideo(video), true);
+  assert.equal(await promptAirPlayVideo(video), true);
   assert.equal(video.loadCalls, 1);
   assert.equal(video.playCalls, 0);
   assert.equal(video.airplayPrompted, true);
+});
+
+test("AirPlay prefers the Remote Playback API without changing mute state", async () => {
+  const video = createFakeVideo({ airplay: true, remotePlayback: true });
+
+  assert.equal(await promptAirPlayVideo(video, { load: false }), true);
+  assert.equal(video.remote.promptCalls, 1);
+  assert.equal(video.airplayPrompted, undefined);
+  assert.equal(video.muted, true);
+  assert.deepEqual(video.mutedWrites, []);
+  assert.equal(video.loadCalls, 0);
 });
 
 test("AirPlay can prompt the displayed video without reloading it", async () => {
@@ -158,25 +196,25 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
   assert.equal(displayedVideo.loadCalls, 0);
   assert.equal(displayedVideo.disableRemotePlayback, false);
   assert.equal(displayedVideo.getAttribute("x-webkit-airplay"), "allow");
-  assert.equal(displayedVideo.muted, false);
+  assert.equal(displayedVideo.muted, true);
   assert.equal(displayedVideo.defaultMuted, true);
   assert.equal(displayedVideo.volume, 0);
   assert.equal(displayedVideo.playCalls, 0);
-  assert.deepEqual(displayedVideo.mutedWrites, [false]);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
   assert.equal(displayedVideo.airplayPrompted, true);
-  assert.equal(displayedVideo.mutedAtAirplayPrompt, false);
+  assert.equal(displayedVideo.mutedAtAirplayPrompt, true);
 
   displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
   displayedVideo.dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
   assert.equal(displayedVideo.playCalls, 0);
-  assert.equal(displayedVideo.muted, false);
-  assert.deepEqual(displayedVideo.mutedWrites, [false]);
+  assert.equal(displayedVideo.muted, true);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
 
   controller.release("popup");
   assert.equal(displayedVideo.muted, true);
-  assert.deepEqual(displayedVideo.mutedWrites, [false, true]);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
   assert.equal(displayedVideo.pauseCalls, 1);
   assert.equal(displayedVideo.src, "");
   assert.equal(displayedVideo.loadCalls, 1);
@@ -189,7 +227,7 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
   assert.equal(displayedVideo.playCalls, 0);
 });
 
-test("AirPlay observes availability and unmutes from the picker gesture", async () => {
+test("AirPlay observes availability and preserves mute at the picker gesture", async () => {
   const displayedVideo = createFakeVideo({ airplay: true });
   const supportChanges = [];
 
@@ -214,8 +252,8 @@ test("AirPlay observes availability and unmutes from the picker gesture", async 
     }),
     true,
   );
-  assert.equal(displayedVideo.muted, false);
-  assert.deepEqual(displayedVideo.mutedWrites, [false]);
+  assert.equal(displayedVideo.muted, true);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
   assert.equal(displayedVideo.playCalls, 0);
   assert.equal(supportChanges.length, 2);
 
@@ -226,7 +264,7 @@ test("AirPlay observes availability and unmutes from the picker gesture", async 
   assert.equal(supportChanges.length, 2);
 });
 
-test("displayed AirPlay restores mute and clears Media Session when routing ends", async () => {
+test("displayed AirPlay preserves mute and clears Media Session when routing ends", async () => {
   const displayedVideo = createFakeVideo({ airplay: true });
   const mediaSession = {
     playbackState: "playing",
@@ -245,19 +283,65 @@ test("displayed AirPlay restores mute and clears Media Session when routing ends
   displayedVideo.dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
-  assert.equal(displayedVideo.muted, false);
+  assert.equal(displayedVideo.muted, true);
 
   displayedVideo.webkitCurrentPlaybackTargetIsWireless = false;
   displayedVideo.dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
   assert.equal(displayedVideo.muted, true);
-  assert.deepEqual(displayedVideo.mutedWrites, [false, true]);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
   assert.equal(mediaSession.playbackState, "none");
   assert.equal(mediaSession.metadata, null);
 
   controller.release("popup");
   assert.equal(displayedVideo.pauseCalls, 0);
+});
+
+test("Remote Playback diagnostics capture route and trusted mute events", async () => {
+  const displayedVideo = createFakeVideo({ remotePlayback: true });
+  displayedVideo.srcObject = null;
+  displayedVideo.src = "https://ha.local/current/master.m3u8";
+  const diagnostics = [];
+  let nowMs = 100;
+  const controller = new BrowserPlaybackTargetController({
+    getNowMs: () => nowMs,
+    getWindow: () => ({}),
+    onDiagnostic: (detail) => diagnostics.push(detail),
+  });
+
+  assert.equal(
+    await controller.prompt(PLAYBACK_TARGET_AIRPLAY, {
+      scope: "popup",
+      displayedVideo,
+    }),
+    true,
+  );
+  assert.equal(diagnostics[0].event, "prompt-start");
+  assert.equal(diagnostics[0].method, "remote-playback");
+  assert.equal(diagnostics[0].muted, true);
+  assert.equal(diagnostics[0].sourceType, "hls");
+
+  nowMs = 125;
+  displayedVideo.remote.state = "connecting";
+  displayedVideo.remote.dispatch("connecting", { isTrusted: true });
+  nowMs = 150;
+  displayedVideo.dispatch("volumechange", { isTrusted: true });
+  nowMs = 175;
+  displayedVideo.remote.state = "connected";
+  displayedVideo.remote.dispatch("connect", { isTrusted: true });
+
+  assert.deepEqual(
+    diagnostics.slice(-3).map(({ event }) => event),
+    ["remote-connecting", "volumechange", "remote-connect"],
+  );
+  assert.equal(diagnostics.at(-2).isTrusted, true);
+  assert.equal(diagnostics.at(-2).elapsedMs, 50);
+  assert.equal(diagnostics.at(-2).remoteState, "connecting");
+  assert.equal(displayedVideo.muted, true);
+  assert.deepEqual(displayedVideo.mutedWrites, []);
+
+  controller.release("popup");
 });
 
 test("receiver URL resolution rejects browser-local blobs", () => {
@@ -387,7 +471,7 @@ test("controller prewarms popup AirPlay and tears down its wireless media sessio
   airplayCalls[0].dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
-  assert.equal(airplayCalls[0].muted, false);
+  assert.equal(airplayCalls[0].muted, true);
   assert.equal(airplayCalls[0].playCalls, 1);
   airplayCalls[0].dispatch("canplay");
   assert.equal(airplayCalls[0].playCalls, 2);

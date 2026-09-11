@@ -2,6 +2,28 @@ export const PLAYBACK_TARGET_AIRPLAY = "airplay";
 
 const DEFAULT_SOURCE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHED_SOURCES = 12;
+const REMOTE_PLAYBACK_PROMPT = "remote-playback";
+const WEBKIT_AIRPLAY_PROMPT = "webkit-airplay";
+
+function resolveAirPlayPromptMethod(video) {
+  if (typeof video?.remote?.prompt === "function") {
+    return REMOTE_PLAYBACK_PROMPT;
+  }
+  if (typeof video?.webkitShowPlaybackTargetPicker === "function") {
+    return WEBKIT_AIRPLAY_PROMPT;
+  }
+  return "";
+}
+
+function resolveMediaSourceType(video) {
+  if (video?.srcObject) return "media-stream";
+  const source = String(video?.currentSrc || video?.src || "").toLowerCase();
+  if (!source) return "none";
+  if (source.startsWith("blob:")) return "blob";
+  if (source.includes(".m3u8")) return "hls";
+  if (source.includes(".mp4")) return "mp4";
+  return "url";
+}
 
 export function resolveBrowserPlaybackTargetSupport({
   video = null,
@@ -9,6 +31,7 @@ export function resolveBrowserPlaybackTargetSupport({
 } = {}) {
   return {
     airplay:
+      typeof video?.remote?.prompt === "function" ||
       typeof video?.webkitShowPlaybackTargetPicker === "function" ||
       typeof windowObj?.HTMLVideoElement?.prototype
         ?.webkitShowPlaybackTargetPicker === "function",
@@ -36,7 +59,17 @@ export function allowAirPlayVideo(video) {
   return true;
 }
 
-export function promptAirPlayVideo(video, { load = true } = {}) {
+export async function promptAirPlayVideo(video, { load = true } = {}) {
+  const remotePrompt = video?.remote?.prompt;
+  if (typeof remotePrompt === "function") {
+    try {
+      if (load) video.load?.();
+      await remotePrompt.call(video.remote);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
   const prompt = video?.webkitShowPlaybackTargetPicker;
   if (typeof prompt !== "function") return false;
   try {
@@ -74,6 +107,7 @@ export class BrowserPlaybackTargetController {
     getNowMs = () => Date.now(),
     onStatus = () => {},
     onSupportChange = () => {},
+    onDiagnostic = () => {},
   } = {}) {
     this._getContext = getContext;
     this._resolveSource = resolveSource;
@@ -85,10 +119,42 @@ export class BrowserPlaybackTargetController {
     this._getNowMs = getNowMs;
     this._onStatus = onStatus;
     this._onSupportChange = onSupportChange;
+    this._onDiagnostic = onDiagnostic;
     this._sources = new Map();
     this._sourceInFlight = new Map();
     this._videos = new Map();
     this._displayedVideos = new Map();
+  }
+
+  _diagnose(scope, entry, event, sourceEvent = null) {
+    const video = entry?.video;
+    if (!video) return;
+    const nowMs = this._getNowMs();
+    this._onDiagnostic?.({
+      scope,
+      event,
+      method: entry.promptMethod || resolveAirPlayPromptMethod(video) || "none",
+      elapsedMs: entry.promptStartedAt
+        ? Math.max(0, nowMs - entry.promptStartedAt)
+        : 0,
+      isTrusted:
+        typeof sourceEvent?.isTrusted === "boolean"
+          ? sourceEvent.isTrusted
+          : null,
+      muted: video.muted === true,
+      defaultMuted: video.defaultMuted === true,
+      volume: Number.isFinite(Number(video.volume))
+        ? Number(video.volume)
+        : null,
+      paused: video.paused === true,
+      readyState: Number.isFinite(Number(video.readyState))
+        ? Number(video.readyState)
+        : null,
+      sourceType: resolveMediaSourceType(video),
+      remoteState: String(video.remote?.state || "unavailable"),
+      webkitWireless:
+        video.webkitCurrentPlaybackTargetIsWireless === true,
+    });
   }
 
   _contextForScope(scope) {
@@ -117,8 +183,14 @@ export class BrowserPlaybackTargetController {
       availability: null,
       prompted: false,
       wirelessActive: false,
+      promptMethod: "",
+      promptStartedAt: 0,
       onAvailabilityChanged: null,
       onWirelessTargetChanged: null,
+      onRemoteConnecting: null,
+      onRemoteConnect: null,
+      onRemoteDisconnect: null,
+      onVolumeChange: null,
       playOnWirelessTarget: null,
       releaseOnTerminal: null,
     };
@@ -129,19 +201,39 @@ export class BrowserPlaybackTargetController {
     const playOnWirelessTarget = () => {
       if (video.webkitCurrentPlaybackTargetIsWireless !== true) return;
       entry.wirelessActive = true;
-      if (video.muted === true) video.muted = false;
       video.play?.().catch?.(() => {});
     };
     const releaseOnTerminal = () => this._releaseVideo(scope);
     const onWirelessTargetChanged = () => {
       if (video.webkitCurrentPlaybackTargetIsWireless === true) {
+        this._diagnose(scope, entry, "webkit-wireless-connect");
         playOnWirelessTarget();
         return;
       }
+      this._diagnose(scope, entry, "webkit-wireless-disconnect");
       this._releaseVideo(scope);
+    };
+    const onRemoteConnecting = (event) =>
+      this._diagnose(scope, entry, "remote-connecting", event);
+    const onRemoteConnect = (event) => {
+      entry.wirelessActive = true;
+      this._diagnose(scope, entry, "remote-connect", event);
+      this._playVideo(video);
+    };
+    const onRemoteDisconnect = (event) => {
+      this._diagnose(scope, entry, "remote-disconnect", event);
+      this._releaseVideo(scope);
+    };
+    const onVolumeChange = (event) => {
+      if (!entry.prompted && !entry.wirelessActive) return;
+      this._diagnose(scope, entry, "volumechange", event);
     };
     entry.onAvailabilityChanged = onAvailabilityChanged;
     entry.onWirelessTargetChanged = onWirelessTargetChanged;
+    entry.onRemoteConnecting = onRemoteConnecting;
+    entry.onRemoteConnect = onRemoteConnect;
+    entry.onRemoteDisconnect = onRemoteDisconnect;
+    entry.onVolumeChange = onVolumeChange;
     entry.playOnWirelessTarget = playOnWirelessTarget;
     entry.releaseOnTerminal = releaseOnTerminal;
     this._videos.set(scope, entry);
@@ -153,6 +245,10 @@ export class BrowserPlaybackTargetController {
       "webkitcurrentplaybacktargetiswirelesschanged",
       onWirelessTargetChanged,
     );
+    video.remote?.addEventListener?.("connecting", onRemoteConnecting);
+    video.remote?.addEventListener?.("connect", onRemoteConnect);
+    video.remote?.addEventListener?.("disconnect", onRemoteDisconnect);
+    video.addEventListener?.("volumechange", onVolumeChange);
     video.addEventListener?.("loadedmetadata", playOnWirelessTarget);
     video.addEventListener?.("canplay", playOnWirelessTarget);
     video.addEventListener?.("ended", releaseOnTerminal);
@@ -167,11 +263,16 @@ export class BrowserPlaybackTargetController {
     const wasWireless =
       entry.prompted ||
       entry.wirelessActive ||
+      ["connecting", "connected"].includes(entry.video.remote?.state) ||
       entry.video.webkitCurrentPlaybackTargetIsWireless === true;
     const {
       video,
       onAvailabilityChanged,
       onWirelessTargetChanged,
+      onRemoteConnecting,
+      onRemoteConnect,
+      onRemoteDisconnect,
+      onVolumeChange,
       playOnWirelessTarget,
       releaseOnTerminal,
     } = entry;
@@ -183,6 +284,10 @@ export class BrowserPlaybackTargetController {
       "webkitcurrentplaybacktargetiswirelesschanged",
       onWirelessTargetChanged,
     );
+    video.remote?.removeEventListener?.("connecting", onRemoteConnecting);
+    video.remote?.removeEventListener?.("connect", onRemoteConnect);
+    video.remote?.removeEventListener?.("disconnect", onRemoteDisconnect);
+    video.removeEventListener?.("volumechange", onVolumeChange);
     video.removeEventListener?.("loadedmetadata", playOnWirelessTarget);
     video.removeEventListener?.("canplay", playOnWirelessTarget);
     video.removeEventListener?.("ended", releaseOnTerminal);
@@ -218,9 +323,14 @@ export class BrowserPlaybackTargetController {
       availability: null,
       prompted: false,
       wirelessActive: false,
-      restoreMuted: false,
+      promptMethod: "",
+      promptStartedAt: 0,
       onAvailabilityChanged: null,
       onWirelessTargetChanged: null,
+      onRemoteConnecting: null,
+      onRemoteConnect: null,
+      onRemoteDisconnect: null,
+      onVolumeChange: null,
     };
     const onAvailabilityChanged = (event) => {
       entry.availability = event?.availability || null;
@@ -231,21 +341,39 @@ export class BrowserPlaybackTargetController {
         video.webkitCurrentPlaybackTargetIsWireless === true;
       if (wireless) {
         entry.wirelessActive = true;
-        if (video.muted === true) {
-          entry.restoreMuted = true;
-          video.muted = false;
-        }
+        this._diagnose(scope, entry, "webkit-wireless-connect");
       } else if (entry.wirelessActive) {
-        if (entry.restoreMuted) video.muted = true;
+        this._diagnose(scope, entry, "webkit-wireless-disconnect");
         entry.prompted = false;
         entry.wirelessActive = false;
-        entry.restoreMuted = false;
         clearBrowserMediaSession(this._getNavigator?.());
       }
       this._onSupportChange?.();
     };
+    const onRemoteConnecting = (event) =>
+      this._diagnose(scope, entry, "remote-connecting", event);
+    const onRemoteConnect = (event) => {
+      entry.wirelessActive = true;
+      this._diagnose(scope, entry, "remote-connect", event);
+      this._onSupportChange?.();
+    };
+    const onRemoteDisconnect = (event) => {
+      this._diagnose(scope, entry, "remote-disconnect", event);
+      entry.prompted = false;
+      entry.wirelessActive = false;
+      clearBrowserMediaSession(this._getNavigator?.());
+      this._onSupportChange?.();
+    };
+    const onVolumeChange = (event) => {
+      if (!entry.prompted && !entry.wirelessActive) return;
+      this._diagnose(scope, entry, "volumechange", event);
+    };
     entry.onAvailabilityChanged = onAvailabilityChanged;
     entry.onWirelessTargetChanged = onWirelessTargetChanged;
+    entry.onRemoteConnecting = onRemoteConnecting;
+    entry.onRemoteConnect = onRemoteConnect;
+    entry.onRemoteDisconnect = onRemoteDisconnect;
+    entry.onVolumeChange = onVolumeChange;
     this._displayedVideos.set(scope, entry);
     // WebKit discovers and monitors routes while this listener is present.
     video.addEventListener?.(
@@ -256,6 +384,10 @@ export class BrowserPlaybackTargetController {
       "webkitcurrentplaybacktargetiswirelesschanged",
       onWirelessTargetChanged,
     );
+    video.remote?.addEventListener?.("connecting", onRemoteConnecting);
+    video.remote?.addEventListener?.("connect", onRemoteConnect);
+    video.remote?.addEventListener?.("disconnect", onRemoteDisconnect);
+    video.addEventListener?.("volumechange", onVolumeChange);
   }
 
   _releaseDisplayedVideo(scope) {
@@ -264,6 +396,7 @@ export class BrowserPlaybackTargetController {
     const shouldEndSession =
       entry.prompted ||
       entry.wirelessActive ||
+      ["connecting", "connected"].includes(entry.video.remote?.state) ||
       entry.video.webkitCurrentPlaybackTargetIsWireless === true;
     entry.video.removeEventListener?.(
       "webkitplaybacktargetavailabilitychanged",
@@ -273,7 +406,16 @@ export class BrowserPlaybackTargetController {
       "webkitcurrentplaybacktargetiswirelesschanged",
       entry.onWirelessTargetChanged,
     );
-    if (entry.restoreMuted) entry.video.muted = true;
+    entry.video.remote?.removeEventListener?.(
+      "connecting",
+      entry.onRemoteConnecting,
+    );
+    entry.video.remote?.removeEventListener?.("connect", entry.onRemoteConnect);
+    entry.video.remote?.removeEventListener?.(
+      "disconnect",
+      entry.onRemoteDisconnect,
+    );
+    entry.video.removeEventListener?.("volumechange", entry.onVolumeChange);
     if (shouldEndSession) {
       try {
         entry.video.pause?.();
@@ -366,20 +508,31 @@ export class BrowserPlaybackTargetController {
     return pending;
   }
 
-  prompt(target, { scope = "popup", displayedVideo = null } = {}) {
-    if (target !== PLAYBACK_TARGET_AIRPLAY) return Promise.resolve(false);
+  async prompt(target, { scope = "popup", displayedVideo = null } = {}) {
+    if (target !== PLAYBACK_TARGET_AIRPLAY) return false;
     if (displayedVideo) {
       this.observe(scope, displayedVideo);
       const entry = this._displayedVideos.get(scope);
-      if (entry && displayedVideo.muted === true) {
-        entry.restoreMuted = true;
-        displayedVideo.muted = false;
+      const method = resolveAirPlayPromptMethod(displayedVideo);
+      if (entry) {
+        entry.prompted = true;
+        entry.promptMethod = method;
+        entry.promptStartedAt = this._getNowMs();
+        this._diagnose(scope, entry, "prompt-start");
       }
       const prompted =
-        this._promptAirPlay?.(displayedVideo, { load: false }) === true;
+        (await this._promptAirPlay?.(displayedVideo, { load: false })) === true;
       if (prompted) {
-        if (entry) entry.prompted = true;
-        return Promise.resolve(true);
+        if (entry) this._diagnose(scope, entry, "prompt-resolved");
+        return true;
+      }
+      if (entry) {
+        entry.prompted = false;
+        this._diagnose(scope, entry, "prompt-rejected");
+      }
+      if (method === REMOTE_PLAYBACK_PROMPT) {
+        this._onStatus?.("Remote Playback was cancelled or unavailable.");
+        return false;
       }
       this._releaseDisplayedVideo(scope);
     }
@@ -391,19 +544,32 @@ export class BrowserPlaybackTargetController {
       this._onStatus?.(
         "Preparing video for AirPlay. Tap again in a moment.",
       );
-      return Promise.resolve(false);
+      return false;
     }
 
     const video = this._videoForScope(scope);
     configureReceiverVideo(video, source);
-    if (video.muted === true) video.muted = false;
-    const prompted = this._promptAirPlay?.(video, { load: true }) === true;
     const entry = this._videos.get(scope);
-    if (entry) entry.prompted = prompted;
+    if (entry) {
+      entry.prompted = true;
+      entry.promptMethod = resolveAirPlayPromptMethod(video);
+      entry.promptStartedAt = this._getNowMs();
+      this._diagnose(scope, entry, "prompt-start");
+    }
+    const prompted =
+      (await this._promptAirPlay?.(video, { load: true })) === true;
+    if (entry) {
+      entry.prompted = prompted;
+      this._diagnose(
+        scope,
+        entry,
+        prompted ? "prompt-resolved" : "prompt-rejected",
+      );
+    }
     if (!prompted) {
       this._onStatus?.("AirPlay is not supported in this browser.");
     }
-    return Promise.resolve(prompted);
+    return prompted;
   }
 
   release(scope = "") {
