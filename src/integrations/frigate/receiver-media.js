@@ -1,13 +1,4 @@
 const encodePathPart = (value) => encodeURIComponent(String(value || ""));
-const HLS_CONTENT_TYPE = "application/vnd.apple.mpegurl";
-
-const buildRecordingHlsPath = ({
-  encodedClientId,
-  camera,
-  start,
-  end,
-}) =>
-  `/api/frigate/${encodedClientId}/vod/${encodePathPart(camera)}/start/${start}/end/${end}/index.m3u8`;
 
 export function buildFrigateReceiverMediaPath({
   mediaType = "",
@@ -39,13 +30,8 @@ export function buildFrigateReceiverMediaPath({
     }
     return {
       ok: true,
-      path: buildRecordingHlsPath({
-        encodedClientId,
-        camera,
-        start,
-        end,
-      }),
-      contentType: HLS_CONTENT_TYPE,
+      path: `/api/frigate/${encodedClientId}/recording/${encodePathPart(camera)}/start/${start}/end/${end}`,
+      contentType: "video/mp4",
     };
   }
 
@@ -66,19 +52,14 @@ export function buildFrigateReceiverMediaPath({
   ) {
     return {
       ok: true,
-      path: buildRecordingHlsPath({
-        encodedClientId,
-        camera,
-        start: eventStart,
-        end: eventEnd,
-      }),
-      contentType: HLS_CONTENT_TYPE,
+      path: `/api/frigate/${encodedClientId}/recording/${encodePathPart(camera)}/start/${eventStart}/end/${eventEnd}`,
+      contentType: "video/mp4",
     };
   }
 
   return {
     ok: true,
-    path: `/api/frigate/${encodedClientId}/notifications/${encodePathPart(eventId)}/master.m3u8`,
-    contentType: HLS_CONTENT_TYPE,
+    path: `/api/frigate/${encodedClientId}/notifications/${encodePathPart(eventId)}/clip.mp4`,
+    contentType: "video/mp4",
   };
 }

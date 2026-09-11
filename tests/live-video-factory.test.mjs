@@ -128,6 +128,20 @@ test("createVideoElement applies liveEngine defaults", () => {
   });
 });
 
+test("popup videos can opt into AirPlay before their source is assigned", () => {
+  withFakeDocument(() => {
+    const video = createVideoElement({
+      profile: "popupPlayback",
+      allowRemotePlayback: true,
+      src: "https://ha.local/current/master.m3u8",
+    });
+
+    assert.equal(video.disableRemotePlayback, false);
+    assert.equal(video.getAttribute("x-webkit-airplay"), "allow");
+    assert.equal(video.src, "https://ha.local/current/master.m3u8");
+  });
+});
+
 test("Firefox video creation suppresses native PiP controls", () => {
   withFakeDocument(() => {
     const video = createVideoElement({

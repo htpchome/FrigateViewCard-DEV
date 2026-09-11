@@ -389,6 +389,8 @@ export class PopupMediaLoaderController {
           muted,
           controls: false,
           preload: "auto",
+          allowRemotePlayback:
+            this._deps.isIOS || this._deps.isSafari(),
           src,
         },
         { scopeKey: this._host },
@@ -792,6 +794,8 @@ export class PopupMediaLoaderController {
           muted: true,
           controls: false,
           preload: event ? "auto" : "metadata",
+          allowRemotePlayback:
+            this._deps.isIOS || this._deps.isSafari(),
         },
         { scopeKey: this._host },
       ),

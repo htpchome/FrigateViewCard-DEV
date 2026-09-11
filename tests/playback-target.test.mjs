@@ -111,6 +111,35 @@ test("AirPlay uses a dedicated prepared video instead of the displayed stream", 
   assert.equal(video.airplayPrompted, true);
 });
 
+test("AirPlay can prompt the displayed video without reloading it", async () => {
+  const displayedVideo = createFakeVideo({ airplay: true });
+  displayedVideo.src = "https://ha.local/current/master.m3u8";
+
+  const controller = new BrowserPlaybackTargetController({
+    getContext: () => null,
+    resolveSource: async () => {
+      throw new Error("The fallback source should not be resolved.");
+    },
+    createVideo: () => {
+      throw new Error("A hidden receiver video should not be created.");
+    },
+    getWindow: () => ({}),
+  });
+
+  assert.equal(
+    await controller.prompt(PLAYBACK_TARGET_AIRPLAY, {
+      scope: "popup",
+      displayedVideo,
+    }),
+    true,
+  );
+  assert.equal(displayedVideo.src, "https://ha.local/current/master.m3u8");
+  assert.equal(displayedVideo.loadCalls, 0);
+  assert.equal(displayedVideo.disableRemotePlayback, false);
+  assert.equal(displayedVideo.getAttribute("x-webkit-airplay"), "allow");
+  assert.equal(displayedVideo.airplayPrompted, true);
+});
+
 test("receiver URL resolution rejects browser-local blobs", () => {
   assert.equal(
     resolveAbsoluteReceiverSourceUrl(
@@ -121,7 +150,7 @@ test("receiver URL resolution rejects browser-local blobs", () => {
   );
 });
 
-test("Frigate stored receiver paths use native HLS", () => {
+test("Frigate stored receiver fallback paths use MP4", () => {
   for (const mediaType of ["alert", "clip", "kept"]) {
     assert.deepEqual(
       buildFrigateReceiverMediaPath({
@@ -132,8 +161,8 @@ test("Frigate stored receiver paths use native HLS", () => {
       {
         ok: true,
         path:
-          "/api/frigate/frigate%20main/notifications/event%2F1/master.m3u8",
-        contentType: "application/vnd.apple.mpegurl",
+          "/api/frigate/frigate%20main/notifications/event%2F1/clip.mp4",
+        contentType: "video/mp4",
       },
     );
   }
@@ -149,8 +178,8 @@ test("Frigate stored receiver paths use native HLS", () => {
     {
       ok: true,
       path:
-        "/api/frigate/frigate/vod/front%20door/start/100/end/200/index.m3u8",
-      contentType: "application/vnd.apple.mpegurl",
+        "/api/frigate/frigate/recording/front%20door/start/100/end/200",
+      contentType: "video/mp4",
     },
   );
   assert.deepEqual(
@@ -164,8 +193,8 @@ test("Frigate stored receiver paths use native HLS", () => {
     {
       ok: true,
       path:
-        "/api/frigate/frigate/vod/front%20door/start/100/end/200/index.m3u8",
-      contentType: "application/vnd.apple.mpegurl",
+        "/api/frigate/frigate/recording/front%20door/start/100/end/200",
+      contentType: "video/mp4",
     },
   );
 });

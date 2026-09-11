@@ -20,21 +20,27 @@ export function configureReceiverVideo(video, source) {
   video.preload = "none";
   video.playsInline = true;
   video.controls = false;
-  video.disableRemotePlayback = false;
   video.setAttribute?.("playsinline", "");
   video.setAttribute?.("webkit-playsinline", "");
-  video.setAttribute?.("x-webkit-airplay", "allow");
+  allowAirPlayVideo(video);
   if (video.src !== source.url) {
     video.src = source.url;
   }
   return true;
 }
 
-export function promptAirPlayVideo(video) {
+export function allowAirPlayVideo(video) {
+  if (!video) return false;
+  video.disableRemotePlayback = false;
+  video.setAttribute?.("x-webkit-airplay", "allow");
+  return true;
+}
+
+export function promptAirPlayVideo(video, { load = true } = {}) {
   const prompt = video?.webkitShowPlaybackTargetPicker;
   if (typeof prompt !== "function") return false;
   try {
-    video.load?.();
+    if (load) video.load?.();
     prompt.call(video);
     return true;
   } catch (_) {
@@ -62,7 +68,7 @@ export class BrowserPlaybackTargetController {
     resolveSource,
     getMount,
     createVideo = () => globalThis.document?.createElement?.("video"),
-    promptAirPlay = (video) => promptAirPlayVideo(video),
+    promptAirPlay = (video, options) => promptAirPlayVideo(video, options),
     getWindow = () => globalThis.window,
     getNavigator = () => globalThis.navigator,
     getNowMs = () => Date.now(),
@@ -224,8 +230,15 @@ export class BrowserPlaybackTargetController {
     return pending;
   }
 
-  prompt(target, { scope = "popup" } = {}) {
+  prompt(target, { scope = "popup", displayedVideo = null } = {}) {
     if (target !== PLAYBACK_TARGET_AIRPLAY) return Promise.resolve(false);
+    if (displayedVideo) {
+      allowAirPlayVideo(displayedVideo);
+      const prompted =
+        this._promptAirPlay?.(displayedVideo, { load: false }) === true;
+      if (prompted) return Promise.resolve(true);
+    }
+
     const context = this._contextForScope(scope);
     const source = context ? this._freshSource(context.sourceKey) : null;
     if (!source) {
@@ -238,7 +251,7 @@ export class BrowserPlaybackTargetController {
 
     const video = this._videoForScope(scope);
     configureReceiverVideo(video, source);
-    const prompted = this._promptAirPlay?.(video) === true;
+    const prompted = this._promptAirPlay?.(video, { load: true }) === true;
     if (!prompted) {
       this._onStatus?.("AirPlay is not supported in this browser.");
     }

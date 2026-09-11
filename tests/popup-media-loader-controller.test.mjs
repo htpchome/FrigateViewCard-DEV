@@ -138,6 +138,7 @@ test("showClipById routes clip loading through popup media rendering", () => {
   );
   assert.equal(rendered.mediaElement.options.controls, false);
   assert.equal(rendered.mediaElement.options.preload, "auto");
+  assert.equal(rendered.mediaElement.options.allowRemotePlayback, true);
   assert.equal(typeof rendered.onMediaError, "function");
 });
 
@@ -172,6 +173,7 @@ for (const method of ["showClip", "showClipById"]) {
       ),
       true,
     );
+    assert.equal(rendered.mediaElement.options.allowRemotePlayback, true);
   });
 }
 
@@ -718,7 +720,7 @@ test("standard popup media preserves carousel content before rendering its next 
   assert.deepEqual(carouselCalls, ["render:alert:event-1"]);
 });
 
-test("enabled pre-roll and post-roll preserve Alert popup behavior", async () => {
+test("Safari pre-roll and post-roll keep Alert popup AirPlay-capable", async () => {
   const calls = [];
   const viewer = { innerHTML: "", appended: null };
   const video = {
@@ -760,6 +762,7 @@ test("enabled pre-roll and post-roll preserve Alert popup behavior", async () =>
       calls.push(["signed", path]);
       return `signed:${path}`;
     },
+    _isSafari: () => true,
     _attachPopupVideoZoom: () => {},
     _scheduleRotateOverlayUpdate: () => {},
     _preparePopupPlaybackTarget: () => {},
@@ -807,6 +810,11 @@ test("enabled pre-roll and post-roll preserve Alert popup behavior", async () =>
   assert.equal(
     calls.find(([kind]) => kind === "video-options")?.[1]?.preload,
     "auto",
+  );
+  assert.equal(
+    calls.find(([kind]) => kind === "video-options")?.[1]
+      ?.allowRemotePlayback,
+    true,
   );
   assert.ok(
     calls.findIndex(([kind]) => kind === "warm-hls") <

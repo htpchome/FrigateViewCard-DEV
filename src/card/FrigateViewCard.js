@@ -6525,6 +6525,9 @@ export class FrigateViewCard extends HTMLElement {
     ) {
       void this._playbackTargetController.prompt(PLAYBACK_TARGET_AIRPLAY, {
         scope: "popup",
+        displayedVideo:
+          this._popupMediaControlsController.video() ||
+          this._findVideoDeep(this._$("#viewer")),
       });
       this._popupMediaControlsController.showTemporarily();
       return true;

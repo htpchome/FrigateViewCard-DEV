@@ -382,6 +382,7 @@ test("popup playback controls delegate to native PiP and AirPlay", () => {
     cardSource.includes("this._playbackTargetController.prompt("),
     true,
   );
+  assert.equal(cardSource.includes("displayedVideo:"), true);
   assert.equal(cardSource.includes("button.hidden = !supported"), true);
   assert.equal(cardSource.includes("#live-airplay-btn"), false);
   assert.equal(

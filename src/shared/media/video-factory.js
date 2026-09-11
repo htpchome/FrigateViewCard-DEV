@@ -350,8 +350,12 @@ export function configureVideoElement(video, options = {}) {
   if (!disableFirefoxNativePictureInPicture) {
     enableNativePictureInPicture(video);
   }
-  video.disableRemotePlayback = true;
-  video.setAttribute("x-webkit-airplay", "deny");
+  const allowRemotePlayback = options.allowRemotePlayback === true;
+  video.disableRemotePlayback = !allowRemotePlayback;
+  video.setAttribute(
+    "x-webkit-airplay",
+    allowRemotePlayback ? "allow" : "deny",
+  );
 
   if (options.attributes && typeof options.attributes === "object") {
     for (const [name, value] of Object.entries(options.attributes)) {
