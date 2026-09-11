@@ -121,20 +121,22 @@ test("receiver URL resolution rejects browser-local blobs", () => {
   );
 });
 
-test("Frigate stored receiver paths always use MP4", () => {
-  assert.deepEqual(
-    buildFrigateReceiverMediaPath({
-      mediaType: "clip",
-      clientId: "frigate main",
-      eventId: "event/1",
-    }),
-    {
-      ok: true,
-      path:
-        "/api/frigate/frigate%20main/notifications/event%2F1/clip.mp4",
-      contentType: "video/mp4",
-    },
-  );
+test("Frigate stored receiver paths use native HLS", () => {
+  for (const mediaType of ["alert", "clip", "kept"]) {
+    assert.deepEqual(
+      buildFrigateReceiverMediaPath({
+        mediaType,
+        clientId: "frigate main",
+        eventId: "event/1",
+      }),
+      {
+        ok: true,
+        path:
+          "/api/frigate/frigate%20main/notifications/event%2F1/master.m3u8",
+        contentType: "application/vnd.apple.mpegurl",
+      },
+    );
+  }
   assert.deepEqual(
     buildFrigateReceiverMediaPath({
       mediaType: "clip",
@@ -147,8 +149,8 @@ test("Frigate stored receiver paths always use MP4", () => {
     {
       ok: true,
       path:
-        "/api/frigate/frigate/recording/front%20door/start/100/end/200",
-      contentType: "video/mp4",
+        "/api/frigate/frigate/vod/front%20door/start/100/end/200/index.m3u8",
+      contentType: "application/vnd.apple.mpegurl",
     },
   );
   assert.deepEqual(
@@ -162,8 +164,8 @@ test("Frigate stored receiver paths always use MP4", () => {
     {
       ok: true,
       path:
-        "/api/frigate/frigate/recording/front%20door/start/100/end/200",
-      contentType: "video/mp4",
+        "/api/frigate/frigate/vod/front%20door/start/100/end/200/index.m3u8",
+      contentType: "application/vnd.apple.mpegurl",
     },
   );
 });
