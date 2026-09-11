@@ -3931,6 +3931,7 @@ export class FrigateViewCard extends HTMLElement {
         "remote-disconnect",
         "webkit-wireless-connect",
         "webkit-wireless-disconnect",
+        "prompt-resolved",
         "prompt-rejected",
       ].includes(detail.event)
     ) {
