@@ -495,6 +495,8 @@ export const STYLES = `
     .card.mobile-rotate-live > .rotate-overlay-dismiss{display:grid;}
     @media (hover:hover) and (pointer:fine){
       .rotate-overlay-dismiss:hover{background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
+      .card.mobile-rotate-popup .popup-close-row .close-btn:hover,
+      .card.mobile-rotate-popup-exit .popup-close-row .close-btn:hover{background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
     }
     .card.mobile-rotate-popup,
     .card.mobile-rotate-popup-exit{overflow:hidden;height:var(--rotate-vh);max-height:var(--rotate-vh);}
@@ -516,6 +518,13 @@ export const STYLES = `
     .card.mobile-rotate-popup-exit .popup-close-row{
       display:block !important;top:max(8px,env(safe-area-inset-top,0px));right:max(20px,env(safe-area-inset-right,0px));z-index:20;
     }
+    .card.mobile-rotate-popup .popup-close-row .close-btn,
+    .card.mobile-rotate-popup-exit .popup-close-row .close-btn{
+      width:40px;height:40px;min-width:40px;min-height:40px;padding:7px;color:var(--fvc-media-overlay-text);
+      background:var(--fvc-media-overlay-bg);background-image:none;border:1px solid var(--fvc-media-overlay-border);box-shadow:var(--fvc-media-overlay-shadow);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);transition:none;
+    }
+    .card.mobile-rotate-popup .popup-close-row .close-btn svg,
+    .card.mobile-rotate-popup-exit .popup-close-row .close-btn svg{width:24px;height:24px;color:currentColor;fill:currentColor;opacity:1;}
     .card.mobile-rotate-popup #popup-info,
     .card.mobile-rotate-popup #recording-scrub,
     .card.mobile-rotate-popup #recording-segment-manager,

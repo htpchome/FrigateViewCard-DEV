@@ -2071,6 +2071,10 @@ test.describe("touch input", () => {
       const sideControlsRect = sideControls.getBoundingClientRect();
       const mediaBarRect = mediaBar.getBoundingClientRect();
       const closeRect = closeButton.getBoundingClientRect();
+      const closeStyle = getComputedStyle(closeButton);
+      const overlayDismissStyle = getComputedStyle(
+        root.querySelector("[data-rotate-overlay-dismiss]"),
+      );
 
       return {
         hostHeight: hostRect.height,
@@ -2088,6 +2092,16 @@ test.describe("touch input", () => {
           .display,
         closeRightInset: 844 - closeRect.right,
         closeTop: closeRect.top,
+        closeOverlayStyleDifferences: [
+          "width",
+          "height",
+          "paddingTop",
+          "color",
+          "backgroundColor",
+          "borderTopColor",
+          "borderRadius",
+          "boxShadow",
+        ].filter((property) => closeStyle[property] !== overlayDismissStyle[property]),
       };
     });
 
@@ -2105,6 +2119,7 @@ test.describe("touch input", () => {
     expect(geometry.closeDisplay).not.toBe("none");
     expect(geometry.closeRightInset).toBeCloseTo(20, 0);
     expect(geometry.closeTop).toBeCloseTo(8, 0);
+    expect(geometry.closeOverlayStyleDifferences).toEqual([]);
   });
 
   test("insets rotated Card View live overlays and closes its media carousel", async ({
@@ -2272,6 +2287,10 @@ test.describe("touch input", () => {
         );
         const popupCloseButton = root.querySelector("#close-btn");
         const popupCloseRect = popupCloseButton.getBoundingClientRect();
+        const popupCloseStyle = getComputedStyle(popupCloseButton);
+        const overlayDismissStyle = getComputedStyle(
+          root.querySelector("[data-rotate-overlay-dismiss]"),
+        );
         popupCloseButton.click();
 
         results.push({
@@ -2287,6 +2306,19 @@ test.describe("touch input", () => {
           ).display,
           popupCloseRightInset: Math.round(844 - popupCloseRect.right),
           popupCloseTop: Math.round(popupCloseRect.top),
+          popupCloseOverlayStyleDifferences: [
+            "width",
+            "height",
+            "paddingTop",
+            "color",
+            "backgroundColor",
+            "borderTopColor",
+            "borderRadius",
+            "boxShadow",
+          ].filter(
+            (property) =>
+              popupCloseStyle[property] !== overlayDismissStyle[property],
+          ),
           popupClosed: !popup.classList.contains("is-open"),
           backDisplay,
         });
@@ -2307,6 +2339,7 @@ test.describe("touch input", () => {
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
+        popupCloseOverlayStyleDifferences: [],
         popupClosed: true,
         backDisplay: null,
       },
@@ -2321,6 +2354,7 @@ test.describe("touch input", () => {
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
+        popupCloseOverlayStyleDifferences: [],
         popupClosed: true,
         backDisplay: null,
       },
@@ -2335,6 +2369,7 @@ test.describe("touch input", () => {
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
+        popupCloseOverlayStyleDifferences: [],
         popupClosed: true,
         backDisplay: null,
       },
@@ -2349,6 +2384,7 @@ test.describe("touch input", () => {
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
+        popupCloseOverlayStyleDifferences: [],
         popupClosed: true,
         backDisplay: null,
       },
@@ -2363,6 +2399,7 @@ test.describe("touch input", () => {
         popupCloseDisplay: "block",
         popupCloseRightInset: 20,
         popupCloseTop: 8,
+        popupCloseOverlayStyleDifferences: [],
         popupClosed: true,
         backDisplay: "none",
       },
