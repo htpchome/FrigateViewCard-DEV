@@ -53,11 +53,11 @@ test("rotated live and popup side controls share the safe side inset", () => {
   );
   assert.match(
     STYLES,
-    /\.card:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\):has\(#live-stage\.live-controls-visible\) > \.rotate-overlay-dismiss\{display:grid;\}/,
+    /\.card:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\):has\(#live-stage\.live-controls-visible\):not\(:has\(\.card-view-media-drawer\.is-open\)\) > \.rotate-overlay-dismiss\{display:grid;\}/,
   );
   assert.match(
     STYLES,
-    /#myPopup:has\(#viewer\.popup-controls-visible\) \.popup-close-row\{[\s\S]*?display:block !important;/,
+    /#myPopup\.popup-overlay-controls-visible \.popup-close-row\{[\s\S]*?display:block !important;/,
   );
   assert.match(
     STYLES,

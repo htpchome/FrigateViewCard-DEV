@@ -2054,20 +2054,34 @@ test.describe("touch input", () => {
       const video = document.createElement("video");
       video.style.aspectRatio = "16 / 9";
       viewer.append(video);
+      card._isMobileTabletViewport = () => true;
+      card._popupMediaControlsController.ensurePlaybackButtons("clip");
+      card._popupMediaControlsController.initialize(video, "clip");
 
       actions.hidden = false;
       actions.append(document.createElement("button"));
-      const sideControls = document.createElement("div");
-      sideControls.id = "popup-playback-controls";
-      sideControls.className = "popup-playback-controls";
-      sideControls.append(document.createElement("button"));
-      viewer.append(sideControls);
-      mediaBar.hidden = false;
-      mediaBar.classList.add("mobile-tablet-layout");
+      const sideControls = root.querySelector("#popup-playback-controls");
       const closeDisplayWithMediaControls = getComputedStyle(
         closeButton.closest(".popup-close-row"),
       ).display;
-      viewer.classList.add("popup-controls-visible");
+      viewer.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          clientX: 422,
+          clientY: 195,
+          pointerId: 1,
+          pointerType: "touch",
+        }),
+      );
+      viewer.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          clientX: 422,
+          clientY: 195,
+          pointerId: 1,
+          pointerType: "touch",
+        }),
+      );
       const closeDisplayWithOverlayControls = getComputedStyle(
         closeButton.closest(".popup-close-row"),
       ).display;
@@ -2086,6 +2100,7 @@ test.describe("touch input", () => {
       const overlayDismissStyle = getComputedStyle(
         root.querySelector("[data-rotate-overlay-dismiss]"),
       );
+      await new Promise((resolve) => setTimeout(resolve, 2100));
 
       return {
         hostHeight: hostRect.height,
@@ -2102,8 +2117,11 @@ test.describe("touch input", () => {
         closeDisplayWithoutControls,
         closeDisplayWithMediaControls,
         closeDisplayWithOverlayControls,
-        closeDisplay: getComputedStyle(closeButton.closest(".popup-close-row"))
-          .display,
+        closeDisplayAfterOverlayTimeout: getComputedStyle(
+          closeButton.closest(".popup-close-row"),
+        ).display,
+        sideControlsOpacityAfterOverlayTimeout:
+          getComputedStyle(sideControls).opacity,
         closeRightInset: 844 - closeRect.right,
         closeTop: closeRect.top,
         closeOverlayStyleDifferences: [
@@ -2135,7 +2153,8 @@ test.describe("touch input", () => {
     expect(geometry.closeDisplayWithoutControls).toBe("none");
     expect(geometry.closeDisplayWithMediaControls).toBe("none");
     expect(geometry.closeDisplayWithOverlayControls).toBe("block");
-    expect(geometry.closeDisplay).not.toBe("none");
+    expect(geometry.closeDisplayAfterOverlayTimeout).toBe("none");
+    expect(geometry.sideControlsOpacityAfterOverlayTimeout).toBe("0");
     expect(geometry.closeRightInset).toBeCloseTo(20, 0);
     expect(geometry.closeTop).toBeCloseTo(8, 0);
     expect(geometry.closeOverlayStyleDifferences).toEqual([]);
@@ -2220,7 +2239,7 @@ test.describe("touch input", () => {
     expect(geometry.statusRightInset).toBeCloseTo(20, 0);
     expect(geometry.liveControlsVisible).toBe(true);
     expect(geometry.dismissDisplayBeforeDrawer).toBe("grid");
-    expect(geometry.dismissDisplayWithDrawer).toBe("grid");
+    expect(geometry.dismissDisplayWithDrawer).toBe("none");
   });
 
   test("keeps remounted live video on custom controls throughout rotation", async ({
@@ -2324,17 +2343,41 @@ test.describe("touch input", () => {
         const popupCloseWithoutControls = getComputedStyle(
           popupCloseButton.closest(".popup-close-row"),
         ).display;
-        viewer.classList.add("popup-controls-visible");
-        const popupSideControls = document.createElement("div");
-        popupSideControls.className = "popup-playback-controls";
-        popupSideControls.append(document.createElement("button"));
-        viewer.append(popupSideControls);
+        const popupVideo = document.createElement("video");
+        viewer.append(popupVideo);
+        card._isMobileTabletViewport = () => true;
+        card._popupMediaControlsController.ensurePlaybackButtons("clip");
+        card._popupMediaControlsController.initialize(popupVideo, "clip");
+        const popupSideControls = root.querySelector(
+          "#popup-playback-controls",
+        );
+        viewer.dispatchEvent(
+          new PointerEvent("pointerdown", {
+            bubbles: true,
+            clientX: 422,
+            clientY: 195,
+            pointerId: 1,
+            pointerType: "touch",
+          }),
+        );
+        viewer.dispatchEvent(
+          new PointerEvent("pointerup", {
+            bubbles: true,
+            clientX: 422,
+            clientY: 195,
+            pointerId: 1,
+            pointerType: "touch",
+          }),
+        );
         await new Promise((resolve) => requestAnimationFrame(resolve));
         const popupSideInset = Math.round(
           844 - popupSideControls.getBoundingClientRect().right,
         );
         const popupCloseRect = popupCloseButton.getBoundingClientRect();
         const popupCloseStyle = getComputedStyle(popupCloseButton);
+        const popupCloseDisplay = getComputedStyle(
+          popupCloseButton.closest(".popup-close-row"),
+        ).display;
         const overlayDismissStyle = getComputedStyle(
           root.querySelector("[data-rotate-overlay-dismiss]"),
         );
@@ -2351,9 +2394,7 @@ test.describe("touch input", () => {
           liveDismissWithControls,
           popupSideInset,
           popupCloseWithoutControls,
-          popupCloseDisplay: getComputedStyle(
-            popupCloseButton.closest(".popup-close-row"),
-          ).display,
+          popupCloseDisplay,
           popupCloseRightInset: Math.round(844 - popupCloseRect.right),
           popupCloseTop: Math.round(popupCloseRect.top),
           popupCloseOverlayStyleDifferences: [

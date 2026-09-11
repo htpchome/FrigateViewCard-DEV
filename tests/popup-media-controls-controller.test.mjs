@@ -572,6 +572,7 @@ test("popup media controls surface renders tablet video actions in shared order"
   });
   const video = {};
   const viewer = { ...createElement("div"), classList: createTarget().classList };
+  const popup = createTarget();
   let playbackControls = null;
   viewer.querySelector = (selector) => {
     if (selector === "#popup-playback-controls") return playbackControls;
@@ -585,7 +586,11 @@ test("popup media controls surface renders tablet video actions in shared order"
   let overlayOptions = null;
   let overlayBound = false;
   const controller = new PopupMediaControlsSurfaceController({
-    query: (selector) => (selector === "#viewer" ? viewer : null),
+    query: (selector) => {
+      if (selector === "#viewer") return viewer;
+      if (selector === "#myPopup") return popup;
+      return null;
+    },
     isMobileTabletViewport: () => true,
     isVideoMediaType: () => true,
     createOverlayControls: (options) => {
@@ -628,6 +633,14 @@ test("popup media controls surface renders tablet video actions in shared order"
   assert.equal(overlayBound, true);
   overlayOptions.show();
   assert.equal(viewer.classList.contains("popup-controls-visible"), true);
+  assert.equal(
+    popup.classList.contains("popup-overlay-controls-visible"),
+    true,
+  );
   overlayOptions.hideNow();
   assert.equal(viewer.classList.contains("popup-controls-visible"), false);
+  assert.equal(
+    popup.classList.contains("popup-overlay-controls-visible"),
+    false,
+  );
 });

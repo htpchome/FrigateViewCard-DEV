@@ -569,11 +569,11 @@ export class PopupMediaControlsSurfaceController {
     this._playbackOverlayController = this._createOverlayControls({
       surface: viewer,
       show: () => {
-        viewer.classList?.add?.("popup-controls-visible");
+        this._setPlaybackOverlayVisible(viewer, true);
         if (this._isCardViewDrawerPresentation()) this.showNow();
       },
       hideNow: () => {
-        viewer.classList?.remove?.("popup-controls-visible");
+        this._setPlaybackOverlayVisible(viewer, false);
         if (this._isCardViewDrawerPresentation()) this.hideNow();
         this._clearPlaybackOverlayHideTimer();
       },
@@ -582,7 +582,7 @@ export class PopupMediaControlsSurfaceController {
         if (!this._setTimer) return;
         this._playbackOverlayHideTimer = this._setTimer(() => {
           this._playbackOverlayHideTimer = null;
-          viewer.classList?.remove?.("popup-controls-visible");
+          this._setPlaybackOverlayVisible(viewer, false);
           if (this._isCardViewDrawerPresentation()) this.hideNow();
         }, delayMs);
       },
@@ -592,6 +592,14 @@ export class PopupMediaControlsSurfaceController {
       revealDurationMs: 1800,
     });
     this._playbackOverlayController.bind();
+  }
+
+  _setPlaybackOverlayVisible(viewer, visible) {
+    viewer?.classList?.toggle?.("popup-controls-visible", visible === true);
+    this._query?.("#myPopup")?.classList?.toggle?.(
+      "popup-overlay-controls-visible",
+      visible === true,
+    );
   }
 
   _disposePlaybackOverlayVisibility() {

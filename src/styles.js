@@ -492,7 +492,7 @@ export const STYLES = `
     .rotate-overlay-dismiss svg{width:24px;height:24px;color:currentColor;fill:currentColor;opacity:1;pointer-events:none;}
     .rotate-overlay-dismiss:active{transform:scale(.95);}
     .rotate-overlay-dismiss:focus-visible{outline:2px solid var(--c-primary-l);outline-offset:3px;}
-    .card:is(.mobile-rotate-live,.mobile-rotate-live-exit):has(#live-stage.live-controls-visible) > .rotate-overlay-dismiss{display:grid;}
+    .card:is(.mobile-rotate-live,.mobile-rotate-live-exit):has(#live-stage.live-controls-visible):not(:has(.card-view-media-drawer.is-open)) > .rotate-overlay-dismiss{display:grid;}
     @media (hover:hover) and (pointer:fine){
       .rotate-overlay-dismiss:hover{background:var(--fvc-media-overlay-bg-hover);border-color:var(--fvc-media-overlay-border-hover);}
       .card.mobile-rotate-popup .popup-close-row .close-btn:hover,
@@ -518,7 +518,7 @@ export const STYLES = `
     .card.mobile-rotate-popup-exit #myPopup .popup-close-row{
       display:none !important;top:max(8px,env(safe-area-inset-top,0px));right:max(20px,env(safe-area-inset-right,0px));z-index:20;
     }
-    .card:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #myPopup:has(#viewer.popup-controls-visible) .popup-close-row{
+    .card:is(.mobile-rotate-popup,.mobile-rotate-popup-exit) #myPopup.popup-overlay-controls-visible .popup-close-row{
       display:block !important;
     }
     .card.mobile-rotate-popup .popup-close-row .close-btn,
