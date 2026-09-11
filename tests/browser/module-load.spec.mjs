@@ -1731,7 +1731,7 @@ test.describe("touch input", () => {
     });
   }
 
-  test("keeps Single View live rotation above Home Assistant chrome and alert badges", async ({
+  test("keeps Single View live and popup rotation above Home Assistant chrome and alert badges", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 844, height: 390 });
@@ -1797,7 +1797,7 @@ test.describe("touch input", () => {
 
       return {
         ...liveState,
-        popupUsesSingleViewLiveCover: card.classList.contains(
+        popupUsesViewportCover: card.classList.contains(
           "mobile-view-rotate-cover",
         ),
       };
@@ -1807,8 +1807,112 @@ test.describe("touch input", () => {
       hostCoversViewport: true,
       liveColumnZIndex: "2000",
       alertBadgeCovered: true,
-      popupUsesSingleViewLiveCover: false,
+      popupUsesViewportCover: true,
     });
+  });
+
+  test("keeps every rotated live and popup presentation above Home Assistant chrome", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto(baseUrl);
+    const results = await page.evaluate(async () => {
+      await import("/frigate-view-card.js");
+      document.body.style.margin = "0";
+      const presentations = [
+        { pageId: "single-view", viewMode: "bottom-panel-open" },
+        { pageId: "mobile-view", viewMode: "bottom-panel-open" },
+        { pageId: "card-view", viewMode: "video-only" },
+        { pageId: "card-view", viewMode: "bottom-panel-open" },
+        { pageId: "card-view", viewMode: "bottom-panel-closed" },
+      ];
+      const overlayModes = ["live", "popup"];
+      const navbarPlacements = ["top", "bottom"];
+      const states = [];
+
+      for (const presentation of presentations) {
+        for (const overlayMode of overlayModes) {
+          for (const navbarPlacement of navbarPlacements) {
+            const navbarEdge =
+              navbarPlacement === "bottom" ? "bottom" : "top";
+            const shell = document.createElement("hui-root");
+            const shellRoot = shell.attachShadow({ mode: "open" });
+            shellRoot.innerHTML = `
+              <style>
+                #view { position:relative;z-index:1; }
+                .header {
+                  position:fixed;left:0;right:0;${navbarEdge}:0;height:70px;
+                  z-index:2;background:#fff;
+                }
+              </style>
+              <div id="view"></div>
+              <div class="header"><div class="toolbar"></div></div>
+            `;
+            document.body.append(shell);
+
+            const view = shellRoot.querySelector("#view");
+            const header = shellRoot.querySelector(".header");
+            const card = document.createElement("frigate-view-card");
+            view.append(card);
+            card.setConfig({
+              cameras: [{ entity: "camera.front", name: "Front" }],
+              card_view_page_enabled: true,
+              card_view_view_mode: presentation.viewMode,
+              mobile_view_ha_navbar_bottom:
+                navbarPlacement === "bottom",
+              mobile_view_rotate_to_fullscreen: true,
+            });
+            card._pageId = presentation.pageId;
+            card._renderShell();
+            card.style.setProperty("--rotate-vw", "844px");
+            card.style.setProperty("--rotate-vh", "390px");
+            card.style.setProperty("--rotate-ox", "0px");
+            card.style.setProperty("--rotate-oy", "0px");
+
+            const cardRoot = card.shadowRoot.querySelector("#card");
+            card._applyRotateOverlayUiPlan(cardRoot, {
+              active: true,
+              mode: overlayMode,
+              removeClasses: [],
+              addClasses: [
+                overlayMode === "popup"
+                  ? "mobile-rotate-popup"
+                  : "mobile-rotate-live",
+              ],
+              retainViewportCover: true,
+            });
+
+            const hit = shellRoot.elementFromPoint(
+              422,
+              navbarPlacement === "bottom" ? 370 : 20,
+            );
+            states.push({
+              ...presentation,
+              overlayMode,
+              navbarPlacement,
+              hostCoversViewport:
+                card.classList.contains("mobile-view-rotate-cover"),
+              viewZIndex: getComputedStyle(view).zIndex,
+              headerZIndex: getComputedStyle(header).zIndex,
+              headerWinsViewportEdge:
+                hit === header || Boolean(hit?.closest?.(".header")),
+            });
+
+            card.remove();
+            shell.remove();
+          }
+        }
+      }
+      return states;
+    });
+
+    expect(results).toHaveLength(20);
+    for (const state of results) {
+      expect(state.hostCoversViewport, JSON.stringify(state)).toBe(true);
+      expect(state.viewZIndex, JSON.stringify(state)).toBe("2");
+      expect(state.headerZIndex, JSON.stringify(state)).toBe("1");
+      expect(state.headerWinsViewportEdge, JSON.stringify(state)).toBe(false);
+    }
   });
 
   test("dismisses rotated fullscreen until the phone leaves landscape", async ({

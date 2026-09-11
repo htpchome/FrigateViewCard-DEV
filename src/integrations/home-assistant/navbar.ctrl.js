@@ -602,18 +602,17 @@ export class HomeAssistantNavbarController {
     const moveBottom = config?.mobile_view_ha_navbar_bottom === true;
     const dashboardEdit =
       this._host?._isDashboardEditMode?.() === true;
+    const promoteViewInLandscape =
+      this._host?.isConnected !== false &&
+      this._host?._isLikelyPhoneClient?.() === true &&
+      !dashboardEdit &&
+      this._host?._isRotateOverlayViewportCoverActive?.() === true;
     return {
       moveBottom,
       stackTabs:
         moveBottom &&
         config?.mobile_view_ha_navbar_stack_tabs === true,
-      promoteViewInLandscape:
-        moveBottom &&
-        this._host?.isConnected !== false &&
-        this._host?._isLikelyPhoneClient?.() === true &&
-        this._host?._isMobileViewPageActive?.() === true &&
-        !dashboardEdit &&
-        this._host?._config?.mobile_view_rotate_to_fullscreen === true,
+      promoteViewInLandscape,
       reserveDashboardEditActions:
         moveBottom && dashboardEdit,
     };
@@ -644,10 +643,13 @@ export class HomeAssistantNavbarController {
   }
 
   shouldCustomizeNavbar(policy = this._dashboardNavbarPolicy()) {
-    const { moveBottom } = this._requestedCustomizations(policy.config);
-    if (!moveBottom || !this._isMobileDevice()) {
+    const { moveBottom, promoteViewInLandscape } =
+      this._requestedCustomizations(policy.config);
+    if (!this._isMobileDevice()) {
       return false;
     }
+    if (promoteViewInLandscape) return true;
+    if (!moveBottom) return false;
     if (policy.dashboardScope) {
       return (
         this._host?.isConnected !== false ||

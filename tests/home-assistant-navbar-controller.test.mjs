@@ -137,7 +137,7 @@ const createHarness = ({
   phoneDevice = mobileDevice,
   moveBottom = true,
   queueMicrotaskFn = (callback) => callback(),
-  rotateFullscreen = true,
+  rotateOverlayCover = false,
   stackTabs = false,
   viewPaddingBottom = "34px",
   viewPaddingTop = "103px",
@@ -191,14 +191,15 @@ const createHarness = ({
       mobile_view_ha_navbar_bottom: moveBottom,
       mobile_view_ha_navbar_stack_tabs: stackTabs,
       mobile_view_ha_navbar_dashboard: dashboardScope,
-      mobile_view_rotate_to_fullscreen: rotateFullscreen,
     },
     _mobileDevice: mobileDevice,
     _phoneDevice: phoneDevice,
     _mobileViewActive: true,
+    _rotateOverlayCover: rotateOverlayCover,
     _isLikelyMobileClient: () => host._mobileDevice,
     _isLikelyPhoneClient: () => host._phoneDevice,
     _isMobileViewPageActive: () => host._mobileViewActive,
+    _isRotateOverlayViewportCoverActive: () => host._rotateOverlayCover,
     _isDashboardEditMode: () => host._dashboardEditMode,
     _dashboardEditMode: dashboardEditMode,
   };
@@ -324,7 +325,7 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.match(styleText, /border-block-start/);
   assert.match(styleText, /#view \{[\s\S]*?z-index: 1 !important;/);
   assert.match(styleText, /\.header \{[\s\S]*?z-index: 2 !important;/);
-  assert.match(styleText, /@media \(orientation: landscape\)/);
+  assert.doesNotMatch(styleText, /@media \(orientation: landscape\)/);
 
   h.host._config.mobile_view_ha_navbar_bottom = false;
   assert.equal(h.controller.sync(), false);
@@ -481,21 +482,35 @@ test("promotes the dashboard view above the relocated header in landscape", () =
     /@media \(orientation: landscape\)/,
   );
 
-  const disabled = createHarness({ rotateFullscreen: false });
-  disabled.controller.sync();
+  const inactive = createHarness();
+  inactive.controller.sync();
   assert.doesNotMatch(
-    disabled.getTargets().children[0].textContent,
+    inactive.getTargets().children[0].textContent,
     /@media \(orientation: landscape\)/,
   );
 
-  const tablet = createHarness({ phoneDevice: false });
+  const singleView = createHarness({ rotateOverlayCover: true });
+  singleView.host._mobileViewActive = false;
+  singleView.controller.sync();
+  assert.match(
+    singleView.getTargets().children[0].textContent,
+    /@media \(orientation: landscape\)/,
+  );
+
+  const tablet = createHarness({
+    phoneDevice: false,
+    rotateOverlayCover: true,
+  });
   tablet.controller.sync();
   assert.doesNotMatch(
     tablet.getTargets().children[0].textContent,
     /@media \(orientation: landscape\)/,
   );
 
-  const editing = createHarness({ dashboardEditMode: true });
+  const editing = createHarness({
+    dashboardEditMode: true,
+    rotateOverlayCover: true,
+  });
   editing.controller.sync();
   assert.doesNotMatch(
     editing.getTargets().children[0].textContent,
@@ -512,6 +527,20 @@ test("promotes the dashboard view above the relocated header in landscape", () =
     editing.getTargets().children[0].textContent,
     /@media \(orientation: landscape\)/,
   );
+
+  const topNavbar = createHarness({
+    moveBottom: false,
+    rotateOverlayCover: true,
+  });
+  assert.equal(topNavbar.controller.sync(), true);
+  assert.equal(topNavbar.controller.shouldMoveNavbarToBottom(), false);
+  assert.match(
+    topNavbar.getTargets().children[0].textContent,
+    /@media \(orientation: landscape\)/,
+  );
+  topNavbar.host._rotateOverlayCover = false;
+  assert.equal(topNavbar.controller.sync(), false);
+  assert.equal(topNavbar.getTargets().children.length, 0);
 });
 
 test("applies the proven bottom-header details and restores exact styles", () => {

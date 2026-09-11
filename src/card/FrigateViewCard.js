@@ -3082,19 +3082,13 @@ export class FrigateViewCard extends HTMLElement {
     if (uiPlan.addClasses.length) {
       card.classList.add(...uiPlan.addClasses);
     }
-    const singleViewLiveRotate =
-      normalizePageRoute(this._pageId) === PAGE_IDS.singleView &&
-      (card.classList.contains("mobile-rotate-live") ||
-        card.classList.contains("mobile-rotate-live-exit"));
     this.classList.toggle(
       MOBILE_VIEW_ROTATE_COVER_CLASS,
-      (card.classList.contains(MOBILE_VIEW_ACTIVE_CLASS) ||
-        card.classList.contains("card-view-overlay-presentation") ||
-        singleViewLiveRotate) &&
-        uiPlan.retainViewportCover,
+      uiPlan.retainViewportCover,
     );
     this._rotateOverlayActive = uiPlan.active;
     this._rotateOverlayMode = uiPlan.mode;
+    this._haNavbarController?.sync?.();
     this._cardViewPageController?.handleRotateOverlayState?.({
       active: uiPlan.active,
       mode: uiPlan.mode,
@@ -6051,6 +6045,7 @@ export class FrigateViewCard extends HTMLElement {
       this._syncLiveRotateZoomPresentation(c);
       if (exitPlan.releaseViewportCover) {
         this.classList.remove(MOBILE_VIEW_ROTATE_COVER_CLASS);
+        this._haNavbarController?.sync?.();
       }
       this._rotateOverlayExitT = null;
       if (this._resumeLiveT) return;
@@ -6067,6 +6062,9 @@ export class FrigateViewCard extends HTMLElement {
       !this._isDashboardEditMode() &&
       !this._isCardEditorDialogOpen()
     );
+  }
+  _isRotateOverlayViewportCoverActive() {
+    return this.classList.contains(MOBILE_VIEW_ROTATE_COVER_CLASS);
   }
   _updateRotateOverlayState() {
     const card = this._$("#card");
