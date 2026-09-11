@@ -1107,8 +1107,6 @@ export class FrigateViewCard extends HTMLElement {
       getMount: () => this.shadowRoot,
       onStatus: (message) => this._toast(message),
       onSupportChange: () => this._syncPlaybackTargetButtons(),
-      onDiagnostic: (detail) =>
-        this._showPlaybackTargetDiagnostic(detail),
     });
     this._viewportContextController = new ViewportContextController(this);
     this._twoWayTalkSoundwaveController =
@@ -3907,43 +3905,6 @@ export class FrigateViewCard extends HTMLElement {
       "#popup-airplay-btn, #popup-media-airplay, #popup-mobile-airplay-btn",
       support.airplay,
       "AirPlay video",
-    );
-  }
-
-  _showPlaybackTargetDiagnostic(detail = {}) {
-    const yesNo = (value) => (value ? "yes" : "no");
-    let message = "";
-    if (detail.event === "prompt-start") {
-      this._airPlayDiagnosticEvents = [];
-      const method =
-        detail.method === "remote-playback"
-          ? "Remote Playback API"
-          : "WebKit AirPlay";
-      message = `${method} start (muted ${yesNo(detail.muted)}, ${detail.sourceType})`;
-    } else if (detail.event === "volumechange") {
-      const trusted =
-        detail.isTrusted === null ? "unknown" : yesNo(detail.isTrusted);
-      message = `volumechange trusted ${trusted}, muted ${yesNo(detail.muted)}, remote ${detail.remoteState}, +${detail.elapsedMs}ms`;
-    } else if (
-      [
-        "remote-connecting",
-        "remote-connect",
-        "remote-disconnect",
-        "webkit-wireless-connect",
-        "webkit-wireless-disconnect",
-        "prompt-resolved",
-        "prompt-rejected",
-      ].includes(detail.event)
-    ) {
-      message = `${detail.event} (muted ${yesNo(detail.muted)}, remote ${detail.remoteState}, +${detail.elapsedMs}ms)`;
-    }
-    if (!message) return;
-    this._airPlayDiagnosticEvents ||= [];
-    this._airPlayDiagnosticEvents.push(message);
-    this._airPlayDiagnosticEvents = this._airPlayDiagnosticEvents.slice(-5);
-    this._toast(
-      `AirPlay test: ${this._airPlayDiagnosticEvents.join(" → ")}`,
-      { duration: 9000, tone: "warning", placement: "popup" },
     );
   }
 
