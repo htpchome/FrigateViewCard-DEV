@@ -9,6 +9,8 @@ WORKSPACE_DIR=$(cd "$(dirname "$0")/.." && pwd)
 # The named volume keeps Codex login and conversation history across rebuilds.
 sudo mkdir -p /home/node/.codex
 sudo chown -R node:node /home/node/.codex
+sudo mkdir -p /home/node/.cache/ms-playwright
+sudo chown -R node:node /home/node/.cache/ms-playwright
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  FrigateViewCard DevContainer - Initial Setup"
@@ -36,7 +38,13 @@ echo ""
 echo "→ Checking for Node.js dependencies..."
 if [ -f "$WORKSPACE_DIR/package.json" ]; then
   cd "$WORKSPACE_DIR"
-  npm install --silent 2>/dev/null || echo "  ⚠ No npm dependencies to install"
+  npm ci --silent
+  echo "  ✓ Node.js dependencies installed"
+
+  echo ""
+  echo "→ Installing Playwright browsers and system dependencies..."
+  "$WORKSPACE_DIR/node_modules/.bin/playwright" install --with-deps chromium firefox webkit
+  echo "  ✓ Playwright browsers installed"
 else
   echo "  ✓ No package.json found (standalone card - no build step needed)"
 fi

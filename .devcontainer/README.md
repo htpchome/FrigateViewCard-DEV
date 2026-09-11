@@ -9,13 +9,19 @@ A complete development environment for building and testing the FrigateViewCard 
 | **Home Assistant** | `8123` | Home Assistant Core 2026.9.0 with Frigate integration |
 | **Frigate NVR** | `5000` | Frigate web UI with 3 demo cameras |
 | **go2rtc** | `8554`, `1984` | WebRTC streaming for live camera feeds |
-| **Dev Container** | - | Node.js 20 development environment with FFmpeg |
+| **Dev Container** | - | Node.js 20 development environment with FFmpeg and Playwright |
 
 Codex is installed automatically and stores its login and conversation history
 in the persistent `frigateviewcard-codex-data` Docker volume. Rebuilding the
 devcontainer does not require reinstalling or signing in to Codex again.
 FFmpeg is installed in the devcontainer image and remains available after every
 container rebuild.
+
+The post-create setup installs the project-pinned Chromium, Firefox, and WebKit
+Playwright engines and their Linux system dependencies. Browser downloads are
+stored in the persistent `frigateviewcard-playwright-cache` Docker volume, so
+rebuilding the devcontainer does not download them again unless the pinned
+Playwright version changes.
 
 Home Assistant is pinned to Core `2026.9.0` in `docker-compose.yml`. This keeps
 configuration-editor testing reproducible instead of silently moving whenever
@@ -85,6 +91,15 @@ theme: default
 6. Click **Save**
 
 ## Development Workflow
+
+### Browser compatibility tests
+
+```bash
+npm run test:compat:browsers
+```
+
+The required Playwright engines are installed automatically when the
+devcontainer is created.
 
 ### Manual Sync (after each change)
 
@@ -223,4 +238,4 @@ Then reopen the devcontainer in VS Code.
 - Docker Desktop (Windows/Mac) or Docker Engine (Linux)
 - VS Code with Dev Containers extension
 - At least 4GB RAM available for Docker
-- ~2GB disk space for images and volumes
+- ~3GB disk space for images and volumes
