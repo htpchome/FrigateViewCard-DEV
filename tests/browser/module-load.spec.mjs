@@ -2260,6 +2260,7 @@ test.describe("touch input", () => {
         const viewer = root.querySelector("#viewer");
         popup.classList.add("is-open");
         popup.style.animation = "none";
+        popup.style.transition = "none";
         viewer.style.display = "flex";
         const popupSideControls = document.createElement("div");
         popupSideControls.className = "popup-playback-controls";
@@ -2269,6 +2270,9 @@ test.describe("touch input", () => {
         const popupSideInset = Math.round(
           844 - popupSideControls.getBoundingClientRect().right,
         );
+        const popupCloseButton = root.querySelector("#close-btn");
+        const popupCloseRect = popupCloseButton.getBoundingClientRect();
+        popupCloseButton.click();
 
         results.push({
           label: surface.label,
@@ -2278,6 +2282,12 @@ test.describe("touch input", () => {
           webkitPlaysInline: video.getAttribute("webkit-playsinline"),
           liveSideInset,
           popupSideInset,
+          popupCloseDisplay: getComputedStyle(
+            popupCloseButton.closest(".popup-close-row"),
+          ).display,
+          popupCloseRightInset: Math.round(844 - popupCloseRect.right),
+          popupCloseTop: Math.round(popupCloseRect.top),
+          popupClosed: !popup.classList.contains("is-open"),
           backDisplay,
         });
         card.remove();
@@ -2294,6 +2304,10 @@ test.describe("touch input", () => {
         webkitPlaysInline: "true",
         liveSideInset: 20,
         popupSideInset: 20,
+        popupCloseDisplay: "block",
+        popupCloseRightInset: 20,
+        popupCloseTop: 8,
+        popupClosed: true,
         backDisplay: null,
       },
       {
@@ -2304,6 +2318,10 @@ test.describe("touch input", () => {
         webkitPlaysInline: "true",
         liveSideInset: 20,
         popupSideInset: 20,
+        popupCloseDisplay: "block",
+        popupCloseRightInset: 20,
+        popupCloseTop: 8,
+        popupClosed: true,
         backDisplay: null,
       },
       {
@@ -2314,6 +2332,10 @@ test.describe("touch input", () => {
         webkitPlaysInline: "true",
         liveSideInset: 20,
         popupSideInset: 20,
+        popupCloseDisplay: "block",
+        popupCloseRightInset: 20,
+        popupCloseTop: 8,
+        popupClosed: true,
         backDisplay: null,
       },
       {
@@ -2324,6 +2346,10 @@ test.describe("touch input", () => {
         webkitPlaysInline: "true",
         liveSideInset: 20,
         popupSideInset: 20,
+        popupCloseDisplay: "block",
+        popupCloseRightInset: 20,
+        popupCloseTop: 8,
+        popupClosed: true,
         backDisplay: null,
       },
       {
@@ -2334,6 +2360,10 @@ test.describe("touch input", () => {
         webkitPlaysInline: "true",
         liveSideInset: 20,
         popupSideInset: 20,
+        popupCloseDisplay: "block",
+        popupCloseRightInset: 20,
+        popupCloseTop: 8,
+        popupClosed: true,
         backDisplay: "none",
       },
     ]);

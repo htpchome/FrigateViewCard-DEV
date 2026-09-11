@@ -513,7 +513,9 @@ export const STYLES = `
     .card.mobile-rotate-popup #viewer img.snap,
     .card.mobile-rotate-popup-exit #viewer img.snap{object-fit:contain;object-position:center center;background:#000;}
     .card.mobile-rotate-popup .popup-close-row,
-    .card.mobile-rotate-popup-exit .popup-close-row{display:none !important;}
+    .card.mobile-rotate-popup-exit .popup-close-row{
+      display:block !important;top:max(8px,env(safe-area-inset-top,0px));right:max(20px,env(safe-area-inset-right,0px));z-index:20;
+    }
     .card.mobile-rotate-popup #popup-info,
     .card.mobile-rotate-popup #recording-scrub,
     .card.mobile-rotate-popup #recording-segment-manager,
