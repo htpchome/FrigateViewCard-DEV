@@ -2204,7 +2204,10 @@ test("Card View editor gates and orders all settings beneath the page toggle", (
     editorSource,
     /id="mobile_page"[^>]*card_view_standalone[\s\S]*?"disabled"/,
   );
-  assert.match(editorSource, /standalone-mobile-note/);
+  assert.match(
+    editorSource,
+    /id="landing_page"[\s\S]*?standalone-landing-note[\s\S]*?id="mobile_page"[\s\S]*?standalone-landing-note/,
+  );
 });
 
 test("Single, Wide, and Mobile page settings are ordered, gated, and dirty-state wired", () => {
@@ -2632,6 +2635,14 @@ test("Mobile View HA navbar options are ordered and nested under their master to
   );
   assert.match(editorSource, /navbar-owner-warning/);
   assert.match(editorSource, /navbar-owner-info/);
+  assert.match(
+    editorSource,
+    /\.swipe-owner-warning,\.navbar-owner-warning\{[^}]*var\(--warning-color, #f59e0b\)/,
+  );
+  assert.doesNotMatch(
+    editorSource,
+    /\.swipe-owner-warning,\.navbar-owner-warning\{[^}]*var\(--c-alert/,
+  );
   assert.match(
     editorSource,
     /controls Move HA Navbar to Bottom/,

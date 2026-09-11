@@ -3682,12 +3682,13 @@ export class FrigateViewCardEditor extends HTMLElement {
         <span class="field-label">Landing Page</span>
         <ha-selector id="landing_page" style="width:220px"></ha-selector>
         <div class="field-helper">Selects the starting page for desktops and tablets.</div>
+        ${this._config?.card_view_standalone ? '<div class="field-helper standalone-landing-note">Unavailable while Card View is standalone because all devices start in Card View.</div>' : ""}
       </div>
       <div class="section">
         <span class="field-label">Phone Landing Page</span>
         <ha-selector id="mobile_page" style="width:220px" ${this._config?.card_view_standalone ? "disabled" : ""}></ha-selector>
         <div class="field-helper">Sets the phone landing flow. Preview combinations open Preview first, then the selected camera in the paired view. Required pages must be enabled.</div>
-        ${this._config?.card_view_standalone ? '<div class="field-helper standalone-mobile-note">Unavailable while Card View is standalone because all devices start in Card View.</div>' : ""}
+        ${this._config?.card_view_standalone ? '<div class="field-helper standalone-landing-note">Unavailable while Card View is standalone because all devices start in Card View.</div>' : ""}
       </div>`;
     const gridviewPanelContent = `
       <div class="section">
@@ -3825,7 +3826,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             .settings-container{display:flex;flex-direction:column;gap:6px;}
             .config-save-reminder{position:sticky;top:8px;z-index:20;box-sizing:border-box;width:100%;min-height:30px;display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 10px;border:1px solid color-mix(in srgb,var(--success-color,#2e7d32) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--success-color,#2e7d32) 14%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:var(--success-color,#2e7d32);font-size:12px;font-weight:600;line-height:1.2;text-align:center;pointer-events:none;}
             .config-save-reminder[data-config-save-state="dirty"]{border-color:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 55%,transparent);background:color-mix(in srgb,var(--warning-color, var(--c-accent, var(--editor-primary))) 16%,transparent);color:var(--warning-color, var(--c-accent, var(--editor-primary)));}
-            .standalone-mobile-note{box-sizing:border-box;width:100%;margin-top:8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 42%,var(--editor-card-bg));color:var(--c-primary-d, var(--editor-text));font-weight:650;line-height:1.3;}
+            .standalone-landing-note{box-sizing:border-box;width:100%;margin-top:8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--c-primary, var(--editor-primary)) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--c-primary-l, var(--editor-primary-l)) 42%,var(--editor-card-bg));color:var(--c-primary-d, var(--editor-text));font-weight:650;line-height:1.3;}
             .config-save-reminder-icon{display:inline-flex;width:17px;height:17px;flex:0 0 17px;}
             .config-save-reminder-icon svg{display:block;width:100%;height:100%;}
             .environment-version-summary{margin:12px 0;}
@@ -3926,8 +3927,8 @@ export class FrigateViewCardEditor extends HTMLElement {
             .editor-swipe-choice-footer ha-switch{flex:0 0 auto;}
             .editor-swipe-choice-footer:has(ha-switch[disabled]){opacity:.55;cursor:not-allowed;}
             .swipe-navigation-dependent-section{margin-inline-start:14px;padding-inline-start:12px;border-inline-start:2px solid var(--c-primary, var(--editor-primary));}
-            .swipe-owner-warning,.navbar-owner-warning{padding:8px 10px;border:1px solid var(--c-alert, #d32f2f);border-radius:8px;background:color-mix(in srgb,var(--c-alert, #d32f2f) 9%,transparent);color:var(--c-alert, #d32f2f);line-height:1.35;}
-            .swipe-owner-warning strong,.navbar-owner-warning strong{display:inline-block;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--c-alert, #d32f2f) 16%,transparent);color:inherit;font-weight:800;}
+            .swipe-owner-warning,.navbar-owner-warning{padding:8px 10px;border:1px solid color-mix(in srgb,var(--warning-color, #f59e0b) 70%,transparent);border-radius:8px;background:color-mix(in srgb,var(--warning-color, #f59e0b) 12%,transparent);color:color-mix(in srgb,var(--warning-color, #b86b00) 75%,var(--primary-text-color, #111));line-height:1.35;}
+            .swipe-owner-warning strong,.navbar-owner-warning strong{display:inline-block;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--warning-color, #f59e0b) 20%,transparent);color:inherit;font-weight:800;}
             .navbar-owner-info{padding:8px 10px;border:1px solid var(--success-color, #2e7d32);border-radius:8px;background:color-mix(in srgb,var(--success-color, #2e7d32) 9%,transparent);color:var(--success-color, #2e7d32);line-height:1.35;}
             .navbar-owner-info strong{display:inline-block;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--success-color, #2e7d32) 16%,transparent);color:inherit;font-weight:800;}
             .editor-choice-chip{position:relative;display:block;min-width:0;cursor:pointer;}
