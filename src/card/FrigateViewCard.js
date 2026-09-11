@@ -1395,6 +1395,7 @@ export class FrigateViewCard extends HTMLElement {
         this._wideViewPageController?.resumeCompanionMedia?.();
         return;
       }
+      this._playbackTargetController?.release("popup");
       void this._stopPtzMotion("document-hidden");
     };
 
@@ -1404,6 +1405,7 @@ export class FrigateViewCard extends HTMLElement {
     };
     this._onPageHide = () => {
       void this._stopPtzMotion("page-hide");
+      this._playbackTargetController?.release("popup");
     };
     this._onWindowPtzPointerStop = (event) => {
       void this._handlePtzControlPointerStop(event);
@@ -2295,6 +2297,7 @@ export class FrigateViewCard extends HTMLElement {
   disconnectedCallback() {
     this._deepLinkController.disconnect();
     void this._stopPtzMotion("disconnected");
+    this._playbackTargetController?.release("popup");
     this._wideViewPageController?.disconnectResizeHandle?.();
     this._editorLiveHandoffController?.returnIfPossible?.();
     const sameDashboard =

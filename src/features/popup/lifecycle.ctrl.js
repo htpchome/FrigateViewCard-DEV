@@ -285,6 +285,7 @@ export class PopupLifecycleController {
   }
 
   clearMediaCleanup({ preserveCarousel = true } = {}) {
+    this._onReleasePlaybackTarget("popup");
     this._onClearPictureInPicture("popup");
     this._onClearVideoZoom();
     if (!preserveCarousel) this._onDisposeCarousel();

@@ -115,6 +115,8 @@ export class BrowserPlaybackTargetController {
     const entry = {
       video,
       availability: null,
+      prompted: false,
+      wirelessActive: false,
       onAvailabilityChanged: null,
       onWirelessTargetChanged: null,
       playOnWirelessTarget: null,
@@ -126,6 +128,8 @@ export class BrowserPlaybackTargetController {
     };
     const playOnWirelessTarget = () => {
       if (video.webkitCurrentPlaybackTargetIsWireless !== true) return;
+      entry.wirelessActive = true;
+      if (video.muted === true) video.muted = false;
       video.play?.().catch?.(() => {});
     };
     const releaseOnTerminal = () => this._releaseVideo(scope);
@@ -161,6 +165,8 @@ export class BrowserPlaybackTargetController {
     const entry = this._videos.get(scope);
     if (!entry) return;
     const wasWireless =
+      entry.prompted ||
+      entry.wirelessActive ||
       entry.video.webkitCurrentPlaybackTargetIsWireless === true;
     const {
       video,
@@ -210,6 +216,9 @@ export class BrowserPlaybackTargetController {
     const entry = {
       video,
       availability: null,
+      prompted: false,
+      wirelessActive: false,
+      restoreMuted: false,
       onAvailabilityChanged: null,
       onWirelessTargetChanged: null,
     };
@@ -217,7 +226,24 @@ export class BrowserPlaybackTargetController {
       entry.availability = event?.availability || null;
       this._onSupportChange?.();
     };
-    const onWirelessTargetChanged = () => this._onSupportChange?.();
+    const onWirelessTargetChanged = () => {
+      const wireless =
+        video.webkitCurrentPlaybackTargetIsWireless === true;
+      if (wireless) {
+        entry.wirelessActive = true;
+        if (video.muted === true) {
+          entry.restoreMuted = true;
+          video.muted = false;
+        }
+      } else if (entry.wirelessActive) {
+        if (entry.restoreMuted) video.muted = true;
+        entry.prompted = false;
+        entry.wirelessActive = false;
+        entry.restoreMuted = false;
+        clearBrowserMediaSession(this._getNavigator?.());
+      }
+      this._onSupportChange?.();
+    };
     entry.onAvailabilityChanged = onAvailabilityChanged;
     entry.onWirelessTargetChanged = onWirelessTargetChanged;
     this._displayedVideos.set(scope, entry);
@@ -235,6 +261,10 @@ export class BrowserPlaybackTargetController {
   _releaseDisplayedVideo(scope) {
     const entry = this._displayedVideos.get(scope);
     if (!entry) return;
+    const shouldEndSession =
+      entry.prompted ||
+      entry.wirelessActive ||
+      entry.video.webkitCurrentPlaybackTargetIsWireless === true;
     entry.video.removeEventListener?.(
       "webkitplaybacktargetavailabilitychanged",
       entry.onAvailabilityChanged,
@@ -243,6 +273,21 @@ export class BrowserPlaybackTargetController {
       "webkitcurrentplaybacktargetiswirelesschanged",
       entry.onWirelessTargetChanged,
     );
+    if (entry.restoreMuted) entry.video.muted = true;
+    if (shouldEndSession) {
+      try {
+        entry.video.pause?.();
+        entry.video.disableRemotePlayback = true;
+        entry.video.setAttribute?.("x-webkit-airplay", "deny");
+        if ("srcObject" in entry.video) entry.video.srcObject = null;
+        entry.video.removeAttribute?.("src");
+        entry.video
+          .querySelectorAll?.("source")
+          .forEach((source) => source.remove?.());
+        entry.video.load?.();
+      } catch (_) {}
+      clearBrowserMediaSession(this._getNavigator?.());
+    }
     this._displayedVideos.delete(scope);
   }
 
@@ -327,7 +372,11 @@ export class BrowserPlaybackTargetController {
       this.observe(scope, displayedVideo);
       const prompted =
         this._promptAirPlay?.(displayedVideo, { load: false }) === true;
-      if (prompted) return Promise.resolve(true);
+      if (prompted) {
+        const entry = this._displayedVideos.get(scope);
+        if (entry) entry.prompted = true;
+        return Promise.resolve(true);
+      }
       this._releaseDisplayedVideo(scope);
     }
 
@@ -344,6 +393,8 @@ export class BrowserPlaybackTargetController {
     const video = this._videoForScope(scope);
     configureReceiverVideo(video, source);
     const prompted = this._promptAirPlay?.(video, { load: true }) === true;
+    const entry = this._videos.get(scope);
+    if (entry) entry.prompted = prompted;
     if (!prompted) {
       this._onStatus?.("AirPlay is not supported in this browser.");
     }

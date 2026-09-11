@@ -401,6 +401,12 @@ test("popup playback controls delegate to native PiP and AirPlay", () => {
     cardSource.includes("this._playbackTargetController?.release(scope)"),
     true,
   );
+  assert.equal(
+    cardSource.match(
+      /this\._playbackTargetController\?\.release\("popup"\)/g,
+    )?.length >= 3,
+    true,
+  );
   assert.equal(cardSource.includes("_playbackTargetContext(scope"), true);
   assert.equal(cardSource.includes("camera/stream"), false);
   assert.equal(cardSource.includes("context.connectionType"), false);

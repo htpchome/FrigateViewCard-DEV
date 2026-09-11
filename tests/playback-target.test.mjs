@@ -28,6 +28,7 @@ function createFakeVideo({ airplay = false } = {}) {
     style: { cssText: "" },
     loadCalls: 0,
     playCalls: 0,
+    pauseCalls: 0,
     removed: false,
     setAttribute(name, value) {
       attributes.set(name, String(value));
@@ -49,7 +50,9 @@ function createFakeVideo({ airplay = false } = {}) {
       this.playCalls += 1;
       return Promise.resolve();
     },
-    pause() {},
+    pause() {
+      this.pauseCalls += 1;
+    },
     addEventListener(type, handler) {
       listeners.set(type, handler);
     },
@@ -166,8 +169,17 @@ test("AirPlay can prompt the displayed video without reloading it", async () => 
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
   assert.equal(displayedVideo.playCalls, 0);
+  assert.equal(displayedVideo.muted, false);
+  assert.deepEqual(displayedVideo.mutedWrites, [false]);
 
   controller.release("popup");
+  assert.equal(displayedVideo.muted, true);
+  assert.deepEqual(displayedVideo.mutedWrites, [false, true]);
+  assert.equal(displayedVideo.pauseCalls, 1);
+  assert.equal(displayedVideo.src, "");
+  assert.equal(displayedVideo.loadCalls, 1);
+  assert.equal(displayedVideo.disableRemotePlayback, true);
+  assert.equal(displayedVideo.getAttribute("x-webkit-airplay"), "deny");
   displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
   displayedVideo.dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
@@ -210,6 +222,40 @@ test("AirPlay observes availability without changing displayed playback", async 
     availability: "not-available",
   });
   assert.equal(supportChanges.length, 2);
+});
+
+test("displayed AirPlay restores mute and clears Media Session when routing ends", async () => {
+  const displayedVideo = createFakeVideo({ airplay: true });
+  const mediaSession = {
+    playbackState: "playing",
+    metadata: { title: "Alert" },
+  };
+  const controller = new BrowserPlaybackTargetController({
+    getWindow: () => ({}),
+    getNavigator: () => ({ mediaSession }),
+  });
+
+  await controller.prompt(PLAYBACK_TARGET_AIRPLAY, {
+    scope: "popup",
+    displayedVideo,
+  });
+  displayedVideo.webkitCurrentPlaybackTargetIsWireless = true;
+  displayedVideo.dispatch(
+    "webkitcurrentplaybacktargetiswirelesschanged",
+  );
+  assert.equal(displayedVideo.muted, false);
+
+  displayedVideo.webkitCurrentPlaybackTargetIsWireless = false;
+  displayedVideo.dispatch(
+    "webkitcurrentplaybacktargetiswirelesschanged",
+  );
+  assert.equal(displayedVideo.muted, true);
+  assert.deepEqual(displayedVideo.mutedWrites, [false, true]);
+  assert.equal(mediaSession.playbackState, "none");
+  assert.equal(mediaSession.metadata, null);
+
+  controller.release("popup");
+  assert.equal(displayedVideo.pauseCalls, 0);
 });
 
 test("receiver URL resolution rejects browser-local blobs", () => {
@@ -339,6 +385,7 @@ test("controller prewarms popup AirPlay and tears down its wireless media sessio
   airplayCalls[0].dispatch(
     "webkitcurrentplaybacktargetiswirelesschanged",
   );
+  assert.equal(airplayCalls[0].muted, false);
   assert.equal(airplayCalls[0].playCalls, 1);
   airplayCalls[0].dispatch("canplay");
   assert.equal(airplayCalls[0].playCalls, 2);

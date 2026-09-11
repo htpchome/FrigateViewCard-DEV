@@ -312,6 +312,7 @@ test("media replacement preserves the carousel until the popup stops", () => {
   const { calls, controller } = createLifecycleFixture();
 
   controller.clearMediaCleanup();
+  assert.deepEqual(calls[0], ["releasePlaybackTarget", "popup"]);
   assert.equal(
     calls.some(([kind]) => kind === "disposeCarousel"),
     false,
