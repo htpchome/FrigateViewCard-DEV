@@ -7,6 +7,7 @@ import {
   downloadDisplayedFrame,
   resolveDisplayedFrameGeometry,
   resolveDisplayedFrameSourceRect,
+  SAFARI_FRAME_DOWNLOAD_REVOKE_DELAY_MS,
 } from "../src/shared/media/frame-capture.js";
 import { STYLES } from "../src/styles.js";
 
@@ -144,6 +145,7 @@ test("displayed frame downloads use camera and UTC timestamp filenames", () => {
     remove: () => actions.push("remove"),
   };
   let scheduled = null;
+  let scheduledDelayMs = null;
   downloadDisplayedFrame({ bytes: 1 }, "snapshot.jpg", {
     documentObj: {
       createElement: () => anchor,
@@ -153,16 +155,41 @@ test("displayed frame downloads use camera and UTC timestamp filenames", () => {
       createObjectURL: () => "blob:frame",
       revokeObjectURL: (url) => actions.push(`revoke:${url}`),
     },
-    schedule: (callback) => {
+    schedule: (callback, delayMs) => {
       scheduled = callback;
+      scheduledDelayMs = delayMs;
     },
   });
 
   assert.equal(anchor.href, "blob:frame");
   assert.equal(anchor.download, "snapshot.jpg");
   assert.deepEqual(actions, ["append", "click", "remove"]);
+  assert.equal(scheduledDelayMs, 0);
   scheduled();
   assert.deepEqual(actions, ["append", "click", "remove", "revoke:blob:frame"]);
+});
+
+test("displayed frame downloads support delayed Safari blob cleanup", () => {
+  let scheduledDelayMs = null;
+  let scheduled = null;
+  downloadDisplayedFrame({ bytes: 1 }, "snapshot.jpg", {
+    documentObj: {
+      createElement: () => ({ click: () => {}, remove: () => {} }),
+      body: { appendChild: () => {} },
+    },
+    urlApi: {
+      createObjectURL: () => "blob:safari-frame",
+      revokeObjectURL: () => {},
+    },
+    schedule: (callback, delayMs) => {
+      scheduled = callback;
+      scheduledDelayMs = delayMs;
+    },
+    revokeDelayMs: SAFARI_FRAME_DOWNLOAD_REVOKE_DELAY_MS,
+  });
+
+  assert.equal(typeof scheduled, "function");
+  assert.equal(scheduledDelayMs, SAFARI_FRAME_DOWNLOAD_REVOKE_DELAY_MS);
 });
 
 test("snapshot result feedback is centered over the active media surface", () => {

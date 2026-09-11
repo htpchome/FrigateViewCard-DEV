@@ -257,6 +257,7 @@ import { BrowseTabDataController } from "../features/browse/tab-data.ctrl.js";
 import { BrowseWindowLoaderController } from "../features/browse/window-loader.ctrl.js";
 import {
   buildRecordingPlaybackPlan,
+  shouldPreferRecordingHls,
   buildRecordingsListMarkup,
   disposeRecordingsDayCache,
   RecordingsBrowseNavController,
@@ -306,6 +307,7 @@ import {
   buildDisplayedFrameFilename,
   captureDisplayedFrame,
   downloadDisplayedFrame,
+  SAFARI_FRAME_DOWNLOAD_REVOKE_DELAY_MS,
 } from "../shared/media/frame-capture.js";
 import { PreviewAlertController } from "../features/preview/alert.ctrl.js";
 import { PreviewPageController } from "../features/preview/page.ctrl.js";
@@ -951,7 +953,12 @@ export class FrigateViewCard extends HTMLElement {
             camera: context.cam,
             start,
             end,
-            preferHls: DEVICE_PROFILE.isIOS,
+            preferHls: shouldPreferRecordingHls({
+              isIOS: DEVICE_PROFILE.isIOS,
+              isFirefox: this._isFirefox(),
+              isEdge: this._isEdge(),
+              isSafari: this._isSafari(),
+            }),
             maxChunkSeconds: Math.max(1, Number(end) - Number(start)),
           });
           return await Promise.all(
@@ -7167,6 +7174,11 @@ export class FrigateViewCard extends HTMLElement {
       downloadDisplayedFrame(
         blob,
         buildDisplayedFrameFilename({ camera }),
+        {
+          revokeDelayMs: this._isSafari()
+            ? SAFARI_FRAME_DOWNLOAD_REVOKE_DELAY_MS
+            : 0,
+        },
       );
       this._showSnapshotResultBubble(scope, true);
       return true;

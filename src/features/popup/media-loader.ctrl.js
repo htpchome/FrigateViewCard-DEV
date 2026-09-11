@@ -23,7 +23,10 @@ import {
   resolvePopupRecordingLoadOutcomePlan,
   resolvePopupRecordingSeekListenerPlan,
 } from "./media.js";
-import { buildRecordingPlaybackPlan } from "../recordings/index.js";
+import {
+  buildRecordingPlaybackPlan,
+  shouldPreferRecordingHls,
+} from "../recordings/index.js";
 import { resolveFrigateEventPrePostRollRange } from "../../integrations/frigate/event-media.js";
 import {
   POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
@@ -153,7 +156,12 @@ export class PopupMediaLoaderController {
       supportsNativeHls: () =>
         host._supportsNativeHlsPlayback?.() === true,
       preferRecordingHls: () =>
-        isIOS || host._isFirefox?.() || host._isEdge?.(),
+        shouldPreferRecordingHls({
+          isIOS,
+          isFirefox: host._isFirefox?.() === true,
+          isEdge: host._isEdge?.() === true,
+          isSafari: host._isSafari?.() === true,
+        }),
       isEventPrePostRollEnabled: () =>
         host._config?.event_pre_post_roll_enabled === true,
       isMobileTabletViewport: () =>

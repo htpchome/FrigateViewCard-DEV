@@ -167,6 +167,8 @@ export function buildDisplayedFrameFilename({
   return `${safeCamera}_${timestamp}.jpg`;
 }
 
+export const SAFARI_FRAME_DOWNLOAD_REVOKE_DELAY_MS = 1000;
+
 export function downloadDisplayedFrame(
   blob,
   filename,
@@ -174,6 +176,7 @@ export function downloadDisplayedFrame(
     documentObj = globalThis.document,
     urlApi = globalThis.URL,
     schedule = globalThis.setTimeout,
+    revokeDelayMs = 0,
   } = {},
 ) {
   if (!blob || typeof urlApi?.createObjectURL !== "function") {
@@ -192,6 +195,10 @@ export function downloadDisplayedFrame(
     anchor.click();
   } finally {
     anchor.remove?.();
-    schedule?.(() => urlApi.revokeObjectURL?.(objectUrl), 0);
+    const safeRevokeDelayMs = Math.max(0, Number(revokeDelayMs) || 0);
+    schedule?.(
+      () => urlApi.revokeObjectURL?.(objectUrl),
+      safeRevokeDelayMs,
+    );
   }
 }

@@ -1,7 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildRecordingPlaybackPlan } from "../../src/features/recordings/utils/playback.js";
+import {
+  buildRecordingPlaybackPlan,
+  shouldPreferRecordingHls,
+} from "../../src/features/recordings/utils/playback.js";
+
+test("recording HLS preference includes desktop Safari", () => {
+  assert.equal(shouldPreferRecordingHls({ isSafari: true }), true);
+  assert.equal(shouldPreferRecordingHls({ isIOS: true }), true);
+  assert.equal(shouldPreferRecordingHls({ isFirefox: true }), true);
+  assert.equal(shouldPreferRecordingHls({ isEdge: true }), true);
+  assert.equal(shouldPreferRecordingHls({}), false);
+});
 
 test("buildRecordingPlaybackPlan caps recording chunk length and formats camera name", () => {
   assert.deepEqual(

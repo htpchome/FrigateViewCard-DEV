@@ -937,6 +937,16 @@ test("Firefox recording playback prefers HLS for full-range seeking", () => {
   assert.equal(controller._deps.preferRecordingHls(), true);
 });
 
+test("desktop Safari recording playback prefers HLS", () => {
+  const controller = new PopupMediaLoaderController({
+    _isFirefox: () => false,
+    _isEdge: () => false,
+    _isSafari: () => true,
+  });
+
+  assert.equal(controller._deps.preferRecordingHls(), true);
+});
+
 test("native HLS recording playback never loads the HLS.js companion", async () => {
   const listeners = new Map();
   let hlsJsLoads = 0;

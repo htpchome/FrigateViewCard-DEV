@@ -22,7 +22,10 @@ export {
   resolveRecordingsDayBounds,
 } from "./utils/day.js";
 
-export { buildRecordingPlaybackPlan } from "./utils/playback.js";
+export {
+  buildRecordingPlaybackPlan,
+  shouldPreferRecordingHls,
+} from "./utils/playback.js";
 
 export {
   buildRecordingScrubDecorations,
