@@ -455,6 +455,13 @@ test("Grid live preference reaches the go2rtc cell mount", () => {
   assert.equal(mountedOptions?.preferWebRtc, true);
 });
 
+test("entering live Grid releases the duplicate main-camera connection", () => {
+  assert.match(
+    cardSource,
+    /prepareLiveForGrid\(\)[\s\S]*?gridPreparation\?\.releaseMainLive === true[\s\S]*?_cancelPendingMount\("grid-mode-entry"\)[\s\S]*?_clearLiveEngineSlot\(\)/,
+  );
+});
+
 test("Grid keeps the active HA-direct camera transport stable after entering Grid", () => {
   const controller = new GridMediaController({
     _activeCam: { entity: "camera.ha_direct" },

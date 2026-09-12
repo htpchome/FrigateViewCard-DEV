@@ -6,6 +6,7 @@ export class GridPageController {
   constructor(host) {
     this._host = host;
     this._returnLiveStreamType = "";
+    this._returnLiveEntity = "";
     this._hasReturnLiveTarget = false;
     this._rotationDueAt = 0;
     this._resumeRotationDelayMs = 0;
@@ -25,9 +26,26 @@ export class GridPageController {
     if (normalizedStreamType !== "grid") {
       this._returnLiveStreamType = activeStreamType;
     }
-    this._hasReturnLiveTarget =
+    const hasReturnLiveTarget =
       Boolean(this._host._engine) ||
+      this._host._mountInProgress === true ||
       ["webrtc", "mse", "hls"].includes(normalizedStreamType);
+    const activeEntity = String(
+      this._host._activeGroupMemberOverride ||
+        this._host._activeCam?.entity ||
+        "",
+    ).trim();
+    const activeCameraWillBeLiveInGrid =
+      Boolean(activeEntity) &&
+      this._displayCameras().some(
+        (camera) => String(camera?.entity || "").trim() === activeEntity,
+      ) &&
+      this._host._gridMediaController?.shouldUseLive?.(activeEntity) === true;
+    const releaseMainLive =
+      hasReturnLiveTarget && activeCameraWillBeLiveInGrid;
+    this._returnLiveEntity = releaseMainLive ? activeEntity : "";
+    this._hasReturnLiveTarget = hasReturnLiveTarget && !releaseMainLive;
+    return { releaseMainLive, returnEntity: this._returnLiveEntity };
   }
 
   captureBackgroundLiveStreamType(type) {
@@ -35,18 +53,20 @@ export class GridPageController {
     const activeStreamType = String(type || "--");
     if (activeStreamType.toLowerCase() === "grid") return false;
     this._returnLiveStreamType = activeStreamType;
-    this._hasReturnLiveTarget = ["webrtc", "mse", "hls"].includes(
-      activeStreamType.toLowerCase(),
-    );
+    this._hasReturnLiveTarget =
+      !this._returnLiveEntity &&
+      ["webrtc", "mse", "hls"].includes(activeStreamType.toLowerCase());
     return true;
   }
 
   takeColdStartLiveHandoff() {
     if (this._hasReturnLiveTarget || this._host._engine) return null;
-    const firstEntity = String(this._displayCameras()[0]?.entity || "").trim();
-    if (!firstEntity) return null;
+    const returnEntity =
+      this._returnLiveEntity ||
+      String(this._displayCameras()[0]?.entity || "").trim();
+    if (!returnEntity) return null;
     return (
-      this._host._gridMediaController?.takeGridLiveHandoff?.(firstEntity) ||
+      this._host._gridMediaController?.takeGridLiveHandoff?.(returnEntity) ||
       null
     );
   }
@@ -54,12 +74,21 @@ export class GridPageController {
   restoreLiveAfterGrid() {
     const hasReturnLiveTarget =
       this._hasReturnLiveTarget || Boolean(this._host._engine);
+    const returnLiveEntity = this._returnLiveEntity;
     const activeStreamType =
       this._returnLiveStreamType || this._host._lastLiveStreamHint || "--";
     this._returnLiveStreamType = "";
+    this._returnLiveEntity = "";
     this._hasReturnLiveTarget = false;
     if (!hasReturnLiveTarget) {
-      const firstCamera = this._displayCameras()[0] || null;
+      const displayCameras = this._displayCameras();
+      const firstCamera =
+        displayCameras.find(
+          (camera) =>
+            String(camera?.entity || "").trim() === returnLiveEntity,
+        ) ||
+        displayCameras[0] ||
+        null;
       this._host._activeCamIdx = Math.max(
         0,
         Number(firstCamera?.logical_camera_index) || 0,

@@ -144,6 +144,87 @@ test("non-cold Grid keeps its retained main live engine instead of taking a cell
   assert.equal(handoffCalls, 0);
 });
 
+test("Grid releases a retained main connection when it will mount the same camera live", () => {
+  const handoffResult = {
+    ok: true,
+    type: "webrtc",
+    engine: { id: "grid-back-engine" },
+    slot: { id: "grid-back-slot" },
+  };
+  const calls = [];
+  const host = {
+    _viewMode: "single",
+    _activeCamIdx: 1,
+    _activeGroupMemberOverride: "",
+    _activeCam: { entity: "camera.back" },
+    _activeStreamType: "webrtc",
+    _lastLiveStreamHint: "webrtc",
+    _engine: { id: "single-back-engine" },
+    _mountInProgress: false,
+    _config: {
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+    },
+    _gridMediaController: {
+      shouldUseLive: (entity) => {
+        calls.push(["shouldUseLive", entity]);
+        return true;
+      },
+      takeGridLiveHandoff: (entity) => {
+        calls.push(["takeGridLiveHandoff", entity]);
+        return entity === "camera.back" ? handoffResult : null;
+      },
+    },
+    _setActiveStreamType: (type) => calls.push(["setStreamType", type]),
+  };
+  const controller = new GridPageController(host);
+
+  const preparation = controller.prepareLiveForGrid();
+
+  assert.deepEqual(preparation, {
+    releaseMainLive: true,
+    returnEntity: "camera.back",
+  });
+  host._engine = null;
+  host._viewMode = "grid";
+  assert.equal(controller.takeColdStartLiveHandoff(), handoffResult);
+  host._viewMode = "single";
+  assert.equal(controller.restoreLiveAfterGrid(), false);
+  assert.equal(host._activeCamIdx, 1);
+  assert.equal(host._activeGroupMemberOverride, "");
+  assert.deepEqual(calls, [
+    ["shouldUseLive", "camera.back"],
+    ["takeGridLiveHandoff", "camera.back"],
+    ["setStreamType", "webrtc"],
+  ]);
+});
+
+test("Grid retains the main connection when the active camera is snapshot-only", () => {
+  const host = {
+    _activeCam: { entity: "camera.front" },
+    _activeStreamType: "webrtc",
+    _engine: { id: "single-front-engine" },
+    _mountInProgress: false,
+    _config: {
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+    },
+    _gridMediaController: {
+      shouldUseLive: () => false,
+    },
+  };
+  const controller = new GridPageController(host);
+
+  assert.deepEqual(controller.prepareLiveForGrid(), {
+    releaseMainLive: false,
+    returnEntity: "",
+  });
+});
+
 test("Grid media hands off a mounted camera engine only once", () => {
   const result = {
     ok: true,

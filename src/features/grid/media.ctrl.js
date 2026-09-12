@@ -636,6 +636,10 @@ export class GridMediaController {
     );
   }
 
+  shouldUseLive(entity) {
+    return this._shouldUseLive(entity);
+  }
+
   _setGridPresentation(slot, active) {
     if (!slot) return;
     slot.hidden = !active;

@@ -3524,7 +3524,13 @@ export class FrigateViewCard extends HTMLElement {
     }
     let startGridTimers = false;
     if (nextMode === "grid") {
-      if (enteringGrid) this._gridPageController.prepareLiveForGrid();
+      const gridPreparation = enteringGrid
+        ? this._gridPageController.prepareLiveForGrid()
+        : null;
+      if (gridPreparation?.releaseMainLive === true) {
+        this._cancelPendingMount("grid-mode-entry");
+        this._clearLiveEngineSlot();
+      }
       this._stopSlideshowRotation("grid-mode", false);
       this._setLiveMuted(true);
       this._gridRotationStart = Math.max(
