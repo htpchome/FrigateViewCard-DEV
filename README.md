@@ -282,6 +282,7 @@ grid_order:
 | `stream_height` | number | `100` | Card Height Limit from `50` to `100`. Does not apply to Card View. New cards request Auto height in Sections and Sidebar views. When Auto height is disabled, Home Assistant's fixed row height constrains the card and its editor currently allows at most eight rows. Panel and Masonry views apply the limit normally. |
 | `stream_height_unit` | string | `%` | Height unit. Values: `%`, `dvh`. When Home Assistant is not imposing a fixed row height, the card can grow when needed to preserve its controls and approximately two browse items. |
 | `tight_margins` | boolean | `false` | Removes Home Assistant Sections-view padding where available so the card can fill its assigned space. |
+| `mobile_view_dashboard_background` | boolean | `true` | Applies the Mobile View background color to the entire Home Assistant dashboard page on mobile devices. |
 | `mobile_view_outer_border` | boolean | `false` | Shows the theme-colored outer border around Mobile View on any device. |
 | `shadows` | boolean | `true` | Displays shadows inside the card. |
 | `outer_shadows` | boolean | `true` | Displays the shadow around the card. Preview, Wide View, and Mobile View automatically omit it on phones. |

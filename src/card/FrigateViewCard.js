@@ -1840,6 +1840,8 @@ export class FrigateViewCard extends HTMLElement {
       mobile_view_page_enabled: config.mobile_view_page_enabled !== false,
       mobile_view_rotate_to_fullscreen:
         config.mobile_view_rotate_to_fullscreen === true,
+      mobile_view_dashboard_background:
+        config.mobile_view_dashboard_background !== false,
       mobile_view_outer_border: config.mobile_view_outer_border === true,
       mobile_view_ha_navbar_bottom:
         config.mobile_view_ha_navbar_bottom === true,

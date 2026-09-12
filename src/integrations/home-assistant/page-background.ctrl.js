@@ -142,7 +142,8 @@ export class HomeAssistantPageBackgroundController {
     return (
       this._host?.isConnected !== false &&
       this._host?._isLikelyMobileClient?.() === true &&
-      this._host?._isMobileViewPageActive?.() === true
+      this._host?._isMobileViewPageActive?.() === true &&
+      this._host?._config?.mobile_view_dashboard_background !== false
     );
   }
 

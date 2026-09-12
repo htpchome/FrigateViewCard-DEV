@@ -30,7 +30,11 @@ const createStyle = (initial = {}) => {
   };
 };
 
-const createHarness = ({ mobileDevice = true, mobileView = true } = {}) => {
+const createHarness = ({
+  mobileDevice = true,
+  mobileView = true,
+  dashboardBackground = true,
+} = {}) => {
   const target = {
     style: createStyle({
       "background-color": "rgb(1, 2, 3)",
@@ -62,6 +66,9 @@ const createHarness = ({ mobileDevice = true, mobileView = true } = {}) => {
     isConnected: true,
     mobileDevice,
     mobileView,
+    _config: {
+      mobile_view_dashboard_background: dashboardBackground,
+    },
     _isLikelyMobileClient: () => host.mobileDevice,
     _isMobileViewPageActive: () => host.mobileView,
     shadowRoot: {
@@ -148,6 +155,22 @@ test("desktop devices do not change the Home Assistant page", () => {
   assert.equal(
     target.style.getPropertyValue("background-color"),
     "rgb(1, 2, 3)",
+  );
+});
+
+test("disabling the Mobile View dashboard background restores the HA page", () => {
+  const { controller, host, target, viewBackground } = createHarness();
+  controller.sync();
+
+  host._config.mobile_view_dashboard_background = false;
+  assert.equal(controller.sync(), false);
+  assert.equal(
+    target.style.getPropertyValue("background-color"),
+    "rgb(1, 2, 3)",
+  );
+  assert.equal(
+    viewBackground.style.getPropertyValue("background-color"),
+    "rgb(4, 5, 6)",
   );
 });
 

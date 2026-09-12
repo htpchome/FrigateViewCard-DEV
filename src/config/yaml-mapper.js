@@ -360,6 +360,12 @@ export const compactEditorConfigForYaml = (
   );
   addIfNotDefault(
     compact,
+    "mobile_view_dashboard_background",
+    source.mobile_view_dashboard_background !== false,
+    true,
+  );
+  addIfNotDefault(
+    compact,
     "mobile_view_outer_border",
     source.mobile_view_outer_border === true,
     false,

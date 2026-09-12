@@ -804,6 +804,12 @@ export const buildEditorConfigFromDom = ({
   nextConfig.mobile_view_rotate_to_fullscreen = rotateToFullscreenToggle
     ? resolveSwitchChecked(rotateToFullscreenToggle)
     : baseConfig?.mobile_view_rotate_to_fullscreen === true;
+  const dashboardBackgroundToggle = root.querySelector(
+    "#mobile_view_dashboard_background",
+  );
+  nextConfig.mobile_view_dashboard_background = dashboardBackgroundToggle
+    ? resolveSwitchChecked(dashboardBackgroundToggle)
+    : baseConfig?.mobile_view_dashboard_background !== false;
   nextConfig.mobile_view_outer_border = resolveSwitchChecked(
     root.querySelector("#mobile_view_outer_border"),
   );

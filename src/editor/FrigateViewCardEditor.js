@@ -2577,6 +2577,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#grid_alert_hold_seconds",
       "#mobile_view_page_enabled",
       "#mobile_view_rotate_to_fullscreen",
+      "#mobile_view_dashboard_background",
       "#mobile_view_outer_border",
       "#mobile_view_ha_navbar_bottom",
       "#mobile_view_ha_navbar_stack_tabs",
@@ -3580,6 +3581,13 @@ export class FrigateViewCardEditor extends HTMLElement {
           <ha-switch id="mobile_view_ha_navbar_dashboard" ${dashboardNavbarOwnership.requested ? "checked" : ""}></ha-switch>
         </div>
         <div class="field-helper">Off: applies only on this card's Home Assistant page. On: applies across the dashboard and makes this card the owner.</div>
+      </div>
+      <div class="section" id="mobile-view-dashboard-background-row" style="${this._config?.mobile_view_page_enabled !== false ? "" : "display:none"}">
+        <div class="layout-row">
+          <span class="field-label" style="margin:0">Apply background to entire dashboard page</span>
+          <ha-switch id="mobile_view_dashboard_background" ${this._config?.mobile_view_dashboard_background !== false ? "checked" : ""}></ha-switch>
+        </div>
+        <div class="field-helper">Uses the Mobile View background color for the surrounding Home Assistant page on mobile devices.</div>
       </div>
       <div class="section" id="mobile-view-outer-border-row" style="${this._config?.mobile_view_page_enabled !== false ? "" : "display:none"}">
         <div class="layout-row">
@@ -4820,6 +4828,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         "card_view_hide_camera_name",
         "mobile_view_page_enabled",
         "mobile_view_rotate_to_fullscreen",
+        "mobile_view_dashboard_background",
         "mobile_view_outer_border",
         "mobile_view_ha_navbar_bottom",
         "mobile_view_ha_navbar_stack_tabs",
