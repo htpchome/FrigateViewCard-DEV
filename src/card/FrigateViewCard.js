@@ -1631,7 +1631,11 @@ export class FrigateViewCard extends HTMLElement {
       this._applyTightMargins();
       this._wideViewPageController.applyLayoutAndWideSyncForCard();
     }
-    if (hadPendingDisconnectTeardown) {
+    const needsMobileSidebarReconnectLayout =
+      this._started &&
+      this._isLikelyMobileClient() &&
+      this._cardStyleController.isSidebarView();
+    if (hadPendingDisconnectTeardown || needsMobileSidebarReconnectLayout) {
       this._scheduleEditorLayoutSync();
     }
     this._syncVisualStyleToggles();
