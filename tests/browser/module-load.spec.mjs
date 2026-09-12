@@ -470,7 +470,7 @@ test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport"
   }
 });
 
-test("mobile Sidebar schedules layout after a completed disconnect", async ({
+test("mobile Sidebar notifies HA to reflow after a completed disconnect", async ({
   page,
 }) => {
   await page.goto(baseUrl);
@@ -493,26 +493,30 @@ test("mobile Sidebar schedules layout after a completed disconnect", async ({
     card._disconnectTeardownT = null;
     card._started = true;
     card._isLikelyMobileClient = () => true;
-    let layoutSyncs = 0;
-    card._scheduleEditorLayoutSync = () => {
-      layoutSyncs += 1;
-    };
+    let resizeEvents = 0;
+    window.addEventListener("resize", () => {
+      resizeEvents += 1;
+    });
 
     document.body.append(sidebar);
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
     sidebar.remove();
     clearTimeout(card._disconnectTeardownT);
     card._disconnectTeardownT = null;
     card._isLikelyMobileClient = () => false;
     document.body.append(sidebar);
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
     sidebar.remove();
     clearTimeout(card._disconnectTeardownT);
 
-    return { layoutSyncs };
+    return { resizeEvents };
   });
 
-  expect(result.layoutSyncs).toBe(1);
+  expect(result.resizeEvents).toBe(1);
 });
 
 test("Panel and Sidebar 50% heights preserve the minimum browse region", async ({

@@ -1610,6 +1610,7 @@ export class FrigateViewCard extends HTMLElement {
     );
     this._editorPreviewController.syncInitialLandingPage();
     const hadPendingDisconnectTeardown = Boolean(this._disconnectTeardownT);
+    const hadPriorConnection = this._parentOrigStyle != null;
     const hadDashboardLiveGrace = this._dashboardLiveGraceActive;
     this._dashboardLiveGraceActive = false;
     if (this._disconnectTeardownT) {
@@ -1632,11 +1633,12 @@ export class FrigateViewCard extends HTMLElement {
       this._wideViewPageController.applyLayoutAndWideSyncForCard();
     }
     const needsMobileSidebarReconnectLayout =
+      hadPriorConnection &&
       this._started &&
       this._isLikelyMobileClient() &&
       this._cardStyleController.isSidebarView();
     if (hadPendingDisconnectTeardown || needsMobileSidebarReconnectLayout) {
-      this._scheduleEditorLayoutSync();
+      this._scheduleEditorLayoutSync(needsMobileSidebarReconnectLayout);
     }
     this._syncVisualStyleToggles();
     this._haNavbarController?.sync?.();
@@ -5689,7 +5691,7 @@ export class FrigateViewCard extends HTMLElement {
     this._haPageBackgroundController?.sync?.();
   }
 
-  _scheduleEditorLayoutSync() {
+  _scheduleEditorLayoutSync(notifyHomeAssistantResize = false) {
     if (this._editorLayoutSyncRaf) return;
     const applyLayout = () => {
       this._editorLayoutSyncRaf = 0;
@@ -5698,6 +5700,7 @@ export class FrigateViewCard extends HTMLElement {
       this._applyCardStyle();
       this._wideViewPageController?.syncColHeightIfWideView?.();
       this._scheduleRotateOverlayUpdate();
+      if (notifyHomeAssistantResize) window.dispatchEvent(new Event("resize"));
     };
     if (typeof requestAnimationFrame !== "function") {
       applyLayout();
