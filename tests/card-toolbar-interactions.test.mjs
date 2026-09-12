@@ -46,6 +46,18 @@ globalThis.HTMLImageElement = globalThis.HTMLImageElement || class {};
 
 const { FrigateViewCard } = await import("../src/card/FrigateViewCard.js");
 
+test("grid sizing keeps desktop width while allowing mobile cards to shrink", () => {
+  const mobile = FrigateViewCard.prototype.getGridOptions.call({
+    _isLikelyMobileClient: () => true,
+  });
+  const desktop = FrigateViewCard.prototype.getGridOptions.call({
+    _isLikelyMobileClient: () => false,
+  });
+
+  assert.deepEqual(mobile, { columns: 12, min_columns: 1 });
+  assert.deepEqual(desktop, { columns: 12, min_columns: 6 });
+});
+
 const createClassList = (...initial) => {
   const values = new Set(initial);
   return {

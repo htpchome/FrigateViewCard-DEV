@@ -470,55 +470,6 @@ test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport"
   }
 });
 
-test("mobile Sidebar notifies HA to reflow after a completed disconnect", async ({
-  page,
-}) => {
-  await page.goto(baseUrl);
-
-  const result = await page.evaluate(async () => {
-    await import("/frigate-view-card.js");
-
-    const sidebar = document.createElement("hui-sidebar-view");
-    const wrapper = document.createElement("div");
-    const card = document.createElement("frigate-view-card");
-    card.setConfig({
-      cameras: [{ entity: "camera.front", name: "Front" }],
-    });
-    wrapper.append(card);
-    sidebar.append(wrapper);
-    document.body.append(sidebar);
-
-    sidebar.remove();
-    clearTimeout(card._disconnectTeardownT);
-    card._disconnectTeardownT = null;
-    card._started = true;
-    card._isLikelyMobileClient = () => true;
-    let resizeEvents = 0;
-    window.addEventListener("resize", () => {
-      resizeEvents += 1;
-    });
-
-    document.body.append(sidebar);
-    await new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
-    );
-    sidebar.remove();
-    clearTimeout(card._disconnectTeardownT);
-    card._disconnectTeardownT = null;
-    card._isLikelyMobileClient = () => false;
-    document.body.append(sidebar);
-    await new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
-    );
-    sidebar.remove();
-    clearTimeout(card._disconnectTeardownT);
-
-    return { resizeEvents };
-  });
-
-  expect(result.resizeEvents).toBe(1);
-});
-
 test("Panel and Sidebar 50% heights preserve the minimum browse region", async ({
   page,
 }) => {

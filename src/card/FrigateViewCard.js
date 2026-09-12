@@ -1610,7 +1610,6 @@ export class FrigateViewCard extends HTMLElement {
     );
     this._editorPreviewController.syncInitialLandingPage();
     const hadPendingDisconnectTeardown = Boolean(this._disconnectTeardownT);
-    const hadPriorConnection = this._parentOrigStyle != null;
     const hadDashboardLiveGrace = this._dashboardLiveGraceActive;
     this._dashboardLiveGraceActive = false;
     if (this._disconnectTeardownT) {
@@ -1632,13 +1631,8 @@ export class FrigateViewCard extends HTMLElement {
       this._applyTightMargins();
       this._wideViewPageController.applyLayoutAndWideSyncForCard();
     }
-    const needsMobileSidebarReconnectLayout =
-      hadPriorConnection &&
-      this._started &&
-      this._isLikelyMobileClient() &&
-      this._cardStyleController.isSidebarView();
-    if (hadPendingDisconnectTeardown || needsMobileSidebarReconnectLayout) {
-      this._scheduleEditorLayoutSync(needsMobileSidebarReconnectLayout);
+    if (hadPendingDisconnectTeardown) {
+      this._scheduleEditorLayoutSync();
     }
     this._syncVisualStyleToggles();
     this._haNavbarController?.sync?.();
@@ -2297,7 +2291,7 @@ export class FrigateViewCard extends HTMLElement {
   getGridOptions() {
     return {
       columns: 12,
-      min_columns: 6,
+      min_columns: this._isLikelyMobileClient() ? 1 : 6,
     };
   }
   disconnectedCallback() {
@@ -5691,7 +5685,7 @@ export class FrigateViewCard extends HTMLElement {
     this._haPageBackgroundController?.sync?.();
   }
 
-  _scheduleEditorLayoutSync(notifyHomeAssistantResize = false) {
+  _scheduleEditorLayoutSync() {
     if (this._editorLayoutSyncRaf) return;
     const applyLayout = () => {
       this._editorLayoutSyncRaf = 0;
@@ -5700,7 +5694,6 @@ export class FrigateViewCard extends HTMLElement {
       this._applyCardStyle();
       this._wideViewPageController?.syncColHeightIfWideView?.();
       this._scheduleRotateOverlayUpdate();
-      if (notifyHomeAssistantResize) window.dispatchEvent(new Event("resize"));
     };
     if (typeof requestAnimationFrame !== "function") {
       applyLayout();
