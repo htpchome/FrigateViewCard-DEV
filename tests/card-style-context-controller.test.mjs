@@ -1162,7 +1162,7 @@ test("card height reserves only the bottom navbar's added height", () => {
   assert.equal(controller.resolveBottomNavbarExtraHeightPx(), 0);
 });
 
-test("mobile card height stays inside Home Assistant's padded view", () => {
+test("top-navbar mobile height does not reserve the bottom safe area", () => {
   const parentElement = {
     getBoundingClientRect: () => ({ top: 103 }),
   };
@@ -1172,7 +1172,7 @@ test("mobile card height stays inside Home Assistant's padded view", () => {
     _isLikelyMobileClient: () => true,
     _haNavbarController: {
       bottomNavbarExtraHeightPx: () => 0,
-      homeAssistantViewContentHeightPx: () => 707,
+      homeAssistantViewContentHeightPx: () => 741,
     },
     parentElement,
   };
@@ -1194,9 +1194,9 @@ test("mobile card height stays inside Home Assistant's padded view", () => {
           haCardHeight: "",
           headerHeight: "56px",
         }),
-        707,
+        741,
       );
-      assert.equal(controller.resolveViewportUnitHostHeightPx(1), 707);
+      assert.equal(controller.resolveViewportUnitHostHeightPx(1), 741);
     },
   );
 });
@@ -1671,6 +1671,7 @@ test("Panel Single and Mobile Views keep full height for an internal scroller", 
     _singleViewPageController: {
       isActive: () => page === "single",
     },
+    _isLikelyMobileClient: () => false,
   };
   const controller = new CardStyleContextController(host);
   controller.isPanelView = () => true;
@@ -1711,6 +1712,16 @@ test("Panel Single and Mobile Views keep full height for an internal scroller", 
     }),
     { heightPx: 652, expanded: true },
   );
+
+  host._config.stream_height = 100;
+  host._isLikelyMobileClient = () => true;
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 652, expanded: true },
+  );
 });
 
 test("Sidebar Single and Mobile Views keep full height for an internal scroller", () => {
@@ -1724,6 +1735,7 @@ test("Sidebar Single and Mobile Views keep full height for an internal scroller"
     _singleViewPageController: {
       isActive: () => page === "single",
     },
+    _isLikelyMobileClient: () => false,
   };
   const controller = new CardStyleContextController(host);
   controller.isPanelView = () => false;
@@ -1762,6 +1774,16 @@ test("Sidebar Single and Mobile Views keep full height for an internal scroller"
     controller.resolveUsableHostHeight({
       card: {},
       resolvedHeightPx: 222,
+    }),
+    { heightPx: 652, expanded: true },
+  );
+
+  host._config.stream_height = 100;
+  host._isLikelyMobileClient = () => true;
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
     }),
     { heightPx: 652, expanded: true },
   );

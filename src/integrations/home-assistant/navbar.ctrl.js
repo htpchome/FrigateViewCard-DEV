@@ -724,12 +724,13 @@ export class HomeAssistantNavbarController {
         viewStyle.paddingTop ||
           viewStyle.getPropertyValue?.("padding-top"),
       ) ?? 0;
-    const paddingBottom =
-      parsePxLength(
-        viewStyle.paddingBottom ||
-          viewStyle.getPropertyValue?.("padding-bottom"),
-      ) ?? 0;
-    // Explicit card heights must fit inside HA's padded mobile view.
+    const paddingBottom = this.isNavbarAtBottom()
+      ? (parsePxLength(
+          viewStyle.paddingBottom ||
+            viewStyle.getPropertyValue?.("padding-bottom"),
+        ) ?? 0)
+      : 0;
+    // The bottom safe area is usable card space while HA's navbar is on top.
     const contentHeight = viewportHeight - paddingTop - paddingBottom;
     return contentHeight > 0 ? contentHeight : null;
   }

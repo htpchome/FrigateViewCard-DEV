@@ -752,6 +752,7 @@ export class CardStyleContextController {
       ["%", "vh", "dvh"].includes(configuredHeightUnit);
     const keepConstrainedViewHeight =
       usesFullAvailableHeight &&
+      this._host._isLikelyMobileClient?.() !== true &&
       (this.isPanelView() || this.isSidebarView()) &&
       (this._host._isMobileViewPageActive?.() === true ||
         this._host._singleViewPageController?.isActive?.() === true);

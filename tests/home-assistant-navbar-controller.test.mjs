@@ -749,9 +749,9 @@ test("reserves both relocated header rows above final dashboard actions", () => 
   assert.equal(h.getTargets().view.style.getPropertyValue("padding-bottom"), "");
 });
 
-test("measures the mobile Lovelace content area with either navbar position", () => {
+test("reserves bottom safe-area padding only for a bottom navbar", () => {
   const top = createHarness({ moveBottom: false });
-  assert.equal(top.controller.homeAssistantViewContentHeightPx(), 707);
+  assert.equal(top.controller.homeAssistantViewContentHeightPx(), 741);
 
   const bottom = createHarness({
     moveBottom: true,
