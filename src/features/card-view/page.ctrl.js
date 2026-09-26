@@ -1339,7 +1339,7 @@ export class CardViewPageController {
     const cameraData = cameraEntity
       ? ` data-rec-camera-entity="${cameraEntity}"`
       : "";
-    return `<div class="list-item card-view-recording-tile shadow-xform shadow-small" data-rs="${start}" data-re="${end}"${cameraData}>
+    return `<div class="list-item card-view-recording-tile shadow-small" data-rs="${start}" data-re="${end}"${cameraData}>
       <div class="ric">${ICONS.recordings}${member ? `<span class="recording-group-member">${member}</span>` : ""}</div>
       <div class="rinf">
         <div class="rt">${this._host._dateTimeLabel(start)}</div>

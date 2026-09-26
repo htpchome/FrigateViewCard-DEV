@@ -895,7 +895,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-grid-mode \.live-playback-controls \{display:none !important;\}/,
+    /card-view-grid-mode \.live-playback-controls,\s*\.card\.card-view-active\.card-view-overlay-presentation \.slideshow-next-chip \{display:none !important;\}/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

@@ -80,7 +80,7 @@ test("preview header can replace its title block with the FrigateView logo", () 
 test("brand logo uses the shared FVC identifiers", () => {
   assert.match(ICONS.fvcBrandLogo, /class="fvc-brand-logo-accent"/);
   assert.match(STYLES, /\.fvc-brand-logo\{/);
-  assert.match(STYLES, /\.fvc-brand-logo-accent \{/);
+  assert.match(STYLES, /\.fvc-brand-logo-accent,\.fvc-brand-logo-accent svg\{/);
 });
 
 test("route-owned outer templates compose every atomic region once", () => {

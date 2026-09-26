@@ -302,9 +302,9 @@ test("unknown custom theme definitions preserve Home Assistant dark primary", ()
   });
 });
 
-test("card mobile surfaces use the HA token and exact mode list colors", () => {
+test("card mobile surfaces use default light and explicit dark list colors", () => {
   assert.doesNotMatch(STYLES, /\.card\(\.dark\)/);
-  assert.match(STYLES, /\.card\[data-theme-mode="light"\]/);
+  assert.doesNotMatch(STYLES, /\.card\[data-theme-mode="light"\]/);
   assert.match(STYLES, /\.card\[data-theme-mode="dark"\]/);
   assert.match(
     STYLES,

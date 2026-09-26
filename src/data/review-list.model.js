@@ -230,7 +230,7 @@ export function buildReviewListItemHtml(model, deps) {
                 </div>`
     : "";
   return `
-      <div class="list-item list-item--review shadow-small xform" data-review-id="${escapeHtmlAttribute(model.reviewId)}" ${model.firstDet ? `data-review-open="${escapeHtmlAttribute(model.firstDet)}"` : ""}>
+      <div class="list-item list-item--review shadow-small" data-review-id="${escapeHtmlAttribute(model.reviewId)}" ${model.firstDet ? `data-review-open="${escapeHtmlAttribute(model.firstDet)}"` : ""}>
 
         ${thumb}
         ${buildReviewListItemStandardPresentationHtml(model, deps)}

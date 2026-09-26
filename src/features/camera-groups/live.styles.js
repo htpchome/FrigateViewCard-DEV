@@ -9,7 +9,7 @@ export const CAMERA_GROUP_LIVE_STYLES = `
   #eng-wrap.camera-group-live .camera-group-live-layout {display:grid;gap:1px;}
   #eng-wrap.camera-group-live.camera-group-live--side-by-side .camera-group-live-layout {grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);}
   #eng-wrap.camera-group-live.camera-group-live--stacked .camera-group-live-layout {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);}
-  #eng-wrap.camera-group-live .camera-group-live-pane--secondary {display:block;}
+  #eng-wrap.camera-group-live .camera-group-live-pane--secondary,
   #eng-wrap.camera-group-live.camera-group-live--focus-a .camera-group-live-layout,
   #eng-wrap.camera-group-live.camera-group-live--focus-b .camera-group-live-layout {display:block;}
   #eng-wrap.camera-group-live.camera-group-live--focus-a .camera-group-live-pane,

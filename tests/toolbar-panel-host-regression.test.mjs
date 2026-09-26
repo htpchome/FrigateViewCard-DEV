@@ -134,12 +134,13 @@ test("two-way talk hidden button keeps the info row layout stable", () => {
 test("two-way talk exposes pending and active visual states", () => {
   assert.match(
     stylesSource,
-    /\.info-row-mic-btn\.connecting::after\{[^}]*border-top-color:var\(--c-primary\);[^}]*animation:twoWayTalkConnectingSpin/,
+    /\.info-row-mic-btn\.connecting::after\{[^}]*border-top-color:var\(--c-primary\);[^}]*animation:spin/,
   );
   assert.match(
     stylesSource,
-    /@keyframes twoWayTalkConnectingSpin\{to\{transform:rotate\(360deg\);\}\}/,
+    /@keyframes spin\{to\{transform:rotate\(360deg\);\}\}/,
   );
+  assert.doesNotMatch(stylesSource, /twoWayTalkConnectingSpin/);
 
   const activeRuleStart = stylesSource.indexOf(".info-row-mic-btn.active{");
   const activeRuleEnd = stylesSource.indexOf("}", activeRuleStart);
@@ -200,7 +201,7 @@ test("active toolbar buttons retain their contrasting icon while hovered", () =>
   );
   assert.match(
     stylesSource,
-    /\.tool\.active svg\{[^}]*color:var\(--c-text-rev\)/,
+    /\.tool\.active :is\(svg,ha-icon\)\{[^}]*color:var\(--c-text-rev\)/,
   );
   assert.doesNotMatch(stylesSource, /\.tool:hover svg/);
 });

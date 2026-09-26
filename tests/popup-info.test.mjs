@@ -464,7 +464,7 @@ test("popup custom tags use the same compact pill treatment as event rows", () =
   );
   assert.match(
     STYLES,
-    /\.popup-info-title \.list-bubble\{[^}]*border-radius:999px;/,
+    /:is\(\.list-item,\.popup-info-title\) \.list-bubble\{[^}]*border-radius:999px;/,
   );
 });
 

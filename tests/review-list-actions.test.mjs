@@ -658,7 +658,7 @@ test("list actions remain horizontal and list bubbles share one geometry", () =>
     STYLES,
     /\.card\.phone-client \.list-item \.list-item-middle--narrow\{display:grid;/,
   );
-  assert.match(STYLES, /\.list-item \.list-bubble\{[^}]*height:1rem;[^}]*padding:2px 6px;[^}]*border-radius:999px;/);
+  assert.match(STYLES, /:is\(\.list-item,\.popup-info-title\) \.list-bubble\{[^}]*height:1rem;[^}]*padding:2px 6px;[^}]*border-radius:999px;/);
   assert.match(
     STYLES,
     /color:color-mix\(in srgb,var\(--list-bubble-accent\) 45%,var\(--c-text\)\);/,

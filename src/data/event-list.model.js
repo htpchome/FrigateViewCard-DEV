@@ -168,7 +168,7 @@ export function buildEventListItemHtml(model, { icons, expanded, compact }) {
       ? `<div class="desc">${escapeHtml(model.description)}</div>`
       : "";
   return `
-    <div class="list-item list-item--event${compact ? " compact" : ""} shadow-small xform" data-ev="${escapeHtmlAttribute(model.id)}">
+    <div class="list-item list-item--event${compact ? " compact" : ""} shadow-small" data-ev="${escapeHtmlAttribute(model.id)}">
       ${model.reviewBar}
       <div class="et">${model.thumb}${model.showDurationBadge ? `<div class="ed">${escapeHtml(model.duration)}s</div>` : ""}</div>
       ${buildEventListItemStandardPresentationHtml(model, {

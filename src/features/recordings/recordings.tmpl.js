@@ -43,7 +43,7 @@ export function buildRecordingsListMarkup({
         ? ` data-rec-camera-entity="${cameraEntity}"`
         : "";
 
-      return `<div class="list-item shadow-xform shadow-small" data-rs="${recordingStart}" data-re="${recordingEnd}"${cameraData}>
+      return `<div class="list-item shadow-small" data-rs="${recordingStart}" data-re="${recordingEnd}"${cameraData}>
         <div class="ric">${recordingsIcon}${member ? `<span class="recording-group-member">${escapeHtml(member)}</span>` : ""}</div>
         <div class="rinf">
           <div class="rt"><span data-fvc-date-format="time" data-fvc-date-ts="${recordingStart}">${escapeHtml(formatTime(recording.start_time))}</span> – <span data-fvc-date-format="time" data-fvc-date-ts="${recordingEnd}">${escapeHtml(formatTime(recording.end_time || safeNowSec))}</span></div>

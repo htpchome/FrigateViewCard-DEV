@@ -176,7 +176,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active .card-view-drawer.is-open + .card-view-footer .card-view-drawer-handle svg {transform:rotate(180deg);}
   .card.card-view-active .card-view-drawer.is-closed + .card-view-footer .card-view-drawer-handle svg {transform:rotate(0deg);}
   .card.card-view-active .card-view-footer-end {grid-column:5;position:relative;display:flex;align-items:center;justify-content:flex-end;gap:5px;justify-self:end;min-width:0;}
-  .card.card-view-active .card-view-linked-light .linked-light-button{width:32px;height:32px;min-width:32px;min-height:32px;}
+  .card.card-view-active .card-view-linked-light .linked-light-button,
   .card.card-view-active .card-view-footer-calendar {width:32px;height:32px;min-width:32px;min-height:32px;}
   .card.card-view-active .card-view-footer-calendar[hidden] {display:none;}
   .card.card-view-active .card-view-calendar-panel {
@@ -185,7 +185,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     background:var(--c-bg-panel);color:var(--c-text);border:1px solid var(--c-border2);
     border-radius:calc(var(--fvc-border-radius,0px) / 2);padding:8px;box-shadow:var(--fvc-shadow-m);
   }
-  .card.card-view-active .card-view-calendar-panel[hidden] {display:none;}
+  .card.card-view-active .card-view-calendar-panel[hidden],
   .card.card-view-active .card-view-standalone-mode-controls,
   .card.card-view-active .card-view-live-status-overlay,
   .card.card-view-active .card-view-live-badge,
@@ -323,7 +323,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cday.active {
     color:var(--fvc-media-overlay-text);border-color:var(--fvc-media-overlay-active-border);background:var(--fvc-media-overlay-active-bg);
   }
-  .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cal-head button {color:var(--fvc-media-overlay-text);}
+  .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cal-head button,
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cday {color:var(--fvc-media-overlay-text);}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-popover .cday.today:not(.active) {
     color:var(--fvc-media-overlay-text);background:var(--fvc-media-overlay-bg-hover);box-shadow:inset 0 0 0 1px var(--fvc-media-overlay-border-hover);font-weight:700;
@@ -562,7 +562,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-standalone-talk-overlay .two-way-talk-control-row :is(.two-way-talk-microphone-mute-btn,.two-way-talk-inline-mute-btn) svg {color:var(--fvc-media-overlay-text);fill:currentColor;opacity:1;}
   .card.card-view-active.card-view-overlay-presentation .two-way-talk-result-bubble {top:50%;bottom:auto;transform:translate(-50%,-50%);}
   .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .card-view-standalone-linked-overlay:not(:has(#two-way-talk-btn:is(.active,.connecting))),
-  .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .live-playback-controls {display:none !important;}
+  .card.card-view-active.card-view-overlay-presentation.card-view-grid-mode .live-playback-controls,
   .card.card-view-active.card-view-overlay-presentation .slideshow-next-chip {display:none !important;}
   .card.card-view-active.card-view-video-panel-only:is(:fullscreen,:-webkit-full-screen) {
     width:100% !important;height:100% !important;max-width:none !important;max-height:none !important;
