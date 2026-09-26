@@ -15,6 +15,7 @@ import {
 import { PopupCarouselController } from "./carousel.ctrl.js";
 import { PopupInfoController } from "./info.ctrl.js";
 import { PopupLifecycleController } from "./lifecycle.ctrl.js";
+import { isPopupVideoMediaType } from "./media.js";
 import { PopupMediaControlsSurfaceController } from "./media.ctrl.js";
 import { PopupMediaLoaderController } from "./media-loader.ctrl.js";
 import { PopupMediaPresentationController } from "./media-presentation.ctrl.js";
@@ -205,7 +206,8 @@ export const createPopupControllers = (
         card._mediaForCamera(id, file, camera),
       formatDateTime: (timestamp) => card._dateTimeLabel(timestamp),
       formatTime: (timestamp) => card._time(timestamp),
-      isTouchUi: () => card._isTouchPopupUi(),
+      isTouchUi: () =>
+        deviceProfile.hasTouch === true || card._isMobileTabletViewport(),
       isMobileDevice: () => card._isLikelyMobileClient(),
       onSelectEvent: (id, mediaType) =>
         popupMediaLoaderController?.showCarouselEventById(id, mediaType),
@@ -216,15 +218,13 @@ export const createPopupControllers = (
       query: (selector) => card._$(selector),
       formatTime: formatRecordingScrubTime,
       t: card._localization.t,
-      shouldUseCustomControls: (mediaType) =>
-        card._usePopupCustomControls(mediaType),
+      shouldUseCustomControls: isPopupVideoMediaType,
       isAutoHideActive: () =>
         Boolean(popupLifecycleController?.presentation?.()) ||
         card._rotateOverlayMode === "popup" ||
         !card._isMobileTabletViewport(),
       isMobileTabletViewport: () => card._isMobileTabletViewport(),
-      isVideoMediaType: (mediaType) =>
-        card._isPopupVideoMediaType(mediaType),
+      isVideoMediaType: isPopupVideoMediaType,
       onClearPictureInPicture: (scope) =>
         card._clearPictureInPictureButtonController(scope),
       onSyncPlaybackTargetButtons: () =>
@@ -257,8 +257,7 @@ export const createPopupControllers = (
       queryAll: (selector) =>
         card.shadowRoot?.querySelectorAll?.(selector) || [],
       translate: (key) => card._localization.t(key),
-      isVideoMediaType: (mediaType) =>
-        card._isPopupVideoMediaType(mediaType),
+      isVideoMediaType: isPopupVideoMediaType,
       formatTitle: (mediaType) =>
         `${mediaType === "kept" ? "Favorite" : cap(mediaType || "video")} video`,
       onStatus: (message) => card._toast(message),

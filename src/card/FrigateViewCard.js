@@ -188,6 +188,7 @@ import {
 } from "../features/browse/composition.js";
 import { ListScrollController } from "../features/browse/scroll.ctrl.js";
 import { createPopupControllers } from "../features/popup/composition.js";
+import { isPopupVideoMediaType } from "../features/popup/media.js";
 import {
   buildRecordingsListMarkup,
   disposeRecordingsDayCache,
@@ -342,9 +343,7 @@ export class FrigateViewCard extends HTMLElement {
         this._activePageShellCapabilities().hasLivePictureInPicture &&
         this._viewMode !== "grid",
       isPopupAllowed: () =>
-        this._isPopupVideoMediaType(
-          this._popupLifecycleController.mediaType(),
-        ),
+        isPopupVideoMediaType(this._popupLifecycleController.mediaType()),
       onUnsupported: () =>
         this._toast("Picture-in-Picture is not supported for this video.", {
           localizationKey: "runtime.notifications.pipUnsupported",
@@ -1369,14 +1368,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _syncLiveRotateZoomPresentation(card = this._$("#card")) {
     getLiveMediaPresentationController(this).syncRotateZoomPresentation(card);
-  }
-
-  _attachPopupVideoZoom(video) {
-    return this._popupMediaPresentationController?.attach?.(video);
-  }
-
-  _clearPopupVideoZoom() {
-    this._popupMediaPresentationController?.clear?.();
   }
 
   _dismissLinkedLightDimmers() {
@@ -3644,7 +3635,7 @@ export class FrigateViewCard extends HTMLElement {
   }
   _handleToolbarClick(target, event = null) {
     if (this._handleTopToolbarClick(target, event)) return true;
-    if (this._handlePopupMediaToolbarClick(target)) return true;
+    if (this._popupToolbarController.handleClick(target)) return true;
     if (this._handleBrowseToolbarClick(target)) return true;
     return false;
   }
@@ -3767,9 +3758,6 @@ export class FrigateViewCard extends HTMLElement {
       return true;
     }
     return false;
-  }
-  _handlePopupMediaToolbarClick(target) {
-    return this._popupToolbarController.handleClick(target);
   }
   _handleSidebarClick(event, target) {
     if (this._handleWideViewSidebarClick(event, target)) return true;
@@ -4157,17 +4145,6 @@ export class FrigateViewCard extends HTMLElement {
     if (!engWrap) return;
     engWrap.classList.toggle("popup-covered", !!covered);
   }
-  _isTouchPopupUi() {
-    return DEVICE_PROFILE.hasTouch || this._isMobileTabletViewport();
-  }
-  _isPopupVideoMediaType(mediaType) {
-    return ["alert", "clip", "recording", "kept"].includes(
-      String(mediaType || "").toLowerCase(),
-    );
-  }
-  _usePopupCustomControls(mediaType) {
-    return this._isPopupVideoMediaType(mediaType);
-  }
   _livePictureInPictureVideo() {
     return (
       this._cameraGroupLiveController?.activeVideo?.() ||
@@ -4176,10 +4153,6 @@ export class FrigateViewCard extends HTMLElement {
       this._engine?.video ||
       null
     );
-  }
-
-  _showSnapshotResultBubble(scope, success) {
-    this._displayedFrameCaptureController.showResult(scope, success);
   }
 
   async _takeDisplayedSnapshot(scope = "live") {

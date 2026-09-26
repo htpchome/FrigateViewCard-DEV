@@ -135,9 +135,7 @@ const createHarness = () => {
     _isFirefox: () => false,
     _isLikelyMobileClient: () => true,
     _isMobileTabletViewport: () => true,
-    _isPopupVideoMediaType: (type) => type === "clip",
     _isSafari: () => false,
-    _isTouchPopupUi: () => true,
     _kept: ["kept"],
     _localization: { t: (key) => `translated:${key}` },
     _mediaForCamera: (...args) => `media:${args.join(":")}`,
@@ -165,7 +163,6 @@ const createHarness = () => {
     _toggleMute: () => calls.push(["toggle-mute"]),
     _togglePictureInPicture: (...args) => calls.push(["toggle-pip", ...args]),
     _toast: (message) => calls.push(["toast", message]),
-    _usePopupCustomControls: (type) => type === "clip",
     _weekday: (value) => `weekday:${value}`,
     _$: (selector) => `node:${selector}`,
     shadowRoot: {
@@ -234,6 +231,16 @@ test("popup composition creates the complete controller set and preserves cross-
   options.mediaControls.onSyncPictureInPictureButtons();
   options.mediaControls.onSyncFullscreenButtons();
   assert.equal(options.mediaControls.isAutoHideActive(), true);
+  assert.equal(options.carousel.isTouchUi(), true);
+  assert.equal(options.mediaControls.shouldUseCustomControls("clip"), true);
+  assert.equal(
+    options.mediaControls.shouldUseCustomControls("snapshot"),
+    false,
+  );
+  assert.equal(options.mediaControls.isVideoMediaType("recording"), true);
+  assert.equal(options.mediaControls.isVideoMediaType("snapshot"), false);
+  assert.equal(options.playbackTarget.isVideoMediaType("kept"), true);
+  assert.equal(options.playbackTarget.isVideoMediaType("snapshot"), false);
   assert.equal(
     options.info.formatEventDuration({ start_time: 100, end_time: 112 }),
     12,

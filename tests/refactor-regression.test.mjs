@@ -2910,13 +2910,11 @@ test("popup media presentation is owned by its feature controller", () => {
       true,
     );
   }
-  assert.match(
-    cardSource,
-    /_attachPopupVideoZoom\(video\) \{\s*return this\._popupMediaPresentationController\?\.attach\?\.\(video\);\s*\}/,
-  );
-  assert.match(
-    cardSource,
-    /_clearPopupVideoZoom\(\) \{\s*this\._popupMediaPresentationController\?\.clear\?\.\(\);\s*\}/,
+  assert.equal(cardSource.includes("_attachPopupVideoZoom("), false);
+  assert.equal(cardSource.includes("_clearPopupVideoZoom("), false);
+  assert.equal(
+    popupMediaPresentationControllerSource.includes("dispose()"),
+    false,
   );
   assert.equal(cardSource.includes("_popupVideoZoomController"), false);
   assert.equal(
@@ -3011,6 +3009,19 @@ test("popup carousel rendering and lifecycle are owned by the popup feature", ()
 
 test("popup media controls and visibility are owned by the popup feature", () => {
   assert.equal(
+    popupMediaSource.includes("export const isPopupVideoMediaType"),
+    true,
+  );
+  assert.equal(
+    popupCompositionSource.includes(
+      'import { isPopupVideoMediaType } from "./media.js";',
+    ),
+    true,
+  );
+  assert.equal(cardSource.includes("_isTouchPopupUi("), false);
+  assert.equal(cardSource.includes("_isPopupVideoMediaType("), false);
+  assert.equal(cardSource.includes("_usePopupCustomControls("), false);
+  assert.equal(
     cardSource.includes(
       'import { PopupMediaControlsSurfaceController } from "../features/popup/media.ctrl.js";',
     ),
@@ -3085,9 +3096,12 @@ test("popup toolbar actions are owned by the popup feature", () => {
     ),
     true,
   );
-  assert.match(
-    cardSource,
-    /_handlePopupMediaToolbarClick\(target\) \{\s*return this\._popupToolbarController\.handleClick\(target\);\s*\}/,
+  assert.equal(cardSource.includes("_handlePopupMediaToolbarClick("), false);
+  assert.equal(
+    cardSource.includes(
+      "this._popupToolbarController.handleClick(target)",
+    ),
+    true,
   );
   assert.equal(
     cardSource.includes('target.closest("#popup-take-snapshot-btn")'),

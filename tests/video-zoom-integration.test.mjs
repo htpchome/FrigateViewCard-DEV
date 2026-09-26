@@ -125,9 +125,13 @@ test("media zoom is attached through committed main-live and popup lifecycles", 
     ),
     true,
   );
-  assert.match(
-    cardSource,
-    /_usePopupCustomControls\(mediaType\) \{\s*return this\._isPopupVideoMediaType\(mediaType\);/,
+  assert.equal(cardSource.includes("_usePopupCustomControls("), false);
+  assert.equal(cardSource.includes("_isPopupVideoMediaType("), false);
+  assert.equal(
+    popupCompositionSource.includes(
+      "shouldUseCustomControls: isPopupVideoMediaType",
+    ),
+    true,
   );
   assert.equal(
     liveMediaPresentationSource.includes(

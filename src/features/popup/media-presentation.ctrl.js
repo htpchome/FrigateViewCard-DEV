@@ -42,8 +42,4 @@ export class PopupMediaPresentationController {
     this._zoomController?.dispose?.();
     this._zoomController = null;
   }
-
-  dispose() {
-    this.clear();
-  }
 }

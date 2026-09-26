@@ -2,6 +2,11 @@ import { resolvePopupMediaControlsInitPlan } from "../../shared/media/controls.j
 
 export const POPUP_PRESENTATION_CARD_VIEW_DRAWER = "card-view-drawer";
 
+export const isPopupVideoMediaType = (mediaType = "") =>
+  ["alert", "clip", "recording", "kept"].includes(
+    String(mediaType || "").toLowerCase(),
+  );
+
 export const isCardViewDrawerPopupPresentation = (value = "") =>
   String(value || "").toLowerCase() ===
   POPUP_PRESENTATION_CARD_VIEW_DRAWER;

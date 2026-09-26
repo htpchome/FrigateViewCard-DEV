@@ -813,7 +813,7 @@ test("snapshot result feedback relocalizes in place", async ({ page }) => {
         "runtime.live.snapshotFailed": "Capture impossible",
       })[key],
     };
-    card._showSnapshotResultBubble("live", true);
+    card._displayedFrameCaptureController.showResult("live", true);
     const bubble = card.shadowRoot.querySelector(".snapshot-result-bubble");
     const initialText = bubble?.textContent;
     card._localization.t = (key) => ({

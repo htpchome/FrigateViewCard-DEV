@@ -69,7 +69,6 @@ test("popup media presentation replaces, refreshes, and clears zoom controllers"
   assert.equal(controller.zoomController(), zoomControllers.get(secondMedia));
   controller.clear();
   assert.equal(controller.zoomController(), null);
-  controller.dispose();
 
   assert.deepEqual(calls, [
     [
