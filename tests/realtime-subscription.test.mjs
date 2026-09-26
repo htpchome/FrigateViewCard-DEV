@@ -92,7 +92,9 @@ test("_subscribe aggregates successful realtime subscriptions into one cleanup",
     _liveAlertTakeoverController: {
       handleRealtimeMessage: () => calls.push(["liveTakeoverMessage"]),
     },
-    _handleSlideshowRealtimeMessage: () => calls.push(["slideshowMessage"]),
+    _slideshowAlertController: {
+      handleRealtimeMessage: () => calls.push(["slideshowMessage"]),
+    },
     _isNowWindow: () => false,
   };
 

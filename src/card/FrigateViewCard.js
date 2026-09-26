@@ -2141,24 +2141,12 @@ export class FrigateViewCard extends HTMLElement {
     return this._slideshowPageController.startRotation(source);
   }
 
-  _pauseSlideshowForPopup() {
-    this._slideshowPageController.pauseForPopup();
-  }
-
-  _resumeSlideshowAfterPopup() {
-    this._slideshowPageController.resumeAfterPopup();
-  }
-
   _toggleSlideshowRotation() {
     this._slideshowPageController.toggleRotation();
   }
 
   _pauseSlideshowForInteraction() {
     this._slideshowPageController.pauseForInteraction();
-  }
-
-  _scheduleSlideshowRotation(_reason = "") {
-    this._slideshowPageController.scheduleRotation(_reason);
   }
 
   _setSlideshowAlertState(type = "") {
@@ -2327,10 +2315,6 @@ export class FrigateViewCard extends HTMLElement {
     });
     this._cameraGroupLiveController?.syncAlertState?.();
     return hasActiveAlert;
-  }
-
-  _handleSlideshowRealtimeMessage(msg) {
-    this._slideshowAlertController.handleRealtimeMessage(msg);
   }
 
   // ── camera switching ──────────────────────────────────────
@@ -2582,7 +2566,7 @@ export class FrigateViewCard extends HTMLElement {
       this._wideViewPageController?.handleCompanionRealtimeMessage?.(msg);
       this._cardViewPageController?.handleRealtimeMessage?.(msg);
       this._liveAlertTakeoverController.handleRealtimeMessage(msg);
-      this._handleSlideshowRealtimeMessage(msg);
+      this._slideshowAlertController.handleRealtimeMessage(msg);
       this._cameraGroupLiveController?.syncAlertState?.();
       if (!this._isNowWindow()) return;
       if (!this._isRealtimeEventMessage(msg)) return;

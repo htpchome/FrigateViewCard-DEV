@@ -48,7 +48,10 @@ test("slideshow toolbar button is rendered", () => {
 });
 
 test("slideshow runtime hooks are present", () => {
-  assert.equal(source.includes("_handleSlideshowRealtimeMessage"), true);
+  assert.equal(
+    source.includes("_slideshowAlertController.handleRealtimeMessage"),
+    true,
+  );
   assert.equal(
     source.includes("_slideshowAlertController.handleReviewsUpdated"),
     true,

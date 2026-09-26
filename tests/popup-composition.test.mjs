@@ -141,7 +141,10 @@ const createHarness = () => {
     _mediaForCamera: (...args) => `media:${args.join(":")}`,
     _monthDay: (value) => `month-day:${value}`,
     _dismissLinkedLightDimmers: () => calls.push(["dismiss-dimmers"]),
-    _pauseSlideshowForPopup: () => calls.push(["pause-slideshow"]),
+    _slideshowPageController: {
+      pauseForPopup: () => calls.push(["pause-slideshow"]),
+      resumeAfterPopup: () => calls.push(["resume-slideshow"]),
+    },
     _playSeq: 7,
     _recordingsBrowseNavController: {
       fetchRecordingsInBounds: (...args) => {
@@ -149,7 +152,6 @@ const createHarness = () => {
         return [];
       },
     },
-    _resumeSlideshowAfterPopup: () => calls.push(["resume-slideshow"]),
     _reviews: ["review"],
     _rotateOverlayMode: "",
     _scheduleRotateOverlayUpdate: () => calls.push(["schedule-overlay"]),

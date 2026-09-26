@@ -47,8 +47,10 @@ const createModeHarness = ({
       calls.push(["grid-takeover", entity, severity]),
     _setSlideshowAlertState: (severity) =>
       calls.push(["slideshow-outline", severity]),
-    _scheduleSlideshowRotation: (reason) =>
-      calls.push(["slideshow-schedule", reason]),
+    _slideshowPageController: {
+      scheduleRotation: (reason) =>
+        calls.push(["slideshow-schedule", reason]),
+    },
     _setLiveAlertState: (severity) =>
       calls.push(["live-outline", severity]),
     _switchCamera: (index, options) =>

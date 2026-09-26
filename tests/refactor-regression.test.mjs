@@ -59,6 +59,10 @@ const slideshowCompositionSource = fs.readFileSync(
   new URL("../src/features/slideshow/composition.js", import.meta.url),
   "utf8",
 );
+const slideshowAlertControllerSource = fs.readFileSync(
+  new URL("../src/features/slideshow/alert.ctrl.js", import.meta.url),
+  "utf8",
+);
 const previewCompositionSource = fs.readFileSync(
   new URL("../src/features/preview/composition.js", import.meta.url),
   "utf8",
@@ -2429,6 +2433,22 @@ test("Slideshow controller composition is feature-owned", () => {
   );
   assert.equal(cardSource.includes("new SlideshowAlertController"), false);
   assert.equal(cardSource.includes("new SlideshowPageController"), false);
+  assert.equal(cardSource.includes("_pauseSlideshowForPopup("), false);
+  assert.equal(cardSource.includes("_resumeSlideshowAfterPopup("), false);
+  assert.equal(cardSource.includes("_scheduleSlideshowRotation("), false);
+  assert.equal(cardSource.includes("_handleSlideshowRealtimeMessage("), false);
+  assert.equal(
+    cardSource.includes(
+      "this._slideshowAlertController.handleRealtimeMessage(msg);",
+    ),
+    true,
+  );
+  assert.equal(
+    slideshowAlertControllerSource.includes(
+      "this._host._slideshowPageController.scheduleRotation",
+    ),
+    true,
+  );
   assert.equal(
     slideshowCompositionSource.includes("new SlideshowAlertController"),
     true,

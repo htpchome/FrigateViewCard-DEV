@@ -20,7 +20,7 @@ test("handleReviewsUpdated uses SLIDESHOW_ALERT_HOLD_MS for pause window", () =>
     _slideshowStartedAtSec: 0,
     _cameraIndexByEntity: () => 0,
     _setSlideshowAlertState: () => {},
-    _scheduleSlideshowRotation: () => {},
+    _slideshowPageController: { scheduleRotation: () => {} },
     _switchCamera: async () => {},
   };
 
@@ -64,8 +64,10 @@ test("handleHaStatusCandidate switches slideshow camera and applies hold window"
     _setSlideshowAlertState: (severity) => {
       calls.push(["state", severity]);
     },
-    _scheduleSlideshowRotation: (reason) => {
-      calls.push(["schedule", reason]);
+    _slideshowPageController: {
+      scheduleRotation: (reason) => {
+        calls.push(["schedule", reason]);
+      },
     },
     _switchCamera: async (idx, options) => {
       calls.push(["switch", idx, options?.source || ""]);
@@ -110,7 +112,7 @@ test("slideshow alert takeover targets the alerted member of a camera group", ()
     _shouldHandleSlideshowReview: () => true,
     _cameraIndexByEntity: () => 0,
     _setSlideshowAlertState: () => {},
-    _scheduleSlideshowRotation: () => {},
+    _slideshowPageController: { scheduleRotation: () => {} },
     _switchCamera: async (idx, options) => calls.push([idx, options]),
   };
   const controller = new SlideshowAlertController(host, {
@@ -143,8 +145,9 @@ test("disabled slideshow takeover does not switch cameras or reset rotation", ()
     _cameraIndexByEntity: () => 1,
     _setSlideshowAlertState: (severity) =>
       calls.push(["state", severity]),
-    _scheduleSlideshowRotation: (reason) =>
-      calls.push(["schedule", reason]),
+    _slideshowPageController: {
+      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+    },
     _switchCamera: (...args) => calls.push(["switch", ...args]),
   };
   const controller = new SlideshowAlertController(host, {
@@ -186,8 +189,9 @@ test("one alert cycle cannot restart its Slideshow Alert Hold Duration", () => {
       entity === "camera.driveway" ? 1 : 0,
     _setSlideshowAlertState: (severity) =>
       calls.push(["state", severity]),
-    _scheduleSlideshowRotation: (reason) =>
-      calls.push(["schedule", reason]),
+    _slideshowPageController: {
+      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+    },
     _switchCamera: async (index) => calls.push(["switch", index]),
   };
   const controller = new SlideshowAlertController(host, {
@@ -235,8 +239,9 @@ test("a newly alerted camera preempts an older active HA alert", () => {
     _cameraIndexByEntity: (entity) =>
       entity === "camera.driveway" ? 1 : 0,
     _setSlideshowAlertState: () => {},
-    _scheduleSlideshowRotation: (reason) =>
-      calls.push(["schedule", reason]),
+    _slideshowPageController: {
+      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+    },
     _switchCamera: async (index) => calls.push(["switch", index]),
   };
   const controller = new SlideshowAlertController(host, {
@@ -284,8 +289,9 @@ test("existing simultaneous HA alerts do not rotate through takeover holds", () 
     _cameraIndexByEntity: (entity) =>
       entity === "camera.driveway" ? 1 : 0,
     _setSlideshowAlertState: () => {},
-    _scheduleSlideshowRotation: (reason) =>
-      calls.push(["schedule", reason]),
+    _slideshowPageController: {
+      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+    },
     _switchCamera: async (index) => calls.push(["switch", index]),
   };
   const controller = new SlideshowAlertController(host, {
