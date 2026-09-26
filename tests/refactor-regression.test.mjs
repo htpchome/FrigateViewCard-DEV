@@ -1980,19 +1980,9 @@ test("Frigate event duration mapping is integration-owned", () => {
   );
 });
 
-test("browse calendar activity helpers delegate through the browse calendar activity controller", () => {
-  assert.equal(
-    /async _loadCalendar\(\) \{\s*await this\._browseCalendarActivityController\.loadCalendar\(\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_calendarActivityCacheKey\(clientId, cam, tz = this\._tz\(\)\) \{\s*return this\._browseCalendarActivityController\.calendarActivityCacheKey\(/s.test(
-      cardSource,
-    ),
-    true,
-  );
+test("browse calendar activity is owned by the browse calendar activity controller", () => {
+  assert.equal(cardSource.includes("_loadCalendar"), false);
+  assert.equal(cardSource.includes("_calendarActivityCacheKey"), false);
   assert.equal(
     /_applyCalendarActivityCacheForActiveCamera\(\) \{\s*this\._browseCalendarActivityController\.applyCalendarActivityCacheForActiveCamera\(\);\s*\}/s.test(
       cardSource,
@@ -2017,9 +2007,13 @@ test("browse calendar activity helpers delegate through the browse calendar acti
     ),
     true,
   );
+  assert.equal(
+    browseCalendarActivityControllerSource.includes("async loadCalendar()"),
+    false,
+  );
 });
 
-test("browse calendar panel helpers delegate through the browse calendar panel controller", () => {
+test("browse calendar panel behavior is owned by the browse calendar panel controller", () => {
   assert.equal(
     /_handleSidebarCalendarClick\(target\) \{\s*return this\._browseCalendarPanelController\.handleSidebarCalendarClick\(/s.test(
       cardSource,
@@ -2032,60 +2026,19 @@ test("browse calendar panel helpers delegate through the browse calendar panel c
     ),
     true,
   );
-  assert.equal(
-    /_formatTzDateString\(parts\) \{\s*return this\._browseCalendarPanelController\.formatTzDateString\(parts\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_calendarTodayDateString\(\) \{\s*return this\._browseCalendarPanelController\.calendarTodayDateString\(\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_activeCalendarDayDateString\(\) \{\s*return this\._browseCalendarPanelController\.activeCalendarDayDateString\(\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_goTodayInCalendar\(\) \{\s*this\._browseCalendarPanelController\.goTodayInCalendar\(\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_resetCalendarSelection\(\) \{\s*this\._browseCalendarPanelController\.resetCalendarSelection\(\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_createCalendarMonthDate\(year, monthIndex\) \{\s*return this\._browseCalendarPanelController\.createCalendarMonthDate\(/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_resolveCalendarMonthDate\(\) \{\s*return this\._browseCalendarPanelController\.resolveCalendarMonthDate\(\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_calNav\(d\) \{\s*this\._browseCalendarPanelController\.calNav\(d\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_pickDay\(ds\) \{\s*this\._browseCalendarPanelController\.pickDay\(ds\);\s*\}/s.test(
-      cardSource,
-    ),
-    true,
-  );
+  for (const obsoleteWrapper of [
+    "_formatTzDateString",
+    "_calendarTodayDateString",
+    "_activeCalendarDayDateString",
+    "_goTodayInCalendar",
+    "_resetCalendarSelection",
+    "_createCalendarMonthDate",
+    "_resolveCalendarMonthDate",
+    "_calNav",
+    "_pickDay",
+  ]) {
+    assert.equal(cardSource.includes(obsoleteWrapper), false);
+  }
   assert.equal(
     /_renderCal\(\) \{\s*this\._browseCalendarPanelController\.renderCal\(\);\s*\}/s.test(
       cardSource,
@@ -2097,6 +2050,10 @@ test("browse calendar panel helpers delegate through the browse calendar panel c
       "export class BrowseCalendarPanelController",
     ),
     true,
+  );
+  assert.equal(
+    browseCalendarPanelControllerSource.includes("goTodayInCalendar()"),
+    false,
   );
   assert.equal(
     browseCalendarPanelControllerSource.includes("toggleCalendar()"),

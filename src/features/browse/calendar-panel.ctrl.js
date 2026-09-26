@@ -79,10 +79,6 @@ export class BrowseCalendarPanelController {
     this._closeAndReloadWindow();
   }
 
-  goTodayInCalendar() {
-    this.resetCalendarSelection();
-  }
-
   createCalendarMonthDate(year, monthIndex) {
     return new Date(Date.UTC(year, monthIndex, 15, 12, 0, 0));
   }

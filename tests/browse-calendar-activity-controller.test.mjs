@@ -136,7 +136,7 @@ test("calendar summary prefetch is shared across card instances and camera chang
   const backController = new BrowseCalendarActivityController(backHost);
 
   const frontPrefetch = frontController.prefetchCalendarActivityForActiveCamera();
-  const frontOpen = frontController.loadCalendar();
+  const frontOpen = frontController.prefetchCalendarActivityForActiveCamera();
   const backPrefetch = backController.prefetchCalendarActivityForActiveCamera();
   await new Promise((resolve) => setImmediate(resolve));
 

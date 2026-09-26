@@ -2598,16 +2598,6 @@ export class FrigateViewCard extends HTMLElement {
   async _loadReviews() {
     await this._browseTabDataController.loadReviews();
   }
-  async _loadCalendar() {
-    await this._browseCalendarActivityController.loadCalendar();
-  }
-  _calendarActivityCacheKey(clientId, cam, tz = this._tz()) {
-    return this._browseCalendarActivityController.calendarActivityCacheKey(
-      clientId,
-      cam,
-      tz,
-    );
-  }
   _applyCalendarActivityCacheForActiveCamera() {
     this._browseCalendarActivityController.applyCalendarActivityCacheForActiveCamera();
   }
@@ -3631,14 +3621,6 @@ export class FrigateViewCard extends HTMLElement {
     this._activeStandardPageController().renderCamSwitcher();
   }
   // ── interactions ──────────────────────────────────────────
-  _createFilterPanel() {
-    return this._pageShellRegion("filterPanel");
-  }
-
-  _createCalendarPanel() {
-    return this._pageShellRegion("calendarPanel");
-  }
-
   _click(e) {
     const target = e.target;
     this._popupMediaControlsController?.hideForOutsideVideoClick?.(target);
@@ -4398,36 +4380,6 @@ export class FrigateViewCard extends HTMLElement {
     this._browseCalendarPanelController.toggleCalendar();
   }
   // ── calendar ──────────────────────────────────────────────
-  _formatTzDateString(parts) {
-    return this._browseCalendarPanelController.formatTzDateString(parts);
-  }
-  _calendarTodayDateString() {
-    return this._browseCalendarPanelController.calendarTodayDateString();
-  }
-  _activeCalendarDayDateString() {
-    return this._browseCalendarPanelController.activeCalendarDayDateString();
-  }
-  _goTodayInCalendar() {
-    this._browseCalendarPanelController.goTodayInCalendar();
-  }
-  _resetCalendarSelection() {
-    this._browseCalendarPanelController.resetCalendarSelection();
-  }
-  _createCalendarMonthDate(year, monthIndex) {
-    return this._browseCalendarPanelController.createCalendarMonthDate(
-      year,
-      monthIndex,
-    );
-  }
-  _resolveCalendarMonthDate() {
-    return this._browseCalendarPanelController.resolveCalendarMonthDate();
-  }
-  _calNav(d) {
-    this._browseCalendarPanelController.calNav(d);
-  }
-  _pickDay(ds) {
-    this._browseCalendarPanelController.pickDay(ds);
-  }
   _renderCal() {
     this._browseCalendarPanelController.renderCal();
   }

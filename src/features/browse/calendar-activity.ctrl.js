@@ -31,10 +31,6 @@ export class BrowseCalendarActivityController {
     this._localSummaryScope = createSummaryScope();
   }
 
-  async loadCalendar() {
-    await this.prefetchCalendarActivityForActiveCamera();
-  }
-
   calendarActivityCacheKey(clientId, cam, tz = this._host._tz()) {
     return `${clientId || ""}|${cam || ""}|${tz || "UTC"}`;
   }
