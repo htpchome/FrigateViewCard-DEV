@@ -153,7 +153,7 @@ const CIRCLE_PAD_STYLES = `
     --circle-pad-success: var(--success-color);
   }
 
-  .${CIRCLE_PAD_CLASS}__wrapper {
+  .circle-pad__wrapper {
     width: 100%;
     height: 100%;
     display: flex;
@@ -165,7 +165,7 @@ const CIRCLE_PAD_STYLES = `
     min-height: 220px;
   }
 
-  .${CIRCLE_PAD_CLASS}__wrapper svg {
+  .circle-pad__wrapper svg {
     width: 100%;
     height: 100%;
     max-width: 100%;
@@ -216,80 +216,80 @@ circle.circle-pad-middle-circle {
 .slice-button .circle-pad-key:active { fill: var(--circle-pad-dark-primary) }
 
 @media (hover: hover) {
-  .${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button:not(.is-disabled) path.circle-pad-key:hover {
+  .circle-pad:not([data-input-mode="touch"]) .slice-button:not(.is-disabled) path.circle-pad-key:hover {
     fill: var(--circle-pad-primary);  }
 }
 
 /* The SVG root stays outline-free; each action renders its own shaped focus state. */
-.${CIRCLE_PAD_CLASS} svg:focus, .${CIRCLE_PAD_CLASS} svg:active {
+.circle-pad svg:focus, .circle-pad svg:active {
   outline: none;
 } 
 
 /*==================USED BELOW===================*/
 /* --- Chevron State Handling --- */
-.${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button .slice-chevron{
+.circle-pad:not([data-input-mode="touch"]) .slice-button .slice-chevron{
   stroke: var(--circle-pad-text-1) !important;
 }
-.${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button .slice-zoom{
+.circle-pad:not([data-input-mode="touch"]) .slice-button .slice-zoom{
   fill: var(--circle-pad-text-1) !important;
 }
-.${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button.is-disabled .slice-chevron {
+.circle-pad:not([data-input-mode="touch"]) .slice-button.is-disabled .slice-chevron {
   stroke: var(--circle-pad-text-4) !important;
 }
-.${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button.is-disabled .slice-zoom {
+.circle-pad:not([data-input-mode="touch"]) .slice-button.is-disabled .slice-zoom {
   fill: var(--circle-pad-text-4) !important;
 }
 
 /* Keep chevrons bright while a slice is actively pressed. */
-.${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button.is-pressed .slice-chevron {
+.circle-pad:not([data-input-mode="touch"]) .slice-button.is-pressed .slice-chevron {
   stroke: var(--circle-pad-text-5) !important;
 }
-.${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button.is-pressed .slice-zoom {
+.circle-pad:not([data-input-mode="touch"]) .slice-button.is-pressed .slice-zoom {
   fill: var(--circle-pad-text-5) !important;
 }
 
 @media (hover: hover) {
-  .${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):hover .slice-chevron {
+  .circle-pad:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):hover .slice-chevron {
     stroke: var(--circle-pad-text-5) !important;
   }
-  .${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):hover .slice-zoom {
+  .circle-pad:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):hover .slice-zoom {
     fill: var(--circle-pad-text-5) !important;
   }
 
-  .${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):not(:hover):not(.is-pressed) .slice-chevron {
+  .circle-pad:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):not(:hover):not(.is-pressed) .slice-chevron {
     stroke: var(--circle-pad-text-1) !important;
   }
-  .${CIRCLE_PAD_CLASS}:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):not(:hover):not(.is-pressed) .slice-zoom {
+  .circle-pad:not([data-input-mode="touch"]) .slice-button:not(.is-disabled):not(:hover):not(.is-pressed) .slice-zoom {
     fill: var(--circle-pad-text-1) !important;
   }
 }
 
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button .slice-chevron {
+.circle-pad[data-input-mode="touch"] .slice-button .slice-chevron {
   stroke: var(--circle-pad-text-1) !important;
 }
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button .slice-zoom {
+.circle-pad[data-input-mode="touch"] .slice-button .slice-zoom {
   fill: var(--circle-pad-text-1) !important;
 }
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button.is-disabled .slice-chevron {
+.circle-pad[data-input-mode="touch"] .slice-button.is-disabled .slice-chevron {
   stroke: var(--circle-pad-text-4) !important;
 }
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button.is-disabled .slice-zoom {
+.circle-pad[data-input-mode="touch"] .slice-button.is-disabled .slice-zoom {
   fill: var(--circle-pad-text-4) !important;
 }
 
 /* Touch-mode override: ignore sticky pseudo-classes and drive visual state via .is-pressed only. */
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button {
+.circle-pad[data-input-mode="touch"] .slice-button {
   fill: var(--primary-background-color) !important;
 }
 
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button.is-pressed {
+.circle-pad[data-input-mode="touch"] .slice-button.is-pressed {
   fill: var(--circle-pad-dark-primary) !important;
 }
 
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button.is-pressed .slice-chevron {
+.circle-pad[data-input-mode="touch"] .slice-button.is-pressed .slice-chevron {
   stroke: var(--circle-pad-text-4) !important;
 }
-.${CIRCLE_PAD_CLASS}[data-input-mode="touch"] .slice-button.is-pressed .slice-zoom {
+.circle-pad[data-input-mode="touch"] .slice-button.is-pressed .slice-zoom {
   fill: var(--circle-pad-text-4) !important;
 }
 /*==================USED ABOVE===================*/

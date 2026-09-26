@@ -1,7 +1,7 @@
 import { transform } from "esbuild";
 
 const STYLE_TEMPLATE_ASSIGNMENT =
-  /export\s+const\s+[A-Z0-9_]*STYLES\s*=\s*`/;
+  /(?:export\s+)?const\s+[A-Z0-9_]*STYLES\s*=\s*`/;
 const STYLE_INTERPOLATION = /\$\{([^{}]+)\}/g;
 const ROOT_PLACEHOLDER_PREFIX = "fvc-build-style-slot";
 const VALUE_PLACEHOLDER_BASE = 314159265358979;

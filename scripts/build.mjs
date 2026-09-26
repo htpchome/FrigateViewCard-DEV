@@ -15,6 +15,7 @@ import {
 
 const outputFile = "dist/frigate-view-card.js";
 const editorOutputFile = "dist/frigate-view-card-editor.js";
+const circlePadOutputFile = "dist/frigate-view-card-circle-pad.js";
 const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
 const hlsLicenseOutputFile =
   "dist/frigate-view-card-hls-1.5.17.LICENSE.txt";
@@ -26,12 +27,15 @@ const outputBanner =
 const minifyStyleModulesPlugin = {
   name: "minify-style-modules",
   setup(pluginBuild) {
-    pluginBuild.onLoad({ filter: /styles\.js$/ }, async ({ path }) => ({
-      contents: await minifyStyleModule(await readFile(path, "utf8"), {
-        rootStyleModule: path.endsWith("/src/styles.js"),
+    pluginBuild.onLoad(
+      { filter: /(?:styles|circle-pad)\.js$/ },
+      async ({ path }) => ({
+        contents: await minifyStyleModule(await readFile(path, "utf8"), {
+          rootStyleModule: path.endsWith("/src/styles.js"),
+        }),
+        loader: "js",
       }),
-      loader: "js",
-    }));
+    );
   },
 };
 
@@ -71,8 +75,12 @@ const editorOutput = await buildBundle({
   entryPoint: "src/editor/index.js",
   outfile: editorOutputFile,
 });
+const circlePadOutput = await buildBundle({
+  entryPoint: "src/components/circle-pad/circle-pad.js",
+  outfile: circlePadOutputFile,
+});
 // Write the watched runtime artifact last so dev sync never copies a stale
-// editor bundle alongside a newly built card.
+// companion bundle alongside a newly built card.
 const output = await buildBundle({
   entryPoint: "src/index.js",
   outfile: outputFile,
@@ -103,12 +111,16 @@ const outputSizeKib = (Buffer.byteLength(output) / 1024).toFixed(1);
 const editorOutputSizeKib = (
   Buffer.byteLength(editorOutput) / 1024
 ).toFixed(1);
+const circlePadOutputSizeKib = (
+  Buffer.byteLength(circlePadOutput) / 1024
+).toFixed(1);
 const hlsOutputSizeKib = ((await stat(hlsOutputFile)).size / 1024).toFixed(1);
 const languageAssetsSizeKib = (
   languageAssetSizes.reduce((total, size) => total + size, 0) / 1024
 ).toFixed(1);
 console.info(`  ${outputFile}  ${outputSizeKib} KiB (minified)`);
 console.info(`  ${editorOutputFile}  ${editorOutputSizeKib} KiB (lazy)`);
+console.info(`  ${circlePadOutputFile}  ${circlePadOutputSizeKib} KiB (lazy)`);
 console.info(`  ${hlsOutputFile}  ${hlsOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${LANGUAGE_ASSET_NAMES.length} locale assets  ${languageAssetsSizeKib} KiB (lazy)`,

@@ -23,8 +23,6 @@ import { STYLES } from "../styles.js";
 import { createLocalizationController } from "../features/localization/localization.ctrl.js";
 import { LocalizedDateController } from "../features/localization/date.ctrl.js";
 import { applyLocalizedText, setLocalizedText } from "../features/localization/localized-dom.js";
-// Registers <circle-pad-control-2>; keep this import for its module side effect.
-import "../components/circle-pad/circle-pad.js";
 import {
   DEVICE_PROFILE,
   parseWs,

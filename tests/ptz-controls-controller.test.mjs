@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  ensureCirclePadControl,
   renderPtzControls,
   syncPtzControlsLabels,
 } from "../src/features/ptz/controls.ctrl.js";
+import { VERSION } from "../src/constants.js";
 
 const translations = {
   "runtime.ptz.presets": "Camera presets",
@@ -46,6 +48,35 @@ const createPad = () => {
     },
   };
 };
+
+test("PTZ circle pad loads once from its versioned companion asset", async () => {
+  const imports = [];
+  let registered = false;
+  const customElementsRef = {
+    get: (tag) =>
+      tag === "circle-pad-control-2" && registered ? class {} : undefined,
+  };
+  const importModule = async (url) => {
+    imports.push(url);
+    registered = true;
+  };
+
+  assert.equal(
+    await ensureCirclePadControl({
+      customElementsRef,
+      importModule,
+      baseUrl: "https://example.test/card/frigate-view-card.js",
+    }),
+    true,
+  );
+  assert.equal(
+    await ensureCirclePadControl({ customElementsRef, importModule }),
+    true,
+  );
+  assert.deepEqual(imports, [
+    `https://example.test/card/frigate-view-card-circle-pad.js?fvc-version=${VERSION}`,
+  ]);
+});
 
 test("PTZ controls controller derives and renders current camera controls", () => {
   const calls = [];

@@ -9,6 +9,10 @@ import {
 const bundlePaths = new Map([
   ["/frigate-view-card.js", "dist/frigate-view-card.js"],
   ["/frigate-view-card-editor.js", "dist/frigate-view-card-editor.js"],
+  [
+    "/frigate-view-card-circle-pad.js",
+    "dist/frigate-view-card-circle-pad.js",
+  ],
   ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
   ...LANGUAGE_ASSET_NAMES.map((language) => [
     `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
@@ -385,6 +389,32 @@ test("loads the runtime and editor modules", async ({ page }) => {
       text.includes(registrations.cardDisplayName.toUpperCase()),
     ),
   ).toHaveLength(1);
+});
+
+test("keeps the PTZ circle pad out of startup and loads its companion asset", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const registeredAtStartup = Boolean(
+      customElements.get("circle-pad-control-2"),
+    );
+    await import("/frigate-view-card-circle-pad.js");
+    const pad = document.createElement("circle-pad-control-2");
+    document.body.append(pad);
+    return {
+      registeredAtStartup,
+      registeredAfterImport: Boolean(
+        customElements.get("circle-pad-control-2"),
+      ),
+      mounted: Boolean(pad.shadowRoot?.querySelector(".circle-pad")),
+    };
+  });
+
+  expect(state).toEqual({
+    registeredAtStartup: false,
+    registeredAfterImport: true,
+    mounted: true,
+  });
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({

@@ -19,6 +19,21 @@ export const EXAMPLE_STYLES = \`
   assert.doesNotMatch(result, /\n\s+color:/);
 });
 
+test("minifies private component CSS template constants", async () => {
+  const source = `
+const CIRCLE_PAD_STYLES = \`
+  :host {
+    display: block;
+    margin: 0px 0px 0px 0px;
+  }
+\`;
+`;
+
+  const result = await minifyStyleModule(source);
+
+  assert.match(result, /const CIRCLE_PAD_STYLES = `:host\{display:block;margin:0\}`/);
+});
+
 test("preserves value interpolations while minifying CSS", async () => {
   const source = `
 export const EXAMPLE_STYLES = \`
