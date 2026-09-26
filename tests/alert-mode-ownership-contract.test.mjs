@@ -28,8 +28,8 @@ const createModeHarness = ({
     _activeGroupMemberOverride: "",
     _config: {
       cameras: [
-        { entity: "camera.front" },
-        { entity: "camera.driveway" },
+        { entity: "camera.front", alerts_content: "all_reviews" },
+        { entity: "camera.driveway", alerts_content: "all_reviews" },
       ],
     },
     _isGridModeAvailable: () => true,
@@ -39,20 +39,16 @@ const createModeHarness = ({
       entity === "camera.driveway" ? 1 : entity === "camera.front" ? 0 : -1,
     _gridAlertHoldMs: () => 30000,
     _gridRotationMs: () => 10000,
-    _shouldHandleSlideshowReview: () => true,
     _beginGridAlertPageHold: (entity) =>
       calls.push(["grid-page-hold", entity]),
     _beginGridAlertTakeover: (entity, severity) =>
       calls.push(["grid-takeover", entity, severity]),
-    _setSlideshowAlertState: (severity) =>
-      calls.push(["slideshow-outline", severity]),
     _slideshowPageController: {
       available: () => true,
       schedule: (reason) =>
         calls.push(["slideshow-schedule", reason]),
     },
-    _setLiveAlertState: (severity) =>
-      calls.push(["live-outline", severity]),
+    _: () => null,
     _switchCamera: (index, options) =>
       calls.push(["switch", index, options]),
   };
@@ -64,6 +60,16 @@ const createModeHarness = ({
     SLIDESHOW_ALERT_HOLD_MS: 15000,
   });
   const live = new LiveAlertTakeoverController(host);
+  host._slideshowAlertController = slideshow;
+  host._liveAlertTakeoverController = live;
+  const setVisualState = live.setVisualState.bind(live);
+  live.setVisualState = (severity) => {
+    calls.push([
+      owner === "slideshow" ? "slideshow-outline" : "live-outline",
+      severity,
+    ]);
+    setVisualState(severity);
+  };
 
   const presentAlertThroughEveryOwner = () => {
     grid.handleAlertCandidate("camera.driveway", "detection");

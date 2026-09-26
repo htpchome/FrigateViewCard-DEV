@@ -9,7 +9,9 @@ const createHost = ({ severity = "alert", shouldHandle = true } = {}) => ({
   _extractRealtimeMessageCamera: () => "front_door",
   _cameraEntityForIncomingCamera: () => "camera.front_door",
   _extractRealtimeMessageSeverity: () => severity,
-  _shouldHandleSlideshowReview: () => shouldHandle,
+  _slideshowAlertController: {
+    shouldHandleReview: () => shouldHandle,
+  },
   _previewAlertHoldMs: () => 6000,
   _effectiveRealtimePollSeconds: () => 5,
   _reviewStartTimeSec: () => Math.floor(Date.now() / 1000),

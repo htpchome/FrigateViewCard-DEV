@@ -516,8 +516,9 @@ test("Grid alert takeover temporarily stages one camera and resumes its page tim
       _cameraIndexByEntity: (entity) =>
         Number(String(entity).split(".").at(-1)) - 1,
       _gridAlertHoldMs: () => 30000,
-      _setSlideshowAlertState: (severity) =>
-        calls.push(["severity", severity]),
+      _liveAlertTakeoverController: {
+        setVisualState: (severity) => calls.push(["severity", severity]),
+      },
       _syncToolbarButtons: () => calls.push(["syncToolbar"]),
       _switchCamera: async (index, options) => {
         calls.push(["switchCamera", index, options]);
@@ -768,8 +769,10 @@ test("slideshow rotates through physical members of a camera group", async () =>
     _activeCamIdx: 0,
     _config: { cameras: [groupedCamera] },
     _switchCamera: async (...args) => calls.push(["switchCamera", ...args]),
-    _setSlideshowAlertState: (state) =>
-      calls.push(["setSlideshowAlertState", state]),
+    _liveAlertTakeoverController: {
+      setVisualState: (state) =>
+        calls.push(["setSlideshowAlertState", state]),
+    },
   };
   const controller = new SlideshowPageController(host);
   controller.available = () => true;

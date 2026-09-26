@@ -40,6 +40,19 @@ export class LiveAlertTakeoverController {
     return severities.includes("detection") ? "detection" : "";
   }
 
+  setVisualState(type = "") {
+    const severity =
+      type === "alert" || type === "detection" ? type : "";
+    this._host._slideshowAttentionType = severity;
+    const engWrap = this._host._?.("#eng-wrap");
+    if (!engWrap) return;
+    engWrap.classList.toggle("slideshow-alert", severity === "alert");
+    engWrap.classList.toggle(
+      "slideshow-detection",
+      severity === "detection",
+    );
+  }
+
   _syncOutline({ clearIfMissing = false } = {}) {
     if (!this._isAvailable()) {
       if (
@@ -47,16 +60,16 @@ export class LiveAlertTakeoverController {
         this._host._gridResumePending !== true &&
         this._host._slideshowActive !== true
       ) {
-        this._host._setLiveAlertState?.("");
+        this.setVisualState("");
       }
       return false;
     }
     const severity = this._activeSeverity();
     if (severity) {
-      this._host._setLiveAlertState?.(severity);
+      this.setVisualState(severity);
       return true;
     }
-    if (clearIfMissing) this._host._setLiveAlertState?.("");
+    if (clearIfMissing) this.setVisualState("");
     return false;
   }
 
@@ -64,7 +77,7 @@ export class LiveAlertTakeoverController {
     if (!this._isAvailable() || !entity) return false;
     const index = this._host._cameraIndexByEntity?.(entity) ?? -1;
     if (index < 0) return false;
-    this._host._setLiveAlertState?.(severity);
+    this.setVisualState(severity);
     const camera = this._host._config?.cameras?.[index];
     const grouped = cameraMemberEntities(camera).length > 1;
     const alreadyPresented = grouped
@@ -116,7 +129,6 @@ export class LiveAlertTakeoverController {
     const parsed = parseRealtimeAlertMessage({
       host: this._host,
       msg: message,
-      checkSeverity: false,
     });
     if (!parsed) return false;
     const { cam: entity, type } = parsed;
@@ -129,7 +141,12 @@ export class LiveAlertTakeoverController {
       return false;
     }
     if (!severity) return false;
-    if (!this._host._shouldHandleSlideshowReview?.(entity, severity)) {
+    if (
+      !this._host._slideshowAlertController?.shouldHandleReview?.(
+        entity,
+        severity,
+      )
+    ) {
       return false;
     }
     const previous = this._realtimeSeverityByEntity.get(entity);

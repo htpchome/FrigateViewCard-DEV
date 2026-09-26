@@ -13,7 +13,9 @@ function createHost({
     _extractRealtimeMessageCamera: () => "front_door",
     _cameraEntityForIncomingCamera: () => "camera.front_door",
     _extractRealtimeMessageSeverity: () => severityByMessage,
-    _shouldHandleSlideshowReview: () => shouldHandle,
+    _slideshowAlertController: {
+      shouldHandleReview: () => shouldHandle,
+    },
     _previewAlertHoldMs: () => 6000,
   };
 }

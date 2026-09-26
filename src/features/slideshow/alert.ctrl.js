@@ -13,6 +13,7 @@ import {
   cameraMemberEntities,
   flattenCameraMembers,
 } from "../camera-groups/model.js";
+import { shouldHandleSlideshowReview } from "./routing.js";
 
 export class SlideshowAlertController {
   constructor(host, constants) {
@@ -48,9 +49,21 @@ export class SlideshowAlertController {
     return enabled == null ? true : enabled === true;
   }
 
+  shouldHandleReview(entity, severity) {
+    return shouldHandleSlideshowReview(
+      this._host._config,
+      entity,
+      severity,
+    );
+  }
+
+  _setVisualState(severity = "") {
+    this._host._liveAlertTakeoverController?.setVisualState?.(severity);
+  }
+
   _showActiveAlertWithoutTakeover(entity, severity) {
     if (entity !== this._activeLiveEntity()) return;
-    this._host._setSlideshowAlertState(severity || "alert");
+    this._setVisualState(severity || "alert");
   }
 
   _switchToCameraEntity(entity) {
@@ -108,10 +121,7 @@ export class SlideshowAlertController {
       .trim()
       .toLowerCase();
     if (
-      !this._host._shouldHandleSlideshowReview(
-        entity,
-        normalizedSeverity,
-      )
+      !this.shouldHandleReview(entity, normalizedSeverity)
     ) {
       return false;
     }
@@ -126,7 +136,7 @@ export class SlideshowAlertController {
         entity === this._activeLiveEntity()
       ) {
         this._presentedAlertSeverityByEntity.set(entity, normalizedSeverity);
-        this._host._setSlideshowAlertState(normalizedSeverity || "alert");
+        this._setVisualState(normalizedSeverity || "alert");
       }
       return false;
     }
@@ -138,7 +148,7 @@ export class SlideshowAlertController {
       this._host._slideshowPendingAlertCam = entity;
       this._host._slideshowPendingAlertType =
         normalizedSeverity || "alert";
-      this._host._setSlideshowAlertState(normalizedSeverity || "alert");
+      this._setVisualState(normalizedSeverity || "alert");
       return true;
     }
 
@@ -148,7 +158,7 @@ export class SlideshowAlertController {
     this._host._slideshowPausedUntil = now + this.alertHoldMs();
     this._host._slideshowPendingAlertCam = "";
     this._host._slideshowPendingAlertType = "";
-    this._host._setSlideshowAlertState(normalizedSeverity || "alert");
+    this._setVisualState(normalizedSeverity || "alert");
 
     if (entity === this._activeLiveEntity()) {
       this._host._slideshowPageController.schedule(activeReason);
@@ -161,10 +171,16 @@ export class SlideshowAlertController {
   }
 
   alertHoldMs() {
-    const holdMs = this._host._slideshowAlertHoldMs?.();
+    const seconds = Number(this._host._config?.slideshow_alert_hold_seconds);
+    const configuredHoldMs =
+      Number.isFinite(seconds) && seconds > 0
+        ? Math.max(1000, Math.round(seconds * 1000))
+        : 0;
     return Math.max(
       1000,
-      Number(holdMs) || Number(this._constants.SLIDESHOW_ALERT_HOLD_MS) || 0,
+      configuredHoldMs ||
+        Number(this._constants.SLIDESHOW_ALERT_HOLD_MS) ||
+        0,
     );
   }
 
@@ -199,7 +215,7 @@ export class SlideshowAlertController {
       normalizeSeverity: (review) =>
         this._host._normalizeReviewSeverity(review),
       shouldHandleSeverity: (targetEntity, severity) =>
-        this._host._shouldHandleSlideshowReview(targetEntity, severity),
+        this.shouldHandleReview(targetEntity, severity),
       isHandledReviewId: (reviewId) =>
         this._host._slideshowHandledReviewIds.has(reviewId),
       reviewStartTime: (review) => this._host._reviewStartTimeSec(review),
@@ -254,7 +270,7 @@ export class SlideshowAlertController {
             normalizeSeverity: (review) =>
               this._host._normalizeReviewSeverity(review),
             shouldHandleSeverity: (targetEntity, severity) =>
-              this._host._shouldHandleSlideshowReview(targetEntity, severity),
+              this.shouldHandleReview(targetEntity, severity),
             isHandledReviewId: (reviewId) =>
               this._host._slideshowHandledReviewIds.has(reviewId),
             reviewStartTime: (review) => this._host._reviewStartTimeSec(review),
@@ -401,7 +417,6 @@ export class SlideshowAlertController {
     const parsed = parseRealtimeAlertMessage({
       host: this._host,
       msg,
-      checkSeverity: false,
     });
     if (!parsed) return;
     const { cam, severity, type } = parsed;
@@ -414,7 +429,7 @@ export class SlideshowAlertController {
     }
     const normalizedSeverity = String(severity || "").trim().toLowerCase();
     if (!normalizedSeverity) return;
-    if (!this._host._shouldHandleSlideshowReview(cam, normalizedSeverity)) {
+    if (!this.shouldHandleReview(cam, normalizedSeverity)) {
       return;
     }
     this._activeRealtimeAlertEntities.add(cam);

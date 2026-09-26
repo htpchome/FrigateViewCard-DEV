@@ -126,7 +126,10 @@ export class PreviewAlertController {
           normalizeSeverity: (review) =>
             this._host._normalizeReviewSeverity(review),
           shouldHandleSeverity: (targetEntity, severity) =>
-            this._host._shouldHandleSlideshowReview(targetEntity, severity),
+            this._host._slideshowAlertController.shouldHandleReview(
+              targetEntity,
+              severity,
+            ),
           isHandledReviewId: (reviewId) => this._handledReviewIds.has(reviewId),
           reviewStartTime: (review) => this._host._reviewStartTimeSec(review),
         }),
@@ -163,7 +166,6 @@ export class PreviewAlertController {
     const parsed = parseRealtimeAlertMessage({
       host: this._host,
       msg,
-      checkSeverity: false,
     });
     if (!parsed) {
       if (this._host._isRealtimeEventMessage?.(msg)) {
@@ -193,7 +195,12 @@ export class PreviewAlertController {
       }
       return;
     }
-    if (!this._host._shouldHandleSlideshowReview(cam, normalizedSeverity)) {
+    if (
+      !this._host._slideshowAlertController.shouldHandleReview(
+        cam,
+        normalizedSeverity,
+      )
+    ) {
       return;
     }
     this.markAlertCamera(

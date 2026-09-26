@@ -285,7 +285,7 @@ export class GridPageController {
     }
     this._host._gridAlertReturnT = null;
     this._host._gridResumePending = true;
-    this._host._setSlideshowAlertState?.(severity);
+    this._host._liveAlertTakeoverController?.setVisualState?.(severity);
     this._host._syncToolbarButtons?.();
 
     const holdMs = Math.max(
@@ -321,7 +321,7 @@ export class GridPageController {
     ) {
       return false;
     }
-    this._host._setSlideshowAlertState?.(severity);
+    this._host._liveAlertTakeoverController?.setVisualState?.(severity);
     return true;
   }
 
@@ -336,7 +336,7 @@ export class GridPageController {
       0,
       Number(this._host._gridPinnedRotationStart) || 0,
     );
-    this._host._setSlideshowAlertState?.("");
+    this._host._liveAlertTakeoverController?.setVisualState?.("");
     if (!this.isGridModeAvailable()) {
       this.stopGridModeState();
       this._host._syncToolbarButtons?.();
@@ -385,7 +385,7 @@ export class GridPageController {
     );
     this._host._gridAlertController.stopSession();
     this._host._gridLastRenderSignature = "";
-    this._host._setSlideshowAlertState("");
+    this._host._liveAlertTakeoverController?.setVisualState?.("");
   }
 
   handlePageChange(previousPageId, nextPageId) {

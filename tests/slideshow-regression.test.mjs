@@ -60,7 +60,7 @@ test("slideshow runtime hooks are present", () => {
   assert.equal(source.includes("schedule("), true);
   assert.equal(source.includes("scheduleReviewWatch(300)"), true);
   assert.equal(source.includes("SLIDESHOW_ALERT_HOLD_MS"), true);
-  assert.equal(source.includes("_shouldHandleSlideshowReview"), true);
+  assert.equal(source.includes("shouldHandleReview"), true);
   assert.equal(source.includes("slideshow-detection"), true);
   assert.equal(source.includes("error-color"), true);
   assert.equal(source.includes("warning-color"), true);

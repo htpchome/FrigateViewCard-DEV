@@ -2395,7 +2395,6 @@ test("Card View refreshes alerts for realtime Frigate event messages", () => {
     _cameraEntityForIncomingCamera: (camera) =>
       camera === "front_door" ? "camera.front_door" : "",
     _extractRealtimeMessageSeverity: () => "alert",
-    _shouldHandleSlideshowReview: () => true,
     _cameraIndexByEntity: (entity) =>
       entity === "camera.front_door" ? 2 : -1,
     _switchCamera: (index) => {

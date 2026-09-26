@@ -149,7 +149,7 @@ export class WideViewCompanionAlertController {
           normalizeSeverity: (review) =>
             this._host._normalizeReviewSeverity(review),
           shouldHandleSeverity: (targetEntity, targetSeverity) =>
-            this._host._shouldHandleSlideshowReview(
+            this._host._slideshowAlertController.shouldHandleReview(
               targetEntity,
               targetSeverity,
             ),
@@ -191,7 +191,6 @@ export class WideViewCompanionAlertController {
     const parsed = parseRealtimeAlertMessage({
       host: this._host,
       msg,
-      checkSeverity: false,
     });
     if (!parsed) {
       if (this._host._isRealtimeEventMessage?.(msg)) {
@@ -220,7 +219,12 @@ export class WideViewCompanionAlertController {
       }
       return;
     }
-    if (!this._host._shouldHandleSlideshowReview(cam, normalizedSeverity)) {
+    if (
+      !this._host._slideshowAlertController.shouldHandleReview(
+        cam,
+        normalizedSeverity,
+      )
+    ) {
       return;
     }
     this.markAlertCamera(

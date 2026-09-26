@@ -3,6 +3,15 @@ import assert from "node:assert/strict";
 
 import { SlideshowAlertController } from "../src/features/slideshow/alert.ctrl.js";
 
+test("alertHoldMs owns configured Slideshow Alert Hold Duration", () => {
+  const controller = new SlideshowAlertController(
+    { _config: { slideshow_alert_hold_seconds: 7.25 } },
+    { SLIDESHOW_ALERT_HOLD_MS: 10000 },
+  );
+
+  assert.equal(controller.alertHoldMs(), 7250);
+});
+
 test("handleReviewsUpdated uses SLIDESHOW_ALERT_HOLD_MS for pause window", () => {
   const now = Date.now();
   const host = {
@@ -14,11 +23,10 @@ test("handleReviewsUpdated uses SLIDESHOW_ALERT_HOLD_MS for pause window", () =>
     _slideshowLastAlertCam: "",
     _slideshowPausedUntil: 0,
     _normalizeReviewSeverity: (review) => review?.severity || "alert",
-    _shouldHandleSlideshowReview: () => true,
     _reviewStartTimeSec: (review) => Number(review?.start_time || 0),
     _slideshowStartedAtSec: 0,
     _cameraIndexByEntity: () => 0,
-    _setSlideshowAlertState: () => {},
+    _liveAlertTakeoverController: { setVisualState: () => {} },
     _slideshowPageController: {
       available: () => true,
       schedule: () => {},
@@ -55,15 +63,14 @@ test("handleHaStatusCandidate switches slideshow camera and applies hold window"
     _slideshowLastAlertAt: 0,
     _slideshowLastAlertCam: "",
     _slideshowPausedUntil: 0,
-    _shouldHandleSlideshowReview: () => true,
     _cameraIndexByEntity: (entity) =>
       entity === "camera.driveway"
         ? 1
         : entity === "camera.front_door"
           ? 0
           : -1,
-    _setSlideshowAlertState: (severity) => {
-      calls.push(["state", severity]);
+    _liveAlertTakeoverController: {
+      setVisualState: (severity) => calls.push(["state", severity]),
     },
     _slideshowPageController: {
       available: () => true,
@@ -110,9 +117,8 @@ test("slideshow alert takeover targets the alerted member of a camera group", ()
     _activeCam: groupedCamera,
     _activeGroupMemberOverride: "camera.doorbell",
     _config: { cameras: [groupedCamera] },
-    _shouldHandleSlideshowReview: () => true,
     _cameraIndexByEntity: () => 0,
-    _setSlideshowAlertState: () => {},
+    _liveAlertTakeoverController: { setVisualState: () => {} },
     _slideshowPageController: {
       available: () => true,
       schedule: () => {},
@@ -144,10 +150,16 @@ test("disabled slideshow takeover does not switch cameras or reset rotation", ()
     _alertCameraTakeoverEnabled: () => false,
     _slideshowPopupPaused: false,
     _activeCam: { entity: "camera.front_door" },
-    _shouldHandleSlideshowReview: () => true,
+    _config: {
+      cameras: [
+        { entity: "camera.front_door", alerts_content: "all_reviews" },
+        { entity: "camera.driveway" },
+      ],
+    },
     _cameraIndexByEntity: () => 1,
-    _setSlideshowAlertState: (severity) =>
-      calls.push(["state", severity]),
+    _liveAlertTakeoverController: {
+      setVisualState: (severity) => calls.push(["state", severity]),
+    },
     _slideshowPageController: {
       available: () => true,
       schedule: (reason) => calls.push(["schedule", reason]),
@@ -186,12 +198,12 @@ test("one alert cycle cannot restart its Slideshow Alert Hold Duration", () => {
     _slideshowPausedUntil: 0,
     _slideshowStartedAtSec: 0,
     _normalizeReviewSeverity: (review) => review?.severity || "alert",
-    _shouldHandleSlideshowReview: () => true,
     _reviewStartTimeSec: (review) => Number(review?.start_time || 0),
     _cameraIndexByEntity: (entity) =>
       entity === "camera.driveway" ? 1 : 0,
-    _setSlideshowAlertState: (severity) =>
-      calls.push(["state", severity]),
+    _liveAlertTakeoverController: {
+      setVisualState: (severity) => calls.push(["state", severity]),
+    },
     _slideshowPageController: {
       available: () => true,
       schedule: (reason) => calls.push(["schedule", reason]),
@@ -235,13 +247,12 @@ test("a newly alerted camera preempts an older active HA alert", () => {
     _config: {
       cameras: [
         { entity: "camera.front_door" },
-        { entity: "camera.driveway" },
+        { entity: "camera.driveway", alerts_content: "all_reviews" },
       ],
     },
-    _shouldHandleSlideshowReview: () => true,
     _cameraIndexByEntity: (entity) =>
       entity === "camera.driveway" ? 1 : 0,
-    _setSlideshowAlertState: () => {},
+    _liveAlertTakeoverController: { setVisualState: () => {} },
     _slideshowPageController: {
       available: () => true,
       schedule: (reason) => calls.push(["schedule", reason]),
@@ -288,10 +299,9 @@ test("existing simultaneous HA alerts do not rotate through takeover holds", () 
         { entity: "camera.driveway" },
       ],
     },
-    _shouldHandleSlideshowReview: () => true,
     _cameraIndexByEntity: (entity) =>
       entity === "camera.driveway" ? 1 : 0,
-    _setSlideshowAlertState: () => {},
+    _liveAlertTakeoverController: { setVisualState: () => {} },
     _slideshowPageController: {
       available: () => true,
       schedule: (reason) => calls.push(["schedule", reason]),
@@ -324,8 +334,9 @@ test("HA alert synchronization is presentation-inert outside slideshow", () => {
     _slideshowActive: false,
     _alertCameraTakeoverEnabled: () => false,
     _activeCam: { entity: "camera.front_door" },
-    _setSlideshowAlertState: (severity) =>
-      calls.push(["state", severity]),
+    _liveAlertTakeoverController: {
+      setVisualState: (severity) => calls.push(["state", severity]),
+    },
   };
   const controller = new SlideshowAlertController(host, {
     SLIDESHOW_ALERT_HOLD_MS: 10000,

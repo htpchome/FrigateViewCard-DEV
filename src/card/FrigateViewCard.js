@@ -11,7 +11,6 @@ import {
   MOBILE_BATTERY_SAVER_POLL_SECONDS,
   SNAPSHOT_UPDATE_SECONDS,
   SNAPSHOT_UPDATE_OPTIONS_SECONDS,
-  SLIDESHOW_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_MS,
   PREVIEW_ALERT_HOLD_MS,
   LIVE_SWITCH_GRACE_MS,
@@ -244,7 +243,6 @@ import {
 import { CardViewPageController } from "../features/card-view/page.ctrl.js";
 import { createSlideshowControllers } from "../features/slideshow/composition.js";
 import {
-  shouldHandleSlideshowReview,
   cameraEntityForIncomingCamera,
   normalizeReviewSeverity,
   reviewStartTimeSec,
@@ -1644,13 +1642,6 @@ export class FrigateViewCard extends HTMLElement {
       : PREVIEW_ALERT_HOLD_MS;
   }
 
-  _slideshowAlertHoldMs() {
-    const seconds = Number(this._config?.slideshow_alert_hold_seconds);
-    return Number.isFinite(seconds) && seconds > 0
-      ? Math.max(1000, Math.round(seconds * 1000))
-      : SLIDESHOW_ALERT_HOLD_MS;
-  }
-
   _gridAlertHoldMs() {
     const seconds = Number(this._config?.grid_alert_hold_seconds);
     return Number.isFinite(seconds) && seconds > 0
@@ -1710,7 +1701,7 @@ export class FrigateViewCard extends HTMLElement {
       !this._isGridSessionActive() &&
       this._slideshowActive !== true
     ) {
-      this._setLiveAlertState("");
+      this._liveAlertTakeoverController.setVisualState("");
     }
   }
 
@@ -2070,29 +2061,6 @@ export class FrigateViewCard extends HTMLElement {
     return this._popupPlaybackTargetController?.syncButtons?.();
   }
 
-  _setSlideshowAlertState(type = "") {
-    this._slideshowAttentionType =
-      type === "alert" || type === "detection" ? type : "";
-    const engWrap = this._$("#eng-wrap");
-    if (!engWrap) return;
-    engWrap.classList.toggle(
-      "slideshow-alert",
-      this._slideshowAttentionType === "alert",
-    );
-    engWrap.classList.toggle(
-      "slideshow-detection",
-      this._slideshowAttentionType === "detection",
-    );
-  }
-
-  _setLiveAlertState(type = "") {
-    this._setSlideshowAlertState(type);
-  }
-
-  _shouldHandleSlideshowReview(entity, severity) {
-    return shouldHandleSlideshowReview(this._config, entity, severity);
-  }
-
   _cameraEntityForIncomingCamera(cameraId) {
     return cameraEntityForIncomingCamera(
       this._config,
@@ -2156,7 +2124,11 @@ export class FrigateViewCard extends HTMLElement {
       });
       const severity = haReviewStatusSeverity(status);
       if (!severity) continue;
-      if (!this._shouldHandleSlideshowReview(entity, severity)) continue;
+      if (
+        !this._slideshowAlertController.shouldHandleReview(entity, severity)
+      ) {
+        continue;
+      }
       activeHaAlertEntities.add(entity);
       if (!firstAlertEntity) {
         firstAlertEntity = entity;
@@ -2272,7 +2244,7 @@ export class FrigateViewCard extends HTMLElement {
     this._mobileCamSwitcherOpen = false;
     const source = String(opts?.source || "manual");
     if (source === "manual") {
-      this._setLiveAlertState("");
+      this._liveAlertTakeoverController.setVisualState("");
       if (this._slideshowActive) {
         this._slideshowPageController.stop("manual-camera-select");
       } else {
@@ -2287,7 +2259,7 @@ export class FrigateViewCard extends HTMLElement {
         this._gridResumePending = false;
         if (this._gridAlertReturnT) clearTimeout(this._gridAlertReturnT);
         this._gridAlertReturnT = null;
-        this._setSlideshowAlertState("");
+        this._liveAlertTakeoverController.setVisualState("");
       }
     }
     const popupOpen = this._$("#myPopup")?.classList.contains("is-open");

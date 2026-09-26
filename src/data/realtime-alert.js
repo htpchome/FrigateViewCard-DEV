@@ -1,4 +1,4 @@
-export function parseRealtimeAlertMessage({ host, msg, checkSeverity = true }) {
+export function parseRealtimeAlertMessage({ host, msg }) {
   const incomingCam = host?._extractRealtimeMessageCamera(msg);
   if (!incomingCam) return null;
 
@@ -9,10 +9,6 @@ export function parseRealtimeAlertMessage({ host, msg, checkSeverity = true }) {
   const type = String(msg?.type || "")
     .trim()
     .toLowerCase();
-
-  if (checkSeverity && !host?._shouldHandleSlideshowReview(cam, severity)) {
-    return null;
-  }
 
   return { cam, severity, type };
 }

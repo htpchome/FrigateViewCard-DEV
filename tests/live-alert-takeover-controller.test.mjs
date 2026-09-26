@@ -3,6 +3,29 @@ import assert from "node:assert/strict";
 
 import { LiveAlertTakeoverController } from "../src/features/live/alert-takeover.ctrl.js";
 
+test("live alert controller owns shared alert visual state", () => {
+  const classes = new Map();
+  const host = {
+    _slideshowAttentionType: "",
+    _: () => ({
+      classList: {
+        toggle: (name, active) => classes.set(name, active),
+      },
+    }),
+  };
+  const controller = new LiveAlertTakeoverController(host);
+
+  controller.setVisualState("detection");
+  assert.equal(host._slideshowAttentionType, "detection");
+  assert.equal(classes.get("slideshow-alert"), false);
+  assert.equal(classes.get("slideshow-detection"), true);
+
+  controller.setVisualState("unsupported");
+  assert.equal(host._slideshowAttentionType, "");
+  assert.equal(classes.get("slideshow-alert"), false);
+  assert.equal(classes.get("slideshow-detection"), false);
+});
+
 const createHarness = ({ enabled = true } = {}) => {
   const calls = [];
   const host = {
@@ -29,7 +52,7 @@ const createHarness = ({ enabled = true } = {}) => {
       if (entity === "camera.porch" || entity === "camera.package") return 2;
       return -1;
     },
-    _setLiveAlertState: (severity) => calls.push(["outline", severity]),
+    _: () => null,
     _switchCamera: (index, options) => {
       calls.push(["switch", index, options]);
       host._activeCam = host._config.cameras[index];
@@ -41,9 +64,15 @@ const createHarness = ({ enabled = true } = {}) => {
         ? camera
         : `camera.${camera}`,
     _extractRealtimeMessageSeverity: (message) => message.severity,
-    _shouldHandleSlideshowReview: () => true,
+    _slideshowAlertController: { shouldHandleReview: () => true },
   };
-  return { host, calls, controller: new LiveAlertTakeoverController(host) };
+  const controller = new LiveAlertTakeoverController(host);
+  const setVisualState = controller.setVisualState.bind(controller);
+  controller.setVisualState = (severity) => {
+    calls.push(["outline", severity]);
+    setVisualState(severity);
+  };
+  return { host, calls, controller };
 };
 
 test("normal live takeover presents only the latest changed HA camera", () => {
@@ -283,7 +312,7 @@ test("normal live takeover stays inactive when disabled or owned by another mode
 
 test("normal live takeover honors per-camera alert content filtering", () => {
   const { host, controller, calls } = createHarness();
-  host._shouldHandleSlideshowReview = (_entity, severity) =>
+  host._slideshowAlertController.shouldHandleReview = (_entity, severity) =>
     severity === "alert";
 
   assert.equal(
