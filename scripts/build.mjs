@@ -21,6 +21,8 @@ const dashboardSwipeOutputFile =
 const navbarOutputFile = "dist/frigate-view-card-navbar.js";
 const recordingScrubOutputFile =
   "dist/frigate-view-card-recording-scrub.js";
+const frameCaptureOutputFile =
+  "dist/frigate-view-card-frame-capture.js";
 const wideTimelineOutputFile =
   "dist/frigate-view-card-wide-timeline.js";
 const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
@@ -99,6 +101,10 @@ const recordingScrubOutput = await buildBundle({
   entryPoint: "src/features/popup/recording-scrub.ctrl.js",
   outfile: recordingScrubOutputFile,
 });
+const frameCaptureOutput = await buildBundle({
+  entryPoint: "src/card/frame-capture.companion.js",
+  outfile: frameCaptureOutputFile,
+});
 const wideTimelineOutput = await buildBundle({
   entryPoint: "src/features/wide-view/timeline.ctrl.js",
   outfile: wideTimelineOutputFile,
@@ -147,6 +153,9 @@ const navbarOutputSizeKib = (
 const recordingScrubOutputSizeKib = (
   Buffer.byteLength(recordingScrubOutput) / 1024
 ).toFixed(1);
+const frameCaptureOutputSizeKib = (
+  Buffer.byteLength(frameCaptureOutput) / 1024
+).toFixed(1);
 const wideTimelineOutputSizeKib = (
   Buffer.byteLength(wideTimelineOutput) / 1024
 ).toFixed(1);
@@ -163,6 +172,9 @@ console.info(
 console.info(`  ${navbarOutputFile}  ${navbarOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${recordingScrubOutputFile}  ${recordingScrubOutputSizeKib} KiB (lazy)`,
+);
+console.info(
+  `  ${frameCaptureOutputFile}  ${frameCaptureOutputSizeKib} KiB (lazy)`,
 );
 console.info(
   `  ${wideTimelineOutputFile}  ${wideTimelineOutputSizeKib} KiB (lazy)`,

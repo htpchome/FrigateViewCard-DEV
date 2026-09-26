@@ -7,7 +7,7 @@ import {
   buildPopupMediaUrl,
   isM3u8Url,
 } from "../../shared/media/url-utils.js";
-import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-capture.js";
+import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-geometry.js";
 import { isIOS } from "../../helpers.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
 import {

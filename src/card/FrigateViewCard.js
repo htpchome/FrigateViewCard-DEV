@@ -220,9 +220,7 @@ import {
   TwoWayTalkSoundwaveController,
 } from "../features/two-way-talk/soundwave.ctrl.js";
 import { resolveActiveListScroller } from "../shared/list-render.js";
-import {
-  DisplayedFrameCaptureController,
-} from "../shared/media/frame-capture.js";
+import { ensureDisplayedFrameCaptureModule } from "./frame-capture.loader.js";
 import { initializePreviewControllers } from "../features/preview/composition.js";
 import { DeepLinkController } from "../features/navigation/deep-link.ctrl.js";
 import { CardStyleContextController } from "../features/card-style/context.ctrl.js";
@@ -265,66 +263,8 @@ export class FrigateViewCard extends HTMLElement {
       onLanguageLoaded: () => this._applyLocalizationLanguageChange(),
     });
     this._localizedDateController = new LocalizedDateController(this);
-    this._displayedFrameCaptureController =
-      new DisplayedFrameCaptureController({
-        resolveButton: (scope) =>
-          this._$(
-            scope === "popup"
-              ? "#popup-take-snapshot-btn"
-              : "#live-take-snapshot-btn",
-          ),
-        resolveSurface: (scope) =>
-          this._$(scope === "popup" ? "#viewer" : "#live-stage"),
-        resolveMedia: (scope) => {
-          if (scope === "popup") {
-            const viewer = this._$("#viewer");
-            return (
-              viewer?.querySelector?.("video") ||
-              viewer?.querySelector?.("img.snap") ||
-              null
-            );
-          }
-          const fallback = this._$("#stream-fallback");
-          if (fallback && !fallback.hidden) {
-            const fallbackImage = fallback.querySelector?.(
-              "#stream-fallback-img, img",
-            );
-            if (fallbackImage) return fallbackImage;
-          }
-          return this._livePictureInPictureVideo();
-        },
-        resolveZoomController: (scope) =>
-          scope === "popup"
-            ? this._popupMediaPresentationController?.zoomController?.()
-            : this._liveVideoZoomController,
-        captureGroupedFrame: (scope) =>
-          scope === "live"
-            ? this._cameraGroupLiveController?.captureDisplayedFrame?.()
-            : null,
-        resolveCamera: (scope) =>
-          scope === "popup"
-            ? this._popupLifecycleController.mediaCamera() || this._cc().cam
-            : this._cc().cam,
-        isSafari: () => this._isSafari(),
-        resolveResultLabel: (success) => {
-          const localizationKey = success
-            ? "runtime.live.snapshotTaken"
-            : "runtime.live.snapshotFailed";
-          return {
-            localizationKey,
-            text: this._localization.t(localizationKey),
-          };
-        },
-        warn: (error) =>
-          console.warn("[Frigate] Displayed frame snapshot failed", error),
-        onShowControls: (scope) => {
-          if (scope === "popup") {
-            this._popupMediaControlsController.showTemporarily();
-          } else {
-            this._showLiveControlsTemporarily();
-          }
-        },
-      });
+    this._displayedFrameCaptureController = null;
+    this._displayedFrameCaptureControllerPromise = null;
     this._pictureInPictureController = new PictureInPictureController({
       resolveButton: (scope) =>
         this._$(scope === "popup" ? "#popup-pip-btn" : "#live-pip-btn"),
@@ -395,6 +335,11 @@ export class FrigateViewCard extends HTMLElement {
     this._liveAlertTakeoverController = new LiveAlertTakeoverController(this);
     this._cameraGroupLiveController = new CameraGroupLiveController(this, {
       icons: ICONS,
+      captureDisplayedFrame: async (controller, options) => {
+        const { captureCameraGroupDisplayedFrame } =
+          await ensureDisplayedFrameCaptureModule();
+        return captureCameraGroupDisplayedFrame(controller, options);
+      },
     });
     this._linkedLightController = new LinkedLightController(this);
     this._ptzCapabilityController = createPtzCapabilityController(this);
@@ -3974,7 +3919,27 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   async _takeDisplayedSnapshot(scope = "live") {
-    return this._displayedFrameCaptureController.capture(scope);
+    const controller = await this._ensureDisplayedFrameCaptureController();
+    return controller.capture(scope);
+  }
+
+  async _ensureDisplayedFrameCaptureController() {
+    if (this._displayedFrameCaptureController) {
+      return this._displayedFrameCaptureController;
+    }
+    if (!this._displayedFrameCaptureControllerPromise) {
+      this._displayedFrameCaptureControllerPromise =
+        ensureDisplayedFrameCaptureModule()
+          .then(({ createDisplayedFrameCaptureController }) => {
+            this._displayedFrameCaptureController ??=
+              createDisplayedFrameCaptureController(this);
+            return this._displayedFrameCaptureController;
+          })
+          .finally(() => {
+            this._displayedFrameCaptureControllerPromise = null;
+          });
+    }
+    return this._displayedFrameCaptureControllerPromise;
   }
 
   _clearPictureInPictureButtonController(scope) {

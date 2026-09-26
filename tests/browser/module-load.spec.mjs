@@ -23,6 +23,10 @@ const bundlePaths = new Map([
     "dist/frigate-view-card-recording-scrub.js",
   ],
   [
+    "/frigate-view-card-frame-capture.js",
+    "dist/frigate-view-card-frame-capture.js",
+  ],
+  [
     "/frigate-view-card-wide-timeline.js",
     "dist/frigate-view-card-wide-timeline.js",
   ],
@@ -552,6 +556,35 @@ test("loads the popup recording scrubber only when recording playback needs it",
   });
 });
 
+test("loads frame capture only when a displayed snapshot needs it", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-frame-capture.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    const before = Boolean(card._displayedFrameCaptureController);
+    const controller = await card._ensureDisplayedFrameCaptureController();
+    return {
+      before,
+      loaded: Boolean(controller),
+      retained: card._displayedFrameCaptureController === controller,
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({ before: false, loaded: true, retained: true });
+});
+
 test("loads the Wide View timeline only when its enabled page needs it", async ({
   page,
 }) => {
@@ -1016,7 +1049,8 @@ test("snapshot result feedback relocalizes in place", async ({ page }) => {
         "runtime.live.snapshotFailed": "Capture impossible",
       })[key],
     };
-    card._displayedFrameCaptureController.showResult("live", true);
+    const frameCapture = await card._ensureDisplayedFrameCaptureController();
+    frameCapture.showResult("live", true);
     const bubble = card.shadowRoot.querySelector(".snapshot-result-bubble");
     const initialText = bubble?.textContent;
     card._localization.t = (key) => ({

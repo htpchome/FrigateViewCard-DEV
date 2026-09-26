@@ -1,8 +1,4 @@
 import { buildHaCameraStreamState } from "../../integrations/home-assistant/playback.js";
-import {
-  resolveDisplayedFrameDimensions,
-  resolveDisplayedFrameGeometry,
-} from "../../shared/media/frame-capture.js";
 import { attachVideoZoom } from "../../shared/media/video-zoom.ctrl.js";
 import {
   CAMERA_GROUP_LAYOUTS,
@@ -21,10 +17,18 @@ const GROUP_CLASS_NAMES = [
 ];
 
 export class CameraGroupLiveController {
-  constructor(host, { icons = {}, attachZoom = attachVideoZoom } = {}) {
+  constructor(
+    host,
+    {
+      icons = {},
+      attachZoom = attachVideoZoom,
+      captureDisplayedFrame = null,
+    } = {},
+  ) {
     this._host = host;
     this._icons = icons;
     this._attachZoom = attachZoom;
+    this._captureDisplayedFrame = captureDisplayedFrame;
     this._mediaState = null;
     this._signature = "";
     this._secondaryZoom = null;
@@ -83,118 +87,9 @@ export class CameraGroupLiveController {
     );
   }
 
-  async captureDisplayedFrame({
-    documentObj = globalThis.document,
-    styleResolver = (element) => globalThis.getComputedStyle?.(element),
-    mimeType = "image/jpeg",
-    quality = 0.92,
-  } = {}) {
-    if (!this.isActive()) return null;
-    const wrap = this._host._$("#eng-wrap");
-    const wrapRect = wrap?.getBoundingClientRect?.();
-    const wrapWidth = Number(wrapRect?.width) || 0;
-    const wrapHeight = Number(wrapRect?.height) || 0;
-    if (!wrapWidth || !wrapHeight) {
-      throw new Error("The grouped live view is not ready.");
-    }
-
-    const paneSpecs = [
-      {
-        member: "A",
-        engine: this._host._$("#engine"),
-        zoom: this._host._liveVideoZoomController,
-      },
-      {
-        member: "B",
-        engine: this._host._$("#camera-group-secondary-engine"),
-        zoom: this._secondaryZoom,
-      },
-    ]
-      .filter(
-        ({ member }) => !this._focusedMember || member === this._focusedMember,
-      )
-      .map(({ member, engine, zoom }) => {
-        const pane = this._host._$(
-          `.camera-group-live-pane[data-camera-group-member="${member}"]`,
-        );
-        const paneRect = pane?.getBoundingClientRect?.();
-        const video =
-          this._host._findVideoDeep?.(engine) || engine?.video || null;
-        const source = resolveDisplayedFrameDimensions(video);
-        const viewportWidth = Number(paneRect?.width) || 0;
-        const viewportHeight = Number(paneRect?.height) || 0;
-        const computedStyle = video ? styleResolver?.(video) : null;
-        const zoomState = zoom?.video === video ? zoom.state : null;
-        const geometry = resolveDisplayedFrameGeometry({
-          sourceWidth: source.width,
-          sourceHeight: source.height,
-          viewportWidth,
-          viewportHeight,
-          objectFit:
-            computedStyle?.objectFit || video?.style?.objectFit || "contain",
-          zoomState,
-        });
-        if (!video || !paneRect || !geometry) {
-          throw new Error("The displayed grouped camera frame is not ready.");
-        }
-        return { video, paneRect, geometry };
-      });
-
-    const sourceScale = paneSpecs.reduce((largest, spec) => {
-      const { sourceRect, destinationRect } = spec.geometry;
-      const scale = Math.max(
-        sourceRect.width / Math.max(1, destinationRect.width),
-        sourceRect.height / Math.max(1, destinationRect.height),
-      );
-      return Math.max(largest, scale);
-    }, 1);
-    const dimensionLimit = Math.min(4096 / wrapWidth, 4096 / wrapHeight);
-    const outputScale = Math.max(
-      0.01,
-      Math.min(4, sourceScale, dimensionLimit),
-    );
-    const canvas = documentObj?.createElement?.("canvas");
-    const context = canvas?.getContext?.("2d");
-    if (!canvas || !context) {
-      throw new Error("Snapshot capture is not supported in this browser.");
-    }
-    canvas.width = Math.max(1, Math.round(wrapWidth * outputScale));
-    canvas.height = Math.max(1, Math.round(wrapHeight * outputScale));
-    context.fillStyle = styleResolver?.(wrap)?.backgroundColor || "#111111";
-    context.fillRect?.(0, 0, canvas.width, canvas.height);
-
-    for (const { video, paneRect, geometry } of paneSpecs) {
-      const { sourceRect, destinationRect } = geometry;
-      const destinationX =
-        paneRect.left - wrapRect.left + destinationRect.x;
-      const destinationY = paneRect.top - wrapRect.top + destinationRect.y;
-      context.drawImage(
-        video,
-        sourceRect.x,
-        sourceRect.y,
-        sourceRect.width,
-        sourceRect.height,
-        destinationX * outputScale,
-        destinationY * outputScale,
-        destinationRect.width * outputScale,
-        destinationRect.height * outputScale,
-      );
-    }
-
-    return await new Promise((resolve, reject) => {
-      if (typeof canvas.toBlob !== "function") {
-        reject(new Error("Snapshot encoding is not supported in this browser."));
-        return;
-      }
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error("The grouped frame could not be encoded."));
-        },
-        mimeType,
-        quality,
-      );
-    });
+  async captureDisplayedFrame(options = {}) {
+    if (typeof this._captureDisplayedFrame !== "function") return null;
+    return this._captureDisplayedFrame(this, options);
   }
 
   setActiveAudioMember(member) {

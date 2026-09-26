@@ -1,5 +1,5 @@
 import { CleanupController } from "../../shared/cleanup.js";
-import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-capture.js";
+import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-geometry.js";
 
 export const POPUP_VIEW_MAX_HEIGHT_DVH = 70;
 export const POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO = 3 / 4;

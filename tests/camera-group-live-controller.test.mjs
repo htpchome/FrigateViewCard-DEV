@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { CameraGroupLiveController } from "../src/features/camera-groups/live.ctrl.js";
+import { captureCameraGroupDisplayedFrame } from "../src/features/camera-groups/frame-capture.js";
 import { CAMERA_GROUP_LIVE_STYLES } from "../src/features/camera-groups/live.styles.js";
 import { buildLiveEngineWrapMarkup } from "../src/features/live/view.tmpl.js";
 
@@ -386,7 +387,9 @@ test("grouped snapshots compose both displayed panes into one frame", async () =
     }),
     toBlob: (callback) => callback(blob),
   };
-  const controller = new CameraGroupLiveController(host);
+  const controller = new CameraGroupLiveController(host, {
+    captureDisplayedFrame: captureCameraGroupDisplayedFrame,
+  });
 
   const result = await controller.captureDisplayedFrame({
     documentObj: { createElement: () => canvas },
@@ -423,7 +426,9 @@ test("focused grouped snapshots capture only the displayed member", async () => 
     }),
     toBlob: (callback) => callback({ type: "image/jpeg" }),
   };
-  const controller = new CameraGroupLiveController(host);
+  const controller = new CameraGroupLiveController(host, {
+    captureDisplayedFrame: captureCameraGroupDisplayedFrame,
+  });
   controller.sync();
   controller.toggleFocusedMember("A");
 

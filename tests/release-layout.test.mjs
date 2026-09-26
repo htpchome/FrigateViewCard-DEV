@@ -49,6 +49,12 @@ test("HACS release artifact is generated under dist", () => {
   );
   assert.equal(
     fs.existsSync(
+      repositoryFile("dist/frigate-view-card-frame-capture.js"),
+    ),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
       repositoryFile("dist/frigate-view-card-wide-timeline.js"),
     ),
     true,
@@ -101,6 +107,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     "utf8",
   );
+  const frameCaptureBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-frame-capture.js"),
+    "utf8",
+  );
   const wideTimelineBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-wide-timeline.js"),
     "utf8",
@@ -121,6 +131,9 @@ test("HACS release artifact is production-minified", () => {
   assert.doesNotMatch(bundle, /data-frigate-view-ha-navbar-style/);
   assert.match(navbarBundle, /data-frigate-view-ha-navbar-style/);
   assert.match(bundle, /frigate-view-card-recording-scrub\.js/);
+  assert.match(bundle, /frigate-view-card-frame-capture\.js/);
+  assert.doesNotMatch(bundle, /Displayed media frame is not ready/);
+  assert.match(frameCaptureBundle, /Displayed media frame is not ready/);
   assert.doesNotMatch(
     bundle,
     /runtime\.popup\.segment\.previewPlayerUnavailable/,

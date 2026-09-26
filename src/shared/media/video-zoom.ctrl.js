@@ -2,7 +2,7 @@ import { CleanupController } from "../cleanup.js";
 import {
   resolveDisplayedFrameDimensions,
   resolveDisplayedFrameGeometry,
-} from "./frame-capture.js";
+} from "./frame-geometry.js";
 
 export const VIDEO_ZOOM_MIN = 1;
 export const VIDEO_ZOOM_DOUBLE_TAP = 2;
