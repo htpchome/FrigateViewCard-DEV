@@ -1605,6 +1605,66 @@ test("browse row language changes preserve event, review, and recording nodes", 
   });
 });
 
+test("initial alert refresh preserves a visible thumbnail placeholder", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({ cameras: [{ entity: "camera.front", name: "Front" }] });
+    card._renderShell();
+    card._tab = "alerts";
+    card._media = () => "/missing-event-thumbnail.jpg";
+    card._reviewThumbnailForCamera = () => "/missing-review-thumbnail.webp";
+    const event = {
+      id: "event-1",
+      camera: "front",
+      label: "person",
+      start_time: 1723000000,
+      end_time: 1723000040,
+      has_clip: true,
+      has_snapshot: true,
+    };
+    card._browseFilterController.reviewSourceEvent = () => event;
+    const review = {
+      id: "review-1",
+      camera: "front",
+      severity: "alert",
+      start_time: 1723000000,
+      data: { detections: ["event-1"], objects: ["person"] },
+    };
+    const list = card.shadowRoot.querySelector("#list");
+    card._setListHtmlIfChanged(list, card._reviewListItemHTML(review));
+    const image = list.querySelector("img[data-thumb-id]");
+    image.style.display = "none";
+    image.nextElementSibling.style.display = "flex";
+
+    card._setListHtmlIfChanged(
+      list,
+      card._reviewListItemHTML({
+        ...review,
+        data: { ...review.data, zones: ["porch"] },
+      }),
+    );
+
+    const nextImage = list.querySelector("img[data-thumb-id]");
+    const placeholder = nextImage.nextElementSibling;
+    return {
+      imagePreserved: nextImage === image,
+      imageDisplay: nextImage.style.display,
+      placeholderDisplay: placeholder.style.display,
+      thumbnailWidth: Math.round(placeholder.getBoundingClientRect().width),
+    };
+  });
+
+  expect(state).toEqual({
+    imagePreserved: true,
+    imageDisplay: "none",
+    placeholderDisplay: "flex",
+    thumbnailWidth: 160,
+  });
+});
+
 test("popup controls and segment guidance localize without remounting media", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {

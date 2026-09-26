@@ -86,4 +86,10 @@ test("an already failed review fallback is preserved without retrying", () => {
     "/review/front/review_thumbnail.webp",
   );
   assert.equal(current.style.display, "none");
+  assert.equal(current.nextElementSibling.style.display, "flex");
+  assert.equal(
+    next.nextElementSibling.style.display,
+    "flex",
+    "the visible placeholder must transfer to the new row before the image is moved",
+  );
 });

@@ -31,6 +31,15 @@ const primarySource = (image) =>
   image?.getAttribute?.("src") ||
   "";
 
+const setFallbackDisplay = (currentImage, nextImage, display) => {
+  if (currentImage?.nextElementSibling?.style) {
+    currentImage.nextElementSibling.style.display = display;
+  }
+  if (nextImage?.nextElementSibling?.style) {
+    nextImage.nextElementSibling.style.display = display;
+  }
+};
+
 export function syncPreservedBrowseThumbnail(currentImage, nextImage) {
   if (!currentImage || !nextImage) return false;
   if (currentImage.dataset?.thumbId !== nextImage.dataset?.thumbId) {
@@ -42,7 +51,17 @@ export function syncPreservedBrowseThumbnail(currentImage, nextImage) {
     currentImage.getAttribute?.("data-thumb-fallback-src") || "";
   const nextFallback =
     nextImage.getAttribute?.("data-thumb-fallback-src") || "";
-  if (currentFallback === nextFallback) return true;
+  if (currentFallback === nextFallback) {
+    const currentFallbackDisplay =
+      currentImage.nextElementSibling?.style?.display;
+    if (
+      typeof currentFallbackDisplay === "string" &&
+      nextImage.nextElementSibling?.style
+    ) {
+      nextImage.nextElementSibling.style.display = currentFallbackDisplay;
+    }
+    return true;
+  }
 
   currentImage.removeAttribute?.("data-thumb-fallback-attempted");
   if (nextFallback) {
@@ -58,15 +77,11 @@ export function syncPreservedBrowseThumbnail(currentImage, nextImage) {
   if (nextFallback && (hidden || showingOldFallback)) {
     currentImage.setAttribute?.("data-thumb-fallback-attempted", "1");
     if (currentImage.style) currentImage.style.display = "";
-    if (currentImage.nextElementSibling?.style) {
-      currentImage.nextElementSibling.style.display = "none";
-    }
+    setFallbackDisplay(currentImage, nextImage, "none");
     currentImage.setAttribute?.("src", nextFallback);
   } else if (!nextFallback && showingOldFallback) {
     if (currentImage.style) currentImage.style.display = "";
-    if (currentImage.nextElementSibling?.style) {
-      currentImage.nextElementSibling.style.display = "none";
-    }
+    setFallbackDisplay(currentImage, nextImage, "none");
     currentImage.setAttribute?.("src", primarySource(nextImage));
   }
 
