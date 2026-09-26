@@ -196,10 +196,20 @@ test("displayed frame downloads support delayed Safari blob cleanup", () => {
 test("snapshot result feedback is centered over the active media surface", () => {
   assert.match(
     STYLES,
-    /\.snapshot-result-bubble\{[^}]*left:50%;top:50%;transform:translate\(-50%,-50%\)/,
+    /:is\(\.snapshot-result-bubble,\.two-way-talk-result-bubble\)\{[^}]*left:50%;/,
   );
-  assert.match(STYLES, /\.snapshot-result-bubble\.success\{/);
-  assert.match(STYLES, /\.snapshot-result-bubble\.failure\{/);
+  assert.match(
+    STYLES,
+    /\.snapshot-result-bubble\{top:50%;transform:translate\(-50%,-50%\)/,
+  );
+  assert.match(
+    STYLES,
+    /:is\(\.snapshot-result-bubble,\.two-way-talk-result-bubble\)\.success\{/,
+  );
+  assert.match(
+    STYLES,
+    /:is\(\.snapshot-result-bubble,\.two-way-talk-result-bubble\)\.failure\{/,
+  );
 });
 
 const createResultSurface = () => {

@@ -232,10 +232,20 @@ test("two-way talk reports transient live-stage success and failure states", () 
   );
   assert.match(
     stylesSource,
-    /\.two-way-talk-result-bubble\{[^}]*left:50%;bottom:14px;[^}]*pointer-events:none/,
+    /:is\(\.snapshot-result-bubble,\.two-way-talk-result-bubble\)\{[^}]*left:50%;[^}]*pointer-events:none/,
   );
-  assert.match(stylesSource, /\.two-way-talk-result-bubble\.success\{/);
-  assert.match(stylesSource, /\.two-way-talk-result-bubble\.failure\{/);
+  assert.match(
+    stylesSource,
+    /\.two-way-talk-result-bubble\{bottom:14px;transform:translateX\(-50%\);z-index:13;/,
+  );
+  assert.match(
+    stylesSource,
+    /:is\(\.snapshot-result-bubble,\.two-way-talk-result-bubble\)\.success\{/,
+  );
+  assert.match(
+    stylesSource,
+    /:is\(\.snapshot-result-bubble,\.two-way-talk-result-bubble\)\.failure\{/,
+  );
 });
 
 test("tabs and tools synchronize independently without layout repair", () => {

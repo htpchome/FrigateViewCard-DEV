@@ -171,7 +171,7 @@ test("desktop popup playback controls overlay the video without a blur filter", 
   );
   assert.match(
     STYLES,
-    /\.popup-media-controls\.desktop-overlay-layout \.popup-media-progress \{height:5px;/,
+    /\.popup-media-controls:is\(\.desktop-overlay-layout,\.mobile-tablet-layout\) \.popup-media-progress \{height:5px;/,
   );
   assert.match(
     STYLES,
@@ -216,7 +216,7 @@ test("mobile popup controls sit flush below video and stay touch safe", () => {
   );
   assert.match(
     STYLES,
-    /\.popup-media-controls\.mobile-tablet-layout \.popup-media-progress \{height:5px;transform:none;background:linear-gradient/,
+    /\.popup-media-controls:is\(\.desktop-overlay-layout,\.mobile-tablet-layout\) \.popup-media-progress \{height:5px;transform:none;background:linear-gradient/,
   );
 
   const portraitRule = STYLES.match(

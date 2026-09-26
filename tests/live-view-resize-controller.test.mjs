@@ -335,10 +335,12 @@ test("live markup and styles provide one unobtrusive unified resize grip", () =>
   );
   assert.match(
     STYLES,
-    /\.live-resize-grip::before\{[^}]*width:128px;height:12px;/,
+    /\.live-resize-grip::before,\s*\.popup-view-resize-grip::before\{[^}]*width:128px;height:12px;/,
   );
   const gripDecoration =
-    STYLES.match(/\.live-resize-grip::before\{[^}]*\}/)?.[0] || "";
+    STYLES.match(
+      /\.live-resize-grip::before,\s*\.popup-view-resize-grip::before\{[^}]*\}/,
+    )?.[0] || "";
   assert.doesNotMatch(gripDecoration, /backdrop-filter/);
   assert.match(
     STYLES,
