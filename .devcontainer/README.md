@@ -63,7 +63,7 @@ In the VS Code terminal, run:
 bash .devcontainer/sync-card.sh
 ```
 
-This copies the generated card and lazy HLS.js companion assets from `dist/` to
+This copies the generated card and lazy companion assets from `dist/` to
 Home Assistant's `/config/www/` directory.
 
 ### 5. Add the Card to a Dashboard

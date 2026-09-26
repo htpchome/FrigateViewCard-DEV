@@ -55,6 +55,12 @@ test("HACS release artifact is generated under dist", () => {
   );
   assert.equal(
     fs.existsSync(
+      repositoryFile("dist/frigate-view-card-linked-light.js"),
+    ),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
       repositoryFile("dist/frigate-view-card-wide-timeline.js"),
     ),
     true,
@@ -111,6 +117,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-frame-capture.js"),
     "utf8",
   );
+  const linkedLightBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-linked-light.js"),
+    "utf8",
+  );
   const wideTimelineBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-wide-timeline.js"),
     "utf8",
@@ -134,6 +144,9 @@ test("HACS release artifact is production-minified", () => {
   assert.match(bundle, /frigate-view-card-frame-capture\.js/);
   assert.doesNotMatch(bundle, /Displayed media frame is not ready/);
   assert.match(frameCaptureBundle, /Displayed media frame is not ready/);
+  assert.match(bundle, /frigate-view-card-linked-light\.js/);
+  assert.doesNotMatch(bundle, /data-linked-light-dimmer-dismiss/);
+  assert.match(linkedLightBundle, /data-linked-light-dimmer-dismiss/);
   assert.doesNotMatch(
     bundle,
     /runtime\.popup\.segment\.previewPlayerUnavailable/,

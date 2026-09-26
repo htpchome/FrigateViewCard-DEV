@@ -99,7 +99,7 @@ import {
   supportsNativeHlsPlayback,
 } from "../shared/media/video-factory.js";
 import { CameraGroupLiveController } from "../features/camera-groups/live.ctrl.js";
-import { LinkedLightController } from "../features/linked-entities/light.ctrl.js";
+import { LazyLinkedLightController } from "../features/linked-entities/light.loader.js";
 import {
   PictureInPictureController,
 } from "../shared/media/picture-in-picture.js";
@@ -341,7 +341,7 @@ export class FrigateViewCard extends HTMLElement {
         return captureCameraGroupDisplayedFrame(controller, options);
       },
     });
-    this._linkedLightController = new LinkedLightController(this);
+    this._linkedLightController = new LazyLinkedLightController(this);
     this._ptzCapabilityController = createPtzCapabilityController(this);
     this._ptzExec = createPtzActionController(this);
     this._ptzMotionController = createPtzMotionController(this);

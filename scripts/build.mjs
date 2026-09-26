@@ -23,6 +23,8 @@ const recordingScrubOutputFile =
   "dist/frigate-view-card-recording-scrub.js";
 const frameCaptureOutputFile =
   "dist/frigate-view-card-frame-capture.js";
+const linkedLightOutputFile =
+  "dist/frigate-view-card-linked-light.js";
 const wideTimelineOutputFile =
   "dist/frigate-view-card-wide-timeline.js";
 const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
@@ -105,6 +107,10 @@ const frameCaptureOutput = await buildBundle({
   entryPoint: "src/card/frame-capture.companion.js",
   outfile: frameCaptureOutputFile,
 });
+const linkedLightOutput = await buildBundle({
+  entryPoint: "src/features/linked-entities/light.ctrl.js",
+  outfile: linkedLightOutputFile,
+});
 const wideTimelineOutput = await buildBundle({
   entryPoint: "src/features/wide-view/timeline.ctrl.js",
   outfile: wideTimelineOutputFile,
@@ -156,6 +162,9 @@ const recordingScrubOutputSizeKib = (
 const frameCaptureOutputSizeKib = (
   Buffer.byteLength(frameCaptureOutput) / 1024
 ).toFixed(1);
+const linkedLightOutputSizeKib = (
+  Buffer.byteLength(linkedLightOutput) / 1024
+).toFixed(1);
 const wideTimelineOutputSizeKib = (
   Buffer.byteLength(wideTimelineOutput) / 1024
 ).toFixed(1);
@@ -175,6 +184,9 @@ console.info(
 );
 console.info(
   `  ${frameCaptureOutputFile}  ${frameCaptureOutputSizeKib} KiB (lazy)`,
+);
+console.info(
+  `  ${linkedLightOutputFile}  ${linkedLightOutputSizeKib} KiB (lazy)`,
 );
 console.info(
   `  ${wideTimelineOutputFile}  ${wideTimelineOutputSizeKib} KiB (lazy)`,

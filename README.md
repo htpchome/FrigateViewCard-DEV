@@ -105,6 +105,7 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
            ├── frigate-view-card-circle-pad.js
            ├── frigate-view-card-dashboard-swipe-navigation.js
            ├── frigate-view-card-frame-capture.js
+           ├── frigate-view-card-linked-light.js
            ├── frigate-view-card-navbar.js
            ├── frigate-view-card-recording-scrub.js
            ├── frigate-view-card-wide-timeline.js
@@ -114,10 +115,10 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
    ```
 
    Keep all files together in that folder. The main card loads the editor, PTZ
-   circle control, dashboard swipe navigation, frame capture, navbar
-   customization, recording scrubber, Wide View timeline, and HLS companion
-   files from paths relative to `frigate-view-card.js`. The two license files
-   cover FrigateViewCard and its bundled HLS.js dependency.
+   circle control, dashboard swipe navigation, frame capture, linked-light
+   controls, navbar customization, recording scrubber, Wide View timeline, and
+   HLS companion files from paths relative to `frigate-view-card.js`. The two
+   license files cover FrigateViewCard and its bundled HLS.js dependency.
 
 3. If this is the first time you have created the `www` folder, restart Home
    Assistant once so the `/local/` path is available.

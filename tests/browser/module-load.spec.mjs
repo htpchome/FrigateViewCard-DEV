@@ -27,6 +27,10 @@ const bundlePaths = new Map([
     "dist/frigate-view-card-frame-capture.js",
   ],
   [
+    "/frigate-view-card-linked-light.js",
+    "dist/frigate-view-card-linked-light.js",
+  ],
+  [
     "/frigate-view-card-wide-timeline.js",
     "dist/frigate-view-card-wide-timeline.js",
   ],
@@ -583,6 +587,53 @@ test("loads frame capture only when a displayed snapshot needs it", async ({
 
   expect(assetRequests).toHaveLength(1);
   expect(state).toEqual({ before: false, loaded: true, retained: true });
+});
+
+test("loads linked-light controls only for a configured camera", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-linked-light.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    const plainCamera = { entity: "camera.plain" };
+    card._config = { cameras: [plainCamera] };
+    card._linkedLightController.sync();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const before = Boolean(card._linkedLightController._delegate);
+
+    const linkedCamera = {
+      entity: "camera.front",
+      linked_entities: [{ entity: "light.porch" }],
+    };
+    card._config = { cameras: [linkedCamera] };
+    card._hass = {
+      states: {
+        "light.porch": { state: "off", attributes: {} },
+      },
+    };
+    card._linkedLightController.sync();
+    await card._linkedLightController._ensureDelegate();
+    return {
+      before,
+      loaded: Boolean(card._linkedLightController._delegate),
+      markup: card._linkedLightController.buildMarkup(),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state.before).toBe(false);
+  expect(state.loaded).toBe(true);
+  expect(state.markup).toContain("data-linked-light=\"light.porch\"");
 });
 
 test("loads the Wide View timeline only when its enabled page needs it", async ({
@@ -2133,7 +2184,9 @@ test("linked-light language and state updates preserve the dimmer and its contro
     await import("/frigate-view-card.js");
     const card = document.createElement("frigate-view-card");
     document.body.append(card);
-    const controller = card._linkedLightController;
+    const lazyController = card._linkedLightController;
+    await lazyController._ensureDelegate();
+    const controller = lazyController._delegate;
     const config = { entity: "light.porch" };
     const offState = {
       state: "off",
