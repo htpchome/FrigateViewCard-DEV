@@ -12,7 +12,7 @@ import { VERSION } from "../../constants.js";
 
 const CIRCLE_PAD_TAG = "circle-pad-control-2";
 const CIRCLE_PAD_ASSET_NAME = "frigate-view-card-circle-pad.js";
-let circlePadLoadPromise = null;
+const circlePadLoaderState = { promise: null };
 
 export const ensureCirclePadControl = ({
   customElementsRef = globalThis.customElements,
@@ -21,17 +21,17 @@ export const ensureCirclePadControl = ({
 } = {}) => {
   if (!customElementsRef) return Promise.resolve(false);
   if (customElementsRef.get(CIRCLE_PAD_TAG)) return Promise.resolve(true);
-  if (circlePadLoadPromise) return circlePadLoadPromise;
+  if (circlePadLoaderState.promise) return circlePadLoaderState.promise;
 
   const assetUrl = new URL(`./${CIRCLE_PAD_ASSET_NAME}`, baseUrl);
   assetUrl.searchParams.set("fvc-version", VERSION);
-  circlePadLoadPromise = Promise.resolve(importModule(assetUrl.href))
+  circlePadLoaderState.promise = Promise.resolve(importModule(assetUrl.href))
     .then(() => Boolean(customElementsRef.get(CIRCLE_PAD_TAG)))
     .catch((error) => {
-      circlePadLoadPromise = null;
+      circlePadLoaderState.promise = null;
       throw error;
     });
-  return circlePadLoadPromise;
+  return circlePadLoaderState.promise;
 };
 
 export const syncPtzControlsLabels = (host) =>

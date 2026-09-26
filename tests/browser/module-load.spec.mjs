@@ -398,12 +398,27 @@ test("keeps the PTZ circle pad out of startup and loads its companion asset", as
     const registeredAtStartup = Boolean(
       customElements.get("circle-pad-control-2"),
     );
-    await import("/frigate-view-card-circle-pad.js");
-    const pad = document.createElement("circle-pad-control-2");
-    document.body.append(pad);
+    const card = document.createElement("frigate-view-card");
+    const list = document.createElement("div");
+    document.body.append(list);
+    card._activeCam = { entity: "camera.front", ptz: true };
+    card._localization = { t: (key) => key };
+    card._ptzCapabilityController = {
+      ensureActiveInfo() {},
+      activeInfo: () => ({ features: ["pt"], presets: [] }),
+    };
+    card._renderListLabel = () => {};
+    card._setListHtmlIfChanged = (target, markup) => {
+      target.innerHTML = markup;
+    };
+    card._$ = (selector) => list.querySelector(selector);
+    card._renderControlsSection(list);
+    card._renderControlsSection(list);
+    await customElements.whenDefined("circle-pad-control-2");
+    const pad = list.querySelector("circle-pad-control-2");
     return {
       registeredAtStartup,
-      registeredAfterImport: Boolean(
+      registeredAfterRender: Boolean(
         customElements.get("circle-pad-control-2"),
       ),
       mounted: Boolean(pad.shadowRoot?.querySelector(".circle-pad")),
@@ -412,7 +427,7 @@ test("keeps the PTZ circle pad out of startup and loads its companion asset", as
 
   expect(state).toEqual({
     registeredAtStartup: false,
-    registeredAfterImport: true,
+    registeredAfterRender: true,
     mounted: true,
   });
 });
