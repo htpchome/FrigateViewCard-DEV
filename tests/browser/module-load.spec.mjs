@@ -22,6 +22,10 @@ const bundlePaths = new Map([
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
+  [
+    "/frigate-view-card-wide-timeline.js",
+    "dist/frigate-view-card-wide-timeline.js",
+  ],
   ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
   ...LANGUAGE_ASSET_NAMES.map((language) => [
     `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
@@ -546,6 +550,44 @@ test("loads the popup recording scrubber only when recording playback needs it",
     loaded: true,
     result: null,
   });
+});
+
+test("loads the Wide View timeline only when its enabled page needs it", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-wide-timeline.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    card._config = { wide_view_timeline_enabled: true };
+    card._pageId = "wide-view";
+    card._renderShellPreserveLive = () => {};
+    const controller = card._wideViewTimelineController;
+    const before = {
+      delegate: Boolean(controller._delegate),
+      markup: controller.buildRegionMarkup(),
+    };
+    await controller._ensureDelegate();
+    return {
+      before,
+      loaded: Boolean(controller._delegate),
+      markup: controller.buildRegionMarkup(),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state.before).toEqual({ delegate: false, markup: "" });
+  expect(state.loaded).toBe(true);
+  expect(state.markup).toContain("wide-timeline-panel");
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({
@@ -2160,6 +2202,7 @@ test("Wide View companion and timeline labels follow language and panel state in
     });
     card._pageId = "wide-view";
     card._renderShell();
+    await card._wideViewTimelineController._ensureDelegate();
     const root = card.shadowRoot;
     const live = root.querySelector("#live-stage");
     const video = document.createElement("video");
@@ -2208,7 +2251,7 @@ test("Wide View companion and timeline labels follow language and panel state in
     companion._panelExpansionMaxPx = 100;
     companion._setPanelExpansion(40, { scheduleLayout: false });
     const collapsedLabel = expand.getAttribute("aria-label");
-    const timeline = card._wideViewTimelineController;
+    const timeline = card._wideViewTimelineController._delegate;
     timeline._open = true;
     timeline._syncPanelState();
     timeline._scaleHours = 6;
@@ -5155,6 +5198,7 @@ test("Wide View timeline push width remains stable across wide breakpoints", asy
       });
       card._pageId = "wide-view";
       card._renderShell();
+      await card._wideViewTimelineController._ensureDelegate();
       card._wideViewPageController.startWideViewMode();
 
       const root = card.shadowRoot;

@@ -2614,8 +2614,14 @@ test("Wide View controller composition is owned by the Wide View feature", () =>
     true,
   );
   assert.equal(
-    wideViewCompositionSource.includes("new WideViewTimelineController"),
+    wideViewCompositionSource.includes(
+      "new LazyWideViewTimelineController",
+    ),
     true,
+  );
+  assert.equal(
+    wideViewCompositionSource.includes("new WideViewTimelineController"),
+    false,
   );
   assert.equal(
     wideViewCompositionSource.includes("new WideViewPageController"),

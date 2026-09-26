@@ -15,10 +15,8 @@ import {
 import { PAGE_IDS } from "../navigation/router.js";
 import { WideViewCompanionController } from "./companion.ctrl.js";
 import { WideViewPageController } from "./page.ctrl.js";
-import {
-  resolveWideTimelineCameraContextKey,
-  WideViewTimelineController,
-} from "./timeline.ctrl.js";
+import { resolveWideTimelineCameraContextKey } from "./timeline-context.js";
+import { LazyWideViewTimelineController } from "./timeline.loader.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
   createCompanionController: (card, constants) =>
@@ -26,7 +24,7 @@ const DEFAULT_FACTORIES = Object.freeze({
   createPageController: (card, constants, options) =>
     new WideViewPageController(card, constants, options),
   createTimelineController: (card, options) =>
-    new WideViewTimelineController(card, options),
+    new LazyWideViewTimelineController(card, options),
 });
 
 export const createWideViewCompanionController = (

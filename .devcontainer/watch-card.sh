@@ -9,6 +9,7 @@ CIRCLE_PAD_FILE="$WORKSPACE_DIR/dist/frigate-view-card-circle-pad.js"
 DASHBOARD_SWIPE_FILE="$WORKSPACE_DIR/dist/frigate-view-card-dashboard-swipe-navigation.js"
 NAVBAR_FILE="$WORKSPACE_DIR/dist/frigate-view-card-navbar.js"
 RECORDING_SCRUB_FILE="$WORKSPACE_DIR/dist/frigate-view-card-recording-scrub.js"
+WIDE_TIMELINE_FILE="$WORKSPACE_DIR/dist/frigate-view-card-wide-timeline.js"
 HLS_FILE="$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.js"
 HLS_LICENSE_FILE="$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.LICENSE.txt"
 ASSET_FILES=(
@@ -18,6 +19,7 @@ ASSET_FILES=(
   "$DASHBOARD_SWIPE_FILE"
   "$NAVBAR_FILE"
   "$RECORDING_SCRUB_FILE"
+  "$WIDE_TIMELINE_FILE"
   "$HLS_FILE"
   "$HLS_LICENSE_FILE"
 )

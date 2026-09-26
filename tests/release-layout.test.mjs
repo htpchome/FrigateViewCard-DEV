@@ -49,6 +49,12 @@ test("HACS release artifact is generated under dist", () => {
   );
   assert.equal(
     fs.existsSync(
+      repositoryFile("dist/frigate-view-card-wide-timeline.js"),
+    ),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
       repositoryFile("dist/frigate-view-card-hls-1.5.17.js"),
     ),
     true,
@@ -95,6 +101,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     "utf8",
   );
+  const wideTimelineBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-wide-timeline.js"),
+    "utf8",
+  );
   const [banner] = bundle.split("\n", 1);
 
   assert.match(banner, /^\/\*\* FrigateView Card - generated file\./);
@@ -119,6 +129,9 @@ test("HACS release artifact is production-minified", () => {
     recordingScrubBundle,
     /runtime\.popup\.segment\.previewPlayerUnavailable/,
   );
+  assert.match(bundle, /frigate-view-card-wide-timeline\.js/);
+  assert.doesNotMatch(bundle, /data-wide-timeline-stack-next/);
+  assert.match(wideTimelineBundle, /data-wide-timeline-stack-next/);
   assert.match(bundle, /frigate-view-card-locale/);
   assert.doesNotMatch(bundle, /circle-pad-clean-edges/);
   assert.doesNotMatch(bundle, /Ειδοποιήσεις/);

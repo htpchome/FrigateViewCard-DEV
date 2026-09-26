@@ -71,6 +71,8 @@ Home Assistant navbar customization is likewise loaded only when a bottom
 navbar or rotation presentation needs it.
 The recording scrubber is loaded only when a recording opens in the media
 popup.
+The Wide View timeline implementation is loaded only when an enabled timeline
+is first displayed.
 The versioned HLS.js companion is loaded only when a browser without native
 HLS needs it for recording playback. FrigateViewCard and HLS.js license files
 are included alongside those assets.
@@ -104,6 +106,7 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
            ├── frigate-view-card-dashboard-swipe-navigation.js
            ├── frigate-view-card-navbar.js
            ├── frigate-view-card-recording-scrub.js
+           ├── frigate-view-card-wide-timeline.js
            ├── frigate-view-card-hls-1.5.17.js
            ├── frigate-view-card-hls-1.5.17.LICENSE.txt
            └── frigate-view-card.LICENSE.txt
@@ -111,7 +114,7 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
 
    Keep all files together in that folder. The main card loads the editor, PTZ
    circle control, dashboard swipe navigation, navbar customization, recording
-   scrubber, and HLS companion files from paths relative to
+   scrubber, Wide View timeline, and HLS companion files from paths relative to
    `frigate-view-card.js`. The two license files cover
    FrigateViewCard and its bundled HLS.js dependency.
 

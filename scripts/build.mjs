@@ -21,6 +21,8 @@ const dashboardSwipeOutputFile =
 const navbarOutputFile = "dist/frigate-view-card-navbar.js";
 const recordingScrubOutputFile =
   "dist/frigate-view-card-recording-scrub.js";
+const wideTimelineOutputFile =
+  "dist/frigate-view-card-wide-timeline.js";
 const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
 const hlsLicenseOutputFile =
   "dist/frigate-view-card-hls-1.5.17.LICENSE.txt";
@@ -97,6 +99,10 @@ const recordingScrubOutput = await buildBundle({
   entryPoint: "src/features/popup/recording-scrub.ctrl.js",
   outfile: recordingScrubOutputFile,
 });
+const wideTimelineOutput = await buildBundle({
+  entryPoint: "src/features/wide-view/timeline.ctrl.js",
+  outfile: wideTimelineOutputFile,
+});
 // Write the watched runtime artifact last so dev sync never copies a stale
 // companion bundle alongside a newly built card.
 const output = await buildBundle({
@@ -141,6 +147,9 @@ const navbarOutputSizeKib = (
 const recordingScrubOutputSizeKib = (
   Buffer.byteLength(recordingScrubOutput) / 1024
 ).toFixed(1);
+const wideTimelineOutputSizeKib = (
+  Buffer.byteLength(wideTimelineOutput) / 1024
+).toFixed(1);
 const hlsOutputSizeKib = ((await stat(hlsOutputFile)).size / 1024).toFixed(1);
 const languageAssetsSizeKib = (
   languageAssetSizes.reduce((total, size) => total + size, 0) / 1024
@@ -154,6 +163,9 @@ console.info(
 console.info(`  ${navbarOutputFile}  ${navbarOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${recordingScrubOutputFile}  ${recordingScrubOutputSizeKib} KiB (lazy)`,
+);
+console.info(
+  `  ${wideTimelineOutputFile}  ${wideTimelineOutputSizeKib} KiB (lazy)`,
 );
 console.info(`  ${hlsOutputFile}  ${hlsOutputSizeKib} KiB (lazy)`);
 console.info(
