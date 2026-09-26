@@ -87,10 +87,10 @@ test("grid mode toolbar and runtime hooks are present", () => {
   assert.equal(source.includes("grid-btn"), true);
   assert.equal(source.includes("_toggleGridMode"), true);
   assert.equal(source.includes("_isGridModeAvailable"), true);
-  assert.equal(source.includes("_scheduleGridRotation"), true);
-  assert.equal(source.includes("_handleGridRealtimeMessage"), true);
+  assert.equal(source.includes("_scheduleGridRotation"), false);
+  assert.equal(source.includes("_handleGridRealtimeMessage"), false);
   assert.equal(source.includes("_probeLatestGridAlert"), true);
-  assert.equal(source.includes("_markGridAlertCamera"), true);
+  assert.equal(source.includes("_markGridAlertCamera"), false);
   assert.equal(source.includes("data-grid-camidx"), true);
   assert.equal(
     cardSource.includes(
@@ -116,18 +116,9 @@ test("grid mode toolbar and runtime hooks are present", () => {
     cardSource,
     /if \(!resumeGridSession\) this\._gridAlertController\.startSession\(\);/,
   );
-  assert.equal(
-    /_clearGridTimers\(\) \{[\s\S]*?this\._gridPageController\.clearGridTimers\(\);[\s\S]*?\}/.test(
-      cardSource,
-    ),
-    true,
-  );
-  assert.equal(
-    /_clearGridAlertTracking\(\) \{\s*this\._gridPageController\.clearGridAlertTracking\(\);\s*\}/.test(
-      cardSource,
-    ),
-    true,
-  );
+  assert.equal(cardSource.includes("_clearGridTimers("), false);
+  assert.equal(cardSource.includes("_clearGridAlertTracking("), false);
+  assert.equal(cardSource.includes("_focusGridPageForCamera("), false);
   assert.equal(
     /_scheduleGridRefresh\(delayMs = 80\) \{\s*this\._gridPageController\.scheduleGridRefresh\(delayMs\);\s*\}/.test(
       cardSource,
@@ -141,6 +132,16 @@ test("grid mode toolbar and runtime hooks are present", () => {
   );
   assert.equal(
     gridPageControllerSource.includes("scheduleGridRefresh(delayMs = 80)"),
+    true,
+  );
+  assert.equal(
+    cardSource.includes("this._gridPageController.scheduleGridRotation();"),
+    true,
+  );
+  assert.equal(
+    cardSource.includes(
+      "this._gridAlertController.handleRealtimeMessage(msg);",
+    ),
     true,
   );
   assert.equal(
@@ -233,7 +234,7 @@ test("Grid startup and its toolbar button use the same view-mode activation", ()
   );
   assert.match(
     cardSource,
-    /if \(startGridTimers\) \{[\s\S]*?this\._scheduleGridRefresh\(0\);/,
+    /if \(startGridTimers\) \{[\s\S]*?this\._scheduleGridRefresh\(0\);[\s\S]*?this\._gridPageController\.scheduleGridRotation\(\);/,
   );
 });
 

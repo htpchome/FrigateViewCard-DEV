@@ -77,7 +77,9 @@ test("_subscribe aggregates successful realtime subscriptions into one cleanup",
         },
       },
     },
-    _handleGridRealtimeMessage: () => calls.push(["gridMessage"]),
+    _gridAlertController: {
+      handleRealtimeMessage: () => calls.push(["gridMessage"]),
+    },
     _previewAlertController: {
       handleRealtimeMessage: () => calls.push(["previewMessage"]),
     },

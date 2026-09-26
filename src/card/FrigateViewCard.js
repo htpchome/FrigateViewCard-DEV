@@ -1660,15 +1660,6 @@ export class FrigateViewCard extends HTMLElement {
     return this._gridPageController.gridRotationMs();
   }
 
-  _clearGridTimers() {
-    this._gridPageController.clearGridTimers();
-    this._clearSnapshotRefreshTimer();
-  }
-
-  _clearGridAlertTracking() {
-    this._gridPageController.clearGridAlertTracking();
-  }
-
   _scheduleGridRefresh(delayMs = 80) {
     this._gridPageController.scheduleGridRefresh(delayMs);
   }
@@ -1707,14 +1698,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _gridCellSeverity(entity) {
     return this._gridAlertController.cellSeverity(entity);
-  }
-
-  _scheduleGridRotation() {
-    this._gridPageController.scheduleGridRotation();
-  }
-
-  _focusGridPageForCamera(entity) {
-    return this._gridPageController.focusGridPageForCamera(entity);
   }
 
   _isGridSessionActive() {
@@ -1765,16 +1748,8 @@ export class FrigateViewCard extends HTMLElement {
     }
   }
 
-  _markGridAlertCamera(entity, severity = "alert") {
-    return this._gridAlertController.markAlertCamera(entity, severity);
-  }
-
   async _probeLatestGridAlert() {
     await this._gridAlertController.probeLatestAlert();
-  }
-
-  _handleGridRealtimeMessage(msg) {
-    this._gridAlertController.handleRealtimeMessage(msg);
   }
 
   _stopGridModeState() {
@@ -1873,7 +1848,7 @@ export class FrigateViewCard extends HTMLElement {
       // Startup can select Grid before every page shell has settled. Re-run the
       // idempotent grid mount against the final shell on the next task.
       this._scheduleGridRefresh(0);
-      this._scheduleGridRotation();
+      this._gridPageController.scheduleGridRotation();
       this._gridAlertController.scheduleAlertWatch(300);
       if (this._tab === "alerts" || this._tab === "kept") {
         void (async () => {
@@ -2635,7 +2610,7 @@ export class FrigateViewCard extends HTMLElement {
     if (!clientIds.size) return;
 
     const onRealtimeMessage = (msg) => {
-      this._handleGridRealtimeMessage(msg);
+      this._gridAlertController.handleRealtimeMessage(msg);
       this._previewAlertController.handleRealtimeMessage(msg);
       this._wideViewPageController?.handleCompanionRealtimeMessage?.(msg);
       this._cardViewPageController?.handleRealtimeMessage?.(msg);

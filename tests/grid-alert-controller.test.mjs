@@ -127,10 +127,6 @@ test("Grid owns enabled alert takeover and promotes the alerted camera", () => {
   });
   const calls = [];
 
-  host._focusGridPageForCamera = () => {
-    calls.push(["focus"]);
-    return true;
-  };
   host._scheduleGridRefresh = () => calls.push(["refresh"]);
   host._beginGridAlertTakeover = (entity, severity) => {
     calls.push(["takeover", entity, severity]);
