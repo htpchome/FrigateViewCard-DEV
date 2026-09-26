@@ -81,9 +81,19 @@ test("production bundles enable tree shaking", () => {
     repositoryFile("scripts/build.mjs"),
     "utf8",
   );
+  const runtimeBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card.js"),
+    "utf8",
+  );
+  const editorBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-editor.js"),
+    "utf8",
+  );
 
   assert.match(buildScript, /treeShaking:\s*true/);
   assert.doesNotMatch(buildScript, /treeShaking:\s*false/);
+  assert.match(runtimeBundle, /M6 22h12l-6-6-6 6/);
+  assert.doesNotMatch(editorBundle, /M6 22h12l-6-6-6 6/);
 });
 
 test("lazy HLS release asset matches the pinned integrity hash", () => {

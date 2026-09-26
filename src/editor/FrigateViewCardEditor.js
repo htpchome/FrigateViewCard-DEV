@@ -28,7 +28,7 @@ import {
   THEME_CUSTOM_ROWS,
   THEME_MODES,
 } from "../constants.js";
-import { ICONS } from "../icons.js";
+import { EDITOR_ICONS as ICONS } from "../icons.js";
 import {
   parseWs,
   normalizeNumberChoice,
