@@ -1055,7 +1055,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-video-only-back svg \{[^}]*color:currentColor;fill:currentColor;opacity:1;/,
+    /card-view-video-only-back svg,\s*[^{}]*card-view-native-fullscreen-exit svg \{[^}]*color:currentColor;fill:currentColor;opacity:1;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -1143,7 +1143,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-overlay-presentation:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle \{[\s\S]*?top:auto;bottom:max\(8px,env\(safe-area-inset-bottom,0px\)\);left:50%;width:56px;height:30px;/,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle,\s*[^{}]*card-view-overlay-presentation:is\(\.mobile-rotate-live,\.mobile-rotate-live-exit\) \.card-view-media-drawer:not\(\.is-open\) \.card-view-media-drawer-handle \{[\s\S]*?top:auto;bottom:max\(8px,env\(safe-area-inset-bottom,0px\)\);left:50%;width:56px;height:30px;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -1171,7 +1171,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) #myPopup\.popup-content--card-view-drawer #viewer :is\(video,img\.snap\) \{[\s\S]*?object-fit:contain !important;/,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) #myPopup\.popup-content--card-view-drawer #viewer :is\(video,img\.snap\),\s*[^{}]*card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #viewer video \{[\s\S]*?object-fit:contain !important;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
@@ -1187,7 +1187,7 @@ test("Card View overlay presentation keeps controls on the rounded video stage",
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,
-    /card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #viewer video \{[\s\S]*?width:auto !important;height:100% !important;max-width:100% !important;max-height:100% !important;[\s\S]*?object-fit:contain !important;/,
+    /card-view-video-panel-only:is\(:fullscreen,:-webkit-full-screen\) #myPopup\.popup-content--card-view-drawer #viewer :is\(video,img\.snap\),\s*[^{}]*card-view-video-panel-only:is\(\.mobile-rotate-popup,\.mobile-rotate-popup-exit\) #viewer video \{[\s\S]*?width:auto !important;height:100% !important;max-width:100% !important;max-height:100% !important;[\s\S]*?object-fit:contain !important;/,
   );
   assert.match(
     CARD_VIEW_PAGE_STYLES,

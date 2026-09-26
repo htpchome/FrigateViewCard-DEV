@@ -230,8 +230,10 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
   .card .wide-timeline-card-underlay.depth-2 {transform:translate(18px,18px) rotate(1.5deg);opacity:1;}
   .card .wide-timeline-stack.has-stack:hover .wide-timeline-card-underlay.depth-1 {transform:translate(11px,11px) rotate(1deg);}
   .card .wide-timeline-stack.has-stack:hover .wide-timeline-card-underlay.depth-2 {transform:translate(21px,21px) rotate(1.8deg);}
-  .card .wide-timeline-card-underlay img {display:block;width:100%;height:100%;object-fit:cover;object-position:center;}
-  .card .wide-timeline-underlay-placeholder {width:100%;height:100%;}
+  .card .wide-timeline-card-underlay img,
+  .card .wide-timeline-card-main img {display:block;width:100%;height:100%;object-fit:cover;object-position:center;}
+  .card .wide-timeline-underlay-placeholder,
+  .card .wide-timeline-card-placeholder {width:100%;height:100%;}
   .card .wide-timeline-card-main {
     position:absolute;
     inset:0;
@@ -248,8 +250,6 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
     transform-origin:center;
   }
   .card .wide-timeline-card-main:focus-visible {outline:2px solid var(--c-primary-d);outline-offset:-3px;}
-  .card .wide-timeline-card-main img {display:block;width:100%;height:100%;object-fit:cover;object-position:center;}
-  .card .wide-timeline-card-placeholder {width:100%;height:100%;}
   .card .wide-timeline-card-label,
   .card .wide-timeline-card-time {position:absolute;z-index:2;padding:1.2px 3.6px;border-radius:3px;background:rgba(0,0,0,.65);font-size:.675rem;font-weight:700;line-height:1;pointer-events:none;}
   .card .wide-timeline-card-label {top:2px;left:3px;right:34px;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize;white-space:nowrap;}

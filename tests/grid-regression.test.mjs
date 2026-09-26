@@ -215,13 +215,7 @@ test("mobile live camera tiles avoid iOS MSE startup and cropping", () => {
   );
   assert.equal(
     source.includes(
-      ".live-grid-cell video,.live-grid-cell img,.live-grid-cell ha-camera-stream{width:100%;height:100%;display:block;object-fit:contain;object-position:center center;",
-    ),
-    true,
-  );
-  assert.equal(
-    source.includes(
-      ".preview-media-host video,.preview-media-host img,.preview-media-host ha-camera-stream{width:100%;height:100%;display:block;object-fit:contain;object-position:center center;",
+      ".live-grid-cell video,.live-grid-cell img,.live-grid-cell ha-camera-stream,.preview-media-host video,.preview-media-host img,.preview-media-host ha-camera-stream{width:100%;height:100%;display:block;object-fit:contain;object-position:center center;",
     ),
     true,
   );
