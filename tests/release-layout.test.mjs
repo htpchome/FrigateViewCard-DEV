@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
+import {
+  LANGUAGE_ASSET_NAMES,
+  LANGUAGE_ASSET_PREFIX,
+} from "../src/features/localization/catalogs.mjs";
 
 const repositoryFile = (path) => new URL(`../${path}`, import.meta.url);
 
@@ -37,6 +41,15 @@ test("HACS release artifact is generated under dist", () => {
     fs.existsSync(repositoryFile("dist/frigate-view-card.LICENSE.txt")),
     true,
   );
+  for (const language of LANGUAGE_ASSET_NAMES) {
+    assert.equal(
+      fs.existsSync(
+        repositoryFile(`dist/${LANGUAGE_ASSET_PREFIX}-${language}.json`),
+      ),
+      true,
+      `Missing lazy ${language} localization asset`,
+    );
+  }
   assert.equal(
     fs.readFileSync(
       repositoryFile("dist/frigate-view-card.LICENSE.txt"),
@@ -59,6 +72,8 @@ test("HACS release artifact is production-minified", () => {
   assert.ok(Buffer.byteLength(bundle) < 1_900_000);
   assert.match(bundle, /frigate-view-card-hls-1\.5\.17\.js/);
   assert.match(bundle, /frigate-view-card-editor\.js/);
+  assert.match(bundle, /frigate-view-card-locale/);
+  assert.doesNotMatch(bundle, /Ειδοποιήσεις/);
 });
 
 test("production bundles enable tree shaking", () => {

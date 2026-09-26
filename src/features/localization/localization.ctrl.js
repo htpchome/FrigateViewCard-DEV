@@ -1,31 +1,10 @@
 import english from "./languages/en.json" with { type: "json" };
-import britishEnglish from "./languages/en-GB.json" with { type: "json" };
-import german from "./languages/de.json" with { type: "json" };
-import spanish from "./languages/es.json" with { type: "json" };
-import latinAmericanSpanish from "./languages/es-419.json" with { type: "json" };
-import french from "./languages/fr.json" with { type: "json" };
-import portuguese from "./languages/pt.json" with { type: "json" };
-import brazilianPortuguese from "./languages/pt-BR.json" with { type: "json" };
-import italian from "./languages/it.json" with { type: "json" };
-import polish from "./languages/pl.json" with { type: "json" };
-import catalan from "./languages/ca.json" with { type: "json" };
-import greek from "./languages/el.json" with { type: "json" };
+import { VERSION } from "../../constants.js";
+import { LANGUAGE_ASSETS, LANGUAGE_ASSET_PREFIX } from "./catalogs.mjs";
 
 const DEFAULT_LANGUAGE = "en";
-const bundledLanguages = Object.freeze({
+const DEFAULT_DICTIONARIES = Object.freeze({
   en: english,
-  "en-GB": britishEnglish,
-  de: german,
-  es: spanish,
-  "es-419": latinAmericanSpanish,
-  fr: french,
-  pt: portuguese,
-  "pt-PT": portuguese,
-  "pt-BR": brazilianPortuguese,
-  it: italian,
-  pl: polish,
-  ca: catalan,
-  el: greek,
 });
 
 export const normalizeLanguageCode = (language) => {
@@ -50,9 +29,35 @@ const readTranslation = (dictionary, key) => {
   return typeof value === "string" ? value : null;
 };
 
-export const createLocalizationController = ({
-  dictionaries = bundledLanguages,
-} = {}) => {
+const languageCandidates = (language) => {
+  const candidates = [];
+  let candidate = language;
+  while (candidate) {
+    candidates.push(candidate);
+    const lastSeparator = candidate.lastIndexOf("-");
+    candidate = lastSeparator < 0 ? "" : candidate.slice(0, lastSeparator);
+  }
+  return candidates;
+};
+
+const loadLanguageAsset = async (assetName) => {
+  const url = new URL(
+    `./${LANGUAGE_ASSET_PREFIX}-${assetName}.json`,
+    import.meta.url,
+  );
+  url.searchParams.set("fvc-version", VERSION);
+  const response = await fetch(url.href);
+  if (!response.ok) return null;
+  const dictionary = await response.json();
+  return dictionary && typeof dictionary === "object" ? dictionary : null;
+};
+
+export const createLocalizationController = (options = {}) => {
+  const customDictionaries = Object.hasOwn(options, "dictionaries");
+  const dictionaries = options.dictionaries ?? DEFAULT_DICTIONARIES;
+  const loadDictionary =
+    options.loadDictionary ?? (customDictionaries ? null : loadLanguageAsset);
+  const onLanguageLoaded = options.onLanguageLoaded;
   const available = new Map(
     Object.entries(dictionaries).map(([language, dictionary]) => [
       normalizeLanguageCode(language),
@@ -61,21 +66,56 @@ export const createLocalizationController = ({
   );
   let language = DEFAULT_LANGUAGE;
   let lookupLanguages = [DEFAULT_LANGUAGE];
+  let loadRevision = 0;
+  let pendingLoad = Promise.resolve(false);
+  const assetLoads = new Map();
+
+  const rebuildLookupLanguages = () => {
+    lookupLanguages = languageCandidates(language).filter((candidate) =>
+      available.has(candidate),
+    );
+    if (!lookupLanguages.includes(DEFAULT_LANGUAGE)) {
+      lookupLanguages.push(DEFAULT_LANGUAGE);
+    }
+  };
+
+  const loadCandidate = async (candidate) => {
+    if (available.has(candidate)) return false;
+    const assetName = LANGUAGE_ASSETS[candidate];
+    if (!assetName || typeof loadDictionary !== "function") return false;
+    let load = assetLoads.get(assetName);
+    if (!load) {
+      load = Promise.resolve(loadDictionary(assetName)).catch(() => null);
+      assetLoads.set(assetName, load);
+    }
+    const dictionary = await load;
+    if (!dictionary || typeof dictionary !== "object") return false;
+    available.set(candidate, dictionary);
+    return true;
+  };
+
+  const scheduleLanguageLoad = () => {
+    const revision = ++loadRevision;
+    const candidates = languageCandidates(language);
+    pendingLoad = Promise.all(candidates.map(loadCandidate)).then((results) => {
+      if (revision !== loadRevision || !results.some(Boolean)) return false;
+      const previousLookup = lookupLanguages.join("\u0000");
+      rebuildLookupLanguages();
+      if (lookupLanguages.join("\u0000") === previousLookup) return false;
+      onLanguageLoaded?.({
+        language,
+        resolvedLanguage: lookupLanguages[0],
+      });
+      return true;
+    });
+  };
 
   const setLanguage = (requestedLanguage) => {
     const nextLanguage = normalizeLanguageCode(requestedLanguage);
     if (nextLanguage === language) return false;
     language = nextLanguage;
-    lookupLanguages = [];
-    let candidate = language;
-    while (candidate) {
-      if (available.has(candidate)) lookupLanguages.push(candidate);
-      const lastSeparator = candidate.lastIndexOf("-");
-      candidate = lastSeparator < 0 ? "" : candidate.slice(0, lastSeparator);
-    }
-    if (!lookupLanguages.includes(DEFAULT_LANGUAGE)) {
-      lookupLanguages.push(DEFAULT_LANGUAGE);
-    }
+    rebuildLookupLanguages();
+    scheduleLanguageLoad();
     return true;
   };
 
@@ -97,6 +137,7 @@ export const createLocalizationController = ({
     },
     setLanguage,
     updateHass: (hass) => setLanguage(resolveHassLanguage(hass)),
+    whenReady: () => pendingLoad,
     t,
   });
 };

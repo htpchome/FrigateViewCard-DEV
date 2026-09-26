@@ -305,13 +305,33 @@ const buildPageStartModeControl = ({
   });
 
 export class FrigateViewCardEditor extends HTMLElement {
+  _ensureLocalizationController() {
+    if (this._localization) return this._localization;
+    this._localization = createLocalizationController({
+      onLanguageLoaded: () => this._applyLocalizationLanguageChange(),
+    });
+    return this._localization;
+  }
+
+  _applyLocalizationLanguageChange() {
+    applyLocalizedText(this, this._localization.t);
+    if (!this._rendered) return;
+    this._syncGeneralRichText();
+    this._syncLocalizedPageSelectors();
+    this._syncOwnershipNotices();
+    this._syncCameraConnectionTypeOptions();
+    this._syncCameraModalGroupFields();
+    this._syncConfigSaveReminder();
+    this._syncCameraDeleteConfirmationMessage();
+  }
+
   _t(key, values = {}) {
-    this._localization ??= createLocalizationController();
+    this._ensureLocalizationController();
     return this._localization.t(key, values);
   }
 
   _setLocalizedMessage(element, key, values = {}) {
-    this._localization ??= createLocalizationController();
+    this._ensureLocalizationController();
     setLocalizedText(element, key, this._localization.t, values);
   }
 
@@ -934,7 +954,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     sourceType = DEFAULT_CAMERA_CONNECTION_TYPE,
     preserveSelection = false,
   } = {}) {
-    this._localization ??= createLocalizationController();
+    this._ensureLocalizationController();
     const toggleRow = this.querySelector("#camera-modal-ptz-toggle-row");
     const stateMessage = this.querySelector("#camera-modal-ptz-state");
     const ptzEnabled = this.querySelector("#camera-modal-ptz-enabled");
@@ -987,7 +1007,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     sourceType = DEFAULT_CAMERA_CONNECTION_TYPE,
     preserveSelection = false,
   } = {}) {
-    this._localization ??= createLocalizationController();
+    this._ensureLocalizationController();
     const twoWayTalkToggleRow = this.querySelector(
       "#camera-modal-two-way-talk-toggle-row",
     );
@@ -1394,20 +1414,9 @@ export class FrigateViewCardEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._localization ??= createLocalizationController();
+    this._ensureLocalizationController();
     const languageChanged = this._localization.updateHass(hass);
-    if (languageChanged) {
-      applyLocalizedText(this, this._localization.t);
-      if (this._rendered) {
-        this._syncGeneralRichText();
-        this._syncLocalizedPageSelectors();
-        this._syncOwnershipNotices();
-        this._syncCameraConnectionTypeOptions();
-        this._syncCameraModalGroupFields();
-        this._syncConfigSaveReminder();
-        this._syncCameraDeleteConfirmationMessage();
-      }
-    }
+    if (languageChanged) this._applyLocalizationLanguageChange();
     this._pruneChangedCapabilityCaches();
     const modeKey = this._hass?.themes?.darkMode ? "dark" : "light";
     const key = `${this._frigateEntities().join(",")}|${modeKey}`;
@@ -5067,7 +5076,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       </dialog>
     </div>`;
 
-    this._localization ??= createLocalizationController();
+    this._ensureLocalizationController();
     applyLocalizedText(this, this._localization.t);
     this._syncGeneralRichText();
     this._syncOwnershipNotices();

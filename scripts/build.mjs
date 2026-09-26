@@ -8,6 +8,10 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { minifyStyleModule } from "./minify-style-module.mjs";
+import {
+  LANGUAGE_ASSET_NAMES,
+  LANGUAGE_ASSET_PREFIX,
+} from "../src/features/localization/catalogs.mjs";
 
 const outputFile = "dist/frigate-view-card.js";
 const editorOutputFile = "dist/frigate-view-card-editor.js";
@@ -15,6 +19,7 @@ const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
 const hlsLicenseOutputFile =
   "dist/frigate-view-card-hls-1.5.17.LICENSE.txt";
 const cardLicenseOutputFile = "dist/frigate-view-card.LICENSE.txt";
+const languageSourceDirectory = "src/features/localization/languages";
 const outputBanner =
   "/** FrigateView Card - generated file. Edit src/ instead. MIT license: frigate-view-card.LICENSE.txt. */";
 
@@ -77,6 +82,19 @@ const output = await buildBundle({
 await copyFile("node_modules/hls.js/dist/hls.min.js", hlsOutputFile);
 await copyFile("node_modules/hls.js/LICENSE", hlsLicenseOutputFile);
 await copyFile("LICENSE", cardLicenseOutputFile);
+const languageAssetSizes = await Promise.all(
+  LANGUAGE_ASSET_NAMES.map(async (language) => {
+    const source = await readFile(
+      `${languageSourceDirectory}/${language}.json`,
+      "utf8",
+    );
+    const outputPath = `dist/${LANGUAGE_ASSET_PREFIX}-${language}.json`;
+    const output = `${JSON.stringify(JSON.parse(source))}\n`;
+    await writeFile(outputPath, output, "utf8");
+    await chmod(outputPath, 0o644);
+    return Buffer.byteLength(output);
+  }),
+);
 await chmod(hlsOutputFile, 0o644);
 await chmod(hlsLicenseOutputFile, 0o644);
 await chmod(cardLicenseOutputFile, 0o644);
@@ -86,6 +104,12 @@ const editorOutputSizeKib = (
   Buffer.byteLength(editorOutput) / 1024
 ).toFixed(1);
 const hlsOutputSizeKib = ((await stat(hlsOutputFile)).size / 1024).toFixed(1);
+const languageAssetsSizeKib = (
+  languageAssetSizes.reduce((total, size) => total + size, 0) / 1024
+).toFixed(1);
 console.info(`  ${outputFile}  ${outputSizeKib} KiB (minified)`);
 console.info(`  ${editorOutputFile}  ${editorOutputSizeKib} KiB (lazy)`);
 console.info(`  ${hlsOutputFile}  ${hlsOutputSizeKib} KiB (lazy)`);
+console.info(
+  `  ${LANGUAGE_ASSET_NAMES.length} locale assets  ${languageAssetsSizeKib} KiB (lazy)`,
+);

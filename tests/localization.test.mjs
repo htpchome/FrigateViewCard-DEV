@@ -31,6 +31,20 @@ const dictionaries = {
   },
 };
 
+const loadBundledDictionary = async (language) =>
+  JSON.parse(
+    readFileSync(
+      new URL(
+        `../src/features/localization/languages/${language}.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+
+const createBundledLocalizationController = () =>
+  createLocalizationController({ loadDictionary: loadBundledDictionary });
+
 test("uses Home Assistant's user locale and normalizes regional codes", () => {
   assert.equal(resolveHassLanguage({ locale: { language: "fr_CA" } }), "fr-CA");
   assert.equal(resolveHassLanguage({ language: "fr" }), "fr");
@@ -56,9 +70,74 @@ test("falls back from exact locale to base language, then English per key", () =
   assert.equal(localization.t("example.missing"), "example.missing");
 });
 
-test("bundled German resolves regional HA locales and falls back to English per key", () => {
-  const localization = createLocalizationController();
+test("uses English while a selected localization catalog loads", async () => {
+  let resolveFrench;
+  const loaded = [];
+  const localization = createLocalizationController({
+    loadDictionary: (language) => {
+      assert.equal(language, "fr");
+      return new Promise((resolve) => {
+        resolveFrench = resolve;
+      });
+    },
+    onLanguageLoaded: (state) => loaded.push(state),
+  });
+
+  localization.setLanguage("fr-CA");
+  assert.equal(localization.language, "fr-CA");
+  assert.equal(localization.resolvedLanguage, "en");
+  assert.equal(localization.t("runtime.toolbar.alerts"), "Alerts");
+
+  resolveFrench({ runtime: { toolbar: { alerts: "Alertes" } } });
+  assert.equal(await localization.whenReady(), true);
+  assert.equal(localization.resolvedLanguage, "fr");
+  assert.equal(localization.t("runtime.toolbar.alerts"), "Alertes");
+  assert.deepEqual(loaded, [
+    { language: "fr-CA", resolvedLanguage: "fr" },
+  ]);
+});
+
+test("ignores stale catalog completion after the requested language changes", async () => {
+  const deferred = new Map();
+  const loaded = [];
+  const localization = createLocalizationController({
+    loadDictionary: (language) =>
+      new Promise((resolve) => deferred.set(language, resolve)),
+    onLanguageLoaded: (state) => loaded.push(state),
+  });
+
+  localization.setLanguage("fr");
+  const frenchLoad = localization.whenReady();
+  localization.setLanguage("de");
+  deferred.get("fr")({ runtime: { toolbar: { alerts: "Alertes" } } });
+  assert.equal(await frenchLoad, false);
+  assert.equal(localization.language, "de");
+  assert.equal(localization.resolvedLanguage, "en");
+  assert.deepEqual(loaded, []);
+
+  deferred.get("de")({ runtime: { toolbar: { alerts: "Alarme" } } });
+  assert.equal(await localization.whenReady(), true);
+  assert.equal(localization.resolvedLanguage, "de");
+  assert.equal(localization.t("runtime.toolbar.alerts"), "Alarme");
+  assert.deepEqual(loaded, [{ language: "de", resolvedLanguage: "de" }]);
+});
+
+test("keeps English fallback when a catalog cannot be loaded", async () => {
+  const localization = createLocalizationController({
+    loadDictionary: async () => null,
+  });
+
+  localization.setLanguage("de-DE");
+  assert.equal(await localization.whenReady(), false);
+  assert.equal(localization.language, "de-DE");
+  assert.equal(localization.resolvedLanguage, "en");
+  assert.equal(localization.t("runtime.toolbar.alerts"), "Alerts");
+});
+
+test("bundled German resolves regional HA locales and falls back to English per key", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "de_DE" } });
+  await localization.whenReady();
   assert.equal(localization.language, "de-DE");
   assert.equal(localization.resolvedLanguage, "de");
   assert.equal(localization.t("runtime.toolbar.alerts"), "Alarme");
@@ -80,9 +159,10 @@ test("bundled German resolves regional HA locales and falls back to English per 
   assert.equal(sparse.t("runtime.toolbar.recordings"), "Recordings");
 });
 
-test("British English overrides US spelling and inherits unchanged English text", () => {
-  const localization = createLocalizationController();
+test("British English overrides US spelling and inherits unchanged English text", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "en_GB" } });
+  await localization.whenReady();
   assert.equal(localization.language, "en-GB");
   assert.equal(localization.resolvedLanguage, "en-GB");
   assert.equal(localization.t("runtime.toolbar.favorites"), "Favourites");
@@ -96,15 +176,17 @@ test("British English overrides US spelling and inherits unchanged English text"
   assert.equal(localization.t("runtime.toolbar.favorites"), "Favorites");
 });
 
-test("Spanish and Latin American Spanish use regional wording with layered fallback", () => {
-  const localization = createLocalizationController();
+test("Spanish and Latin American Spanish use regional wording with layered fallback", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "es_ES" } });
+  await localization.whenReady();
   assert.equal(localization.language, "es-ES");
   assert.equal(localization.resolvedLanguage, "es");
   assert.equal(localization.t("editor.actions.add"), "Añadir");
   assert.equal(localization.t("editor.preview.liveDesktop"), "Cámaras en vivo en el ordenador");
 
   localization.updateHass({ locale: { language: "es_419" } });
+  await localization.whenReady();
   assert.equal(localization.language, "es-419");
   assert.equal(localization.resolvedLanguage, "es-419");
   assert.equal(localization.t("editor.actions.add"), "Agregar");
@@ -128,9 +210,10 @@ test("Spanish and Latin American Spanish use regional wording with layered fallb
   assert.equal(sparse.t("runtime.toolbar.recordings"), "Recordings");
 });
 
-test("bundled French resolves regional HA locales", () => {
-  const localization = createLocalizationController();
+test("bundled French resolves regional HA locales", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "fr_CA" } });
+  await localization.whenReady();
   assert.equal(localization.language, "fr-CA");
   assert.equal(localization.resolvedLanguage, "fr");
   assert.equal(localization.t("runtime.toolbar.alerts"), "Alertes");
@@ -141,9 +224,10 @@ test("bundled French resolves regional HA locales", () => {
   );
 });
 
-test("Portuguese and Brazilian Portuguese use regional wording with layered fallback", () => {
-  const localization = createLocalizationController();
+test("Portuguese and Brazilian Portuguese use regional wording with layered fallback", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "pt_PT" } });
+  await localization.whenReady();
   assert.equal(localization.language, "pt-PT");
   assert.equal(localization.resolvedLanguage, "pt-PT");
   assert.equal(localization.t("runtime.live.liveTile"), "DIRETO");
@@ -151,6 +235,7 @@ test("Portuguese and Brazilian Portuguese use regional wording with layered fall
   assert.equal(localization.t("editor.actions.delete"), "Eliminar");
 
   localization.updateHass({ locale: { language: "pt_BR" } });
+  await localization.whenReady();
   assert.equal(localization.language, "pt-BR");
   assert.equal(localization.resolvedLanguage, "pt-BR");
   assert.equal(localization.t("runtime.live.liveTile"), "AO VIVO");
@@ -167,9 +252,10 @@ test("Portuguese and Brazilian Portuguese use regional wording with layered fall
   assert.equal(localization.resolvedLanguage, "pt");
 });
 
-test("bundled Italian resolves regional HA locales", () => {
-  const localization = createLocalizationController();
+test("bundled Italian resolves regional HA locales", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "it_CH" } });
+  await localization.whenReady();
   assert.equal(localization.language, "it-CH");
   assert.equal(localization.resolvedLanguage, "it");
   assert.equal(localization.t("runtime.toolbar.alerts"), "Avvisi");
@@ -181,9 +267,10 @@ test("bundled Italian resolves regional HA locales", () => {
   );
 });
 
-test("bundled Polish resolves regional HA locales", () => {
-  const localization = createLocalizationController();
+test("bundled Polish resolves regional HA locales", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "pl_PL" } });
+  await localization.whenReady();
   assert.equal(localization.language, "pl-PL");
   assert.equal(localization.resolvedLanguage, "pl");
   assert.equal(localization.t("runtime.toolbar.alerts"), "Alerty");
@@ -195,9 +282,10 @@ test("bundled Polish resolves regional HA locales", () => {
   );
 });
 
-test("bundled Catalan resolves regional HA locales", () => {
-  const localization = createLocalizationController();
+test("bundled Catalan resolves regional HA locales", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "ca_ES" } });
+  await localization.whenReady();
   assert.equal(localization.language, "ca-ES");
   assert.equal(localization.resolvedLanguage, "ca");
   assert.equal(localization.t("runtime.toolbar.alerts"), "Alertes");
@@ -209,9 +297,10 @@ test("bundled Catalan resolves regional HA locales", () => {
   );
 });
 
-test("bundled Greek resolves regional HA locales", () => {
-  const localization = createLocalizationController();
+test("bundled Greek resolves regional HA locales", async () => {
+  const localization = createBundledLocalizationController();
   localization.updateHass({ locale: { language: "el_GR" } });
+  await localization.whenReady();
   assert.equal(localization.language, "el-GR");
   assert.equal(localization.resolvedLanguage, "el");
   assert.equal(localization.t("runtime.toolbar.alerts"), "Ειδοποιήσεις");

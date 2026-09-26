@@ -268,7 +268,9 @@ export class FrigateViewCard extends HTMLElement {
       }),
     );
     this._cardFullscreenController = new CardFullscreenController(this);
-    this._localization = createLocalizationController();
+    this._localization = createLocalizationController({
+      onLanguageLoaded: () => this._applyLocalizationLanguageChange(),
+    });
     this._localizedDateController = new LocalizedDateController(this);
     this._displayedFrameCaptureController =
       new DisplayedFrameCaptureController({
@@ -852,6 +854,17 @@ export class FrigateViewCard extends HTMLElement {
       return;
     }
   }
+  _applyLocalizationLanguageChange() {
+    this._applyLocalizedDates();
+    this._browseCalendarPanelController?.syncLocalizedMonthLabel();
+    if (this._config) {
+      this._activeStandardPageController()?.relocalizeBrowseLabels?.();
+    }
+    applyLocalizedText(this.shadowRoot, this._localization.t);
+    this._previewPageController?.updatePreviewMeta();
+    syncPtzControlsLabels(this);
+  }
+
   set hass(hass) {
     this._ensureEditorPreviewController();
     const previousTimeFormat = this._hass?.locale?.time_format;
@@ -861,17 +874,14 @@ export class FrigateViewCard extends HTMLElement {
     const dateSettingsChanged =
       previousTimeFormat !== hass?.locale?.time_format ||
       previousTimeZone !== hass?.config?.time_zone;
-    if (languageChanged || dateSettingsChanged) {
+    if (languageChanged) {
+      this._applyLocalizationLanguageChange();
+    } else if (dateSettingsChanged) {
       this._applyLocalizedDates();
       this._browseCalendarPanelController?.syncLocalizedMonthLabel();
       if (this._config) {
         this._activeStandardPageController()?.relocalizeBrowseLabels?.();
       }
-    }
-    if (languageChanged) {
-      applyLocalizedText(this.shadowRoot, this._localization.t);
-      this._previewPageController?.updatePreviewMeta();
-      syncPtzControlsLabels(this);
     }
     if (!this._config) return;
     if (this._editorPreviewController.renderCardPickerDemo()) {

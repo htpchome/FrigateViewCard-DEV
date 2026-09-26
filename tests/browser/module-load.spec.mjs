@@ -1,11 +1,19 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
+import {
+  LANGUAGE_ASSET_NAMES,
+  LANGUAGE_ASSET_PREFIX,
+} from "../../src/features/localization/catalogs.mjs";
 
 const bundlePaths = new Map([
   ["/frigate-view-card.js", "dist/frigate-view-card.js"],
   ["/frigate-view-card-editor.js", "dist/frigate-view-card-editor.js"],
   ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
+  ...LANGUAGE_ASSET_NAMES.map((language) => [
+    `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
+    `dist/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
+  ]),
 ]);
 
 let server;
@@ -31,7 +39,9 @@ test.beforeAll(async () => {
       const source = await readFile(bundlePath);
       response.writeHead(200, {
         "cache-control": "no-store",
-        "content-type": "text/javascript; charset=utf-8",
+        "content-type": pathname.endsWith(".json")
+          ? "application/json; charset=utf-8"
+          : "text/javascript; charset=utf-8",
       });
       response.end(source);
     } catch (error) {
@@ -415,6 +425,10 @@ test("bundled British English uses regional wording and inherits unchanged Engli
     card._localization.updateHass({ locale: { language: "en-GB" } });
     editor._t("editor.actions.cancel");
     editor._localization.updateHass({ locale: { language: "en-GB" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       runtime: card._localization.t("runtime.toolbar.favorites"),
       editor: editor._t("editor.theme.colors.bg_main"),
@@ -440,12 +454,20 @@ test("bundled Spanish catalogs resolve base and Latin American variants", async 
     card._localization.updateHass({ locale: { language: "es-ES" } });
     editor._t("editor.actions.add");
     editor._localization.updateHass({ locale: { language: "es-ES" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     const spanish = {
       runtime: card._localization.t("runtime.toolbar.alerts"),
       editor: editor._t("editor.actions.add"),
     };
     card._localization.updateHass({ locale: { language: "es-419" } });
     editor._localization.updateHass({ locale: { language: "es-419" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       spanish,
       latinAmerican: {
@@ -475,6 +497,10 @@ test("bundled French catalog resolves regional Home Assistant locales in card an
     card._localization.updateHass({ locale: { language: "fr-CA" } });
     editor._t("editor.actions.add");
     editor._localization.updateHass({ locale: { language: "fr-CA" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       runtime: card._localization.t("runtime.toolbar.alerts"),
       editor: editor._t("editor.actions.add"),
@@ -494,6 +520,10 @@ test("bundled Portuguese catalogs resolve European and Brazilian variants", asyn
     editor._t("editor.actions.delete");
     card._localization.updateHass({ locale: { language: "pt-PT" } });
     editor._localization.updateHass({ locale: { language: "pt-PT" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     const portuguese = {
       resolved: card._localization.resolvedLanguage,
       live: card._localization.t("runtime.live.liveTile"),
@@ -502,6 +532,10 @@ test("bundled Portuguese catalogs resolve European and Brazilian variants", asyn
     };
     card._localization.updateHass({ locale: { language: "pt-BR" } });
     editor._localization.updateHass({ locale: { language: "pt-BR" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       portuguese,
       brazilian: {
@@ -535,6 +569,10 @@ test("bundled Italian catalog resolves regional Home Assistant locales in card a
     card._localization.updateHass({ locale: { language: "it-IT" } });
     editor._t("editor.actions.add");
     editor._localization.updateHass({ locale: { language: "it-IT" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       runtime: card._localization.t("runtime.toolbar.alerts"),
       live: card._localization.t("runtime.live.liveTile"),
@@ -555,6 +593,10 @@ test("bundled Polish catalog resolves regional Home Assistant locales in card an
     card._localization.updateHass({ locale: { language: "pl-PL" } });
     editor._t("editor.actions.add");
     editor._localization.updateHass({ locale: { language: "pl-PL" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       runtime: card._localization.t("runtime.toolbar.alerts"),
       live: card._localization.t("runtime.live.liveTile"),
@@ -575,6 +617,10 @@ test("bundled Catalan catalog resolves regional Home Assistant locales in card a
     card._localization.updateHass({ locale: { language: "ca-ES" } });
     editor._t("editor.actions.add");
     editor._localization.updateHass({ locale: { language: "ca-ES" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       runtime: card._localization.t("runtime.toolbar.alerts"),
       live: card._localization.t("runtime.live.liveTile"),
@@ -595,6 +641,10 @@ test("bundled Greek catalog resolves regional Home Assistant locales in card and
     card._localization.updateHass({ locale: { language: "el-GR" } });
     editor._t("editor.actions.add");
     editor._localization.updateHass({ locale: { language: "el-GR" } });
+    await Promise.all([
+      card._localization.whenReady(),
+      editor._localization.whenReady(),
+    ]);
     return {
       runtime: card._localization.t("runtime.toolbar.alerts"),
       live: card._localization.t("runtime.live.liveTile"),
@@ -2680,6 +2730,7 @@ test("Display Options localize in place and preserve disabled controls", async (
     editor.addEventListener("config-changed", () => { configChanged += 1; });
 
     editor.hass = { ...hass, locale: { language: "fr" } };
+    await editor._localization.whenReady();
 
     const displaySwitchIds = [
       "display_filter_control",
