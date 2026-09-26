@@ -9,18 +9,19 @@ import {
 const bundlePaths = new Map([
   ["/frigate-view-card.js", "dist/frigate-view-card.js"],
   ["/frigate-view-card-editor.js", "dist/frigate-view-card-editor.js"],
-      [
-        "/frigate-view-card-circle-pad.js",
-        "dist/frigate-view-card-circle-pad.js",
-      ],
-      [
-        "/frigate-view-card-dashboard-swipe-navigation.js",
-        "dist/frigate-view-card-dashboard-swipe-navigation.js",
-      ],
-      [
-        "/frigate-view-card-navbar.js",
-        "dist/frigate-view-card-navbar.js",
-      ],
+  [
+    "/frigate-view-card-circle-pad.js",
+    "dist/frigate-view-card-circle-pad.js",
+  ],
+  [
+    "/frigate-view-card-dashboard-swipe-navigation.js",
+    "dist/frigate-view-card-dashboard-swipe-navigation.js",
+  ],
+  ["/frigate-view-card-navbar.js", "dist/frigate-view-card-navbar.js"],
+  [
+    "/frigate-view-card-recording-scrub.js",
+    "dist/frigate-view-card-recording-scrub.js",
+  ],
   ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
   ...LANGUAGE_ASSET_NAMES.map((language) => [
     `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
@@ -508,6 +509,43 @@ test("loads navbar customization only when a mobile card needs it", async ({
 
   expect(assetRequests).toHaveLength(1);
   expect(state).toEqual({ loaded: true });
+});
+
+test("loads the popup recording scrubber only when recording playback needs it", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-recording-scrub.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    const controller = card._popupRecordingScrubController;
+    const before = {
+      delegate: Boolean(controller._delegate),
+      range: controller.range(),
+    };
+    const result = await controller.initialize({});
+    return {
+      before,
+      loaded: Boolean(controller._delegate),
+      result,
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({
+    before: { delegate: false, range: null },
+    loaded: true,
+    result: null,
+  });
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({

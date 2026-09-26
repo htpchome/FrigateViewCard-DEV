@@ -3244,7 +3244,15 @@ test("popup recording scrub coordination is owned by the popup feature", () => {
     false,
   );
   assert.equal(
-    popupCompositionSource.includes("new PopupRecordingScrubController(options)"),
+    popupCompositionSource.includes(
+      "new LazyPopupRecordingScrubController(options)",
+    ),
+    true,
+  );
+  assert.equal(
+    popupCompositionSource.includes(
+      'import { LazyPopupRecordingScrubController } from "./recording-scrub.loader.js";',
+    ),
     true,
   );
   assert.equal(cardSource.includes("_initRecordingScrub("), false);

@@ -20,7 +20,7 @@ import { PopupMediaControlsSurfaceController } from "./media.ctrl.js";
 import { PopupMediaLoaderController } from "./media-loader.ctrl.js";
 import { PopupMediaPresentationController } from "./media-presentation.ctrl.js";
 import { PopupPlaybackTargetController } from "./playback-target.ctrl.js";
-import { PopupRecordingScrubController } from "./recording-scrub.ctrl.js";
+import { LazyPopupRecordingScrubController } from "./recording-scrub.loader.js";
 import { PopupToolbarController } from "./toolbar.ctrl.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
@@ -38,7 +38,7 @@ const DEFAULT_FACTORIES = Object.freeze({
   createPlaybackTargetController: (options) =>
     new PopupPlaybackTargetController(options),
   createRecordingScrubController: (options) =>
-    new PopupRecordingScrubController(options),
+    new LazyPopupRecordingScrubController(options),
   createToolbarController: (options) => new PopupToolbarController(options),
 });
 
