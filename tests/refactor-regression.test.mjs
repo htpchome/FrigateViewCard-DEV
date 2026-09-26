@@ -969,7 +969,6 @@ test("live media presentation is owned by its feature controller", () => {
   for (const delegation of [
     "getLiveMediaPresentationController(this).assignEngine(engine, options)",
     "getLiveMediaPresentationController(this).attachVideoZoom(",
-    "getLiveMediaPresentationController(this).clearVideoZoom()",
     "getLiveMediaPresentationController(this).syncRotateZoomPresentation(card)",
   ]) {
     assert.equal(cardSource.includes(delegation), true);
@@ -1186,7 +1185,6 @@ test("live fallback adapter orchestration is owned by its live feature controlle
   );
   assert.equal(cardSource.includes("new LiveFallbackController(this)"), true);
   for (const delegation of [
-    "getLiveFallbackController(this).originForAdapters()",
     "getLiveFallbackController(this).loadPrimary(entity)",
     "getLiveFallbackController(this).loadAlternate(entity)",
     "getLiveFallbackController(this).refreshImage()",

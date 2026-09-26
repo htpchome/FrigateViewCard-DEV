@@ -77,7 +77,6 @@ import { FrigateMediaDownloadController } from "../integrations/frigate/media-do
 import { FrigateMediaResolverController } from "../integrations/frigate/media-resolver.ctrl.js";
 import {
   resolveCameraConnectionType,
-  resolveGo2RtcEntity,
 } from "../integrations/frigate/camera-context.js";
 import {
   haReviewStatusForCamera,
@@ -245,9 +244,7 @@ import {
 import { CardViewPageController } from "../features/card-view/page.ctrl.js";
 import { createSlideshowControllers } from "../features/slideshow/composition.js";
 import {
-  slideshowReviewModeForCamera,
   shouldHandleSlideshowReview,
-  cameraIndexForIncomingCamera,
   cameraEntityForIncomingCamera,
   normalizeReviewSeverity,
   reviewStartTimeSec,
@@ -655,10 +652,6 @@ export class FrigateViewCard extends HTMLElement {
     this._deepLinkController.connect();
   }
 
-  _visualStyleToggleRules() {
-    return this._cardStyleController.visualStyleToggleRules();
-  }
-
   _cardStateClassNames() {
     return this._cardStyleController.cardStateClassNames();
   }
@@ -667,24 +660,12 @@ export class FrigateViewCard extends HTMLElement {
     this._cardStyleController.syncVisualStyleToggles();
   }
 
-  _syncHostOuterStyles() {
-    this._cardStyleController.syncHostOuterStyles();
-  }
-
   _applyTightMargins() {
     this._cardStyleController.applyTightMargins();
   }
 
   _setSectionsRowGap(tightMarginsEnabled) {
     this._cardStyleController.setSectionsRowGap(tightMarginsEnabled);
-  }
-
-  _isPanelView() {
-    return this._cardStyleController.isPanelView();
-  }
-
-  _hasAncestorInShadow(root, target) {
-    return this._cardStyleController.hasAncestorInShadow(root, target);
   }
 
   static async getConfigElement() {
@@ -1349,17 +1330,6 @@ export class FrigateViewCard extends HTMLElement {
     return this._cameraConnectionType(key) !== "ha_direct";
   }
 
-  _resolveGo2RtcEntity(entity = "") {
-    const targetEntity = resolveGo2RtcEntity({
-      entity,
-      activeEntity: this._activeCam?.entity || "",
-      config: this._config,
-      defaultConnectionType: DEFAULT_CAMERA_CONNECTION_TYPE,
-      normalizeCameraConnectionType,
-    });
-    return this._shouldUseGo2RtcForEntity(targetEntity) ? targetEntity : "";
-  }
-
   _isEditorPreviewContext() {
     return this._editorPreviewController.isEditorPreviewContext();
   }
@@ -1395,10 +1365,6 @@ export class FrigateViewCard extends HTMLElement {
       readyVideo,
       attachmentOptions,
     );
-  }
-
-  _clearLiveVideoZoom() {
-    getLiveMediaPresentationController(this).clearVideoZoom();
   }
 
   _syncLiveRotateZoomPresentation(card = this._$("#card")) {
@@ -1451,10 +1417,6 @@ export class FrigateViewCard extends HTMLElement {
     );
   }
 
-  _fallbackOriginForAdapters() {
-    return getLiveFallbackController(this).originForAdapters();
-  }
-
   async _streamFallbackUrl(entity) {
     return await getLiveFallbackController(this).loadPrimary(entity);
   }
@@ -1465,10 +1427,6 @@ export class FrigateViewCard extends HTMLElement {
 
   async _refreshStreamFallbackImage() {
     return await getLiveFallbackController(this).refreshImage();
-  }
-
-  _cameraContext(entity) {
-    return this._camCache[entity] || mkCamState();
   }
 
   _applyResolvedStreamUiState(streamState) {
@@ -1581,10 +1539,6 @@ export class FrigateViewCard extends HTMLElement {
     this._previewPageController.applyPreviewShellVisibility();
   }
 
-  _buildPreviewLayoutShellMarkup() {
-    return this._previewPageController.buildPreviewLayoutShellMarkup();
-  }
-
   _ensurePreviewLayoutShell() {
     return this._previewPageController.ensurePreviewLayoutShell();
   }
@@ -1690,14 +1644,6 @@ export class FrigateViewCard extends HTMLElement {
     return this._gridMediaController.refreshSnapshotMedia();
   }
 
-  _updatePreviewMeta() {
-    this._previewPageController.updatePreviewMeta();
-  }
-
-  _mountPreviewMedia() {
-    this._previewPageController.mountPreviewMedia();
-  }
-
   _startPreviewMode() {
     this._previewPageController.startPreviewMode();
   }
@@ -1774,10 +1720,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _scheduleGridRotation() {
     this._gridPageController.scheduleGridRotation();
-  }
-
-  _advanceGridRotation() {
-    this._gridPageController.advanceGridRotation();
   }
 
   _focusGridPageForCamera(entity) {
@@ -2305,16 +2247,8 @@ export class FrigateViewCard extends HTMLElement {
     this._setSlideshowAlertState(type);
   }
 
-  _slideshowReviewModeForCamera(entity) {
-    return slideshowReviewModeForCamera(this._config, entity);
-  }
-
   _shouldHandleSlideshowReview(entity, severity) {
     return shouldHandleSlideshowReview(this._config, entity, severity);
-  }
-
-  _cameraIndexForIncomingCamera(cameraId) {
-    return cameraIndexForIncomingCamera(this._config, this._camCache, cameraId);
   }
 
   _cameraEntityForIncomingCamera(cameraId) {
@@ -2331,30 +2265,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _reviewStartTimeSec(review) {
     return reviewStartTimeSec(review);
-  }
-
-  _handleSlideshowReviewsUpdated(entity, reviews, source = "reviews-update") {
-    this._slideshowAlertController.handleReviewsUpdated(
-      entity,
-      reviews,
-      source,
-    );
-  }
-
-  async _probeLatestSlideshowReview() {
-    await this._slideshowAlertController.probeLatestReview();
-  }
-
-  _scheduleSlideshowReviewProbe(delayMs = 180) {
-    this._slideshowAlertController.scheduleReviewProbe(delayMs);
-  }
-
-  _scheduleSlideshowReviewWatch(delayMs = null) {
-    this._slideshowAlertController.scheduleReviewWatch(delayMs);
-  }
-
-  async _advanceSlideshowRotation() {
-    await this._slideshowPageController.advanceRotation();
   }
 
   _cameraIndexByEntity(entity) {
@@ -2714,9 +2624,6 @@ export class FrigateViewCard extends HTMLElement {
       options,
       timeZone,
     );
-  }
-  _tzOffsetMinutesAt(epochMs, tz = this._tz()) {
-    return this._localizedDateController.timezoneOffsetMinutesAt(epochMs, tz);
   }
   _tzDateTimeToEpochSeconds(y, mo, d, hh = 0, mm = 0, ss = 0) {
     return this._localizedDateController.timezoneDateTimeToEpochSeconds(
@@ -3629,12 +3536,6 @@ export class FrigateViewCard extends HTMLElement {
   _syncRotateOverlayViewportState() {
     return getLiveRotateOverlayController(this).syncViewportState();
   }
-  _setRotateLiveTransitionRect(prefix, rect) {
-    return getLiveRotateOverlayController(this).setLiveTransitionRect(
-      prefix,
-      rect,
-    );
-  }
   _captureRotateLiveEntryRect() {
     return getLiveRotateOverlayController(this).captureLiveEntryRect();
   }
@@ -4295,14 +4196,6 @@ export class FrigateViewCard extends HTMLElement {
     );
   }
 
-  _displayedSnapshotMedia(scope = "live") {
-    return this._displayedFrameCaptureController.media(scope);
-  }
-
-  _displayedSnapshotCaptureOptions(scope, media) {
-    return this._displayedFrameCaptureController.captureOptions(scope, media);
-  }
-
   _showSnapshotResultBubble(scope, success) {
     this._displayedFrameCaptureController.showResult(scope, success);
   }
@@ -4313,10 +4206,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _clearPictureInPictureButtonController(scope) {
     this._pictureInPictureController.clear(scope);
-  }
-
-  _bindPictureInPictureButton(scope, button, video) {
-    this._pictureInPictureController.bind(scope, button, video);
   }
 
   _syncPictureInPictureButtons() {
@@ -4395,10 +4284,6 @@ export class FrigateViewCard extends HTMLElement {
   _applyBrowse() {
     const b = this._pageShellRegion("browse");
     if (b) b.style.display = "flex";
-  }
-  _toggleBrowse() {
-    this._browseOpen = !this._browseOpen;
-    this._applyBrowse();
   }
   _toast(msg, options = {}) {
     const t = this._$("#toast");
@@ -4627,9 +4512,6 @@ export class FrigateViewCard extends HTMLElement {
   _monthDay(ts, { ordinal = false, numeric = false } = {}) {
     return this._localizedDateController.monthDay(ts, { ordinal, numeric });
   }
-  _ordinal(n) {
-    return this._localizedDateController.ordinal(n);
-  }
   _dateTimeLabel(ts) {
     return this._localizedDateController.dateTimeLabel(ts);
   }
@@ -4642,14 +4524,6 @@ export class FrigateViewCard extends HTMLElement {
   _applyLocalizedDates() {
     this._localizedDateController.applyLocalizedDates();
   }
-  _listHeadingLabel(ts = null) {
-    return this._activeStandardPageController().listHeadingLabel(ts);
-  }
-
-  _showStickyDayHeaders() {
-    return this._activeStandardPageController().showStickyDayHeaders();
-  }
-
   _renderListLabel(ts = null) {
     this._activeStandardPageController().renderListLabel(ts);
   }
@@ -4662,25 +4536,6 @@ export class FrigateViewCard extends HTMLElement {
       timeZone,
     );
   }
-  _renderStickyDaySections(items, renderItem) {
-    return this._activeStandardPageController().renderStickyDaySections(
-      items,
-      renderItem,
-    );
-  }
-
-  _renderEventsContent(items) {
-    return this._activeStandardPageController().renderEventsContent(items);
-  }
-
-  _renderKeptContent(items) {
-    return this._activeStandardPageController().renderKeptContent(items);
-  }
-
-  _renderReviewsContent(items) {
-    return this._activeStandardPageController().renderReviewsContent(items);
-  }
-
   _syncBrowseHeadFromScroll() {
     this._activeStandardPageController().syncBrowseHeadFromScroll();
   }
@@ -4709,10 +4564,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _handleCirclePadPtzEvent(event, eventType) {
     return this._ptzInteractionController.handleCirclePadEvent(event, eventType);
-  }
-
-  _handlePtzAction(action, eventType) {
-    return this._ptzInteractionController.handleAction(action, eventType);
   }
 
   _handlePtzPreset(presetName, button = null) {
