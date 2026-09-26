@@ -65,6 +65,10 @@ const editorSource = fs.readFileSync(
   new URL("../src/editor/FrigateViewCardEditor.js", import.meta.url),
   "utf8",
 );
+const editorStylesSource = fs.readFileSync(
+  new URL("../src/editor/styles.js", import.meta.url),
+  "utf8",
+);
 
 test("new cards prefer familiar available camera entities in order", () => {
   assert.deepEqual(PREFERRED_DEFAULT_CAMERA_ENTITIES, [
@@ -261,38 +265,38 @@ test("alert hold controls explain their runtime behavior", () => {
 
 test("editor range and checkbox controls use the chip primary accent", () => {
   assert.match(
-    editorSource,
+    editorStylesSource,
     /input\[type="range"\],input\[type="checkbox"\]\{accent-color:var\(--c-primary, var\(--editor-primary\)\);\}/,
   );
 });
 
 test("editor switches use the same active color pair as choice chips", () => {
   assert.match(
-    editorSource,
+    editorStylesSource,
     /ha-switch\{[\s\S]*?--primary-color:var\(--c-primary, var\(--editor-primary\)\);/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /--state-on-color:var\(--c-primary, var\(--editor-primary\)\);/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /--switch-checked-color:var\(--c-primary, var\(--editor-primary\)\);/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /--switch-checked-button-color:var\(--c-primary, var\(--editor-primary\)\);/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /--switch-checked-track-color:var\(--c-primary-l, var\(--editor-primary-l\)\);/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /--ha-color-fill-primary-loud-resting:var\(--c-primary, var\(--editor-primary\)\);/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /--wa-color-brand-fill-normal:var\(--c-primary-l, var\(--editor-primary-l\)\);/,
   );
 });
@@ -362,7 +366,7 @@ test("requested editor settings use the shared choice-chip control", () => {
     /data-ha-dashboard-swipe-include-subviews/,
   );
   assert.match(editorSource, /<strong>Page: \$\{escapeHtml/);
-  assert.match(editorSource, /swipe-owner-warning strong/);
+  assert.match(editorStylesSource, /swipe-owner-warning strong/);
   assert.doesNotMatch(
     editorSource,
     /<ha-switch id="ha_dashboard_swipe_navigation"/,
@@ -401,7 +405,7 @@ test("Slideshow, Grid, and Wide View duration radios use bubble selectors", () =
     /--editor-bubble-option-count:\$\{Math\.max\(1, options\.length\)\}/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /grid-template-columns:repeat\(var\(--editor-bubble-option-count,3\),minmax\(0,1fr\)\)/,
   );
 });
@@ -426,7 +430,7 @@ test("realtime polling offers slower choices and Battery Saver uses one minute",
     /Checks for new alerts and reviews every 60 seconds on mobile/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.editor-bubble-selector\{width:min\(100%,560px\);grid-template-columns:repeat\(var\(--editor-bubble-option-count,3\),minmax\(0,1fr\)\);\}/,
   );
 });
@@ -446,14 +450,14 @@ test("editor choice chips avoid native fieldsets while retaining group semantics
     /aria-label="Phone Swipe Pages"/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.dashboard-swipe-pages-grid\{grid-template-columns:repeat\(auto-fit,minmax\(88px,1fr\)\);align-items:stretch;gap:6px;\}/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.dashboard-swipe-pages-grid \.editor-choice-chip-body\{flex:1 1 auto;min-height:40px;padding:6px;gap:5px;font-size:11px;line-height:1\.15;\}/,
   );
-  assert.doesNotMatch(editorSource, /min-height:64px/);
+  assert.doesNotMatch(editorStylesSource, /min-height:64px/);
 });
 
 test("page settings panels use clear names and the requested order", () => {
@@ -617,11 +621,11 @@ test("custom theme mode scope uses a touch-safe three-way bubble", () => {
     /<ha-icon icon="\$\{icon\}"><\/ha-icon><span data-fvc-i18n="\$\{labelKey\}">\$\{label\}<\/span>/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.theme-scope-opt\{[^}]*touch-action:manipulation/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /@media \(hover:hover\)\{\.theme-scope-opt:not\(\.active\):hover/,
   );
 });
@@ -2828,7 +2832,7 @@ test("Mobile View HA navbar options are ordered and nested under their master to
   );
   assert.match(editorSource, /const syncHaNavbarDependentRows = \(\) =>/);
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.ha-navbar-dependent-section\{margin-inline-start:14px/,
   );
   assert.match(
@@ -2842,11 +2846,11 @@ test("Mobile View HA navbar options are ordered and nested under their master to
   assert.match(editorSource, /navbar-owner-warning/);
   assert.match(editorSource, /navbar-owner-info/);
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.swipe-owner-warning,\.navbar-owner-warning\{[^}]*var\(--warning-color, #f59e0b\)/,
   );
   assert.doesNotMatch(
-    editorSource,
+    editorStylesSource,
     /\.swipe-owner-warning,\.navbar-owner-warning\{[^}]*var\(--c-alert/,
   );
   assert.match(
@@ -2958,15 +2962,15 @@ test("editor presents general, layout, and Mobile View controls in their request
       generalSource.indexOf('id="title"'),
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.environment-version-summary\{[^}]*margin:12px 0;/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.environment-support-item\[data-support-status="warning"\]\{[^}]*var\(--warning-color/,
   );
   assert.match(
-    editorSource,
+    editorStylesSource,
     /\.environment-support-item\[data-support-status="error"\]\{[^}]*var\(--error-color/,
   );
   assert.match(generalSource, /\$\{ICONS\.homeAssistant\}/);

@@ -458,6 +458,10 @@ const editorSource = fs.readFileSync(
   new URL("../src/editor/FrigateViewCardEditor.js", import.meta.url),
   "utf8",
 );
+const editorStylesSource = fs.readFileSync(
+  new URL("../src/editor/styles.js", import.meta.url),
+  "utf8",
+);
 
 test("no legacy var declarations remain", () => {
   assert.equal(/\bvar\s+[A-Za-z_$]/.test(source), false);
@@ -3766,39 +3770,47 @@ test("page profiles own toolbar classes and normalize live-control classes", () 
 
 test("editor stylesheet keeps core config surface variables intact", () => {
   assert.equal(
+    editorSource.includes('import { EDITOR_STYLES } from "./styles.js";'),
+    true,
+  );
+  assert.equal(
+    editorSource.includes("this.innerHTML = `<style>${EDITOR_STYLES}</style>"),
+    true,
+  );
+  assert.equal(
     /:host\s*\{[\s\S]*?--editor-card-bg: var\(--card-background-color\);/.test(
-      editorSource,
+      editorStylesSource,
     ),
     true,
   );
   assert.equal(
     /:host\s*\{[\s\S]*?--editor-border: var\(--divider-color\);/.test(
-      editorSource,
+      editorStylesSource,
     ),
     true,
   );
   assert.equal(
     /:host\s*\{[\s\S]*?--editor-icon: var\(--icon-color, var\(--secondary-text-color\)\);/.test(
-      editorSource,
+      editorStylesSource,
     ),
     true,
   );
   assert.equal(
     /:host\s*\{[\s\S]*?--c-bg-main: var\(--editor-primary-bg\);/.test(
-      editorSource,
+      editorStylesSource,
     ),
     true,
   );
   assert.equal(
-    editorSource.includes("background:var(--editor-card-bg);"),
+    editorStylesSource.includes("background:var(--editor-card-bg);"),
     true,
   );
   assert.equal(
-    editorSource.includes("background:var(--editor-secondary-bg);"),
+    editorStylesSource.includes("background:var(--editor-secondary-bg);"),
     true,
   );
   assert.equal(
-    editorSource.includes("background:var(--editor-primary);"),
+    editorStylesSource.includes("background:var(--editor-primary);"),
     true,
   );
 });

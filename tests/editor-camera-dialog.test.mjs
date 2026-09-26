@@ -22,6 +22,10 @@ if (originalHTMLElement === undefined) {
 } else {
   globalThis.HTMLElement = originalHTMLElement;
 }
+const editorStylesSource = fs.readFileSync(
+  new URL("../src/editor/styles.js", import.meta.url),
+  "utf8",
+);
 
 test("camera deletion waits for confirmation and identifies the camera", () => {
   const editor = new FrigateViewCardEditor();
@@ -205,7 +209,10 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
   assert.match(source, /domain: "light"/);
   assert.match(source, /setupIconSelector\(/);
   assert.match(source, /required: false/);
-  assert.match(source, /\.cam-inline-add\[hidden\]\{display:none!important;\}/);
+  assert.match(
+    editorStylesSource,
+    /\.cam-inline-add\[hidden\]\{display:none!important;\}/,
+  );
   assert.ok(
     source.indexOf('id="camera-modal-name"') <
       source.indexOf('id="camera-modal-connection-type"'),
@@ -240,7 +247,7 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
     /class="field-helper camera-capability-status" id="camera-modal-two-way-talk-state"/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.camera-capability-status\{[^}]*border-radius:10px;[^}]*background:var\(--editor-secondary-bg\)/,
   );
   assert.match(
@@ -297,10 +304,13 @@ test("choice-chip markup keeps native radio semantics and interaction states", (
   assert.match(markup, /value="disabled"[^>]*disabled/);
   assert.match(markup, /editor-choice-chip-indicator/);
   assert.match(markup, /editor-choice-chip-body/);
-  assert.match(source, /editor-choice-chip-input:not\(:disabled\)[^}]*:hover/);
-  assert.match(source, /editor-choice-chip-input:focus-visible/);
-  assert.match(source, /editor-choice-chip-input:checked/);
-  assert.match(source, /editor-choice-chip-input:disabled/);
+  assert.match(
+    editorStylesSource,
+    /editor-choice-chip-input:not\(:disabled\)[^}]*:hover/,
+  );
+  assert.match(editorStylesSource, /editor-choice-chip-input:focus-visible/);
+  assert.match(editorStylesSource, /editor-choice-chip-input:checked/);
+  assert.match(editorStylesSource, /editor-choice-chip-input:disabled/);
 });
 
 test("only optional entity and icon selectors expose Home Assistant clear controls", () => {
@@ -946,11 +956,11 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
     /Frigate groups activity into reviews that may contain alerts, detections, or both\. Enable this to show every review in the Alerts tab; disable it to show alerts only\./,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.camera-modal-body\{[^}]*border:1px solid[^}]*border-radius:12px;/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.camera-modal-accordion \+ \.camera-modal-accordion\{[^}]*border-top:1px solid/,
   );
   assert.match(
@@ -973,7 +983,7 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
     source,
     /<dialog id="standalone-landing-modal" class="cam-modal-card cam-confirm-card standalone-landing-dialog"/,
   );
-  assert.match(source, /\.standalone-landing-dialog::backdrop/);
+  assert.match(editorStylesSource, /\.standalone-landing-dialog::backdrop/);
   assert.match(source, /id="standalone-landing-page"/);
   assert.match(source, /id="camera-modal-add-secondary"/);
   assert.match(
@@ -998,21 +1008,16 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
 });
 
 test("camera modal scrolls inside the available editor overlay", () => {
-  const source = fs.readFileSync(
-    new URL("../src/editor/FrigateViewCardEditor.js", import.meta.url),
-    "utf8",
-  );
-
   assert.match(
-    source,
+    editorStylesSource,
     /\.cam-modal\{[^}]*align-items:flex-start;[^}]*overflow:auto;[^}]*overscroll-behavior:contain;[^}]*z-index:10000;/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.cam-modal-card\{[^}]*width:min\(640px,100%\);[^}]*margin:auto;[^}]*overflow:visible;/,
   );
   assert.doesNotMatch(
-    source,
+    editorStylesSource,
     /\.cam-modal-card\{[^}]*max-height:calc\(100dvh - 24px\)/,
   );
 });
@@ -1124,18 +1129,18 @@ test("save-state reminder reserves normal-flow space in clean and dirty states",
     /id="config-save-reminder" class="config-save-reminder" role="status" aria-live="polite"/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.config-save-reminder\{[^}]*width:100%;[^}]*pointer-events:none;/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.config-save-reminder\{position:sticky;top:8px;z-index:20;[^}]*background:color-mix\(in srgb,var\(--success-color,#2e7d32\) 14%,transparent\);[^}]*backdrop-filter:blur\(8px\);/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.config-save-reminder\[data-config-save-state="dirty"\]/,
   );
-  assert.doesNotMatch(source, /\.config-save-reminder\[hidden\]/);
+  assert.doesNotMatch(editorStylesSource, /\.config-save-reminder\[hidden\]/);
   assert.match(
     source,
     /<div class="ed-wrap">\s*\$\{configSaveReminderMarkup\}\s*\$\{settingsPanelsMarkup\}/,
@@ -1815,52 +1820,52 @@ test("editor accordion panels share one compact settings container", () => {
 
   assert.equal(openingDivs.length, closingDivs.length);
   assert.match(
-    source,
+    editorStylesSource,
     /\.settings-container\{display:flex;flex-direction:column;gap:6px;\}/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /--c-bg-mobile:var\(--ha-color-fill-neutral-normal-resting,var\(--wa-color-neutral-fill-normal,var\(--secondary-background-color\)\)\);/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.setting-title:hover,\.settings-panel\.active \.setting-title\{background:var\(--c-bg-mobile\);border-bottom-color:var\(--c-border2, var\(--editor-border\)\);\}/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.setting-title\{[\s\S]*?font-family:inherit;[\s\S]*?font-size:14px;[\s\S]*?font-weight:700;[\s\S]*?line-height:1\.2;/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.setting-title h3\{margin:0;font:inherit;line-height:inherit;color:inherit;\}/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.setting-content > \.section:first-child\{border-top:none;\}/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.settings-panel\.active \.setting-content\{\s*max-height:none;/,
   );
   assert.match(source, /data-panel-more title="Show more options"/);
   assert.match(source, />More<\/span>\s*\$\{ICONS\.chevron\}/);
   assert.match(source, /const hasHiddenOptions = Number\(contentRect\.bottom\) > viewportBottom \+ 3;/);
   assert.doesNotMatch(source, /nextToggle\?\.scrollIntoView/);
-  assert.doesNotMatch(source, /\.settings-panel\.active \.setting-content\{[^}]*overflow-y:auto;/);
-  assert.doesNotMatch(source, /max-height:1400px/);
+  assert.doesNotMatch(editorStylesSource, /\.settings-panel\.active \.setting-content\{[^}]*overflow-y:auto;/);
+  assert.doesNotMatch(editorStylesSource, /max-height:1400px/);
   assert.doesNotMatch(source, /data-theme-mode-option/);
   assert.doesNotMatch(source, /theme-mode-editor/);
   assert.match(source, /data-theme-reset="\$\{key\}"/);
   assert.match(
-    source,
+    editorStylesSource,
     /\.cam-row\{[\s\S]*?border:1px solid var\(--c-border2, var\(--editor-border\)\);[\s\S]*?border-inline-start:4px solid var\(--c-primary, var\(--editor-primary\)\);[\s\S]*?background:var\(--c-bg-mobile, var\(--editor-secondary-bg\)\);/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.cam-row\.drop-target\{background:var\(--c-bg-main, var\(--editor-card-bg\)\);border-color:var\(--c-primary, var\(--editor-primary\)\);box-shadow:0 0 0 2px var\(--c-primary, var\(--editor-primary\)\);\}/,
   );
   assert.match(
-    source,
+    editorStylesSource,
     /\.cam-drag:hover,\.cam-drag:active\{background:var\(--c-primary, var\(--editor-primary\)\);border-color:var\(--c-primary, var\(--editor-primary\)\);color:var\(--c-text-rev, var\(--editor-card-bg\)\);\}/,
   );
   assert.match(

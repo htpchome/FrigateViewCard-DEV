@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import { minifyStyleModule } from "../scripts/minify-style-module.mjs";
 
@@ -65,4 +66,16 @@ export const EXAMPLE_STYLES = \`
   assert.match(result, /content:"↔"/);
   assert.match(result, /content:"Loading…"/);
   assert.doesNotMatch(result, /\\(?:2194|2026)/);
+});
+
+test("minifies the extracted editor stylesheet", async () => {
+  const source = fs.readFileSync(
+    new URL("../src/editor/styles.js", import.meta.url),
+    "utf8",
+  );
+  const result = await minifyStyleModule(source);
+
+  assert.match(result, /export const EDITOR_STYLES = `:host\{/);
+  assert.ok(Buffer.byteLength(result) < Buffer.byteLength(source));
+  assert.doesNotMatch(result, /\n\s+:host/);
 });
