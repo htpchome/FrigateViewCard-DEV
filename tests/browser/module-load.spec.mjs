@@ -762,7 +762,7 @@ test("Preview metadata relocalizes without replacing camera media", async ({ pag
     card.shadowRoot.querySelector("#card").append(cell);
     const video = cell.querySelector("video");
     card._browseWindowLoaderController.cameraAlertsCount = () => 2;
-    card._isPreviewCameraAlertLive = () => false;
+    card._previewAlertController.isCameraAlertLive = () => false;
     const english = card._localization;
     const phrases = {
       "runtime.preview.online": "En ligne",

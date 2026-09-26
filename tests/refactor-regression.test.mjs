@@ -1608,11 +1608,18 @@ test("preview helpers delegate through the preview page controller", () => {
   assert.equal(cardSource.includes("_previewShowTitleBarsEnabled() {"), false);
   assert.equal(cardSource.includes("_previewCellSeverity(entity) {"), false);
   assert.equal(
-    /_applyPreviewShellVisibility\(\) \{\s*if \(this\._isPreviewPageEnabled\(\) && this\._isPreviewPageActive\(\)\) \{\s*this\._ensurePreviewLayoutShell\(\);\s*\} else \{\s*this\._removePreviewLayoutShell\(\);\s*\}\s*this\._previewPageController\.applyPreviewShellVisibility\(\);\s*\}/s.test(
+    /_applyPreviewShellVisibility\(\) \{\s*this\._previewPageController\.applyPreviewShellVisibility\(\);\s*\}/s.test(
       cardSource,
     ),
     true,
   );
+  assert.equal(cardSource.includes("_ensurePreviewLayoutShell("), false);
+  assert.equal(cardSource.includes("_removePreviewLayoutShell("), false);
+  assert.equal(cardSource.includes("_isPreviewCameraAlertLive("), false);
+  assert.equal(cardSource.includes("_teardownPreviewMedia("), false);
+  assert.equal(cardSource.includes("_handlePreviewAlertStateChange("), false);
+  assert.equal(cardSource.includes("_exitPreviewPageToCamera("), false);
+  assert.equal(cardSource.includes("_returnToPreviewPage("), false);
   assert.equal(cardSource.includes("_previewShouldUseLive(entity) {"), false);
   assert.equal(cardSource.includes("_previewEventsCount(entity) {"), false);
   assert.equal(cardSource.includes("_previewLiveStreamHint() {"), false);

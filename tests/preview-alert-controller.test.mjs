@@ -38,7 +38,9 @@ test("handleRealtimeMessage marks camera live when alert severity is present", (
 test("markAlertCamera sends the active Preview page an explicit state change", () => {
   const calls = [];
   const host = createHost();
-  host._handlePreviewAlertStateChange = (detail) => calls.push(detail);
+  host._previewPageController = {
+    handleAlertStateChange: (detail) => calls.push(detail),
+  };
   const controller = new PreviewAlertController(host, {
     PREVIEW_ALERT_HOLD_MS: 6000,
     PREVIEW_ALERT_END_GRACE_MS: 3500,

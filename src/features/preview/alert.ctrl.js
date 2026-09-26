@@ -68,15 +68,11 @@ export class PreviewAlertController {
     this._scheduleAlertCleanup();
     const changed = !wasLive || previousSeverity !== normalizedSeverity;
     if (this._host._isPreviewPageActive()) {
-      if (typeof this._host._handlePreviewAlertStateChange === "function") {
-        this._host._handlePreviewAlertStateChange({
-          entity,
-          severity: normalizedSeverity,
-          changed,
-        });
-      } else {
-        this._host._renderPreviewPage();
-      }
+      this._notifyStateChange({
+        entity,
+        severity: normalizedSeverity,
+        changed,
+      });
     }
     return changed;
   }
@@ -216,10 +212,6 @@ export class PreviewAlertController {
     this.scheduleAlertWatch(350);
   }
 
-  stop() {
-    this.clearTimers();
-  }
-
   _scheduleAlertCleanup() {
     if (this._alertCleanupT) clearTimeout(this._alertCleanupT);
     let nextExpiry = 0;
@@ -245,16 +237,20 @@ export class PreviewAlertController {
         }
       }
       if (expiredEntities.length && this._host._isPreviewPageActive()) {
-        if (typeof this._host._handlePreviewAlertStateChange === "function") {
-          this._host._handlePreviewAlertStateChange({
-            entities: expiredEntities,
-            expired: true,
-          });
-        } else {
-          this._host._renderPreviewPage();
-        }
+        this._notifyStateChange({
+          entities: expiredEntities,
+          expired: true,
+        });
       }
       this._scheduleAlertCleanup();
     }, wait);
+  }
+
+  _notifyStateChange(detail) {
+    const pageController = this._host._previewPageController;
+    if (typeof pageController?.handleAlertStateChange === "function") {
+      return pageController.handleAlertStateChange(detail);
+    }
+    return this._host._renderPreviewPage();
   }
 }

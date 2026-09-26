@@ -56,14 +56,12 @@ const createHost = ({
     _reviews: [],
     _kept: [],
     _$: () => null,
-    _isPreviewCameraAlertLive: () => alertLive,
     _isLikelyPhoneClient: () => phoneDevice,
     _cameraConnectionType: (entity) =>
       entity === "camera.front_door" ? "ha_direct" : "webrtc",
     _shouldUseGo2RtcForEntity: (entity) =>
       entity !== "camera.front_door",
     _clearPreviewTimers: () => calls.push(["clearPreviewTimers"]),
-    _teardownPreviewMedia: () => calls.push(["teardownPreviewMedia"]),
     _applyPreviewShellVisibility: () =>
       calls.push(["applyPreviewShellVisibility"]),
     _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
@@ -99,6 +97,7 @@ const createHost = ({
     },
     _previewAlertController: {
       start: () => calls.push(["previewAlertStart"]),
+      isCameraAlertLive: () => alertLive,
       previewCellSeverity: (entity) =>
         entity === "camera.front_door" ? "alert" : "detection",
     },

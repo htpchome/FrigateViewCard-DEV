@@ -63,7 +63,7 @@ export class PreviewPageController {
   previewShouldUseLive(entity) {
     return (
       this.previewLiveCamerasEnabled() ||
-      this._host._isPreviewCameraAlertLive(entity)
+      this._host._previewAlertController.isCameraAlertLive(entity)
     );
   }
 

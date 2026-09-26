@@ -1522,20 +1522,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _applyPreviewShellVisibility() {
-    if (this._isPreviewPageEnabled() && this._isPreviewPageActive()) {
-      this._ensurePreviewLayoutShell();
-    } else {
-      this._removePreviewLayoutShell();
-    }
     this._previewPageController.applyPreviewShellVisibility();
-  }
-
-  _ensurePreviewLayoutShell() {
-    return this._previewPageController.ensurePreviewLayoutShell();
-  }
-
-  _removePreviewLayoutShell() {
-    this._previewPageController.removePreviewLayoutShell();
   }
 
   _clearPreviewTimers() {
@@ -1614,21 +1601,9 @@ export class FrigateViewCard extends HTMLElement {
     }, this._snapshotUpdateMs());
   }
 
-  _isPreviewCameraAlertLive(entity) {
-    return this._previewAlertController.isCameraAlertLive(entity);
-  }
-
-  _teardownPreviewMedia() {
-    this._previewPageController.teardownPreviewMedia();
-  }
-
   _renderPreviewPage() {
     this._previewPageController.renderPreviewPage();
     this._syncSnapshotRefreshTimer();
-  }
-
-  _handlePreviewAlertStateChange(detail = {}) {
-    return this._previewPageController.handleAlertStateChange(detail);
   }
 
   _refreshSnapshotMedia() {
@@ -1641,14 +1616,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _stopPreviewMode() {
     this._previewPageController.stopPreviewMode();
-  }
-
-  _exitPreviewPageToCamera(idx, selectedEntity = "") {
-    this._previewPageController.exitPreviewPageToCamera(idx, selectedEntity);
-  }
-
-  _returnToPreviewPage() {
-    this._previewPageController.returnToPreviewPage();
   }
 
   // ── view mode ─────────────────────────────────────────────
@@ -3823,7 +3790,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     const previewButton = target.closest("[data-preview-select-camidx]");
     if (previewButton && this._isPreviewPageActive()) {
-      this._exitPreviewPageToCamera(
+      this._previewPageController.exitPreviewPageToCamera(
         Number(previewButton.dataset.previewSelectCamidx),
         previewButton.dataset.previewSelectEntity || "",
       );
@@ -3831,7 +3798,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     const previewCell = target.closest("[data-preview-camidx]");
     if (previewCell && this._isPreviewPageActive()) {
-      this._exitPreviewPageToCamera(
+      this._previewPageController.exitPreviewPageToCamera(
         Number(previewCell.dataset.previewCamidx),
         previewCell.dataset.previewEntity || "",
       );
@@ -3839,7 +3806,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     const previewBack = target.closest("[data-preview-back]");
     if (previewBack) {
-      this._returnToPreviewPage();
+      this._previewPageController.returnToPreviewPage();
       return true;
     }
     return false;
