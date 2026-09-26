@@ -1855,54 +1855,6 @@ export class FrigateViewCard extends HTMLElement {
     return ICONS.grid;
   }
 
-  _clearSlideshowCountdownOverlay() {
-    this._slideshowNextSwitchAtMs = 0;
-    if (this._slideshowCountdownT) clearInterval(this._slideshowCountdownT);
-    this._slideshowCountdownT = null;
-    const chip = this._$("#slideshow-next-chip");
-    if (chip) {
-      chip.hidden = true;
-      setLocalizedText(chip, "runtime.live.nextSlide", this._localization.t, {
-        seconds: 0,
-      });
-    }
-    this._cardViewPageController?.syncStandaloneSlideshowCountdown?.();
-  }
-
-  _syncSlideshowCountdownOverlay() {
-    const chip = this._$("#slideshow-next-chip");
-    const show =
-      this._slideshowActive &&
-      this._viewMode === "single" &&
-      this._isSlideshowRotationAvailable() &&
-      !this._slideshowPopupPaused;
-    if (chip && !show) {
-      chip.hidden = true;
-    }
-    if (chip && show) {
-      const remainingMs = Math.max(
-        0,
-        Number(this._slideshowNextSwitchAtMs || 0) - Date.now(),
-      );
-      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
-      setLocalizedText(chip, "runtime.live.nextSlide", this._localization.t, {
-        seconds: remainingSec,
-      });
-      chip.hidden = false;
-    }
-    this._cardViewPageController?.syncStandaloneSlideshowCountdown?.();
-  }
-
-  _setSlideshowCountdown(waitMs) {
-    this._slideshowNextSwitchAtMs =
-      Date.now() + Math.max(0, Number(waitMs) || 0);
-    if (this._slideshowCountdownT) clearInterval(this._slideshowCountdownT);
-    this._syncSlideshowCountdownOverlay();
-    this._slideshowCountdownT = setInterval(() => {
-      this._syncSlideshowCountdownOverlay();
-    }, 250);
-  }
-
   _isControlsButtonVisible() {
     return (
       (!this._activeGroupMemberOverride ||
@@ -2979,7 +2931,7 @@ export class FrigateViewCard extends HTMLElement {
     this._initLiveOverlayControls();
     this._renderMuteButton();
     this._syncFullscreenButtonsVisibility();
-    this._syncSlideshowCountdownOverlay();
+    this._slideshowPageController.syncCountdownOverlay();
     this._renderPreviewPage();
     this._wideViewPageController.renderCompanionCameras();
     this._applyPreviewShellVisibility();

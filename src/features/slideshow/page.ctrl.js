@@ -2,6 +2,7 @@ import {
   cameraMemberEntities,
   flattenCameraMembers,
 } from "../camera-groups/model.js";
+import { setLocalizedText } from "../localization/localized-dom.js";
 
 export class SlideshowPageController {
   constructor(host) {
@@ -26,6 +27,64 @@ export class SlideshowPageController {
     this._host._slideshowReviewWatchT = null;
   }
 
+  clearCountdownOverlay() {
+    this._host._slideshowNextSwitchAtMs = 0;
+    if (this._host._slideshowCountdownT) {
+      clearInterval(this._host._slideshowCountdownT);
+    }
+    this._host._slideshowCountdownT = null;
+    const chip = this._host._$("#slideshow-next-chip");
+    if (chip) {
+      chip.hidden = true;
+      setLocalizedText(
+        chip,
+        "runtime.live.nextSlide",
+        this._host._localization.t,
+        { seconds: 0 },
+      );
+    }
+    this._host._cardViewPageController?.syncStandaloneSlideshowCountdown?.();
+  }
+
+  syncCountdownOverlay() {
+    const chip = this._host._$("#slideshow-next-chip");
+    const show =
+      this._host._slideshowActive &&
+      this._host._viewMode === "single" &&
+      this._host._isSlideshowRotationAvailable() &&
+      !this._host._slideshowPopupPaused;
+    if (chip && !show) {
+      chip.hidden = true;
+    }
+    if (chip && show) {
+      const remainingMs = Math.max(
+        0,
+        Number(this._host._slideshowNextSwitchAtMs || 0) - Date.now(),
+      );
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+      setLocalizedText(
+        chip,
+        "runtime.live.nextSlide",
+        this._host._localization.t,
+        { seconds: remainingSec },
+      );
+      chip.hidden = false;
+    }
+    this._host._cardViewPageController?.syncStandaloneSlideshowCountdown?.();
+  }
+
+  setCountdown(waitMs) {
+    this._host._slideshowNextSwitchAtMs =
+      Date.now() + Math.max(0, Number(waitMs) || 0);
+    if (this._host._slideshowCountdownT) {
+      clearInterval(this._host._slideshowCountdownT);
+    }
+    this.syncCountdownOverlay();
+    this._host._slideshowCountdownT = setInterval(() => {
+      this.syncCountdownOverlay();
+    }, 250);
+  }
+
   stopRotation(reason = "manual-stop", sync = true) {
     const restoreGroupedLive =
       reason === "manual-stop" &&
@@ -33,7 +92,7 @@ export class SlideshowPageController {
       cameraMemberEntities(this._host._activeCam).length > 1;
     const clearMemberOverride = reason !== "manual-camera-select";
     this.clearTimers();
-    this._host._clearSlideshowCountdownOverlay();
+    this.clearCountdownOverlay();
     this._host._slideshowActive = false;
     this._host._slideshowPopupPaused = false;
     this._host._slideshowPausedUntil = 0;
@@ -94,7 +153,7 @@ export class SlideshowPageController {
   pauseForPopup() {
     if (!this._host._slideshowActive) return;
     this._host._slideshowPopupPaused = true;
-    this._host._syncSlideshowCountdownOverlay();
+    this.syncCountdownOverlay();
     if (this._host._slideshowSwitchT)
       clearTimeout(this._host._slideshowSwitchT);
     if (this._host._slideshowPauseT) clearTimeout(this._host._slideshowPauseT);
@@ -178,11 +237,11 @@ export class SlideshowPageController {
       !this._host._slideshowActive ||
       !this._host._isSlideshowRotationAvailable()
     ) {
-      this._host._clearSlideshowCountdownOverlay();
+      this.clearCountdownOverlay();
       return;
     }
     if (this._host._slideshowPopupPaused) {
-      this._host._syncSlideshowCountdownOverlay();
+      this.syncCountdownOverlay();
       return;
     }
     if (this._host._slideshowSwitchT)
@@ -192,7 +251,7 @@ export class SlideshowPageController {
       this._host._slideshowPausedUntil > Date.now()
         ? delay
         : this._host._slideshowRotationMs();
-    this._host._setSlideshowCountdown(wait);
+    this.setCountdown(wait);
     this._host._slideshowSwitchT = setTimeout(() => {
       this._host._slideshowSwitchT = null;
       void this.advanceRotation();

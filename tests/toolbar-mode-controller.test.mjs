@@ -614,9 +614,9 @@ test("slideshow interaction restart schedules only one interval", async () => {
       _slideshowSwitchT: null,
       _isSlideshowRotationAvailable: () => true,
       _slideshowRotationMs: () => 5000,
-      _setSlideshowCountdown: (delay) => countdowns.push(delay),
     };
     const controller = new SlideshowPageController(host);
+    controller.setCountdown = (delay) => countdowns.push(delay);
     let advances = 0;
     controller.advanceRotation = async () => {
       advances += 1;
@@ -638,6 +638,73 @@ test("slideshow interaction restart schedules only one interval", async () => {
     global.setTimeout = originalSetTimeout;
     global.clearTimeout = originalClearTimeout;
     Date.now = originalDateNow;
+  }
+});
+
+test("slideshow controller owns countdown presentation and cleanup", () => {
+  const originalDateNow = Date.now;
+  const originalSetInterval = global.setInterval;
+  const originalClearInterval = global.clearInterval;
+  let now = 1000;
+  const cleared = [];
+  const intervals = [];
+  const attributes = new Map();
+  const chip = {
+    hidden: true,
+    textContent: "",
+    getAttribute: (name) => attributes.get(name) ?? null,
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: (name) => attributes.delete(name),
+  };
+  Date.now = () => now;
+  global.setInterval = (callback, delay) => {
+    const timer = { callback, delay };
+    intervals.push(timer);
+    return timer;
+  };
+  global.clearInterval = (timer) => cleared.push(timer);
+  const calls = [];
+  const host = {
+    _slideshowActive: true,
+    _slideshowPopupPaused: false,
+    _slideshowCountdownT: null,
+    _slideshowNextSwitchAtMs: 0,
+    _viewMode: "single",
+    _isSlideshowRotationAvailable: () => true,
+    _localization: {
+      t: (_key, values) => `Next Slide: ${values.seconds}s`,
+    },
+    _$: (selector) => selector === "#slideshow-next-chip" ? chip : null,
+    _cardViewPageController: {
+      syncStandaloneSlideshowCountdown: () => calls.push("sync"),
+    },
+  };
+  const controller = new SlideshowPageController(host);
+
+  try {
+    controller.setCountdown(5000);
+
+    assert.equal(host._slideshowNextSwitchAtMs, 6000);
+    assert.equal(chip.hidden, false);
+    assert.equal(chip.textContent, "Next Slide: 5s");
+    assert.equal(intervals.length, 1);
+    assert.equal(intervals[0].delay, 250);
+
+    now = 2000;
+    intervals[0].callback();
+    assert.equal(chip.textContent, "Next Slide: 4s");
+
+    controller.clearCountdownOverlay();
+    assert.equal(host._slideshowNextSwitchAtMs, 0);
+    assert.equal(host._slideshowCountdownT, null);
+    assert.equal(chip.hidden, true);
+    assert.equal(chip.textContent, "Next Slide: 0s");
+    assert.deepEqual(cleared, [intervals[0]]);
+    assert.deepEqual(calls, ["sync", "sync", "sync"]);
+  } finally {
+    Date.now = originalDateNow;
+    global.setInterval = originalSetInterval;
+    global.clearInterval = originalClearInterval;
   }
 });
 

@@ -1141,7 +1141,7 @@ test("runtime camera status and rebuilt picker remain localized without remounti
     mobile._config = mobileConfig;
     mobile._mobileViewPageController.renderCamSwitcher();
     mobile._setStreamLoading(true);
-    mobile._clearSlideshowCountdownOverlay();
+    mobile._slideshowPageController.clearCountdownOverlay();
 
     const single = document.createElement("frigate-view-card");
     document.body.append(single);
