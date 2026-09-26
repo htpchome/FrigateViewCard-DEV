@@ -2,7 +2,7 @@ import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelaceRoot,
   resolveHomeAssistantDashboardKey,
-} from "./navbar.ctrl.js";
+} from "./lovelace-dom.js";
 import {
   DASHBOARD_SWIPE_NAVIGATION_MODES,
   normalizeDashboardSwipeNavigationMode,

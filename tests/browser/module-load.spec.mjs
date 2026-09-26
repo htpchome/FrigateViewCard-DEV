@@ -17,6 +17,10 @@ const bundlePaths = new Map([
         "/frigate-view-card-dashboard-swipe-navigation.js",
         "dist/frigate-view-card-dashboard-swipe-navigation.js",
       ],
+      [
+        "/frigate-view-card-navbar.js",
+        "dist/frigate-view-card-navbar.js",
+      ],
   ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
   ...LANGUAGE_ASSET_NAMES.map((language) => [
     `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
@@ -473,6 +477,37 @@ test("loads dashboard swipe navigation only for an enabled owner card", async ({
 
   expect(assetRequests).toHaveLength(1);
   expect(state).toEqual({ loaded: true, scopeActive: false });
+});
+
+test("loads navbar customization only when a mobile card needs it", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-navbar.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    card._config = { mobile_view_ha_navbar_bottom: true };
+    card._isLikelyMobileClient = () => true;
+    const controller = card._haNavbarController;
+    controller.sync();
+    const deadline = performance.now() + 2000;
+    while (!controller._delegate && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return { loaded: Boolean(controller._delegate) };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({ loaded: true });
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({
@@ -6131,6 +6166,14 @@ test.describe("touch input", () => {
               ],
               retainViewportCover: true,
             });
+
+            const navbarReadyDeadline = performance.now() + 2000;
+            while (
+              getComputedStyle(view).zIndex !== "2" &&
+              performance.now() < navbarReadyDeadline
+            ) {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
 
             const hit = shellRoot.elementFromPoint(
               422,

@@ -18,6 +18,7 @@ const editorOutputFile = "dist/frigate-view-card-editor.js";
 const circlePadOutputFile = "dist/frigate-view-card-circle-pad.js";
 const dashboardSwipeOutputFile =
   "dist/frigate-view-card-dashboard-swipe-navigation.js";
+const navbarOutputFile = "dist/frigate-view-card-navbar.js";
 const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
 const hlsLicenseOutputFile =
   "dist/frigate-view-card-hls-1.5.17.LICENSE.txt";
@@ -86,6 +87,10 @@ const dashboardSwipeOutput = await buildBundle({
     "src/integrations/home-assistant/dashboard-swipe-navigation.ctrl.js",
   outfile: dashboardSwipeOutputFile,
 });
+const navbarOutput = await buildBundle({
+  entryPoint: "src/integrations/home-assistant/navbar.ctrl.js",
+  outfile: navbarOutputFile,
+});
 // Write the watched runtime artifact last so dev sync never copies a stale
 // companion bundle alongside a newly built card.
 const output = await buildBundle({
@@ -124,6 +129,9 @@ const circlePadOutputSizeKib = (
 const dashboardSwipeOutputSizeKib = (
   Buffer.byteLength(dashboardSwipeOutput) / 1024
 ).toFixed(1);
+const navbarOutputSizeKib = (
+  Buffer.byteLength(navbarOutput) / 1024
+).toFixed(1);
 const hlsOutputSizeKib = ((await stat(hlsOutputFile)).size / 1024).toFixed(1);
 const languageAssetsSizeKib = (
   languageAssetSizes.reduce((total, size) => total + size, 0) / 1024
@@ -134,6 +142,7 @@ console.info(`  ${circlePadOutputFile}  ${circlePadOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${dashboardSwipeOutputFile}  ${dashboardSwipeOutputSizeKib} KiB (lazy)`,
 );
+console.info(`  ${navbarOutputFile}  ${navbarOutputSizeKib} KiB (lazy)`);
 console.info(`  ${hlsOutputFile}  ${hlsOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${LANGUAGE_ASSET_NAMES.length} locale assets  ${languageAssetsSizeKib} KiB (lazy)`,

@@ -2,7 +2,7 @@ import { CARD_DISPLAY_NAME, CARD_TAG, VERSION } from "./constants.js";
 import { FrigateViewCard } from "./card/FrigateViewCard.js";
 import { registerLiveStreamHostElement } from "./features/live/stream.element.js";
 import { DEVICE_PROFILE } from "./helpers.js";
-import { installHomeAssistantDashboardNavbarCustomization } from "./integrations/home-assistant/navbar.ctrl.js";
+import { installLazyHomeAssistantDashboardNavbarCustomization } from "./integrations/home-assistant/navbar.loader.js";
 import { installLazyHomeAssistantDashboardSwipeNavigation } from "./integrations/home-assistant/dashboard-swipe-navigation.loader.js";
 import { installDeepLinkHashRouteBridge } from "./features/navigation/deep-link.ctrl.js";
 
@@ -11,7 +11,7 @@ installDeepLinkHashRouteBridge();
 if (!customElements.get(CARD_TAG))
   customElements.define(CARD_TAG, FrigateViewCard);
 registerLiveStreamHostElement();
-installHomeAssistantDashboardNavbarCustomization({
+installLazyHomeAssistantDashboardNavbarCustomization({
   cardTag: CARD_TAG,
   isMobile: DEVICE_PROFILE.isMobile,
   isPhone: DEVICE_PROFILE.isPhone,

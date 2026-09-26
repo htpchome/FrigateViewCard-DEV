@@ -52,7 +52,12 @@ test("Home Assistant dashboard composition preserves controller order and naviga
   };
 
   const result = createHomeAssistantDashboardControllers(card, {
-    deviceProfile: { hasTouch: true, isIOS: true },
+    deviceProfile: {
+      hasTouch: true,
+      isMobile: true,
+      isPhone: true,
+      isIOS: true,
+    },
     factories,
   });
 
@@ -66,7 +71,12 @@ test("Home Assistant dashboard composition preserves controller order and naviga
     ["create-swipe", card],
     ["create-background", card],
   ]);
-  assert.deepEqual(options.navbar, { isIOS: true });
+  assert.deepEqual(options.navbar, {
+    cardTag: CARD_TAG,
+    isMobile: true,
+    isPhone: true,
+    isIOS: true,
+  });
   assert.equal(options.swipe.hasTouch, true);
   assert.equal(options.swipe.cardTag, CARD_TAG);
   assert.equal(options.swipe.enforceDashboardOwner, true);

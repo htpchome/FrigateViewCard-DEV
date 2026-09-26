@@ -67,6 +67,8 @@ HACS installs the generated assets from `dist/`. The main resource remains
 `frigate-view-card.js`; the editor is loaded when the visual editor opens, and
 the PTZ circle control is loaded when the Controls panel first renders, and
 dashboard swipe navigation is loaded only when its dashboard owner enables it.
+Home Assistant navbar customization is likewise loaded only when a bottom
+navbar or rotation presentation needs it.
 The versioned HLS.js companion is loaded only when a browser without native
 HLS needs it for recording playback. FrigateViewCard and HLS.js license files
 are included alongside those assets.
@@ -98,13 +100,14 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
            ├── frigate-view-card-editor.js
            ├── frigate-view-card-circle-pad.js
            ├── frigate-view-card-dashboard-swipe-navigation.js
+           ├── frigate-view-card-navbar.js
            ├── frigate-view-card-hls-1.5.17.js
            ├── frigate-view-card-hls-1.5.17.LICENSE.txt
            └── frigate-view-card.LICENSE.txt
    ```
 
    Keep all files together in that folder. The main card loads the editor, PTZ
-   circle control, dashboard swipe navigation, and HLS companion file from
+   circle control, dashboard swipe navigation, navbar customization, and HLS companion file from
    paths relative to `frigate-view-card.js`. The two license files cover
    FrigateViewCard and its bundled HLS.js dependency.
 

@@ -1,5 +1,8 @@
 import { VERSION } from "../../constants.js";
-import { findCurrentHomeAssistantLovelaceRoot } from "./navbar.ctrl.js";
+import {
+  findCurrentHomeAssistantLovelaceRoot,
+  findHomeAssistantLovelacePanel,
+} from "./lovelace-dom.js";
 
 const DASHBOARD_SWIPE_ASSET_NAME =
   "frigate-view-card-dashboard-swipe-navigation.js";
@@ -54,37 +57,9 @@ const findDashboardSwipeOwnerConfig = (
   return null;
 };
 
-const composedParent = (element) => {
-  if (!element) return null;
-  if (element.parentNode) return element.parentNode;
-  const root = element.getRootNode?.();
-  return root && root !== element ? root.host || null : element.host || null;
-};
-
-const findLovelacePanel = (huiRoot, documentRef = globalThis.document) => {
-  let current = huiRoot;
-  for (let depth = 0; current && depth < 12; depth += 1) {
-    if (String(current.tagName || "").toUpperCase() === "HA-PANEL-LOVELACE") {
-      return current;
-    }
-    current = composedParent(current);
-  }
-  const homeAssistant = documentRef?.querySelector?.("home-assistant");
-  const mainRoot = homeAssistant?.shadowRoot?.querySelector?.(
-    "home-assistant-main",
-  )?.shadowRoot;
-  const resolver = mainRoot?.querySelector?.("partial-panel-resolver");
-  return (
-    resolver?.querySelector?.("ha-panel-lovelace") ||
-    resolver?.shadowRoot?.querySelector?.("ha-panel-lovelace") ||
-    mainRoot?.querySelector?.("ha-panel-lovelace") ||
-    null
-  );
-};
-
 const findCurrentDashboardHuiRoot = (documentRef) =>
   findCurrentHomeAssistantLovelaceRoot(documentRef) ||
-  findLovelacePanel(null, documentRef)?.shadowRoot?.querySelector?.(
+  findHomeAssistantLovelacePanel(null, documentRef)?.shadowRoot?.querySelector?.(
     "hui-root",
   ) ||
   null;
@@ -226,7 +201,8 @@ export const installLazyHomeAssistantDashboardSwipeNavigation = ({
   setTimeoutFn = windowRef?.setTimeout?.bind(windowRef) || globalThis.setTimeout,
   createLocationChangedEvent = null,
   findCurrentHuiRoot = () => findCurrentDashboardHuiRoot(documentRef),
-  findPanel = (huiRoot) => findLovelacePanel(huiRoot, documentRef),
+  findPanel = (huiRoot) =>
+    findHomeAssistantLovelacePanel(huiRoot, documentRef),
   loadModule = ensureDashboardSwipeNavigationModule,
 } = {}) => {
   if (!windowRef || !documentRef) return null;

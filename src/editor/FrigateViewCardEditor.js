@@ -98,7 +98,7 @@ import {
   resolveThemeCustomEditorConfig,
 } from "../features/card-style/config.js";
 import { resolveHomeAssistantThemeContext } from "../features/card-style/context.ctrl.js";
-import { resolveDashboardNavbarCardOwnership } from "../integrations/home-assistant/navbar.ctrl.js";
+import { resolveDashboardNavbarCardOwnership } from "../integrations/home-assistant/navbar-policy.js";
 import {
   WIDE_LEFT_WIDTH_MAX,
   WIDE_LEFT_WIDTH_MIN,

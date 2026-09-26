@@ -2563,7 +2563,7 @@ test("Home Assistant dashboard controller composition is integration-owned", () 
   );
   assert.equal(
     haDashboardCompositionSource.includes(
-      "new HomeAssistantNavbarController(card, options)",
+      "new LazyHomeAssistantNavbarController(card, options)",
     ),
     true,
   );

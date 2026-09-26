@@ -1,3 +1,24 @@
+import {
+  composedParent,
+  findCurrentHomeAssistantLovelaceRoot,
+  findHomeAssistantLovelacePanel,
+  findHomeAssistantLovelaceRoot,
+  resolveHomeAssistantDashboardKey,
+} from "./lovelace-dom.js";
+import {
+  normalizeCardTag,
+  resolveDashboardNavbarCardOwnership,
+  resolveDashboardNavbarOwnership,
+} from "./navbar-policy.js";
+
+export {
+  findCurrentHomeAssistantLovelaceRoot,
+  findHomeAssistantLovelaceRoot,
+  resolveDashboardNavbarCardOwnership,
+  resolveDashboardNavbarOwnership,
+  resolveHomeAssistantDashboardKey,
+};
+
 // Keep Home Assistant shell mutations isolated and fully reversible.
 const NAVBAR_STYLE_ATTRIBUTE = "data-frigate-view-ha-navbar-style";
 // Scope z-index rules to HA's resolved header, not popup headers in the view.
@@ -146,13 +167,6 @@ const restoreInlineStyles = (element, snapshot, appliedStyles) => {
   }
 };
 
-const composedParent = (element) => {
-  if (!element) return null;
-  if (element.parentNode) return element.parentNode;
-  const root = element.getRootNode?.();
-  return root && root !== element ? root.host || null : element.host || null;
-};
-
 const isInsideBubblePopup = (host) => {
   let element = composedParent(host);
   for (let depth = 0; element && depth < 40; depth += 1) {
@@ -168,96 +182,11 @@ const isInsideBubblePopup = (host) => {
   return false;
 };
 
-export const findHomeAssistantLovelaceRoot = (host) => {
-  let current = host;
-  for (let depth = 0; current && depth < 40; depth += 1) {
-    if (String(current.tagName || "").toUpperCase() === "HUI-ROOT") {
-      return current;
-    }
-    current = composedParent(current);
-  }
-  return null;
-};
-
-export const findCurrentHomeAssistantLovelaceRoot = (
-  documentRef = globalThis.document,
-) => {
-  const homeAssistant = documentRef?.querySelector?.("home-assistant");
-  const mainRoot = homeAssistant?.shadowRoot?.querySelector?.(
-    "home-assistant-main",
-  )?.shadowRoot;
-  const resolver = mainRoot?.querySelector?.("partial-panel-resolver");
-  const lovelacePanel =
-    resolver?.querySelector?.("ha-panel-lovelace") ||
-    resolver?.shadowRoot?.querySelector?.("ha-panel-lovelace") ||
-    mainRoot?.querySelector?.("ha-panel-lovelace");
-  return lovelacePanel?.shadowRoot?.querySelector?.("hui-root") || null;
-};
-
 const findHomeAssistantMainRoot = (documentRef) => {
   const homeAssistant = documentRef?.querySelector?.("home-assistant");
   return (
     homeAssistant?.shadowRoot?.querySelector?.("home-assistant-main")
       ?.shadowRoot || null
-  );
-};
-
-const normalizeDashboardPath = (value) => {
-  const normalized = String(value || "")
-    .trim()
-    .replace(/\/+$/, "");
-  return normalized || "";
-};
-
-export const resolveHomeAssistantDashboardKey = (
-  huiRoot,
-  windowRef = globalThis.window,
-) => {
-  const routePrefix = normalizeDashboardPath(
-    huiRoot?.route?.prefix || huiRoot?._route?.prefix,
-  );
-  if (routePrefix) return `route:${routePrefix}`;
-
-  const firstPathSegment = String(windowRef?.location?.pathname || "")
-    .split("/")
-    .filter(Boolean)[0];
-  if (firstPathSegment) return `path:/${firstPathSegment}`;
-
-  return huiRoot || null;
-};
-
-const normalizeCardTag = (cardTag) =>
-  String(cardTag || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^custom:/, "");
-
-const dashboardViewName = (view, index) => {
-  const configuredPath = String(view?.path || "")
-    .trim()
-    .replace(/^\/+|\/+$/g, "");
-  return configuredPath || String(index);
-};
-
-const findHomeAssistantLovelacePanel = (huiRoot, documentRef) => {
-  let current = huiRoot;
-  for (let depth = 0; current && depth < 12; depth += 1) {
-    if (String(current.tagName || "").toUpperCase() === "HA-PANEL-LOVELACE") {
-      return current;
-    }
-    current = composedParent(current);
-  }
-
-  const homeAssistant = documentRef?.querySelector?.("home-assistant");
-  const mainRoot = homeAssistant?.shadowRoot?.querySelector?.(
-    "home-assistant-main",
-  )?.shadowRoot;
-  const resolver = mainRoot?.querySelector?.("partial-panel-resolver");
-  return (
-    resolver?.querySelector?.("ha-panel-lovelace") ||
-    resolver?.shadowRoot?.querySelector?.("ha-panel-lovelace") ||
-    mainRoot?.querySelector?.("ha-panel-lovelace") ||
-    null
   );
 };
 
@@ -284,89 +213,6 @@ const findNavbarBootstrapObserverTargets = (documentRef) => {
     (target, index, targets) =>
       Boolean(target) && targets.indexOf(target) === index,
   );
-};
-
-export const resolveDashboardNavbarOwnership = (
-  dashboardConfig,
-  cardTag = "frigate-view-card",
-) => {
-  const normalizedCardTag = normalizeCardTag(cardTag);
-  const cards = [];
-  if (!normalizedCardTag || !Array.isArray(dashboardConfig?.views)) {
-    return { cards, claimants: [], owner: null, conflicts: [] };
-  }
-
-  let cardOrder = 0;
-  dashboardConfig.views.forEach((view, viewIndex) => {
-    const visited = new Set();
-    const visit = (value, depth = 0) => {
-      if (!value || typeof value !== "object" || depth > 30) return;
-      if (visited.has(value)) return;
-      visited.add(value);
-      if (
-        !Array.isArray(value) &&
-        normalizeCardTag(value.type) === normalizedCardTag
-      ) {
-        cards.push({
-          config: value,
-          cardOrder,
-          view,
-          viewIndex,
-          viewName: dashboardViewName(view, viewIndex),
-          viewTitle:
-            String(view?.title || "").trim() || `Page ${viewIndex + 1}`,
-        });
-        cardOrder += 1;
-        return;
-      }
-      Object.values(value).forEach((entry) => visit(entry, depth + 1));
-    };
-    visit(view);
-  });
-
-  const claimants = cards.filter(
-    ({ config }) =>
-      config?.mobile_view_ha_navbar_bottom === true &&
-      config?.mobile_view_ha_navbar_dashboard === true,
-  );
-  return {
-    cards,
-    claimants,
-    owner: claimants[0] || null,
-    conflicts: claimants.slice(1),
-  };
-};
-
-export const resolveDashboardNavbarCardOwnership = ({
-  dashboardConfig,
-  sourceConfig = null,
-  requested = false,
-  cardTag = "frigate-view-card",
-  currentViewName = "",
-} = {}) => {
-  const ownership = resolveDashboardNavbarOwnership(dashboardConfig, cardTag);
-  const exactRecord = ownership.cards.find(
-    ({ config }) => config === sourceConfig,
-  );
-  const currentViewClaimants = ownership.claimants.filter(
-    ({ viewName }) => viewName === currentViewName,
-  );
-  const currentCardIsResolvedOwner =
-    Boolean(ownership.owner) &&
-    (ownership.owner === exactRecord ||
-      (!exactRecord &&
-        requested &&
-        ownership.owner.viewName === currentViewName &&
-        currentViewClaimants.length === 1));
-  const isOwner =
-    requested && (!ownership.owner || currentCardIsResolvedOwner);
-  return {
-    ...ownership,
-    requested,
-    isOwner,
-    locked: Boolean(ownership.owner) && !currentCardIsResolvedOwner,
-    conflict: requested && Boolean(ownership.owner) && !isOwner,
-  };
 };
 
 export const resolveHomeAssistantNavbarTargets = (huiRoot) => {
