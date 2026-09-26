@@ -11,7 +11,6 @@ import {
   MOBILE_BATTERY_SAVER_POLL_SECONDS,
   SNAPSHOT_UPDATE_SECONDS,
   SNAPSHOT_UPDATE_OPTIONS_SECONDS,
-  SLIDESHOW_ROTATION_OPTIONS_SECONDS,
   SLIDESHOW_ALERT_HOLD_MS,
   GRID_ALERT_HOLD_MS,
   PREVIEW_ALERT_HOLD_MS,
@@ -735,7 +734,7 @@ export class FrigateViewCard extends HTMLElement {
     this._linkedLightController?.sync?.();
     this._applyScopedVideoFactoryDefaultsFromConfig(nextConfig);
     this._navigationFactory = null;
-    if (!this._isSlideshowRotationAvailable()) {
+    if (!this._slideshowPageController.available()) {
       this._stopSlideshowRotation("config-change");
     }
     if (!this._isGridModeAvailable()) {
@@ -1830,21 +1829,6 @@ export class FrigateViewCard extends HTMLElement {
     this._syncToolbarButtons();
   }
 
-  _isSlideshowRotationAvailable() {
-    return (
-      this._config?.slideshow_rotation_enabled === true &&
-      Array.isArray(this._config?.cameras) &&
-      flattenCameraMembers(this._config.cameras).length > 1
-    );
-  }
-
-  _slideshowRotationMs() {
-    const seconds = Number(this._config?.slideshow_rotation_seconds);
-    return SLIDESHOW_ROTATION_OPTIONS_SECONDS.includes(seconds)
-      ? seconds * 1000
-      : 30000;
-  }
-
   _slideshowButtonIcon() {
     return this._slideshowActive
       ? ICONS.presentationPlayActive
@@ -1910,7 +1894,8 @@ export class FrigateViewCard extends HTMLElement {
       this._activePageShellCapabilities().tabsVariant !== "none"
     ) {
       const shouldShowGrid = this._isGridModeAvailable();
-      const shouldShowSlideshow = this._isSlideshowRotationAvailable();
+      const shouldShowSlideshow =
+        this._slideshowPageController.available();
       const shouldShowWideAlertTakeover =
         this._isAlertCameraTakeoverAvailable() &&
         this._wideViewPageController.isWideViewPageActive();
@@ -1998,7 +1983,7 @@ export class FrigateViewCard extends HTMLElement {
 
     const slideshowBtn = this._pageShellRegionElement("tools", "#slideshow-btn");
     if (slideshowBtn) {
-      const available = this._isSlideshowRotationAvailable();
+      const available = this._slideshowPageController.available();
       slideshowBtn.hidden = !available;
       slideshowBtn.style.display = available ? "" : "none";
       slideshowBtn.disabled = buttonStates.slideshowDisabled;
@@ -2648,7 +2633,8 @@ export class FrigateViewCard extends HTMLElement {
       isFilterPanelOpen: filterPanelOpen,
       isCalendarPanelOpen: calendarPanelOpen,
       isGridModeAvailable: this._isGridModeAvailable(),
-      isSlideshowRotationAvailable: this._isSlideshowRotationAvailable(),
+      isSlideshowRotationAvailable:
+        this._slideshowPageController.available(),
       isSlideshowActive: this._slideshowActive,
       isControlsVisible: buttonStates.controlsVisible,
       controlsDisabled: buttonStates.controlsDisabled,

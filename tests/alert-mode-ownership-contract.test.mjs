@@ -34,7 +34,6 @@ const createModeHarness = ({
     },
     _isGridModeAvailable: () => true,
     _isGridSessionActive: () => host._viewMode === "grid",
-    _isSlideshowRotationAvailable: () => true,
     _alertCameraTakeoverEnabled: () => takeoverEnabled,
     _cameraIndexByEntity: (entity) =>
       entity === "camera.driveway" ? 1 : entity === "camera.front" ? 0 : -1,
@@ -48,6 +47,7 @@ const createModeHarness = ({
     _setSlideshowAlertState: (severity) =>
       calls.push(["slideshow-outline", severity]),
     _slideshowPageController: {
+      available: () => true,
       scheduleRotation: (reason) =>
         calls.push(["slideshow-schedule", reason]),
     },

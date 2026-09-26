@@ -273,7 +273,7 @@ export class CardViewPageController {
       this._host._isGridModeAvailable?.() === true;
     const startSlideshow =
       configuredMode === CARD_VIEW_START_MODES.slideshow &&
-      this._host._isSlideshowRotationAvailable?.() === true;
+      this._host._slideshowPageController?.available?.() === true;
 
     if (startGrid) {
       if (this._host._slideshowActive === true) {
@@ -1012,7 +1012,7 @@ export class CardViewPageController {
         this._host._viewMode === "grid",
       gridDisabled: modeSwitchLocked,
       slideshowAvailable:
-        this._host._isSlideshowRotationAvailable?.() === true,
+        this._host._slideshowPageController?.available?.() === true,
       slideshowActive: this._host._slideshowActive === true,
       slideshowDisabled: modeSwitchLocked,
       slideshowRemainingSeconds: 0,
@@ -1161,7 +1161,7 @@ export class CardViewPageController {
       gridDisabled: resolvedButtonStates.gridDisabled === true,
       slideshowAvailable:
         !overlayPresentation &&
-        this._host._isSlideshowRotationAvailable?.() === true,
+        this._host._slideshowPageController?.available?.() === true,
       slideshowActive: this._host._slideshowActive === true,
       slideshowDisabled: resolvedButtonStates.slideshowDisabled === true,
       showMicrophone: !overlayPresentation && showMicrophone,

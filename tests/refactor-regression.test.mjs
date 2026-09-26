@@ -2444,6 +2444,8 @@ test("Slideshow controller composition is feature-owned", () => {
   assert.equal(cardSource.includes("_clearSlideshowCountdownOverlay("), false);
   assert.equal(cardSource.includes("_syncSlideshowCountdownOverlay("), false);
   assert.equal(cardSource.includes("_setSlideshowCountdown("), false);
+  assert.equal(cardSource.includes("_isSlideshowRotationAvailable("), false);
+  assert.equal(cardSource.includes("_slideshowRotationMs("), false);
   assert.equal(
     cardSource.includes(
       "this._slideshowAlertController.handleRealtimeMessage(msg);",
@@ -2466,6 +2468,14 @@ test("Slideshow controller composition is feature-owned", () => {
   );
   assert.equal(
     slideshowPageControllerSource.includes("setCountdown(waitMs)"),
+    true,
+  );
+  assert.equal(
+    slideshowPageControllerSource.includes("available()"),
+    true,
+  );
+  assert.equal(
+    slideshowPageControllerSource.includes("rotationMs()"),
     true,
   );
   assert.equal(

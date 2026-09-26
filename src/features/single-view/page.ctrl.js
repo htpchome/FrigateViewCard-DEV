@@ -76,7 +76,7 @@ export class SingleViewPageController {
       (gridAvailable ?? this._host._isGridModeAvailable?.() === true);
     const startSlideshow =
       configuredMode === PAGE_START_MODES.slideshow &&
-      this._host._isSlideshowRotationAvailable?.() === true;
+      this._host._slideshowPageController?.available?.() === true;
 
     if (startGrid) {
       if (this._host._slideshowActive === true) {

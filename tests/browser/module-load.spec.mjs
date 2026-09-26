@@ -2060,7 +2060,7 @@ test("shared toolbar stays localized across mode changes and shell refreshes", a
     let takeoverActive = false;
     card._isGridModeAvailable = () => true;
     card._isGridSessionActive = () => gridActive;
-    card._isSlideshowRotationAvailable = () => true;
+    card._slideshowPageController.available = () => true;
     card._isAlertCameraTakeoverAvailable = () => true;
     card._singleViewPageController.isActive = () => true;
     card._singleViewPageController.alertTakeoverEnabled = () => takeoverActive;

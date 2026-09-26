@@ -575,15 +575,35 @@ test("Grid alert takeover temporarily stages one camera and resumes its page tim
   }
 });
 
+test("slideshow controller owns availability and interval policy", () => {
+  const host = {
+    _config: {
+      slideshow_rotation_enabled: false,
+      slideshow_rotation_seconds: 20,
+      cameras: [{ entity: "camera.front" }],
+    },
+  };
+  const controller = new SlideshowPageController(host);
+
+  assert.equal(controller.available(), false);
+  host._config.slideshow_rotation_enabled = true;
+  assert.equal(controller.available(), false);
+  host._config.cameras.push({ entity: "camera.driveway" });
+  assert.equal(controller.available(), true);
+  assert.equal(controller.rotationMs(), 20000);
+  host._config.slideshow_rotation_seconds = 15;
+  assert.equal(controller.rotationMs(), 30000);
+});
+
 test("slideshow refuses activation while another toolbar mode is active", () => {
   const calls = [];
   const host = {
     _slideshowActive: false,
     _toolbarButtonStates: () => ({ slideshowDisabled: true }),
     _syncToolbarButtons: () => calls.push("syncToolbar"),
-    _isSlideshowRotationAvailable: () => true,
   };
   const controller = new SlideshowPageController(host);
+  controller.available = () => true;
 
   controller.toggleRotation();
 
@@ -612,10 +632,10 @@ test("slideshow interaction restart schedules only one interval", async () => {
       _slideshowPausedUntil: 0,
       _slideshowPauseT: null,
       _slideshowSwitchT: null,
-      _isSlideshowRotationAvailable: () => true,
-      _slideshowRotationMs: () => 5000,
     };
     const controller = new SlideshowPageController(host);
+    controller.available = () => true;
+    controller.rotationMs = () => 5000;
     controller.setCountdown = (delay) => countdowns.push(delay);
     let advances = 0;
     controller.advanceRotation = async () => {
@@ -670,7 +690,6 @@ test("slideshow controller owns countdown presentation and cleanup", () => {
     _slideshowCountdownT: null,
     _slideshowNextSwitchAtMs: 0,
     _viewMode: "single",
-    _isSlideshowRotationAvailable: () => true,
     _localization: {
       t: (_key, values) => `Next Slide: ${values.seconds}s`,
     },
@@ -680,6 +699,7 @@ test("slideshow controller owns countdown presentation and cleanup", () => {
     },
   };
   const controller = new SlideshowPageController(host);
+  controller.available = () => true;
 
   try {
     controller.setCountdown(5000);
@@ -747,13 +767,13 @@ test("slideshow rotates through physical members of a camera group", async () =>
     _activeCam: groupedCamera,
     _activeCamIdx: 0,
     _config: { cameras: [groupedCamera] },
-    _isSlideshowRotationAvailable: () => true,
     _switchCamera: async (...args) => calls.push(["switchCamera", ...args]),
-    _slideshowRotationMs: () => 5000,
     _setSlideshowAlertState: (state) =>
       calls.push(["setSlideshowAlertState", state]),
   };
   const controller = new SlideshowPageController(host);
+  controller.available = () => true;
+  controller.rotationMs = () => 5000;
   controller.scheduleRotation = (reason) =>
     calls.push(["scheduleRotation", reason]);
 

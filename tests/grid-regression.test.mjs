@@ -29,6 +29,10 @@ const gridMediaControllerSource = fs.readFileSync(
   new URL("../src/features/grid/media.ctrl.js", import.meta.url),
   "utf8",
 );
+const slideshowPageControllerSource = fs.readFileSync(
+  new URL("../src/features/slideshow/page.ctrl.js", import.meta.url),
+  "utf8",
+);
 const routeLifecycleSource = fs.readFileSync(
   new URL("../src/features/navigation/route-lifecycle.js", import.meta.url),
   "utf8",
@@ -264,9 +268,11 @@ test("standalone Card View never permits Grid on actual mobile devices", () => {
 });
 
 test("Slideshow availability is not inferred from card width or device type", () => {
-  const start = cardSource.indexOf("_isSlideshowRotationAvailable() {");
-  const end = cardSource.indexOf("_slideshowRotationMs()", start);
-  const availabilitySource = cardSource.slice(start, end);
+  const start = slideshowPageControllerSource.indexOf(
+    "available() {",
+  );
+  const end = slideshowPageControllerSource.indexOf("rotationMs()", start);
+  const availabilitySource = slideshowPageControllerSource.slice(start, end);
 
   assert.match(
     availabilitySource,

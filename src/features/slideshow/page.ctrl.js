@@ -3,10 +3,25 @@ import {
   flattenCameraMembers,
 } from "../camera-groups/model.js";
 import { setLocalizedText } from "../localization/localized-dom.js";
+import { SLIDESHOW_ROTATION_OPTIONS_SECONDS } from "../../constants.js";
 
 export class SlideshowPageController {
   constructor(host) {
     this._host = host;
+  }
+
+  available() {
+    return (
+      this._host._config?.slideshow_rotation_enabled === true &&
+      flattenCameraMembers(this._host._config?.cameras).length > 1
+    );
+  }
+
+  rotationMs() {
+    const seconds = Number(this._host._config?.slideshow_rotation_seconds);
+    return SLIDESHOW_ROTATION_OPTIONS_SECONDS.includes(seconds)
+      ? seconds * 1000
+      : 30000;
   }
 
   clearTimers() {
@@ -51,7 +66,7 @@ export class SlideshowPageController {
     const show =
       this._host._slideshowActive &&
       this._host._viewMode === "single" &&
-      this._host._isSlideshowRotationAvailable() &&
+      this.available() &&
       !this._host._slideshowPopupPaused;
     if (chip && !show) {
       chip.hidden = true;
@@ -125,7 +140,7 @@ export class SlideshowPageController {
   }
 
   startRotation(source = "manual") {
-    if (!this._host._isSlideshowRotationAvailable()) return false;
+    if (!this.available()) return false;
     if (this._host._toolbarButtonStates?.().slideshowDisabled) return false;
     this._host._slideshowActive = true;
     this._host._slideshowPopupPaused =
@@ -165,7 +180,7 @@ export class SlideshowPageController {
     if (!this._host._slideshowActive) return;
     this._host._slideshowPopupPaused = false;
     this._host._slideshowPausedUntil =
-      Date.now() + this._host._slideshowRotationMs();
+      Date.now() + this.rotationMs();
     this.scheduleRotation("popup-close");
   }
 
@@ -221,11 +236,11 @@ export class SlideshowPageController {
   pauseForInteraction() {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this.available()
     ) {
       return;
     }
-    const rotationMs = this._host._slideshowRotationMs();
+    const rotationMs = this.rotationMs();
     this._host._slideshowPausedUntil = Date.now() + rotationMs;
     if (this._host._slideshowPauseT) clearTimeout(this._host._slideshowPauseT);
     this._host._slideshowPauseT = null;
@@ -235,7 +250,7 @@ export class SlideshowPageController {
   scheduleRotation(_reason = "") {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this.available()
     ) {
       this.clearCountdownOverlay();
       return;
@@ -250,7 +265,7 @@ export class SlideshowPageController {
     const wait =
       this._host._slideshowPausedUntil > Date.now()
         ? delay
-        : this._host._slideshowRotationMs();
+        : this.rotationMs();
     this.setCountdown(wait);
     this._host._slideshowSwitchT = setTimeout(() => {
       this._host._slideshowSwitchT = null;
@@ -261,7 +276,7 @@ export class SlideshowPageController {
   async advanceRotation() {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this.available()
     ) {
       return;
     }
@@ -312,7 +327,7 @@ export class SlideshowPageController {
       groupMemberEntity: targetEntity,
     });
     this._host._slideshowPausedUntil =
-      Date.now() + this._host._slideshowRotationMs();
+      Date.now() + this.rotationMs();
     this._host._setSlideshowAlertState(pendingAlertCam ? pendingAlertType : "");
     this.scheduleRotation("advance");
   }

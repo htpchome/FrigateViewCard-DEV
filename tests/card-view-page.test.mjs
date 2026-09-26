@@ -478,7 +478,7 @@ test("Video Only mode controls are not disabled by Card View alert takeover", ()
           : null,
     },
     _isGridModeAvailable: () => true,
-    _isSlideshowRotationAvailable: () => true,
+    _slideshowPageController: { available: () => true },
     _toolbarButtonStates: () => ({
       gridDisabled: true,
       slideshowDisabled: true,
@@ -535,7 +535,7 @@ test("active Video Only Grid indicator uses the shared ten-second Grid hold", ()
             : null,
       },
       _isGridModeAvailable: () => true,
-      _isSlideshowRotationAvailable: () => true,
+      _slideshowPageController: { available: () => true },
       _twoWayTalkActiveForCurrentCamera: () => false,
     };
     const controller = new CardViewPageController(host, {
@@ -632,7 +632,7 @@ test("non-standalone Video Only renders picker and center controls as overlays",
       },
     },
     _isGridModeAvailable: () => true,
-    _isSlideshowRotationAvailable: () => true,
+    _slideshowPageController: { available: () => true },
     _shouldRenderTwoWayTalkButtonForActiveCamera: () => true,
     _buildTwoWayTalkControlRowMarkup: () => "overlay-microphone",
     _syncTwoWayTalkSoundwaveSurface: () => {},
@@ -1662,7 +1662,7 @@ test("Video Only Card View applies its configured starting mode", () => {
       card_view_start_mode: CARD_VIEW_START_MODES.grid,
     },
     _isGridModeAvailable: () => true,
-    _isSlideshowRotationAvailable: () => true,
+    _slideshowPageController: { available: () => true },
     _setViewMode: (mode) => {
       modeChanges.push(mode);
       host._viewMode = mode;
@@ -1877,7 +1877,7 @@ test("switching non-standalone Card View to Video Only applies its overlay and c
       card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
     },
     _isGridModeAvailable: () => true,
-    _isSlideshowRotationAvailable: () => false,
+    _slideshowPageController: { available: () => false },
     _setViewMode: (mode) => {
       modeChanges.push(mode);
       host._viewMode = mode;
@@ -2086,7 +2086,7 @@ test("Card View preserves toolbar DOM when repeated renders are identical", () =
     _viewMode: "single",
     _toolbarButtonStates: () => ({}),
     _isGridModeAvailable: () => false,
-    _isSlideshowRotationAvailable: () => false,
+    _slideshowPageController: { available: () => false },
     _shouldRenderTwoWayTalkButtonForActiveCamera: () => false,
     shadowRoot: {
       querySelector: (selector) =>

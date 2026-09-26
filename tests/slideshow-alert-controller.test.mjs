@@ -7,7 +7,6 @@ test("handleReviewsUpdated uses SLIDESHOW_ALERT_HOLD_MS for pause window", () =>
   const now = Date.now();
   const host = {
     _slideshowActive: true,
-    _isSlideshowRotationAvailable: () => true,
     _slideshowHandledReviewIds: new Set(),
     _slideshowPopupPaused: false,
     _activeCam: { entity: "camera.front_door" },
@@ -20,7 +19,10 @@ test("handleReviewsUpdated uses SLIDESHOW_ALERT_HOLD_MS for pause window", () =>
     _slideshowStartedAtSec: 0,
     _cameraIndexByEntity: () => 0,
     _setSlideshowAlertState: () => {},
-    _slideshowPageController: { scheduleRotation: () => {} },
+    _slideshowPageController: {
+      available: () => true,
+      scheduleRotation: () => {},
+    },
     _switchCamera: async () => {},
   };
 
@@ -47,7 +49,6 @@ test("handleHaStatusCandidate switches slideshow camera and applies hold window"
   const calls = [];
   const host = {
     _slideshowActive: true,
-    _isSlideshowRotationAvailable: () => true,
     _slideshowHandledReviewIds: new Set(),
     _slideshowPopupPaused: false,
     _activeCam: { entity: "camera.front_door" },
@@ -65,6 +66,7 @@ test("handleHaStatusCandidate switches slideshow camera and applies hold window"
       calls.push(["state", severity]);
     },
     _slideshowPageController: {
+      available: () => true,
       scheduleRotation: (reason) => {
         calls.push(["schedule", reason]);
       },
@@ -103,7 +105,6 @@ test("slideshow alert takeover targets the alerted member of a camera group", ()
   };
   const host = {
     _slideshowActive: true,
-    _isSlideshowRotationAvailable: () => true,
     _slideshowHandledReviewIds: new Set(),
     _slideshowPopupPaused: false,
     _activeCam: groupedCamera,
@@ -112,7 +113,10 @@ test("slideshow alert takeover targets the alerted member of a camera group", ()
     _shouldHandleSlideshowReview: () => true,
     _cameraIndexByEntity: () => 0,
     _setSlideshowAlertState: () => {},
-    _slideshowPageController: { scheduleRotation: () => {} },
+    _slideshowPageController: {
+      available: () => true,
+      scheduleRotation: () => {},
+    },
     _switchCamera: async (idx, options) => calls.push([idx, options]),
   };
   const controller = new SlideshowAlertController(host, {
@@ -137,7 +141,6 @@ test("disabled slideshow takeover does not switch cameras or reset rotation", ()
   const calls = [];
   const host = {
     _slideshowActive: true,
-    _isSlideshowRotationAvailable: () => true,
     _alertCameraTakeoverEnabled: () => false,
     _slideshowPopupPaused: false,
     _activeCam: { entity: "camera.front_door" },
@@ -146,6 +149,7 @@ test("disabled slideshow takeover does not switch cameras or reset rotation", ()
     _setSlideshowAlertState: (severity) =>
       calls.push(["state", severity]),
     _slideshowPageController: {
+      available: () => true,
       scheduleRotation: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: (...args) => calls.push(["switch", ...args]),
@@ -167,7 +171,6 @@ test("one alert cycle cannot restart its Slideshow Alert Hold Duration", () => {
   const calls = [];
   const host = {
     _slideshowActive: true,
-    _isSlideshowRotationAvailable: () => true,
     _alertCameraTakeoverEnabled: () => true,
     _slideshowHandledReviewIds: new Set(),
     _slideshowPopupPaused: false,
@@ -190,6 +193,7 @@ test("one alert cycle cannot restart its Slideshow Alert Hold Duration", () => {
     _setSlideshowAlertState: (severity) =>
       calls.push(["state", severity]),
     _slideshowPageController: {
+      available: () => true,
       scheduleRotation: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: async (index) => calls.push(["switch", index]),
@@ -225,7 +229,6 @@ test("a newly alerted camera preempts an older active HA alert", () => {
   const calls = [];
   const host = {
     _slideshowActive: true,
-    _isSlideshowRotationAvailable: () => true,
     _alertCameraTakeoverEnabled: () => true,
     _slideshowPopupPaused: false,
     _activeCam: { entity: "camera.front_door" },
@@ -240,6 +243,7 @@ test("a newly alerted camera preempts an older active HA alert", () => {
       entity === "camera.driveway" ? 1 : 0,
     _setSlideshowAlertState: () => {},
     _slideshowPageController: {
+      available: () => true,
       scheduleRotation: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: async (index) => calls.push(["switch", index]),
@@ -275,7 +279,6 @@ test("existing simultaneous HA alerts do not rotate through takeover holds", () 
   const calls = [];
   const host = {
     _slideshowActive: true,
-    _isSlideshowRotationAvailable: () => true,
     _alertCameraTakeoverEnabled: () => true,
     _slideshowPopupPaused: false,
     _activeCam: { entity: "camera.front_door" },
@@ -290,6 +293,7 @@ test("existing simultaneous HA alerts do not rotate through takeover holds", () 
       entity === "camera.driveway" ? 1 : 0,
     _setSlideshowAlertState: () => {},
     _slideshowPageController: {
+      available: () => true,
       scheduleRotation: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: async (index) => calls.push(["switch", index]),
@@ -318,7 +322,6 @@ test("HA alert synchronization is presentation-inert outside slideshow", () => {
   const calls = [];
   const host = {
     _slideshowActive: false,
-    _isSlideshowRotationAvailable: () => true,
     _alertCameraTakeoverEnabled: () => false,
     _activeCam: { entity: "camera.front_door" },
     _setSlideshowAlertState: (severity) =>

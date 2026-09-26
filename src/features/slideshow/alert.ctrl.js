@@ -99,7 +99,7 @@ export class SlideshowAlertController {
   ) {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable() ||
+      !this._host._slideshowPageController.available() ||
       !entity
     ) {
       return false;
@@ -186,7 +186,7 @@ export class SlideshowAlertController {
   handleReviewsUpdated(entity, reviews, source = "reviews-update") {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this._host._slideshowPageController.available()
     ) {
       return;
     }
@@ -216,7 +216,7 @@ export class SlideshowAlertController {
   async probeLatestReview() {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable() ||
+      !this._host._slideshowPageController.available() ||
       this._host._slideshowReviewProbeInFlight
     ) {
       return;
@@ -275,7 +275,7 @@ export class SlideshowAlertController {
   scheduleReviewProbe(delayMs = 180) {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this._host._slideshowPageController.available()
     ) {
       return;
     }
@@ -334,7 +334,7 @@ export class SlideshowAlertController {
 
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this._host._slideshowPageController.available()
     ) {
       return false;
     }
@@ -371,7 +371,7 @@ export class SlideshowAlertController {
   scheduleReviewWatch(delayMs = null) {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this._host._slideshowPageController.available()
     ) {
       return;
     }
@@ -393,7 +393,7 @@ export class SlideshowAlertController {
   handleRealtimeMessage(msg) {
     if (
       !this._host._slideshowActive ||
-      !this._host._isSlideshowRotationAvailable()
+      !this._host._slideshowPageController.available()
     ) {
       return;
     }
