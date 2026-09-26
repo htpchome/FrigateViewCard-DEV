@@ -3,9 +3,11 @@ import {
   chmod,
   copyFile,
   mkdir,
+  readFile,
   stat,
   writeFile,
 } from "node:fs/promises";
+import { minifyStyleModule } from "./minify-style-module.mjs";
 
 const outputFile = "dist/frigate-view-card.js";
 const editorOutputFile = "dist/frigate-view-card-editor.js";
@@ -16,6 +18,18 @@ const cardLicenseOutputFile = "dist/frigate-view-card.LICENSE.txt";
 const outputBanner =
   "/** FrigateView Card - generated file. Edit src/ instead. MIT license: frigate-view-card.LICENSE.txt. */";
 
+const minifyStyleModulesPlugin = {
+  name: "minify-style-modules",
+  setup(pluginBuild) {
+    pluginBuild.onLoad({ filter: /styles\.js$/ }, async ({ path }) => ({
+      contents: await minifyStyleModule(await readFile(path, "utf8"), {
+        rootStyleModule: path.endsWith("/src/styles.js"),
+      }),
+      loader: "js",
+    }));
+  },
+};
+
 const buildBundle = async ({ entryPoint, outfile }) => {
   const { outputFiles } = await build({
     entryPoints: [entryPoint],
@@ -23,6 +37,8 @@ const buildBundle = async ({ entryPoint, outfile }) => {
     format: "esm",
     target: "es2020",
     treeShaking: true,
+    charset: "utf8",
+    plugins: [minifyStyleModulesPlugin],
     outfile,
     write: false,
     logLevel: "silent",
@@ -37,6 +53,7 @@ const buildBundle = async ({ entryPoint, outfile }) => {
     format: "esm",
     target: "es2020",
     minify: true,
+    charset: "utf8",
     legalComments: "none",
   });
   const output = `${outputBanner}\n${minified}`;
