@@ -137,3 +137,27 @@ test("loaded Wide View timeline stays inactive after its route closes", async ()
   assert.equal(ready, 0);
   assert.equal(binds, 0);
 });
+
+test("timeline readiness repaints browse state after replacing the Wide View shell", async () => {
+  const calls = [];
+  class Controller {}
+  const host = {
+    _config: { wide_view_timeline_enabled: true },
+    _wideViewPageController: {
+      isWideViewPageActive: () => true,
+    },
+    _renderShellPreserveLive: () => calls.push(["shell"]),
+    _renderList: (options) => calls.push(["list", options]),
+  };
+  const controller = new LazyWideViewTimelineController(host, {}, {
+    loadModule: async () => ({ WideViewTimelineController: Controller }),
+  });
+
+  controller.buildRegionMarkup();
+  await controller._ensureDelegate();
+
+  assert.deepEqual(calls, [
+    ["shell"],
+    ["list", { renderWideTimeline: false }],
+  ]);
+});

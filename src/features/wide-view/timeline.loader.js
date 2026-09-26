@@ -32,6 +32,9 @@ export class LazyWideViewTimelineController {
       onReady = () => {
         if (typeof host?._renderShellPreserveLive !== "function") return false;
         host._renderShellPreserveLive();
+        // The companion can finish after the initial browse request. Repaint
+        // the replacement list so a completed Alerts load is not discarded.
+        host._renderList?.({ renderWideTimeline: false });
         return true;
       },
     } = {},
