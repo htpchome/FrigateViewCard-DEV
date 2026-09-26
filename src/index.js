@@ -3,7 +3,7 @@ import { FrigateViewCard } from "./card/FrigateViewCard.js";
 import { registerLiveStreamHostElement } from "./features/live/stream.element.js";
 import { DEVICE_PROFILE } from "./helpers.js";
 import { installHomeAssistantDashboardNavbarCustomization } from "./integrations/home-assistant/navbar.ctrl.js";
-import { installHomeAssistantDashboardSwipeNavigation } from "./integrations/home-assistant/dashboard-swipe-navigation.ctrl.js";
+import { installLazyHomeAssistantDashboardSwipeNavigation } from "./integrations/home-assistant/dashboard-swipe-navigation.loader.js";
 import { installDeepLinkHashRouteBridge } from "./features/navigation/deep-link.ctrl.js";
 
 // index.js — registers custom elements and announces card to HA
@@ -17,7 +17,7 @@ installHomeAssistantDashboardNavbarCustomization({
   isPhone: DEVICE_PROFILE.isPhone,
   isIOS: DEVICE_PROFILE.isIOS,
 });
-installHomeAssistantDashboardSwipeNavigation({ cardTag: CARD_TAG });
+installLazyHomeAssistantDashboardSwipeNavigation({ cardTag: CARD_TAG });
 window.customCards = window.customCards || [];
 
 if (!window.customCards.find((c) => c.type === CARD_TAG))

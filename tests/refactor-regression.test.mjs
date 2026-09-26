@@ -2569,7 +2569,7 @@ test("Home Assistant dashboard controller composition is integration-owned", () 
   );
   assert.equal(
     haDashboardCompositionSource.includes(
-      "new HomeAssistantDashboardSwipeNavigationController(card, options)",
+      "new LazyHomeAssistantDashboardSwipeNavigationController(card, options)",
     ),
     true,
   );

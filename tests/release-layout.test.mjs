@@ -31,6 +31,14 @@ test("HACS release artifact is generated under dist", () => {
   );
   assert.equal(
     fs.existsSync(
+      repositoryFile(
+        "dist/frigate-view-card-dashboard-swipe-navigation.js",
+      ),
+    ),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
       repositoryFile("dist/frigate-view-card-hls-1.5.17.js"),
     ),
     true,
@@ -77,6 +85,10 @@ test("HACS release artifact is production-minified", () => {
   assert.match(bundle, /frigate-view-card-hls-1\.5\.17\.js/);
   assert.match(bundle, /frigate-view-card-editor\.js/);
   assert.match(bundle, /frigate-view-card-circle-pad\.js/);
+  assert.match(
+    bundle,
+    /frigate-view-card-dashboard-swipe-navigation\.js/,
+  );
   assert.match(bundle, /frigate-view-card-locale/);
   assert.doesNotMatch(bundle, /circle-pad-clean-edges/);
   assert.doesNotMatch(bundle, /Ειδοποιήσεις/);

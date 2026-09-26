@@ -1,12 +1,12 @@
 import { CARD_TAG } from "../../constants.js";
 import { DEVICE_PROFILE } from "../../helpers.js";
-import { HomeAssistantDashboardSwipeNavigationController } from "./dashboard-swipe-navigation.ctrl.js";
+import { LazyHomeAssistantDashboardSwipeNavigationController } from "./dashboard-swipe-navigation.loader.js";
 import { HomeAssistantNavbarController } from "./navbar.ctrl.js";
 import { HomeAssistantPageBackgroundController } from "./page-background.ctrl.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
   createDashboardSwipeNavigationController: (card, options) =>
-    new HomeAssistantDashboardSwipeNavigationController(card, options),
+    new LazyHomeAssistantDashboardSwipeNavigationController(card, options),
   createNavbarController: (card, options) =>
     new HomeAssistantNavbarController(card, options),
   createPageBackgroundController: (card) =>

@@ -65,10 +65,11 @@ On Home Assistant OS, Frigate itself may be installed as a Home Assistant add-on
 
 HACS installs the generated assets from `dist/`. The main resource remains
 `frigate-view-card.js`; the editor is loaded when the visual editor opens, and
-the PTZ circle control is loaded when the Controls panel first renders. The
-versioned HLS.js companion is loaded only when a browser without native HLS
-needs it for recording playback. FrigateViewCard and HLS.js license files are
-included alongside those assets.
+the PTZ circle control is loaded when the Controls panel first renders, and
+dashboard swipe navigation is loaded only when its dashboard owner enables it.
+The versioned HLS.js companion is loaded only when a browser without native
+HLS needs it for recording playback. FrigateViewCard and HLS.js license files
+are included alongside those assets.
 
 ### Manual installation
 
@@ -96,15 +97,16 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
            ├── frigate-view-card.js
            ├── frigate-view-card-editor.js
            ├── frigate-view-card-circle-pad.js
+           ├── frigate-view-card-dashboard-swipe-navigation.js
            ├── frigate-view-card-hls-1.5.17.js
            ├── frigate-view-card-hls-1.5.17.LICENSE.txt
            └── frigate-view-card.LICENSE.txt
    ```
 
    Keep all files together in that folder. The main card loads the editor, PTZ
-   circle control, and HLS companion file from paths relative to
-   `frigate-view-card.js`. The two license files cover FrigateViewCard and its
-   bundled HLS.js dependency.
+   circle control, dashboard swipe navigation, and HLS companion file from
+   paths relative to `frigate-view-card.js`. The two license files cover
+   FrigateViewCard and its bundled HLS.js dependency.
 
 3. If this is the first time you have created the `www` folder, restart Home
    Assistant once so the `/local/` path is available.

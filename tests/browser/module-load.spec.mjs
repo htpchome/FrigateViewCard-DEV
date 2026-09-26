@@ -9,10 +9,14 @@ import {
 const bundlePaths = new Map([
   ["/frigate-view-card.js", "dist/frigate-view-card.js"],
   ["/frigate-view-card-editor.js", "dist/frigate-view-card-editor.js"],
-  [
-    "/frigate-view-card-circle-pad.js",
-    "dist/frigate-view-card-circle-pad.js",
-  ],
+      [
+        "/frigate-view-card-circle-pad.js",
+        "dist/frigate-view-card-circle-pad.js",
+      ],
+      [
+        "/frigate-view-card-dashboard-swipe-navigation.js",
+        "dist/frigate-view-card-dashboard-swipe-navigation.js",
+      ],
   ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
   ...LANGUAGE_ASSET_NAMES.map((language) => [
     `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
@@ -430,6 +434,45 @@ test("keeps the PTZ circle pad out of startup and loads its companion asset", as
     registeredAfterRender: true,
     mounted: true,
   });
+});
+
+test("loads dashboard swipe navigation only for an enabled owner card", async ({ page }) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (
+      request.url().includes(
+        "frigate-view-card-dashboard-swipe-navigation.js",
+      )
+    ) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    card._config = {
+      ha_dashboard_swipe_navigation_owner: true,
+      ha_dashboard_swipe_navigation: "inside-card",
+      ha_dashboard_swipe_mouse_enabled: true,
+    };
+    const controller = card._haDashboardSwipeNavigationController;
+    controller.sync();
+    const deadline = performance.now() + 2000;
+    while (!controller._delegate && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return {
+      loaded: Boolean(controller._delegate),
+      scopeActive: controller.isCurrentDashboardScope(),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({ loaded: true, scopeActive: false });
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({

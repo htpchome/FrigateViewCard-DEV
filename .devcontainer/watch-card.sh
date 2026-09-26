@@ -5,9 +5,18 @@
 WORKSPACE_DIR=$(cd "$(dirname "$0")/.." && pwd)
 CARD_FILE="$WORKSPACE_DIR/dist/frigate-view-card.js"
 EDITOR_FILE="$WORKSPACE_DIR/dist/frigate-view-card-editor.js"
+CIRCLE_PAD_FILE="$WORKSPACE_DIR/dist/frigate-view-card-circle-pad.js"
+DASHBOARD_SWIPE_FILE="$WORKSPACE_DIR/dist/frigate-view-card-dashboard-swipe-navigation.js"
 HLS_FILE="$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.js"
 HLS_LICENSE_FILE="$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.LICENSE.txt"
-ASSET_FILES=("$CARD_FILE" "$EDITOR_FILE" "$HLS_FILE" "$HLS_LICENSE_FILE")
+ASSET_FILES=(
+  "$CARD_FILE"
+  "$EDITOR_FILE"
+  "$CIRCLE_PAD_FILE"
+  "$DASHBOARD_SWIPE_FILE"
+  "$HLS_FILE"
+  "$HLS_LICENSE_FILE"
+)
 
 for ASSET_FILE in "${ASSET_FILES[@]}"; do
   if [ ! -f "$ASSET_FILE" ]; then
