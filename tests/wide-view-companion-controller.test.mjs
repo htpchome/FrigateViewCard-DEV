@@ -69,9 +69,9 @@ const createHost = ({ live = false, takeover = false } = {}) => {
     },
     _syncSnapshotRefreshTimer: () => calls.push(["syncSnapshots"]),
     _syncToolbarButtons: () => calls.push(["syncToolbar"]),
-    _pauseSlideshowForInteraction: () => calls.push(["pauseSlideshow"]),
-    _stopSlideshowRotation: (reason, sync) =>
-      calls.push(["stopSlideshow", reason, sync]),
+    _slideshowPageController: {
+      pause: () => calls.push(["pauseSlideshow"]),
+    },
     _cameraIndexByEntity: (entity) =>
       host._config.cameras.findIndex((camera) => camera.entity === entity),
     _switchCamera: (index, options) =>

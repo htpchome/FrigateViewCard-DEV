@@ -80,7 +80,7 @@ export class SingleViewPageController {
 
     if (startGrid) {
       if (this._host._slideshowActive === true) {
-        this._host._stopSlideshowRotation?.(
+        this._host._slideshowPageController?.stop?.(
           "single-view-start-grid",
           false,
         );
@@ -96,12 +96,12 @@ export class SingleViewPageController {
     }
     if (startSlideshow) {
       if (this._host._slideshowActive !== true) {
-        this._host._startSlideshowRotation?.("single-view-start");
+        this._host._slideshowPageController?.start?.("single-view-start");
       }
       return true;
     }
     if (this._host._slideshowActive === true) {
-      this._host._stopSlideshowRotation?.("single-view-start-live");
+      this._host._slideshowPageController?.stop?.("single-view-start-live");
     }
     return true;
   }

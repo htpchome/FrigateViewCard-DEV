@@ -129,7 +129,7 @@ test("Wide View applies its configured Slideshow start mode", () => {
   host._config.wide_view_start_mode = "slideshow";
   host._isGridModeAvailable = () => true;
   host._slideshowPageController = { available: () => true };
-  host._startSlideshowRotation = (source) => {
+  host._slideshowPageController.start = (source) => {
     host._slideshowActive = true;
     calls.push(["startSlideshow", source]);
     return true;

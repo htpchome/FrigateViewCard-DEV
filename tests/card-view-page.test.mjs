@@ -1679,7 +1679,7 @@ test("Video Only Card View applies its configured starting mode", () => {
   host._config.card_view_start_mode = CARD_VIEW_START_MODES.slideshow;
   host._viewMode = "grid";
   let slideshowStarts = 0;
-  host._startSlideshowRotation = () => {
+  host._slideshowPageController.start = () => {
     slideshowStarts += 1;
     host._slideshowActive = true;
   };
@@ -1691,7 +1691,7 @@ test("Video Only Card View applies its configured starting mode", () => {
   host._viewMode = "single";
   host._slideshowActive = true;
   let slideshowStops = 0;
-  host._stopSlideshowRotation = () => {
+  host._slideshowPageController.stop = () => {
     slideshowStops += 1;
     host._slideshowActive = false;
   };
@@ -1714,9 +1714,14 @@ test("standalone Card View mode buttons use the existing Grid and Slideshow cont
       card_view_standalone: true,
       card_view_alert_takeover: true,
     },
-    _stopSlideshowRotation: () => {
-      slideshowStops += 1;
-      host._slideshowActive = false;
+    _slideshowPageController: {
+      stop: () => {
+        slideshowStops += 1;
+        host._slideshowActive = false;
+      },
+      toggle: () => {
+        slideshowToggles += 1;
+      },
     },
     _toggleGridMode: () => {
       gridToggles += 1;
@@ -1724,9 +1729,6 @@ test("standalone Card View mode buttons use the existing Grid and Slideshow cont
     _setViewMode: (mode) => {
       viewModeChanges.push(mode);
       host._viewMode = mode;
-    },
-    _toggleSlideshowRotation: () => {
-      slideshowToggles += 1;
     },
   };
   const controller = new CardViewPageController(host, {
@@ -2467,7 +2469,9 @@ test("standalone media drawer opens the focused Card View popup", () => {
       card_view_standalone: true,
       card_view_media_drawer_enabled: true,
     },
-    _pauseSlideshowForInteraction: () => calls.push(["pause"]),
+    _slideshowPageController: {
+      pause: () => calls.push(["pause"]),
+    },
     _popupMediaLoaderController: {
       showCarouselEventById: (...args) => calls.push(["popup", ...args]),
     },
@@ -2533,7 +2537,9 @@ test("Card View media drawer opens a grouped recording with its camera context",
     _camCache: {
       "camera.package": { clientId: "frigate-main", cam: "package" },
     },
-    _pauseSlideshowForInteraction: () => calls.push(["pause"]),
+    _slideshowPageController: {
+      pause: () => calls.push(["pause"]),
+    },
     _popupMediaLoaderController: {
       showRecording: (...args) => calls.push(["recording", ...args]),
     },

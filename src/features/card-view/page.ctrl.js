@@ -175,7 +175,7 @@ export class CardViewPageController {
       formatTime: (timestamp) => this._host._time?.(timestamp) || "",
       t: this._host._localization?.t,
       onSelectEvent: (id, mediaType) => {
-        this._host._pauseSlideshowForInteraction?.();
+        this._host._slideshowPageController?.pause?.();
         this._host._popupMediaLoaderController?.showCarouselEventById?.(
           id,
           mediaType,
@@ -277,7 +277,7 @@ export class CardViewPageController {
 
     if (startGrid) {
       if (this._host._slideshowActive === true) {
-        this._host._stopSlideshowRotation?.(
+        this._host._slideshowPageController?.stop?.(
           "card-view-start-grid",
           false,
         );
@@ -293,12 +293,12 @@ export class CardViewPageController {
     }
     if (startSlideshow) {
       if (this._host._slideshowActive !== true) {
-        this._host._startSlideshowRotation?.("card-view-start");
+        this._host._slideshowPageController?.start?.("card-view-start");
       }
       return true;
     }
     if (this._host._slideshowActive === true) {
-      this._host._stopSlideshowRotation?.("card-view-start-live");
+      this._host._slideshowPageController?.stop?.("card-view-start-live");
     }
     return true;
   }
@@ -796,7 +796,7 @@ export class CardViewPageController {
     const context = cameraEntity
       ? this._host._camCache?.[cameraEntity]
       : null;
-    this._host._pauseSlideshowForInteraction?.();
+    this._host._slideshowPageController?.pause?.();
     void this._host._popupMediaLoaderController?.showRecording?.(
       start,
       end,
@@ -2036,7 +2036,7 @@ export class CardViewPageController {
     if (standaloneSlideshow) {
       event?.preventDefault?.();
       if (!standaloneSlideshow.disabled) {
-        this._host._toggleSlideshowRotation?.();
+        this._host._slideshowPageController?.toggle?.();
       }
       return true;
     }

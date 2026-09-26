@@ -2446,6 +2446,10 @@ test("Slideshow controller composition is feature-owned", () => {
   assert.equal(cardSource.includes("_setSlideshowCountdown("), false);
   assert.equal(cardSource.includes("_isSlideshowRotationAvailable("), false);
   assert.equal(cardSource.includes("_slideshowRotationMs("), false);
+  assert.equal(cardSource.includes("_stopSlideshowRotation("), false);
+  assert.equal(cardSource.includes("_startSlideshowRotation("), false);
+  assert.equal(cardSource.includes("_toggleSlideshowRotation("), false);
+  assert.equal(cardSource.includes("_pauseSlideshowForInteraction("), false);
   assert.equal(
     cardSource.includes(
       "this._slideshowAlertController.handleRealtimeMessage(msg);",
@@ -2454,7 +2458,7 @@ test("Slideshow controller composition is feature-owned", () => {
   );
   assert.equal(
     slideshowAlertControllerSource.includes(
-      "this._host._slideshowPageController.scheduleRotation",
+      "this._host._slideshowPageController.schedule",
     ),
     true,
   );
@@ -2478,6 +2482,12 @@ test("Slideshow controller composition is feature-owned", () => {
     slideshowPageControllerSource.includes("rotationMs()"),
     true,
   );
+  assert.equal(slideshowPageControllerSource.includes("stop(reason"), true);
+  assert.equal(slideshowPageControllerSource.includes("start(source"), true);
+  assert.equal(slideshowPageControllerSource.includes("toggle()"), true);
+  assert.equal(slideshowPageControllerSource.includes("pause()"), true);
+  assert.equal(slideshowPageControllerSource.includes("schedule(_reason"), true);
+  assert.equal(slideshowPageControllerSource.includes("advance()"), true);
   assert.equal(
     slideshowCompositionSource.includes("new SlideshowAlertController"),
     true,

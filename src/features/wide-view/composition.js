@@ -100,7 +100,7 @@ export const createWideViewTimelineControllers = (
       timezoneDateTimeToEpoch: (...parts) =>
         card._tzDateTimeToEpochSeconds(...parts),
       onOpenEntry: (entry) => {
-        card._pauseSlideshowForInteraction();
+        card._slideshowPageController.pause();
         if (entry?.kind === "alert") {
           card._popupMediaLoaderController?.showClipById(entry.eventId, {
             mediaType: "alert",

@@ -100,7 +100,7 @@ export class SlideshowPageController {
     }, 250);
   }
 
-  stopRotation(reason = "manual-stop", sync = true) {
+  stop(reason = "manual-stop", sync = true) {
     const restoreGroupedLive =
       reason === "manual-stop" &&
       Boolean(this._host._activeGroupMemberOverride) &&
@@ -139,7 +139,7 @@ export class SlideshowPageController {
     if (sync) this._host._syncToolbarButtons();
   }
 
-  startRotation(source = "manual") {
+  start(source = "manual") {
     if (!this.available()) return false;
     if (this._host._toolbarButtonStates?.().slideshowDisabled) return false;
     this._host._slideshowActive = true;
@@ -160,7 +160,7 @@ export class SlideshowPageController {
       });
     }
     this._host._slideshowAlertController.scheduleReviewWatch(300);
-    this.scheduleRotation(source);
+    this.schedule(source);
     this._host._syncToolbarButtons();
     return true;
   }
@@ -181,12 +181,12 @@ export class SlideshowPageController {
     this._host._slideshowPopupPaused = false;
     this._host._slideshowPausedUntil =
       Date.now() + this.rotationMs();
-    this.scheduleRotation("popup-close");
+    this.schedule("popup-close");
   }
 
-  toggleRotation() {
+  toggle() {
     if (this._host._slideshowActive) {
-      this.stopRotation("manual-stop");
+      this.stop("manual-stop");
       return;
     }
     if (this._host._toolbarButtonStates?.().slideshowDisabled) {
@@ -200,13 +200,13 @@ export class SlideshowPageController {
       this._host._setViewMode("single");
       startedFromGrid = true;
     }
-    const started = this.startRotation("manual-start");
+    const started = this.start("manual-start");
     if (started && startedFromGrid) {
       if (this._host._slideshowSwitchT) {
         clearTimeout(this._host._slideshowSwitchT);
         this._host._slideshowSwitchT = null;
       }
-      void this.advanceRotation();
+      void this.advance();
     }
   }
 
@@ -219,7 +219,7 @@ export class SlideshowPageController {
     this._host._slideshowLastAlertAt = 0;
     this._host._slideshowLastAlertCam = "";
     this._host._setSlideshowAlertState?.("");
-    this.scheduleRotation("alert-takeover-disabled");
+    this.schedule("alert-takeover-disabled");
   }
 
   handlePageChange(previousPageId, nextPageId) {
@@ -229,11 +229,11 @@ export class SlideshowPageController {
     ) {
       return false;
     }
-    this.stopRotation("page-navigation", false);
+    this.stop("page-navigation", false);
     return true;
   }
 
-  pauseForInteraction() {
+  pause() {
     if (
       !this._host._slideshowActive ||
       !this.available()
@@ -244,10 +244,10 @@ export class SlideshowPageController {
     this._host._slideshowPausedUntil = Date.now() + rotationMs;
     if (this._host._slideshowPauseT) clearTimeout(this._host._slideshowPauseT);
     this._host._slideshowPauseT = null;
-    this.scheduleRotation("interaction");
+    this.schedule("interaction");
   }
 
-  scheduleRotation(_reason = "") {
+  schedule(_reason = "") {
     if (
       !this._host._slideshowActive ||
       !this.available()
@@ -269,11 +269,11 @@ export class SlideshowPageController {
     this.setCountdown(wait);
     this._host._slideshowSwitchT = setTimeout(() => {
       this._host._slideshowSwitchT = null;
-      void this.advanceRotation();
+      void this.advance();
     }, wait);
   }
 
-  async advanceRotation() {
+  async advance() {
     if (
       !this._host._slideshowActive ||
       !this.available()
@@ -296,7 +296,7 @@ export class SlideshowPageController {
     this._host._slideshowPendingAlertType = "";
     const members = flattenCameraMembers(this._host._config?.cameras || []);
     if (!members.length) {
-      this.scheduleRotation("missing-target");
+      this.schedule("missing-target");
       return;
     }
     const activeEntity =
@@ -319,7 +319,7 @@ export class SlideshowPageController {
     const targetEntity = target?.entity || "";
     const targetIndex = Number(target?.logical_camera_index);
     if (!targetEntity || !Number.isInteger(targetIndex) || targetIndex < 0) {
-      this.scheduleRotation("missing-target");
+      this.schedule("missing-target");
       return;
     }
     await this._host._switchCamera(targetIndex, {
@@ -329,6 +329,6 @@ export class SlideshowPageController {
     this._host._slideshowPausedUntil =
       Date.now() + this.rotationMs();
     this._host._setSlideshowAlertState(pendingAlertCam ? pendingAlertType : "");
-    this.scheduleRotation("advance");
+    this.schedule("advance");
   }
 }

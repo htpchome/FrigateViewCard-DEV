@@ -16,7 +16,9 @@ test("Mobile View composition preserves controller order and delegates", async (
       calls.push(["get-picker", ...args]);
       return picker;
     },
-    _pauseSlideshowForInteraction: () => calls.push(["pause-slideshow"]),
+    _slideshowPageController: {
+      pause: () => calls.push(["pause-slideshow"]),
+    },
     _renderCamSwitcher: () => calls.push(["render-switcher"]),
     _switchCamera: async (index) => {
       calls.push(["switch-camera", index]);

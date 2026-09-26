@@ -259,7 +259,7 @@ test("Single View applies its configured Slideshow start mode", () => {
   host._slideshowActive = false;
   host._isGridModeAvailable = () => true;
   host._slideshowPageController = { available: () => true };
-  host._startSlideshowRotation = (source) => {
+  host._slideshowPageController.start = (source) => {
     host._slideshowActive = true;
     calls.push(["startSlideshow", source]);
     return true;

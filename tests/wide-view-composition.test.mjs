@@ -45,7 +45,9 @@ test("Wide View composition creates companion, timeline, and page controllers wi
     _isGridMixedListMode: () => false,
     _loading: true,
     _mediaForCamera: (...args) => `media:${args.join(":")}`,
-    _pauseSlideshowForInteraction: () => calls.push(["pause"]),
+    _slideshowPageController: {
+      pause: () => calls.push(["pause"]),
+    },
     _popupMediaLoaderController: {
       showCarouselEventById: (...args) =>
         calls.push(["show-carousel", ...args]),

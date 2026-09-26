@@ -735,7 +735,7 @@ export class FrigateViewCard extends HTMLElement {
     this._applyScopedVideoFactoryDefaultsFromConfig(nextConfig);
     this._navigationFactory = null;
     if (!this._slideshowPageController.available()) {
-      this._stopSlideshowRotation("config-change");
+      this._slideshowPageController.stop("config-change");
     }
     if (!this._isGridModeAvailable()) {
       const wasGridMode = this._viewMode === "grid";
@@ -1018,7 +1018,7 @@ export class FrigateViewCard extends HTMLElement {
     this._linkedLightController?.cancelInteractions?.();
     this._clearTwoWayTalkResultBubble?.();
     void this._stopTwoWayTalkSession({ restoreLive: false });
-    this._stopSlideshowRotation("disconnect", false);
+    this._slideshowPageController.stop("disconnect", false);
     this._stopGridModeState();
     this._stopPreviewMode();
     this._wideViewPageController?.dispose?.();
@@ -1759,7 +1759,7 @@ export class FrigateViewCard extends HTMLElement {
         this._cancelPendingMount("grid-mode-entry");
         this._clearLiveEngineSlot();
       }
-      this._stopSlideshowRotation("grid-mode", false);
+      this._slideshowPageController.stop("grid-mode", false);
       this._setLiveMuted(true);
       this._gridRotationStart = Math.max(
         0,
@@ -2003,7 +2003,7 @@ export class FrigateViewCard extends HTMLElement {
           : "Start slideshow rotation",
       );
       slideshowBtn.innerHTML = this._slideshowButtonIcon();
-      if (!available) this._stopSlideshowRotation("unavailable", false);
+      if (!available) this._slideshowPageController.stop("unavailable", false);
     }
 
     const controlsBtn = this._pageShellRegionElement("tools", "#controls-btn");
@@ -2068,22 +2068,6 @@ export class FrigateViewCard extends HTMLElement {
 
   _syncPlaybackTargetButtons() {
     return this._popupPlaybackTargetController?.syncButtons?.();
-  }
-
-  _stopSlideshowRotation(reason = "manual-stop", sync = true) {
-    this._slideshowPageController.stopRotation(reason, sync);
-  }
-
-  _startSlideshowRotation(source = "manual") {
-    return this._slideshowPageController.startRotation(source);
-  }
-
-  _toggleSlideshowRotation() {
-    this._slideshowPageController.toggleRotation();
-  }
-
-  _pauseSlideshowForInteraction() {
-    this._slideshowPageController.pauseForInteraction();
   }
 
   _setSlideshowAlertState(type = "") {
@@ -2290,9 +2274,9 @@ export class FrigateViewCard extends HTMLElement {
     if (source === "manual") {
       this._setLiveAlertState("");
       if (this._slideshowActive) {
-        this._stopSlideshowRotation("manual-camera-select");
+        this._slideshowPageController.stop("manual-camera-select");
       } else {
-        this._pauseSlideshowForInteraction();
+        this._slideshowPageController.pause();
       }
     }
     if (this._viewMode === "grid") {
@@ -3572,7 +3556,7 @@ export class FrigateViewCard extends HTMLElement {
     const slideshowBtn = target.closest("#slideshow-btn");
     if (slideshowBtn) {
       if (slideshowBtn.disabled) return true;
-      this._toggleSlideshowRotation();
+      this._slideshowPageController.toggle();
       return true;
     }
     return this._liveMediaToolbarController.handleClick(target);
@@ -3659,7 +3643,7 @@ export class FrigateViewCard extends HTMLElement {
   _handleSidebarCameraClick(target) {
     const camTab = target.closest("[data-camidx]");
     if (camTab) {
-      this._pauseSlideshowForInteraction();
+      this._slideshowPageController.pause();
       this._switchCamera(Number(camTab.dataset.camidx));
       return true;
     }
@@ -3667,7 +3651,7 @@ export class FrigateViewCard extends HTMLElement {
     if (gridCell && this._viewMode === "grid") {
       const idx = Number(gridCell.dataset.gridCamidx);
       if (Number.isInteger(idx) && idx >= 0) {
-        this._pauseSlideshowForInteraction();
+        this._slideshowPageController.pause();
         this._switchCamera(idx);
         return true;
       }
@@ -3735,7 +3719,7 @@ export class FrigateViewCard extends HTMLElement {
   }
   _handleListClick(e, target) {
     if (!target?.closest?.('[data-fvc-region="browse"]')) return false;
-    this._pauseSlideshowForInteraction();
+    this._slideshowPageController.pause();
     if (this._handlePrimaryListItemClick(e, target)) return true;
     if (this._handleListNavigationClick(e, target)) return true;
     return this._handleRecordingsListClick(e, target);

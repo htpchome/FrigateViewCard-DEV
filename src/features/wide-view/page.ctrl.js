@@ -86,7 +86,7 @@ export class WideViewPageController {
 
     if (startGrid) {
       if (this._host._slideshowActive === true) {
-        this._host._stopSlideshowRotation?.(
+        this._host._slideshowPageController?.stop?.(
           "wide-view-start-grid",
           false,
         );
@@ -102,12 +102,12 @@ export class WideViewPageController {
     }
     if (startSlideshow) {
       if (this._host._slideshowActive !== true) {
-        this._host._startSlideshowRotation?.("wide-view-start");
+        this._host._slideshowPageController?.start?.("wide-view-start");
       }
       return true;
     }
     if (this._host._slideshowActive === true) {
-      this._host._stopSlideshowRotation?.("wide-view-start-live");
+      this._host._slideshowPageController?.stop?.("wide-view-start-live");
     }
     return true;
   }

@@ -76,8 +76,10 @@ test("_teardownDisconnected delegates popup cleanup to its lifecycle owner", () 
       _stopTwoWayTalkSession() {
         calls.push(["stopTwoWayTalkSession"]);
       },
-      _stopSlideshowRotation() {
-        calls.push(["stopSlideshowRotation"]);
+      _slideshowPageController: {
+        stop() {
+          calls.push(["stopSlideshowRotation"]);
+        },
       },
       _stopGridModeState() {
         calls.push(["stopGridModeState"]);

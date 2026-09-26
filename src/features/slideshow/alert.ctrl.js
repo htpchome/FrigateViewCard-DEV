@@ -151,12 +151,12 @@ export class SlideshowAlertController {
     this._host._setSlideshowAlertState(normalizedSeverity || "alert");
 
     if (entity === this._activeLiveEntity()) {
-      this._host._slideshowPageController.scheduleRotation(activeReason);
+      this._host._slideshowPageController.schedule(activeReason);
       return true;
     }
 
     this._switchToCameraEntity(entity);
-    this._host._slideshowPageController.scheduleRotation(switchReason);
+    this._host._slideshowPageController.schedule(switchReason);
     return true;
   }
 

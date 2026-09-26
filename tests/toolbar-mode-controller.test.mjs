@@ -605,11 +605,11 @@ test("slideshow refuses activation while another toolbar mode is active", () => 
   const controller = new SlideshowPageController(host);
   controller.available = () => true;
 
-  controller.toggleRotation();
+  controller.toggle();
 
   assert.deepEqual(calls, ["syncToolbar"]);
   assert.equal(host._slideshowActive, false);
-  assert.equal(controller.startRotation(), false);
+  assert.equal(controller.start(), false);
 });
 
 test("slideshow interaction restart schedules only one interval", async () => {
@@ -638,11 +638,11 @@ test("slideshow interaction restart schedules only one interval", async () => {
     controller.rotationMs = () => 5000;
     controller.setCountdown = (delay) => countdowns.push(delay);
     let advances = 0;
-    controller.advanceRotation = async () => {
+    controller.advance = async () => {
       advances += 1;
     };
 
-    controller.pauseForInteraction();
+    controller.pause();
 
     assert.equal(scheduled.length, 1);
     assert.equal(scheduled[0].delay, 5000);
@@ -732,7 +732,7 @@ test("slideshow stops its session when navigation leaves the page", () => {
   const calls = [];
   const host = { _slideshowActive: true };
   const controller = new SlideshowPageController(host);
-  controller.stopRotation = (reason, sync) => {
+  controller.stop = (reason, sync) => {
     calls.push([reason, sync]);
     host._slideshowActive = false;
   };
@@ -774,10 +774,10 @@ test("slideshow rotates through physical members of a camera group", async () =>
   const controller = new SlideshowPageController(host);
   controller.available = () => true;
   controller.rotationMs = () => 5000;
-  controller.scheduleRotation = (reason) =>
+  controller.schedule = (reason) =>
     calls.push(["scheduleRotation", reason]);
 
-  await controller.advanceRotation();
+  await controller.advance();
 
   assert.deepEqual(calls, [
     [

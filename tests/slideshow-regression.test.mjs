@@ -56,8 +56,8 @@ test("slideshow runtime hooks are present", () => {
     source.includes("_slideshowAlertController.handleReviewsUpdated"),
     true,
   );
-  assert.equal(source.includes("advanceRotation()"), true);
-  assert.equal(source.includes("scheduleRotation("), true);
+  assert.equal(source.includes("advance()"), true);
+  assert.equal(source.includes("schedule("), true);
   assert.equal(source.includes("scheduleReviewWatch(300)"), true);
   assert.equal(source.includes("SLIDESHOW_ALERT_HOLD_MS"), true);
   assert.equal(source.includes("_shouldHandleSlideshowReview"), true);
@@ -95,7 +95,7 @@ test("live resize and media-only clicks do not restart slideshow rotation", () =
     resizeSetup,
     /onInteractionStart: \(\) => this\._dismissLinkedLightDimmers\(\)/,
   );
-  assert.doesNotMatch(resizeSetup, /_pauseSlideshowForInteraction/);
+  assert.doesNotMatch(resizeSetup, /_slideshowPageController\.pause/);
 
   const listStart = cardSource.indexOf("  _handleListClick(e, target) {");
   const listEnd = cardSource.indexOf(
@@ -109,7 +109,7 @@ test("live resize and media-only clicks do not restart slideshow rotation", () =
   );
   assert.ok(
     listHandler.indexOf('closest?.(\'[data-fvc-region="browse"]\')') <
-      listHandler.indexOf("_pauseSlideshowForInteraction"),
+      listHandler.indexOf("_slideshowPageController.pause"),
   );
 });
 

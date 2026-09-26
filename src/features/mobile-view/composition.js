@@ -31,7 +31,7 @@ export const createMobileViewControllers = (
           "[data-mobile-cam-picker]",
         ) || null,
       pauseSlideshowForInteraction: () =>
-        card._pauseSlideshowForInteraction(),
+        card._slideshowPageController.pause(),
       switchCamera: (index) => card._switchCamera(index),
     });
 

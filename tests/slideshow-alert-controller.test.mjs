@@ -21,7 +21,7 @@ test("handleReviewsUpdated uses SLIDESHOW_ALERT_HOLD_MS for pause window", () =>
     _setSlideshowAlertState: () => {},
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: () => {},
+      schedule: () => {},
     },
     _switchCamera: async () => {},
   };
@@ -67,7 +67,7 @@ test("handleHaStatusCandidate switches slideshow camera and applies hold window"
     },
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: (reason) => {
+      schedule: (reason) => {
         calls.push(["schedule", reason]);
       },
     },
@@ -115,7 +115,7 @@ test("slideshow alert takeover targets the alerted member of a camera group", ()
     _setSlideshowAlertState: () => {},
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: () => {},
+      schedule: () => {},
     },
     _switchCamera: async (idx, options) => calls.push([idx, options]),
   };
@@ -150,7 +150,7 @@ test("disabled slideshow takeover does not switch cameras or reset rotation", ()
       calls.push(["state", severity]),
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+      schedule: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: (...args) => calls.push(["switch", ...args]),
   };
@@ -194,7 +194,7 @@ test("one alert cycle cannot restart its Slideshow Alert Hold Duration", () => {
       calls.push(["state", severity]),
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+      schedule: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: async (index) => calls.push(["switch", index]),
   };
@@ -244,7 +244,7 @@ test("a newly alerted camera preempts an older active HA alert", () => {
     _setSlideshowAlertState: () => {},
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+      schedule: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: async (index) => calls.push(["switch", index]),
   };
@@ -294,7 +294,7 @@ test("existing simultaneous HA alerts do not rotate through takeover holds", () 
     _setSlideshowAlertState: () => {},
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: (reason) => calls.push(["schedule", reason]),
+      schedule: (reason) => calls.push(["schedule", reason]),
     },
     _switchCamera: async (index) => calls.push(["switch", index]),
   };

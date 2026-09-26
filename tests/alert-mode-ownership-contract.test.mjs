@@ -48,7 +48,7 @@ const createModeHarness = ({
       calls.push(["slideshow-outline", severity]),
     _slideshowPageController: {
       available: () => true,
-      scheduleRotation: (reason) =>
+      schedule: (reason) =>
         calls.push(["slideshow-schedule", reason]),
     },
     _setLiveAlertState: (severity) =>

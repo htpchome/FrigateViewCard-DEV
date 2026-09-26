@@ -720,7 +720,7 @@ export class WideViewCompanionController {
     ) {
       return;
     }
-    this._host._pauseSlideshowForInteraction?.();
+    this._host._slideshowPageController?.pause?.();
     void this._host._switchCamera(index, {
       source: "manual",
       origin: "wide-companion-camera-select",
