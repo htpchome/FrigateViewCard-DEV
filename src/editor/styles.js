@@ -362,7 +362,7 @@ export const EDITOR_STYLES = `
             .camera-modal-accordion-bar{box-sizing:border-box;width:100%;min-height:40px;display:flex;align-items:center;gap:10px;padding:9px 12px;border:0;background:var(--c-bg-mobile);color:var(--editor-text);font:inherit;font-size:13px;font-weight:700;line-height:1.2;text-align:left;}
             button.camera-modal-accordion-bar{cursor:pointer;appearance:none;}
             .camera-modal-accordion-title{flex:0 1 auto;min-width:0;}
-            .camera-modal-accordion-summary{min-width:0;margin-inline-start:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text2, var(--editor-muted));font-size:12px;font-weight:500;}
+            .camera-modal-accordion-summary{min-width:0;margin-inline-start:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text2, var(--editor-muted));font-size:12px;font-weight:400;}
             .camera-modal-accordion-summary[hidden]{display:none;}
             .camera-modal-accordion-icon{display:inline-flex;width:20px;height:20px;flex:0 0 20px;align-items:center;justify-content:center;color:var(--c-text2, var(--editor-muted));transition:transform .16s ease;}
             .camera-modal-accordion-icon svg{display:block;width:18px;height:18px;}
