@@ -314,9 +314,42 @@ const ensureNavbarStyle = (state, styleText) => {
   state.navbarStyleText = styleText;
 };
 
+const cancelDeferredStackTabs = (state) => {
+  if (state.stackTabsFrame !== null) {
+    state.cancelAnimationFrameFn?.(state.stackTabsFrame);
+  }
+  state.stackTabsFrame = null;
+  state.stackTabsReady = false;
+  state.stackTabsRequested = false;
+};
+
+const scheduleDeferredStackTabs = (state) => {
+  if (
+    state.stackTabsReady ||
+    state.stackTabsFrame !== null ||
+    !state.stackTabsRequested
+  ) {
+    return;
+  }
+  const requestFrame = state.requestAnimationFrameFn;
+  if (typeof requestFrame !== "function") {
+    state.stackTabsReady = true;
+    return;
+  }
+  state.stackTabsFrame = requestFrame(() => {
+    state.stackTabsFrame = requestFrame(() => {
+      state.stackTabsFrame = null;
+      if (!state.stackTabsRequested) return;
+      state.stackTabsReady = true;
+      applyManagedTargets(state);
+    });
+  });
+};
+
 const applyManagedTargets = (state) => {
   const targets = resolveHomeAssistantNavbarTargets(state.huiRoot);
   if (!targets) {
+    cancelDeferredStackTabs(state);
     restoreManagedTargets(state);
     return false;
   }
@@ -357,6 +390,7 @@ const applyManagedTargets = (state) => {
     headerStyles["padding-bottom"];
 
   if (targetsChanged) {
+    cancelDeferredStackTabs(state);
     restoreManagedTargets(state);
     state.header = targets.header;
     state.headerAttributeSnapshot =
@@ -364,6 +398,13 @@ const applyManagedTargets = (state) => {
     targets.header.setAttribute?.(NAVBAR_HEADER_ATTRIBUTE, "");
     state.toolbar = targets.toolbar;
     state.view = targets.view;
+  }
+
+  state.stackTabsRequested = stackTabs;
+  if (!stackTabs) {
+    cancelDeferredStackTabs(state);
+  } else if (typeof state.requestAnimationFrameFn !== "function") {
+    state.stackTabsReady = true;
   }
 
   if (moveBottom && (!state.geometryApplied || headerStylesChanged)) {
@@ -394,10 +435,11 @@ const applyManagedTargets = (state) => {
     state,
     resolveHomeAssistantNavbarStyleText({
       moveBottom,
-      stackTabs,
+      stackTabs: stackTabs && state.stackTabsReady,
       promoteViewInLandscape,
     }),
   );
+  scheduleDeferredStackTabs(state);
   return true;
 };
 
@@ -412,6 +454,8 @@ const acquireNavbarCustomization = (
     promoteViewInLandscape = false,
     bubblePopupRotateActive = false,
     reserveDashboardEditActions = false,
+    requestAnimationFrameFn = null,
+    cancelAnimationFrameFn = null,
   } = {},
 ) => {
   let state = coordinatorByRoot.get(huiRoot);
@@ -432,6 +476,11 @@ const acquireNavbarCustomization = (
       geometryApplied: false,
       navbarStyle: null,
       navbarStyleText: "",
+      stackTabsReady: false,
+      stackTabsRequested: false,
+      stackTabsFrame: null,
+      requestAnimationFrameFn,
+      cancelAnimationFrameFn,
     };
     if (typeof MutationObserverCtor === "function") {
       state.observer = new MutationObserverCtor(() => {
@@ -445,6 +494,12 @@ const acquireNavbarCustomization = (
       }
     }
     coordinatorByRoot.set(huiRoot, state);
+  }
+  if (typeof requestAnimationFrameFn === "function") {
+    state.requestAnimationFrameFn = requestAnimationFrameFn;
+  }
+  if (typeof cancelAnimationFrameFn === "function") {
+    state.cancelAnimationFrameFn = cancelAnimationFrameFn;
   }
   state.owners.set(owner, {
     isIOS,
@@ -466,6 +521,7 @@ const releaseNavbarCustomization = (owner, huiRoot) => {
     return;
   }
   restoreManagedTargets(state);
+  cancelDeferredStackTabs(state);
   state.observer?.disconnect?.();
   coordinatorByRoot.delete(huiRoot);
 };
@@ -496,6 +552,14 @@ export class HomeAssistantNavbarController {
         ? getComputedStyleFn.bind(windowRef || globalThis)
         : null;
     this._isIOS = isIOS === true;
+    this._requestAnimationFrame =
+      typeof windowRef?.requestAnimationFrame === "function"
+        ? windowRef.requestAnimationFrame.bind(windowRef)
+        : null;
+    this._cancelAnimationFrame =
+      typeof windowRef?.cancelAnimationFrame === "function"
+        ? windowRef.cancelAnimationFrame.bind(windowRef)
+        : null;
     this._queueMicrotask =
       typeof queueMicrotaskFn === "function"
         ? queueMicrotaskFn.bind(windowRef || globalThis)
@@ -663,6 +727,8 @@ export class HomeAssistantNavbarController {
       promoteViewInLandscape,
       bubblePopupRotateActive,
       reserveDashboardEditActions,
+      requestAnimationFrameFn: this._requestAnimationFrame,
+      cancelAnimationFrameFn: this._cancelAnimationFrame,
     });
   }
 

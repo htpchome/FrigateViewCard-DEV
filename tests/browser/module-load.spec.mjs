@@ -504,12 +504,36 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
         :host { display: block; width: 100%; height: 823px; }
         .header { position: fixed; inset: 0 0 auto; background: red; }
         .toolbar { height: 56px; }
-        .toolbar-child { width: 308px; height: 56px; margin: auto; }
+        .toolbar-child {
+          display: flex;
+          justify-content: center;
+          width: 308px;
+          height: 56px;
+          margin: auto;
+        }
+        ha-tab-group-tab { display: inline-flex; font-size: 16px; }
+        ha-tab-group-tab ha-icon {
+          display: inline-block;
+          width: 24px;
+          margin-inline-end: 12px;
+        }
         #view { box-sizing: border-box; height: 823px; padding-top: 56px; }
         hui-view { display: block; height: 767px; background: blue; }
       </style>
       <div class="header">
-        <div class="toolbar"><div class="toolbar-child"></div></div>
+        <div class="toolbar">
+          <div class="toolbar-child">
+            <ha-tab-group-tab class="icon-and-title" active>
+              <ha-icon></ha-icon>Home
+            </ha-tab-group-tab>
+            <ha-tab-group-tab class="icon-and-title">
+              <ha-icon></ha-icon>Cameras
+            </ha-tab-group-tab>
+            <ha-tab-group-tab class="icon-and-title">
+              <ha-icon></ha-icon>Settings
+            </ha-tab-group-tab>
+          </div>
+        </div>
       </div>
       <div id="view"><hui-view></hui-view></div>
     `;
@@ -537,6 +561,7 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
       _config: {
         mobile_view_ha_navbar_bottom: true,
         mobile_view_ha_navbar_dashboard: true,
+        mobile_view_ha_navbar_stack_tabs: true,
       },
       _isLikelyMobileClient: () => true,
       _isLikelyPhoneClient: () => true,
@@ -550,6 +575,8 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
       findPanel: () => null,
     });
     controller.sync();
+    const tab = root.querySelector("ha-tab-group-tab");
+    const initialTabFontSize = getComputedStyle(tab).fontSize;
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
@@ -573,6 +600,8 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
       transform: getComputedStyle(header).transform,
       transitionDuration: getComputedStyle(header).transitionDuration,
       transitionProperty: getComputedStyle(header).transitionProperty,
+      initialTabFontSize,
+      settledTabFontSize: getComputedStyle(tab).fontSize,
     };
     controller.disconnect({ force: true });
     return result;
@@ -586,6 +615,8 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
     inlineBottom: "auto",
     transitionDuration: "0.001s",
     transitionProperty: "transform",
+    initialTabFontSize: "16px",
+    settledTabFontSize: "10px",
   });
   expect(state.headerBottom).toBeCloseTo(823, 0);
   expect(state.headerTop).toBeGreaterThan(750);

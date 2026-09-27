@@ -137,6 +137,7 @@ const createHarness = ({
   dashboardConfig = null,
   dashboardEditMode = false,
   dashboardScope = false,
+  deferAnimationFrames = false,
   isIOS = true,
   mobileDevice = true,
   phoneDevice = mobileDevice,
@@ -150,6 +151,17 @@ const createHarness = ({
 } = {}) => {
   FakeMutationObserver.instances = [];
   const windowRef = createWindow(viewportHeight);
+  const animationFrames = new Map();
+  let nextAnimationFrameId = 1;
+  if (deferAnimationFrames) {
+    windowRef.requestAnimationFrame = (callback) => {
+      const id = nextAnimationFrameId;
+      nextAnimationFrameId += 1;
+      animationFrames.set(id, callback);
+      return id;
+    };
+    windowRef.cancelAnimationFrame = (id) => animationFrames.delete(id);
+  }
   const documentRef = {
     createElement: () => createStyleElement(),
     querySelector: () => homeAssistant,
@@ -236,6 +248,11 @@ const createHarness = ({
       currentHuiRoot = nextRoot;
     },
     getTargets: () => currentTargets,
+    flushAnimationFrame: () => {
+      const callbacks = [...animationFrames.values()];
+      animationFrames.clear();
+      callbacks.forEach((callback) => callback());
+    },
     setTargets: (nextTargets) => {
       currentTargets = nextTargets;
     },
@@ -381,6 +398,39 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.equal(h.controller.isNavbarAtBottom(), false);
   assert.equal(h.controller.bottomNavbarExtraHeightPx(), 0);
   assert.equal(h.getTargets().children.length, 0);
+});
+
+test("stacks navbar tabs only after the relocated shell has painted", () => {
+  const h = createHarness({
+    deferAnimationFrames: true,
+    moveBottom: true,
+    stackTabs: true,
+  });
+
+  assert.equal(h.controller.sync(), true);
+  assert.doesNotMatch(
+    h.getTargets().children[0].textContent,
+    /ha-tab-group-tab\.icon-and-title/,
+  );
+
+  h.flushAnimationFrame();
+  assert.doesNotMatch(
+    h.getTargets().children[0].textContent,
+    /ha-tab-group-tab\.icon-and-title/,
+  );
+
+  h.flushAnimationFrame();
+  assert.match(
+    h.getTargets().children[0].textContent,
+    /ha-tab-group-tab\.icon-and-title/,
+  );
+
+  h.host._config.mobile_view_ha_navbar_stack_tabs = false;
+  h.controller.sync();
+  assert.doesNotMatch(
+    h.getTargets().children[0].textContent,
+    /ha-tab-group-tab\.icon-and-title/,
+  );
 });
 
 test("card-local scope remains active across internal Frigate views", () => {
