@@ -1731,6 +1731,7 @@ test("buildEditorConfigFromDom reads text and display visibility controls", () =
 
 test("buildEditorConfigFromDom reads standalone Card View presentation controls", () => {
   const nodes = {
+    "#grid_mode_enabled": { checked: true },
     "#card_view_page_enabled": { checked: true },
     "#card_view_standalone": { checked: true },
     "#card_view_media_drawer_enabled": { checked: true },
@@ -1765,6 +1766,8 @@ test("buildEditorConfigFromDom reads standalone Card View presentation controls"
 
 test("buildEditorConfigFromDom reads Single and Wide page controls", () => {
   const nodes = {
+    "#slideshow_rotation_enabled": { checked: true },
+    "#grid_mode_enabled": { checked: true },
     "#single_view_alert_takeover": { checked: true },
     '[name="single_view_start_mode"]:checked': { value: "slideshow" },
     "#wide_view_page_enabled": { checked: true },
@@ -2218,6 +2221,7 @@ test("page start modes persist independently of the inert legacy Grid startup ke
   const normalized = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
     grid_start_in_grid_enabled: true,
+    slideshow_rotation_enabled: true,
     single_view_alert_takeover: true,
     single_view_start_mode: "live",
     wide_view_start_mode: "slideshow",
@@ -2233,6 +2237,38 @@ test("page start modes persist independently of the inert legacy Grid startup ke
   assert.equal(compact.wide_view_start_mode, "slideshow");
   assert.equal(compact.card_view_start_mode, undefined);
   assert.equal(compact.grid_start_in_grid_enabled, true);
+});
+
+test("disabling Grid or Slideshow resets only matching page start modes", () => {
+  const withoutGrid = normalizeCardConfig({
+    cameras: [
+      { entity: "camera.front_door" },
+      { entity: "camera.back_door" },
+    ],
+    grid_mode_enabled: false,
+    slideshow_rotation_enabled: true,
+    single_view_start_mode: "grid",
+    wide_view_start_mode: "slideshow",
+    card_view_start_mode: "grid",
+  });
+  assert.equal(withoutGrid.single_view_start_mode, "live");
+  assert.equal(withoutGrid.wide_view_start_mode, "slideshow");
+  assert.equal(withoutGrid.card_view_start_mode, "live");
+
+  const withoutSlideshow = normalizeCardConfig({
+    cameras: [
+      { entity: "camera.front_door" },
+      { entity: "camera.back_door" },
+    ],
+    grid_mode_enabled: true,
+    slideshow_rotation_enabled: false,
+    single_view_start_mode: "grid",
+    wide_view_start_mode: "slideshow",
+    card_view_start_mode: "slideshow",
+  });
+  assert.equal(withoutSlideshow.single_view_start_mode, "grid");
+  assert.equal(withoutSlideshow.wide_view_start_mode, "live");
+  assert.equal(withoutSlideshow.card_view_start_mode, "live");
 });
 
 test("Card View View Mode normalizes values and migrates legacy presentation settings", () => {
@@ -2276,6 +2312,7 @@ test("Card View View Mode normalizes values and migrates legacy presentation set
 test("standalone Card View forces the desktop landing page and serializes explicitly", () => {
   const normalized = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
+    slideshow_rotation_enabled: true,
     card_view_page_enabled: true,
     card_view_standalone: true,
     card_view_media_drawer_enabled: true,

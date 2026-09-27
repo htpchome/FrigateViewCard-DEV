@@ -3782,6 +3782,107 @@ test("Slideshow and Preview language changes preserve enabled switches and durat
   });
 });
 
+test("disabling Grid or Slideshow resets only pages using that start mode", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [
+        { entity: "camera.front", name: "Front" },
+        { entity: "camera.back", name: "Back" },
+      ],
+      grid_mode_enabled: true,
+      slideshow_rotation_enabled: true,
+      single_view_start_mode: "grid",
+      wide_view_start_mode: "slideshow",
+      card_view_start_mode: "slideshow",
+    });
+
+    const settle = () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    const grid = editor.querySelector("#grid_mode_enabled");
+    const slideshow = editor.querySelector("#slideshow_rotation_enabled");
+    editor.querySelector("#mobile_view_page_enabled").checked = true;
+    grid.checked = true;
+    slideshow.checked = true;
+    slideshow.checked = false;
+    slideshow.dispatchEvent(new Event("change", { bubbles: true }));
+    await settle();
+
+    const afterSlideshow = {
+      gridControlChecked: grid.checked,
+      gridEnabled: editor._config.grid_mode_enabled,
+      slideshowControlChecked: slideshow.checked,
+      slideshowEnabled: editor._config.slideshow_rotation_enabled,
+      single: editor._config.single_view_start_mode,
+      wide: editor._config.wide_view_start_mode,
+      card: editor._config.card_view_start_mode,
+      singleGridChecked: editor.querySelector(
+        '[name="single_view_start_mode"][value="grid"]',
+      ).checked,
+      wideLiveChecked: editor.querySelector(
+        '[name="wide_view_start_mode"][value="live"]',
+      ).checked,
+      cardLiveChecked: editor.querySelector(
+        '[name="card_view_start_mode"][value="live"]',
+      ).checked,
+    };
+
+    grid.checked = false;
+    grid.dispatchEvent(new Event("change", { bubbles: true }));
+    await settle();
+
+    return {
+      afterSlideshow,
+      afterGrid: {
+        single: editor._config.single_view_start_mode,
+        wide: editor._config.wide_view_start_mode,
+        card: editor._config.card_view_start_mode,
+        singleLiveChecked: editor.querySelector(
+          '[name="single_view_start_mode"][value="live"]',
+        ).checked,
+        gridChoicesDisabled: [
+          ...editor.querySelectorAll(
+            '[name$="_view_start_mode"][value="grid"]',
+          ),
+        ].every((input) => input.disabled),
+        slideshowChoicesDisabled: [
+          ...editor.querySelectorAll(
+            '[name$="_view_start_mode"][value="slideshow"]',
+          ),
+        ].every((input) => input.disabled),
+      },
+    };
+  });
+
+  expect(state).toEqual({
+    afterSlideshow: {
+      gridControlChecked: true,
+      gridEnabled: true,
+      slideshowControlChecked: false,
+      slideshowEnabled: false,
+      single: "grid",
+      wide: "live",
+      card: "live",
+      singleGridChecked: true,
+      wideLiveChecked: true,
+      cardLiveChecked: true,
+    },
+    afterGrid: {
+      single: "live",
+      wide: "live",
+      card: "live",
+      singleLiveChecked: true,
+      gridChoicesDisabled: true,
+      slideshowChoicesDisabled: true,
+    },
+  });
+});
+
 test("Grid Mode language changes preserve custom camera order and accessible actions", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {

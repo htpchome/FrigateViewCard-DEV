@@ -5172,6 +5172,13 @@ export class FrigateViewCardEditor extends HTMLElement {
           this.querySelectorAll(
             `[name$="_view_start_mode"][value="${mode}"]`,
           ).forEach((input) => {
+            if (!available && input.checked) {
+              const liveInput = this.querySelector(
+                `[name="${input.name}"][value="live"]`,
+              );
+              input.checked = false;
+              if (liveInput) liveInput.checked = true;
+            }
             input.disabled = !available;
             const label = input.closest("label");
             if (!label) return;

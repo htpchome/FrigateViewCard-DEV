@@ -52,10 +52,9 @@ import {
 } from "./features/camera-groups/model.js";
 import { normalizeLinkedEntitiesConfig } from "./features/linked-entities/config.js";
 import {
-  normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "./features/card-view/config.js";
-import { normalizePageStartMode } from "./features/navigation/start-mode.js";
+import { resolveAvailablePageStartMode } from "./features/navigation/start-mode.js";
 import { sanitizeDisplayText } from "./shared/page-text.js";
 
 export function detectDeviceProfile() {
@@ -902,9 +901,14 @@ export const buildEditorConfigFromDom = ({
   nextConfig.single_view_alert_takeover = resolveSwitchChecked(
     root.querySelector("#single_view_alert_takeover"),
   );
-  nextConfig.single_view_start_mode = normalizePageStartMode(
+  const startModeAvailability = {
+    gridEnabled: nextConfig.grid_mode_enabled,
+    slideshowEnabled: nextConfig.slideshow_rotation_enabled,
+  };
+  nextConfig.single_view_start_mode = resolveAvailablePageStartMode(
     root.querySelector('[name="single_view_start_mode"]:checked')?.value ||
       baseConfig?.single_view_start_mode,
+    startModeAvailability,
   );
   nextConfig.wide_view_page_enabled = resolveSwitchChecked(
     root.querySelector("#wide_view_page_enabled"),
@@ -915,9 +919,10 @@ export const buildEditorConfigFromDom = ({
   nextConfig.wide_view_alert_takeover = resolveSwitchChecked(
     root.querySelector("#wide_view_alert_takeover"),
   );
-  nextConfig.wide_view_start_mode = normalizePageStartMode(
+  nextConfig.wide_view_start_mode = resolveAvailablePageStartMode(
     root.querySelector('[name="wide_view_start_mode"]:checked')?.value ||
       baseConfig?.wide_view_start_mode,
+    startModeAvailability,
   );
   nextConfig.wide_view_timeline_enabled = resolveSwitchChecked(
     root.querySelector("#wide_view_timeline_enabled"),
@@ -945,9 +950,10 @@ export const buildEditorConfigFromDom = ({
   nextConfig.card_view_media_drawer_enabled = resolveSwitchChecked(
     root.querySelector("#card_view_media_drawer_enabled"),
   );
-  nextConfig.card_view_start_mode = normalizeCardViewStartMode(
+  nextConfig.card_view_start_mode = resolveAvailablePageStartMode(
     root.querySelector('[name="card_view_start_mode"]:checked')?.value ||
       baseConfig?.card_view_start_mode,
+    startModeAvailability,
   );
   nextConfig.card_view_view_mode = normalizeCardViewViewMode(
     root.querySelector('[name="card_view_view_mode"]:checked')?.value ||

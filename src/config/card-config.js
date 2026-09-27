@@ -47,10 +47,9 @@ import {
 import { limitCameraConfigsByPhysicalCount } from "../features/camera-groups/model.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
 import {
-  normalizeCardViewStartMode,
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
-import { normalizePageStartMode } from "../features/navigation/start-mode.js";
+import { resolveAvailablePageStartMode } from "../features/navigation/start-mode.js";
 import { sanitizeDisplayText } from "../shared/page-text.js";
 
 export const DEFAULT_CAMERA_ENTITY = "camera.doorbell";
@@ -214,14 +213,21 @@ export const normalizeCardConfig = (config) => {
       10,
     );
 
-  src.single_view_start_mode = normalizePageStartMode(
+  const startModeAvailability = {
+    gridEnabled: src.grid_mode_enabled,
+    slideshowEnabled: src.slideshow_rotation_enabled,
+  };
+  src.single_view_start_mode = resolveAvailablePageStartMode(
     src.single_view_start_mode,
+    startModeAvailability,
   );
-  src.wide_view_start_mode = normalizePageStartMode(
+  src.wide_view_start_mode = resolveAvailablePageStartMode(
     src.wide_view_start_mode,
+    startModeAvailability,
   );
-  src.card_view_start_mode = normalizeCardViewStartMode(
+  src.card_view_start_mode = resolveAvailablePageStartMode(
     src.card_view_start_mode,
+    startModeAvailability,
   );
   src.single_view_alert_takeover =
     src.single_view_alert_takeover === true;

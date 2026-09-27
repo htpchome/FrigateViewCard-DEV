@@ -11,6 +11,23 @@ export const normalizePageStartMode = (value) => {
   return PAGE_START_MODE_SET.has(mode) ? mode : PAGE_START_MODES.live;
 };
 
+export const resolveAvailablePageStartMode = (
+  value,
+  { gridEnabled = false, slideshowEnabled = false } = {},
+) => {
+  const mode = normalizePageStartMode(value);
+  if (mode === PAGE_START_MODES.grid && gridEnabled !== true) {
+    return PAGE_START_MODES.live;
+  }
+  if (
+    mode === PAGE_START_MODES.slideshow &&
+    slideshowEnabled !== true
+  ) {
+    return PAGE_START_MODES.live;
+  }
+  return mode;
+};
+
 export const pageStartModeOptions = ({
   gridEnabled = false,
   slideshowEnabled = false,
