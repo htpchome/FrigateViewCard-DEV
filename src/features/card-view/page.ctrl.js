@@ -151,9 +151,11 @@ export class CardViewPageController {
     this._drawerClickResetTimer = null;
     this._startModeApplied = false;
     this._standaloneStageHeight = 0;
+    this._standaloneModeControlsContent = null;
     this._standaloneModeControlsMarkup = "";
     this._standaloneGridModeActive = false;
     this._standaloneGridIndicatorTimer = null;
+    this._standaloneTalkContent = null;
     this._standaloneTalkMarkup = "";
     this._stylePromise = null;
     this._mediaDrawerController = new CardViewMediaDrawerController({
@@ -396,8 +398,10 @@ export class CardViewPageController {
     this._drawerClickResetTimer = null;
     this._startModeApplied = false;
     this._standaloneStageHeight = 0;
+    this._standaloneModeControlsContent = null;
     this._standaloneModeControlsMarkup = "";
     this._resetStandaloneGridIndicator();
+    this._standaloneTalkContent = null;
     this._standaloneTalkMarkup = "";
     this._mediaDrawerCalendarOpen = false;
     this._mediaDrawerFilterOpen = false;
@@ -1025,6 +1029,7 @@ export class CardViewPageController {
     if (!container) return;
     if (!this.usesOverlayPresentation()) {
       container.innerHTML = "";
+      this._standaloneModeControlsContent = container;
       this._standaloneModeControlsMarkup = "";
       this._resetStandaloneGridIndicator(container);
       return;
@@ -1053,8 +1058,12 @@ export class CardViewPageController {
       slideshowDisabled: modeSwitchLocked,
       slideshowRemainingSeconds: 0,
     });
-    if (markup !== this._standaloneModeControlsMarkup) {
+    if (
+      container !== this._standaloneModeControlsContent ||
+      markup !== this._standaloneModeControlsMarkup
+    ) {
       container.innerHTML = markup;
+      this._standaloneModeControlsContent = container;
       this._standaloneModeControlsMarkup = markup;
       applyLocalizedText(container, this._host._localization?.t);
     }
@@ -1119,6 +1128,7 @@ export class CardViewPageController {
     if (!container) return;
     if (!this.usesOverlayPresentation()) {
       container.innerHTML = "";
+      this._standaloneTalkContent = container;
       this._standaloneTalkMarkup = "";
       return;
     }
@@ -1129,8 +1139,12 @@ export class CardViewPageController {
           includeIncomingAudioMute: true,
         }) || ""
       : "";
-    if (markup !== this._standaloneTalkMarkup) {
+    if (
+      container !== this._standaloneTalkContent ||
+      markup !== this._standaloneTalkMarkup
+    ) {
       container.innerHTML = markup;
+      this._standaloneTalkContent = container;
       this._standaloneTalkMarkup = markup;
     }
     this._host._syncTwoWayTalkSoundwaveSurface?.();

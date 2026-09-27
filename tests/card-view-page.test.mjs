@@ -654,6 +654,42 @@ test("non-standalone Video Only renders picker and center controls as overlays",
   assert.equal(talkControls.innerHTML, "overlay-microphone");
 });
 
+test("Video Only restores unchanged mode controls after its shell is replaced", () => {
+  let modeControls = { innerHTML: "" };
+  const host = {
+    _pageId: "card-view",
+    _viewMode: "single",
+    _slideshowActive: false,
+    _config: {
+      card_view_view_mode: CARD_VIEW_VIEW_MODES.videoOnly,
+    },
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "[data-card-view-standalone-mode-controls]"
+          ? modeControls
+          : null,
+    },
+    _isAlertCameraTakeoverAvailable: () => true,
+    _isGridModeAvailable: () => true,
+    _slideshowPageController: { available: () => true },
+    _twoWayTalkActiveForCurrentCamera: () => false,
+  };
+  const controller = new CardViewPageController(host, {
+    PAGE_IDS: { cardView: "card-view" },
+  });
+
+  controller.renderStandaloneModeControls();
+  const initialMarkup = modeControls.innerHTML;
+  assert.match(initialMarkup, /data-card-view-standalone-slideshow/);
+  assert.match(initialMarkup, /data-card-view-standalone-grid/);
+  assert.match(initialMarkup, /data-card-view-takeover/);
+
+  modeControls = { innerHTML: "" };
+  controller.renderStandaloneModeControls();
+
+  assert.equal(modeControls.innerHTML, initialMarkup);
+});
+
 test("View Mode alone determines whether Card View uses the video overlay presentation", () => {
   for (const standalone of [false, true]) {
     for (const viewMode of Object.values(CARD_VIEW_VIEW_MODES)) {

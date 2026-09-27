@@ -6151,6 +6151,54 @@ test("shows default Card View media options only for Video Only mode", async ({
   });
 });
 
+test("restores Card View Video Only mode controls after a shell replacement", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [
+        { entity: "camera.front", name: "Front" },
+        { entity: "camera.back", name: "Back" },
+      ],
+      card_view_page_enabled: true,
+      card_view_view_mode: "video-only",
+      grid_mode_enabled: true,
+      slideshow_rotation_enabled: true,
+    });
+    await card._cardViewPageController.prepareStyles();
+    card._pageId = "card-view";
+    card._renderShell();
+    card._cardViewPageController.renderToolbar();
+
+    const countControls = () => ({
+      grid: card.shadowRoot.querySelectorAll(
+        "[data-card-view-standalone-mode-controls] [data-card-view-standalone-grid]",
+      ).length,
+      slideshow: card.shadowRoot.querySelectorAll(
+        "[data-card-view-standalone-mode-controls] [data-card-view-standalone-slideshow]",
+      ).length,
+      takeover: card.shadowRoot.querySelectorAll(
+        "[data-card-view-standalone-mode-controls] [data-card-view-takeover]",
+      ).length,
+    });
+    const before = countControls();
+
+    card._renderShellPreserveLive();
+    card._syncToolbarButtons();
+
+    return { before, after: countControls() };
+  });
+
+  expect(state).toEqual({
+    before: { grid: 1, slideshow: 1, takeover: 1 },
+    after: { grid: 1, slideshow: 1, takeover: 1 },
+  });
+});
+
 test("positions camera B controls before its stream becomes ready", async ({
   page,
 }) => {
