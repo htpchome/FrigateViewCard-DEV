@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { VERSION } from "../src/constants.js";
 import { ensureCardViewPageStyles } from "../src/features/card-view/page-style.loader.js";
 
 test("Card View styles load once and install for each card host", async () => {
@@ -30,7 +31,7 @@ test("Card View styles load once and install for each card host", async () => {
     assetUrl.pathname,
     "/local/frigate-view-card-card-view.js",
   );
-  assert.equal(assetUrl.searchParams.get("fvc-version"), "1.1.8-dev.31");
+  assert.equal(assetUrl.searchParams.get("fvc-version"), VERSION);
   assert.deepEqual(installedHosts, [hostA, hostB]);
   assert.equal(first.host, hostA);
   assert.equal(second.host, hostB);

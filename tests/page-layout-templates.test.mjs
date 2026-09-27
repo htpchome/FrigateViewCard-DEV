@@ -9,6 +9,7 @@ import {
 import { buildSingleViewMainLayoutShellMarkup } from "../src/features/single-view/page.tmpl.js";
 import { buildWideViewMainLayoutShellMarkup } from "../src/features/wide-view/page.tmpl.js";
 import { WIDE_VIEW_COMPANION_STYLES } from "../src/features/wide-view/companion.styles.js";
+import { WIDE_VIEW_PAGE_STYLES } from "../src/features/wide-view/page.styles.js";
 import { buildFooterMarkup } from "../src/card/shell.tmpl.js";
 import { ICONS } from "../src/icons.js";
 import { STYLES } from "../src/styles.js";
@@ -202,7 +203,7 @@ test("single, preview, and wide footers share one height and centered version al
     /\.footer \{[^}]*height:var\(--fvc-footer-height\);[^}]*min-height:var\(--fvc-footer-height\)/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_PAGE_STYLES,
     /\.wide-footer\{[^}]*height:var\(--fvc-footer-height\);[^}]*min-height:var\(--fvc-footer-height\)/,
   );
   assert.match(
@@ -248,15 +249,15 @@ test("wide view inserts Companion Cameras below its tool controls", () => {
     /id="resize-handle" title="Resize Video" aria-label="Resize Video"/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_PAGE_STYLES,
     /\.layout\.wide-view \.resize-handle::before\{content:'↔';/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_PAGE_STYLES,
     /\.layout\.wide-view \.resize-handle::after\{content:'Resize ↕ Video';[^}]*opacity:0;/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_PAGE_STYLES,
     /\.card \.wide-view-columns\{[^}]*isolation:isolate;[^}]*overflow:hidden;/,
   );
 });

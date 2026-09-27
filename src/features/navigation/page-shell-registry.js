@@ -3,7 +3,6 @@ import {
   buildMobileViewMainLayoutShellMarkup,
 } from "../mobile-view/page.tmpl.js";
 import { buildSingleViewMainLayoutShellMarkup } from "../single-view/page.tmpl.js";
-import { buildWideViewMainLayoutShellMarkup } from "../wide-view/page.tmpl.js";
 import { buildPreviewPageMainLayoutShellMarkup } from "../preview/page.tmpl.js";
 import { buildCardViewMainLayoutShellMarkup } from "../card-view/page.tmpl.js";
 import { buildInfoRowMarkup } from "../../card/shell.tmpl.js";
@@ -394,11 +393,11 @@ export function registerDefaultPageShellProfiles(registry, PAGE_IDS) {
             position: "right",
           }) || "",
       }),
-    buildMainLayoutShellMarkup: ({ regions, layoutProfile }) =>
-      buildWideViewMainLayoutShellMarkup({
+    buildMainLayoutShellMarkup: ({ host, regions, layoutProfile }) =>
+      host?._wideViewPageController?.buildMainLayoutShellMarkup?.({
         regions,
         layoutProfile,
-      }),
+      }) || "",
     capabilities: {
       hasLive: true,
       hasLivePictureInPicture: true,

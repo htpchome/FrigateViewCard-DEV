@@ -8,7 +8,7 @@ import {
   WideViewCompanionController,
 } from "../src/features/wide-view/companion.ctrl.js";
 import { WIDE_VIEW_COMPANION_STYLES } from "../src/features/wide-view/companion.styles.js";
-import { STYLES } from "../src/styles.js";
+import { WIDE_VIEW_PAGE_STYLES } from "../src/features/wide-view/page.styles.js";
 
 const constants = {
   DAY: 86400,
@@ -137,7 +137,7 @@ test("Companion Cameras region exposes an accessible drag handle", () => {
     /\.wide-companion-resize-handle\{[^}]*cursor:ns-resize;[^}]*touch-action:none/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_PAGE_STYLES,
     /\.card \.layout--wide-view \.tabs-holder\.has-open-toolbar-panel\{[^}]*z-index:30/,
   );
 });

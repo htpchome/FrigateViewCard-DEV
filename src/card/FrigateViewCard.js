@@ -2855,10 +2855,15 @@ export class FrigateViewCard extends HTMLElement {
       this.shadowRoot.querySelector(
         "style[data-fvc-card-view-page-styles]",
       )?.textContent || "";
+    const wideViewPageStyles =
+      this.shadowRoot.querySelector(
+        "style[data-fvc-wide-view-page-styles]",
+      )?.textContent || "";
     this._preparePageLayoutReplacement({
       preserveLive: this._preservingLiveShell === true,
     });
     this.shadowRoot.innerHTML = `<style>${STYLES_BEFORE_CARD_VIEW}</style>
+    <style data-fvc-wide-view-page-styles>${wideViewPageStyles}</style>
     <style data-fvc-card-view-page-styles>${cardViewPageStyles}</style>
     <style>${STYLES_AFTER_CARD_VIEW}</style>
     <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">

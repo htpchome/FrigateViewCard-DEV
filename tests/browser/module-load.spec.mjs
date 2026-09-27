@@ -35,6 +35,10 @@ const bundlePaths = new Map([
     "dist/frigate-view-card-linked-light.js",
   ],
   [
+    "/frigate-view-card-wide-view.js",
+    "dist/frigate-view-card-wide-view.js",
+  ],
+  [
     "/frigate-view-card-wide-timeline.js",
     "dist/frigate-view-card-wide-timeline.js",
   ],
@@ -100,6 +104,123 @@ test.afterAll(async () => {
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
+});
+
+test("Wide View core stays dormant until an enabled desktop route enters it", async ({
+  page,
+}) => {
+  let wideViewRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-wide-view.js"
+    ) {
+      wideViewRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "single-view",
+      wide_view_page_enabled: true,
+    });
+    const before = {
+      delegate: Boolean(card._wideViewPageController._delegate),
+      pageId: card._pageId,
+    };
+
+    card._pageNavigationController.navigateToPageRoute("wide-view", {
+      source: "lazy-wide-view-test",
+    });
+    await card._wideViewPageController.prepare();
+
+    const style = card.shadowRoot.querySelector(
+      "style[data-fvc-wide-view-page-styles]",
+    );
+    return {
+      before,
+      after: {
+        delegate: Boolean(card._wideViewPageController._delegate),
+        pageId: card._pageId,
+        wideLayout: card.shadowRoot
+          .querySelector("#layout")
+          ?.classList.contains("layout--wide-view"),
+        stylesInstalled: Boolean(style?.textContent?.trim()),
+      },
+    };
+  });
+
+  expect(state).toEqual({
+    before: { delegate: false, pageId: "single-view" },
+    after: {
+      delegate: true,
+      pageId: "wide-view",
+      wideLayout: true,
+      stylesInstalled: true,
+    },
+  });
+  expect(wideViewRequests).toBe(1);
+});
+
+test("phone routing never requests the Wide View core asset", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  let wideViewRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-wide-view.js"
+    ) {
+      wideViewRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "wide-view",
+      mobile_page: "single-view",
+      wide_view_page_enabled: true,
+    });
+    const resolved = card._pageNavigationController.navigateToPageRoute(
+      "wide-view",
+      { source: "phone-wide-view-test" },
+    );
+    const prepared = await card._wideViewPageController.prepare();
+    return {
+      available: card._pageNavigationController.pageRouteOptions(),
+      delegate: Boolean(card._wideViewPageController._delegate),
+      pageId: card._pageId,
+      prepared: prepared !== null,
+      resolved,
+    };
+  });
+
+  await context.close();
+  expect(state.available).not.toContain("wide-view");
+  expect(state).toMatchObject({
+    delegate: false,
+    pageId: "single-view",
+    prepared: false,
+    resolved: "single-view",
+  });
+  expect(wideViewRequests).toBe(0);
 });
 
 test("bottom HA navbar styling does not trap Bubble popup behind its backdrop", async ({ page }) => {
@@ -2404,6 +2525,7 @@ test("Wide View companion and timeline labels follow language and panel state in
       wide_view_timeline_enabled: true,
       wide_view_timeline_default_open: true,
     });
+    await card._wideViewPageController.prepare();
     card._pageId = "wide-view";
     card._renderShell();
     await card._wideViewCompanionController._ensureDelegate();
@@ -4930,6 +5052,7 @@ test("page routes replace only their layout while preserving live and popup shel
       card_view_page_enabled: true,
     });
     await card._cardViewPageController.prepareStyles();
+    await card._wideViewPageController.prepare();
     card._pageId = "single-view";
     card._renderShell();
 
@@ -5095,6 +5218,7 @@ test("Wide View footer remains singular across landing and route swaps", async (
       };
     };
 
+    await card._wideViewPageController.prepare();
     card._pageId = "wide-view";
     card._renderShell();
     await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -5154,6 +5278,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       stream_height: 640,
       stream_height_unit: "px",
     });
+    await card._wideViewPageController.prepare();
     card._pageId = "wide-view";
     card._renderShell();
     card._wideViewPageController.startWideViewMode();
@@ -5410,6 +5535,7 @@ test("Wide View timeline push width remains stable across wide breakpoints", asy
         stream_height: 640,
         stream_height_unit: "px",
       });
+      await card._wideViewPageController.prepare();
       card._pageId = "wide-view";
       card._renderShell();
       await card._wideViewTimelineController._ensureDelegate();
@@ -6894,6 +7020,9 @@ test.describe("touch input", () => {
           ...surface.config,
         });
         await card._cardViewPageController.prepareStyles();
+        if (surface.pageId === "wide-view") {
+          await card._wideViewPageController.prepare();
+        }
         card._pageId = surface.pageId;
         card._renderShell();
         card.style.setProperty("--rotate-vw", "844px");

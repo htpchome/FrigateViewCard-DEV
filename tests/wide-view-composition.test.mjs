@@ -5,7 +5,10 @@ import {
   createWideViewCompanionController,
   createWideViewTimelineControllers,
 } from "../src/features/wide-view/composition.js";
-import { PAGE_IDS } from "../src/features/navigation/router.js";
+import {
+  DEVICE_ROUTE_BUCKETS,
+  PAGE_IDS,
+} from "../src/features/navigation/router.js";
 
 test("Wide View composition creates companion, timeline, and page controllers with stable dependencies", () => {
   const calls = [];
@@ -78,7 +81,7 @@ test("Wide View composition creates companion, timeline, and page controllers wi
     _wideViewPageController: pageController,
   });
   assert.equal(created.page.card, card);
-  assert.deepEqual(created.page.constants, { PAGE_IDS });
+  assert.deepEqual(created.page.constants, { DEVICE_ROUTE_BUCKETS, PAGE_IDS });
   assert.deepEqual(created.page.options, {
     companionController,
     timelineController,

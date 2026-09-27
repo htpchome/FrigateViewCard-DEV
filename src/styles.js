@@ -217,15 +217,12 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .card.card-picker-demo .footer-version{font-size:.56rem;padding:0 1px 2px 4px;}
 
   .card .layout{display:flex;flex-direction:column;height:100%;max-height:100%;min-height:0;width:100%;overflow:hidden !important;}
-  .card .layout.wide-view{flex-direction:column;isolation:isolate;}
-  .card .wide-view-columns{position:relative;isolation:isolate;display:flex;flex:1 1 0;width:100%;min-width:0;min-height:0;overflow:hidden;}
   .card .view-frame{display:flex;flex:1 1 0;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;}
   .card .view-top{display:flex;flex:0 0 auto;flex-direction:column;position:relative;z-index:2;width:100%;min-width:0;min-height:0;align-self:stretch;overflow:visible;}
   .card .view-body{display:flex;flex:1 1 auto;flex-direction:column;position:relative;width:100%;min-width:0;min-height:0;overflow:hidden;}
   .card.card-view-active .card-view-layout{visibility:hidden;}
   .card .col-left{flex:0 1 auto;min-height:0;align-self:start;flex-direction:column;width:100%;display:flex;overflow:visible;}
   .card .col-left > *{flex:0 0 auto;}
-  .card .col-left > .wide-companion-panel{flex:1 1 0;min-height:32px;overflow:hidden;visibility:hidden;}
   .card .col-right{flex:1 1 auto; min-height:0; flex-direction:column;position:relative;width:100%; display:flex;overflow:hidden;}
   .card .layout--single-view > .single-view-frame{flex:1 1 0;}
   .card .single-view-frame > .col-left--single-view{flex:0 0 auto;align-self:stretch;overflow:visible;}
@@ -234,15 +231,6 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .layout:not(.wide-view) .resize-handle{display:none;}
   .resize-handle:hover,.resize-handle.active{background:var(--c-bg-primary);}
   .resize-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:2px;background:var(--c-text4);border-radius:1px;}
-  .layout.wide-view .resize-handle{flex:0 0 10px;width:10px;height:auto;overflow:visible;cursor:col-resize;color:var(--c-text3);border-inline:1px solid var(--c-border2);box-sizing:border-box;}
-  .layout.wide-view .resize-handle::before{content:'↔';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:.5rem;line-height:0.6;opacity:.82;transition:opacity .14s ease;}
-  .layout.wide-view .resize-handle::after{content:'Resize ↕ Video';top:50%;left:50%;width:auto;height:auto;transform:translate(-50%,-50%);writing-mode:vertical-rl;text-orientation:mixed;background:transparent;color:var(--c-text3);font-size:.5rem;line-height:0.6;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;opacity:0;transition:opacity .14s ease;}
-  .layout.wide-view .resize-handle:hover,
-  .layout.wide-view .resize-handle.active{color:var(--c-text);background:color-mix(in srgb,var(--c-bg-primary) 72%,var(--c-bg-panel));}
-  .layout.wide-view .resize-handle:hover::before,
-  .layout.wide-view .resize-handle.active::before{opacity:0;}
-  .layout.wide-view .resize-handle:hover::after,
-  .layout.wide-view .resize-handle.active::after{opacity:1;}
   .card .live-stage{position:relative;width:100%;min-height:0;flex-shrink:0;}
   .card #eng-wrap{min-height:0;}
   .card .browse{
@@ -271,7 +259,6 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .footer.footer--logo-hidden{grid-template-columns:minmax(0,1fr);flex:0 0 auto;height:auto;min-height:1.15rem;padding:2px 4px;}
   .footer.footer--logo-hidden > :first-child{display:none;}
   .footer.footer--logo-hidden .footer-version{padding:1px .3rem;}
-  .wide-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;flex:0 0 var(--fvc-footer-height);height:var(--fvc-footer-height);min-height:var(--fvc-footer-height);line-height:1;font-size:1.2rem;padding:4px;text-align:left;border-top:1px solid var(--c-border);box-sizing:border-box;}
   
   .list.recordings-swipe-active{position:relative;overflow:hidden;}
   .rec-swipe-stage{position:relative;width:100%;min-height:220px;}
@@ -768,9 +755,6 @@ export const STYLES_BEFORE_CARD_VIEW = `
   }
   .preview-cam-buttons{display:flex;flex-wrap:wrap;gap:6px;padding: 10px 0px}
   .preview-cam-btn{}
-  .card .layout--wide-view{flex:1 1 0;height:auto;min-height:0;}
-  .card .col-left--wide-view{height:100%;max-height:100%;overflow:hidden;}
-  .card .layout--wide-view .tabs-holder.has-open-toolbar-panel{position:relative;z-index:30;}
   @container preview-cell (max-width: 240px){
     .preview-meta{grid-template-columns:minmax(0,1fr);grid-template-areas:"name" "status" "source" "alerts";gap:2px;}
     .preview-meta--with-light{grid-template-areas:"name" "light" "status" "source" "alerts";}

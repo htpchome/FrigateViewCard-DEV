@@ -83,6 +83,10 @@ const wideViewCompositionSource = fs.readFileSync(
   new URL("../src/features/wide-view/composition.js", import.meta.url),
   "utf8",
 );
+const wideViewPageLoaderSource = fs.readFileSync(
+  new URL("../src/features/wide-view/page.loader.js", import.meta.url),
+  "utf8",
+);
 const cardViewPageTemplateSource = fs.readFileSync(
   new URL("../src/features/card-view/page.tmpl.js", import.meta.url),
   "utf8",
@@ -2626,7 +2630,15 @@ test("Wide View controller composition is owned by the Wide View feature", () =>
     false,
   );
   assert.equal(
+    wideViewCompositionSource.includes("new LazyWideViewPageController"),
+    true,
+  );
+  assert.equal(
     wideViewCompositionSource.includes("new WideViewPageController"),
+    false,
+  );
+  assert.equal(
+    wideViewPageLoaderSource.includes("frigate-view-card-wide-view.js"),
     true,
   );
   assert.equal(
@@ -3771,12 +3783,19 @@ test("outer page layouts live with their route owners", () => {
   for (const templatePath of [
     "../single-view/page.tmpl.js",
     "../mobile-view/page.tmpl.js",
-    "../wide-view/page.tmpl.js",
     "../preview/page.tmpl.js",
     "../card-view/page.tmpl.js",
   ]) {
     assert.equal(pageShellRegistrySource.includes(templatePath), true);
   }
+  assert.equal(
+    pageShellRegistrySource.includes("../wide-view/page.tmpl.js"),
+    false,
+  );
+  assert.equal(
+    pageShellRegistrySource.includes("buildMainLayoutShellMarkup?."),
+    true,
+  );
   assert.equal(
     cardShellTemplateSource.includes(
       "export function buildMainLayoutShellMarkup",

@@ -46,6 +46,10 @@ test("HACS release artifact is generated under dist", () => {
     true,
   );
   assert.equal(
+    fs.existsSync(repositoryFile("dist/frigate-view-card-wide-view.js")),
+    true,
+  );
+  assert.equal(
     fs.existsSync(
       repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     ),
@@ -143,6 +147,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-wide-companion.js"),
     "utf8",
   );
+  const wideViewBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-wide-view.js"),
+    "utf8",
+  );
   const [banner] = bundle.split("\n", 1);
 
   assert.match(banner, /^\/\*\* FrigateView Card - generated file\./);
@@ -161,6 +169,12 @@ test("HACS release artifact is production-minified", () => {
   assert.match(cardViewBundle, /data-fvc-card-view-page-styles/);
   assert.match(cardViewBundle, /card-view-page \.list-item/);
   assert.match(cardViewBundle, /card-view-natural-height/);
+  assert.match(bundle, /frigate-view-card-wide-view\.js/);
+  assert.doesNotMatch(bundle, /wide-view-start-grid/);
+  assert.doesNotMatch(bundle, /\.card \.wide-view-columns\{position:relative/);
+  assert.match(wideViewBundle, /wide-view-start-grid/);
+  assert.match(wideViewBundle, /data-fvc-wide-view-page-styles/);
+  assert.match(wideViewBundle, /wide-view-columns/);
   assert.doesNotMatch(bundle, /data-frigate-view-ha-navbar-style/);
   assert.match(navbarBundle, /data-frigate-view-ha-navbar-style/);
   assert.match(bundle, /frigate-view-card-recording-scrub\.js/);
@@ -203,6 +217,7 @@ test("development deployment keeps every lazy page asset beside the card", () =>
   ]) {
     const source = fs.readFileSync(repositoryFile(path), "utf8");
     assert.match(source, /frigate-view-card-card-view\.js/);
+    assert.match(source, /frigate-view-card-wide-view\.js/);
     assert.match(source, /frigate-view-card-wide-companion\.js/);
   }
   const postCreate = fs.readFileSync(
