@@ -866,7 +866,7 @@ test("loads Wide View companion cameras only after entering Wide View", async ({
   expect(state.styleRestored).toBe(true);
 });
 
-test("loads Card View styles only after Card View is enabled", async ({
+test("Card View core stays dormant until an enabled route enters it", async ({
   page,
 }) => {
   const assetRequests = [];
@@ -886,28 +886,105 @@ test("loads Card View styles only after Card View is enabled", async ({
     card.setConfig({
       cameras: [{ entity: "camera.front_door" }],
       card_view_page_enabled: true,
+      landing_page: "single-view",
     });
-    await card._cardViewPageController.prepareStyles();
+    const before = {
+      delegate: Boolean(card._cardViewPageController._delegate),
+      pageId: card._pageId,
+    };
+
+    card._pageNavigationController.navigateToPageRoute("card-view", {
+      source: "lazy-card-view-test",
+    });
+    await card._cardViewPageController.prepare();
     const style = card.shadowRoot.querySelector(
       "style[data-fvc-card-view-page-styles]",
     );
     return {
-      installed: Boolean(style),
-      hasCardViewLayout: style?.textContent.includes(
-        ".card.card-view-active .card-view-layout",
-      ),
-      visibleWhenLoaded: style?.textContent.includes(
-        "visibility:visible",
-      ),
+      before,
+      after: {
+        delegate: Boolean(card._cardViewPageController._delegate),
+        pageId: card._pageId,
+        installed: Boolean(style),
+        hasCardViewLayout: style?.textContent.includes(
+          ".card.card-view-active .card-view-layout",
+        ),
+        visibleWhenLoaded: style?.textContent.includes(
+          "visibility:visible",
+        ),
+      },
     };
   });
 
   expect(assetRequests).toHaveLength(1);
   expect(state).toEqual({
-    installed: true,
-    hasCardViewLayout: true,
-    visibleWhenLoaded: true,
+    before: { delegate: false, pageId: "single-view" },
+    after: {
+      delegate: true,
+      pageId: "card-view",
+      installed: true,
+      hasCardViewLayout: true,
+      visibleWhenLoaded: true,
+    },
   });
+});
+
+test("phone routing loads Card View when its enabled route is entered", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  let cardViewRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-card-view.js"
+    ) {
+      cardViewRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "single-view",
+      mobile_page: "card-view",
+      card_view_page_enabled: true,
+    });
+    const resolved = card._pageNavigationController.navigateToPageRoute(
+      "card-view",
+      { source: "phone-card-view-test" },
+    );
+    await card._cardViewPageController.prepare();
+    return {
+      available: card._pageNavigationController.pageRouteOptions(),
+      delegate: Boolean(card._cardViewPageController._delegate),
+      pageId: card._pageId,
+      resolved,
+      layout: card.shadowRoot
+        .querySelector("#layout")
+        ?.classList.contains("layout--card-view"),
+    };
+  });
+
+  await context.close();
+  expect(state.available).toContain("card-view");
+  expect(state).toMatchObject({
+    delegate: true,
+    pageId: "card-view",
+    resolved: "card-view",
+    layout: true,
+  });
+  expect(cardViewRequests).toBe(1);
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({

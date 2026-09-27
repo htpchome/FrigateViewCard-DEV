@@ -4,7 +4,6 @@ import {
 } from "../mobile-view/page.tmpl.js";
 import { buildSingleViewMainLayoutShellMarkup } from "../single-view/page.tmpl.js";
 import { buildPreviewPageMainLayoutShellMarkup } from "../preview/page.tmpl.js";
-import { buildCardViewMainLayoutShellMarkup } from "../card-view/page.tmpl.js";
 import { buildInfoRowMarkup } from "../../card/shell.tmpl.js";
 
 export const PAGE_SHELL_REGIONS = Object.freeze({
@@ -427,7 +426,7 @@ export function registerDefaultPageShellProfiles(registry, PAGE_IDS) {
     layoutClass: "layout--card-view",
     liveControlsPlacement: "overlay",
     buildMainLayoutShellMarkup: ({ host, regions, layoutProfile }) =>
-      buildCardViewMainLayoutShellMarkup({
+      host?._cardViewPageController?.buildMainLayoutShellMarkup?.({
         regions: {
           ...(regions || {}),
           linkedEntitiesLeft:
@@ -442,7 +441,7 @@ export function registerDefaultPageShellProfiles(registry, PAGE_IDS) {
             }) || "",
         },
         layoutProfile,
-      }),
+      }) || "",
     capabilities: {
       hasLive: true,
       hasLivePictureInPicture: true,

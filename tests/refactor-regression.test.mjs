@@ -31,6 +31,10 @@ const browseListTemplateSource = fs.readFileSync(
   new URL("../src/features/browse/list.tmpl.js", import.meta.url),
   "utf8",
 );
+const browseThumbnailTemplateSource = fs.readFileSync(
+  new URL("../src/features/browse/thumbnail.tmpl.js", import.meta.url),
+  "utf8",
+);
 const browseRenderControllerSource = fs.readFileSync(
   new URL("../src/features/browse/render.ctrl.js", import.meta.url),
   "utf8",
@@ -85,6 +89,14 @@ const wideViewCompositionSource = fs.readFileSync(
 );
 const wideViewPageLoaderSource = fs.readFileSync(
   new URL("../src/features/wide-view/page.loader.js", import.meta.url),
+  "utf8",
+);
+const cardViewPageLoaderSource = fs.readFileSync(
+  new URL("../src/features/card-view/page.loader.js", import.meta.url),
+  "utf8",
+);
+const cardViewPageCompanionSource = fs.readFileSync(
+  new URL("../src/features/card-view/page.companion.js", import.meta.url),
   "utf8",
 );
 const cardViewPageTemplateSource = fs.readFileSync(
@@ -1501,7 +1513,7 @@ test("two-way-talk DOM synchronization is owned by its controls controller", () 
 });
 
 test("event list thumbnails use browser lazy loading", () => {
-  assert.equal((source.match(/loading="lazy"/g) || []).length >= 3, true);
+  assert.equal(browseThumbnailTemplateSource.includes('loading="lazy"'), true);
 });
 
 test("the configuration editor is excluded from the startup bundle", () => {
@@ -1541,6 +1553,9 @@ test("startup resolves initial page through the navigation factory", () => {
   const priorityPreparationIndex = cardSource.indexOf(
     "this._wideViewPageController.prepare({ startup: true })",
   );
+  const cardViewPriorityPreparationIndex = cardSource.indexOf(
+    "this._cardViewPageController.prepare({ startup: true })",
+  );
   const discoverIndex = cardSource.indexOf(
     "await Promise.all([this._discoverAll(), landingPagePreparation]);",
   );
@@ -1561,7 +1576,9 @@ test("startup resolves initial page through the navigation factory", () => {
   );
   assert.ok(provisionalShellIndex > hassSetterIndex);
   assert.ok(priorityPreparationIndex > provisionalShellIndex);
+  assert.ok(cardViewPriorityPreparationIndex > priorityPreparationIndex);
   assert.ok(discoverIndex > priorityPreparationIndex);
+  assert.ok(discoverIndex > cardViewPriorityPreparationIndex);
   assert.ok(finalShellIndex > discoverIndex);
   assert.equal(
     cardSource.includes(
@@ -2656,6 +2673,39 @@ test("Wide View controller composition is owned by the Wide View feature", () =>
   assert.equal(
     wideViewCompositionSource.includes(
       "card._popupMediaLoaderController?.showClipById",
+    ),
+    true,
+  );
+});
+
+test("Card View controller and page shell stay behind its lazy feature asset", () => {
+  assert.equal(
+    cardSource.includes(
+      'from "../features/card-view/page.loader.js"',
+    ),
+    true,
+  );
+  assert.equal(cardSource.includes("new LazyCardViewPageController"), true);
+  assert.equal(cardSource.includes("new CardViewPageController"), false);
+  assert.equal(
+    cardViewPageLoaderSource.includes(
+      "frigate-view-card-card-view.js",
+    ),
+    true,
+  );
+  assert.equal(
+    cardViewPageCompanionSource.includes(
+      "new CardViewPageController(host",
+    ),
+    true,
+  );
+  assert.equal(
+    pageShellRegistrySource.includes("../card-view/page.tmpl.js"),
+    false,
+  );
+  assert.equal(
+    pageShellRegistrySource.includes(
+      "_cardViewPageController?.buildMainLayoutShellMarkup?.",
     ),
     true,
   );
@@ -3790,12 +3840,15 @@ test("outer page layouts live with their route owners", () => {
     "../single-view/page.tmpl.js",
     "../mobile-view/page.tmpl.js",
     "../preview/page.tmpl.js",
-    "../card-view/page.tmpl.js",
   ]) {
     assert.equal(pageShellRegistrySource.includes(templatePath), true);
   }
   assert.equal(
     pageShellRegistrySource.includes("../wide-view/page.tmpl.js"),
+    false,
+  );
+  assert.equal(
+    pageShellRegistrySource.includes("../card-view/page.tmpl.js"),
     false,
   );
   assert.equal(

@@ -96,6 +96,10 @@ test("Card View profile seeds its standalone overlay with shared linked-light co
   const calls = [];
   const markup = registry.resolve(PAGE_IDS.cardView).buildMainLayoutShellMarkup({
     host: {
+      _cardViewPageController: {
+        buildMainLayoutShellMarkup: ({ regions }) =>
+          `${regions.linkedEntitiesLeft}|${regions.linkedEntitiesRight}`,
+      },
       _buildLinkedLightControlMarkup: (options) => {
         calls.push(options);
         return `${options.position}-light-control`;

@@ -116,7 +116,7 @@ const linkedLightOutput = await buildBundle({
   outfile: linkedLightOutputFile,
 });
 const cardViewOutput = await buildBundle({
-  entryPoint: "src/features/card-view/page-style.companion.js",
+  entryPoint: "src/features/card-view/page.companion.js",
   outfile: cardViewOutputFile,
 });
 const wideViewOutput = await buildBundle({

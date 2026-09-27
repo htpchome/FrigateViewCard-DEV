@@ -177,10 +177,6 @@ import {
 } from "../features/browse/shell.tmpl.js";
 import { buildPopupShellMarkup } from "../features/popup/shell.tmpl.js";
 import {
-  buildCalendarPanelMarkup,
-  buildFilterPanelMarkup,
-} from "../features/browse/calendar-filter.tmpl.js";
-import {
   createBrowseControllers,
   renderBrowseEventListItem,
   renderBrowseReviewListItem,
@@ -239,7 +235,7 @@ import {
   createWideViewCompanionController,
   createWideViewTimelineControllers,
 } from "../features/wide-view/composition.js";
-import { CardViewPageController } from "../features/card-view/page.ctrl.js";
+import { LazyCardViewPageController } from "../features/card-view/page.loader.js";
 import { createSlideshowControllers } from "../features/slideshow/composition.js";
 import {
   cameraEntityForIncomingCamera,
@@ -350,10 +346,8 @@ export class FrigateViewCard extends HTMLElement {
     this._ptzMotionController = createPtzMotionController(this);
     this._ptzInteractionController = createPtzInteractionController(this);
     Object.assign(this, createWideViewTimelineControllers(this));
-    this._cardViewPageController = new CardViewPageController(this, {
+    this._cardViewPageController = new LazyCardViewPageController(this, {
       PAGE_IDS,
-      buildCalendarPanelMarkup,
-      buildFilterPanelMarkup,
     });
     this._pageNavigationController = createPageNavigationController(this);
     Object.assign(this, createHomeAssistantDashboardControllers(this));
@@ -673,7 +667,6 @@ export class FrigateViewCard extends HTMLElement {
     } = resolveRuntimeCardConfigChangePlan(prevConfig, nextConfig);
     this._committedConfig = this._cloneCardConfig(nextConfig);
     this._config = nextConfig;
-    void this._cardViewPageController?.prepareStyles?.();
     this._haNavbarController?.sync?.();
     this._haDashboardSwipeNavigationController?.sync?.();
     this._linkedLightController?.sync?.();
@@ -1118,7 +1111,9 @@ export class FrigateViewCard extends HTMLElement {
     const landingPagePreparation =
       preparedLandingPage === PAGE_IDS.wideView
         ? this._wideViewPageController.prepare({ startup: true })
-        : Promise.resolve(null);
+        : preparedLandingPage === PAGE_IDS.cardView
+          ? this._cardViewPageController.prepare({ startup: true })
+          : Promise.resolve(null);
 
     await Promise.all([this._discoverAll(), landingPagePreparation]);
     if (this._editorPreviewController.renderCardPickerDemo()) {
