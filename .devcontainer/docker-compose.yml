@@ -10,7 +10,6 @@ services:
       - ../..:/workspaces:cached
       - ha-config:/config
       - codex-data:/home/node/.codex
-      - playwright-cache:/home/node/.cache/ms-playwright
     command: sleep infinity
     network_mode: service:homeassistant
     depends_on:
@@ -62,8 +61,6 @@ services:
 volumes:
   codex-data:
     name: frigateviewcard-codex-data
-  playwright-cache:
-    name: frigateviewcard-playwright-cache
   ha-config:
     name: frigateviewcard-ha-config
   frigate-media:
