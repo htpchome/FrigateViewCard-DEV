@@ -19,7 +19,10 @@ import {
   DEFAULT_ALERTS_REVIEWS_DAYS,
 } from "../constants.js";
 import { ICONS } from "../icons.js";
-import { STYLES } from "../styles.js";
+import {
+  STYLES_AFTER_CARD_VIEW,
+  STYLES_BEFORE_CARD_VIEW,
+} from "../styles.js";
 import { createLocalizationController } from "../features/localization/localization.ctrl.js";
 import { LocalizedDateController } from "../features/localization/date.ctrl.js";
 import { applyLocalizedText, setLocalizedText } from "../features/localization/localized-dom.js";
@@ -670,6 +673,7 @@ export class FrigateViewCard extends HTMLElement {
     } = resolveRuntimeCardConfigChangePlan(prevConfig, nextConfig);
     this._committedConfig = this._cloneCardConfig(nextConfig);
     this._config = nextConfig;
+    void this._cardViewPageController?.prepareStyles?.();
     this._haNavbarController?.sync?.();
     this._haDashboardSwipeNavigationController?.sync?.();
     this._linkedLightController?.sync?.();
@@ -2847,10 +2851,16 @@ export class FrigateViewCard extends HTMLElement {
       icons: ICONS,
       version: VERSION,
     });
+    const cardViewPageStyles =
+      this.shadowRoot.querySelector(
+        "style[data-fvc-card-view-page-styles]",
+      )?.textContent || "";
     this._preparePageLayoutReplacement({
       preserveLive: this._preservingLiveShell === true,
     });
-    this.shadowRoot.innerHTML = `<style>${STYLES}</style>
+    this.shadowRoot.innerHTML = `<style>${STYLES_BEFORE_CARD_VIEW}</style>
+    <style data-fvc-card-view-page-styles>${cardViewPageStyles}</style>
+    <style>${STYLES_AFTER_CARD_VIEW}</style>
     <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">
 
         ${mainLayoutShell}

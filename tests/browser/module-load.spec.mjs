@@ -19,6 +19,10 @@ const bundlePaths = new Map([
   ],
   ["/frigate-view-card-navbar.js", "dist/frigate-view-card-navbar.js"],
   [
+    "/frigate-view-card-card-view.js",
+    "dist/frigate-view-card-card-view.js",
+  ],
+  [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
@@ -739,6 +743,50 @@ test("loads Wide View companion cameras only after entering Wide View", async ({
   expect(state.markup).toContain("wide-companion-panel");
   expect(state.styleInstalled).toBe(true);
   expect(state.styleRestored).toBe(true);
+});
+
+test("loads Card View styles only after Card View is enabled", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-card-view.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front_door" }],
+      card_view_page_enabled: true,
+    });
+    await card._cardViewPageController.prepareStyles();
+    const style = card.shadowRoot.querySelector(
+      "style[data-fvc-card-view-page-styles]",
+    );
+    return {
+      installed: Boolean(style),
+      hasCardViewLayout: style?.textContent.includes(
+        ".card.card-view-active .card-view-layout",
+      ),
+      visibleWhenLoaded: style?.textContent.includes(
+        "visibility:visible",
+      ),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({
+    installed: true,
+    hasCardViewLayout: true,
+    visibleWhenLoaded: true,
+  });
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({
@@ -2154,6 +2202,7 @@ test("Card View drawers and mode labels localize without remounting live media",
       card_view_page_enabled: true,
       card_view_view_mode: "bottom-panel-open",
     });
+    await card._cardViewPageController.prepareStyles();
     card._pageId = "card-view";
     card._renderShell();
     card._cardViewPageController.renderToolbar();
@@ -2188,6 +2237,7 @@ test("Card View drawers and mode labels localize without remounting live media",
       card_view_view_mode: "video-only",
       card_view_media_drawer_enabled: true,
     });
+    await overlay._cardViewPageController.prepareStyles();
     overlay._pageId = "card-view";
     overlay._renderShell();
     const overlayRoot = overlay.shadowRoot;
@@ -3624,6 +3674,7 @@ test("Panel view centers page-specific aspect width caps", async ({ page }) => {
       wide_view_page_enabled: true,
       card_view_page_enabled: true,
     });
+    await card._cardViewPageController.prepareStyles();
     card._pageId = "single-view";
     card._renderShell();
 
@@ -4360,6 +4411,7 @@ test("Panel Card View keeps its live aspect when the open drawer exceeds the vie
       card_view_page_enabled: true,
       card_view_view_mode: "bottom-panel-open",
     });
+    await card._cardViewPageController.prepareStyles();
     card._pageId = "card-view";
     card._renderShell();
     card._cardViewPageController.syncDrawerState();
@@ -4440,6 +4492,7 @@ test("Sidebar Card View keeps its live stage legible with the drawer open", asyn
       card_view_page_enabled: true,
       card_view_view_mode: "bottom-panel-open",
     });
+    await card._cardViewPageController.prepareStyles();
     card._pageId = "card-view";
     card._renderShell();
     card._cardViewPageController.syncDrawerState();
@@ -4495,6 +4548,7 @@ test("the existing live resize grip grows Card View video in Panel and Sidebar",
           card_view_page_enabled: true,
           card_view_view_mode: mode,
         });
+        await card._cardViewPageController.prepareStyles();
         card._pageId = "card-view";
         card._renderShell();
         card._viewMode = "single";
@@ -4570,6 +4624,7 @@ test("Card View controls stay below an external dialog while its popup stays abo
       card_view_page_enabled: true,
       card_view_view_mode: "bottom-panel-open",
     });
+    await card._cardViewPageController.prepareStyles();
     card._pageId = "card-view";
     card._renderShell();
     card._cardViewPageController.syncDrawerState();
@@ -4874,6 +4929,7 @@ test("page routes replace only their layout while preserving live and popup shel
       wide_view_page_enabled: true,
       card_view_page_enabled: true,
     });
+    await card._cardViewPageController.prepareStyles();
     card._pageId = "single-view";
     card._renderShell();
 
@@ -6000,6 +6056,7 @@ test.describe("touch input", () => {
         mobile_page: "card-view",
         card_view_view_mode: "video-only",
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageNavigationController.prepareConfiguredLandingPageShell();
       card._switchCamera = async (index) => {
         card.dataset.selectedCamera = String(index);
@@ -6052,6 +6109,7 @@ test.describe("touch input", () => {
         mobile_page: "card-view",
         card_view_view_mode: "bottom-panel-open",
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageNavigationController.prepareConfiguredLandingPageShell();
       card._switchCamera = async (index) => {
         card.dataset.selectedCamera = String(index);
@@ -6104,6 +6162,7 @@ test.describe("touch input", () => {
         card_view_page_enabled: true,
         card_view_view_mode: "video-only",
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageId = "card-view";
       card._renderShell();
 
@@ -6195,6 +6254,7 @@ test.describe("touch input", () => {
           ],
           ...testSurface.config,
         });
+        await card._cardViewPageController.prepareStyles();
         card._pageId = testSurface.pageId;
         card._renderShell();
 
@@ -6387,6 +6447,7 @@ test.describe("touch input", () => {
                 navbarPlacement === "bottom",
               mobile_view_rotate_to_fullscreen: true,
             });
+            await card._cardViewPageController.prepareStyles();
             card._pageId = presentation.pageId;
             card._renderShell();
             card.style.setProperty("--rotate-vw", "844px");
@@ -6560,6 +6621,7 @@ test.describe("touch input", () => {
         card_view_view_mode: "video-only",
         mobile_view_rotate_to_fullscreen: true,
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageId = "card-view";
       card._renderShell();
       card.style.setProperty("--rotate-vw", "844px");
@@ -6717,6 +6779,7 @@ test.describe("touch input", () => {
         card_view_media_drawer_enabled: true,
         mobile_view_rotate_to_fullscreen: true,
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageId = "card-view";
       card._renderShell();
       card.style.setProperty("--rotate-vw", "844px");
@@ -6732,6 +6795,7 @@ test.describe("touch input", () => {
       const status = root.querySelector(".card-view-live-status-overlay");
       const liveStage = root.querySelector("#live-stage");
       const dismiss = root.querySelector("[data-rotate-overlay-dismiss]");
+      liveStage.style.animation = "none";
       liveStage.classList.add("live-controls-visible");
       playback.append(document.createElement("button"));
       cardRoot.classList.add("card-view-overlays-visible");
@@ -6829,6 +6893,7 @@ test.describe("touch input", () => {
           mobile_view_rotate_to_fullscreen: true,
           ...surface.config,
         });
+        await card._cardViewPageController.prepareStyles();
         card._pageId = surface.pageId;
         card._renderShell();
         card.style.setProperty("--rotate-vw", "844px");
@@ -7076,6 +7141,7 @@ test.describe("touch input", () => {
         card_view_view_mode: "video-only",
         slideshow_rotation_enabled: true,
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageId = "card-view";
       card._renderShell();
 
@@ -7136,6 +7202,7 @@ test.describe("touch input", () => {
         card_view_view_mode: "video-only",
         card_view_media_drawer_enabled: true,
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageId = "card-view";
       card._renderShell();
 
@@ -7206,6 +7273,7 @@ test.describe("touch input", () => {
         card_view_standalone: true,
         card_view_view_mode: "bottom-panel-open",
       });
+      await card._cardViewPageController.prepareStyles();
       card._pageId = "card-view";
       card._renderShell();
       const cardRoot = card.shadowRoot.querySelector("#card");

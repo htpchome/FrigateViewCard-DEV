@@ -40,6 +40,7 @@ import {
 import { CardViewMediaDrawerController } from "./media-drawer.ctrl.js";
 import { resolveLiveSourceIndicatorState } from "../../shared/media/source-indicator.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
+import { ensureCardViewPageStyles } from "./page-style.loader.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
 const STANDALONE_GRID_INDICATOR_DURATION_MS = GRID_ALERT_HOLD_MS;
@@ -154,6 +155,7 @@ export class CardViewPageController {
     this._standaloneGridModeActive = false;
     this._standaloneGridIndicatorTimer = null;
     this._standaloneTalkMarkup = "";
+    this._stylePromise = null;
     this._mediaDrawerController = new CardViewMediaDrawerController({
       query: (selector) => this._host.shadowRoot?.querySelector?.(selector),
       isEnabled: () =>
@@ -205,6 +207,39 @@ export class CardViewPageController {
 
   isActive() {
     return this._host._pageId === this._constants.PAGE_IDS.cardView;
+  }
+
+  prepareStyles() {
+    if (
+      !this.isActive() &&
+      this._host._config?.card_view_page_enabled !== true
+    ) {
+      return Promise.resolve(null);
+    }
+    const existing = this._host.shadowRoot?.querySelector?.(
+      "style[data-fvc-card-view-page-styles]",
+    );
+    if (existing?.textContent?.trim()) return Promise.resolve(existing);
+    if (this._stylePromise) return this._stylePromise;
+
+    const stylePromise = ensureCardViewPageStyles(this._host)
+      .then((style) => {
+        if (style && this.isActive()) {
+          this._host._scheduleEditorLayoutSync?.();
+        }
+        return style;
+      })
+      .catch((error) => {
+        console.warn("[Frigate] Card View styles could not load", error);
+        return null;
+      })
+      .finally(() => {
+        if (this._stylePromise === stylePromise) {
+          this._stylePromise = null;
+        }
+      });
+    this._stylePromise = stylePromise;
+    return stylePromise;
   }
 
   isStandalone() {
@@ -304,6 +339,7 @@ export class CardViewPageController {
   }
 
   activateCardViewPageRoute(context = {}) {
+    void this.prepareStyles();
     this._startModeApplied = false;
     const routeContext = this.usesOverlayPresentation()
       ? {
@@ -2126,6 +2162,7 @@ export class CardViewPageController {
   }
 
   syncCardViewPageMarkup() {
+    void this.prepareStyles();
     applyCardViewPageMarkup({
       host: this._host,
       pageIds: this._constants.PAGE_IDS,

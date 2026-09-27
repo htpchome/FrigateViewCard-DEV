@@ -37,6 +37,7 @@ export const CARD_VIEW_PAGE_STYLES = `
     height:auto;
     max-height:none;
     overflow:visible !important;
+    visibility:visible;
     background:var(--c-bg-main);
   }
   .card.card-view-active .card-view-camera-row {
@@ -635,6 +636,9 @@ export const CARD_VIEW_PAGE_STYLES = `
     left:calc(var(--rotate-ox,0px) + max(20px,env(safe-area-inset-left,0px)));
     right:auto;
     width:calc(var(--rotate-vw,100vw) - max(20px,env(safe-area-inset-left,0px)) - max(20px,env(safe-area-inset-right,0px)));
+  }
+  .card.card-view-active:is(.mobile-rotate-live,.mobile-rotate-live-exit) {
+    border:0 !important;
   }
   .card.card-view-active.card-view-video-panel-only:is(.mobile-rotate-live,.mobile-rotate-live-exit) .card-view-live-status-overlay {
     right:max(20px,env(safe-area-inset-right,0px));

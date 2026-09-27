@@ -3906,7 +3906,7 @@ test("page shell regions are validated before the shell is committed", () => {
     "validatePageShellRegionMarkup(mainLayoutShell, {",
   );
   const shellCommitIndex = cardSource.indexOf(
-    "this.shadowRoot.innerHTML = `<style>${STYLES}</style>",
+    "this.shadowRoot.innerHTML = `<style>${STYLES_BEFORE_CARD_VIEW}</style>",
   );
 
   assert.ok(validationIndex >= 0);

@@ -68,6 +68,24 @@ export const STYLES = \`
   assert.match(result, /\.before\{color:red\}\$\{CHILD_STYLES\}\.after\{color:#00f\}/);
 });
 
+test("minifies split root style templates", async () => {
+  const source = `
+export const STYLES_BEFORE_FEATURE = \`
+  .before { color: red; }
+\`;
+export const STYLES_AFTER_FEATURE = \`
+  .after { color: blue; }
+\`;
+`;
+
+  const result = await minifyStyleModule(source, {
+    rootStyleModule: true,
+  });
+
+  assert.match(result, /STYLES_BEFORE_FEATURE = `\.before\{color:red\}`/);
+  assert.match(result, /STYLES_AFTER_FEATURE = `\.after\{color:#00f\}`/);
+});
+
 test("keeps non-ASCII CSS content safe inside JavaScript templates", async () => {
   const source = `
 export const EXAMPLE_STYLES = \`

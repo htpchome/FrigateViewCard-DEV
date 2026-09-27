@@ -103,11 +103,13 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
            ├── frigate-view-card.js
            ├── frigate-view-card-editor.js
            ├── frigate-view-card-circle-pad.js
+           ├── frigate-view-card-card-view.js
            ├── frigate-view-card-dashboard-swipe-navigation.js
            ├── frigate-view-card-frame-capture.js
            ├── frigate-view-card-linked-light.js
            ├── frigate-view-card-navbar.js
            ├── frigate-view-card-recording-scrub.js
+           ├── frigate-view-card-wide-companion.js
            ├── frigate-view-card-wide-timeline.js
            ├── frigate-view-card-hls-1.5.17.js
            ├── frigate-view-card-hls-1.5.17.LICENSE.txt
@@ -115,9 +117,10 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
    ```
 
    Keep all files together in that folder. The main card loads the editor, PTZ
-   circle control, dashboard swipe navigation, frame capture, linked-light
-   controls, navbar customization, recording scrubber, Wide View timeline, and
-   HLS companion files from paths relative to `frigate-view-card.js`. The two
+   Card View styles, circle control, dashboard swipe navigation, frame capture,
+   linked-light controls, navbar customization, recording scrubber, Wide View
+   companion cameras, Wide View timeline, and HLS companion files from paths
+   relative to `frigate-view-card.js`. The two
    license files cover FrigateViewCard and its bundled HLS.js dependency.
 
 3. If this is the first time you have created the `www` folder, restart Home

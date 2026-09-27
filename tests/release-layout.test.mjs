@@ -42,6 +42,10 @@ test("HACS release artifact is generated under dist", () => {
     true,
   );
   assert.equal(
+    fs.existsSync(repositoryFile("dist/frigate-view-card-card-view.js")),
+    true,
+  );
+  assert.equal(
     fs.existsSync(
       repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     ),
@@ -115,6 +119,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-navbar.js"),
     "utf8",
   );
+  const cardViewBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-card-view.js"),
+    "utf8",
+  );
   const recordingScrubBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     "utf8",
@@ -148,6 +156,11 @@ test("HACS release artifact is production-minified", () => {
     /frigate-view-card-dashboard-swipe-navigation\.js/,
   );
   assert.match(bundle, /frigate-view-card-navbar\.js/);
+  assert.match(bundle, /frigate-view-card-card-view\.js/);
+  assert.doesNotMatch(bundle, /card-view-page \.list-item/);
+  assert.match(cardViewBundle, /data-fvc-card-view-page-styles/);
+  assert.match(cardViewBundle, /card-view-page \.list-item/);
+  assert.match(cardViewBundle, /card-view-natural-height/);
   assert.doesNotMatch(bundle, /data-frigate-view-ha-navbar-style/);
   assert.match(navbarBundle, /data-frigate-view-ha-navbar-style/);
   assert.match(bundle, /frigate-view-card-recording-scrub\.js/);
@@ -180,6 +193,24 @@ test("HACS release artifact is production-minified", () => {
   assert.match(bundle, /frigate-view-card-locale/);
   assert.doesNotMatch(bundle, /circle-pad-clean-edges/);
   assert.doesNotMatch(bundle, /Ειδοποιήσεις/);
+});
+
+test("development deployment keeps every lazy page asset beside the card", () => {
+  for (const path of [
+    ".devcontainer/sync-card.sh",
+    ".devcontainer/watch-card.sh",
+    "README.md",
+  ]) {
+    const source = fs.readFileSync(repositoryFile(path), "utf8");
+    assert.match(source, /frigate-view-card-card-view\.js/);
+    assert.match(source, /frigate-view-card-wide-companion\.js/);
+  }
+  const postCreate = fs.readFileSync(
+    repositoryFile(".devcontainer/post-create.sh"),
+    "utf8",
+  );
+  assert.doesNotMatch(postCreate, /cat > .*sync-card\.sh/);
+  assert.doesNotMatch(postCreate, /cat > .*watch-card\.sh/);
 });
 
 test("production bundles enable tree shaking", () => {

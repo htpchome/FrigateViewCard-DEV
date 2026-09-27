@@ -1,11 +1,10 @@
 import { MOBILE_VIEW_PAGE_STYLES } from "./features/mobile-view/page.styles.js";
 import { SINGLE_VIEW_PAGE_STYLES } from "./features/single-view/page.styles.js";
-import { CARD_VIEW_PAGE_STYLES } from "./features/card-view/page.styles.js";
 import { CAMERA_PICKER_STYLES } from "./features/navigation/camera-picker.styles.js";
 import { CAMERA_GROUP_LIVE_STYLES } from "./features/camera-groups/live.styles.js";
 import { TWO_WAY_TALK_SOUNDWAVE_STYLES } from "./features/two-way-talk/soundwave.styles.js";
 
-export const STYLES = `
+export const STYLES_BEFORE_CARD_VIEW = `
   :host {
     --fvc-shadow-s: var(--ha-box-shadow-s);
     --fvc-shadow-m: var(--ha-box-shadow-m);
@@ -223,6 +222,7 @@ export const STYLES = `
   .card .view-frame{display:flex;flex:1 1 0;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;}
   .card .view-top{display:flex;flex:0 0 auto;flex-direction:column;position:relative;z-index:2;width:100%;min-width:0;min-height:0;align-self:stretch;overflow:visible;}
   .card .view-body{display:flex;flex:1 1 auto;flex-direction:column;position:relative;width:100%;min-width:0;min-height:0;overflow:hidden;}
+  .card.card-view-active .card-view-layout{visibility:hidden;}
   .card .col-left{flex:0 1 auto;min-height:0;align-self:start;flex-direction:column;width:100%;display:flex;overflow:visible;}
   .card .col-left > *{flex:0 0 auto;}
   .card .col-left > .wide-companion-panel{flex:1 1 0;min-height:32px;overflow:hidden;visibility:hidden;}
@@ -1328,7 +1328,9 @@ export const STYLES = `
 ${SINGLE_VIEW_PAGE_STYLES}
 ${MOBILE_VIEW_PAGE_STYLES}
 ${CAMERA_PICKER_STYLES}
-${CARD_VIEW_PAGE_STYLES}
+`;
+
+export const STYLES_AFTER_CARD_VIEW = `
 
   .card .list-item .list-item-middle--narrow,
   .card .list-item .eact.list-item-actions--narrow,
@@ -1429,3 +1431,6 @@ ${CARD_VIEW_PAGE_STYLES}
   }
 
 `;
+
+export const STYLES =
+  `${STYLES_BEFORE_CARD_VIEW}${STYLES_AFTER_CARD_VIEW}`;

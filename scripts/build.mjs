@@ -25,6 +25,7 @@ const frameCaptureOutputFile =
   "dist/frigate-view-card-frame-capture.js";
 const linkedLightOutputFile =
   "dist/frigate-view-card-linked-light.js";
+const cardViewOutputFile = "dist/frigate-view-card-card-view.js";
 const wideCompanionOutputFile =
   "dist/frigate-view-card-wide-companion.js";
 const wideTimelineOutputFile =
@@ -113,6 +114,10 @@ const linkedLightOutput = await buildBundle({
   entryPoint: "src/features/linked-entities/light.ctrl.js",
   outfile: linkedLightOutputFile,
 });
+const cardViewOutput = await buildBundle({
+  entryPoint: "src/features/card-view/page-style.companion.js",
+  outfile: cardViewOutputFile,
+});
 const wideCompanionOutput = await buildBundle({
   entryPoint: "src/features/wide-view/companion.ctrl.js",
   outfile: wideCompanionOutputFile,
@@ -171,6 +176,9 @@ const frameCaptureOutputSizeKib = (
 const linkedLightOutputSizeKib = (
   Buffer.byteLength(linkedLightOutput) / 1024
 ).toFixed(1);
+const cardViewOutputSizeKib = (
+  Buffer.byteLength(cardViewOutput) / 1024
+).toFixed(1);
 const wideCompanionOutputSizeKib = (
   Buffer.byteLength(wideCompanionOutput) / 1024
 ).toFixed(1);
@@ -197,6 +205,7 @@ console.info(
 console.info(
   `  ${linkedLightOutputFile}  ${linkedLightOutputSizeKib} KiB (lazy)`,
 );
+console.info(`  ${cardViewOutputFile}  ${cardViewOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${wideCompanionOutputFile}  ${wideCompanionOutputSizeKib} KiB (lazy)`,
 );
