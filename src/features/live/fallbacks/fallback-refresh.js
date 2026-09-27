@@ -361,6 +361,7 @@ export const runFallbackRefreshCycleForCard = async ({
   card,
   applyHandlers,
   applySource,
+  loadPrimary = null,
 }) => {
   if (!card) {
     return {
@@ -381,7 +382,9 @@ export const runFallbackRefreshCycleForCard = async ({
     },
     readActiveRequestId: () => card._fallbackReqId,
     loadPrimary: async (nextEntity) =>
-      await card._streamFallbackUrl(nextEntity),
+      await (loadPrimary
+        ? loadPrimary(nextEntity)
+        : card._streamFallbackUrl(nextEntity)),
     loadAlt: (nextEntity) => card._streamFallbackAltUrl(nextEntity),
     applyHandlers,
     applySource,

@@ -317,7 +317,7 @@ test("Slideshow runtime is ready before a configured landing page starts it", as
   });
 });
 
-test("initial live snapshot is prioritized before camera discovery finishes", async ({
+test("initial live snapshot requests responsive pixels at high priority", async ({
   page,
 }) => {
   await page.goto(baseUrl);
@@ -325,25 +325,22 @@ test("initial live snapshot is prioritized before camera discovery finishes", as
   const state = await page.evaluate(async () => {
     await import("/frigate-view-card.js");
     const card = document.createElement("frigate-view-card");
+    document.body.style.margin = "0";
+    card.style.display = "block";
+    card.style.width = "412px";
     document.body.append(card);
     card.setConfig({
       cameras: [{ entity: "camera.front" }],
       landing_page: "single-view",
     });
 
-    let discoveryStarted = false;
-    let releaseDiscovery;
-    const discoveryGate = new Promise((resolve) => {
-      releaseDiscovery = resolve;
-    });
-    let signedBeforeDiscovery = false;
+    let signedPath = "";
     card._hass = {
       callWS: async ({ path }) => {
-        signedBeforeDiscovery = !discoveryStarted;
+        signedPath = path;
         return {
           path:
             "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=",
-          requestedPath: path,
         };
       },
       states: {
@@ -353,42 +350,25 @@ test("initial live snapshot is prioritized before camera discovery finishes", as
         },
       },
     };
-    card._discoverAll = async () => {
-      discoveryStarted = true;
-      await discoveryGate;
-    };
-    card._browseWindowLoaderController.loadWindow = async () => {};
-    card._browseWindowLoaderController.scheduleWarmOtherCamerasEvents =
-      () => {};
-    card._mountEngine = () => {};
-    card._renderAll = () => {};
-    card._prefetchCalendarActivityForActiveCamera = async () => {};
-    card._subscribe = () => {};
-    card._startEditModeWatchdog = () => {};
-    card._startEditorDialogCloseObserver = () => {};
-    card._restartRealtimeHeadPollTimer = () => {};
-    card._setupResizeObserver = () => {};
-
-    const startup = card._start();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const renderedHeight = card.shadowRoot.querySelector("#eng-wrap")
+      ?.clientHeight;
+    await card._liveFallbackController.refreshImage();
     const image = card.shadowRoot.querySelector("#stream-fallback-img");
-    const beforeDiscoveryFinished = {
-      signedBeforeDiscovery,
+    return {
+      renderedHeight,
+      signedPath,
       sourceAssigned: image?.src.startsWith("data:image/gif") === true,
       fallbackEntity: image?.dataset.fallbackEntity,
       fetchPriority:
         image?.fetchPriority || image?.getAttribute("fetchpriority") || "",
     };
-
-    releaseDiscovery();
-    await startup;
-    clearInterval(card._refresh);
-    card._refresh = null;
-    return beforeDiscoveryFinished;
   });
 
-  expect(state).toEqual({
-    signedBeforeDiscovery: true,
+  expect(state.renderedHeight).toBeGreaterThanOrEqual(230);
+  expect(state.renderedHeight).toBeLessThanOrEqual(232);
+  expect(state).toMatchObject({
+    signedPath: "/api/camera_proxy/camera.front?height=240",
     sourceAssigned: true,
     fallbackEntity: "camera.front",
     fetchPriority: "high",
