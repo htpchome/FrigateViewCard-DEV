@@ -8,6 +8,18 @@ import {
   loadFallbackPrimaryForCard,
 } from "./fallback-url.js";
 
+export const shouldPrimeInitialLiveFallback = ({
+  hasParsedDeepLinkTarget = false,
+  landingPage = "",
+  previewPage = "",
+  startsInGrid = false,
+  startsInSlideshow = false,
+} = {}) =>
+  hasParsedDeepLinkTarget !== true &&
+  landingPage !== previewPage &&
+  startsInGrid !== true &&
+  startsInSlideshow !== true;
+
 export class LiveFallbackController {
   constructor(
     host,
@@ -54,6 +66,10 @@ export class LiveFallbackController {
         }),
       applySource: setFallbackImageSourceIfChanged,
     });
+  }
+
+  async primeInitialImage() {
+    return await this.refreshImage();
   }
 }
 

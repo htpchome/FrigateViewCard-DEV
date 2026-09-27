@@ -1599,6 +1599,10 @@ test("startup resolves initial page through the navigation factory", () => {
     "await Promise.all([",
     gridPriorityPreparationIndex,
   );
+  const initialFallbackPrimeIndex = cardSource.indexOf(
+    "this._liveFallbackController.primeInitialImage()",
+    gridPriorityPreparationIndex,
+  );
   const finalShellIndex = cardSource.indexOf(
     "this._pageNavigationController.prepareConfiguredLandingPageShell({",
     provisionalShellIndex + 1,
@@ -1621,6 +1625,8 @@ test("startup resolves initial page through the navigation factory", () => {
   assert.ok(discoverIndex > cardViewPriorityPreparationIndex);
   assert.ok(gridPriorityPreparationIndex > cardViewPriorityPreparationIndex);
   assert.ok(discoverIndex > gridPriorityPreparationIndex);
+  assert.ok(initialFallbackPrimeIndex > gridPriorityPreparationIndex);
+  assert.ok(discoverIndex > initialFallbackPrimeIndex);
   assert.ok(finalShellIndex > discoverIndex);
   assert.equal(
     cardSource.includes(

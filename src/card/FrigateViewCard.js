@@ -109,6 +109,7 @@ import {
 import {
   getLiveFallbackController,
   LiveFallbackController,
+  shouldPrimeInitialLiveFallback,
 } from "../features/live/fallbacks/fallback.ctrl.js";
 import {
   getLiveMountStateController,
@@ -1119,20 +1120,37 @@ export class FrigateViewCard extends HTMLElement {
         : preparedLandingPage === PAGE_IDS.cardView
           ? this._cardViewPageController.prepare({ startup: true })
           : Promise.resolve(null);
-    const gridLandingPreparation =
+    const startsInGrid =
       this._gridFeatureController.shouldPrepareForLandingPage(
         preparedLandingPage,
         PAGE_IDS,
-      )
+      );
+    const gridLandingPreparation =
+      startsInGrid
         ? this._gridFeatureController.prepare()
         : Promise.resolve(null);
-    const slideshowLandingPreparation =
+    const startsInSlideshow =
       this._slideshowFeatureController.shouldPrepareForLandingPage(
         preparedLandingPage,
         PAGE_IDS,
-      )
+      );
+    const slideshowLandingPreparation =
+      startsInSlideshow
         ? this._slideshowFeatureController.prepare()
         : Promise.resolve(null);
+
+    if (
+      shouldPrimeInitialLiveFallback({
+        hasParsedDeepLinkTarget:
+          this._deepLinkController.hasParsedDeepLinkTarget(),
+        landingPage: preparedLandingPage,
+        previewPage: PAGE_IDS.preview,
+        startsInGrid,
+        startsInSlideshow,
+      })
+    ) {
+      void this._liveFallbackController.primeInitialImage().catch(() => {});
+    }
 
     await Promise.all([
       this._discoverAll(),

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   getLiveFallbackController,
   LiveFallbackController,
+  shouldPrimeInitialLiveFallback,
 } from "../src/features/live/fallbacks/fallback.ctrl.js";
 
 const createHost = () => ({
@@ -29,6 +30,47 @@ const createHost = () => ({
         : key,
   },
   _signed: async (path) => `${path}?token=abc`,
+});
+
+test("initial live fallback priming skips deferred or non-live startup routes", () => {
+  assert.equal(
+    shouldPrimeInitialLiveFallback({
+      landingPage: "mobile-view",
+      previewPage: "preview",
+    }),
+    true,
+  );
+  assert.equal(
+    shouldPrimeInitialLiveFallback({
+      hasParsedDeepLinkTarget: true,
+      landingPage: "mobile-view",
+      previewPage: "preview",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPrimeInitialLiveFallback({
+      landingPage: "preview",
+      previewPage: "preview",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPrimeInitialLiveFallback({
+      landingPage: "single-view",
+      previewPage: "preview",
+      startsInGrid: true,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPrimeInitialLiveFallback({
+      landingPage: "card-view",
+      previewPage: "preview",
+      startsInSlideshow: true,
+    }),
+    false,
+  );
 });
 
 test("live fallback controller resolves and retains the browser origin", () => {

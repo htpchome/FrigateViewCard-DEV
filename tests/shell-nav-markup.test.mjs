@@ -661,6 +661,10 @@ test("shared shell builders expose stable page region anchors", () => {
   });
   assert.doesNotMatch(liveEngineWrap, /id="(?:live-fs-btn|mute-btn)"/);
   assert.match(
+    liveEngineWrap,
+    /id="stream-fallback-img"[^>]*loading="eager"[^>]*fetchpriority="high"/,
+  );
+  assert.match(
     liveFullscreen,
     /^<button[^>]*id="live-fs-btn"[^>]*data-fvc-region="live-fullscreen"/,
   );
