@@ -41,6 +41,18 @@
             "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
           },
 
+          // Microsoft Playwright MCP Server (--headless flag is recommended for background execution)
+          "playwright": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "@playwright/mcp@latest",
+              "--headless",
+              "--browser",
+              "chromium"
+            ]
+          },
+
           // Firecrawl Web Scraping & Crawling MCP Server
           "firecrawl": {
             "command": "npx",
