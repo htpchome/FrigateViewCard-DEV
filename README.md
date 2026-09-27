@@ -104,6 +104,7 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
            ├── frigate-view-card-editor.js
            ├── frigate-view-card-circle-pad.js
            ├── frigate-view-card-card-view.js
+           ├── frigate-view-card-grid.js
            ├── frigate-view-card-dashboard-swipe-navigation.js
            ├── frigate-view-card-frame-capture.js
            ├── frigate-view-card-linked-light.js
@@ -119,7 +120,7 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
 
    Keep all files together in that folder. The main card loads the editor, PTZ
    Card View styles, circle control, dashboard swipe navigation, frame capture,
-   linked-light controls, navbar customization, recording scrubber, Wide View,
+   linked-light controls, navbar customization, recording scrubber, Grid Mode, Wide View,
    Wide View companion cameras, Wide View timeline, and HLS companion files from paths
    relative to `frigate-view-card.js`. The two
    license files cover FrigateViewCard and its bundled HLS.js dependency.

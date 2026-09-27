@@ -308,7 +308,22 @@ const gridCompositionSource = fs.readFileSync(
   "utf8",
 );
 const gridMediaControllerSource = fs.readFileSync(
-  new URL("../src/features/grid/media.ctrl.js", import.meta.url),
+  new URL(
+    "../src/features/live/camera-cell-media.ctrl.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const gridRuntimeMediaControllerSource = fs.readFileSync(
+  new URL("../src/features/grid/runtime-media.ctrl.js", import.meta.url),
+  "utf8",
+);
+const gridRuntimeLoaderSource = fs.readFileSync(
+  new URL("../src/features/grid/runtime.loader.js", import.meta.url),
+  "utf8",
+);
+const gridRuntimeCompanionSource = fs.readFileSync(
+  new URL("../src/features/grid/runtime.companion.js", import.meta.url),
   "utf8",
 );
 const previewPageControllerSource = fs.readFileSync(
@@ -878,8 +893,20 @@ test("live transport ownership is pulled out of the card shell", () => {
     "GridMediaController",
   ]) {
     assert.equal(cardSource.includes(`new ${controllerName}`), false);
-    assert.equal(gridCompositionSource.includes(`new ${controllerName}`), true);
+    assert.equal(
+      gridRuntimeCompanionSource.includes(`new ${controllerName}`),
+      true,
+    );
+    assert.equal(gridCompositionSource.includes(`new ${controllerName}`), false);
   }
+  assert.equal(
+    gridCompositionSource.includes("new LazyGridFeatureController"),
+    true,
+  );
+  assert.equal(
+    gridRuntimeLoaderSource.includes("frigate-view-card-grid.js"),
+    true,
+  );
   assert.equal(cardSource.includes("_mountGridCameraCellMedia("), false);
   assert.equal(cardSource.includes("_mountGridDirectMSECell("), false);
   assert.equal(cardSource.includes("_mountGridEngine("), false);
@@ -887,7 +914,7 @@ test("live transport ownership is pulled out of the card shell", () => {
   assert.equal(cardSource.includes("_scheduleDeferredWebRtcTakeover("), false);
   assert.equal(
     /_mountGridCameraCellMedia\([\s\S]*?_host\._shouldUseGo2RtcForEntity\(entity\)[\s\S]*?_mountGridGo2RtcCell/.test(
-      gridMediaControllerSource,
+      `${gridMediaControllerSource}\n${gridRuntimeMediaControllerSource}`,
     ),
     true,
   );
@@ -1556,8 +1583,13 @@ test("startup resolves initial page through the navigation factory", () => {
   const cardViewPriorityPreparationIndex = cardSource.indexOf(
     "this._cardViewPageController.prepare({ startup: true })",
   );
+  const gridPriorityPreparationIndex = cardSource.indexOf(
+    "this._gridFeatureController.prepare()",
+    cardViewPriorityPreparationIndex,
+  );
   const discoverIndex = cardSource.indexOf(
-    "await Promise.all([this._discoverAll(), landingPagePreparation]);",
+    "await Promise.all([",
+    gridPriorityPreparationIndex,
   );
   const finalShellIndex = cardSource.indexOf(
     "this._pageNavigationController.prepareConfiguredLandingPageShell({",
@@ -1579,6 +1611,8 @@ test("startup resolves initial page through the navigation factory", () => {
   assert.ok(cardViewPriorityPreparationIndex > priorityPreparationIndex);
   assert.ok(discoverIndex > priorityPreparationIndex);
   assert.ok(discoverIndex > cardViewPriorityPreparationIndex);
+  assert.ok(gridPriorityPreparationIndex > cardViewPriorityPreparationIndex);
+  assert.ok(discoverIndex > gridPriorityPreparationIndex);
   assert.ok(finalShellIndex > discoverIndex);
   assert.equal(
     cardSource.includes(

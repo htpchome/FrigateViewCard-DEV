@@ -22,6 +22,7 @@ const bundlePaths = new Map([
     "/frigate-view-card-card-view.js",
     "dist/frigate-view-card-card-view.js",
   ],
+  ["/frigate-view-card-grid.js", "dist/frigate-view-card-grid.js"],
   [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
@@ -103,6 +104,89 @@ test.afterAll(async () => {
   if (!server) return;
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
+  });
+});
+
+test("Grid runtime stays dormant until desktop Grid is requested", async ({
+  page,
+}) => {
+  let gridRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/frigate-view-card-grid.js") {
+      gridRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+      grid_mode_enabled: true,
+      landing_page: "single-view",
+      single_view_start_mode: "live",
+    });
+    const before = card._gridFeatureController.isLoaded();
+    await card._gridFeatureController.prepare();
+    return {
+      before,
+      after: card._gridFeatureController.isLoaded(),
+      available: card._isGridModeAvailable(),
+    };
+  });
+
+  expect(gridRequests).toBe(1);
+  expect(state).toEqual({ before: false, after: true, available: true });
+});
+
+test("phone clients never request the Grid runtime", async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  let gridRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/frigate-view-card-grid.js") {
+      gridRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+      grid_mode_enabled: true,
+      landing_page: "single-view",
+      single_view_start_mode: "grid",
+    });
+    const prepared = await card._gridFeatureController.prepare();
+    return {
+      available: card._isGridModeAvailable(),
+      loaded: card._gridFeatureController.isLoaded(),
+      prepared: Boolean(prepared),
+    };
+  });
+
+  await context.close();
+  expect(gridRequests).toBe(0);
+  expect(state).toEqual({
+    available: false,
+    loaded: false,
+    prepared: false,
   });
 });
 

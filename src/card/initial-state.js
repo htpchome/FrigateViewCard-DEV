@@ -77,6 +77,7 @@ export const createInitialCardRuntimeState = ({ singleViewPageId }) => ({
   _gridResumePending: false,
   _gridPinnedRotationStart: 0,
   _gridLastRenderSignature: "",
+  _gridActivationSeq: 0,
 
   _previewPageActive: false,
   _previewLastRenderSignature: "",

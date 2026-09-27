@@ -3,28 +3,37 @@ import assert from "node:assert/strict";
 
 import { createGridControllers } from "../src/features/grid/composition.js";
 
-test("Grid composition preserves controller order and dependencies", () => {
+test("Grid composition keeps camera cells eager and Grid runtime lazy", () => {
   const calls = [];
   const options = {};
   const controllers = {
+    cameraCell: { type: "camera-cell" },
+    feature: { type: "feature" },
     alert: { type: "alert" },
     page: { type: "page" },
     media: { type: "media" },
   };
   const card = {};
   const factories = {
-    createAlertController: (host, value) => {
-      calls.push(["alert", host]);
-      options.alert = value;
+    createCameraCellMediaController: (host) => {
+      calls.push(["camera-cell", host]);
+      return controllers.cameraCell;
+    },
+    createFeatureController: (host, value) => {
+      calls.push(["feature", host]);
+      options.feature = value;
+      return controllers.feature;
+    },
+    createAlertController: (feature) => {
+      calls.push(["alert", feature]);
       return controllers.alert;
     },
-    createPageController: (host) => {
-      calls.push(["page", host]);
+    createPageController: (host, feature) => {
+      calls.push(["page", host, feature]);
       return controllers.page;
     },
-    createMediaController: (host, value) => {
-      calls.push(["media", host]);
-      options.media = value;
+    createMediaController: (host, feature, cameraCell) => {
+      calls.push(["media", host, feature, cameraCell]);
       return controllers.media;
     },
   };
@@ -32,20 +41,33 @@ test("Grid composition preserves controller order and dependencies", () => {
   const result = createGridControllers(card, { factories });
 
   assert.deepEqual(result, {
+    _cameraCellMediaController: controllers.cameraCell,
+    _gridFeatureController: controllers.feature,
     _gridAlertController: controllers.alert,
     _gridPageController: controllers.page,
     _gridMediaController: controllers.media,
   });
   assert.deepEqual(calls, [
-    ["alert", card],
-    ["page", card],
-    ["media", card],
+    ["camera-cell", card],
+    ["feature", card],
+    ["alert", controllers.feature],
+    ["page", card, controllers.feature],
+    ["media", card, controllers.feature, controllers.cameraCell],
   ]);
-  assert.equal(options.alert.DAY, 86400);
+  assert.equal(options.feature.alertConstants.DAY, 86400);
   assert.equal(
-    Number.isFinite(options.alert.SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC),
+    Number.isFinite(
+      options.feature.alertConstants.SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,
+    ),
     true,
   );
-  assert.equal(options.media.buildLabelText({ name: "front door" }), "Front door");
-  assert.match(options.media.liveIconSvg, /<svg/);
+  assert.equal(
+    options.feature.buildLabelText({ name: "front door" }),
+    "Front door",
+  );
+  assert.match(options.feature.liveIconSvg, /<svg/);
+  assert.equal(
+    options.feature.cameraCellMediaController,
+    controllers.cameraCell,
+  );
 });

@@ -1114,8 +1114,19 @@ export class FrigateViewCard extends HTMLElement {
         : preparedLandingPage === PAGE_IDS.cardView
           ? this._cardViewPageController.prepare({ startup: true })
           : Promise.resolve(null);
+    const gridLandingPreparation =
+      this._gridFeatureController.shouldPrepareForLandingPage(
+        preparedLandingPage,
+        PAGE_IDS,
+      )
+        ? this._gridFeatureController.prepare()
+        : Promise.resolve(null);
 
-    await Promise.all([this._discoverAll(), landingPagePreparation]);
+    await Promise.all([
+      this._discoverAll(),
+      landingPagePreparation,
+      gridLandingPreparation,
+    ]);
     if (this._editorPreviewController.renderCardPickerDemo()) {
       this._applyCardStyle();
       return;
@@ -1667,6 +1678,32 @@ export class FrigateViewCard extends HTMLElement {
 
   _setViewMode(mode, options = {}) {
     if (this._isPreviewPageActive()) return;
+    if (mode !== "grid") this._gridActivationSeq += 1;
+    if (
+      mode === "grid" &&
+      this._viewMode !== "grid" &&
+      !this._gridFeatureController.isLoaded()
+    ) {
+      if (!this._isGridModeAvailable()) {
+        this._syncToolbarButtons();
+        return;
+      }
+      const requestedPageId = this._pageId;
+      const activationSeq = ++this._gridActivationSeq;
+      void this._gridFeatureController.prepare().then((controllers) => {
+        if (
+          !controllers ||
+          this._gridActivationSeq !== activationSeq ||
+          this._pageId !== requestedPageId ||
+          this._viewMode === "grid" ||
+          !this._isGridModeAvailable()
+        ) {
+          return;
+        }
+        this._setViewMode("grid", options);
+      });
+      return;
+    }
     if (
       mode === "grid" &&
       this._viewMode !== "grid" &&

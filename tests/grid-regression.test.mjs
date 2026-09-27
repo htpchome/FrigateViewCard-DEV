@@ -25,10 +25,22 @@ const gridPageControllerSource = fs.readFileSync(
   new URL("../src/features/grid/page.ctrl.js", import.meta.url),
   "utf8",
 );
-const gridMediaControllerSource = fs.readFileSync(
-  new URL("../src/features/grid/media.ctrl.js", import.meta.url),
+const cameraCellMediaControllerSource = fs.readFileSync(
+  new URL(
+    "../src/features/live/camera-cell-media.ctrl.js",
+    import.meta.url,
+  ),
   "utf8",
 );
+const gridRuntimeMediaControllerSource = fs.readFileSync(
+  new URL("../src/features/grid/runtime-media.ctrl.js", import.meta.url),
+  "utf8",
+);
+const gridRuntimeLoaderSource = fs.readFileSync(
+  new URL("../src/features/grid/runtime.loader.js", import.meta.url),
+  "utf8",
+);
+const gridMediaControllerSource = `${cameraCellMediaControllerSource}\n${gridRuntimeMediaControllerSource}`;
 const slideshowPageControllerSource = fs.readFileSync(
   new URL("../src/features/slideshow/page.ctrl.js", import.meta.url),
   "utf8",
@@ -108,10 +120,12 @@ test("grid mode toolbar and runtime hooks are present", () => {
     ),
     true,
   );
-  assert.equal(
-    gridCompositionSource.includes("new GridMediaController(card, options)"),
-    true,
+  assert.match(
+    gridCompositionSource,
+    /new LazyGridFeatureController\(card, options\)/,
   );
+  assert.match(gridRuntimeLoaderSource, /frigate-view-card-grid\.js/);
+  assert.doesNotMatch(gridCompositionSource, /new GridMediaController/);
   assert.match(
     gridPageControllerSource,
     /_setViewMode\?\.\("grid", \{ resumeGridSession: true \}\)/,
