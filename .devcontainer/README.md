@@ -9,7 +9,7 @@ A complete development environment for building and testing the FrigateViewCard 
 | **Home Assistant** | `8123` | Home Assistant Core 2026.9.0 with Frigate integration |
 | **Frigate NVR** | `5000` | Frigate web UI with 3 demo cameras |
 | **go2rtc** | `8554`, `1984` | WebRTC streaming for live camera feeds |
-| **Dev Container** | - | Node.js 20 development environment with FFmpeg and Playwright |
+| **Dev Container** | - | Version-matched Playwright environment with Node.js and FFmpeg |
 
 Codex is installed automatically and stores its login and conversation history
 in the persistent `frigateviewcard-codex-data` Docker volume. Rebuilding the
@@ -17,11 +17,10 @@ devcontainer does not require reinstalling or signing in to Codex again.
 FFmpeg is installed in the devcontainer image and remains available after every
 container rebuild.
 
-The post-create setup installs the project-pinned Chromium, Firefox, and WebKit
-Playwright engines and their Linux system dependencies. Browser downloads are
-stored in the persistent `frigateviewcard-playwright-cache` Docker volume, so
-rebuilding the devcontainer does not download them again unless the pinned
-Playwright version changes.
+The devcontainer uses Microsoft's Playwright `v1.62.1-noble` image, matching the
+project's pinned Playwright package. Chromium, Firefox, WebKit, and their Linux
+system dependencies are supplied together by that image and verified without
+redownloading or replacing the bundled browser builds during post-create setup.
 
 Home Assistant is pinned to Core `2026.9.0` in `docker-compose.yml`. This keeps
 configuration-editor testing reproducible instead of silently moving whenever
