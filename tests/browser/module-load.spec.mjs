@@ -4305,6 +4305,74 @@ test("Panel Single and Mobile Views keep their footer inside the viewport", asyn
   }
 });
 
+test("phone cards reserve their wrapper-constrained height before the Mobile View startup route", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) " +
+      "AppleWebKit/605.1.15 Mobile/15E148",
+    viewport: { width: 412, height: 844 },
+  });
+  const page = await context.newPage();
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const spacer = document.createElement("div");
+    spacer.style.height = "100px";
+    const wrapper = document.createElement("div");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(spacer, wrapper);
+
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      mobile_view_page_enabled: true,
+      mobile_page: "mobile-view",
+      stream_height: 100,
+      stream_height_unit: "%",
+    });
+    const detachedHeight = card.style.getPropertyValue("--card-host-height");
+
+    wrapper.append(card);
+    const attached = {
+      height: card.style.getPropertyValue("--card-host-height"),
+      rectHeight: Math.round(card.getBoundingClientRect().height),
+      pageId: card._pageId,
+    };
+
+    card._pageNavigationController.prepareConfiguredLandingPageShell({
+      hasPendingDeepLinkTarget: false,
+    });
+    const routed = {
+      height: card.style.getPropertyValue("--card-host-height"),
+      rectHeight: Math.round(card.getBoundingClientRect().height),
+      pageId: card._pageId,
+    };
+
+    return { detachedHeight, attached, routed };
+  });
+
+  await context.close();
+
+  expect(state).toEqual({
+    detachedHeight: "788px",
+    attached: {
+      height: "744px",
+      rectHeight: 744,
+      pageId: "single-view",
+    },
+    routed: {
+      height: "744px",
+      rectHeight: 744,
+      pageId: "mobile-view",
+    },
+  });
+});
+
 test("Single and Mobile View footers become compact when the logo is disabled", async ({
   page,
 }) => {

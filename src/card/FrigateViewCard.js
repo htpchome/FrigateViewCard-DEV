@@ -558,6 +558,11 @@ export class FrigateViewCard extends HTMLElement {
     this._haPageBackgroundController?.sync?.();
     const cardPickerDemoActive =
       this._editorPreviewController.renderCardPickerDemo();
+    if (this._config && !cardPickerDemoActive) {
+      // HA commonly configures custom cards while detached. Re-resolve the
+      // height now that the real dashboard wrapper and viewport are available.
+      this._applyCardStyle();
+    }
     this._scheduleRotateOverlayUpdate();
     if (this._started && !cardPickerDemoActive) {
       const activeLiveEntity =
