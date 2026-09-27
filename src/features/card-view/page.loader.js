@@ -257,7 +257,11 @@ export class LazyCardViewPageController {
   }
 
   syncCardViewPageMarkup() {
-    this._invokeWhenActive("syncCardViewPageMarkup");
+    if (this._delegate) {
+      this._delegate.syncCardViewPageMarkup();
+      return;
+    }
+    if (this.isActive() && this.isSupported()) void this._ensureDelegate();
   }
 
   bind() {

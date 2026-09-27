@@ -136,6 +136,30 @@ test("priority Card View preparation builds its shell without activating", async
   assert.equal(controller._delegate, delegate);
 });
 
+test("a loaded Card View still synchronizes cleanup after leaving its route", async () => {
+  const calls = [];
+  const delegate = {
+    syncCardViewPageMarkup: () => calls.push("sync"),
+  };
+  const host = {
+    _config: { card_view_page_enabled: true },
+    _pageId: "card-view",
+    _renderShellPreserveLive: () => {},
+  };
+  const controller = new LazyCardViewPageController(host, constants, {
+    loadModule: async () => ({
+      createCardViewPageController: () => delegate,
+      buildCardViewMainLayoutShellMarkup: () => "<main></main>",
+    }),
+  });
+
+  await controller.prepare();
+  host._pageId = "single-view";
+  controller.syncCardViewPageMarkup();
+
+  assert.deepEqual(calls, ["sync", "sync"]);
+});
+
 test("a closed Card View does not activate after a pending page load", async () => {
   let releaseModule;
   const calls = [];

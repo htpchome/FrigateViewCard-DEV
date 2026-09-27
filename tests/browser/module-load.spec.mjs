@@ -5253,6 +5253,68 @@ test("Mobile View back routes to Preview when enabled and Single View otherwise"
   ]);
 });
 
+test("Card View back renders Preview when enabled and Single View otherwise", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const results = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const states = [];
+
+    for (const previewPageEnabled of [true, false]) {
+      const card = document.createElement("frigate-view-card");
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        mobile_view_page_enabled: false,
+        preview_page_enabled: previewPageEnabled,
+        card_view_page_enabled: true,
+        card_view_view_mode: "video-only",
+      });
+      card._pageId = "card-view";
+      await card._cardViewPageController.prepare();
+      card._renderShell();
+      card._syncCardViewPageMarkup();
+
+      card.shadowRoot.querySelector("[data-card-view-video-back]").click();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const layout = card.shadowRoot.querySelector("#layout");
+      states.push({
+        previewPageEnabled,
+        pageId: card._pageId,
+        layoutClass: [...(layout?.classList || [])].find((className) =>
+          className.startsWith("layout--"),
+        ),
+        hasLayoutContent: Boolean(layout?.childElementCount),
+        cardViewActive: card.shadowRoot
+          .querySelector("#card")
+          ?.classList.contains("card-view-active"),
+      });
+      card.remove();
+    }
+
+    return states;
+  });
+
+  expect(results).toEqual([
+    {
+      previewPageEnabled: true,
+      pageId: "preview",
+      layoutClass: "layout--preview-view",
+      hasLayoutContent: true,
+      cardViewActive: false,
+    },
+    {
+      previewPageEnabled: false,
+      pageId: "single-view",
+      layoutClass: "layout--single-view",
+      hasLayoutContent: true,
+      cardViewActive: false,
+    },
+  ]);
+});
+
 test("Wide View footer remains singular across landing and route swaps", async ({
   page,
 }) => {
