@@ -2,14 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildFallbackCameraProxyPath,
   createFallbackSourceResolversForCard,
   createFallbackSourceResolvers,
   getCachedEntityUrl,
   isAbsoluteOrDataUrl,
   loadFallbackAltForCard,
   loadFallbackPrimaryForCard,
-  normalizeFallbackRequestHeight,
   resolveFallbackOrigin,
   resolveFallbackOriginForCard,
   resolveFallbackSourceResolversForCard,
@@ -19,22 +17,6 @@ import {
   setCachedEntityUrl,
   toAbsoluteLocalUrl,
 } from "../src/features/live/fallbacks/fallback-url.js";
-
-test("camera proxy paths carry a normalized responsive height", () => {
-  assert.equal(normalizeFallbackRequestHeight(239.6), 240);
-  assert.equal(normalizeFallbackRequestHeight(-1), 0);
-  assert.equal(
-    buildFallbackCameraProxyPath({
-      entity: "camera.front",
-      requestHeight: 480,
-    }),
-    "/api/camera_proxy/camera.front?height=480",
-  );
-  assert.equal(
-    buildFallbackCameraProxyPath({ entity: "camera.front" }),
-    "/api/camera_proxy/camera.front",
-  );
-});
 
 test("isAbsoluteOrDataUrl detects absolute and data URLs", () => {
   assert.equal(isAbsoluteOrDataUrl("https://example.com/a.jpg"), true);
@@ -127,41 +109,6 @@ test("resolveSignedFallbackUrl signs, absolutizes, and caches", async () => {
     "https://ha.local/api/camera_proxy/camera.front?token=abc",
   );
   assert.equal(cacheMap.get("camera.front")?.exp, 1100);
-});
-
-test("resolveSignedFallbackUrl signs and caches a responsive camera image", async () => {
-  const cacheMap = new Map();
-  let signedPath = "";
-
-  const result = await resolveSignedFallbackUrl({
-    entity: "camera.front",
-    canCallWs: true,
-    signedPathResolver: async (path) => {
-      signedPath = path;
-      return `${path}&authSig=abc`;
-    },
-    cacheMap,
-    nowMs: 100,
-    origin: "https://ha.local",
-    requestHeight: 480,
-    ttlMs: 1000,
-  });
-
-  assert.equal(signedPath, "/api/camera_proxy/camera.front?height=480");
-  assert.equal(
-    result,
-    "https://ha.local/api/camera_proxy/camera.front?height=480&authSig=abc",
-  );
-  assert.equal(cacheMap.get("camera.front")?.requestHeight, 480);
-  assert.equal(
-    getCachedEntityUrl({
-      cacheMap,
-      entity: "camera.front",
-      nowMs: 200,
-      requestHeight: 720,
-    }),
-    "",
-  );
 });
 
 test("resolveSignedFallbackUrl returns empty when entity/callWS unavailable", async () => {

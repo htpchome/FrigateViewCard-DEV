@@ -4,8 +4,6 @@ import assert from "node:assert/strict";
 import {
   getLiveFallbackController,
   LiveFallbackController,
-  resolveLiveFallbackRequestHeight,
-  selectFallbackRequestHeight,
 } from "../src/features/live/fallbacks/fallback.ctrl.js";
 
 const createHost = () => ({
@@ -30,24 +28,7 @@ const createHost = () => ({
         ? `${values.entity} localized snapshot`
         : key,
   },
-  _signed: async (path) =>
-    `${path}${path.includes("?") ? "&" : "?"}token=abc`,
-});
-
-test("live fallback request height follows rendered CSS pixels and DPR", () => {
-  assert.equal(selectFallbackRequestHeight(0), 0);
-  assert.equal(selectFallbackRequestHeight(232), 240);
-  assert.equal(selectFallbackRequestHeight(406), 480);
-  assert.equal(selectFallbackRequestHeight(1_500), 1080);
-  assert.equal(
-    resolveLiveFallbackRequestHeight({
-      shadowRoot: {
-        querySelector: () => ({ clientHeight: 232 }),
-      },
-      devicePixelRatio: 1.75,
-    }),
-    480,
-  );
+  _signed: async (path) => `${path}?token=abc`,
 });
 
 test("live fallback controller resolves and retains the browser origin", () => {
@@ -105,7 +86,6 @@ test("live fallback controller refreshes the active snapshot surface", async () 
   const status = { hidden: false };
   host.shadowRoot = {
     querySelector(selector) {
-      if (selector === "#eng-wrap") return { clientHeight: 232 };
       if (selector === "#stream-fallback-img") return image;
       if (selector === "#stream-fallback-status") return status;
       return null;
@@ -124,7 +104,7 @@ test("live fallback controller refreshes the active snapshot surface", async () 
   assert.equal(image.hidden, false);
   assert.equal(
     image.src,
-    "https://ha.local/api/camera_proxy/camera.front?height=240&token=abc",
+    "https://ha.local/api/camera_proxy/camera.front?token=abc",
   );
   assert.equal(image.dataset.fallbackEntity, "camera.front");
   assert.equal(image.alt, "camera.front localized snapshot");

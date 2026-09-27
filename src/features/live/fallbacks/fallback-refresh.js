@@ -29,7 +29,6 @@ export const preloadFallbackImageSource = async (
     };
     image.onload = () => done(true);
     image.onerror = () => done(false);
-    image.fetchPriority = "high";
     timeout = setTimeout(
       () => done(false),
       Math.max(250, Number(timeoutMs) || FALLBACK_PRELOAD_TIMEOUT_MS),
@@ -45,13 +44,6 @@ export const preloadFallbackImageSource = async (
     }
   });
 };
-
-export const hasCurrentFallbackImageSource = (imgEl) =>
-  Boolean(
-    String(
-      imgEl?.getAttribute?.("src") || imgEl?.src || "",
-    ).trim(),
-  );
 
 export const nextFallbackRequestId = (currentRequestId) =>
   Number(currentRequestId || 0) + 1;
@@ -314,16 +306,14 @@ export const runFallbackRefreshCycle = async ({
 
   const alternateSource = writePlan.context?.sources?.altSrc || "";
   let readySource = writePlan.writeInput.src;
-  if (hasCurrentFallbackImageSource(imgEl)) {
-    let sourceReady = await preloadSource?.(readySource);
-    if (
-      !sourceReady &&
-      alternateSource &&
-      alternateSource !== readySource
-    ) {
-      readySource = alternateSource;
-      sourceReady = await preloadSource?.(readySource);
-    }
+  let sourceReady = await preloadSource?.(readySource);
+  if (
+    !sourceReady &&
+    alternateSource &&
+    alternateSource !== readySource
+  ) {
+    readySource = alternateSource;
+    sourceReady = await preloadSource?.(readySource);
   }
   if (
     shouldAbortStaleFallbackRefresh({
@@ -361,7 +351,6 @@ export const runFallbackRefreshCycleForCard = async ({
   card,
   applyHandlers,
   applySource,
-  loadPrimary = null,
 }) => {
   if (!card) {
     return {
@@ -382,9 +371,7 @@ export const runFallbackRefreshCycleForCard = async ({
     },
     readActiveRequestId: () => card._fallbackReqId,
     loadPrimary: async (nextEntity) =>
-      await (loadPrimary
-        ? loadPrimary(nextEntity)
-        : card._streamFallbackUrl(nextEntity)),
+      await card._streamFallbackUrl(nextEntity),
     loadAlt: (nextEntity) => card._streamFallbackAltUrl(nextEntity),
     applyHandlers,
     applySource,

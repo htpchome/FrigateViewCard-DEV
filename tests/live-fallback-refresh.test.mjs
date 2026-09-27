@@ -10,7 +10,6 @@ import {
   buildFallbackRefreshWritePlan,
   canRefreshFallbackImage,
   getFallbackRefreshElements,
-  hasCurrentFallbackImageSource,
   issueFallbackRefreshToken,
   isFallbackRefreshStale,
   loadPrimaryFallbackSource,
@@ -277,44 +276,6 @@ test("snapshot preloader resolves after decode without mutating the displayed im
     true,
   );
   assert.equal(preloadImage.src, "https://ha.local/next.jpg");
-  assert.equal(preloadImage.fetchPriority, "high");
-});
-
-test("initial fallback writes directly to the prioritized LCP image", async () => {
-  const imgEl = { dataset: {}, src: "" };
-  let preloadCalls = 0;
-  const writes = [];
-
-  const result = await runFallbackRefreshCycle({
-    shadowRoot: {
-      querySelector: (selector) =>
-        selector === "#stream-fallback-img" ? imgEl : null,
-    },
-    currentRequestId: 0,
-    activeCam: { entity: "camera.front" },
-    setActiveRequestId: () => {},
-    readActiveRequestId: () => 1,
-    loadPrimary: async () => "https://ha.local/initial.jpg",
-    loadAlt: () => "",
-    preloadSource: async () => {
-      preloadCalls += 1;
-      return true;
-    },
-    applyHandlers: () => {},
-    applySource: (entry) => writes.push(entry),
-  });
-
-  assert.equal(result.didWrite, true);
-  assert.equal(preloadCalls, 0);
-  assert.equal(writes[0].src, "https://ha.local/initial.jpg");
-});
-
-test("current fallback source detection distinguishes the initial image", () => {
-  assert.equal(hasCurrentFallbackImageSource({ src: "" }), false);
-  assert.equal(
-    hasCurrentFallbackImageSource({ src: "https://ha.local/current.jpg" }),
-    true,
-  );
 });
 
 test("runFallbackRefreshCycle aborts when request becomes stale after primary load", async () => {
