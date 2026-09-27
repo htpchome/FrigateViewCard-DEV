@@ -354,7 +354,7 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.equal(h.controller.shouldStackNavbarTabs(), true);
   assert.equal(
     h.getTargets().header.style.getPropertyValue("bottom"),
-    "0px",
+    "auto",
   );
   assert.equal(h.getTargets().children.length, 1);
   const styleText = h.getTargets().children[0].textContent;
@@ -363,6 +363,11 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.match(styleText, /font-size: var\(--ha-font-size-xs, 10px\)/);
   assert.match(styleText, /margin-inline-end: 0 !important/);
   assert.match(styleText, /border-block-start/);
+  assert.match(
+    styleText,
+    /transform: translateY\(calc\(100dvh - 100%\)\) !important/,
+  );
+  assert.match(styleText, /transition: none !important/);
   assert.doesNotMatch(styleText, /#view\s*\{[\s\S]*?z-index:/);
   assert.match(styleText, /\[data-frigate-view-ha-navbar-header\] \{[\s\S]*?z-index: 2 !important;/);
   assert.doesNotMatch(styleText, /\.header\s*\{/);
@@ -384,7 +389,7 @@ test("card-local scope remains active across internal Frigate views", () => {
   assert.equal(h.controller.shouldMoveNavbarToBottom(), true);
   assert.equal(
     h.getTargets().header.style.getPropertyValue("bottom"),
-    "0px",
+    "auto",
   );
 
   h.host.isConnected = false;
@@ -477,7 +482,7 @@ test("a direct-entry card applies the configured Whole Dashboard owner policy", 
   assert.equal(entry.windowRef.listenerCount("location-changed"), 1);
   assert.equal(
     entry.getTargets().header.style.getPropertyValue("bottom"),
-    "0px",
+    "auto",
   );
   assert.match(
     entry.getTargets().children[0].textContent,
@@ -488,7 +493,7 @@ test("a direct-entry card applies the configured Whole Dashboard owner policy", 
   entry.controller.disconnect();
   assert.equal(
     entry.getTargets().header.style.getPropertyValue("bottom"),
-    "0px",
+    "auto",
   );
 
   entry.controller.disconnect({ force: true });
@@ -526,7 +531,7 @@ test("Whole Dashboard navbar starts before its FrigateView owner page is visited
   assert.ok(bootstrap);
   assert.equal(
     h.getTargets().header.style.getPropertyValue("bottom"),
-    "0px",
+    "auto",
   );
   assert.match(
     h.getTargets().children[0].textContent,
@@ -686,8 +691,8 @@ test("applies the proven bottom-header details and restores exact styles", () =>
   h.setTargets(targets);
 
   assert.equal(h.controller.sync(), true);
-  assert.equal(targets.header.style.getPropertyValue("top"), "auto");
-  assert.equal(targets.header.style.getPropertyValue("bottom"), "0px");
+  assert.equal(targets.header.style.getPropertyValue("top"), "0px");
+  assert.equal(targets.header.style.getPropertyValue("bottom"), "auto");
   assert.equal(targets.header.style.getPropertyValue("position"), "fixed");
   assert.equal(targets.header.getAttribute("data-frigate-view-ha-navbar-header"), "");
   assert.equal(targets.header.style.getPropertyValue("padding-top"), "0px");
@@ -820,7 +825,7 @@ test("is always gated by the card's mobile-device detection", () => {
 
   h.host._mobileDevice = true;
   assert.equal(h.controller.sync(), true);
-  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "0px");
+  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "auto");
 });
 
 test("watches the Lovelace subtree and reapplies to replaced header nodes", () => {
@@ -844,7 +849,7 @@ test("watches the Lovelace subtree and reapplies to replaced header nodes", () =
 
   assert.equal(original.header.style.getPropertyValue("bottom"), "");
   assert.equal(original.header.getAttribute("data-frigate-view-ha-navbar-header"), null);
-  assert.equal(replacement.header.style.getPropertyValue("bottom"), "0px");
+  assert.equal(replacement.header.style.getPropertyValue("bottom"), "auto");
   assert.equal(replacement.header.getAttribute("data-frigate-view-ha-navbar-header"), "");
 });
 
@@ -860,7 +865,7 @@ test("dashboard scope survives card disconnects and stays inside its dashboard",
 
   h.host.isConnected = false;
   h.controller.disconnect();
-  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "0px");
+  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "auto");
 
   const replacementTargets = createTargets({ documentRef: h.documentRef });
   const replacementRoot = {
@@ -879,7 +884,7 @@ test("dashboard scope survives card disconnects and stays inside its dashboard",
   assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "");
   assert.equal(
     replacementTargets.header.style.getPropertyValue("bottom"),
-    "0px",
+    "auto",
   );
 
   const otherDashboardTargets = createTargets({ documentRef: h.documentRef });
@@ -932,7 +937,7 @@ test("multiple enabled cards share ownership until the last card disconnects", (
   h.controller.sync();
   second.sync();
   h.controller.disconnect();
-  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "0px");
+  assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "auto");
 
   second.disconnect();
   assert.equal(h.getTargets().header.style.getPropertyValue("bottom"), "");

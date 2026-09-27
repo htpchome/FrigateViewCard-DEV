@@ -32,6 +32,9 @@ const HA_SAFE_AREA_BOTTOM =
 const BOTTOM_NAVBAR_STYLE_TEXT = `
 [${NAVBAR_HEADER_ATTRIBUTE}] {
   z-index: 2 !important;
+  transform: translateY(calc(100vh - 100%)) !important;
+  transform: translateY(calc(100dvh - 100%)) !important;
+  transition: none !important;
 }
 ha-tab-group-tab[active],
 ha-tab-group-tab[aria-selected="true"] {
@@ -107,8 +110,11 @@ const DASHBOARD_NAVBAR_BOOTSTRAP_KEY = Symbol.for(
 );
 
 const resolveHeaderBottomStyles = (isIOS) => ({
-  top: "auto",
-  bottom: "0px",
+  // Preserve HA's top layout position. Moving the layout box to the bottom
+  // creates a viewport-sized layout shift; the scoped transform moves only
+  // the painted header and therefore does not contribute to CLS.
+  top: "0px",
+  bottom: "auto",
   position: "fixed",
   // HA's top safe area must not travel with a header moved to the bottom.
   "padding-top": "0px",

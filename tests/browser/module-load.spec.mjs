@@ -485,6 +485,107 @@ test("bottom HA navbar styling does not trap Bubble popup behind its backdrop", 
   });
 });
 
+test("bottom HA navbar keeps its layout anchor while painting at the viewport bottom", async ({
+  browserName,
+  page,
+}) => {
+  await page.setViewportSize({ width: 412, height: 823 });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    const { HomeAssistantNavbarController } = await import(
+      "/frigate-view-card-navbar.js"
+    );
+    document.body.style.margin = "0";
+    const huiRoot = document.createElement("div");
+    const root = huiRoot.attachShadow({ mode: "open" });
+    root.innerHTML = `
+      <style>
+        :host { display: block; width: 100%; height: 823px; }
+        .header { position: fixed; inset: 0 0 auto; background: red; }
+        .toolbar { height: 56px; }
+        #view { box-sizing: border-box; height: 823px; padding-top: 56px; }
+        hui-view { display: block; height: 767px; background: blue; }
+      </style>
+      <div class="header"><div class="toolbar"></div></div>
+      <div id="view"><hui-view></hui-view></div>
+    `;
+    document.body.append(huiRoot);
+    const header = root.querySelector(".header");
+    const view = root.querySelector("hui-view");
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    const oldHeaderTop = header.getBoundingClientRect().top;
+    const oldViewTop = view.getBoundingClientRect().top;
+    const shifts = [];
+    const canObserveLayoutShift =
+      PerformanceObserver.supportedEntryTypes?.includes("layout-shift") ===
+      true;
+    const observer = canObserveLayoutShift
+      ? new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (!entry.hadRecentInput) shifts.push(entry.value);
+          }
+        })
+      : null;
+    observer?.observe({ type: "layout-shift", buffered: false });
+    const host = {
+      isConnected: true,
+      _config: {
+        mobile_view_ha_navbar_bottom: true,
+        mobile_view_ha_navbar_dashboard: true,
+      },
+      _isLikelyMobileClient: () => true,
+      _isLikelyPhoneClient: () => true,
+      _isRotateOverlayViewportCoverActive: () => false,
+      _isDashboardEditMode: () => false,
+    };
+    const controller = new HomeAssistantNavbarController(host, {
+      documentRef: document,
+      windowRef: window,
+      findCurrentHuiRoot: () => huiRoot,
+      findPanel: () => null,
+    });
+    controller.sync();
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    observer?.takeRecords().forEach((entry) => {
+      if (!entry.hadRecentInput) shifts.push(entry.value);
+    });
+    observer?.disconnect();
+    const headerRect = header.getBoundingClientRect();
+    const result = {
+      cls: canObserveLayoutShift
+        ? shifts.reduce((total, value) => total + value, 0)
+        : null,
+      oldHeaderTop,
+      oldViewTop,
+      headerTop: headerRect.top,
+      headerBottom: headerRect.bottom,
+      viewTop: view.getBoundingClientRect().top,
+      inlineTop: header.style.getPropertyValue("top"),
+      inlineBottom: header.style.getPropertyValue("bottom"),
+      transform: getComputedStyle(header).transform,
+    };
+    controller.disconnect({ force: true });
+    return result;
+  });
+
+  expect(state).toMatchObject({
+    oldHeaderTop: 0,
+    oldViewTop: 56,
+    viewTop: 0,
+    inlineTop: "0px",
+    inlineBottom: "auto",
+  });
+  expect(state.headerBottom).toBeCloseTo(823, 0);
+  expect(state.headerTop).toBeGreaterThan(750);
+  expect(state.transform).not.toBe("none");
+  if (browserName === "chromium") expect(state.cls).toBeLessThan(0.1);
+});
+
 test("Bubble notification hash opens its route before the card media popup", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
