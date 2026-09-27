@@ -16,8 +16,10 @@ import {
   loadPrimaryWithStaleGate,
   nextFallbackRequestId,
   preloadFallbackImageSource,
+  prioritizeFallbackImageRequest,
   resolveAltFallbackSource,
   resolveFallbackRefreshEntity,
+  resolveFallbackRequestHeight,
   resolveFallbackRefreshSources,
   runFallbackRefreshCycle,
   runFallbackRefreshCycleForCard,
@@ -25,6 +27,39 @@ import {
   shouldAbortStaleFallbackRefresh,
   shouldApplyFallbackRefreshSources,
 } from "../src/features/live/fallbacks/fallback-refresh.js";
+
+test("fallback image requests are eager and high priority", () => {
+  const attributes = new Map();
+  const image = {
+    setAttribute: (name, value) => attributes.set(name, value),
+  };
+
+  prioritizeFallbackImageRequest(image);
+
+  assert.equal(image.loading, "eager");
+  assert.equal(image.decoding, "async");
+  assert.equal(image.fetchPriority, "high");
+  assert.equal(attributes.get("fetchpriority"), "high");
+});
+
+test("fallback request height follows the rendered surface and device pixel ratio", () => {
+  const imgEl = {
+    parentElement: {
+      getBoundingClientRect: () => ({ height: 223.2 }),
+      clientHeight: 223,
+    },
+  };
+
+  assert.equal(
+    resolveFallbackRequestHeight({ imgEl, devicePixelRatio: 1.75 }),
+    391,
+  );
+  assert.equal(
+    resolveFallbackRequestHeight({ imgEl, devicePixelRatio: 4 }),
+    670,
+  );
+  assert.equal(resolveFallbackRequestHeight({ imgEl: {} }), 0);
+});
 
 test("nextFallbackRequestId increments from current id", () => {
   assert.equal(nextFallbackRequestId(0), 1);
@@ -276,6 +311,43 @@ test("snapshot preloader resolves after decode without mutating the displayed im
     true,
   );
   assert.equal(preloadImage.src, "https://ha.local/next.jpg");
+  assert.equal(preloadImage.loading, "eager");
+  assert.equal(preloadImage.decoding, "async");
+  assert.equal(preloadImage.fetchPriority, "high");
+});
+
+test("fallback refresh requests a snapshot sized for the rendered surface", async () => {
+  let requestedOptions = null;
+  const imgEl = {
+    dataset: {},
+    parentElement: { clientHeight: 240 },
+  };
+
+  const result = await runFallbackRefreshCycle({
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "#stream-fallback-img" ? imgEl : null,
+    },
+    currentRequestId: 0,
+    activeCam: { entity: "camera.front" },
+    setActiveRequestId: () => {},
+    readActiveRequestId: () => 1,
+    loadPrimary: async (_entity, options) => {
+      requestedOptions = options;
+      return "https://ha.local/primary.jpg";
+    },
+    loadAlt: () => "",
+    applyHandlers: () => {},
+    applySource: () => {},
+    preloadSource: async () => true,
+    devicePixelRatio: 2,
+  });
+
+  assert.equal(result.didWrite, true);
+  assert.deepEqual(requestedOptions, { requestHeight: 480 });
+  assert.equal(imgEl.loading, "eager");
+  assert.equal(imgEl.decoding, "async");
+  assert.equal(imgEl.fetchPriority, "high");
 });
 
 test("runFallbackRefreshCycle aborts when request becomes stale after primary load", async () => {

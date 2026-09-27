@@ -6,7 +6,7 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                       <div class="ph">${icons.live}<span data-fvc-i18n="runtime.live.connecting">Connecting…</span></div>
                     </frigate-live-stream>
                     <div id="stream-fallback" hidden>
-                      <img id="stream-fallback-img" alt="Camera snapshot" data-fvc-i18n-alt="runtime.live.cameraSnapshot">
+                      <img id="stream-fallback-img" alt="Camera snapshot" data-fvc-i18n-alt="runtime.live.cameraSnapshot" loading="eager" decoding="async" fetchpriority="high">
                     </div>
                     <div class="stream-fallback-status" id="stream-fallback-status" data-fvc-i18n="runtime.live.snapshotUnavailable" hidden>Snapshot unavailable</div>
                     <div class="camera-group-pane-controls">

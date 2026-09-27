@@ -28,7 +28,8 @@ const createHost = () => ({
         ? `${values.entity} localized snapshot`
         : key,
   },
-  _signed: async (path) => `${path}?token=abc`,
+  _signed: async (path) =>
+    `${path}${path.includes("?") ? "&" : "?"}token=abc`,
 });
 
 test("live fallback controller resolves and retains the browser origin", () => {
@@ -94,7 +95,8 @@ test("live fallback controller refreshes the active snapshot surface", async () 
   const controller = new LiveFallbackController(host, {
     getOrigin: () => "https://ha.local",
   });
-  host._streamFallbackUrl = (entity) => controller.loadPrimary(entity);
+  host._streamFallbackUrl = (entity, options) =>
+    controller.loadPrimary(entity, options);
   host._streamFallbackAltUrl = (entity) => controller.loadAlternate(entity);
 
   const result = await controller.refreshImage();
@@ -104,7 +106,7 @@ test("live fallback controller refreshes the active snapshot surface", async () 
   assert.equal(image.hidden, false);
   assert.equal(
     image.src,
-    "https://ha.local/api/camera_proxy/camera.front?token=abc",
+    "https://ha.local/api/camera_proxy/camera.front?height=360&token=abc",
   );
   assert.equal(image.dataset.fallbackEntity, "camera.front");
   assert.equal(image.alt, "camera.front localized snapshot");

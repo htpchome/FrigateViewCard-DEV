@@ -1,6 +1,35 @@
 import { resolveFallbackDisplaySource } from "./fallback-image.js";
 
 const FALLBACK_PRELOAD_TIMEOUT_MS = 3000;
+const FALLBACK_MAX_DEVICE_PIXEL_RATIO = 3;
+
+export const prioritizeFallbackImageRequest = (image) => {
+  if (!image) return;
+  image.loading = "eager";
+  image.decoding = "async";
+  image.fetchPriority = "high";
+  image.setAttribute?.("fetchpriority", "high");
+};
+
+export const resolveFallbackRequestHeight = ({
+  imgEl,
+  devicePixelRatio =
+    globalThis.window?.devicePixelRatio || globalThis.devicePixelRatio || 1,
+}) => {
+  const container = imgEl?.parentElement || null;
+  const cssHeight =
+    Number(container?.getBoundingClientRect?.().height) ||
+    Number(container?.clientHeight) ||
+    Number(imgEl?.getBoundingClientRect?.().height) ||
+    Number(imgEl?.clientHeight) ||
+    0;
+  if (cssHeight <= 0) return 0;
+  const pixelRatio = Math.min(
+    FALLBACK_MAX_DEVICE_PIXEL_RATIO,
+    Math.max(1, Number(devicePixelRatio) || 1),
+  );
+  return Math.ceil(cssHeight * pixelRatio);
+};
 
 export const preloadFallbackImageSource = async (
   src,
@@ -16,6 +45,7 @@ export const preloadFallbackImageSource = async (
   if (!source) return false;
   const image = createImage?.();
   if (!image) return true;
+  prioritizeFallbackImageRequest(image);
   return await new Promise((resolve) => {
     let settled = false;
     let timeout = null;
@@ -79,9 +109,13 @@ export const beginFallbackRefresh = ({ imgEl, currentRequestId }) => {
 export const resolveFallbackRefreshEntity = (activeCam) =>
   String(activeCam?.entity || "").trim();
 
-export const loadPrimaryFallbackSource = async ({ entity, loadPrimary }) => {
+export const loadPrimaryFallbackSource = async ({
+  entity,
+  loadPrimary,
+  requestHeight = 0,
+}) => {
   if (!entity) return "";
-  return await loadPrimary(entity);
+  return await loadPrimary(entity, { requestHeight });
 };
 
 export const resolveAltFallbackSource = ({ entity, loadAlt }) => {
@@ -195,10 +229,12 @@ export const loadPrimaryWithStaleGate = async ({
   activeRequestId,
   readActiveRequestId,
   loadPrimary,
+  requestHeight = 0,
 }) => {
   const primarySrc = await loadPrimaryFallbackSource({
     entity,
     loadPrimary,
+    requestHeight,
   });
   const resolvedActiveRequestId = readActiveRequestId?.() ?? activeRequestId;
   if (
@@ -259,6 +295,7 @@ export const runFallbackRefreshCycle = async ({
   applyHandlers,
   applySource,
   preloadSource = preloadFallbackImageSource,
+  devicePixelRatio,
 }) => {
   const { imgEl, statusEl } = getFallbackRefreshElements(shadowRoot);
   const begin = beginFallbackRefresh({
@@ -272,6 +309,12 @@ export const runFallbackRefreshCycle = async ({
     };
   }
 
+  prioritizeFallbackImageRequest(imgEl);
+  const requestHeight = resolveFallbackRequestHeight({
+    imgEl,
+    devicePixelRatio,
+  });
+
   const token = begin.token;
   setActiveRequestId?.(token.nextRequestId);
 
@@ -282,6 +325,7 @@ export const runFallbackRefreshCycle = async ({
     activeRequestId: token.nextRequestId,
     readActiveRequestId,
     loadPrimary,
+    requestHeight,
   });
   if (primaryPhase.shouldAbort) {
     return {
@@ -370,8 +414,8 @@ export const runFallbackRefreshCycleForCard = async ({
       card._fallbackReqId = nextRequestId;
     },
     readActiveRequestId: () => card._fallbackReqId,
-    loadPrimary: async (nextEntity) =>
-      await card._streamFallbackUrl(nextEntity),
+    loadPrimary: async (nextEntity, options) =>
+      await card._streamFallbackUrl(nextEntity, options),
     loadAlt: (nextEntity) => card._streamFallbackAltUrl(nextEntity),
     applyHandlers,
     applySource,

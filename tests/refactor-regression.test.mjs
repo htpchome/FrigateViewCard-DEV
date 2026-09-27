@@ -1244,7 +1244,7 @@ test("live fallback adapter orchestration is owned by its live feature controlle
   );
   assert.equal(cardSource.includes("new LiveFallbackController(this)"), true);
   for (const delegation of [
-    "getLiveFallbackController(this).loadPrimary(entity)",
+    "getLiveFallbackController(this).loadPrimary(entity, options)",
     "getLiveFallbackController(this).loadAlternate(entity)",
     "getLiveFallbackController(this).refreshImage()",
   ]) {

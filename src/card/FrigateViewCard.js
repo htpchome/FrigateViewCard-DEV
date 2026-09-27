@@ -1377,8 +1377,8 @@ export class FrigateViewCard extends HTMLElement {
     );
   }
 
-  async _streamFallbackUrl(entity) {
-    return await getLiveFallbackController(this).loadPrimary(entity);
+  async _streamFallbackUrl(entity, options = {}) {
+    return await getLiveFallbackController(this).loadPrimary(entity, options);
   }
 
   _streamFallbackAltUrl(entity) {
