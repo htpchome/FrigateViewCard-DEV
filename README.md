@@ -109,6 +109,7 @@ shown as `/config`, so `/config/www/frigate-view-card/` becomes
            ├── frigate-view-card-dashboard-swipe-navigation.js
            ├── frigate-view-card-frame-capture.js
            ├── frigate-view-card-linked-light.js
+           ├── frigate-view-card-navbar.js
            ├── frigate-view-card-recording-scrub.js
            ├── frigate-view-card-wide-view.js
            ├── frigate-view-card-wide-companion.js

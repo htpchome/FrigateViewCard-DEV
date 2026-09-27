@@ -1,22 +1,17 @@
+import { VERSION } from "../../constants.js";
 import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelacePanel,
   findHomeAssistantLovelaceRoot,
 } from "./lovelace-dom.js";
-import {
-  HomeAssistantNavbarController,
-  installHomeAssistantDashboardNavbarCustomization,
-} from "./navbar.ctrl.js";
 import { resolveDashboardNavbarOwnership } from "./navbar-policy.js";
 
+const NAVBAR_ASSET_NAME = "frigate-view-card-navbar.js";
 const NAVBAR_LOADER_KEY = Symbol.for(
   "frigate-view-card.dashboard-navbar-loader",
 );
 const LOADER_RETRY_FRAMES = 120;
-const EMBEDDED_NAVBAR_MODULE = Object.freeze({
-  HomeAssistantNavbarController,
-  installHomeAssistantDashboardNavbarCustomization,
-});
+const navbarModuleState = { promise: null };
 
 export const dashboardConfigNeedsPreMountNavbar = (
   dashboardConfig,
@@ -62,8 +57,21 @@ export const cardNeedsNavbarModule = (host, options = {}) => {
   });
 };
 
-export const ensureHomeAssistantNavbarModule = () =>
-  EMBEDDED_NAVBAR_MODULE;
+export const ensureHomeAssistantNavbarModule = ({
+  importModule = (url) => import(url),
+  baseUrl = import.meta.url,
+} = {}) => {
+  if (navbarModuleState.promise) return navbarModuleState.promise;
+  const assetUrl = new URL(`./${NAVBAR_ASSET_NAME}`, baseUrl);
+  assetUrl.searchParams.set("fvc-version", VERSION);
+  navbarModuleState.promise = Promise.resolve(importModule(assetUrl.href)).catch(
+    (error) => {
+      navbarModuleState.promise = null;
+      throw error;
+    },
+  );
+  return navbarModuleState.promise;
+};
 
 export class LazyHomeAssistantNavbarController {
   constructor(
@@ -85,9 +93,7 @@ export class LazyHomeAssistantNavbarController {
     if (this._delegate) return this._delegate.sync();
     if (!shouldLoad) return false;
     if (!this._delegatePromise) {
-      const delegatePromise = this._ensureDelegate();
-      if (this._delegate) return this._delegate.sync();
-      void delegatePromise
+      void this._ensureDelegate()
         .then((delegate) => {
           if (!this._syncRequested) return;
           delegate.sync();
@@ -137,33 +143,17 @@ export class LazyHomeAssistantNavbarController {
   _ensureDelegate() {
     if (this._delegate) return Promise.resolve(this._delegate);
     if (this._delegatePromise) return this._delegatePromise;
-    const createDelegate = (module) => {
-      module.installHomeAssistantDashboardNavbarCustomization?.({
-        ...this._options,
-        isMobile: hostIsMobile(this._host, this._options),
-      });
-      this._delegate = new module.HomeAssistantNavbarController(
-        this._host,
-        this._options,
-      );
-      return this._delegate;
-    };
-    let loadedModule;
-    try {
-      loadedModule = this._loadModule();
-    } catch (error) {
-      return Promise.reject(error);
-    }
-    if (typeof loadedModule?.then !== "function") {
-      try {
-        return Promise.resolve(createDelegate(loadedModule));
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
-    this._delegatePromise = Promise.resolve(loadedModule)
+    this._delegatePromise = Promise.resolve(this._loadModule())
       .then((module) => {
-        return createDelegate(module);
+        module.installHomeAssistantDashboardNavbarCustomization?.({
+          ...this._options,
+          isMobile: hostIsMobile(this._host, this._options),
+        });
+        this._delegate = new module.HomeAssistantNavbarController(
+          this._host,
+          this._options,
+        );
+        return this._delegate;
       })
       .catch((error) => {
         this._delegatePromise = null;
@@ -232,37 +222,25 @@ export const installLazyHomeAssistantDashboardNavbarCustomization = ({
   };
   const activate = () => {
     if (activationPromise) return activationPromise;
-    const install = (module) => {
-      if (disconnected) return;
-      fullBootstrap =
-        module.installHomeAssistantDashboardNavbarCustomization?.({
-          cardTag,
-          documentRef,
-          windowRef,
-          MutationObserverCtor,
-          getComputedStyleFn,
-          queueMicrotaskFn,
-          isMobile,
-          isPhone,
-          isIOS,
-          findCurrentHuiRoot,
-          findPanel,
-        });
-      stopWatching();
-    };
-    let loadedModule;
-    try {
-      loadedModule = loadModule();
-    } catch (error) {
-      return Promise.reject(error);
-    }
-    if (typeof loadedModule?.then !== "function") {
-      install(loadedModule);
-      activationPromise = Promise.resolve();
-      return activationPromise;
-    }
-    activationPromise = Promise.resolve(loadedModule)
-      .then(install)
+    activationPromise = Promise.resolve(loadModule())
+      .then((module) => {
+        if (disconnected) return;
+        fullBootstrap =
+          module.installHomeAssistantDashboardNavbarCustomization?.({
+            cardTag,
+            documentRef,
+            windowRef,
+            MutationObserverCtor,
+            getComputedStyleFn,
+            queueMicrotaskFn,
+            isMobile,
+            isPhone,
+            isIOS,
+            findCurrentHuiRoot,
+            findPanel,
+          });
+        stopWatching();
+      })
       .catch((error) => {
         activationPromise = null;
         throw error;

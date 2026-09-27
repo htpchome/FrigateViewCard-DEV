@@ -5,7 +5,6 @@ import {
   LazyHomeAssistantNavbarController,
   cardNeedsNavbarModule,
   dashboardConfigNeedsPreMountNavbar,
-  ensureHomeAssistantNavbarModule,
   installLazyHomeAssistantDashboardNavbarCustomization,
 } from "../src/integrations/home-assistant/navbar.loader.js";
 
@@ -14,17 +13,6 @@ const flushPromises = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
-
-test("navbar runtime is embedded for synchronous initial geometry", () => {
-  const module = ensureHomeAssistantNavbarModule();
-
-  assert.equal(typeof module?.then, "undefined");
-  assert.equal(typeof module?.HomeAssistantNavbarController, "function");
-  assert.equal(
-    typeof module?.installHomeAssistantDashboardNavbarCustomization,
-    "function",
-  );
-});
 
 test("navbar loader stays dormant when no navbar presentation needs it", async () => {
   let loads = 0;
@@ -115,35 +103,6 @@ test("navbar loader creates one delegate and refreshes dependent layout", async 
   assert.equal(controller.bottomNavbarExtraHeightPx(), 10);
   assert.equal(controller.homeAssistantViewContentHeightPx(), 620);
   assert.deepEqual(calls.at(-1), ["disconnect", { force: true }]);
-});
-
-test("synchronous navbar runtime applies before controller sync returns", () => {
-  const calls = [];
-  class Controller {
-    constructor() {
-      calls.push("create");
-    }
-
-    sync() {
-      calls.push("sync");
-      return true;
-    }
-  }
-  const host = {
-    _config: { mobile_view_ha_navbar_bottom: true },
-    _isLikelyMobileClient: () => true,
-  };
-  const controller = new LazyHomeAssistantNavbarController(host, {}, {
-    loadModule: () => ({
-      HomeAssistantNavbarController: Controller,
-      installHomeAssistantDashboardNavbarCustomization: () =>
-        calls.push("install"),
-    }),
-  });
-
-  assert.equal(controller.sync(), true);
-  assert.deepEqual(calls, ["install", "create", "sync"]);
-  assert.ok(controller._delegate);
 });
 
 test("navbar activation recognizes local, rotation, and dashboard-wide needs", () => {
@@ -254,48 +213,6 @@ test("pre-mount navbar bootstrap loads once for a dashboard owner", async () => 
   assert.equal(listeners.size, 0);
   bootstrap.disconnect();
   assert.equal(calls.at(-1), "disconnect");
-});
-
-test("pre-mount navbar bootstrap installs a synchronous runtime immediately", () => {
-  const huiRoot = {};
-  const calls = [];
-  const windowRef = {
-    customElements: { whenDefined: () => new Promise(() => {}) },
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-
-  installLazyHomeAssistantDashboardNavbarCustomization({
-    documentRef: {},
-    windowRef,
-    isMobile: true,
-    findCurrentHuiRoot: () => huiRoot,
-    findPanel: () => ({
-      lovelace: {
-        config: {
-          views: [
-            {
-              cards: [
-                {
-                  type: "custom:frigate-view-card",
-                  mobile_view_ha_navbar_bottom: true,
-                  mobile_view_ha_navbar_dashboard: true,
-                },
-              ],
-            },
-          ],
-        },
-      },
-    }),
-    loadModule: () => ({
-      installHomeAssistantDashboardNavbarCustomization: () => {
-        calls.push("install");
-        return { disconnect: () => {} };
-      },
-    }),
-  });
-
-  assert.deepEqual(calls, ["install"]);
 });
 
 test("pre-mount navbar bootstrap does not install on desktop", () => {

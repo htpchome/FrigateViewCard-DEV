@@ -4,7 +4,6 @@ import {
   copyFile,
   mkdir,
   readFile,
-  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -19,6 +18,7 @@ const editorOutputFile = "dist/frigate-view-card-editor.js";
 const circlePadOutputFile = "dist/frigate-view-card-circle-pad.js";
 const dashboardSwipeOutputFile =
   "dist/frigate-view-card-dashboard-swipe-navigation.js";
+const navbarOutputFile = "dist/frigate-view-card-navbar.js";
 const recordingScrubOutputFile =
   "dist/frigate-view-card-recording-scrub.js";
 const frameCaptureOutputFile =
@@ -88,7 +88,6 @@ const buildBundle = async ({ entryPoint, outfile }) => {
 };
 
 await mkdir("dist", { recursive: true });
-await rm("dist/frigate-view-card-navbar.js", { force: true });
 const editorOutput = await buildBundle({
   entryPoint: "src/editor/index.js",
   outfile: editorOutputFile,
@@ -101,6 +100,10 @@ const dashboardSwipeOutput = await buildBundle({
   entryPoint:
     "src/integrations/home-assistant/dashboard-swipe-navigation.ctrl.js",
   outfile: dashboardSwipeOutputFile,
+});
+const navbarOutput = await buildBundle({
+  entryPoint: "src/integrations/home-assistant/navbar.ctrl.js",
+  outfile: navbarOutputFile,
 });
 const recordingScrubOutput = await buildBundle({
   entryPoint: "src/features/popup/recording-scrub.ctrl.js",
@@ -176,6 +179,9 @@ const circlePadOutputSizeKib = (
 const dashboardSwipeOutputSizeKib = (
   Buffer.byteLength(dashboardSwipeOutput) / 1024
 ).toFixed(1);
+const navbarOutputSizeKib = (
+  Buffer.byteLength(navbarOutput) / 1024
+).toFixed(1);
 const recordingScrubOutputSizeKib = (
   Buffer.byteLength(recordingScrubOutput) / 1024
 ).toFixed(1);
@@ -213,6 +219,7 @@ console.info(`  ${circlePadOutputFile}  ${circlePadOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${dashboardSwipeOutputFile}  ${dashboardSwipeOutputSizeKib} KiB (lazy)`,
 );
+console.info(`  ${navbarOutputFile}  ${navbarOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${recordingScrubOutputFile}  ${recordingScrubOutputSizeKib} KiB (lazy)`,
 );

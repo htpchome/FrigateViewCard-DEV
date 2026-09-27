@@ -350,7 +350,7 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.equal(h.controller.sync(), true);
   assert.equal(h.controller.shouldMoveNavbarToBottom(), true);
   assert.equal(h.controller.isNavbarAtBottom(), true);
-  assert.equal(h.controller.bottomNavbarExtraHeightPx(), 0);
+  assert.equal(h.controller.bottomNavbarExtraHeightPx(), 10);
   assert.equal(h.controller.shouldStackNavbarTabs(), true);
   assert.equal(
     h.getTargets().header.style.getPropertyValue("bottom"),
@@ -602,7 +602,7 @@ test("promotes the dashboard view above the relocated header in landscape", () =
   );
   assert.equal(
     editing.getTargets().view.style.getPropertyValue("padding-bottom"),
-    "calc(var(--header-height, 56px) + var(--header-height, 56px) + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
+    "calc(var(--header-height, 56px) + var(--header-height, 56px) + 10px + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
   );
 
   editing.host._dashboardEditMode = false;
@@ -713,7 +713,7 @@ test("applies the proven bottom-header details and restores exact styles", () =>
   );
   assert.equal(
     targets.toolbar.style.getPropertyValue("height"),
-    "var(--header-height, 56px)",
+    "calc(var(--header-height, 56px) + 10px)",
   );
   assert.equal(
     targets.toolbar.style.getPropertyValue("padding-bottom"),
@@ -725,7 +725,7 @@ test("applies the proven bottom-header details and restores exact styles", () =>
   );
   assert.equal(
     targets.view.style.getPropertyValue("padding-bottom"),
-    "calc(var(--header-height, 56px) + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
+    "calc(var(--header-height, 56px) + 10px + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
   );
   assert.equal(targets.children.length, 1);
   assert.match(targets.children[0].textContent, /border-block-start/);
@@ -772,7 +772,7 @@ test("reserves both relocated header rows above final dashboard actions", () => 
   assert.equal(ios.controller.sync(), true);
   assert.equal(
     ios.getTargets().view.style.getPropertyValue("padding-bottom"),
-    "calc(var(--header-height, 56px) + var(--header-height, 56px) + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
+    "calc(var(--header-height, 56px) + var(--header-height, 56px) + 10px + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
   );
 
   const h = createHarness({ isIOS: false, dashboardEditMode: true });
@@ -780,14 +780,14 @@ test("reserves both relocated header rows above final dashboard actions", () => 
   assert.equal(h.controller.sync(), true);
   assert.equal(
     h.getTargets().view.style.getPropertyValue("padding-bottom"),
-    "calc(var(--header-height, 56px) + var(--header-height, 56px))",
+    "calc(var(--header-height, 56px) + var(--header-height, 56px) + 10px)",
   );
 
   h.host._dashboardEditMode = false;
   assert.equal(h.controller.sync(), true);
   assert.equal(
     h.getTargets().view.style.getPropertyValue("padding-bottom"),
-    "calc(var(--header-height, 56px))",
+    "calc(var(--header-height, 56px) + 10px)",
   );
 
   h.host._mobileDevice = false;

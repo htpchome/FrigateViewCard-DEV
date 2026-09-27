@@ -17,6 +17,7 @@ const bundlePaths = new Map([
     "/frigate-view-card-dashboard-swipe-navigation.js",
     "dist/frigate-view-card-dashboard-swipe-navigation.js",
   ],
+  ["/frigate-view-card-navbar.js", "dist/frigate-view-card-navbar.js"],
   [
     "/frigate-view-card-card-view.js",
     "dist/frigate-view-card-card-view.js",
@@ -831,7 +832,7 @@ test("loads dashboard swipe navigation only for an enabled owner card", async ({
   expect(state).toEqual({ loaded: true, scopeActive: false });
 });
 
-test("embeds navbar customization so initial geometry needs no companion request", async ({
+test("loads navbar customization only when a mobile card needs it", async ({
   page,
 }) => {
   const assetRequests = [];
@@ -845,80 +846,21 @@ test("embeds navbar customization so initial geometry needs no companion request
   await page.waitForTimeout(50);
   expect(assetRequests).toEqual([]);
 
-  const state = await page.evaluate(() => {
-    const shell = document.createElement("hui-root");
-    const root = shell.attachShadow({ mode: "open" });
-    root.innerHTML = `
-      <style>
-        :host { --header-height: 56px; }
-        #view {
-          box-sizing: border-box;
-          height: 823px;
-          padding-top: var(--header-height);
-        }
-      </style>
-      <div class="header"><div class="toolbar"></div></div>
-      <div id="view"><div class="card-wrapper"></div></div>
-    `;
-    document.body.append(shell);
-    const view = root.querySelector("#view");
-    const initialViewStyle = getComputedStyle(view);
-    const initialContentHeight =
-      view.clientHeight -
-      parseFloat(initialViewStyle.paddingTop) -
-      parseFloat(initialViewStyle.paddingBottom);
+  const state = await page.evaluate(async () => {
     const card = document.createElement("frigate-view-card");
+    card._config = { mobile_view_ha_navbar_bottom: true };
     card._isLikelyMobileClient = () => true;
-    card.setConfig({
-      cameras: [{ entity: "camera.front" }],
-      mobile_view_ha_navbar_bottom: true,
-    });
-    root.querySelector(".card-wrapper").append(card);
     const controller = card._haNavbarController;
-    const header = root.querySelector(".header");
-    const toolbar = root.querySelector(".toolbar");
-    const connectedViewStyle = getComputedStyle(view);
-    const connectedContentHeight =
-      view.clientHeight -
-      parseFloat(connectedViewStyle.paddingTop) -
-      parseFloat(connectedViewStyle.paddingBottom);
-    const connectedHeaderBottom = header.style.getPropertyValue("bottom");
-    const connectedViewPaddingBottom =
-      view.style.getPropertyValue("padding-bottom");
-    const delegateLoadedOnConnect = Boolean(controller._delegate);
-    const appliedOnConnect =
-      connectedHeaderBottom === "0px" &&
-      connectedViewPaddingBottom.includes("56px");
-    const syncResult = controller.sync();
-    return {
-      appliedOnConnect,
-      connectedHeaderBottom,
-      connectedContentHeight,
-      connectedViewPaddingBottom,
-      delegateLoadedOnConnect,
-      headerBottom: header.style.getPropertyValue("bottom"),
-      initialContentHeight,
-      loaded: Boolean(controller._delegate),
-      syncResult,
-      toolbarHeight: toolbar.style.getPropertyValue("height"),
-      viewPaddingBottom: view.style.getPropertyValue("padding-bottom"),
-    };
+    controller.sync();
+    const deadline = performance.now() + 2000;
+    while (!controller._delegate && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return { loaded: Boolean(controller._delegate) };
   });
 
-  expect(assetRequests).toHaveLength(0);
-  expect(state).toEqual({
-    appliedOnConnect: true,
-    connectedHeaderBottom: "0px",
-    connectedContentHeight: 767,
-    connectedViewPaddingBottom: "calc(var(--header-height, 56px))",
-    delegateLoadedOnConnect: true,
-    headerBottom: "0px",
-    initialContentHeight: 767,
-    loaded: true,
-    syncResult: true,
-    toolbarHeight: "var(--header-height, 56px)",
-    viewPaddingBottom: "calc(var(--header-height, 56px))",
-  });
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({ loaded: true });
 });
 
 test("loads the popup recording scrubber only when recording playback needs it", async ({

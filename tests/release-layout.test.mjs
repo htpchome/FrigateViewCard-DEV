@@ -39,7 +39,7 @@ test("HACS release artifact is generated under dist", () => {
   );
   assert.equal(
     fs.existsSync(repositoryFile("dist/frigate-view-card-navbar.js")),
-    false,
+    true,
   );
   assert.equal(
     fs.existsSync(repositoryFile("dist/frigate-view-card-card-view.js")),
@@ -127,6 +127,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card.js"),
     "utf8",
   );
+  const navbarBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-navbar.js"),
+    "utf8",
+  );
   const cardViewBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-card-view.js"),
     "utf8",
@@ -175,6 +179,7 @@ test("HACS release artifact is production-minified", () => {
     bundle,
     /frigate-view-card-dashboard-swipe-navigation\.js/,
   );
+  assert.match(bundle, /frigate-view-card-navbar\.js/);
   assert.match(bundle, /frigate-view-card-card-view\.js/);
   assert.doesNotMatch(bundle, /card-view-page \.list-item/);
   assert.match(cardViewBundle, /data-fvc-card-view-page-styles/);
@@ -192,7 +197,8 @@ test("HACS release artifact is production-minified", () => {
   assert.match(wideViewBundle, /wide-view-start-grid/);
   assert.match(wideViewBundle, /data-fvc-wide-view-page-styles/);
   assert.match(wideViewBundle, /wide-view-columns/);
-  assert.match(bundle, /data-frigate-view-ha-navbar-style/);
+  assert.doesNotMatch(bundle, /data-frigate-view-ha-navbar-style/);
+  assert.match(navbarBundle, /data-frigate-view-ha-navbar-style/);
   assert.match(bundle, /frigate-view-card-recording-scrub\.js/);
   assert.match(bundle, /frigate-view-card-frame-capture\.js/);
   assert.doesNotMatch(bundle, /Displayed media frame is not ready/);
