@@ -126,6 +126,10 @@ test("Companion Cameras region exposes an accessible drag handle", () => {
   assert.match(markup, /data-fvc-i18n-aria-label="runtime\.wideView\.resizeCompanionArea"/);
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
+    /\.card \.col-left > \.wide-companion-panel\{[^}]*overflow:visible;[^}]*visibility:visible/,
+  );
+  assert.match(
+    WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-surface\{[^}]*position:absolute;[^}]*inset:calc\(0px - var\(--wide-companion-expansion\)\)[^}]*padding:0 8px 4px/,
   );
   assert.match(

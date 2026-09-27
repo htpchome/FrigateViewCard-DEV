@@ -5123,6 +5123,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     const before = {
       panelTop: panel.getBoundingClientRect().top,
       surfaceTop: surface.getBoundingClientRect().top,
+      panelOverflow: getComputedStyle(panel).overflow,
       liveHeight: liveStage.getBoundingClientRect().height,
       surfacePaddingLeft: getComputedStyle(surface).paddingLeft,
       gridInsetLeft:
@@ -5278,6 +5279,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   });
 
   expect(result.expanded.max).toBeGreaterThan(0);
+  expect(result.before.panelOverflow).toBe("visible");
   expect(result.before.surfacePaddingLeft).toBe("8px");
   expect(result.before.gridInsetLeft).toBeCloseTo(8, 0);
   expect(result.before.buttonInsetRight).toBeCloseTo(8, 0);
