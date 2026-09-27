@@ -23,7 +23,7 @@ export {
 const NAVBAR_STYLE_ATTRIBUTE = "data-frigate-view-ha-navbar-style";
 // Scope z-index rules to HA's resolved header, not popup headers in the view.
 const NAVBAR_HEADER_ATTRIBUTE = "data-frigate-view-ha-navbar-header";
-const BOTTOM_NAVBAR_EXTRA_HEIGHT_PX = 10;
+const BOTTOM_NAVBAR_CONTENT_PADDING_PX = 10;
 const HA_SAFE_AREA_TOP =
   "var(--safe-area-inset-top, env(safe-area-inset-top, 0px))";
 const HA_SAFE_AREA_BOTTOM =
@@ -87,8 +87,8 @@ const resolveViewBottomStyles = (isIOS, reserveDashboardEditActions) => {
   return {
     "padding-top": HA_SAFE_AREA_TOP,
     "padding-bottom": isIOS
-      ? `calc(var(--header-height, 56px)${dashboardEditClearance} + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px + (${HA_SAFE_AREA_BOTTOM} * 0.25))`
-      : `calc(var(--header-height, 56px)${dashboardEditClearance} + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px)`,
+      ? `calc(var(--header-height, 56px)${dashboardEditClearance} + (${HA_SAFE_AREA_BOTTOM} * 0.25))`
+      : `calc(var(--header-height, 56px)${dashboardEditClearance})`,
   };
 };
 
@@ -96,9 +96,9 @@ const TOOLBAR_BOTTOM_STYLES = Object.freeze({
   "border-bottom": "none",
   "border-top": "1px solid var(--divider-color)",
   "box-sizing": "border-box",
-  height: `calc(var(--header-height, 56px) + ${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX}px)`,
-  "padding-top": `${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX / 2}px`,
-  "padding-bottom": `${BOTTOM_NAVBAR_EXTRA_HEIGHT_PX / 2}px`,
+  height: "var(--header-height, 56px)",
+  "padding-top": `${BOTTOM_NAVBAR_CONTENT_PADDING_PX / 2}px`,
+  "padding-bottom": `${BOTTOM_NAVBAR_CONTENT_PADDING_PX / 2}px`,
 });
 
 const coordinatorByRoot = new WeakMap();
@@ -593,7 +593,7 @@ export class HomeAssistantNavbarController {
   }
 
   bottomNavbarExtraHeightPx() {
-    return this.isNavbarAtBottom() ? BOTTOM_NAVBAR_EXTRA_HEIGHT_PX : 0;
+    return 0;
   }
 
   homeAssistantViewContentHeightPx() {

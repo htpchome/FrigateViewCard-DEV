@@ -849,10 +849,24 @@ test("embeds navbar customization so initial geometry needs no companion request
     const shell = document.createElement("hui-root");
     const root = shell.attachShadow({ mode: "open" });
     root.innerHTML = `
+      <style>
+        :host { --header-height: 56px; }
+        #view {
+          box-sizing: border-box;
+          height: 823px;
+          padding-top: var(--header-height);
+        }
+      </style>
       <div class="header"><div class="toolbar"></div></div>
       <div id="view"><div class="card-wrapper"></div></div>
     `;
     document.body.append(shell);
+    const view = root.querySelector("#view");
+    const initialViewStyle = getComputedStyle(view);
+    const initialContentHeight =
+      view.clientHeight -
+      parseFloat(initialViewStyle.paddingTop) -
+      parseFloat(initialViewStyle.paddingBottom);
     const card = document.createElement("frigate-view-card");
     card._isLikelyMobileClient = () => true;
     card.setConfig({
@@ -863,7 +877,11 @@ test("embeds navbar customization so initial geometry needs no companion request
     const controller = card._haNavbarController;
     const header = root.querySelector(".header");
     const toolbar = root.querySelector(".toolbar");
-    const view = root.querySelector("#view");
+    const connectedViewStyle = getComputedStyle(view);
+    const connectedContentHeight =
+      view.clientHeight -
+      parseFloat(connectedViewStyle.paddingTop) -
+      parseFloat(connectedViewStyle.paddingBottom);
     const connectedHeaderBottom = header.style.getPropertyValue("bottom");
     const connectedViewPaddingBottom =
       view.style.getPropertyValue("padding-bottom");
@@ -875,9 +893,11 @@ test("embeds navbar customization so initial geometry needs no companion request
     return {
       appliedOnConnect,
       connectedHeaderBottom,
+      connectedContentHeight,
       connectedViewPaddingBottom,
       delegateLoadedOnConnect,
       headerBottom: header.style.getPropertyValue("bottom"),
+      initialContentHeight,
       loaded: Boolean(controller._delegate),
       syncResult,
       toolbarHeight: toolbar.style.getPropertyValue("height"),
@@ -889,14 +909,15 @@ test("embeds navbar customization so initial geometry needs no companion request
   expect(state).toEqual({
     appliedOnConnect: true,
     connectedHeaderBottom: "0px",
-    connectedViewPaddingBottom:
-      "calc(var(--header-height, 56px) + 10px)",
+    connectedContentHeight: 767,
+    connectedViewPaddingBottom: "calc(var(--header-height, 56px))",
     delegateLoadedOnConnect: true,
     headerBottom: "0px",
+    initialContentHeight: 767,
     loaded: true,
     syncResult: true,
-    toolbarHeight: "calc(var(--header-height, 56px) + 10px)",
-    viewPaddingBottom: "calc(var(--header-height, 56px) + 10px)",
+    toolbarHeight: "var(--header-height, 56px)",
+    viewPaddingBottom: "calc(var(--header-height, 56px))",
   });
 });
 
