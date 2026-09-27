@@ -2,10 +2,8 @@ import { MOBILE_VIEW_PAGE_STYLES } from "./features/mobile-view/page.styles.js";
 import { SINGLE_VIEW_PAGE_STYLES } from "./features/single-view/page.styles.js";
 import { CARD_VIEW_PAGE_STYLES } from "./features/card-view/page.styles.js";
 import { CAMERA_PICKER_STYLES } from "./features/navigation/camera-picker.styles.js";
-import { WIDE_VIEW_TIMELINE_STYLES } from "./features/wide-view/timeline.styles.js";
 import { CAMERA_GROUP_LIVE_STYLES } from "./features/camera-groups/live.styles.js";
 import { TWO_WAY_TALK_SOUNDWAVE_STYLES } from "./features/two-way-talk/soundwave.styles.js";
-import { LINKED_LIGHT_STYLES } from "./features/linked-entities/light.styles.js";
 
 export const STYLES = `
   :host {
@@ -1357,7 +1355,6 @@ ${SINGLE_VIEW_PAGE_STYLES}
 ${MOBILE_VIEW_PAGE_STYLES}
 ${CAMERA_PICKER_STYLES}
 ${CARD_VIEW_PAGE_STYLES}
-${WIDE_VIEW_TIMELINE_STYLES}
 
   .card .list-item .list-item-middle--narrow,
   .card .list-item .eact.list-item-actions--narrow,
@@ -1447,7 +1444,6 @@ ${WIDE_VIEW_TIMELINE_STYLES}
 
   ${CAMERA_GROUP_LIVE_STYLES}
   ${TWO_WAY_TALK_SOUNDWAVE_STYLES}
-  ${LINKED_LIGHT_STYLES}
 
   .card button:focus:not(:focus-visible) {
     outline: none;

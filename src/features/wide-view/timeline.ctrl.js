@@ -18,6 +18,8 @@ import {
   buildWideTimelinePanelMarkup,
 } from "./timeline.tmpl.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
+import { ensureShadowStyle } from "../../shared/shadow-styles.js";
+import { WIDE_VIEW_TIMELINE_STYLES } from "./timeline.styles.js";
 export { resolveWideTimelineCameraContextKey } from "./timeline-context.js";
 
 const nextFrame = (callback) => {
@@ -35,6 +37,7 @@ const cancelFrame = (handle) => {
 };
 
 const WIDE_TIMELINE_SCROLLBAR_POINTER_GUTTER = 18;
+const WIDE_TIMELINE_STYLE_ATTRIBUTE = "data-fvc-wide-timeline-styles";
 
 export const isWideTimelineScrollbarPointer = (event, viewport) => {
   const clientX = Number(event?.clientX);
@@ -60,6 +63,7 @@ export const isWideTimelineScrollbarPointer = (event, viewport) => {
 export class WideViewTimelineController {
   constructor(host, deps = {}) {
     this._host = host;
+    this._ensureStyles();
     this._deps = {
       icons: {},
       getAllEvents: () => [],
@@ -171,6 +175,7 @@ export class WideViewTimelineController {
   }
 
   bind() {
+    this._ensureStyles();
     if (!this.enabled()) return;
     this._ensureOpenState();
     const viewport = this._host._$("#wide-timeline-viewport");
@@ -265,6 +270,13 @@ export class WideViewTimelineController {
       this._scheduleRender({ resetToNow: true });
     }
     this._syncClockRefresh();
+  }
+
+  _ensureStyles() {
+    return ensureShadowStyle(this._host, {
+      attribute: WIDE_TIMELINE_STYLE_ATTRIBUTE,
+      cssText: WIDE_VIEW_TIMELINE_STYLES,
+    });
   }
 
   teardown({ preserveScroll = true } = {}) {

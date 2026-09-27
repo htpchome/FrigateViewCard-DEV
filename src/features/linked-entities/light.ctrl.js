@@ -18,9 +18,12 @@ import {
 } from "../../integrations/home-assistant/light-control.js";
 import { flattenCameraMembers } from "../camera-groups/model.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
+import { ensureShadowStyle } from "../../shared/shadow-styles.js";
+import { LINKED_LIGHT_STYLES } from "./light.styles.js";
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_PX = 12;
+const LINKED_LIGHT_STYLE_ATTRIBUTE = "data-fvc-linked-light-styles";
 
 const setLabel = (element, key, values, fallback, { title = false } = {}) => {
   if (!element) return;
@@ -49,6 +52,7 @@ const releaseTouchFocus = (button, event) => {
 export class LinkedLightController {
   constructor(host) {
     this.host = host;
+    this._ensureStyles();
     this.press = null;
     this.suppressClickButton = null;
     this._onPointerMove = (event) => this.handlePointerMove(event);
@@ -112,6 +116,7 @@ export class LinkedLightController {
   }
 
   sync() {
+    this._ensureStyles();
     this.host?.shadowRoot
       ?.querySelectorAll?.('[data-fvc-region="linked-entities"]')
       ?.forEach((slot) => {
@@ -418,5 +423,12 @@ export class LinkedLightController {
     this._clearPress();
     this.suppressClickButton = null;
     this.closeDimmers();
+  }
+
+  _ensureStyles() {
+    return ensureShadowStyle(this.host, {
+      attribute: LINKED_LIGHT_STYLE_ATTRIBUTE,
+      cssText: LINKED_LIGHT_STYLES,
+    });
   }
 }

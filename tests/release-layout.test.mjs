@@ -146,7 +146,9 @@ test("HACS release artifact is production-minified", () => {
   assert.match(frameCaptureBundle, /Displayed media frame is not ready/);
   assert.match(bundle, /frigate-view-card-linked-light\.js/);
   assert.doesNotMatch(bundle, /data-linked-light-dimmer-dismiss/);
+  assert.doesNotMatch(bundle, /data-fvc-linked-light-styles/);
   assert.match(linkedLightBundle, /data-linked-light-dimmer-dismiss/);
+  assert.match(linkedLightBundle, /data-fvc-linked-light-styles/);
   assert.doesNotMatch(
     bundle,
     /runtime\.popup\.segment\.previewPlayerUnavailable/,
@@ -157,7 +159,9 @@ test("HACS release artifact is production-minified", () => {
   );
   assert.match(bundle, /frigate-view-card-wide-timeline\.js/);
   assert.doesNotMatch(bundle, /data-wide-timeline-stack-next/);
+  assert.doesNotMatch(bundle, /data-fvc-wide-timeline-styles/);
   assert.match(wideTimelineBundle, /data-wide-timeline-stack-next/);
+  assert.match(wideTimelineBundle, /data-fvc-wide-timeline-styles/);
   assert.match(bundle, /frigate-view-card-locale/);
   assert.doesNotMatch(bundle, /circle-pad-clean-edges/);
   assert.doesNotMatch(bundle, /Ειδοποιήσεις/);

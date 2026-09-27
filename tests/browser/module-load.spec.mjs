@@ -623,10 +623,16 @@ test("loads linked-light controls only for a configured camera", async ({
     };
     card._linkedLightController.sync();
     await card._linkedLightController._ensureDelegate();
+    const styleSelector = "style[data-fvc-linked-light-styles]";
+    const initialStyle = card.shadowRoot.querySelector(styleSelector);
+    initialStyle?.remove();
+    card._linkedLightController.sync();
     return {
       before,
       loaded: Boolean(card._linkedLightController._delegate),
       markup: card._linkedLightController.buildMarkup(),
+      styleInstalled: Boolean(initialStyle),
+      styleRestored: Boolean(card.shadowRoot.querySelector(styleSelector)),
     };
   });
 
@@ -634,6 +640,8 @@ test("loads linked-light controls only for a configured camera", async ({
   expect(state.before).toBe(false);
   expect(state.loaded).toBe(true);
   expect(state.markup).toContain("data-linked-light=\"light.porch\"");
+  expect(state.styleInstalled).toBe(true);
+  expect(state.styleRestored).toBe(true);
 });
 
 test("loads the Wide View timeline only when its enabled page needs it", async ({
@@ -661,10 +669,16 @@ test("loads the Wide View timeline only when its enabled page needs it", async (
       markup: controller.buildRegionMarkup(),
     };
     await controller._ensureDelegate();
+    const styleSelector = "style[data-fvc-wide-timeline-styles]";
+    const initialStyle = card.shadowRoot.querySelector(styleSelector);
+    initialStyle?.remove();
+    controller._delegate.bind();
     return {
       before,
       loaded: Boolean(controller._delegate),
       markup: controller.buildRegionMarkup(),
+      styleInstalled: Boolean(initialStyle),
+      styleRestored: Boolean(card.shadowRoot.querySelector(styleSelector)),
     };
   });
 
@@ -672,6 +686,8 @@ test("loads the Wide View timeline only when its enabled page needs it", async (
   expect(state.before).toEqual({ delegate: false, markup: "" });
   expect(state.loaded).toBe(true);
   expect(state.markup).toContain("wide-timeline-panel");
+  expect(state.styleInstalled).toBe(true);
+  expect(state.styleRestored).toBe(true);
 });
 
 test("live mute schedules delayed synchronization with the browser timer receiver", async ({
