@@ -34,6 +34,10 @@ const bundlePaths = new Map([
     "/frigate-view-card-wide-timeline.js",
     "dist/frigate-view-card-wide-timeline.js",
   ],
+  [
+    "/frigate-view-card-wide-companion.js",
+    "dist/frigate-view-card-wide-companion.js",
+  ],
   ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
   ...LANGUAGE_ASSET_NAMES.map((language) => [
     `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
@@ -686,6 +690,53 @@ test("loads the Wide View timeline only when its enabled page needs it", async (
   expect(state.before).toEqual({ delegate: false, markup: "" });
   expect(state.loaded).toBe(true);
   expect(state.markup).toContain("wide-timeline-panel");
+  expect(state.styleInstalled).toBe(true);
+  expect(state.styleRestored).toBe(true);
+});
+
+test("loads Wide View companion cameras only after entering Wide View", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-wide-companion.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(50);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    card._config = { cameras: [] };
+    card._pageId = "wide-view";
+    card._renderShellPreserveLive = () => {};
+    const controller = card._wideViewCompanionController;
+    const before = {
+      delegate: Boolean(controller._delegate),
+      markup: controller.buildRegionMarkup(),
+    };
+    await controller._ensureDelegate();
+    const styleSelector = "style[data-fvc-wide-companion-styles]";
+    const initialStyle = card.shadowRoot.querySelector(styleSelector);
+    initialStyle?.remove();
+    controller._delegate.render();
+    return {
+      before,
+      loaded: Boolean(controller._delegate),
+      markup: controller.buildRegionMarkup(),
+      styleInstalled: Boolean(initialStyle),
+      styleRestored: Boolean(card.shadowRoot.querySelector(styleSelector)),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state.before.delegate).toBe(false);
+  expect(state.before.markup).toContain("wide-companion-panel");
+  expect(state.loaded).toBe(true);
+  expect(state.markup).toContain("wide-companion-panel");
   expect(state.styleInstalled).toBe(true);
   expect(state.styleRestored).toBe(true);
 });
@@ -2305,6 +2356,7 @@ test("Wide View companion and timeline labels follow language and panel state in
     });
     card._pageId = "wide-view";
     card._renderShell();
+    await card._wideViewCompanionController._ensureDelegate();
     await card._wideViewTimelineController._ensureDelegate();
     const root = card.shadowRoot;
     const live = root.querySelector("#live-stage");
@@ -2347,7 +2399,7 @@ test("Wide View companion and timeline labels follow language and panel state in
       timelineTitle: root.querySelector(".wide-timeline-heading span")?.textContent,
       statusTitle: status?.title,
     };
-    const companion = card._wideViewCompanionController;
+    const companion = card._wideViewCompanionController._delegate;
     companion._panelExpansionPanel = root.querySelector("#wide-companion-panel");
     companion._panelExpansionHandle = root.querySelector("[data-wide-companion-resize-handle]");
     companion._panelExpansionButton = expand;
@@ -5049,6 +5101,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     card._pageId = "wide-view";
     card._renderShell();
     card._wideViewPageController.startWideViewMode();
+    await card._wideViewCompanionController._ensureDelegate();
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     const root = card.shadowRoot;

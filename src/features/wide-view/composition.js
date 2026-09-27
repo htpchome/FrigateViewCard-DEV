@@ -13,14 +13,14 @@ import {
   isCameraGroup,
 } from "../camera-groups/model.js";
 import { PAGE_IDS } from "../navigation/router.js";
-import { WideViewCompanionController } from "./companion.ctrl.js";
+import { LazyWideViewCompanionController } from "./companion.loader.js";
 import { WideViewPageController } from "./page.ctrl.js";
 import { resolveWideTimelineCameraContextKey } from "./timeline-context.js";
 import { LazyWideViewTimelineController } from "./timeline.loader.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
   createCompanionController: (card, constants) =>
-    new WideViewCompanionController(card, constants),
+    new LazyWideViewCompanionController(card, constants),
   createPageController: (card, constants, options) =>
     new WideViewPageController(card, constants, options),
   createTimelineController: (card, options) =>

@@ -25,6 +25,8 @@ const frameCaptureOutputFile =
   "dist/frigate-view-card-frame-capture.js";
 const linkedLightOutputFile =
   "dist/frigate-view-card-linked-light.js";
+const wideCompanionOutputFile =
+  "dist/frigate-view-card-wide-companion.js";
 const wideTimelineOutputFile =
   "dist/frigate-view-card-wide-timeline.js";
 const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
@@ -111,6 +113,10 @@ const linkedLightOutput = await buildBundle({
   entryPoint: "src/features/linked-entities/light.ctrl.js",
   outfile: linkedLightOutputFile,
 });
+const wideCompanionOutput = await buildBundle({
+  entryPoint: "src/features/wide-view/companion.ctrl.js",
+  outfile: wideCompanionOutputFile,
+});
 const wideTimelineOutput = await buildBundle({
   entryPoint: "src/features/wide-view/timeline.ctrl.js",
   outfile: wideTimelineOutputFile,
@@ -165,6 +171,9 @@ const frameCaptureOutputSizeKib = (
 const linkedLightOutputSizeKib = (
   Buffer.byteLength(linkedLightOutput) / 1024
 ).toFixed(1);
+const wideCompanionOutputSizeKib = (
+  Buffer.byteLength(wideCompanionOutput) / 1024
+).toFixed(1);
 const wideTimelineOutputSizeKib = (
   Buffer.byteLength(wideTimelineOutput) / 1024
 ).toFixed(1);
@@ -187,6 +196,9 @@ console.info(
 );
 console.info(
   `  ${linkedLightOutputFile}  ${linkedLightOutputSizeKib} KiB (lazy)`,
+);
+console.info(
+  `  ${wideCompanionOutputFile}  ${wideCompanionOutputSizeKib} KiB (lazy)`,
 );
 console.info(
   `  ${wideTimelineOutputFile}  ${wideTimelineOutputSizeKib} KiB (lazy)`,

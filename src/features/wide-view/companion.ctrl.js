@@ -10,12 +10,16 @@ import {
 } from "./companion.tmpl.js";
 import { flattenCameraMembers } from "../camera-groups/model.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
+import { ensureShadowStyle } from "../../shared/shadow-styles.js";
+import { WIDE_VIEW_COMPANION_STYLES } from "./companion.styles.js";
 
 const LIVE_STREAM_HINTS = new Set(["webrtc", "mse", "hls"]);
 const COMPANION_GRID_GAP_PX = 8;
 const COMPANION_META_HEIGHT_PX = 24;
 const COMPANION_LIVE_OVERLAP_RATIO = 0.5;
 const COMPANION_EXPANSION_KEY_STEP_PX = 32;
+const WIDE_COMPANION_STYLE_ATTRIBUTE =
+  "data-fvc-wide-companion-styles";
 
 const finiteNumber = (value) => {
   const number = Number(value);
@@ -104,6 +108,7 @@ export class WideViewCompanionController {
   constructor(host, constants, { resizeObserverCtor = undefined } = {}) {
     this._host = host;
     this._constants = constants;
+    this._ensureStyles();
     this._mediaState = null;
     this._lastRenderSignature = "";
     this._alertTakeoverEnabled = null;
@@ -133,6 +138,7 @@ export class WideViewCompanionController {
   }
 
   buildRegionMarkup() {
+    this._ensureStyles();
     return buildWideCompanionRegionMarkup({
       chevronIcon: this._constants.ICONS?.chevron || "",
     });
@@ -530,6 +536,7 @@ export class WideViewCompanionController {
   }
 
   render() {
+    this._ensureStyles();
     if (!this.isActive()) {
       this._disposePanelExpansion({ reset: true });
       this._disposeLayoutObserver();
@@ -730,5 +737,12 @@ export class WideViewCompanionController {
   _handleAlertStateChange(_detail = {}) {
     if (!this.isActive()) return;
     this.render();
+  }
+
+  _ensureStyles() {
+    ensureShadowStyle(this._host, {
+      attribute: WIDE_COMPANION_STYLE_ATTRIBUTE,
+      cssText: WIDE_VIEW_COMPANION_STYLES,
+    });
   }
 }

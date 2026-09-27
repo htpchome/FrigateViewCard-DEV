@@ -2610,7 +2610,9 @@ test("Wide View controller composition is owned by the Wide View feature", () =>
     false,
   );
   assert.equal(
-    wideViewCompositionSource.includes("new WideViewCompanionController"),
+    wideViewCompositionSource.includes(
+      "new LazyWideViewCompanionController",
+    ),
     true,
   );
   assert.equal(

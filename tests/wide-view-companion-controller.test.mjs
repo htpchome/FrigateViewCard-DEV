@@ -7,6 +7,7 @@ import {
   resolveWideCompanionGridLayout,
   WideViewCompanionController,
 } from "../src/features/wide-view/companion.ctrl.js";
+import { WIDE_VIEW_COMPANION_STYLES } from "../src/features/wide-view/companion.styles.js";
 import { STYLES } from "../src/styles.js";
 
 const constants = {
@@ -124,11 +125,11 @@ test("Companion Cameras region exposes an accessible drag handle", () => {
   assert.match(markup, /data-fvc-i18n="runtime\.wideView\.companionCameras"/);
   assert.match(markup, /data-fvc-i18n-aria-label="runtime\.wideView\.resizeCompanionArea"/);
   assert.match(
-    STYLES,
+    WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-surface\{[^}]*position:absolute;[^}]*inset:calc\(0px - var\(--wide-companion-expansion\)\)[^}]*padding:0 8px 4px/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-resize-handle\{[^}]*cursor:ns-resize;[^}]*touch-action:none/,
   );
   assert.match(
@@ -274,20 +275,23 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
     { columns: 2, cellWidth: 241 },
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-grid\{[^}]*width:100%;[^}]*justify-content:stretch;[^}]*grid-template-columns:repeat\(var\(--wide-companion-columns,1\),minmax\(0,1fr\)\)/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-media-host\{[^}]*aspect-ratio:16\/9/,
   );
-  assert.match(STYLES, /\.wide-companion-grid\{[^}]*gap:8px/);
   assert.match(
-    STYLES,
+    WIDE_VIEW_COMPANION_STYLES,
+    /\.wide-companion-grid\{[^}]*gap:8px/,
+  );
+  assert.match(
+    WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-meta\{[^}]*padding:3px 6px/,
   );
   assert.match(
-    STYLES,
+    WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-cell\{[^}]*border-radius:calc\(var\(--fvc-border-radius,0px\) \/ 2\)/,
   );
 });

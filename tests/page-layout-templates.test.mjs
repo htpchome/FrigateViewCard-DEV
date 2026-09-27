@@ -8,6 +8,7 @@ import {
 } from "../src/features/preview/page.tmpl.js";
 import { buildSingleViewMainLayoutShellMarkup } from "../src/features/single-view/page.tmpl.js";
 import { buildWideViewMainLayoutShellMarkup } from "../src/features/wide-view/page.tmpl.js";
+import { WIDE_VIEW_COMPANION_STYLES } from "../src/features/wide-view/companion.styles.js";
 import { buildFooterMarkup } from "../src/card/shell.tmpl.js";
 import { ICONS } from "../src/icons.js";
 import { STYLES } from "../src/styles.js";
@@ -340,7 +341,7 @@ test("single view keeps its live column at its requested height", () => {
 test("wide view only allows its companion region to absorb vertical shrink", () => {
   assert.match(STYLES, /\.card \.col-left > \*\{flex:0 0 auto;/);
   assert.match(
-    STYLES,
+    WIDE_VIEW_COMPANION_STYLES,
     /\.card \.col-left > \.wide-companion-panel\{flex:1 1 0;/,
   );
 });

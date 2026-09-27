@@ -67,6 +67,12 @@ test("HACS release artifact is generated under dist", () => {
   );
   assert.equal(
     fs.existsSync(
+      repositoryFile("dist/frigate-view-card-wide-companion.js"),
+    ),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
       repositoryFile("dist/frigate-view-card-hls-1.5.17.js"),
     ),
     true,
@@ -125,6 +131,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-wide-timeline.js"),
     "utf8",
   );
+  const wideCompanionBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-wide-companion.js"),
+    "utf8",
+  );
   const [banner] = bundle.split("\n", 1);
 
   assert.match(banner, /^\/\*\* FrigateView Card - generated file\./);
@@ -162,6 +172,11 @@ test("HACS release artifact is production-minified", () => {
   assert.doesNotMatch(bundle, /data-fvc-wide-timeline-styles/);
   assert.match(wideTimelineBundle, /data-wide-timeline-stack-next/);
   assert.match(wideTimelineBundle, /data-fvc-wide-timeline-styles/);
+  assert.match(bundle, /frigate-view-card-wide-companion\.js/);
+  assert.doesNotMatch(bundle, /wide-companion-camera-select/);
+  assert.doesNotMatch(bundle, /data-fvc-wide-companion-styles/);
+  assert.match(wideCompanionBundle, /data-wide-companion-resize-handle/);
+  assert.match(wideCompanionBundle, /data-fvc-wide-companion-styles/);
   assert.match(bundle, /frigate-view-card-locale/);
   assert.doesNotMatch(bundle, /circle-pad-clean-edges/);
   assert.doesNotMatch(bundle, /Ειδοποιήσεις/);
