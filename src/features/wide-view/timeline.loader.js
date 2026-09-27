@@ -54,6 +54,10 @@ export class LazyWideViewTimelineController {
     return this._host?._config?.wide_view_timeline_enabled === true;
   }
 
+  prepare() {
+    return this.enabled() ? this._ensureDelegate() : Promise.resolve(null);
+  }
+
   buildRegionMarkup() {
     if (!this.enabled()) return "";
     if (this._delegate) return this._delegate.buildRegionMarkup?.() || "";

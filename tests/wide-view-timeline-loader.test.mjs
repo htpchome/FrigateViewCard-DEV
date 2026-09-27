@@ -51,6 +51,29 @@ test("disabled Wide View timeline remains dormant", () => {
   assert.equal(loads, 0);
 });
 
+test("timeline preparation resolves only after its enabled module is ready", async () => {
+  let releaseModule;
+  const host = { _config: { wide_view_timeline_enabled: true } };
+  const controller = new LazyWideViewTimelineController(host, {}, {
+    isActive: () => false,
+    loadModule: () =>
+      new Promise((resolve) => {
+        releaseModule = resolve;
+      }),
+  });
+
+  let prepared = false;
+  const preparation = controller.prepare().then(() => {
+    prepared = true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(prepared, false);
+
+  releaseModule({ WideViewTimelineController: class {} });
+  await preparation;
+  assert.equal(prepared, true);
+});
+
 test("enabled Wide View timeline loads once and replays pending work", async () => {
   const calls = [];
   let ready = 0;

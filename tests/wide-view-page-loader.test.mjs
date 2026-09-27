@@ -95,7 +95,10 @@ test("supported Wide View loads once and replays startup activation", async () =
     _renderShellPreserveLive: () => calls.push(["shell"]),
   };
   const companionController = { type: "companion" };
-  const timelineController = { type: "timeline" };
+  const timelineController = {
+    type: "timeline",
+    prepare: async () => calls.push(["timeline-prepare"]),
+  };
   let loads = 0;
   const controller = new LazyWideViewPageController(host, constants, {
     companionController,
@@ -130,9 +133,96 @@ test("supported Wide View loads once and replays startup activation", async () =
       { companionController, timelineController },
     ],
     ["shell"],
+    ["timeline-prepare"],
     ["activate", { startup: true }],
     ["config", { startModeChanged: true }],
   ]);
+});
+
+test("Wide View landing startup waits for its timeline before live activation", async () => {
+  let releaseTimeline;
+  const calls = [];
+  class Controller {
+    activateWideViewPageRoute(context) {
+      calls.push(["activate", context]);
+    }
+  }
+  const host = {
+    _config: { wide_view_page_enabled: true },
+    _deviceRouteBucket: () => "desktop",
+    _pageId: "wide-view",
+    _renderShellPreserveLive: () => calls.push(["shell"]),
+  };
+  const timelineController = {
+    prepare: () => {
+      calls.push(["timeline-prepare"]);
+      return new Promise((resolve) => {
+        releaseTimeline = resolve;
+      });
+    },
+  };
+  const controller = new LazyWideViewPageController(host, constants, {
+    timelineController,
+    loadModule: async () => ({
+      WideViewPageController: Controller,
+      buildWideViewMainLayoutShellMarkup: () => "<main></main>",
+    }),
+  });
+
+  controller.activateWideViewPageRoute({ startup: true });
+  const prepared = controller.prepare();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(calls, [["shell"], ["timeline-prepare"]]);
+
+  releaseTimeline();
+  await prepared;
+
+  assert.deepEqual(calls, [
+    ["shell"],
+    ["timeline-prepare"],
+    ["activate", { startup: true }],
+  ]);
+});
+
+test("priority landing preparation loads Wide View dependencies before activation", async () => {
+  let releaseTimeline;
+  const calls = [];
+  class Controller {
+    activateWideViewPageRoute(context) {
+      calls.push(["activate", context]);
+    }
+  }
+  const host = {
+    _config: { wide_view_page_enabled: true },
+    _deviceRouteBucket: () => "desktop",
+    _pageId: "wide-view",
+    _renderShellPreserveLive: () => calls.push(["shell"]),
+  };
+  const timelineController = {
+    prepare: () => {
+      calls.push(["timeline-prepare"]);
+      return new Promise((resolve) => {
+        releaseTimeline = resolve;
+      });
+    },
+  };
+  const controller = new LazyWideViewPageController(host, constants, {
+    timelineController,
+    loadModule: async () => ({
+      WideViewPageController: Controller,
+      buildWideViewMainLayoutShellMarkup: () => "<main></main>",
+    }),
+  });
+
+  const preparation = controller.prepare({ startup: true });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(calls, [["shell"], ["timeline-prepare"]]);
+
+  releaseTimeline();
+  await preparation;
+  assert.deepEqual(calls, [["shell"], ["timeline-prepare"]]);
 });
 
 test("a closed Wide View does not activate after a pending page load", async () => {

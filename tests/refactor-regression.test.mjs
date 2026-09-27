@@ -1538,7 +1538,12 @@ test("startup resolves initial page through the navigation factory", () => {
   const provisionalShellIndex = cardSource.indexOf(
     "this._pageNavigationController.prepareConfiguredLandingPageShell({",
   );
-  const discoverIndex = cardSource.indexOf("await this._discoverAll();");
+  const priorityPreparationIndex = cardSource.indexOf(
+    "this._wideViewPageController.prepare({ startup: true })",
+  );
+  const discoverIndex = cardSource.indexOf(
+    "await Promise.all([this._discoverAll(), landingPagePreparation]);",
+  );
   const finalShellIndex = cardSource.indexOf(
     "this._pageNavigationController.prepareConfiguredLandingPageShell({",
     provisionalShellIndex + 1,
@@ -1555,7 +1560,8 @@ test("startup resolves initial page through the navigation factory", () => {
     false,
   );
   assert.ok(provisionalShellIndex > hassSetterIndex);
-  assert.ok(discoverIndex > provisionalShellIndex);
+  assert.ok(priorityPreparationIndex > provisionalShellIndex);
+  assert.ok(discoverIndex > priorityPreparationIndex);
   assert.ok(finalShellIndex > discoverIndex);
   assert.equal(
     cardSource.includes(

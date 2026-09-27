@@ -1109,12 +1109,18 @@ export class FrigateViewCard extends HTMLElement {
       this._activeCamIdx = 0;
       this._activeGroupMemberOverride = "";
     }
-    this._pageNavigationController.prepareConfiguredLandingPageShell({
-      hasPendingDeepLinkTarget:
-        this._deepLinkController.hasParsedDeepLinkTarget(),
-    });
+    const preparedLandingPage =
+      this._pageNavigationController.prepareConfiguredLandingPageShell({
+        hasPendingDeepLinkTarget:
+          this._deepLinkController.hasParsedDeepLinkTarget(),
+      });
 
-    await this._discoverAll();
+    const landingPagePreparation =
+      preparedLandingPage === PAGE_IDS.wideView
+        ? this._wideViewPageController.prepare({ startup: true })
+        : Promise.resolve(null);
+
+    await Promise.all([this._discoverAll(), landingPagePreparation]);
     if (this._editorPreviewController.renderCardPickerDemo()) {
       this._applyCardStyle();
       return;

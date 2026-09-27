@@ -57,10 +57,19 @@ export class LazyWideViewPageController {
     return !mobileBucket || deviceBucket !== mobileBucket;
   }
 
-  prepare() {
-    return this.isWideViewSupported()
-      ? this._ensureDelegate()
-      : Promise.resolve(null);
+  prepare({ startup = false } = {}) {
+    if (!this.isWideViewSupported()) return Promise.resolve(null);
+    return this._ensureDelegate().then(async (delegate) => {
+      if (
+        !delegate ||
+        startup !== true ||
+        !this.isWideViewPageActive()
+      ) {
+        return delegate;
+      }
+      await this._prepareStartupDependencies();
+      return delegate;
+    });
   }
 
   buildMainLayoutShellMarkup(options = {}) {
@@ -331,7 +340,7 @@ export class LazyWideViewPageController {
 
     const delegatePromise = Promise.resolve()
       .then(() => this._loadModule())
-      .then((module) => {
+      .then(async (module) => {
         if (this._disposed || !this.isWideViewSupported()) return null;
         const Controller = module?.WideViewPageController;
         const shellBuilder = module?.buildWideViewMainLayoutShellMarkup;
@@ -357,6 +366,14 @@ export class LazyWideViewPageController {
 
         if (activationContext?.startup === true) {
           this._host?._renderShellPreserveLive?.();
+          // Landing directly on Wide View starts its optional timeline only
+          // after this module arrives. Let that shell replacement finish
+          // before opening live media so Firefox does not interrupt a newly
+          // established MSE WebSocket when the timeline becomes ready.
+          await this._prepareStartupDependencies();
+          if (this._disposed || !this.isWideViewPageActive()) {
+            return this._delegate;
+          }
         }
         if (activationContext) {
           this._delegate.activateWideViewPageRoute(activationContext);
@@ -396,5 +413,9 @@ export class LazyWideViewPageController {
       });
     this._delegatePromise = delegatePromise;
     return delegatePromise;
+  }
+
+  async _prepareStartupDependencies() {
+    await this._timelineController?.prepare?.();
   }
 }

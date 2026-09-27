@@ -7152,7 +7152,18 @@ test.describe("touch input", () => {
       return results;
     });
 
-    expect(states).toEqual([
+    for (const state of states) {
+      expect(state.liveSideInset).toBeGreaterThanOrEqual(19);
+      expect(state.liveSideInset).toBeLessThanOrEqual(21);
+    }
+    const normalizedStates = states.map((state) => ({
+      ...state,
+      // Firefox can round the same rotated edge to either adjacent device
+      // pixel while the viewport settles.
+      liveSideInset: 20,
+    }));
+
+    expect(normalizedStates).toEqual([
       {
         label: "Single View",
         controls: false,
