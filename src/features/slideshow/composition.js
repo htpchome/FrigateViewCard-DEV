@@ -5,13 +5,19 @@ import {
   SLIDESHOW_REVIEW_WATCH_MAX_MS,
   SLIDESHOW_REVIEW_WATCH_MIN_MS,
 } from "../../constants.js";
-import { SlideshowAlertController } from "./alert.ctrl.js";
-import { SlideshowPageController } from "./page.ctrl.js";
+import {
+  LazySlideshowAlertController,
+  LazySlideshowFeatureController,
+  LazySlideshowPageController,
+} from "./runtime.loader.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
-  createAlertController: (card, constants) =>
-    new SlideshowAlertController(card, constants),
-  createPageController: (card) => new SlideshowPageController(card),
+  createFeatureController: (card, options) =>
+    new LazySlideshowFeatureController(card, options),
+  createAlertController: (card, featureController) =>
+    new LazySlideshowAlertController(card, featureController),
+  createPageController: (card, featureController) =>
+    new LazySlideshowPageController(card, featureController),
 });
 
 export const createSlideshowControllers = (
@@ -19,18 +25,23 @@ export const createSlideshowControllers = (
   { factories = DEFAULT_FACTORIES } = {},
 ) => {
   const resolvedFactories = { ...DEFAULT_FACTORIES, ...factories };
-  const slideshowAlertController =
-    resolvedFactories.createAlertController(card, {
-      DAY,
-      SLIDESHOW_ALERT_HOLD_MS,
-      SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,
-      SLIDESHOW_REVIEW_WATCH_MIN_MS,
-      SLIDESHOW_REVIEW_WATCH_MAX_MS,
+  const slideshowFeatureController =
+    resolvedFactories.createFeatureController(card, {
+      alertConstants: {
+        DAY,
+        SLIDESHOW_ALERT_HOLD_MS,
+        SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,
+        SLIDESHOW_REVIEW_WATCH_MIN_MS,
+        SLIDESHOW_REVIEW_WATCH_MAX_MS,
+      },
     });
+  const slideshowAlertController =
+    resolvedFactories.createAlertController(card, slideshowFeatureController);
   const slideshowPageController =
-    resolvedFactories.createPageController(card);
+    resolvedFactories.createPageController(card, slideshowFeatureController);
 
   return {
+    _slideshowFeatureController: slideshowFeatureController,
     _slideshowAlertController: slideshowAlertController,
     _slideshowPageController: slideshowPageController,
   };

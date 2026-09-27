@@ -24,6 +24,10 @@ const bundlePaths = new Map([
   ],
   ["/frigate-view-card-grid.js", "dist/frigate-view-card-grid.js"],
   [
+    "/frigate-view-card-slideshow.js",
+    "dist/frigate-view-card-slideshow.js",
+  ],
+  [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
@@ -187,6 +191,129 @@ test("phone clients never request the Grid runtime", async ({ browser }) => {
     available: false,
     loaded: false,
     prepared: false,
+  });
+});
+
+test("Slideshow runtime stays dormant until enabled Slideshow is requested", async ({
+  page,
+}) => {
+  let slideshowRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-slideshow.js"
+    ) {
+      slideshowRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const disabled = document.createElement("frigate-view-card");
+    document.body.append(disabled);
+    disabled.setConfig({
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+      slideshow_rotation_enabled: false,
+    });
+    const disabledPreparation =
+      await disabled._slideshowFeatureController.prepare();
+
+    const enabled = document.createElement("frigate-view-card");
+    document.body.append(enabled);
+    enabled.setConfig({
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+      slideshow_rotation_enabled: true,
+      single_view_start_mode: "live",
+    });
+    const beforeActivation = enabled._slideshowFeatureController.isLoaded();
+    enabled._slideshowPageController.toggle();
+    await enabled._slideshowFeatureController.prepare();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    return {
+      disabledAvailable: disabled._slideshowPageController.available(),
+      disabledLoaded: disabled._slideshowFeatureController.isLoaded(),
+      disabledPrepared: Boolean(disabledPreparation),
+      beforeActivation,
+      afterActivation: enabled._slideshowFeatureController.isLoaded(),
+      active: enabled._slideshowActive,
+    };
+  });
+
+  expect(slideshowRequests).toBe(1);
+  expect(state).toEqual({
+    disabledAvailable: false,
+    disabledLoaded: false,
+    disabledPrepared: false,
+    beforeActivation: false,
+    afterActivation: true,
+    active: true,
+  });
+});
+
+test("Slideshow runtime is ready before a configured landing page starts it", async ({
+  page,
+}) => {
+  let slideshowRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-slideshow.js"
+    ) {
+      slideshowRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+      landing_page: "single-view",
+      single_view_start_mode: "slideshow",
+      slideshow_rotation_enabled: true,
+    });
+    card._discoverAll = async () => {};
+    card._browseWindowLoaderController.loadWindow = async () => {};
+    card._browseWindowLoaderController.scheduleWarmOtherCamerasEvents =
+      () => {};
+    card._mountEngine = () => {};
+    card._renderAll = () => {};
+    card._prefetchCalendarActivityForActiveCamera = async () => {};
+    card._subscribe = () => {};
+    card._startEditModeWatchdog = () => {};
+    card._startEditorDialogCloseObserver = () => {};
+    card._restartRealtimeHeadPollTimer = () => {};
+    card._setupResizeObserver = () => {};
+
+    await card._start();
+    clearInterval(card._refresh);
+    card._refresh = null;
+
+    return {
+      pageId: card._pageId,
+      loaded: card._slideshowFeatureController.isLoaded(),
+      active: card._slideshowActive,
+    };
+  });
+
+  expect(slideshowRequests).toBe(1);
+  expect(state).toEqual({
+    pageId: "single-view",
+    loaded: true,
+    active: true,
   });
 });
 

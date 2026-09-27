@@ -27,6 +27,7 @@ const linkedLightOutputFile =
   "dist/frigate-view-card-linked-light.js";
 const cardViewOutputFile = "dist/frigate-view-card-card-view.js";
 const gridOutputFile = "dist/frigate-view-card-grid.js";
+const slideshowOutputFile = "dist/frigate-view-card-slideshow.js";
 const wideViewOutputFile = "dist/frigate-view-card-wide-view.js";
 const wideCompanionOutputFile =
   "dist/frigate-view-card-wide-companion.js";
@@ -124,6 +125,10 @@ const gridOutput = await buildBundle({
   entryPoint: "src/features/grid/runtime.companion.js",
   outfile: gridOutputFile,
 });
+const slideshowOutput = await buildBundle({
+  entryPoint: "src/features/slideshow/runtime.companion.js",
+  outfile: slideshowOutputFile,
+});
 const wideViewOutput = await buildBundle({
   entryPoint: "src/features/wide-view/page.companion.js",
   outfile: wideViewOutputFile,
@@ -192,6 +197,9 @@ const cardViewOutputSizeKib = (
 const gridOutputSizeKib = (
   Buffer.byteLength(gridOutput) / 1024
 ).toFixed(1);
+const slideshowOutputSizeKib = (
+  Buffer.byteLength(slideshowOutput) / 1024
+).toFixed(1);
 const wideViewOutputSizeKib = (
   Buffer.byteLength(wideViewOutput) / 1024
 ).toFixed(1);
@@ -223,6 +231,9 @@ console.info(
 );
 console.info(`  ${cardViewOutputFile}  ${cardViewOutputSizeKib} KiB (lazy)`);
 console.info(`  ${gridOutputFile}  ${gridOutputSizeKib} KiB (lazy)`);
+console.info(
+  `  ${slideshowOutputFile}  ${slideshowOutputSizeKib} KiB (lazy)`,
+);
 console.info(`  ${wideViewOutputFile}  ${wideViewOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${wideCompanionOutputFile}  ${wideCompanionOutputSizeKib} KiB (lazy)`,

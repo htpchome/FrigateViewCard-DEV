@@ -1121,11 +1121,19 @@ export class FrigateViewCard extends HTMLElement {
       )
         ? this._gridFeatureController.prepare()
         : Promise.resolve(null);
+    const slideshowLandingPreparation =
+      this._slideshowFeatureController.shouldPrepareForLandingPage(
+        preparedLandingPage,
+        PAGE_IDS,
+      )
+        ? this._slideshowFeatureController.prepare()
+        : Promise.resolve(null);
 
     await Promise.all([
       this._discoverAll(),
       landingPagePreparation,
       gridLandingPreparation,
+      slideshowLandingPreparation,
     ]);
     if (this._editorPreviewController.renderCardPickerDemo()) {
       this._applyCardStyle();

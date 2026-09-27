@@ -13,6 +13,10 @@ const editorBundleSource = fs.readFileSync(
   new URL("../dist/frigate-view-card-editor.js", import.meta.url),
   "utf8",
 );
+const slideshowRuntimeSource = fs.readFileSync(
+  new URL("../dist/frigate-view-card-slideshow.js", import.meta.url),
+  "utf8",
+);
 const cardSource = fs.readFileSync(
   new URL("../src/card/FrigateViewCard.js", import.meta.url),
   "utf8",
@@ -48,23 +52,23 @@ test("slideshow toolbar button is rendered", () => {
 });
 
 test("slideshow runtime hooks are present", () => {
+  assert.equal(source.includes("frigate-view-card-slideshow.js"), true);
   assert.equal(
     source.includes("_slideshowAlertController.handleRealtimeMessage"),
     true,
   );
   assert.equal(
-    source.includes("_slideshowAlertController.handleReviewsUpdated"),
+    slideshowRuntimeSource.includes("handleReviewsUpdated("),
     true,
   );
-  assert.equal(source.includes("advance()"), true);
-  assert.equal(source.includes("schedule("), true);
-  assert.equal(source.includes("scheduleReviewWatch(300)"), true);
-  assert.equal(source.includes("SLIDESHOW_ALERT_HOLD_MS"), true);
-  assert.equal(source.includes("shouldHandleReview"), true);
+  assert.equal(slideshowRuntimeSource.includes("advance()"), true);
+  assert.equal(slideshowRuntimeSource.includes("schedule("), true);
+  assert.equal(slideshowRuntimeSource.includes("scheduleReviewWatch(300)"), true);
+  assert.equal(slideshowRuntimeSource.includes("shouldHandleReview"), true);
+  assert.equal(slideshowRuntimeSource.includes("severity"), true);
   assert.equal(source.includes("slideshow-detection"), true);
   assert.equal(source.includes("error-color"), true);
   assert.equal(source.includes("warning-color"), true);
-  assert.equal(source.includes("data?.severity"), true);
 });
 
 test("slideshow countdown does not change live video compositing", () => {

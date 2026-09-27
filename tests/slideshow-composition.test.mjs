@@ -10,20 +10,25 @@ import {
 } from "../src/constants.js";
 import { createSlideshowControllers } from "../src/features/slideshow/composition.js";
 
-test("Slideshow composition preserves controller order and constants", () => {
+test("Slideshow composition keeps its runtime controllers lazy", () => {
   const calls = [];
   const options = {};
+  const featureController = { type: "feature" };
   const alertController = { type: "alert" };
   const pageController = { type: "page" };
   const card = {};
   const factories = {
-    createAlertController: (host, constants) => {
-      calls.push(["alert", host]);
-      options.alert = constants;
+    createFeatureController: (host, value) => {
+      calls.push(["feature", host]);
+      options.feature = value;
+      return featureController;
+    },
+    createAlertController: (host, feature) => {
+      calls.push(["alert", host, feature]);
       return alertController;
     },
-    createPageController: (host) => {
-      calls.push(["page", host]);
+    createPageController: (host, feature) => {
+      calls.push(["page", host, feature]);
       return pageController;
     },
   };
@@ -31,14 +36,16 @@ test("Slideshow composition preserves controller order and constants", () => {
   const result = createSlideshowControllers(card, { factories });
 
   assert.deepEqual(result, {
+    _slideshowFeatureController: featureController,
     _slideshowAlertController: alertController,
     _slideshowPageController: pageController,
   });
   assert.deepEqual(calls, [
-    ["alert", card],
-    ["page", card],
+    ["feature", card],
+    ["alert", card, featureController],
+    ["page", card, featureController],
   ]);
-  assert.deepEqual(options.alert, {
+  assert.deepEqual(options.feature.alertConstants, {
     DAY,
     SLIDESHOW_ALERT_HOLD_MS,
     SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,

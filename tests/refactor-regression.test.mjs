@@ -71,6 +71,14 @@ const slideshowPageControllerSource = fs.readFileSync(
   new URL("../src/features/slideshow/page.ctrl.js", import.meta.url),
   "utf8",
 );
+const slideshowRuntimeLoaderSource = fs.readFileSync(
+  new URL("../src/features/slideshow/runtime.loader.js", import.meta.url),
+  "utf8",
+);
+const slideshowRuntimeCompanionSource = fs.readFileSync(
+  new URL("../src/features/slideshow/runtime.companion.js", import.meta.url),
+  "utf8",
+);
 const previewCompositionSource = fs.readFileSync(
   new URL("../src/features/preview/composition.js", import.meta.url),
   "utf8",
@@ -2551,10 +2559,34 @@ test("Slideshow controller composition is feature-owned", () => {
   assert.equal(slideshowPageControllerSource.includes("advance()"), true);
   assert.equal(
     slideshowCompositionSource.includes("new SlideshowAlertController"),
-    true,
+    false,
   );
   assert.equal(
     slideshowCompositionSource.includes("new SlideshowPageController"),
+    false,
+  );
+  assert.equal(
+    slideshowCompositionSource.includes(
+      "new LazySlideshowFeatureController",
+    ),
+    true,
+  );
+  assert.equal(
+    slideshowRuntimeCompanionSource.includes(
+      "new SlideshowAlertController",
+    ),
+    true,
+  );
+  assert.equal(
+    slideshowRuntimeCompanionSource.includes(
+      "new SlideshowPageController",
+    ),
+    true,
+  );
+  assert.equal(
+    slideshowRuntimeLoaderSource.includes(
+      "frigate-view-card-slideshow.js",
+    ),
     true,
   );
   assert.equal(
