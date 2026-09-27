@@ -17,7 +17,6 @@ const bundlePaths = new Map([
     "/frigate-view-card-dashboard-swipe-navigation.js",
     "dist/frigate-view-card-dashboard-swipe-navigation.js",
   ],
-  ["/frigate-view-card-navbar.js", "dist/frigate-view-card-navbar.js"],
   [
     "/frigate-view-card-card-view.js",
     "dist/frigate-view-card-card-view.js",
@@ -832,7 +831,7 @@ test("loads dashboard swipe navigation only for an enabled owner card", async ({
   expect(state).toEqual({ loaded: true, scopeActive: false });
 });
 
-test("loads navbar customization only when a mobile card needs it", async ({
+test("embeds navbar customization so initial geometry needs no companion request", async ({
   page,
 }) => {
   const assetRequests = [];
@@ -846,21 +845,59 @@ test("loads navbar customization only when a mobile card needs it", async ({
   await page.waitForTimeout(50);
   expect(assetRequests).toEqual([]);
 
-  const state = await page.evaluate(async () => {
+  const state = await page.evaluate(() => {
+    const shell = document.createElement("hui-root");
+    const root = shell.attachShadow({ mode: "open" });
+    root.innerHTML = `
+      <div class="header"><div class="toolbar"></div></div>
+      <div id="view"><div class="card-wrapper"></div></div>
+    `;
+    document.body.append(shell);
     const card = document.createElement("frigate-view-card");
-    card._config = { mobile_view_ha_navbar_bottom: true };
     card._isLikelyMobileClient = () => true;
+    card.setConfig({
+      cameras: [{ entity: "camera.front" }],
+      mobile_view_ha_navbar_bottom: true,
+    });
+    root.querySelector(".card-wrapper").append(card);
     const controller = card._haNavbarController;
-    controller.sync();
-    const deadline = performance.now() + 2000;
-    while (!controller._delegate && performance.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    return { loaded: Boolean(controller._delegate) };
+    const header = root.querySelector(".header");
+    const toolbar = root.querySelector(".toolbar");
+    const view = root.querySelector("#view");
+    const connectedHeaderBottom = header.style.getPropertyValue("bottom");
+    const connectedViewPaddingBottom =
+      view.style.getPropertyValue("padding-bottom");
+    const delegateLoadedOnConnect = Boolean(controller._delegate);
+    const appliedOnConnect =
+      connectedHeaderBottom === "0px" &&
+      connectedViewPaddingBottom.includes("56px");
+    const syncResult = controller.sync();
+    return {
+      appliedOnConnect,
+      connectedHeaderBottom,
+      connectedViewPaddingBottom,
+      delegateLoadedOnConnect,
+      headerBottom: header.style.getPropertyValue("bottom"),
+      loaded: Boolean(controller._delegate),
+      syncResult,
+      toolbarHeight: toolbar.style.getPropertyValue("height"),
+      viewPaddingBottom: view.style.getPropertyValue("padding-bottom"),
+    };
   });
 
-  expect(assetRequests).toHaveLength(1);
-  expect(state).toEqual({ loaded: true });
+  expect(assetRequests).toHaveLength(0);
+  expect(state).toEqual({
+    appliedOnConnect: true,
+    connectedHeaderBottom: "0px",
+    connectedViewPaddingBottom:
+      "calc(var(--header-height, 56px) + 10px)",
+    delegateLoadedOnConnect: true,
+    headerBottom: "0px",
+    loaded: true,
+    syncResult: true,
+    toolbarHeight: "calc(var(--header-height, 56px) + 10px)",
+    viewPaddingBottom: "calc(var(--header-height, 56px) + 10px)",
+  });
 });
 
 test("loads the popup recording scrubber only when recording playback needs it", async ({
