@@ -504,18 +504,20 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
         :host { display: block; width: 100%; height: 823px; }
         .header { position: fixed; inset: 0 0 auto; background: red; }
         .toolbar { height: 56px; }
+        .toolbar-child { width: 308px; height: 56px; margin: auto; }
         #view { box-sizing: border-box; height: 823px; padding-top: 56px; }
         hui-view { display: block; height: 767px; background: blue; }
       </style>
-      <div class="header"><div class="toolbar"></div></div>
+      <div class="header">
+        <div class="toolbar"><div class="toolbar-child"></div></div>
+      </div>
       <div id="view"><hui-view></hui-view></div>
     `;
     document.body.append(huiRoot);
     const header = root.querySelector(".header");
     const view = root.querySelector("hui-view");
-    await new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
-    );
+    // Lighthouse applies the customization after HA's initial shell paint.
+    await new Promise((resolve) => setTimeout(resolve, 600));
     const oldHeaderTop = header.getBoundingClientRect().top;
     const oldViewTop = view.getBoundingClientRect().top;
     const shifts = [];
@@ -551,6 +553,7 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
+    await new Promise((resolve) => setTimeout(resolve, 100));
     observer?.takeRecords().forEach((entry) => {
       if (!entry.hadRecentInput) shifts.push(entry.value);
     });
@@ -568,6 +571,8 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
       inlineTop: header.style.getPropertyValue("top"),
       inlineBottom: header.style.getPropertyValue("bottom"),
       transform: getComputedStyle(header).transform,
+      transitionDuration: getComputedStyle(header).transitionDuration,
+      transitionProperty: getComputedStyle(header).transitionProperty,
     };
     controller.disconnect({ force: true });
     return result;
@@ -579,11 +584,16 @@ test("bottom HA navbar keeps its layout anchor while painting at the viewport bo
     viewTop: 0,
     inlineTop: "0px",
     inlineBottom: "auto",
+    transitionDuration: "0.001s",
+    transitionProperty: "transform",
   });
   expect(state.headerBottom).toBeCloseTo(823, 0);
   expect(state.headerTop).toBeGreaterThan(750);
   expect(state.transform).not.toBe("none");
-  if (browserName === "chromium") expect(state.cls).toBeLessThan(0.1);
+  if (browserName === "chromium") {
+    expect(state.cls).toBeGreaterThan(0.05);
+    expect(state.cls).toBeLessThan(0.1);
+  }
 });
 
 test("Bubble notification hash opens its route before the card media popup", async ({ page }) => {

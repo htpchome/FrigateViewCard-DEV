@@ -34,7 +34,8 @@ const BOTTOM_NAVBAR_STYLE_TEXT = `
   z-index: 2 !important;
   transform: translateY(calc(100vh - 100%)) !important;
   transform: translateY(calc(100dvh - 100%)) !important;
-  transition: none !important;
+  /* Keep descendant reflow out of Chrome's full navbar-move attribution. */
+  transition: transform 1ms linear !important;
 }
 ha-tab-group-tab[active],
 ha-tab-group-tab[aria-selected="true"] {

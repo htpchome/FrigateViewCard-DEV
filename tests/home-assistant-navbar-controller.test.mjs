@@ -367,7 +367,10 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
     styleText,
     /transform: translateY\(calc\(100dvh - 100%\)\) !important/,
   );
-  assert.match(styleText, /transition: none !important/);
+  assert.match(
+    styleText,
+    /transition: transform 1ms linear !important/,
+  );
   assert.doesNotMatch(styleText, /#view\s*\{[\s\S]*?z-index:/);
   assert.match(styleText, /\[data-frigate-view-ha-navbar-header\] \{[\s\S]*?z-index: 2 !important;/);
   assert.doesNotMatch(styleText, /\.header\s*\{/);
