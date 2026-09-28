@@ -701,6 +701,7 @@ export function createGo2RtcMounter({
     const { waitMs } = resolveHlsStartup(startup || {});
     let startupState = { phase: "connecting", failed: false };
     const reportStartupState = (phase, failed = false) => {
+      if (startupState.failed) return;
       startupState = { phase, failed };
       options?.onStartupState?.(startupState);
     };

@@ -793,6 +793,42 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
     assignedEngine.destroy();
     assignedEngine.video.dispatchEvent({ type: "ended" });
     assert.deepEqual(recoveryReasons, ["hls-error", "hls-ws-closed"]);
+
+    const failedStartupStates = [];
+    const failedMounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
+        websocketUrlForEntity: async () =>
+          "wss://ha.local/api/frigate/frigate/mse/api/ws?src=front&authSig=signed",
+      },
+      waitForStreamStart: async (_target, _waitMs, options) =>
+        await new Promise((resolve) => {
+          options.abortSignal.addEventListener(
+            "abort",
+            () => resolve(false),
+            { once: true },
+          );
+        }),
+    });
+    const failedSlot = createSlot();
+    const failedMount = withFakeWindow({ WebSocket: FakeWebSocket }, () =>
+      failedMounter.tryMountHls(failedSlot, null, {
+        onStartupState: (state) => failedStartupStates.push(state),
+      }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    const failedSocket = sockets.at(-1);
+    failedSocket.open();
+    failedSocket.message({
+      type: "hls",
+      value: "#EXTM3U\n#EXTINF:1,\nhls/session/segment.ts",
+    });
+    failedSlot.lastChild.dispatchEvent({ type: "error" });
+    assert.equal(await failedMount, false);
+    assert.deepEqual(failedStartupStates.at(-1), {
+      phase: "media-error",
+      failed: true,
+    });
   });
 });
 
