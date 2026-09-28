@@ -504,6 +504,14 @@ const ptzCompositionSource = fs.readFileSync(
   new URL("../src/features/ptz/composition.js", import.meta.url),
   "utf8",
 );
+const ptzRuntimeLoaderSource = fs.readFileSync(
+  new URL("../src/features/ptz/runtime.loader.js", import.meta.url),
+  "utf8",
+);
+const ptzRuntimeCompanionSource = fs.readFileSync(
+  new URL("../src/features/ptz/runtime.companion.js", import.meta.url),
+  "utf8",
+);
 const ptzActionControllerSource = fs.readFileSync(
   new URL("../src/features/ptz/action.ctrl.js", import.meta.url),
   "utf8",
@@ -3721,10 +3729,11 @@ test("Home Assistant PTZ service execution is integration-owned", () => {
 test("PTZ action planning and execution coordination is feature-owned", () => {
   assert.equal(
     cardSource.includes(
-      "this._ptzExec = createPtzActionController(this);",
+      "Object.assign(this, createLazyPtzControllers(this));",
     ),
     true,
   );
+  assert.equal(cardSource.includes("createPtzActionController(this)"), false);
   assert.equal(cardSource.includes("_executePtzCameraAction"), false);
   assert.equal(cardSource.includes("resolvePtzServicePlan"), false);
   assert.equal(
@@ -3763,15 +3772,13 @@ test("ptz helpers live under the ptz feature owner", () => {
 
 test("PTZ motion controller composition is feature-owned", () => {
   assert.equal(
-    cardSource.includes("createPtzMotionController,") &&
-      cardSource.includes('from "../features/ptz/composition.js";'),
+    cardSource.includes("createLazyPtzControllers,") &&
+      cardSource.includes('from "../features/ptz/runtime.loader.js";'),
     true,
   );
   assert.equal(
-    cardSource.includes(
-      "this._ptzMotionController = createPtzMotionController(this);",
-    ),
-    true,
+    cardSource.includes("createPtzMotionController(this)"),
+    false,
   );
   assert.equal(cardSource.includes("new PtzMotionController"), false);
   assert.equal(
@@ -3783,10 +3790,8 @@ test("PTZ motion controller composition is feature-owned", () => {
 
 test("PTZ capability loading and motion context are feature-owned", () => {
   assert.equal(
-    cardSource.includes(
-      "this._ptzCapabilityController = createPtzCapabilityController(this);",
-    ),
-    true,
+    cardSource.includes("createPtzCapabilityController(this)"),
+    false,
   );
   assert.equal(cardSource.includes("_activeCameraPtzInfo()"), false);
   assert.equal(cardSource.includes("_ensureActiveCameraPtzInfo()"), false);
@@ -3819,12 +3824,12 @@ test("PTZ capability loading and motion context are feature-owned", () => {
 test("PTZ controls presentation and nested labels are feature-owned", () => {
   assert.equal(
     cardSource.includes(
-      "return renderPtzControls(this, list);",
+      "return this._ptzFeatureController.renderControls(list);",
     ),
     true,
   );
   assert.equal(
-    cardSource.includes("syncPtzControlsLabels(this);"),
+    cardSource.includes("this._ptzFeatureController.syncControlsLabels();"),
     true,
   );
   assert.equal(cardSource.includes("buildControlsSectionMarkup"), false);
@@ -3860,10 +3865,8 @@ test("PTZ controls presentation and nested labels are feature-owned", () => {
 
 test("PTZ interaction state and behavior are feature-owned", () => {
   assert.equal(
-    cardSource.includes(
-      "this._ptzInteractionController = createPtzInteractionController(this);",
-    ),
-    true,
+    cardSource.includes("createPtzInteractionController(this)"),
+    false,
   );
   assert.equal(cardSource.includes("this._activePtzButtonAction"), false);
   assert.equal(cardSource.includes("resolvePtzDisplayZoomPlan"), false);
@@ -3884,6 +3887,20 @@ test("PTZ interaction state and behavior are feature-owned", () => {
   );
   assert.equal(
     ptzCompositionSource.includes("new PtzInteractionController"),
+    true,
+  );
+  assert.equal(
+    ptzRuntimeLoaderSource.includes("frigate-view-card-ptz.js"),
+    true,
+  );
+  assert.equal(
+    ptzRuntimeLoaderSource.includes(
+      "export const createLazyPtzControllers",
+    ),
+    true,
+  );
+  assert.equal(
+    ptzRuntimeCompanionSource.includes("createPtzRuntimeControllers"),
     true,
   );
 });

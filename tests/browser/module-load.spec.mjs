@@ -35,6 +35,7 @@ const bundlePaths = new Map([
     "/frigate-view-card-recordings.js",
     "dist/frigate-view-card-recordings.js",
   ],
+  ["/frigate-view-card-ptz.js", "dist/frigate-view-card-ptz.js"],
   [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
@@ -1066,7 +1067,17 @@ test("loads the runtime and editor modules", async ({ page }) => {
   ).toHaveLength(1);
 });
 
-test("keeps the PTZ circle pad out of startup and loads its companion asset", async ({ page }) => {
+test("keeps PTZ runtime and circle pad out of startup until Controls opens", async ({ page }) => {
+  let ptzRuntimeRequests = 0;
+  let circlePadRequests = 0;
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === "/frigate-view-card-ptz.js") {
+      ptzRuntimeRequests += 1;
+    } else if (pathname === "/frigate-view-card-circle-pad.js") {
+      circlePadRequests += 1;
+    }
+  });
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
     await import("/frigate-view-card.js");
@@ -1074,9 +1085,16 @@ test("keeps the PTZ circle pad out of startup and loads its companion asset", as
       customElements.get("circle-pad-control-2"),
     );
     const card = document.createElement("frigate-view-card");
-    const list = document.createElement("div");
-    document.body.append(list);
-    card._activeCam = { entity: "camera.front", ptz: true };
+    document.body.append(card);
+    const list =
+      card._pageShellRegionElement("browse", "#list") ||
+      document.createElement("div");
+    if (!list.isConnected) document.body.append(list);
+    card._config = {
+      cameras: [{ entity: "camera.front", ptz: true }],
+    };
+    card._activeCamIdx = 0;
+    card._tab = "controls";
     card._localization = { t: (key) => key };
     card._ptzCapabilityController = {
       ensureActiveInfo() {},
@@ -1087,24 +1105,49 @@ test("keeps the PTZ circle pad out of startup and loads its companion asset", as
       target.innerHTML = markup;
     };
     card._$ = (selector) => list.querySelector(selector);
+    const zoomDeltas = [];
+    card._attachMainLiveVideoZoom = () => {};
+    card._liveVideoZoomController = {
+      zoomBy: (delta) => zoomDeltas.push(delta),
+    };
+    const runtimeLoadedAtStartup = card._ptzFeatureController.isLoaded();
+    const runtimeSupported = card._ptzFeatureController.isSupported();
     card._renderControlsSection(list);
     card._renderControlsSection(list);
-    await customElements.whenDefined("circle-pad-control-2");
+    await card._ptzFeatureController.prepare();
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const pad = list.querySelector("circle-pad-control-2");
+    await card._handleCirclePadPtzEvent(
+      {
+        target: pad,
+        detail: { action: "zoom-in" },
+      },
+      "press",
+    );
     return {
       registeredAtStartup,
+      runtimeLoadedAtStartup,
+      runtimeSupported,
+      runtimeLoadedAfterRender: card._ptzFeatureController.isLoaded(),
       registeredAfterRender: Boolean(
         customElements.get("circle-pad-control-2"),
       ),
-      mounted: Boolean(pad.shadowRoot?.querySelector(".circle-pad")),
+      mounted: Boolean(pad?.shadowRoot?.querySelector(".circle-pad")),
+      zoomDeltas,
     };
   });
 
   expect(state).toEqual({
     registeredAtStartup: false,
+    runtimeLoadedAtStartup: false,
+    runtimeSupported: true,
+    runtimeLoadedAfterRender: true,
     registeredAfterRender: true,
     mounted: true,
+    zoomDeltas: [0.2],
   });
+  expect(ptzRuntimeRequests).toBe(1);
+  expect(circlePadRequests).toBe(1);
 });
 
 test("loads dashboard swipe navigation only for an enabled owner card", async ({ page }) => {

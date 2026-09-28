@@ -27,3 +27,10 @@ export const createPtzMotionController = (card) =>
 
 export const createPtzInteractionController = (card) =>
   new PtzInteractionController(card);
+
+export const createPtzRuntimeControllers = (card) => ({
+  action: createPtzActionController(card),
+  capability: createPtzCapabilityController(card),
+  interaction: createPtzInteractionController(card),
+  motion: createPtzMotionController(card),
+});

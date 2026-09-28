@@ -62,6 +62,10 @@ test("HACS release artifact is generated under dist", () => {
     true,
   );
   assert.equal(
+    fs.existsSync(repositoryFile("dist/frigate-view-card-ptz.js")),
+    true,
+  );
+  assert.equal(
     fs.existsSync(repositoryFile("dist/frigate-view-card-wide-view.js")),
     true,
   );
@@ -159,6 +163,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-recordings.js"),
     "utf8",
   );
+  const ptzBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-ptz.js"),
+    "utf8",
+  );
   const recordingScrubBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     "utf8",
@@ -190,7 +198,7 @@ test("HACS release artifact is production-minified", () => {
   assert.ok(Buffer.byteLength(bundle) < 1_900_000);
   assert.match(bundle, /frigate-view-card-hls-1\.5\.17\.js/);
   assert.match(bundle, /frigate-view-card-editor\.js/);
-  assert.match(bundle, /frigate-view-card-circle-pad\.js/);
+  assert.doesNotMatch(bundle, /frigate-view-card-circle-pad\.js/);
   assert.match(
     bundle,
     /frigate-view-card-dashboard-swipe-navigation\.js/,
@@ -214,6 +222,10 @@ test("HACS release artifact is production-minified", () => {
   assert.match(bundle, /frigate-view-card-recordings\.js/);
   assert.doesNotMatch(bundle, /_scheduledBrowseNavKey/);
   assert.match(recordingsBundle, /_scheduledBrowseNavKey/);
+  assert.match(bundle, /frigate-view-card-ptz\.js/);
+  assert.doesNotMatch(bundle, /\[Frigate\] PTZ motion failed/);
+  assert.match(ptzBundle, /\[Frigate\] PTZ motion failed/);
+  assert.match(ptzBundle, /frigate-view-card-circle-pad\.js/);
   assert.match(bundle, /frigate-view-card-wide-view\.js/);
   assert.doesNotMatch(bundle, /wide-view-start-grid/);
   assert.doesNotMatch(bundle, /\.card \.wide-view-columns\{position:relative/);
@@ -266,6 +278,7 @@ test("development deployment keeps every lazy page asset beside the card", () =>
     assert.match(source, /frigate-view-card-slideshow\.js/);
     assert.match(source, /frigate-view-card-preview\.js/);
     assert.match(source, /frigate-view-card-recordings\.js/);
+    assert.match(source, /frigate-view-card-ptz\.js/);
     assert.match(source, /frigate-view-card-wide-view\.js/);
     assert.match(source, /frigate-view-card-wide-companion\.js/);
   }

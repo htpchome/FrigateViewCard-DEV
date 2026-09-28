@@ -197,13 +197,8 @@ import {
   hasCameraPtz,
 } from "../features/ptz/index.js";
 import {
-  createPtzActionController,
-  createPtzCapabilityController,
-  createPtzInteractionController,
-  createPtzMotionController,
-  renderPtzControls,
-  syncPtzControlsLabels,
-} from "../features/ptz/composition.js";
+  createLazyPtzControllers,
+} from "../features/ptz/runtime.loader.js";
 import {
   releaseTwoWayTalkTouchFocus,
 } from "../features/two-way-talk/index.js";
@@ -341,10 +336,7 @@ export class FrigateViewCard extends HTMLElement {
       },
     });
     this._linkedLightController = new LazyLinkedLightController(this);
-    this._ptzCapabilityController = createPtzCapabilityController(this);
-    this._ptzExec = createPtzActionController(this);
-    this._ptzMotionController = createPtzMotionController(this);
-    this._ptzInteractionController = createPtzInteractionController(this);
+    Object.assign(this, createLazyPtzControllers(this));
     Object.assign(this, createWideViewTimelineControllers(this));
     this._cardViewPageController = new LazyCardViewPageController(this, {
       PAGE_IDS,
@@ -783,7 +775,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     applyLocalizedText(this.shadowRoot, this._localization.t);
     this._previewPageController?.updatePreviewMeta();
-    syncPtzControlsLabels(this);
+    this._ptzFeatureController.syncControlsLabels();
   }
 
   set hass(hass) {
@@ -4340,7 +4332,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _renderControlsSection(list) {
-    return renderPtzControls(this, list);
+    return this._ptzFeatureController.renderControls(list);
   }
 
   _handleCirclePadPtzEvent(event, eventType) {
