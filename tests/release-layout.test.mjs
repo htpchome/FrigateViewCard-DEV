@@ -58,6 +58,10 @@ test("HACS release artifact is generated under dist", () => {
     true,
   );
   assert.equal(
+    fs.existsSync(repositoryFile("dist/frigate-view-card-recordings.js")),
+    true,
+  );
+  assert.equal(
     fs.existsSync(repositoryFile("dist/frigate-view-card-wide-view.js")),
     true,
   );
@@ -151,6 +155,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-preview.js"),
     "utf8",
   );
+  const recordingsBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-recordings.js"),
+    "utf8",
+  );
   const recordingScrubBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     "utf8",
@@ -203,6 +211,9 @@ test("HACS release artifact is production-minified", () => {
   assert.doesNotMatch(bundle, /preview-grid-empty-slot/);
   assert.match(previewBundle, /data-fvc-preview-page-styles/);
   assert.match(previewBundle, /preview-grid-empty-slot/);
+  assert.match(bundle, /frigate-view-card-recordings\.js/);
+  assert.doesNotMatch(bundle, /_scheduledBrowseNavKey/);
+  assert.match(recordingsBundle, /_scheduledBrowseNavKey/);
   assert.match(bundle, /frigate-view-card-wide-view\.js/);
   assert.doesNotMatch(bundle, /wide-view-start-grid/);
   assert.doesNotMatch(bundle, /\.card \.wide-view-columns\{position:relative/);
@@ -254,6 +265,7 @@ test("development deployment keeps every lazy page asset beside the card", () =>
     assert.match(source, /frigate-view-card-grid\.js/);
     assert.match(source, /frigate-view-card-slideshow\.js/);
     assert.match(source, /frigate-view-card-preview\.js/);
+    assert.match(source, /frigate-view-card-recordings\.js/);
     assert.match(source, /frigate-view-card-wide-view\.js/);
     assert.match(source, /frigate-view-card-wide-companion\.js/);
   }

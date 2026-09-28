@@ -32,6 +32,10 @@ const bundlePaths = new Map([
     "dist/frigate-view-card-preview.js",
   ],
   [
+    "/frigate-view-card-recordings.js",
+    "dist/frigate-view-card-recordings.js",
+  ],
+  [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
@@ -382,6 +386,46 @@ test("Preview Page stays dormant until its enabled route is requested", async ({
     },
   });
   expect(previewRequests).toBe(1);
+});
+
+test("Recordings navigation stays dormant until the Recordings tab is requested", async ({
+  page,
+}) => {
+  let recordingsRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-recordings.js"
+    ) {
+      recordingsRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "single-view",
+    });
+    const before = Boolean(
+      card._recordingsBrowseNavController._delegate,
+    );
+
+    card._tab = "recordings";
+    card._recordingsBrowseNavController.prepareBrowseNav();
+    await card._recordingsBrowseNavController.prepare();
+
+    return {
+      before,
+      after: Boolean(card._recordingsBrowseNavController._delegate),
+    };
+  });
+
+  expect(state).toEqual({ before: false, after: true });
+  expect(recordingsRequests).toBe(1);
 });
 
 test("Preview Page is ready before a configured landing route activates", async ({

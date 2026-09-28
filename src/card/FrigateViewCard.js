@@ -187,12 +187,12 @@ import { isPopupVideoMediaType } from "../features/popup/media.js";
 import {
   buildRecordingsListMarkup,
   disposeRecordingsDayCache,
-  RecordingsBrowseNavController,
   RecordingsDayCache,
   RecordingsSwipeController,
   resetRecordingsDayCache,
   splitRecordingsHourly,
 } from "../features/recordings/index.js";
+import { LazyRecordingsBrowseNavController } from "../features/recordings/runtime.loader.js";
 import {
   hasCameraPtz,
 } from "../features/ptz/index.js";
@@ -384,9 +384,8 @@ export class FrigateViewCard extends HTMLElement {
         isEnabled: () => this._shouldRenderTwoWayTalkSoundwave(),
       });
     this._recordingsDayCache = new RecordingsDayCache();
-    this._recordingsBrowseNavController = new RecordingsBrowseNavController(
-      this,
-    );
+    this._recordingsBrowseNavController =
+      new LazyRecordingsBrowseNavController(this);
     Object.assign(this, createLiveLifecycleControllers(this));
     this._liveViewResizeController = new LiveViewResizeController({
       getLiveWrap: () => this._$("#eng-wrap"),

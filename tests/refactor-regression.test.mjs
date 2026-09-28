@@ -412,6 +412,17 @@ const recordingsBrowseNavControllerSource = fs.readFileSync(
   new URL("../src/features/recordings/browse-nav.ctrl.js", import.meta.url),
   "utf8",
 );
+const recordingsRuntimeLoaderSource = fs.readFileSync(
+  new URL("../src/features/recordings/runtime.loader.js", import.meta.url),
+  "utf8",
+);
+const recordingsRuntimeCompanionSource = fs.readFileSync(
+  new URL(
+    "../src/features/recordings/runtime.companion.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const recordingsSwipeControllerSource = fs.readFileSync(
   new URL("../src/features/recordings/swipe.ctrl.js", import.meta.url),
   "utf8",
@@ -2807,11 +2818,33 @@ test("Card View controller and page shell stay behind its lazy feature asset", (
   );
 });
 
-test("recordings browse nav delegates through the recordings browse nav controller", () => {
-  assert.equal(cardSource.includes("RecordingsBrowseNavController,"), true);
+test("recordings browse nav delegates through the lazy recordings runtime", () => {
   assert.equal(
-    /this\._recordingsBrowseNavController\s*=\s*new RecordingsBrowseNavController\(\s*this,?\s*\)/.test(
+    cardSource.includes("LazyRecordingsBrowseNavController"),
+    true,
+  );
+  assert.equal(
+    /this\._recordingsBrowseNavController\s*=\s*new LazyRecordingsBrowseNavController\(\s*this,?\s*\)/.test(
       cardSource,
+    ),
+    true,
+  );
+  assert.equal(cardSource.includes("new RecordingsBrowseNavController"), false);
+  assert.equal(
+    recordingsRuntimeLoaderSource.includes(
+      "frigate-view-card-recordings.js",
+    ),
+    true,
+  );
+  assert.equal(
+    recordingsRuntimeLoaderSource.includes(
+      "export class LazyRecordingsBrowseNavController",
+    ),
+    true,
+  );
+  assert.equal(
+    recordingsRuntimeCompanionSource.includes(
+      'export { RecordingsBrowseNavController } from "./browse-nav.ctrl.js"',
     ),
     true,
   );

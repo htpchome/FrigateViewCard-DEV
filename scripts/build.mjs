@@ -29,6 +29,7 @@ const cardViewOutputFile = "dist/frigate-view-card-card-view.js";
 const gridOutputFile = "dist/frigate-view-card-grid.js";
 const slideshowOutputFile = "dist/frigate-view-card-slideshow.js";
 const previewOutputFile = "dist/frigate-view-card-preview.js";
+const recordingsOutputFile = "dist/frigate-view-card-recordings.js";
 const wideViewOutputFile = "dist/frigate-view-card-wide-view.js";
 const wideCompanionOutputFile =
   "dist/frigate-view-card-wide-companion.js";
@@ -134,6 +135,10 @@ const previewOutput = await buildBundle({
   entryPoint: "src/features/preview/page.companion.js",
   outfile: previewOutputFile,
 });
+const recordingsOutput = await buildBundle({
+  entryPoint: "src/features/recordings/runtime.companion.js",
+  outfile: recordingsOutputFile,
+});
 const wideViewOutput = await buildBundle({
   entryPoint: "src/features/wide-view/page.companion.js",
   outfile: wideViewOutputFile,
@@ -208,6 +213,9 @@ const slideshowOutputSizeKib = (
 const previewOutputSizeKib = (
   Buffer.byteLength(previewOutput) / 1024
 ).toFixed(1);
+const recordingsOutputSizeKib = (
+  Buffer.byteLength(recordingsOutput) / 1024
+).toFixed(1);
 const wideViewOutputSizeKib = (
   Buffer.byteLength(wideViewOutput) / 1024
 ).toFixed(1);
@@ -243,6 +251,9 @@ console.info(
   `  ${slideshowOutputFile}  ${slideshowOutputSizeKib} KiB (lazy)`,
 );
 console.info(`  ${previewOutputFile}  ${previewOutputSizeKib} KiB (lazy)`);
+console.info(
+  `  ${recordingsOutputFile}  ${recordingsOutputSizeKib} KiB (lazy)`,
+);
 console.info(`  ${wideViewOutputFile}  ${wideViewOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${wideCompanionOutputFile}  ${wideCompanionOutputSizeKib} KiB (lazy)`,
