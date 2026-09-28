@@ -106,6 +106,7 @@ export const createPopupControllers = (
             },
             clientId,
             cam,
+            { forceRefresh: true },
           );
         return resolveRecordingSegmentTimelineRange({
           recordings: recordings || [],

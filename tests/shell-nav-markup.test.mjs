@@ -641,7 +641,13 @@ test("shared shell builders expose stable page region anchors", () => {
     version: "1.0.0",
   });
   const liveEngineWrap = buildLiveEngineWrapMarkup({
-    icons: { live: "L", volOff: "M", volOn: "V", expand: "E" },
+    icons: {
+      live: "L",
+      volOff: "M",
+      volOn: "V",
+      expand: "E",
+      cameraOff: "C",
+    },
     streamMuted: true,
   });
   const liveFullscreen = buildLiveFullscreenControlMarkup({
@@ -671,11 +677,19 @@ test("shared shell builders expose stable page region anchors", () => {
   );
   assert.match(
     liveEngineWrap,
+    /camera-suspended-placeholder__icon">C<\/span>/,
+  );
+  assert.match(
+    liveEngineWrap,
     /id="camera-runtime-confirmation-modal"[^>]* hidden>[\s\S]*?role="dialog"[\s\S]*?data-camera-runtime-confirm-cancel[\s\S]*?data-camera-runtime-confirm/,
   );
   assert.match(
     liveEngineWrap,
     /If Frigate restarts, Frigate will lift this suspension automatically\./,
+  );
+  assert.match(
+    liveEngineWrap,
+    /id="camera-runtime-confirmation-warning"[^>]*data-fvc-i18n="runtime\.live\.cameraSuspendDialogWarning"[^>]*>Warning:/,
   );
   assert.match(
     STYLES,
@@ -865,6 +879,7 @@ test("popup custom media controls include volume and place AirPlay beside fullsc
   assert.match(markup, /id="recording-scrub-preview-image"/);
   assert.match(markup, /id="recording-scrub-preview-label"/);
   assert.match(markup, /id="recording-scrub-play"/);
+  assert.match(markup, /id="recording-scrub-gaps"[^>]*aria-hidden="true"/);
   assert.match(markup, /id="recording-segment-selection"[^>]* hidden/);
   assert.match(
     markup,
@@ -904,6 +919,10 @@ test("popup custom media controls include volume and place AirPlay beside fullsc
   assert.match(
     STYLES,
     /\.recording-scrub-play \{[^}]*width:40px;[^}]*height:44px;/,
+  );
+  assert.match(
+    STYLES,
+    /\.recording-scrub-unavailable \{[^}]*repeating-linear-gradient/,
   );
   assert.match(
     STYLES,

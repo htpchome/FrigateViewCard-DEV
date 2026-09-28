@@ -61,6 +61,26 @@ test("buildRecordingScrubDecorations creates alert and detection marker markup",
   );
 });
 
+test("buildRecordingScrubDecorations paints unavailable recording ranges", () => {
+  const decorations = buildRecordingScrubDecorations({
+    start: 100,
+    end: 200,
+    availableRanges: [
+      { start: 100, end: 140 },
+      { start: 160, end: 200 },
+    ],
+    unavailableLabel: "No footage",
+  });
+
+  assert.deepEqual(decorations.unavailableRanges, [
+    { start: 140, end: 160 },
+  ]);
+  assert.match(
+    decorations.unavailableMarkup,
+    /recording-scrub-unavailable" style="left:40%;width:20%" title="No footage"/,
+  );
+});
+
 test("buildRecordingScrubDecorations labels adjacent recording extensions", () => {
   const decorations = buildRecordingScrubDecorations({
     start: 700,
@@ -132,6 +152,24 @@ test("resolveRecordingScrubTarget snaps to alert starts when appropriate", () =>
     {
       absTarget: 120,
       relTarget: 20,
+    },
+  );
+});
+
+test("resolveRecordingScrubTarget cannot target missing footage", () => {
+  assert.deepEqual(
+    resolveRecordingScrubTarget({
+      ratio: 0.5,
+      start: 100,
+      end: 200,
+      availableRanges: [
+        { start: 100, end: 140 },
+        { start: 170, end: 200 },
+      ],
+    }),
+    {
+      absTarget: 140,
+      relTarget: 40,
     },
   );
 });

@@ -29,6 +29,7 @@ export function resolveRecordingScrubTarget({
   start = 0,
   end = 0,
   alerts = [],
+  availableRanges = [],
 }) {
   const safeStart = Number(start) || 0;
   const safeEnd = Number(end) || 0;
@@ -41,7 +42,13 @@ export function resolveRecordingScrubTarget({
     alerts,
     snapThreshold,
   );
-  const absTarget = Number.isFinite(snapped) ? snapped : rawTarget;
+  const requestedTarget = Number.isFinite(snapped) ? snapped : rawTarget;
+  const absTarget = availableRanges.length
+    ? resolveClosestRecordingAvailableTime({
+        time: requestedTarget,
+        availableRanges,
+      })
+    : requestedTarget;
   const relTarget = Math.max(
     0,
     Math.min(safeEnd - safeStart, absTarget - safeStart),
@@ -67,6 +74,8 @@ export function buildRecordingScrubDecorations({
   recordingStart = start,
   recordingEnd = end,
   alerts = [],
+  availableRanges = [],
+  unavailableLabel = "Footage unavailable",
   tickStepSec = 10 * 60,
 }) {
   const safeStart = Number(start) || 0;
@@ -119,6 +128,22 @@ export function buildRecordingScrubDecorations({
     markerMarkup += `<span class="${markerClass}" data-recording-alert-index="${index}" style="left:${Math.max(0, left)}%;width:${Math.min(100, width)}%"></span>`;
   });
 
+  const unavailableRanges = availableRanges.length
+    ? resolveRecordingUnavailableRanges({
+        availableRanges,
+        start: safeStart,
+        end: safeEnd,
+      })
+    : [];
+  const safeUnavailableLabel = escapeHtmlAttribute(unavailableLabel);
+  const unavailableMarkup = unavailableRanges
+    .map((range) => {
+      const left = ((range.start - safeStart) / span) * 100;
+      const width = ((range.end - range.start) / span) * 100;
+      return `<span class="recording-scrub-unavailable" style="left:${Math.max(0, left)}%;width:${Math.min(100, width)}%" title="${safeUnavailableLabel}" aria-label="${safeUnavailableLabel}"></span>`;
+    })
+    .join("");
+
   return {
     span,
     labelStart:
@@ -132,6 +157,8 @@ export function buildRecordingScrubDecorations({
     labelNow: `${formatRecordingScrubTime(0)} / ${formatRecordingScrubTime(recordingSpan)}`,
     tickMarkup,
     markerMarkup,
+    unavailableMarkup,
+    unavailableRanges,
   };
 }
 
@@ -242,3 +269,8 @@ export function resolveRecordingSeekOutcome({
     fallbackEnd: Math.floor((Number(absTarget) || 0) + span),
   };
 }
+import { escapeHtmlAttribute } from "../../../shared/html.js";
+import {
+  resolveClosestRecordingAvailableTime,
+  resolveRecordingUnavailableRanges,
+} from "./segment.js";

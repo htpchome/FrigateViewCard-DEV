@@ -81,6 +81,7 @@ const createScrubElements = () => {
   const selectors = [
     "#recording-scrub",
     "#recording-scrub-track",
+    "#recording-scrub-gaps",
     "#recording-scrub-ticks",
     "#recording-scrub-markers",
     "#recording-scrub-cursor",
@@ -575,6 +576,82 @@ test("popup recording segment manager extends only its selectable timeline", asy
     end: 200,
   });
   assert.equal(elements.get("#recording-segment-reset").disabled, true);
+});
+
+test("popup recording scrub blocks missing footage in seeking and segment actions", async () => {
+  const elements = createScrubElements();
+  const downloads = [];
+  let bindingOptions;
+  const video = createElement();
+  video.currentTime = 0;
+  video.duration = 80;
+  video.paused = true;
+  const controller = new PopupRecordingScrubController({
+    query: (selector) => elements.get(selector) || null,
+    isPlaybackTokenCurrent: () => true,
+    resolveSegmentTimeline: async () => ({
+      start: 100,
+      end: 200,
+      availableRanges: [
+        { start: 100, end: 140 },
+        { start: 160, end: 200 },
+      ],
+    }),
+    onDownloadSegment: (...args) => downloads.push(args),
+    createScrubBinding: (options) => {
+      bindingOptions = options;
+      return { bind() {}, dispose() {} };
+    },
+  });
+
+  await controller.initialize({
+    clientId: "frigate",
+    cam: "front",
+    start: 100,
+    end: 200,
+    video,
+    token: 1,
+  });
+
+  assert.match(
+    elements.get("#recording-scrub-gaps").innerHTML,
+    /recording-scrub-unavailable[^>]*left:40%;width:20%/,
+  );
+  assert.equal(
+    elements
+      .get("#recording-scrub-track")
+      .classList.contains("has-unavailable-footage"),
+    true,
+  );
+
+  bindingOptions.seekToRatio(0.5);
+  assert.equal(controller._state.pendingAbsTarget, 140);
+  assert.equal(controller._state.pendingRelTarget, 40);
+  bindingOptions.seekToRatio(0.75);
+  assert.equal(controller._state.pendingAbsTarget, 175);
+  assert.equal(controller._state.pendingRelTarget, 55);
+  assert.equal(bindingOptions.resolveCurrentTime(40), 160);
+
+  controller.toggleSegmentManager(true);
+  assert.deepEqual(controller.segmentRange(), { start: 100, end: 140 });
+  controller._state.segmentStart = 120;
+  controller._state.segmentEnd = 180;
+  controller._syncSegmentUi();
+  assert.equal(
+    elements.get("#recording-segment-duration").textContent,
+    "Selection includes unavailable footage",
+  );
+  assert.equal(
+    elements.get("#recording-segment-preview-button").disabled,
+    true,
+  );
+  assert.equal(elements.get("#recording-segment-download").disabled, true);
+  await controller._downloadSelectedSegment();
+  assert.deepEqual(downloads, []);
+
+  controller._updateSegmentHandle("start", 150);
+  assert.deepEqual(controller.segmentRange(), { start: 160, end: 180 });
+  assert.equal(elements.get("#recording-segment-download").disabled, false);
 });
 
 test("recording segment preview loads the selected range and cleans up its modal", async () => {

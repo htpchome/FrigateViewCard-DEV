@@ -341,6 +341,7 @@ test("popup composition keeps recording timeline expansion inside the popup feat
       { start: 0, end: 200 },
       "client",
       "doorbell",
+      { forceRefresh: true },
     ],
   ]);
 });

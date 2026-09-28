@@ -12,6 +12,7 @@ export const cardView = "<svg fill=\"currentColor\" viewBox=\"0 0 24 24\"><path 
 export const airplayVideo = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M6 22h12l-6-6-6 6M21 3H3c-1.11 0-2 .89-2 2v12c0 1.1.9 2 2 2h4v-2H3V5h18v12h-4v2h4c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2Z\"/></svg>";
 export const webrtc = "<svg fill=\"currentColor\" viewBox=\"0 0 24 24\"><path d=\"M12 2C14.44 2 16.5 3.75 16.91 6.07L17.75 6C20.5 6 22.75 8.24 22.75 11C22.75 12.89 21.7 14.53 20.16 15.38C20.54 16.09 20.75 16.89 20.75 17.75C20.75 20.5 18.5 22.75 15.75 22.75C14.26 22.75 12.92 22.1 12 21.06C11.08 22.1 9.74 22.75 8.25 22.75C5.5 22.75 3.25 20.5 3.25 17.75C3.25 16.89 3.47 16.09 3.84 15.38C2.3 14.53 1.25 12.89 1.25 11C1.25 8.24 3.5 6 6.25 6L7.09 6.07C7.5 3.75 9.56 2 12 2M6.75 20.25L13.66 17H17C17.55 17 18 16.55 18 16V9C18 8.45 17.55 8 17 8H7C6.45 8 6 8.45 6 9V16C6 16.55 6.45 17 7 17H7.77L6.75 20.25Z\" /></svg>";
 export const live = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z\"/></svg>";
+export const cameraOff = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M3.27 2 2 3.27 3.73 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14l3.73 3.73L22 21.46 3.27 2M3 17V7h2.73l10 10H3M17 10.5V7a2 2 0 0 0-2-2H9.82L17 12.18V10.5M21 6.5l-4 4v2.68l4 4V6.5Z\"/></svg>";
 export const power = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M13 3h-2v10h2V3m4.83 2.17-1.42 1.42A7 7 0 1 1 7.58 6.59L6.17 5.17A9 9 0 1 0 17.83 5.17Z\"/></svg>";
 export const recordings = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z\"/></svg>";
 export const clips = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z\"/></svg>";
@@ -73,6 +74,7 @@ export const ICONS = {
   airplayVideo,
   webrtc,
   live,
+  cameraOff,
   power,
   recordings,
   clips,

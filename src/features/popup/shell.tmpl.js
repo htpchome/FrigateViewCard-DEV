@@ -24,6 +24,7 @@ export function buildPopupShellMarkup({ icons, version }) {
                   <div class="recording-scrub-main-row">
                     <button class="recording-scrub-play" id="recording-scrub-play" type="button" title="Play recording" aria-label="Play recording" data-fvc-i18n-title="runtime.popup.segment.playRecording" data-fvc-i18n-aria-label="runtime.popup.segment.playRecording">${icons.play}</button>
                     <div class="recording-scrub-track" id="recording-scrub-track">
+                      <div class="recording-scrub-gaps" id="recording-scrub-gaps" aria-hidden="true"></div>
                       <div class="recording-segment-selection" id="recording-segment-selection" hidden>
                         <div class="recording-segment-shade recording-segment-shade--start" id="recording-segment-shade-start"></div>
                         <div class="recording-segment-keep" id="recording-segment-keep"></div>

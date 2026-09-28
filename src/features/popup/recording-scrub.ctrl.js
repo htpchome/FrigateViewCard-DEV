@@ -5,11 +5,17 @@ import {
   buildRecordingScrubDecorations,
   formatRecordingScrubTime,
   isRecordingSeekVerified,
+  isRecordingRangeContinuouslyAvailable,
+  recordingAvailableDuration,
   RecordingScrubController,
+  resolveClosestRecordingAvailableTime,
+  resolveRecordingAvailableRanges,
+  resolveRecordingMediaTime,
   resolveRecordingScrubTarget,
   resolveRecordingSeekExecutionPlan,
   resolveRecordingSeekOutcome,
   resolveRecordingSeekTimeout,
+  resolveRecordingTimelineTime,
 } from "../recordings/index.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -197,8 +203,21 @@ export class PopupRecordingScrubController {
 
   toggleSegmentManager(force = null) {
     if (!this._state) return false;
+    const wasOpen = this._state.segmentOpen;
     this._state.segmentOpen =
       typeof force === "boolean" ? force : !this._state.segmentOpen;
+    if (!wasOpen && this._state.segmentOpen) {
+      const availableRanges = this._playbackAvailableRanges();
+      if (
+        !isRecordingRangeContinuouslyAvailable({
+          start: this._state.segmentStart,
+          end: this._state.segmentEnd,
+          availableRanges,
+        })
+      ) {
+        this._resetSegmentToCurrentAvailableRange();
+      }
+    }
     this._renderCurrentDecorations();
     this._syncSegmentUi();
     this._setCursor(
@@ -209,8 +228,7 @@ export class PopupRecordingScrubController {
 
   resetSegmentSelection() {
     if (!this._state) return null;
-    this._state.segmentStart = this._state.start;
-    this._state.segmentEnd = this._state.end;
+    this._resetSegmentToCurrentAvailableRange();
     this._syncSegmentUi();
     return this.segmentRange();
   }
@@ -331,6 +349,7 @@ export class PopupRecordingScrubController {
       end,
       timelineStart: start,
       timelineEnd: end,
+      availableRanges: [{ start, end }],
       alerts: [],
       video,
       cursor: elements.cursor,
@@ -368,6 +387,8 @@ export class PopupRecordingScrubController {
       state,
       setCursor: (timeSec) => this._setCursor(timeSec),
       seekToRatio: (ratio, options) => this._seekToRatio(ratio, options),
+      resolveCurrentTime: (currentTime) =>
+        this._videoTimeToAbsolute(state, currentTime),
       formatTime: formatRecordingScrubTime,
     });
     this._binding.bind();
@@ -404,9 +425,31 @@ export class PopupRecordingScrubController {
           end,
           Number.isFinite(Number(timeline?.end)) ? Number(timeline.end) : end,
         );
+        state.availableRanges = Array.isArray(timeline?.availableRanges)
+          ? resolveRecordingAvailableRanges({
+              recordings: timeline.availableRanges,
+              start: state.timelineStart,
+              end: state.timelineEnd,
+            })
+          : [{ start: state.timelineStart, end: state.timelineEnd }];
+        if (!state.availableRanges.length) {
+          state.availableRanges = [{ start, end }];
+        }
+        if (
+          state.segmentOpen &&
+          !isRecordingRangeContinuouslyAvailable({
+            start: state.segmentStart,
+            end: state.segmentEnd,
+            availableRanges: this._activeAvailableRanges(),
+          })
+        ) {
+          this._resetSegmentToCurrentAvailableRange();
+        }
         this._renderCurrentDecorations(elements);
         this._syncSegmentUi(elements);
-        this._setCursor(start + Number(video.currentTime || 0));
+        this._setCursor(
+          this._videoTimeToAbsolute(state, Number(video.currentTime || 0)),
+        );
         return timeline;
       });
 
@@ -435,10 +478,11 @@ export class PopupRecordingScrubController {
     this._segmentDrag = null;
     this._state = null;
 
-    const { scrub, ticks, markers, preview, previewImage } = elements;
+    const { scrub, gaps, ticks, markers, preview, previewImage } = elements;
     if (scrub) scrub.hidden = true;
     if (ticks) ticks.innerHTML = "";
     if (markers) markers.innerHTML = "";
+    if (gaps) gaps.innerHTML = "";
     if (preview) preview.hidden = true;
     previewImage?.removeAttribute?.("src");
     this._syncSegmentUi(elements);
@@ -486,6 +530,93 @@ export class PopupRecordingScrubController {
     };
   }
 
+  _availableRangesFor({ start, end }) {
+    const state = this._state;
+    if (!state) return [];
+    return resolveRecordingAvailableRanges({
+      recordings: state.availableRanges,
+      start,
+      end,
+    });
+  }
+
+  _activeAvailableRanges() {
+    return this._availableRangesFor(this._activeTimelineRange());
+  }
+
+  _playbackAvailableRanges() {
+    const state = this._state;
+    if (!state) return [];
+    return this._availableRangesFor({ start: state.start, end: state.end });
+  }
+
+  _usesCompressedAvailabilityTimeline(state = this._state) {
+    const videoDuration = Number(state?.video?.duration);
+    if (!state || !Number.isFinite(videoDuration) || videoDuration <= 0) {
+      return false;
+    }
+    const fullDuration = Math.max(0, state.end - state.start);
+    const availableDuration = recordingAvailableDuration(
+      this._playbackAvailableRanges(),
+    );
+    if (fullDuration - availableDuration <= 1) return false;
+    return (
+      Math.abs(videoDuration - availableDuration) + 0.5 <
+      Math.abs(videoDuration - fullDuration)
+    );
+  }
+
+  _videoTimeToAbsolute(state, currentTime) {
+    const playbackRanges = this._playbackAvailableRanges();
+    if (!this._usesCompressedAvailabilityTimeline(state)) {
+      return Number(state?.start || 0) + Number(currentTime || 0);
+    }
+    return resolveRecordingTimelineTime({
+      mediaTime: currentTime,
+      availableRanges: playbackRanges,
+    });
+  }
+
+  _absoluteToVideoTime(state, absoluteTime) {
+    const playbackRanges = this._playbackAvailableRanges();
+    if (!this._usesCompressedAvailabilityTimeline(state)) {
+      return Number(absoluteTime || 0) - Number(state?.start || 0);
+    }
+    return resolveRecordingMediaTime({
+      time: absoluteTime,
+      availableRanges: playbackRanges,
+    });
+  }
+
+  _resetSegmentToCurrentAvailableRange() {
+    const state = this._state;
+    if (!state) return;
+    const availableRanges = this._playbackAvailableRanges();
+    if (
+      !availableRanges.length ||
+      isRecordingRangeContinuouslyAvailable({
+        start: state.start,
+        end: state.end,
+        availableRanges,
+      })
+    ) {
+      state.segmentStart = state.start;
+      state.segmentEnd = state.end;
+      return;
+    }
+
+    const currentTime = this._videoTimeToAbsolute(
+      state,
+      Number(state.video?.currentTime || 0),
+    );
+    const selectedRange =
+      availableRanges.find(
+        (range) => currentTime >= range.start && currentTime <= range.end,
+      ) || availableRanges[0];
+    state.segmentStart = selectedRange.start;
+    state.segmentEnd = selectedRange.end;
+  }
+
   _renderCurrentDecorations(
     elements = this._segmentElements || this._elements(),
   ) {
@@ -498,12 +629,20 @@ export class PopupRecordingScrubController {
       recordingStart: state.start,
       recordingEnd: state.end,
       alerts: state.alerts,
+      availableRanges: this._activeAvailableRanges(),
     });
   }
 
   _renderDecorations(
     elements,
-    { start, end, recordingStart = start, recordingEnd = end, alerts = [] } = {},
+    {
+      start,
+      end,
+      recordingStart = start,
+      recordingEnd = end,
+      alerts = [],
+      availableRanges = [],
+    } = {},
   ) {
     const decorations = buildRecordingScrubDecorations({
       start,
@@ -511,6 +650,10 @@ export class PopupRecordingScrubController {
       recordingStart,
       recordingEnd,
       alerts,
+      availableRanges,
+      unavailableLabel:
+        this._t?.("runtime.popup.segment.footageUnavailable") ||
+        "Footage unavailable",
     });
     if (elements.labelStart) {
       elements.labelStart.textContent = decorations.labelStart;
@@ -526,12 +669,20 @@ export class PopupRecordingScrubController {
     if (elements.markers) {
       elements.markers.innerHTML = decorations.markerMarkup;
     }
+    if (elements.gaps) {
+      elements.gaps.innerHTML = decorations.unavailableMarkup;
+    }
+    elements.track?.classList?.toggle?.(
+      "has-unavailable-footage",
+      decorations.unavailableRanges.length > 0,
+    );
   }
 
   _elements() {
     return {
       scrub: this._query?.("#recording-scrub"),
       track: this._query?.("#recording-scrub-track"),
+      gaps: this._query?.("#recording-scrub-gaps"),
       ticks: this._query?.("#recording-scrub-ticks"),
       markers: this._query?.("#recording-scrub-markers"),
       cursor: this._query?.("#recording-scrub-cursor"),
@@ -649,13 +800,21 @@ export class PopupRecordingScrubController {
     const state = this._state;
     if (!state || !["start", "end"].includes(handle)) return;
     const timeline = this._activeTimelineRange();
+    const availableRanges = this._activeAvailableRanges();
+    const availableValue = availableRanges.length
+      ? resolveClosestRecordingAvailableTime({
+          time: value,
+          availableRanges,
+          preference: handle === "start" ? "next" : "previous",
+        })
+      : value;
     const selection = resolveRecordingSegmentSelection({
       rangeStart: timeline.start,
       rangeEnd: timeline.end,
       selectionStart: state.segmentStart,
       selectionEnd: state.segmentEnd,
       handle,
-      value,
+      value: availableValue,
     });
     state.segmentStart = selection.start;
     state.segmentEnd = selection.end;
@@ -844,23 +1003,38 @@ export class PopupRecordingScrubController {
       elements.segmentPreviewRange.textContent = `${startClock} – ${endClock}`;
     }
     const duration = Math.max(0, state.segmentEnd - state.segmentStart);
+    const selectionAvailable = isRecordingRangeContinuouslyAvailable({
+      start: state.segmentStart,
+      end: state.segmentEnd,
+      availableRanges: this._activeAvailableRanges(),
+    });
     const fullRecording =
       state.segmentStart === state.start && state.segmentEnd === state.end;
     const durationText = formatRecordingScrubTime(duration);
     this._setLocalizedCopy(
       elements.segmentDuration,
-      fullRecording
-        ? "runtime.popup.segment.entireRecordingDuration"
-        : "runtime.popup.segment.selectedDuration",
-      fullRecording
-        ? `Entire recording · ${durationText}`
-        : `Selected duration · ${durationText}`,
+      !selectionAvailable
+        ? "runtime.popup.segment.selectionUnavailable"
+        : fullRecording
+          ? "runtime.popup.segment.entireRecordingDuration"
+          : "runtime.popup.segment.selectedDuration",
+      !selectionAvailable
+        ? "Selection includes unavailable footage"
+        : fullRecording
+          ? `Entire recording · ${durationText}`
+          : `Selected duration · ${durationText}`,
       { duration: durationText },
     );
-    if (elements.segmentReset) elements.segmentReset.disabled = fullRecording;
+    elements.segmentManager?.classList?.toggle?.(
+      "has-unavailable-selection",
+      !selectionAvailable,
+    );
+    if (elements.segmentReset) {
+      elements.segmentReset.disabled = fullRecording && selectionAvailable;
+    }
     if (elements.segmentPreviewButton) {
       elements.segmentPreviewButton.disabled =
-        duration < 1 || state.segmentPreviewPending;
+        duration < 1 || !selectionAvailable || state.segmentPreviewPending;
       elements.segmentPreviewButton.setAttribute?.(
         "aria-busy",
         String(state.segmentPreviewPending),
@@ -868,7 +1042,7 @@ export class PopupRecordingScrubController {
     }
     if (elements.segmentDownload) {
       elements.segmentDownload.disabled =
-        duration < 1 || state.segmentDownloadPending;
+        duration < 1 || !selectionAvailable || state.segmentDownloadPending;
       elements.segmentDownload.setAttribute?.(
         "aria-busy",
         String(state.segmentDownloadPending),
@@ -876,7 +1050,7 @@ export class PopupRecordingScrubController {
     }
     if (elements.segmentPreviewDownload) {
       elements.segmentPreviewDownload.disabled =
-        duration < 1 || state.segmentDownloadPending;
+        duration < 1 || !selectionAvailable || state.segmentDownloadPending;
       elements.segmentPreviewDownload.setAttribute?.(
         "aria-busy",
         String(state.segmentDownloadPending),
@@ -941,6 +1115,11 @@ export class PopupRecordingScrubController {
       !state?.segmentOpen ||
       state.segmentPreviewPending ||
       state.segmentEnd <= state.segmentStart ||
+      !isRecordingRangeContinuouslyAvailable({
+        start: state.segmentStart,
+        end: state.segmentEnd,
+        availableRanges: this._activeAvailableRanges(),
+      }) ||
       !elements.segmentPreviewModal ||
       !elements.segmentPreviewVideoHost
     ) {
@@ -1126,7 +1305,12 @@ export class PopupRecordingScrubController {
     if (
       !state?.segmentOpen ||
       state.segmentDownloadPending ||
-      state.segmentEnd <= state.segmentStart
+      state.segmentEnd <= state.segmentStart ||
+      !isRecordingRangeContinuouslyAvailable({
+        start: state.segmentStart,
+        end: state.segmentEnd,
+        availableRanges: this._activeAvailableRanges(),
+      })
     ) {
       return;
     }
@@ -1168,11 +1352,23 @@ export class PopupRecordingScrubController {
       start: timeline.start,
       end: timeline.end,
       alerts: state.alerts,
+      availableRanges: this._activeAvailableRanges(),
     });
-    const absTarget = clamp(timelineTarget.absTarget, state.start, state.end);
+    const clampedTarget = clamp(
+      timelineTarget.absTarget,
+      state.start,
+      state.end,
+    );
+    const playbackAvailableRanges = this._playbackAvailableRanges();
+    const absTarget = playbackAvailableRanges.length
+      ? resolveClosestRecordingAvailableTime({
+          time: clampedTarget,
+          availableRanges: playbackAvailableRanges,
+        })
+      : clampedTarget;
     const target = {
       absTarget,
-      relTarget: absTarget - state.start,
+      relTarget: this._absoluteToVideoTime(state, absTarget),
     };
 
     state.pendingAbsTarget = target.absTarget;

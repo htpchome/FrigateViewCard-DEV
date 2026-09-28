@@ -12,6 +12,7 @@ export class RecordingScrubController {
     state,
     setCursor,
     seekToRatio,
+    resolveCurrentTime = null,
     formatTime = null,
   }) {
     this._track = track;
@@ -24,6 +25,7 @@ export class RecordingScrubController {
     this._state = state;
     this._setCursor = setCursor;
     this._seekToRatio = seekToRatio;
+    this._resolveCurrentTime = resolveCurrentTime;
     this._formatTime =
       typeof formatTime === "function" ? formatTime : (value) => String(value);
     this._cleanup = new CleanupController();
@@ -229,8 +231,10 @@ export class RecordingScrubController {
 
   _onTimeUpdate = () => {
     if (this._state?.isScrubbing) return;
-    this._setCursor?.(
-      Number(this._state.start || 0) + Number(this._video.currentTime || 0),
-    );
+    const currentTime = Number(this._video.currentTime || 0);
+    const timelineTime = this._resolveCurrentTime
+      ? this._resolveCurrentTime(currentTime)
+      : Number(this._state.start || 0) + currentTime;
+    this._setCursor?.(timelineTime);
   };
 }

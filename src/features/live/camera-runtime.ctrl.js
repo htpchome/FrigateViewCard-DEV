@@ -13,6 +13,9 @@ const DIALOG_COPY = Object.freeze({
     detailKey: "runtime.live.cameraSuspendDialogDetail",
     detail:
       "Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.",
+    warningKey: "runtime.live.cameraSuspendDialogWarning",
+    warning:
+      "Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and FrigateViewCard. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.",
     actionKey: "runtime.live.suspendCamera",
     action: "Suspend camera",
   },
@@ -39,8 +42,10 @@ export class FrigateCameraRuntimeController {
     this._confirmationTimer = null;
     this._dialogState = null;
     this._dialogElement = null;
+    this._dialogDocument = null;
     this._dialogReturnFocus = null;
     this._onDialogKeyDown = (event) => this._handleDialogKeyDown(event);
+    this._onDocumentClick = (event) => this._handleDocumentClick(event);
   }
 
   activeEntity() {
@@ -190,9 +195,18 @@ export class FrigateCameraRuntimeController {
     const copy = suspending ? DIALOG_COPY.suspend : DIALOG_COPY.resume;
     const title = modal.querySelector?.("#camera-runtime-confirmation-title");
     const detail = modal.querySelector?.("#camera-runtime-confirmation-detail");
+    const warning = modal.querySelector?.(
+      "#camera-runtime-confirmation-warning",
+    );
     const submit = modal.querySelector?.("#camera-runtime-confirmation-submit");
     this._setDialogText(title, copy.titleKey, copy.title);
     this._setDialogText(detail, copy.detailKey, copy.detail);
+    if (warning) {
+      warning.hidden = !suspending;
+      if (suspending) {
+        this._setDialogText(warning, copy.warningKey, copy.warning);
+      }
+    }
     this._setDialogText(submit, copy.actionKey, copy.action);
     submit?.setAttribute?.("data-fvc-i18n-title", copy.actionKey);
     submit?.setAttribute?.("data-fvc-i18n-aria-label", copy.actionKey);
@@ -201,6 +215,23 @@ export class FrigateCameraRuntimeController {
     submit?.classList?.toggle?.("is-resume", !suspending);
     modal.dataset.cameraRuntimeAction = suspending ? "suspend" : "resume";
     modal.hidden = false;
+    const ownerDocument = modal.ownerDocument || globalThis.document;
+    if (this._dialogDocument !== ownerDocument) {
+      this._dialogDocument?.removeEventListener?.(
+        "click",
+        this._onDocumentClick,
+        true,
+      );
+      this._dialogDocument = ownerDocument || null;
+      this._dialogDocument?.addEventListener?.(
+        "click",
+        this._onDocumentClick,
+        true,
+      );
+    }
+    this._host._$("#eng-wrap")?.classList?.add?.(
+      "camera-runtime-confirmation-open",
+    );
     applyLocalizedText(modal, this._host._localization?.t);
     if (focus) {
       modal.querySelector?.(".camera-runtime-confirmation-cancel")?.focus?.();
@@ -230,9 +261,18 @@ export class FrigateCameraRuntimeController {
       modal.removeEventListener?.("keydown", this._onDialogKeyDown);
       modal.hidden = true;
     }
+    this._host._$("#eng-wrap")?.classList?.remove?.(
+      "camera-runtime-confirmation-open",
+    );
+    this._dialogDocument?.removeEventListener?.(
+      "click",
+      this._onDocumentClick,
+      true,
+    );
     const returnFocus = this._dialogReturnFocus;
     this._dialogState = null;
     this._dialogElement = null;
+    this._dialogDocument = null;
     this._dialogReturnFocus = null;
     if (restoreFocus) returnFocus?.focus?.();
   }
@@ -262,6 +302,24 @@ export class FrigateCameraRuntimeController {
       event.preventDefault?.();
       first.focus?.();
     }
+  }
+
+  _handleDocumentClick(event) {
+    if (!this._dialogState || !this._dialogElement) return;
+    const dialog = this._dialogElement.querySelector?.(
+      ".camera-runtime-confirmation-dialog",
+    );
+    const path = event?.composedPath?.() || [];
+    if (
+      path.includes(dialog) ||
+      (!path.length && dialog?.contains?.(event?.target))
+    ) {
+      return;
+    }
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+    this.closeConfirmation();
   }
 
   sync(entity = this.activeEntity()) {

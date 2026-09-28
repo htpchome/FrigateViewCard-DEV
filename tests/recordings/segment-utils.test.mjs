@@ -2,8 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  isRecordingRangeContinuouslyAvailable,
   mergeRecordingSegments,
+  recordingAvailableDuration,
+  resolveClosestRecordingAvailableTime,
+  resolveRecordingAvailableRanges,
+  resolveRecordingMediaTime,
   resolveRecordingSegmentTimelineRange,
+  resolveRecordingTimelineTime,
+  resolveRecordingUnavailableRanges,
   splitRecordingsHourly,
 } from "../../src/features/recordings/utils/segment.js";
 
@@ -66,7 +73,14 @@ test("recording segment timeline exposes five available minutes on both sides", 
       end: 7200,
       nowSec: 10000,
     }),
-    { start: 3300, end: 7500 },
+    {
+      start: 3300,
+      end: 7500,
+      availableRanges: [
+        { start: 3300, end: 5000 },
+        { start: 5060, end: 7500 },
+      ],
+    },
   );
 });
 
@@ -78,7 +92,11 @@ test("recording segment timeline limits extensions to available footage", () => 
       end: 7200,
       nowSec: 10000,
     }),
-    { start: 3500, end: 7350 },
+    {
+      start: 3500,
+      end: 7350,
+      availableRanges: [{ start: 3500, end: 7350 }],
+    },
   );
 });
 
@@ -93,7 +111,11 @@ test("recording segment timeline does not cross an unavailable recording gap", (
       end: 7200,
       nowSec: 10000,
     }),
-    { start: 3600, end: 7500 },
+    {
+      start: 3600,
+      end: 7500,
+      availableRanges: [{ start: 3601, end: 7500 }],
+    },
   );
 });
 
@@ -105,7 +127,100 @@ test("current partial recording timeline has pre-roll but no trailing area", () 
       end: 9420,
       nowSec: 9450,
     }),
-    { start: 6900, end: 9420 },
+    {
+      start: 6900,
+      end: 9420,
+      availableRanges: [{ start: 6900, end: 9420 }],
+    },
+  );
+});
+
+test("recording availability exposes missing intervals without changing hourly grouping", () => {
+  const availableRanges = resolveRecordingAvailableRanges({
+    recordings: [
+      { start_time: 100, end_time: 140 },
+      { start_time: 141, end_time: 160 },
+      { start_time: 180, end_time: 220 },
+    ],
+    start: 90,
+    end: 230,
+  });
+
+  assert.deepEqual(availableRanges, [
+    { start: 100, end: 160 },
+    { start: 180, end: 220 },
+  ]);
+  assert.deepEqual(
+    resolveRecordingUnavailableRanges({
+      availableRanges,
+      start: 90,
+      end: 230,
+    }),
+    [
+      { start: 90, end: 100 },
+      { start: 160, end: 180 },
+      { start: 220, end: 230 },
+    ],
+  );
+});
+
+test("recording availability clamps unavailable targets and validates continuous selections", () => {
+  const availableRanges = [
+    { start: 100, end: 140 },
+    { start: 160, end: 200 },
+  ];
+
+  assert.equal(
+    resolveClosestRecordingAvailableTime({
+      time: 145,
+      availableRanges,
+    }),
+    140,
+  );
+  assert.equal(
+    resolveClosestRecordingAvailableTime({
+      time: 145,
+      availableRanges,
+      preference: "next",
+    }),
+    160,
+  );
+  assert.equal(
+    isRecordingRangeContinuouslyAvailable({
+      start: 120,
+      end: 180,
+      availableRanges,
+    }),
+    false,
+  );
+  assert.equal(
+    isRecordingRangeContinuouslyAvailable({
+      start: 160,
+      end: 190,
+      availableRanges,
+    }),
+    true,
+  );
+});
+
+test("recording availability maps wall-clock gaps onto compressed media time", () => {
+  const availableRanges = [
+    { start: 100, end: 140 },
+    { start: 160, end: 200 },
+  ];
+
+  assert.equal(recordingAvailableDuration(availableRanges), 80);
+  assert.equal(
+    resolveRecordingMediaTime({ time: 175, availableRanges }),
+    55,
+  );
+  assert.equal(
+    resolveRecordingTimelineTime({ mediaTime: 40, availableRanges }),
+    160,
+  );
+  assert.equal(
+    resolveRecordingTimelineTime({ mediaTime: 55, availableRanges }),
+    175,
   );
 });
 
