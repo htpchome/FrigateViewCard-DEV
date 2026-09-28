@@ -62,7 +62,8 @@ export const createLiveLifecycleControllers = (
     getRotateOverlayActive: () => card._rotateOverlayActive,
     attachVideoFit: attachContainedVideoFit,
     setActiveStreamType: (type) => card._setActiveStreamType(type),
-    setStreamLoading: (loading) => card._setStreamLoading(loading),
+    setStreamLoading: (loading, text) =>
+      card._setStreamLoading(loading, text),
     setStreamFallbackVisible: (visible, refreshImage = false) =>
       card._setStreamFallbackVisible(visible, refreshImage),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
@@ -129,7 +130,8 @@ export const createLiveLifecycleControllers = (
         card._assignLiveEngine(null, { retainPrevious: true });
         return true;
       },
-      setStreamLoading: (loading) => card._setStreamLoading(loading),
+      setStreamLoading: (loading, text) =>
+        card._setStreamLoading(loading, text),
       setStreamFallbackVisible: (visible, refreshImage = false) =>
         card._setStreamFallbackVisible(visible, refreshImage),
       scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
@@ -189,7 +191,8 @@ export const createLiveLifecycleControllers = (
       }),
     preferredStreamType: () => card._preferredStreamType(),
     setActiveStreamType: (type) => card._setActiveStreamType(type),
-    setStreamLoading: (loading) => card._setStreamLoading(loading),
+    setStreamLoading: (loading, text) =>
+      card._setStreamLoading(loading, text),
     setStreamFallbackVisible: (visible, refreshImage = false) =>
       card._setStreamFallbackVisible(visible, refreshImage),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),

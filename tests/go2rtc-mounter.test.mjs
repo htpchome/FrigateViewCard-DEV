@@ -716,6 +716,7 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
     }
 
     let resolvePresented;
+    const startupStates = [];
     const presented = new Promise((resolve) => {
       resolvePresented = resolve;
     });
@@ -745,7 +746,9 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
     });
 
     const mounting = withFakeWindow({ WebSocket: FakeWebSocket }, () =>
-      mounter.tryMountHls(slot),
+      mounter.tryMountHls(slot, null, {
+        onStartupState: (state) => startupStates.push(state),
+      }),
     );
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(sockets.length, 1);
@@ -775,6 +778,12 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
     assert.equal(assignedEngine.video, slot.lastChild);
     assert.equal(assignedEngine.video.loadCalls, 1);
     assert.equal(assignedEngine.video.playCalls, 1);
+    assert.deepEqual(startupStates, [
+      { phase: "connecting", failed: false },
+      { phase: "negotiating", failed: false },
+      { phase: "playlist", failed: false },
+      { phase: "ready", failed: false },
+    ]);
     assert.strictEqual(assignedEngine.ws, sockets[0]);
     assignedEngine.video.dispatchEvent({ type: "error" });
     assert.deepEqual(recoveryReasons, ["hls-error"]);

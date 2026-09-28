@@ -23,6 +23,29 @@ import { GO2RTC_STARTUP_MODES } from "./startup-policy.js";
 const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
 const EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE = "ha-direct-webrtc-live";
 const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
+const LIVE_MOUNT_WATCHDOG_MS = 9000;
+const NATIVE_HLS_MOUNT_WATCHDOG_MS = 20000;
+
+const describeNativeHlsStartupState = ({ phase = "", failed = false } = {}) => {
+  const descriptions = {
+    connecting: "connecting",
+    negotiating: "requesting playlist",
+    playlist: "loading media",
+    ready: "ready",
+    "unsupported-native-hls": "native playback unavailable",
+    "websocket-construction": "connection could not start",
+    "websocket-error": "connection error",
+    "websocket-closed": "connection closed",
+    "server-error": "server rejected request",
+    "invalid-playlist": "invalid playlist",
+    "connection-timeout": "connection timed out",
+    "playlist-timeout": "playlist timed out",
+    "media-error": "media could not load",
+    "media-timeout": "media timed out",
+  };
+  const description = descriptions[phase] || "startup failed";
+  return failed ? `HLS failed: ${description}` : `HLS: ${description}…`;
+};
 
 const resolveEditorHandoffConnectionType = (requestType) => {
   if (requestType === EDITOR_LIVE_HANDOFF_TYPE) return "frigate_go2rtc";
@@ -353,7 +376,10 @@ export function createLiveMountController({
     scheduleResumeLive?.("mount-watchdog-timeout");
   };
 
-  const beginLiveMountSession = (entity) => {
+  const beginLiveMountSession = (
+    entity,
+    { watchdogMs = LIVE_MOUNT_WATCHDOG_MS } = {},
+  ) => {
     const mountState = getMountState?.();
     const { mountToken, nextState } = beginMountTracking({
       mountSeq: mountState?.mountSeq,
@@ -363,7 +389,7 @@ export function createLiveMountController({
     applyMountTrackingState?.(nextState);
     const mountWatchdogT = setTimeout(
       () => onMountWatchdogTimeout(mountToken),
-      9000,
+      watchdogMs,
     );
     return {
       mountToken,
@@ -593,7 +619,14 @@ export function createLiveMountController({
     }
 
     setEngineMountedMuted?.(getStreamMuted?.());
-    const { mountToken, clearMountState } = beginLiveMountSession(targetEntity);
+    const { mountToken, clearMountState } = beginLiveMountSession(
+      targetEntity,
+      {
+        watchdogMs: nativeHlsOnly
+          ? NATIVE_HLS_MOUNT_WATCHDOG_MS
+          : LIVE_MOUNT_WATCHDOG_MS,
+      },
+    );
     try {
       cleanupEngine?.();
       slot.innerHTML = "";
@@ -627,12 +660,20 @@ export function createLiveMountController({
       }
 
       if (nativeHlsOnly) {
+        let hlsStartupState = { phase: "connecting", failed: false };
         const hlsResult = await go2rtcMounter?.tryMountHls?.(
           slot,
           null,
           {
             entity: targetEntity,
             commit: true,
+            onStartupState: (state) => {
+              hlsStartupState = state || hlsStartupState;
+              setStreamLoading?.(
+                true,
+                describeNativeHlsStartupState(hlsStartupState),
+              );
+            },
           },
         );
         if (hlsResult) {
@@ -649,6 +690,13 @@ export function createLiveMountController({
           return false;
         }
         applySnapshotFallbackState?.();
+        setStreamLoading?.(
+          true,
+          describeNativeHlsStartupState({
+            ...hlsStartupState,
+            failed: true,
+          }),
+        );
         return false;
       }
 

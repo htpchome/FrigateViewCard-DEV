@@ -534,6 +534,7 @@ test("live mount controller routes Catalyst-shaped go2rtc through card-managed n
     go2rtcMounter: {
       tryMountHls: async (...args) => {
         calls.push(["hls", ...args]);
+        args[2]?.onStartupState?.({ phase: "ready", failed: false });
         return true;
       },
     },
@@ -545,22 +546,18 @@ test("live mount controller routes Catalyst-shaped go2rtc through card-managed n
     resolveGo2RtcStartupMode: () => "native-hls-only",
     preferredStreamType: () => "webrtc",
     setActiveStreamType: (type) => calls.push(["type", type]),
-    setStreamLoading: (loading) => calls.push(["loading", loading]),
+    setStreamLoading: (...args) => calls.push(["loading", ...args]),
     setStreamFallbackVisible: (...args) => calls.push(["fallback", ...args]),
     scheduleResumeLive: () => {},
     resolveUseGo2Rtc: () => true,
   });
 
   assert.equal(await controller.mount({ entity: "camera.front" }), true);
-  assert.deepEqual(
-    calls.find(([name]) => name === "hls"),
-    [
-      "hls",
-      slot,
-      null,
-      { entity: "camera.front", commit: true },
-    ],
-  );
+  const hlsCall = calls.find(([name]) => name === "hls");
+  assert.deepEqual(hlsCall.slice(0, 3), ["hls", slot, null]);
+  assert.equal(hlsCall[3].entity, "camera.front");
+  assert.equal(hlsCall[3].commit, true);
+  assert.equal(typeof hlsCall[3].onStartupState, "function");
   assert.equal(calls.includes("cleanup"), true);
 });
 
@@ -596,7 +593,12 @@ test("Catalyst-shaped go2rtc HLS failure reveals the snapshot without racing", a
         throw new Error("Catalyst go2rtc must not use HA Direct");
       },
     },
-    go2rtcMounter: { tryMountHls: async () => false },
+    go2rtcMounter: {
+      tryMountHls: async (_slot, _startup, options) => {
+        options.onStartupState({ phase: "playlist-timeout", failed: true });
+        return false;
+      },
+    },
     go2rtcRaceMounter: {
       mountWithRace: async () => {
         throw new Error("HLS failure must not fall into a race");
@@ -605,17 +607,18 @@ test("Catalyst-shaped go2rtc HLS failure reveals the snapshot without racing", a
     resolveGo2RtcStartupMode: () => "native-hls-only",
     preferredStreamType: () => "webrtc",
     setActiveStreamType: (type) => calls.push(["type", type]),
-    setStreamLoading: (loading) => calls.push(["loading", loading]),
+    setStreamLoading: (...args) => calls.push(["loading", ...args]),
     setStreamFallbackVisible: (...args) => calls.push(["fallback", ...args]),
     scheduleResumeLive: () => {},
     resolveUseGo2Rtc: () => true,
   });
 
   assert.equal(await controller.mount({ entity: "camera.front" }), false);
-  assert.deepEqual(calls.slice(-3), [
+  assert.deepEqual(calls.slice(-4), [
     ["type", "snapshot"],
     ["loading", false],
     ["fallback", true, false],
+    ["loading", true, "HLS failed: playlist timed out"],
   ]);
 });
 

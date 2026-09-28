@@ -699,6 +699,12 @@ export function createGo2RtcMounter({
 
   const tryMountHls = async (slot, startup = null, options = {}) => {
     const { waitMs } = resolveHlsStartup(startup || {});
+    let startupState = { phase: "connecting", failed: false };
+    const reportStartupState = (phase, failed = false) => {
+      startupState = { phase, failed };
+      options?.onStartupState?.(startupState);
+    };
+    reportStartupState("connecting");
     const { entity, abortSignal, commit } =
       resolver.resolveMountRequest(options);
     if (abortSignal?.aborted) return false;
@@ -725,7 +731,10 @@ export function createGo2RtcMounter({
       video.canPlayType?.("application/vnd.apple.mpegurl") ||
         video.canPlayType?.("application/x-mpegURL"),
     );
-    if (!supportsNativeHls) return false;
+    if (!supportsNativeHls) {
+      reportStartupState("unsupported-native-hls", true);
+      return false;
+    }
 
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
@@ -750,7 +759,14 @@ export function createGo2RtcMounter({
       recoveryScheduled = true;
       recoveryHandler?.(reason);
     };
-    video.addEventListener("error", () => scheduleRecovery("hls-error"));
+    video.addEventListener("error", () => {
+      if (!streamStarted) {
+        reportStartupState("media-error", true);
+        abortStartup();
+        return;
+      }
+      scheduleRecovery("hls-error");
+    });
     video.addEventListener("ended", () => scheduleRecovery("hls-ended"));
     const destroy = () => {
       if (destroyed) return;
@@ -783,6 +799,7 @@ export function createGo2RtcMounter({
     try {
       ws = new WebSocketCtor(wsUrl);
     } catch (_) {
+      reportStartupState("websocket-construction", true);
       destroy();
       return false;
     }
@@ -824,7 +841,9 @@ export function createGo2RtcMounter({
           { excluded: ["opus"] },
         );
         ws.send(JSON.stringify({ type: "hls", value: codecs }));
+        reportStartupState("negotiating");
       } catch (_) {
+        reportStartupState("websocket-error", true);
         abortStartup();
       }
     });
@@ -837,6 +856,11 @@ export function createGo2RtcMounter({
       } catch (_) {
         return;
       }
+      if (message?.type === "error") {
+        reportStartupState("server-error", true);
+        abortStartup();
+        return;
+      }
       if (message?.type !== "hls" || typeof message.value !== "string") {
         return;
       }
@@ -845,20 +869,28 @@ export function createGo2RtcMounter({
         playlist: message.value,
       });
       if (!dataUrl) {
+        reportStartupState("invalid-playlist", true);
         abortStartup();
         return;
       }
+      reportStartupState("playlist");
       video.src = dataUrl;
       startVideoPlayback(video, { load: true });
     });
 
     ws.addEventListener("error", () => {
-      if (!streamStarted) abortStartup();
+      if (!streamStarted) {
+        reportStartupState("websocket-error", true);
+        abortStartup();
+      }
       scheduleRecovery("hls-error");
     });
 
     ws.addEventListener("close", () => {
-      if (!streamStarted) abortStartup();
+      if (!streamStarted) {
+        reportStartupState("websocket-closed", true);
+        abortStartup();
+      }
       scheduleRecovery("hls-ws-closed");
     });
 
@@ -871,10 +903,20 @@ export function createGo2RtcMounter({
       abortSignal: startupAbort.signal,
     });
     if (!started) {
+      if (!startupState.failed) {
+        const timeoutPhase =
+          startupState.phase === "connecting"
+            ? "connection-timeout"
+            : startupState.phase === "negotiating"
+              ? "playlist-timeout"
+              : "media-timeout";
+        reportStartupState(timeoutPhase, true);
+      }
       destroy();
       return false;
     }
     streamStarted = true;
+    reportStartupState("ready");
 
     return resolveCommittedResult({
       commit,
