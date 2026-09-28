@@ -1949,6 +1949,10 @@ test("editor accordion panels share one compact settings container", () => {
     source,
     /const cameraPanelContent = `[\s\S]*?<div class="section">/,
   );
+  assert.match(
+    source,
+    /const cameraPanelContent = `[\s\S]*?id="cam-list"[\s\S]*?id="camera_suspend_access"[\s\S]*?name: "camera_suspend_access"[\s\S]*?Admin Only[\s\S]*?Everyone/,
+  );
   assert.doesNotMatch(
     source,
     /class="section" style="border-top:none;padding-top:0"/,

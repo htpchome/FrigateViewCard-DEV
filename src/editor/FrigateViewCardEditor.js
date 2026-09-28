@@ -131,6 +131,7 @@ import {
   normalizePageStartMode,
   pageStartModeOptions,
 } from "../features/navigation/start-mode.js";
+import { CAMERA_SUSPEND_ACCESS } from "../features/live/camera-suspension-policy.js";
 import {
   LINKED_LIGHT_POSITIONS,
   linkedLightsForCamera,
@@ -3673,6 +3674,28 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="cam-wrap" id="cam-list">${cameraRows}</div>
         ${canAddCamera ? '<div class="cam-toolbar"><button id="camera-add" class="cam-add" type="button" data-fvc-i18n="editor.actions.add">Add</button></div>' : ""}
         <span class="cam-helper" data-fvc-i18n="editor.cameraPanel.configuredCount" data-fvc-i18n-values="${escapeHtmlAttribute(JSON.stringify({ count: physicalCameraCount, max: MAX_CAMERAS }))}">${physicalCameraCount} of ${MAX_CAMERAS} cameras configured</span>
+      </div>
+      <div class="section">
+        <div class="editor-choice-field editor-choice-field--fit" id="camera_suspend_access" role="radiogroup" aria-label="Who can Suspend a Camera" data-fvc-i18n-aria-label="editor.cameraPanel.suspendAccess">
+          <div class="field-label" data-fvc-i18n="editor.cameraPanel.suspendAccess">Who can Suspend a Camera</div>
+          ${buildEditorBubbleSelectorMarkup({
+            name: "camera_suspend_access",
+            options: [
+              {
+                value: CAMERA_SUSPEND_ACCESS.adminOnly,
+                label: "Admin Only",
+                translationKey: "editor.cameraPanel.suspendAdminOnly",
+              },
+              {
+                value: CAMERA_SUSPEND_ACCESS.everyone,
+                label: "Everyone",
+                translationKey: "editor.cameraPanel.suspendEveryone",
+              },
+            ],
+            selectedValue: this._config?.camera_suspend_access,
+          })}
+          <div class="field-helper" data-fvc-i18n="editor.cameraPanel.suspendAccessHelp">Applies to the suspend and resume controls for every configured camera.</div>
+        </div>
       </div>`;
 
     const titleValue = sanitizeDisplayText(
@@ -5134,6 +5157,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         "mobile_poll_battery_saver",
         "event_pre_post_roll_enabled",
         "favorites_mixed_cameras",
+        "camera_suspend_access",
         "realtime_poll_seconds",
         "snapshot_update_seconds",
         "slideshow_rotation_enabled",

@@ -4,6 +4,7 @@ import {
 } from "../../integrations/home-assistant/frigate-camera-runtime.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
 import { buildLiveCameraPowerControlMarkup } from "./view.tmpl.js";
+import { canUserManageCameraSuspension } from "./camera-suspension-policy.js";
 
 const CONFIRMATION_TIMEOUT_MS = 12000;
 const DIALOG_COPY = Object.freeze({
@@ -88,13 +89,20 @@ export class FrigateCameraRuntimeController {
     return !runtime.unavailable && !runtime.suspended;
   }
 
+  canManageCameraSuspension() {
+    return canUserManageCameraSuspension({
+      access: this._host._config?.camera_suspend_access,
+      user: this._host._hass?.user,
+    });
+  }
+
   buildControlMarkup({ buttonClass = "square-btn" } = {}) {
     const runtime = this.resolve();
     return buildLiveCameraPowerControlMarkup({
       icons: this._icons,
       buttonClass,
       suspended: runtime.suspended,
-      hidden: !runtime.controllable,
+      hidden: !runtime.controllable || !this.canManageCameraSuspension(),
     });
   }
 
@@ -160,7 +168,8 @@ export class FrigateCameraRuntimeController {
       : runtime.suspended
         ? "Resume camera"
         : "Suspend camera";
-    button.hidden = !runtime.controllable;
+    button.hidden =
+      !runtime.controllable || !this.canManageCameraSuspension();
     button.disabled = pending;
     button.classList?.toggle?.("is-camera-suspended", runtime.suspended);
     button.classList?.toggle?.("is-pending", pending);
@@ -238,7 +247,13 @@ export class FrigateCameraRuntimeController {
 
   openConfirmation() {
     const runtime = this.resolve();
-    if (!runtime.controllable || this._pending) return false;
+    if (
+      !runtime.controllable ||
+      !this.canManageCameraSuspension() ||
+      this._pending
+    ) {
+      return false;
+    }
     this.closeConfirmation({ restoreFocus: false });
     this._dialogState = {
       entity: runtime.entity,
@@ -338,6 +353,7 @@ export class FrigateCameraRuntimeController {
       const dialogStillValid =
         this._dialogState.entity === runtime.entity &&
         runtime.controllable &&
+        this.canManageCameraSuspension() &&
         this._dialogState.suspended !== runtime.suspended;
       if (dialogStillValid) this._renderConfirmationDialog();
       else this.closeConfirmation({ restoreFocus: false });
@@ -404,7 +420,13 @@ export class FrigateCameraRuntimeController {
 
   async toggle({ entity = this.activeEntity(), suspended = null } = {}) {
     const runtime = this.resolve(entity);
-    if (!runtime.controllable || this._pending) return false;
+    if (
+      !runtime.controllable ||
+      !this.canManageCameraSuspension() ||
+      this._pending
+    ) {
+      return false;
+    }
     const nextSuspended =
       typeof suspended === "boolean" ? suspended : !runtime.suspended;
     if (nextSuspended === runtime.suspended) return false;

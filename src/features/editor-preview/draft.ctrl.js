@@ -28,6 +28,15 @@ export class EditorPreviewDraftController {
       previewKeysChanged(
         previousConfig,
         nextConfig,
+        "camera_suspend_access",
+      )
+    ) {
+      this._host._frigateCameraRuntimeController?.sync?.();
+    }
+    if (
+      previewKeysChanged(
+        previousConfig,
+        nextConfig,
         "mobile_view_header_overlay",
       )
     ) {

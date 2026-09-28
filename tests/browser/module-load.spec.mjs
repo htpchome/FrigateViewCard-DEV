@@ -143,6 +143,7 @@ test("suspended Frigate cameras expose a transport-independent power control", a
     document.body.append(card);
     card.setConfig({ cameras: [{ entity: "camera.front", name: "Front" }] });
     card._hass = {
+      user: { is_admin: true },
       states: {
         "camera.front": {
           state: "idle",
@@ -297,6 +298,18 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       placement: toast.dataset.placement,
       liveClass: toast.classList.contains("toast--live"),
     };
+    card._hass.user = { is_admin: false };
+    card._frigateCameraRuntimeController.sync();
+    const adminOnlyAccess = {
+      hidden: button.hidden,
+      allowed: card._frigateCameraRuntimeController.canManageCameraSuspension(),
+    };
+    card._config.camera_suspend_access = "everyone";
+    card._frigateCameraRuntimeController.sync();
+    const everyoneAccess = {
+      hidden: button.hidden,
+      allowed: card._frigateCameraRuntimeController.canManageCameraSuspension(),
+    };
     card._frigateCameraRuntimeController.dispose();
     card.remove();
     return {
@@ -307,6 +320,8 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       suspendDialog,
       cancelled,
       suspendedToast,
+      adminOnlyAccess,
+      everyoneAccess,
       serviceCalls,
     };
   });
@@ -370,6 +385,14 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       placement: "live",
       liveClass: true,
     },
+    adminOnlyAccess: {
+      hidden: true,
+      allowed: false,
+    },
+    everyoneAccess: {
+      hidden: false,
+      allowed: true,
+    },
     serviceCalls: [
       ["camera", "turn_on", {}, { entity_id: "camera.front" }],
       ["camera", "turn_off", {}, { entity_id: "camera.front" }],
@@ -380,6 +403,68 @@ test("suspended Frigate cameras expose a transport-independent power control", a
   expect(state.resumedState.toast.topOffset).toBeLessThanOrEqual(14);
   expect(state.resumeDialog.widthDelta).toBeLessThanOrEqual(2);
   expect(state.resumeDialog.heightDelta).toBeLessThanOrEqual(2);
+});
+
+test("camera suspension access is one global editor setting", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [
+        { entity: "camera.front", name: "Front" },
+        { entity: "camera.back", name: "Back" },
+      ],
+    });
+    const adminOnly = editor.querySelector(
+      '[name="camera_suspend_access"][value="admin_only"]',
+    );
+    const everyone = editor.querySelector(
+      '[name="camera_suspend_access"][value="everyone"]',
+    );
+    const previewDrafts = [];
+    window.addEventListener(
+      "frigate-view-card-preview-draft",
+      (event) => previewDrafts.push(event.detail?.config),
+      { once: true },
+    );
+
+    everyone.checked = true;
+    everyone.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+
+    return {
+      label: editor.querySelector(
+        '[data-fvc-i18n="editor.cameraPanel.suspendAccess"]',
+      ).textContent,
+      adminDefault: adminOnly.defaultChecked || adminOnly.hasAttribute("checked"),
+      selected: editor._config.camera_suspend_access,
+      saved: editor._homeAssistantConfig({ readDom: false })
+        .camera_suspend_access,
+      preview: previewDrafts.at(-1)?.camera_suspend_access,
+      dirty: editor._hasConfigDraft,
+      cameraValuesAbsent: editor._config.cameras.every(
+        (camera) => !Object.hasOwn(camera, "camera_suspend_access"),
+      ),
+      renderedSelection: editor.querySelector(
+        '[name="camera_suspend_access"][value="everyone"]',
+      )?.checked,
+    };
+  });
+
+  expect(state).toEqual({
+    label: "Who can Suspend a Camera",
+    adminDefault: true,
+    selected: "everyone",
+    saved: "everyone",
+    preview: "everyone",
+    dirty: true,
+    cameraValuesAbsent: true,
+    renderedSelection: true,
+  });
 });
 
 test("phone startup defers non-visible browse warming until delayed idle", async ({

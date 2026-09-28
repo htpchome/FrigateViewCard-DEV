@@ -42,6 +42,7 @@ import {
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
 import { normalizePageStartMode } from "../features/navigation/start-mode.js";
+import { normalizeCameraSuspendAccess } from "../features/live/camera-suspension-policy.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -86,6 +87,9 @@ export const createEditorPreviewDraft = (config) => ({
   mobile_poll_battery_saver: config.mobile_poll_battery_saver,
   event_pre_post_roll_enabled: config.event_pre_post_roll_enabled,
   favorites_mixed_cameras: config.favorites_mixed_cameras,
+  camera_suspend_access: normalizeCameraSuspendAccess(
+    config.camera_suspend_access,
+  ),
   slideshow_rotation_enabled: config.slideshow_rotation_enabled,
   slideshow_rotation_seconds: config.slideshow_rotation_seconds,
   slideshow_alert_hold_seconds: config.slideshow_alert_hold_seconds,
@@ -239,6 +243,9 @@ export const applyEditorPreviewDraftToCardConfig = ({
       previewConfig.event_pre_post_roll_enabled === true,
     favorites_mixed_cameras:
       previewConfig.favorites_mixed_cameras !== false,
+    camera_suspend_access: normalizeCameraSuspendAccess(
+      previewConfig.camera_suspend_access,
+    ),
     slideshow_rotation_enabled:
       previewConfig.slideshow_rotation_enabled === true,
     slideshow_rotation_seconds: SLIDESHOW_ROTATION_OPTIONS_SECONDS.includes(

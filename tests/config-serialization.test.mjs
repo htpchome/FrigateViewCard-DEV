@@ -56,6 +56,10 @@ import {
   THEME_DEFAULTS,
 } from "../src/constants.js";
 import { DISPLAY_TEXT_MAX_LENGTH } from "../src/shared/page-text.js";
+import {
+  CAMERA_SUSPEND_ACCESS,
+  DEFAULT_CAMERA_SUSPEND_ACCESS,
+} from "../src/features/live/camera-suspension-policy.js";
 
 const cardSource = fs.readFileSync(
   new URL("../src/card/FrigateViewCard.js", import.meta.url),
@@ -222,6 +226,49 @@ test("runtime config change planning remains deterministic and side-effect free"
   assert.equal(plan.needsShellRerender, true);
   assert.equal(plan.snapshotUpdateChanged, true);
   assert.equal(plan.realtimePollChanged, true);
+});
+
+test("camera suspension access is global, defaults to administrators, and persists everyone", () => {
+  const defaults = normalizeCardConfig({
+    cameras: [{ entity: "camera.front" }],
+  });
+  const invalid = normalizeCardConfig({
+    cameras: [{ entity: "camera.front" }],
+    camera_suspend_access: "unknown",
+  });
+  const everyone = normalizeCardConfig({
+    cameras: [{ entity: "camera.front" }],
+    camera_suspend_access: CAMERA_SUSPEND_ACCESS.everyone,
+  });
+
+  assert.equal(defaults.camera_suspend_access, DEFAULT_CAMERA_SUSPEND_ACCESS);
+  assert.equal(invalid.camera_suspend_access, DEFAULT_CAMERA_SUSPEND_ACCESS);
+  assert.equal(everyone.camera_suspend_access, CAMERA_SUSPEND_ACCESS.everyone);
+  assert.equal(
+    compactEditorConfigForYaml(defaults).camera_suspend_access,
+    undefined,
+  );
+  assert.equal(
+    compactEditorConfigForYaml(everyone).camera_suspend_access,
+    CAMERA_SUSPEND_ACCESS.everyone,
+  );
+  assert.equal(
+    createEditorPreviewDraft(everyone).camera_suspend_access,
+    CAMERA_SUSPEND_ACCESS.everyone,
+  );
+  assert.equal(
+    applyEditorPreviewDraftToCardConfig({
+      baseConfig: defaults,
+      previewConfig: createEditorPreviewDraft(everyone),
+    }).camera_suspend_access,
+    CAMERA_SUSPEND_ACCESS.everyone,
+  );
+  assert.equal(
+    resolveRuntimeCardConfigChangePlan(defaults, everyone)
+      .cameraSuspendAccessChanged,
+    true,
+  );
+  assert.equal(everyone.cameras[0].camera_suspend_access, undefined);
 });
 
 test("runtime video defaults merge nested options without duplicate class names", () => {
@@ -1685,6 +1732,30 @@ test("buildEditorConfigFromDom reads the mixed favorites switch", () => {
   });
 
   assert.equal(result.favorites_mixed_cameras, false);
+});
+
+test("buildEditorConfigFromDom reads the global camera suspension access", () => {
+  const root = {
+    querySelector: (selector) =>
+      selector === '[name="camera_suspend_access"]:checked'
+        ? { value: CAMERA_SUSPEND_ACCESS.everyone }
+        : null,
+    querySelectorAll: () => [],
+  };
+
+  const result = buildEditorConfigFromDom({
+    root,
+    baseConfig: {
+      camera_suspend_access: CAMERA_SUSPEND_ACCESS.adminOnly,
+    },
+    cameras: [{ entity: "camera.front_door" }],
+    themeDraftCache: {},
+  });
+
+  assert.equal(
+    result.camera_suspend_access,
+    CAMERA_SUSPEND_ACCESS.everyone,
+  );
 });
 
 test("buildEditorConfigFromDom reads text and display visibility controls", () => {

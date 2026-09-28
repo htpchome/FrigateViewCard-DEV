@@ -744,7 +744,11 @@
     "cameraPanel": {
       "cameras": "Caméras",
       "frigateCamerasDetected": "(caméras Frigate détectées)",
-      "configuredCount": "{count} caméras configurées sur {max}"
+      "configuredCount": "{count} caméras configurées sur {max}",
+      "suspendAccess": "Qui peut suspendre une caméra",
+      "suspendAdminOnly": "Administrateurs uniquement",
+      "suspendEveryone": "Tout le monde",
+      "suspendAccessHelp": "S’applique aux commandes de suspension et de reprise de toutes les caméras configurées."
     },
     "cameraModal": {
       "addCamera": "Ajouter une caméra",

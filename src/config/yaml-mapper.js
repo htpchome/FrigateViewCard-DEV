@@ -63,6 +63,10 @@ import {
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
 import { normalizePageStartMode } from "../features/navigation/start-mode.js";
+import {
+  DEFAULT_CAMERA_SUSPEND_ACCESS,
+  normalizeCameraSuspendAccess,
+} from "../features/live/camera-suspension-policy.js";
 
 const normalizePositiveInteger = (value, fallback) => {
   const parsed = parseInt(String(value ?? "").trim(), 10);
@@ -313,6 +317,12 @@ export const compactEditorConfigForYaml = (
     "favorites_mixed_cameras",
     source.favorites_mixed_cameras !== false,
     true,
+  );
+  addIfNotDefault(
+    compact,
+    "camera_suspend_access",
+    normalizeCameraSuspendAccess(source.camera_suspend_access),
+    DEFAULT_CAMERA_SUSPEND_ACCESS,
   );
   addIfNotDefault(
     compact,

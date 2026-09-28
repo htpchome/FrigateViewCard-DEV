@@ -275,6 +275,33 @@ test("config drafts update preview chrome without rebuilding media or lists", ()
   assert.equal(calls.some(([name]) => name === "render-list"), false);
 });
 
+test("camera suspension access drafts resync the live controls", () => {
+  const calls = [];
+  const host = {
+    _pageId: "single-view",
+    _pageNavigationController: { isPageRouteAvailable: () => true },
+    _frigateCameraRuntimeController: {
+      sync: () => calls.push(["camera-runtime"]),
+    },
+    _singleViewPageController: {
+      applyEditorPreviewDraftRefresh: () => calls.push(["soft-preview"]),
+    },
+    _syncToolbarButtons: () => calls.push(["toolbar"]),
+  };
+  const controller = new EditorPreviewDraftController(host);
+
+  controller.applyConfigDraft({
+    previousConfig: { camera_suspend_access: "admin_only" },
+    nextConfig: { camera_suspend_access: "everyone" },
+  });
+
+  assert.deepEqual(calls, [
+    ["camera-runtime"],
+    ["soft-preview"],
+    ["toolbar"],
+  ]);
+});
+
 test("standalone Card View draft controls reach its lightweight config updater", () => {
   let cardUpdate = null;
   const host = {

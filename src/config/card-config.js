@@ -50,6 +50,7 @@ import {
   normalizeCardViewViewMode,
 } from "../features/card-view/config.js";
 import { resolveAvailablePageStartMode } from "../features/navigation/start-mode.js";
+import { normalizeCameraSuspendAccess } from "../features/live/camera-suspension-policy.js";
 import { sanitizeDisplayText } from "../shared/page-text.js";
 
 export const DEFAULT_CAMERA_ENTITY = "camera.doorbell";
@@ -155,6 +156,9 @@ export const normalizeCardConfig = (config) => {
   src.event_pre_post_roll_enabled =
     src.event_pre_post_roll_enabled === true;
   src.favorites_mixed_cameras = src.favorites_mixed_cameras !== false;
+  src.camera_suspend_access = normalizeCameraSuspendAccess(
+    src.camera_suspend_access,
+  );
 
   src.slideshow_rotation_enabled = src.slideshow_rotation_enabled === true;
   src.slideshow_rotation_seconds = SLIDESHOW_ROTATION_OPTIONS_SECONDS.includes(
@@ -331,6 +335,7 @@ const RUNTIME_CARD_CONFIG_KEYS = Object.freeze([
   "mobile_poll_battery_saver",
   "event_pre_post_roll_enabled",
   "favorites_mixed_cameras",
+  "camera_suspend_access",
   "slideshow_rotation_enabled",
   "slideshow_rotation_seconds",
   "slideshow_alert_hold_seconds",
@@ -563,6 +568,7 @@ export const resolveRuntimeCardConfigChangePlan = (
   const changed = (key) =>
     Boolean(previousConfig) && previousConfig[key] !== nextConfig[key];
   const previewEnabledChanged = changed("preview_page_enabled");
+  const cameraSuspendAccessChanged = changed("camera_suspend_access");
   const previewVisualChanged =
     changed("preview_page_live_cameras") ||
     changed("preview_page_live_cameras_mobile") ||
@@ -592,6 +598,7 @@ export const resolveRuntimeCardConfigChangePlan = (
       JSON.stringify(nextConfig.hidden_tabs || []);
 
   return {
+    cameraSuspendAccessChanged,
     previewEnabledChanged,
     mobileViewPageEnabledChanged,
     wideViewPageEnabledChanged,

@@ -55,6 +55,7 @@ import {
   normalizeCardViewViewMode,
 } from "./features/card-view/config.js";
 import { resolveAvailablePageStartMode } from "./features/navigation/start-mode.js";
+import { normalizeCameraSuspendAccess } from "./features/live/camera-suspension-policy.js";
 import { sanitizeDisplayText } from "./shared/page-text.js";
 
 export function detectDeviceProfile() {
@@ -727,6 +728,10 @@ export const buildEditorConfigFromDom = ({
       ? resolveSwitchChecked(toggle)
       : baseConfig?.[key] !== false;
   }
+  nextConfig.camera_suspend_access = normalizeCameraSuspendAccess(
+    root.querySelector('[name="camera_suspend_access"]:checked')?.value ||
+      baseConfig?.camera_suspend_access,
+  );
 
   nextConfig.event_days = normalizePositiveInteger(
     root.querySelector("#event_days")?.dataset.value ||

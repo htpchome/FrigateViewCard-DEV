@@ -744,7 +744,11 @@
     "cameraPanel": {
       "cameras": "Κάμερες",
       "frigateCamerasDetected": "(εντοπίστηκαν κάμερες Frigate)",
-      "configuredCount": "Διαμορφωμένες κάμερες: {count} από {max}"
+      "configuredCount": "Διαμορφωμένες κάμερες: {count} από {max}",
+      "suspendAccess": "Ποιος μπορεί να αναστείλει μια κάμερα",
+      "suspendAdminOnly": "Μόνο διαχειριστές",
+      "suspendEveryone": "Όλοι",
+      "suspendAccessHelp": "Ισχύει για τα στοιχεία ελέγχου αναστολής και συνέχισης όλων των διαμορφωμένων καμερών."
     },
     "cameraModal": {
       "addCamera": "Προσθήκη κάμερας",

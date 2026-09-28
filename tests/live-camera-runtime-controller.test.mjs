@@ -15,11 +15,13 @@ const cameraState = (state, supportedFeatures) => ({
 const createHost = () => {
   const calls = [];
   const host = {
+    _config: { camera_suspend_access: "admin_only" },
     _activeCam: { entity: "camera.front" },
     _activeGroupMemberOverride: "",
     _activeStreamType: "webrtc",
     _started: true,
     _hass: {
+      user: { is_admin: true },
       states: {
         "camera.front": cameraState("recording", 1),
       },
@@ -47,6 +49,38 @@ const createHost = () => {
   };
   return { calls, host };
 };
+
+test("camera suspension access defaults to administrators", async () => {
+  const { calls, host } = createHost();
+  host._hass.user = { is_admin: false };
+  delete host._config.camera_suspend_access;
+  const controller = new FrigateCameraRuntimeController(host);
+
+  assert.match(controller.buildControlMarkup(), / hidden>/);
+  assert.equal(controller.openConfirmation(), false);
+  assert.equal(await controller.toggle(), false);
+  assert.equal(calls.some(([type]) => type === "service"), false);
+});
+
+test("camera suspension access can allow every Home Assistant user", async () => {
+  const { calls, host } = createHost();
+  host._hass.user = { is_admin: false };
+  host._config.camera_suspend_access = "everyone";
+  const controller = new FrigateCameraRuntimeController(host, {
+    confirmationTimeoutMs: 100,
+  });
+
+  assert.doesNotMatch(controller.buildControlMarkup(), / hidden>/);
+  assert.equal(await controller.toggle(), true);
+  assert.deepEqual(calls.find(([type]) => type === "service"), [
+    "service",
+    "camera",
+    "turn_off",
+    {},
+    { entity_id: "camera.front" },
+  ]);
+  controller.dispose();
+});
 
 test("suspended Frigate state tears down active live without touching browse data", () => {
   const { calls, host } = createHost();

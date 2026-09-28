@@ -640,6 +640,7 @@ export class FrigateViewCard extends HTMLElement {
     });
     const cameras = nextConfig.cameras;
     const {
+      cameraSuspendAccessChanged,
       previewEnabledChanged,
       mobileViewPageEnabledChanged,
       wideViewPageEnabledChanged,
@@ -665,6 +666,9 @@ export class FrigateViewCard extends HTMLElement {
     } = resolveRuntimeCardConfigChangePlan(prevConfig, nextConfig);
     this._committedConfig = this._cloneCardConfig(nextConfig);
     this._config = nextConfig;
+    if (cameraSuspendAccessChanged) {
+      this._frigateCameraRuntimeController.sync();
+    }
     this._haNavbarController?.sync?.();
     this._haDashboardSwipeNavigationController?.sync?.();
     this._linkedLightController?.sync?.();

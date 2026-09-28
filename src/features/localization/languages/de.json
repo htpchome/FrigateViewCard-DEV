@@ -744,7 +744,11 @@
     "cameraPanel": {
       "cameras": "Kameras",
       "frigateCamerasDetected": "(Frigate-Kameras erkannt)",
-      "configuredCount": "{count} von {max} Kameras konfiguriert"
+      "configuredCount": "{count} von {max} Kameras konfiguriert",
+      "suspendAccess": "Wer darf eine Kamera pausieren",
+      "suspendAdminOnly": "Nur Administratoren",
+      "suspendEveryone": "Alle",
+      "suspendAccessHelp": "Gilt für die Steuerelemente zum Pausieren und Fortsetzen aller konfigurierten Kameras."
     },
     "cameraModal": {
       "addCamera": "Kamera hinzufügen",
