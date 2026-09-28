@@ -413,6 +413,11 @@ export function createLiveMountController({
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
+    const transportPlan = resolveLiveMountTransportPlan({
+      useGo2Rtc,
+      forcedType,
+      preferredStreamType: preferredStreamType?.(),
+    });
 
     if (!useGo2Rtc && !hasTwoWayTalkOptions) {
       const graceHaDirectEntry =
@@ -582,15 +587,16 @@ export function createLiveMountController({
     setEngineMountedMuted?.(getStreamMuted?.());
     const { mountToken, clearMountState } = beginLiveMountSession(targetEntity);
     try {
-      cleanupEngine?.();
-      slot.innerHTML = "";
+      const reuseMountedHaDirect =
+        transportPlan.mode === "ha-direct" &&
+        !hasTwoWayTalkOptions &&
+        haDirectMounter?.hasRetainedMount?.(slot) === true;
+      if (!reuseMountedHaDirect) {
+        cleanupEngine?.();
+        haDirectMounter?.releaseAll?.();
+        slot.innerHTML = "";
+      }
       applyLiveMountUiState?.(quiet);
-
-      const transportPlan = resolveLiveMountTransportPlan({
-        useGo2Rtc,
-        forcedType,
-        preferredStreamType: preferredStreamType?.(),
-      });
 
       if (transportPlan.mode === "ha-direct") {
         const directMounter = hasTwoWayTalkOptions

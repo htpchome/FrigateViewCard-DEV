@@ -56,6 +56,10 @@ export const createLiveLifecycleControllers = (
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
     releaseHaDirectEngine: (engine) =>
       card._haDirectMounter?.release?.(engine),
+    releaseAllHaDirectEngines: () =>
+      card._haDirectMounter?.releaseAll?.(),
+    retainHaDirectEngine: (engine, entity) =>
+      card._haDirectMounter?.retainMountedEngine?.(engine, entity),
     adoptHaDirectWebRtcEngine: (engine) =>
       card._haDirectMounter?.adoptRetainedWebRtcEngine?.(engine),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),

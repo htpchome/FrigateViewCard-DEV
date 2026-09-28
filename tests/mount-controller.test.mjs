@@ -1109,3 +1109,80 @@ test("ha-direct talk mounts use only the Home Assistant talk pipeline", async ()
     microphoneStream,
   });
 });
+
+test("HA Direct camera switches preserve the connected native provider deck", async () => {
+  let slotContent = "retained-deck";
+  let slotClearCalls = 0;
+  const slot = {};
+  Object.defineProperty(slot, "innerHTML", {
+    get: () => slotContent,
+    set: (value) => {
+      slotContent = value;
+      slotClearCalls += 1;
+    },
+  });
+  let mountState = {
+    mountSeq: 8,
+    mountInProgress: false,
+    mountStartedAt: 0,
+    mountTargetEntity: "",
+  };
+  let cleanupCalls = 0;
+  let releaseAllCalls = 0;
+  let mountedEntity = "";
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => mountState.mountInProgress,
+    getMountTargetEntity: () => mountState.mountTargetEntity,
+    getMountState: () => mountState,
+    applyMountTrackingState: (nextState) => {
+      mountState = nextState;
+    },
+    mountGridEngine: () => {},
+    cleanupEngine: () => {
+      cleanupCalls += 1;
+    },
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    liveGraceController: {
+      takeGraceHaDirectEntry: () => null,
+      takeGraceWebRtcEntry: () => null,
+      takeGraceMseEntry: () => null,
+    },
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    haDirectMounter: {
+      hasRetainedMount: (candidateSlot) => candidateSlot === slot,
+      releaseAll: () => {
+        releaseAllCalls += 1;
+      },
+      tryMount: async (_slot, _startup, options) => {
+        mountedEntity = options.entity;
+        return { ok: true };
+      },
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("HA Direct must not enter the go2rtc race");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+  });
+
+  const mounted = await controller.mount({ entity: "camera.back" });
+
+  assert.equal(mounted, true);
+  assert.equal(mountedEntity, "camera.back");
+  assert.equal(cleanupCalls, 0);
+  assert.equal(releaseAllCalls, 0);
+  assert.equal(slotClearCalls, 0);
+  assert.equal(slotContent, "retained-deck");
+});

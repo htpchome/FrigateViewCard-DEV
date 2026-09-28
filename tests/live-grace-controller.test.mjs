@@ -556,3 +556,56 @@ test("live grace controller releases HA-direct HLS instead of reparenting it", a
     );
   });
 });
+
+test("managed HA Direct keeps its connected provider deck during camera switches", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+    const managedEngine = {
+      type: "ha_direct",
+      streamType: "hls",
+      fvcManagedHaDirect: true,
+    };
+    let engine = managedEngine;
+    let assignOptions = null;
+    const retained = [];
+    const released = [];
+    const controller = createLiveGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next, options) => {
+        engine = next;
+        assignOptions = options;
+      },
+      getActiveStreamType: () => "hls",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      retainHaDirectEngine: (candidate, entity) => {
+        retained.push([candidate, entity]);
+        return true;
+      },
+      releaseHaDirectEngine: (candidate) => released.push(candidate),
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+
+    assert.deepEqual(retained, [[managedEngine, "camera.front"]]);
+    assert.deepEqual(released, []);
+    assert.equal(engine, null);
+    assert.deepEqual(assignOptions, { retainPrevious: true });
+    assert.equal(hostChildren.length, 0);
+  });
+});

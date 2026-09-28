@@ -130,6 +130,30 @@ test("live audio synchronizes current and delayed replacement video elements", (
   assert.equal(replacementVideo.playCalls, 3);
 });
 
+test("live audio delegates managed HA Direct mute without rewriting its selector", () => {
+  const muteCalls = [];
+  const engine = {
+    muted: true,
+    defaultMuted: true,
+    setOutputMuted(muted) {
+      muteCalls.push(muted);
+    },
+  };
+  const host = {
+    _streamMuted: true,
+    _engine: engine,
+    _findVideoDeep: () => {
+      throw new Error("managed HA Direct owns its nested player");
+    },
+  };
+
+  new LiveAudioController(host).setMuted(false);
+
+  assert.deepEqual(muteCalls, [false]);
+  assert.equal(engine.muted, true);
+  assert.equal(engine.defaultMuted, true);
+});
+
 test("live audio invokes injected timers without a controller receiver", () => {
   const receivers = [];
   const host = {
