@@ -34,8 +34,6 @@ export function createLiveGraceController({
   setStreamFallbackVisible,
   setLiveNativeControls,
   releaseHaDirectEngine,
-  releaseAllHaDirectEngines,
-  retainHaDirectEngine,
   adoptHaDirectWebRtcEngine,
   scheduleResumeLive,
   resetMseDiagnostics,
@@ -462,14 +460,6 @@ export function createLiveGraceController({
     if (
       preserveLiveEntity &&
       engine?.type === "ha_direct" &&
-      retainHaDirectEngine?.(engine, preserveLiveEntity) === true
-    ) {
-      setEngine?.(null, { retainPrevious: true });
-      return;
-    }
-    if (
-      preserveLiveEntity &&
-      engine?.type === "ha_direct" &&
       engine?.streamType === activeStreamType &&
       stashHaDirectEngineForGrace(preserveLiveEntity, engine)
     ) {
@@ -522,7 +512,6 @@ export function createLiveGraceController({
     for (const entity of [...haDirectGracePool.keys()]) {
       evictGraceHaDirectEntry(entity);
     }
-    releaseAllHaDirectEngines?.();
     try {
       mseGraceHost?.remove?.();
     } catch (_) {}
