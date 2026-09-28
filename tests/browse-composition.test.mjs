@@ -24,6 +24,7 @@ test("browse composition preserves controller order and markup dependencies", ()
     panelDismiss: { type: "panel-dismiss" },
     tabData: { type: "tab-data" },
     windowLoader: { type: "window-loader" },
+    backgroundWork: { type: "background-work" },
   };
   const card = {};
   const factories = {
@@ -61,6 +62,10 @@ test("browse composition preserves controller order and markup dependencies", ()
       calls.push(["window-loader", host]);
       return controllers.windowLoader;
     },
+    createBackgroundWorkController: (host) => {
+      calls.push(["background-work", host]);
+      return controllers.backgroundWork;
+    },
   };
 
   const result = createBrowseControllers(card, { factories });
@@ -74,6 +79,7 @@ test("browse composition preserves controller order and markup dependencies", ()
     _browsePanelDismissController: controllers.panelDismiss,
     _browseTabDataController: controllers.tabData,
     _browseWindowLoaderController: controllers.windowLoader,
+    _browseBackgroundWorkController: controllers.backgroundWork,
   });
   assert.deepEqual(calls, [
     ["calendar-activity", card],
@@ -84,6 +90,7 @@ test("browse composition preserves controller order and markup dependencies", ()
     ["panel-dismiss", card],
     ["tab-data", card],
     ["window-loader", card],
+    ["background-work", card],
   ]);
   assert.equal(typeof options.calendarPanel.buildCalendarPanelMarkup, "function");
   assert.equal(typeof options.filter.buildFilterPanelMarkup, "function");

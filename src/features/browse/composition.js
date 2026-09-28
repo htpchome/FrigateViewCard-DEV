@@ -4,6 +4,7 @@ import {
 } from "./calendar-filter.tmpl.js";
 import { BrowseCalendarActivityController } from "./calendar-activity.ctrl.js";
 import { BrowseCalendarPanelController } from "./calendar-panel.ctrl.js";
+import { BrowseBackgroundWorkController } from "./background-work.ctrl.js";
 import { BrowseCollectionController } from "./collection.ctrl.js";
 import { BrowseFilterController } from "./filter-state.js";
 import { BrowseFavoriteMutationController } from "./favorite-mutation.ctrl.js";
@@ -33,6 +34,8 @@ const DEFAULT_FACTORIES = Object.freeze({
   createTabDataController: (card) => new BrowseTabDataController(card),
   createWindowLoaderController: (card) =>
     new BrowseWindowLoaderController(card),
+  createBackgroundWorkController: (card) =>
+    new BrowseBackgroundWorkController(card),
 });
 
 export const createBrowseControllers = (
@@ -61,5 +64,7 @@ export const createBrowseControllers = (
       resolvedFactories.createTabDataController(card),
     _browseWindowLoaderController:
       resolvedFactories.createWindowLoaderController(card),
+    _browseBackgroundWorkController:
+      resolvedFactories.createBackgroundWorkController(card),
   };
 };

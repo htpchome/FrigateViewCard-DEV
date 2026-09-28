@@ -128,6 +128,101 @@ test.afterAll(async () => {
   });
 });
 
+test("phone startup defers non-visible browse warming until delayed idle", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({ cameras: [{ entity: "camera.front" }] });
+
+    const calls = [];
+    let resolveInitialLoad;
+    let runDelay = null;
+    let runIdle = null;
+    const initialLoad = new Promise((resolve) => {
+      resolveInitialLoad = resolve;
+    });
+
+    card._discoverAll = async () => {};
+    card._browseWindowLoaderController.loadWindow = () => initialLoad;
+    card._browseWindowLoaderController.scheduleWarmOtherCamerasEvents =
+      (delayMs) => calls.push(["warm", delayMs]);
+    card._prefetchCalendarActivityForActiveCamera = async () =>
+      calls.push(["calendar"]);
+    card._browseBackgroundWorkController._setTimer = (callback, delayMs) => {
+      calls.push(["delay", delayMs]);
+      runDelay = callback;
+      return 1;
+    };
+    card._browseBackgroundWorkController._clearTimer = () => {};
+    card._browseBackgroundWorkController._requestIdle = (callback, options) => {
+      calls.push(["idle", options.timeout]);
+      runIdle = callback;
+      return 2;
+    };
+    card._browseBackgroundWorkController._cancelIdle = () => {};
+    card._mountEngine = () => {};
+    card._renderAll = () => {};
+    card._subscribe = () => {};
+    card._startEditModeWatchdog = () => {};
+    card._startEditorDialogCloseObserver = () => {};
+    card._restartRealtimeHeadPollTimer = () => {};
+    card._setupResizeObserver = () => {};
+
+    const startup = card._start();
+    await Promise.resolve();
+    await Promise.resolve();
+    const beforeInitialLoad = [...calls];
+
+    resolveInitialLoad();
+    await startup;
+    await Promise.resolve();
+    const afterInitialLoad = [...calls];
+
+    runDelay?.();
+    const afterDelay = [...calls];
+    runIdle?.();
+    const afterIdle = [...calls];
+
+    clearInterval(card._refresh);
+    card._refresh = null;
+    card.remove();
+    return {
+      beforeInitialLoad,
+      afterInitialLoad,
+      afterDelay,
+      afterIdle,
+    };
+  });
+
+  expect(state).toEqual({
+    beforeInitialLoad: [],
+    afterInitialLoad: [["delay", 2500]],
+    afterDelay: [
+      ["delay", 2500],
+      ["idle", 5000],
+    ],
+    afterIdle: [
+      ["delay", 2500],
+      ["idle", 5000],
+      ["warm", 0],
+      ["calendar"],
+    ],
+  });
+  await context.close();
+});
+
 test("Grid runtime stays dormant until desktop Grid is requested", async ({
   page,
 }) => {

@@ -978,6 +978,7 @@ export class FrigateViewCard extends HTMLElement {
     this._realtimeHeadPollT = null;
     if (this._warmOtherCamsDelayT) clearTimeout(this._warmOtherCamsDelayT);
     this._warmOtherCamsDelayT = null;
+    this._browseBackgroundWorkController?.dispose?.();
     getLiveRecoveryController(this).cancelScheduledResume();
     if (this._editorPreviewController) {
       try {
@@ -1155,14 +1156,16 @@ export class FrigateViewCard extends HTMLElement {
     }
 
     const initialLoad = this._browseWindowLoaderController.loadWindow(true);
-    this._browseWindowLoaderController.scheduleWarmOtherCamerasEvents();
+    this._browseBackgroundWorkController.scheduleStartup({
+      phone: this._isLikelyPhoneClient(),
+      initialLoad,
+    });
     this._pageNavigationController.navigateToConfiguredLandingPage({
       source: "startup",
       startup: true,
       hasPendingDeepLinkTarget,
     });
     await initialLoad;
-    void this._prefetchCalendarActivityForActiveCamera();
     this._subscribe();
     this._startEditModeWatchdog();
     this._startEditorDialogCloseObserver();
