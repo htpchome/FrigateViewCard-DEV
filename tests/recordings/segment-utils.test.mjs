@@ -163,6 +163,31 @@ test("recording availability exposes missing intervals without changing hourly g
   );
 });
 
+test("recording availability tolerates fractional segment-boundary jitter", () => {
+  const availableRanges = resolveRecordingAvailableRanges({
+    recordings: [
+      { start_time: 100, end_time: 140 },
+      { start_time: 141.75, end_time: 160 },
+      { start_time: 170, end_time: 200 },
+    ],
+    start: 100,
+    end: 200,
+  });
+
+  assert.deepEqual(availableRanges, [
+    { start: 100, end: 160 },
+    { start: 170, end: 200 },
+  ]);
+  assert.deepEqual(
+    resolveRecordingUnavailableRanges({
+      availableRanges,
+      start: 100,
+      end: 200,
+    }),
+    [{ start: 160, end: 170 }],
+  );
+});
+
 test("recording availability clamps unavailable targets", () => {
   const availableRanges = [
     { start: 100, end: 140 },

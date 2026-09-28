@@ -14,7 +14,9 @@ export function mergeRecordingSegments(recordings = []) {
 
 export const RECORDING_SEGMENT_EXTENSION_SECONDS = 5 * 60;
 
-export const RECORDING_AVAILABILITY_JOIN_TOLERANCE_SECONDS = 1;
+// Frigate segment boundaries can differ by slightly more than one second after
+// timestamp conversion even when the underlying footage is continuous.
+export const RECORDING_AVAILABILITY_JOIN_TOLERANCE_SECONDS = 2;
 
 const CURRENT_RECORDING_TOLERANCE_SECONDS = 90;
 
