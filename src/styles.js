@@ -510,6 +510,11 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .stream-loading{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:6px;padding:4.8px 9.6px;border-radius:999px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:var(--c-text-rev);font-size:0.825rem;font-weight:600;line-height:1;z-index:3;backdrop-filter:blur(2px);}
   .stream-loading[hidden]{display:none;}
   .stream-loading .dot{width:10px;height:10px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--c-text-rev);border-radius:50%;animation:spin .9s linear infinite;}
+  .camera-suspended-placeholder{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px;box-sizing:border-box;background:var(--c-bg-deep);color:var(--c-text-rev);text-align:center;line-height:1.25;}
+  .camera-suspended-placeholder[hidden]{display:none;}
+  .camera-suspended-placeholder__icon{display:grid;place-items:center;width:46px;height:46px;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;background:var(--fvc-media-overlay-bg);color:var(--c-off);}
+  .camera-suspended-placeholder__icon svg{width:28px;height:28px;}
+  .camera-suspended-placeholder > span:last-child{max-width:320px;font-size:.82rem;color:color-mix(in srgb,var(--c-text-rev) 75%,transparent);}
 
   .square-btn{
     display: inline-grid;
@@ -533,7 +538,11 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .live-playback-controls,.popup-playback-controls{position:absolute;top:50%;right:clamp(.75rem,2vw,1.125rem);bottom:auto;z-index:7;display:flex;flex-direction:column;gap:.5rem;opacity:0;pointer-events:none;transform:translateY(-50%);transition:opacity .16s ease;}
   .live-playback-controls > button,.popup-playback-controls > button{position:relative;inset:auto;width:36px;height:36px;flex:0 0 36px;opacity:1;}
 
-  .live-pip-btn[hidden],.live-fs-btn[hidden],.live-take-snapshot-btn[hidden],.mute-btn[hidden],.popup-playback-btn[hidden],.popup-media-btn[hidden]{display:none !important;}
+  .live-camera-power-btn[hidden],.live-pip-btn[hidden],.live-fs-btn[hidden],.live-take-snapshot-btn[hidden],.mute-btn[hidden],.popup-playback-btn[hidden],.popup-media-btn[hidden]{display:none !important;}
+  .live-camera-power-btn.is-camera-suspended{color:var(--c-on);}
+  .live-camera-power-btn.is-pending{cursor:wait;opacity:.65;}
+  #live-stage.camera-runtime-suspended .live-playback-controls{opacity:1;pointer-events:auto;}
+  #live-stage.camera-runtime-suspended .live-playback-controls > button:not(.live-camera-power-btn){display:none !important;}
 
 
   .sv.stream-type{text-transform:uppercase;font-size:0.95rem;}

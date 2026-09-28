@@ -37,6 +37,17 @@ test("camera availability only reports recovery for the same active camera", () 
     state: { state: "idle" },
   });
   assert.equal(switched.recovered, false);
+
+  const runtimeSuspended = resolveCameraAvailabilitySnapshot({
+    previous: recovered.current,
+    entity: "camera.front",
+    state: { state: "idle" },
+    suspended: true,
+  });
+  assert.deepEqual(runtimeSuspended.current, {
+    entity: "camera.front",
+    available: false,
+  });
 });
 
 test("isLiveTransportType matches known live transports", () => {

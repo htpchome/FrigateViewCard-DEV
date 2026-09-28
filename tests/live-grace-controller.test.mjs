@@ -148,6 +148,54 @@ test("mse grace controller preserves current mse engine across cleanup", async (
   });
 });
 
+test("grace controller evicts retained connections for one camera", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    let destroyed = 0;
+    let engine = {
+      video: {
+        style: { cssText: "" },
+        play: () => Promise.resolve(),
+      },
+      ws: { readyState: 1 },
+      destroy: () => {
+        destroyed += 1;
+      },
+      deactivateRecovery() {},
+    };
+    const controller = createLiveGraceController({
+      graceMs: 1000,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "mse",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+    assert.equal(engine, null);
+    controller.evictEntity("camera.front");
+    assert.equal(destroyed, 1);
+    assert.equal(controller.takeGraceMseEntry("camera.front"), null);
+  });
+});
+
 test("MSE adoption rebinds diagnostics and recovery to the receiving owner", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {
     const video = {

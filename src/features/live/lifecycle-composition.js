@@ -173,6 +173,10 @@ export const createLiveLifecycleControllers = (
       card._setStreamFallbackVisible(visible, refreshImage),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     resolveUseGo2Rtc: (entity) => card._shouldUseGo2RtcForEntity(entity),
+    isCameraRuntimeSuspended: (entity) =>
+      card._frigateCameraRuntimeController?.isSuspended?.(entity) === true,
+    applyCameraSuspendedState: (entity) =>
+      card._frigateCameraRuntimeController?.applySuspendedMountState?.(entity),
     takeEditorLiveHandoff: ({ entity, streamType, connectionType }) =>
       editorLiveHandoffController.take(entity, streamType, connectionType),
   });

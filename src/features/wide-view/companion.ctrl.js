@@ -185,6 +185,9 @@ export class WideViewCompanionController {
   }
 
   shouldUseLive(entity) {
+    if (this._host._frigateCameraRuntimeController?.isSuspended?.(entity)) {
+      return false;
+    }
     return (
       this.liveCamerasEnabled() ||
       this._alertController.isCameraAlertLive(entity)
@@ -576,6 +579,7 @@ export class WideViewCompanionController {
       .map((camera, index) => {
         const entity = camera?.entity || "";
         const online =
+          this._host._frigateCameraRuntimeController?.isAvailable?.(entity) ??
           this._host._hass?.states?.[entity]?.state !== "unavailable";
         const useLive = this.shouldUseLive(entity);
         return buildWideCompanionCellMarkup({
@@ -616,6 +620,7 @@ export class WideViewCompanionController {
           }
         }
         const online =
+          this._host._frigateCameraRuntimeController?.isAvailable?.(entity) ??
           this._host._hass?.states?.[entity]?.state !== "unavailable";
         const status = cell.querySelector?.(".wide-companion-meta-status");
         if (status) {

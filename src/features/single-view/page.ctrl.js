@@ -142,6 +142,9 @@ export class SingleViewPageController {
       isSingleView: this._host._viewMode === "single",
       getCameraName: cameraName,
       isCameraAvailable: (camera) =>
+        this._host._frigateCameraRuntimeController?.isAvailable?.(
+          camera.entity,
+        ) ??
         this._host._hass?.states?.[camera.entity]?.state !== "unavailable",
     });
   }
@@ -182,7 +185,11 @@ export class SingleViewPageController {
       "information",
       "#on-lbl",
     );
-    const online = state.state !== "unavailable";
+    const suspended =
+      this._host._frigateCameraRuntimeController?.isSuspended?.(
+        this._host._activeCam?.entity,
+      ) === true;
+    const online = state.state !== "unavailable" && !suspended;
     const liveBadge = this._host.shadowRoot?.querySelector?.(
       "[data-single-view-live-badge]",
     );
@@ -192,21 +199,31 @@ export class SingleViewPageController {
     if (statusLabel) {
       setLocalizedText(
         statusLabel,
-        online ? "runtime.live.online" : "runtime.live.offline",
+        suspended
+          ? "runtime.live.suspended"
+          : online
+            ? "runtime.live.online"
+            : "runtime.live.offline",
         this._host._localization?.t || (() => resolveSingleViewOnlineLabel(online)),
       );
     }
     if (liveBadge) {
       liveBadge.hidden = this._usesGridText();
       liveBadge.classList?.toggle?.("is-offline", !online);
-      const labelKey = online
-        ? "runtime.live.liveCamera"
-        : "runtime.live.cameraOffline";
+      const labelKey = suspended
+        ? "runtime.live.cameraSuspended"
+        : online
+          ? "runtime.live.liveCamera"
+          : "runtime.live.cameraOffline";
       liveBadge.setAttribute?.("data-fvc-i18n-aria-label", labelKey);
       liveBadge.setAttribute?.(
         "aria-label",
         this._host._localization?.t?.(labelKey) ||
-          (online ? "Live camera" : "Camera offline"),
+          (suspended
+            ? "Camera suspended"
+            : online
+              ? "Live camera"
+              : "Camera offline"),
       );
     }
   }

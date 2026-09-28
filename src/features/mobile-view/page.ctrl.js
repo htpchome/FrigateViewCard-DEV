@@ -95,9 +95,16 @@ export class MobileViewPageController {
       icons: ICONS,
       getCameraName: cameraName,
       isCameraAvailable: (camera) =>
+        this._host._frigateCameraRuntimeController?.isAvailable?.(
+          camera.entity,
+        ) ??
         this._host._hass?.states?.[camera.entity]?.state !== "unavailable",
       streamType: this._host._activeStreamType || "--",
-      online: activeState ? activeState.state !== "unavailable" : true,
+      online: activeState
+        ? this._host._frigateCameraRuntimeController?.isAvailable?.(
+            activeEntity,
+          ) ?? activeState.state !== "unavailable"
+        : true,
       pickerOpen: this._host._mobileCamSwitcherOpen === true,
     });
   }
@@ -137,14 +144,22 @@ export class MobileViewPageController {
       "cameraSwitcher",
       "#on-lbl",
     );
-    const online = state.state !== "unavailable";
+    const suspended =
+      this._host._frigateCameraRuntimeController?.isSuspended?.(
+        this._host._activeCam?.entity,
+      ) === true;
+    const online = state.state !== "unavailable" && !suspended;
     if (statusDot) {
       statusDot.style.color = resolveMobileViewStatusColor(online);
     }
     if (statusLabel) {
       setLocalizedText(
         statusLabel,
-        online ? "runtime.live.online" : "runtime.live.offline",
+        suspended
+          ? "runtime.live.suspended"
+          : online
+            ? "runtime.live.online"
+            : "runtime.live.offline",
         this._host._localization?.t || (() => resolveMobileViewOnlineLabel(online)),
       );
     }

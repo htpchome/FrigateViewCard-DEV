@@ -11,10 +11,11 @@ export const resolveCameraAvailabilitySnapshot = ({
   previous = null,
   entity = "",
   state = null,
+  suspended = false,
 } = {}) => {
   const current = {
     entity: String(entity || ""),
-    available: state?.state !== "unavailable",
+    available: state?.state !== "unavailable" && suspended !== true,
   };
   return {
     current,

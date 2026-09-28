@@ -31,6 +31,7 @@ import { STYLES } from "../src/styles.js";
 import { buildSingleViewMainLayoutShellMarkup } from "../src/features/single-view/page.tmpl.js";
 import {
   buildLiveEngineWrapMarkup,
+  buildLiveCameraPowerControlMarkup,
   buildLiveFullscreenControlMarkup,
   buildLivePictureInPictureControlMarkup,
   buildLivePlaybackControlsMarkup,
@@ -652,6 +653,10 @@ test("shared shell builders expose stable page region anchors", () => {
   const liveTakeSnapshot = buildLiveTakeSnapshotControlMarkup({
     icons: { takeSnapshot: "S" },
   });
+  const liveCameraPower = buildLiveCameraPowerControlMarkup({
+    icons: { power: "O" },
+    suspended: true,
+  });
   const rotateOverlayDismiss = buildRotateOverlayDismissButtonMarkup({
     icons: { close: "X" },
   });
@@ -680,10 +685,15 @@ test("shared shell builders expose stable page region anchors", () => {
   assert.match(liveTakeSnapshot, /title="Take Snapshot"[^>]*>S<\/button>$/);
   assert.match(liveMute, /class="square-btn mute-btn"/);
   assert.match(
+    liveCameraPower,
+    /class="square-btn live-camera-power-btn is-camera-suspended"[^>]*aria-pressed="true"[^>]*>O<\/button>/,
+  );
+  assert.match(
     rotateOverlayDismiss,
     /class="rotate-overlay-dismiss"[^>]*data-rotate-overlay-dismiss[^>]*aria-label="Close rotated fullscreen view"[^>]*>X<\/button>/,
   );
   const livePlaybackControls = buildLivePlaybackControlsMarkup({
+    liveCameraPower,
     livePictureInPicture,
     liveTakeSnapshot,
     liveFullscreen,
@@ -691,7 +701,7 @@ test("shared shell builders expose stable page region anchors", () => {
   });
   assert.match(
     livePlaybackControls,
-    /live-pip-btn[\s\S]*?live-take-snapshot-btn[\s\S]*?live-fs-btn[\s\S]*?mute-btn/,
+    /live-camera-power-btn[\s\S]*?live-pip-btn[\s\S]*?live-take-snapshot-btn[\s\S]*?live-fs-btn[\s\S]*?mute-btn/,
   );
 
   const mobileLiveFullscreen = buildLiveFullscreenControlMarkup({

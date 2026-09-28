@@ -1109,3 +1109,40 @@ test("ha-direct talk mounts use only the Home Assistant talk pipeline", async ()
     microphoneStream,
   });
 });
+
+test("suspended cameras stop before either live transport is selected", async () => {
+  const calls = [];
+  const controller = createLiveMountController({
+    getSlot: () => ({}),
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    isCameraRuntimeSuspended: (entity) => {
+      calls.push(["suspended", entity]);
+      return true;
+    },
+    applyCameraSuspendedState: (entity) =>
+      calls.push(["apply-suspended", entity]),
+    resolveUseGo2Rtc: () => {
+      throw new Error("transport selection must not run");
+    },
+    haDirectMounter: {
+      tryMount: async () => {
+        throw new Error("HA Direct must not mount");
+      },
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("go2rtc must not mount");
+      },
+    },
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), false);
+  assert.deepEqual(calls, [
+    ["suspended", "camera.front"],
+    ["apply-suspended", "camera.front"],
+  ]);
+});

@@ -132,6 +132,85 @@ test.afterAll(async () => {
   });
 });
 
+test("suspended Frigate cameras expose a transport-independent power control", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const serviceCalls = [];
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({ cameras: [{ entity: "camera.front", name: "Front" }] });
+    card._hass = {
+      states: {
+        "camera.front": {
+          state: "idle",
+          attributes: {
+            client_id: "frigate-main",
+            camera_name: "front",
+            supported_features: 0,
+          },
+        },
+      },
+      callService: async (...args) => serviceCalls.push(args),
+    };
+    card._renderShell();
+    card._frigateCameraRuntimeController.sync();
+
+    const button = card.shadowRoot.querySelector("#live-camera-power-btn");
+    const placeholder = card.shadowRoot.querySelector(
+      "#camera-suspended-placeholder",
+    );
+    const suspendedState = {
+      buttonHidden: button.hidden,
+      pressed: button.getAttribute("aria-pressed"),
+      label: button.getAttribute("aria-label"),
+      placeholderHidden: placeholder.hidden,
+      stageSuspended: card.shadowRoot
+        .querySelector("#live-stage")
+        .classList.contains("camera-runtime-suspended"),
+    };
+
+    await card._frigateCameraRuntimeController.toggle();
+    card._hass.states["camera.front"] = {
+      state: "recording",
+      attributes: {
+        client_id: "frigate-main",
+        camera_name: "front",
+        supported_features: 1,
+      },
+    };
+    card._frigateCameraRuntimeController.reconcileHass();
+    const resumedState = {
+      pressed: button.getAttribute("aria-pressed"),
+      label: button.getAttribute("aria-label"),
+      placeholderHidden: placeholder.hidden,
+    };
+    card._frigateCameraRuntimeController.dispose();
+    card.remove();
+    return { suspendedState, resumedState, serviceCalls };
+  });
+
+  expect(state).toEqual({
+    suspendedState: {
+      buttonHidden: false,
+      pressed: "true",
+      label: "Resume camera",
+      placeholderHidden: false,
+      stageSuspended: true,
+    },
+    resumedState: {
+      pressed: "false",
+      label: "Suspend camera",
+      placeholderHidden: true,
+    },
+    serviceCalls: [
+      ["camera", "turn_on", {}, { entity_id: "camera.front" }],
+    ],
+  });
+});
+
 test("phone startup defers non-visible browse warming until delayed idle", async ({
   browser,
 }) => {

@@ -537,6 +537,7 @@ export const CARD_VIEW_PAGE_STYLES = `
   }
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-touch-idle #live-stage .live-playback-controls,
   .card.card-view-active.card-view-overlay-presentation.card-view-overlays-touch-idle #live-stage .card-view-media-drawer:not(.is-open) .card-view-media-drawer-handle {opacity:0;visibility:hidden;pointer-events:none;}
+  .card.card-view-active.card-view-overlay-presentation #live-stage.camera-runtime-suspended .live-playback-controls {opacity:1;visibility:visible;pointer-events:auto;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .card-view-camera-row,
   .card.card-view-active.card-view-overlay-presentation .card-view-live-panel:has(.fvc-video-zoomed) .card-view-camera-row {pointer-events:none;}
   .card.card-view-active.card-view-overlay-presentation.card-view-video-zoomed .mobile-cam-picker[data-mobile-cam-picker],

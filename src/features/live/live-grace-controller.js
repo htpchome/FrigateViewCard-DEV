@@ -518,9 +518,16 @@ export function createLiveGraceController({
     mseGraceHost = null;
   };
 
+  const evictEntity = (entity) => {
+    evictGraceMseEntry(entity);
+    evictGraceWebRtcEntry(entity);
+    evictGraceHaDirectEntry(entity);
+  };
+
   return {
     cleanupEngine,
     clearGracePool,
+    evictEntity,
     takeGraceMseEntry,
     adoptGraceMseEngine,
     isMseEngineReusable,

@@ -293,6 +293,8 @@ export function createLiveMountController({
   setStreamFallbackVisible,
   scheduleResumeLive,
   resolveUseGo2Rtc,
+  isCameraRuntimeSuspended,
+  applyCameraSuspendedState,
   takeEditorLiveHandoff,
 }) {
   const applyLiveMountUiState = (quiet = false) => {
@@ -409,6 +411,10 @@ export function createLiveMountController({
     }
 
     const targetEntity = mountEntry.entity;
+    if (isCameraRuntimeSuspended?.(targetEntity) === true) {
+      applyCameraSuspendedState?.(targetEntity);
+      return false;
+    }
     const useGo2Rtc = resolveUseGo2Rtc?.(targetEntity) === true;
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,

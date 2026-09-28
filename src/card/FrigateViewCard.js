@@ -130,6 +130,7 @@ import {
   LiveMediaPresentationController,
 } from "../features/live/media-presentation.ctrl.js";
 import { LiveMediaToolbarController } from "../features/live/media-toolbar.ctrl.js";
+import { FrigateCameraRuntimeController } from "../features/live/camera-runtime.ctrl.js";
 import {
   getLiveOverlayPresentationController,
   LiveOverlayPresentationController,
@@ -307,6 +308,8 @@ export class FrigateViewCard extends HTMLElement {
       onTakeSnapshot: () => this._takeDisplayedSnapshot("live"),
       onFullscreen: () => this._cardFullscreenController.requestLive(),
     });
+    this._frigateCameraRuntimeController =
+      new FrigateCameraRuntimeController(this, { icons: ICONS });
     this._liveOverlayPresentationController =
       new LiveOverlayPresentationController(this);
     this._liveRotateOverlayController = new LiveRotateOverlayController(this);
@@ -801,10 +804,15 @@ export class FrigateViewCard extends HTMLElement {
       return;
     }
     const nowMs = Date.now();
+    const activeCameraRuntime =
+      this._frigateCameraRuntimeController.resolve(
+        this._activeGroupMemberOverride || this._activeCam?.entity || "",
+      );
     const activeCameraAvailability = resolveCameraAvailabilitySnapshot({
       previous: this._activeCameraAvailability,
-      entity: this._activeCam?.entity || "",
-      state: hass?.states?.[this._activeCam?.entity],
+      entity: activeCameraRuntime.entity,
+      state: hass?.states?.[activeCameraRuntime.entity],
+      suspended: activeCameraRuntime.suspended,
     });
     this._activeCameraAvailability = activeCameraAvailability.current;
     const cameraStateSignature = hassEntityStateSignature(
@@ -840,6 +848,7 @@ export class FrigateViewCard extends HTMLElement {
     this._lastHassThemeSignature = themeSignature;
     this._lastHassReviewStatusSignature = reviewStatusSignature;
     if (linkedLightStateChanged) this._linkedLightController?.sync?.();
+    this._frigateCameraRuntimeController.reconcileHass();
     if (!this._started) {
       this._started = true;
       this._start();
@@ -1073,6 +1082,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     getLiveRotateOverlayController(this).dispose();
     this._liveGraceController.clearGracePool();
+    this._frigateCameraRuntimeController?.dispose?.();
     disposeRecordingsDayCache(this);
     if (this._parentOrigStyle && this.parentElement) {
       this.parentElement.style.height = this._parentOrigStyle.height;
@@ -2306,6 +2316,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._activeCamIdx = idx;
     const newEnt = this._activeCam?.entity;
+    const newTransportEntity = nextMemberOverride || newEnt;
     const gridAlertLiveHandoff =
       wasGridMode && gridAlertTakeover
         ? this._gridMediaController?.takeGridLiveHandoff?.(
@@ -2313,8 +2324,10 @@ export class FrigateViewCard extends HTMLElement {
           ) || null
         : null;
     this._activeCameraAvailability = resolveCameraAvailabilitySnapshot({
-      entity: newEnt,
-      state: this._hass?.states?.[newEnt],
+      entity: newTransportEntity,
+      state: this._hass?.states?.[newTransportEntity],
+      suspended:
+        this._frigateCameraRuntimeController.isSuspended(newTransportEntity),
     }).current;
     if (!this._camCache[newEnt]) this._camCache[newEnt] = mkCamState();
     if (!this._camCache[newEnt].discovered) this._discoverOne(newEnt);
@@ -2381,7 +2394,11 @@ export class FrigateViewCard extends HTMLElement {
         mountInProgress: this._mountInProgress,
       }),
     );
-    const adoptedGridAlertLive = gridAlertLiveHandoff
+    this._frigateCameraRuntimeController.reconcileHass();
+    const activeCameraRuntimeSuspended =
+      this._frigateCameraRuntimeController.isSuspended(newTransportEntity);
+    const adoptedGridAlertLive =
+      gridAlertLiveHandoff && !activeCameraRuntimeSuspended
       ? this._adoptLiveAttemptResult(
           this._$("#engine"),
           gridAlertLiveHandoff,
@@ -2761,6 +2778,10 @@ export class FrigateViewCard extends HTMLElement {
     const toolsMarkup = this._getToolsMarkup();
     const regions = {
       live: buildLiveEngineWrapMarkup({ icons: ICONS }),
+      liveCameraPower:
+        this._frigateCameraRuntimeController.buildControlMarkup({
+          buttonClass: shellProfile?.liveMuteButtonClass,
+        }),
       livePictureInPicture: shellCapabilities.hasLivePictureInPicture
         ? buildLivePictureInPictureControlMarkup({
             icons: ICONS,
@@ -2882,6 +2903,7 @@ export class FrigateViewCard extends HTMLElement {
       this._cameraGroupLiveController?.sync?.();
     }
     this._initLiveOverlayControls();
+    this._frigateCameraRuntimeController.sync();
     this._renderMuteButton();
     this._syncFullscreenButtonsVisibility();
     this._slideshowPageController.syncCountdownOverlay();
@@ -3558,6 +3580,7 @@ export class FrigateViewCard extends HTMLElement {
       this._slideshowPageController.toggle();
       return true;
     }
+    if (this._frigateCameraRuntimeController.handleClick(target)) return true;
     return this._liveMediaToolbarController.handleClick(target);
   }
   _handleBrowseToolbarClick(target) {
@@ -4268,6 +4291,7 @@ export class FrigateViewCard extends HTMLElement {
     this._renderLegend();
     this._renderSubtitle();
     this._renderCamSwitcher();
+    this._frigateCameraRuntimeController.sync();
     this._renderList({ renderWideTimeline });
     this._syncStatus();
     this._wideViewPageController.renderCompanionCameras();

@@ -1286,5 +1286,8 @@ export const hassThemeSignature = (hass) => {
 
 export const hassEntityStateSignature = (hass, entities) =>
   entities
-    .map((entity) => `${entity}:${hass?.states?.[entity]?.state ?? "missing"}`)
+    .map((entity) => {
+      const state = hass?.states?.[entity];
+      return `${entity}:${state?.state ?? "missing"}:${state?.attributes?.supported_features ?? ""}`;
+    })
     .join("|");

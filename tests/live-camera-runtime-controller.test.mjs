@@ -1,0 +1,113 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import { FrigateCameraRuntimeController } from "../src/features/live/camera-runtime.ctrl.js";
+
+const cameraState = (state, supportedFeatures) => ({
+  state,
+  attributes: {
+    client_id: "frigate-main",
+    camera_name: "front",
+    supported_features: supportedFeatures,
+  },
+});
+
+const createHost = () => {
+  const calls = [];
+  const host = {
+    _activeCam: { entity: "camera.front" },
+    _activeGroupMemberOverride: "",
+    _activeStreamType: "webrtc",
+    _started: true,
+    _hass: {
+      states: {
+        "camera.front": cameraState("recording", 1),
+      },
+      callService: async (...args) => calls.push(["service", ...args]),
+    },
+    _$: () => null,
+    _stopTwoWayTalkSession: (options) => {
+      calls.push(["talk", options]);
+    },
+    _cancelPendingMount: (reason) => calls.push(["cancel", reason]),
+    _clearLiveEngineSlot: () => calls.push(["clear-slot"]),
+    _liveGraceController: {
+      evictEntity: (entity) => calls.push(["evict", entity]),
+    },
+    _setStreamLoading: (loading) => calls.push(["loading", loading]),
+    _stopStreamFallbackLoadingRefresh: () => calls.push(["stop-fallback"]),
+    _setStreamFallbackVisible: (visible) =>
+      calls.push(["fallback", visible]),
+    _setActiveStreamType: (type) => {
+      host._activeStreamType = type;
+      calls.push(["stream", type]);
+    },
+    _scheduleResumeLive: (reason) => calls.push(["resume", reason]),
+    _toast: (message, options) => calls.push(["toast", message, options]),
+  };
+  return { calls, host };
+};
+
+test("suspended Frigate state tears down active live without touching browse data", () => {
+  const { calls, host } = createHost();
+  const controller = new FrigateCameraRuntimeController(host);
+  controller.reconcileHass();
+  calls.length = 0;
+
+  host._hass.states["camera.front"] = cameraState("idle", 0);
+  controller.reconcileHass();
+
+  assert.deepEqual(calls.slice(0, 4), [
+    ["talk", { restoreLive: false }],
+    ["cancel", "camera-suspended"],
+    ["clear-slot"],
+    ["evict", "camera.front"],
+  ]);
+  assert.equal(host._activeStreamType, "suspended");
+  assert.equal("_events" in host, false);
+});
+
+test("resumed Frigate state schedules live recovery", () => {
+  const { calls, host } = createHost();
+  host._hass.states["camera.front"] = cameraState("idle", 0);
+  const controller = new FrigateCameraRuntimeController(host);
+  controller.reconcileHass();
+  calls.length = 0;
+
+  host._hass.states["camera.front"] = cameraState("recording", 1);
+  controller.reconcileHass();
+
+  assert.equal(
+    calls.some(
+      ([type, reason]) => type === "resume" && reason === "camera-resumed",
+    ),
+    true,
+  );
+});
+
+test("camera power control waits for Home Assistant state confirmation", async () => {
+  const { calls, host } = createHost();
+  const controller = new FrigateCameraRuntimeController(host, {
+    confirmationTimeoutMs: 100,
+  });
+  controller.reconcileHass();
+
+  assert.equal(await controller.toggle(), true);
+  assert.deepEqual(calls.find(([type]) => type === "service"), [
+    "service",
+    "camera",
+    "turn_off",
+    {},
+    { entity_id: "camera.front" },
+  ]);
+
+  host._hass.states["camera.front"] = cameraState("idle", 0);
+  controller.reconcileHass();
+  assert.equal(
+    calls.some(
+      ([type, message]) => type === "toast" && message === "Camera suspended",
+    ),
+    true,
+  );
+  controller.dispose();
+});

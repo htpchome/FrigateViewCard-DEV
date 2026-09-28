@@ -654,9 +654,16 @@ export class CardViewPageController {
       icons: ICONS,
       getCameraName: cameraName,
       isCameraAvailable: (camera) =>
+        this._host._frigateCameraRuntimeController?.isAvailable?.(
+          camera.entity,
+        ) ??
         this._host._hass?.states?.[camera.entity]?.state !== "unavailable",
       streamType: this._host._activeStreamType || "--",
-      online: activeState ? activeState.state !== "unavailable" : true,
+      online: activeState
+        ? this._host._frigateCameraRuntimeController?.isAvailable?.(
+            activeEntity,
+          ) ?? activeState.state !== "unavailable"
+        : true,
       pickerOpen: this._host._mobileCamSwitcherOpen === true,
       activeCameraName:
         this.usesOverlayPresentation() && this._host._viewMode === "grid"
@@ -698,14 +705,16 @@ export class CardViewPageController {
 
   syncStatus() {
     const state = this._host._hass?.states?.[this._host._activeCam?.entity];
+    const available =
+      this._host._frigateCameraRuntimeController?.isAvailable?.(
+        this._host._activeCam?.entity,
+      ) ?? state?.state !== "unavailable";
     const statusDot = this._host._pageShellRegionElement?.(
       "cameraSwitcher",
       "#on-dot",
     );
     if (statusDot) {
-      statusDot.style.color = state?.state === "unavailable"
-        ? "var(--c-off)"
-        : "var(--c-on)";
+      statusDot.style.color = available ? "var(--c-on)" : "var(--c-off)";
     }
     const liveBadge = this._host.shadowRoot?.querySelector?.(
       "[data-card-view-live-badge]",
@@ -713,7 +722,7 @@ export class CardViewPageController {
     if (liveBadge) {
       liveBadge.classList?.toggle?.(
         "is-offline",
-        state?.state === "unavailable",
+        !available,
       );
     }
   }

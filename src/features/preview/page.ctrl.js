@@ -61,6 +61,9 @@ export class PreviewPageController {
   }
 
   previewShouldUseLive(entity) {
+    if (this._host._frigateCameraRuntimeController?.isSuspended?.(entity)) {
+      return false;
+    }
     return (
       this.previewLiveCamerasEnabled() ||
       this._host._previewAlertController.isCameraAlertLive(entity)
@@ -333,7 +336,9 @@ export class PreviewPageController {
       .map((camera, index) => {
         const entity = camera?.entity || "";
         const entState = this._host._hass?.states?.[entity];
-        const online = entState?.state !== "unavailable";
+        const online =
+          this._host._frigateCameraRuntimeController?.isAvailable?.(entity) ??
+          entState?.state !== "unavailable";
         const severity = this.previewCellSeverity(entity);
         const useLive = this.previewShouldUseLive(entity);
         const sourceLabel = this.previewStreamSourceLabel(entity, useLive);
@@ -470,6 +475,7 @@ export class PreviewPageController {
 
         if (!showTitleBars) return;
         const online =
+          this._host._frigateCameraRuntimeController?.isAvailable?.(entity) ??
           this._host._hass?.states?.[entity]?.state !== "unavailable";
         const useLive = this.previewShouldUseLive(entity);
         const status = cell.querySelector(".preview-meta-status");

@@ -38,6 +38,9 @@ export class GridMediaController {
 
   _shouldUseLive(entity) {
     if (this._host._isEditorPreviewContext?.() === true) return false;
+    if (this._host._frigateCameraRuntimeController?.isSuspended?.(entity)) {
+      return false;
+    }
     return (
       this._host._gridLiveViewEnabled() ||
       this._host._isGridCameraAlertLive(entity)
