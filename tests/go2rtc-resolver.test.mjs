@@ -87,6 +87,23 @@ test("go2rtc resolver caches websocket URLs per camera", async () => {
   assert.equal(calls.signPath, 1);
 });
 
+test("go2rtc resolver signs and caches progressive MP4 URLs per camera", async () => {
+  const { resolver, calls } = createResolverHarness({
+    callWSResult: (msg) => ({ path: `${msg.path}&authSig=abc` }),
+  });
+
+  const first = await resolver.mp4UrlForEntity("camera.front");
+  const second = await resolver.mp4UrlForEntity("camera.front");
+
+  assert.equal(
+    first,
+    "https://ha.local/api/frigate/frigate/go2rtc/api/stream.mp4?src=front&authSig=abc",
+  );
+  assert.equal(second, first);
+  assert.equal(calls.signPath, 1);
+  assert.equal(calls.fetch, 0);
+});
+
 test("go2rtc resolver caches HLS playlist URLs", async () => {
   const { resolver, calls } = createResolverHarness();
 

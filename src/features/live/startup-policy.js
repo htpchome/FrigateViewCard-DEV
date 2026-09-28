@@ -7,17 +7,16 @@ const normalizeNumber = (value, fallback) => Number(value ?? fallback);
 
 export const GO2RTC_STARTUP_MODES = Object.freeze({
   race: "race",
-  nativeHlsOnly: "native-hls-only",
+  nativeMp4Only: "native-mp4-only",
 });
 
 export const resolveGo2RtcStartupMode = ({
   isMacOS = false,
-  supportsNativeHls = false,
   hasWebRtc = false,
   hasMediaSource = false,
 } = {}) =>
-  isMacOS && supportsNativeHls && !hasWebRtc && !hasMediaSource
-    ? GO2RTC_STARTUP_MODES.nativeHlsOnly
+  isMacOS && !hasWebRtc && !hasMediaSource
+    ? GO2RTC_STARTUP_MODES.nativeMp4Only
     : GO2RTC_STARTUP_MODES.race;
 
 export const resolveHaDirectStartup = (startup = {}) => ({
@@ -66,6 +65,10 @@ export const resolveWebRtcStartup = ({ startup = {} }) => ({
 
 export const resolveHlsStartup = (startup = {}) => ({
   waitMs: normalizeWaitMs(startup.waitMs, 15000),
+});
+
+export const resolveMp4Startup = (startup = {}) => ({
+  waitMs: normalizeWaitMs(startup.waitMs, 20000),
 });
 
 export const resolveHaDirectMountUnavailableState = () => ({

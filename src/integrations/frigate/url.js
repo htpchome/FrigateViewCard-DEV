@@ -5,6 +5,9 @@ export const makeGo2rtcCacheKey = ({ clientId, cam }) => `${clientId}:${cam}`;
 export const buildGo2rtcWsPath = ({ clientId, cam }) =>
   `/api/frigate/${encodeURIComponent(clientId)}/mse/api/ws?src=${encodeURIComponent(cam)}`;
 
+export const buildGo2rtcMp4Path = ({ clientId, cam }) =>
+  `/api/frigate/${encodeURIComponent(clientId)}/go2rtc/api/stream.mp4?src=${encodeURIComponent(cam)}`;
+
 export const buildGo2rtcHlsSessionBaseUrl = (websocketUrl = "") => {
   try {
     const url = new URL(websocketUrl);

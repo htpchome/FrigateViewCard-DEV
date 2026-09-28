@@ -184,7 +184,6 @@ export const createLiveLifecycleControllers = (
     resolveGo2RtcStartupMode: () =>
       resolveGo2RtcStartupMode({
         isMacOS: deviceProfile.isMacOS,
-        supportsNativeHls: card._supportsNativeHlsPlayback(),
         hasWebRtc:
           typeof windowTarget.RTCPeerConnection === "function",
         hasMediaSource: hasMediaSourceCapability(windowTarget),

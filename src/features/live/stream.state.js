@@ -4,7 +4,12 @@ export const isLiveTransportType = (type) => {
   const active = String(type || "")
     .trim()
     .toLowerCase();
-  return active === "webrtc" || active === "mse" || active === "hls";
+  return (
+    active === "webrtc" ||
+    active === "mse" ||
+    active === "hls" ||
+    active === "mp4"
+  );
 };
 
 export const resolveCameraAvailabilitySnapshot = ({

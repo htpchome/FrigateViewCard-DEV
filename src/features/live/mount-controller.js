@@ -24,27 +24,20 @@ const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
 const EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE = "ha-direct-webrtc-live";
 const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
 const LIVE_MOUNT_WATCHDOG_MS = 9000;
-const NATIVE_HLS_MOUNT_WATCHDOG_MS = 20000;
+const NATIVE_MP4_MOUNT_WATCHDOG_MS = 25000;
 
-const describeNativeHlsStartupState = ({ phase = "", failed = false } = {}) => {
+const describeNativeMp4StartupState = ({ phase = "", failed = false } = {}) => {
   const descriptions = {
-    connecting: "connecting",
-    negotiating: "requesting playlist",
-    playlist: "loading media",
+    resolving: "resolving stream URL",
+    loading: "loading media",
     ready: "ready",
-    "unsupported-native-hls": "native playback unavailable",
-    "websocket-construction": "connection could not start",
-    "websocket-error": "connection error",
-    "websocket-closed": "connection closed",
-    "server-error": "server rejected request",
-    "invalid-playlist": "invalid playlist",
-    "connection-timeout": "connection timed out",
-    "playlist-timeout": "playlist timed out",
+    "url-unavailable": "stream URL unavailable",
+    "unsupported-native-mp4": "native playback unavailable",
     "media-error": "media could not load",
     "media-timeout": "media timed out",
   };
   const description = descriptions[phase] || "startup failed";
-  return failed ? `HLS failed: ${description}` : `HLS: ${description}…`;
+  return failed ? `MP4 failed: ${description}` : `MP4: ${description}…`;
 };
 
 const resolveEditorHandoffConnectionType = (requestType) => {
@@ -445,11 +438,11 @@ export function createLiveMountController({
     const go2rtcStartupMode =
       useGo2Rtc &&
       !hasTwoWayTalkOptions &&
-      (!forcedType || forcedType === "hls")
+      (!forcedType || forcedType === "mp4")
         ? resolveGo2RtcStartupMode?.() || GO2RTC_STARTUP_MODES.race
         : GO2RTC_STARTUP_MODES.race;
-    const nativeHlsOnly =
-      go2rtcStartupMode === GO2RTC_STARTUP_MODES.nativeHlsOnly;
+    const nativeMp4Only =
+      go2rtcStartupMode === GO2RTC_STARTUP_MODES.nativeMp4Only;
 
     if (!useGo2Rtc && !hasTwoWayTalkOptions) {
       const graceHaDirectEntry =
@@ -491,7 +484,7 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
-      !nativeHlsOnly &&
+      !nativeMp4Only &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "webrtc")
     ) {
@@ -528,7 +521,7 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
-      !nativeHlsOnly &&
+      !nativeMp4Only &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "mse")
     ) {
@@ -622,8 +615,8 @@ export function createLiveMountController({
     const { mountToken, clearMountState } = beginLiveMountSession(
       targetEntity,
       {
-        watchdogMs: nativeHlsOnly
-          ? NATIVE_HLS_MOUNT_WATCHDOG_MS
+        watchdogMs: nativeMp4Only
+          ? NATIVE_MP4_MOUNT_WATCHDOG_MS
           : LIVE_MOUNT_WATCHDOG_MS,
       },
     );
@@ -659,24 +652,24 @@ export function createLiveMountController({
         return true;
       }
 
-      if (nativeHlsOnly) {
-        let hlsStartupState = { phase: "connecting", failed: false };
-        const hlsResult = await go2rtcMounter?.tryMountHls?.(
+      if (nativeMp4Only) {
+        let mp4StartupState = { phase: "resolving", failed: false };
+        const mp4Result = await go2rtcMounter?.tryMountMp4?.(
           slot,
           null,
           {
             entity: targetEntity,
             commit: true,
             onStartupState: (state) => {
-              hlsStartupState = state || hlsStartupState;
+              mp4StartupState = state || mp4StartupState;
               setStreamLoading?.(
                 true,
-                describeNativeHlsStartupState(hlsStartupState),
+                describeNativeMp4StartupState(mp4StartupState),
               );
             },
           },
         );
-        if (hlsResult) {
+        if (mp4Result) {
           setEngineMountedMuted?.(getStreamMuted?.());
           return true;
         }
@@ -692,8 +685,8 @@ export function createLiveMountController({
         applySnapshotFallbackState?.();
         setStreamLoading?.(
           true,
-          describeNativeHlsStartupState({
-            ...hlsStartupState,
+          describeNativeMp4StartupState({
+            ...mp4StartupState,
             failed: true,
           }),
         );

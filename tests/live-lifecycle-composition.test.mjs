@@ -161,7 +161,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   );
   assert.equal(
     optionsByFactory.liveMount.resolveGo2RtcStartupMode(),
-    "native-hls-only",
+    "native-mp4-only",
   );
 
   assert.deepEqual(optionsByFactory.editorHandoff.getState(), {

@@ -15,13 +15,23 @@ export class LiveStreamStatusController {
     const active = String(host._activeStreamType || "")
       .trim()
       .toLowerCase();
-    if (active === "webrtc" || active === "mse" || active === "hls") {
+    if (
+      active === "webrtc" ||
+      active === "mse" ||
+      active === "hls" ||
+      active === "mp4"
+    ) {
       return active;
     }
     const lastHint = String(host._lastLiveStreamHint || "")
       .trim()
       .toLowerCase();
-    if (lastHint === "webrtc" || lastHint === "mse" || lastHint === "hls") {
+    if (
+      lastHint === "webrtc" ||
+      lastHint === "mse" ||
+      lastHint === "hls" ||
+      lastHint === "mp4"
+    ) {
       return lastHint;
     }
     return host._preferredStreamType();

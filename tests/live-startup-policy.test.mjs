@@ -10,28 +10,27 @@ import {
   resolveHaDirectStartup,
   resolveGo2RtcStartupMode,
   resolveHlsStartup,
+  resolveMp4Startup,
   resolveMseStartup,
   resolveWebRtcStartup,
 } from "../src/features/live/startup-policy.js";
 
-test("go2rtc uses native HLS only for the Catalyst-shaped capability profile", () => {
+test("go2rtc uses native MP4 only for the Catalyst-shaped capability profile", () => {
   assert.equal(
     resolveGo2RtcStartupMode({
       isMacOS: true,
-      supportsNativeHls: true,
       hasWebRtc: false,
       hasMediaSource: false,
     }),
-    GO2RTC_STARTUP_MODES.nativeHlsOnly,
+    GO2RTC_STARTUP_MODES.nativeMp4Only,
   );
 });
 
 test("go2rtc keeps the normal race outside the Catalyst-shaped capability profile", () => {
   const cases = [
-    { isMacOS: false, supportsNativeHls: true },
-    { isMacOS: true, supportsNativeHls: false },
-    { isMacOS: true, supportsNativeHls: true, hasWebRtc: true },
-    { isMacOS: true, supportsNativeHls: true, hasMediaSource: true },
+    { isMacOS: false },
+    { isMacOS: true, hasWebRtc: true },
+    { isMacOS: true, hasMediaSource: true },
   ];
 
   for (const capabilities of cases) {
@@ -112,6 +111,11 @@ test("resolveWebRtcStartup applies browser-agnostic defaults", () => {
 test("resolveHlsStartup applies native HLS startup allowance and floor", () => {
   assert.equal(resolveHlsStartup({}).waitMs, 15000);
   assert.equal(resolveHlsStartup({ waitMs: 1 }).waitMs, 500);
+});
+
+test("resolveMp4Startup applies progressive MP4 startup allowance and floor", () => {
+  assert.equal(resolveMp4Startup({}).waitMs, 20000);
+  assert.equal(resolveMp4Startup({ waitMs: 1 }).waitMs, 500);
 });
 
 test("resolveHaDirectMountUnavailableState clears loading and fallback", () => {

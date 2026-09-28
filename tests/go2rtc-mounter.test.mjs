@@ -169,6 +169,7 @@ function createBaseMounter(overrides = {}) {
     resolveMountRequest: () => ({ entity: "camera.front" }),
     websocketUrlForEntity: async () => "ws://example.test/api/ws",
     hlsUrlForEntity: async () => ({ url: "https://example.test/live.m3u8" }),
+    mp4UrlForEntity: async () => "https://example.test/live.mp4",
     ...(overrides.resolver || {}),
   };
   return createGo2RtcMounter({
@@ -829,6 +830,69 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
       phase: "media-error",
       failed: true,
     });
+  });
+});
+
+test("go2rtc mounter MP4 path mounts one signed progressive stream", async () => {
+  await withFakeDocument(async () => {
+    const slot = createSlot();
+    let assignedEngine = null;
+    let committedType = "";
+    let resolvePresented;
+    const recoveryReasons = [];
+    const startupStates = [];
+    const presented = new Promise((resolve) => {
+      resolvePresented = resolve;
+    });
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
+        mp4UrlForEntity: async () =>
+          "https://ha.local/api/frigate/frigate/go2rtc/api/stream.mp4?src=front&authSig=signed",
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      onCommittedStream: (type) => {
+        committedType = type;
+      },
+      scheduleResumeLive: (reason) => recoveryReasons.push(reason),
+      waitForStreamStart: async (target, waitMs, options) => {
+        assert.strictEqual(target, slot);
+        assert.equal(waitMs, 20000);
+        assert.equal(options.requireReadyState, 2);
+        assert.equal(options.requirePresentedFrame, false);
+        return presented;
+      },
+    });
+
+    const mounting = mounter.tryMountMp4(slot, null, {
+      onStartupState: (state) => startupStates.push(state),
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+      slot.lastChild.src,
+      "https://ha.local/api/frigate/frigate/go2rtc/api/stream.mp4?src=front&authSig=signed",
+    );
+    assert.equal(slot.lastChild.loadCalls, 1);
+    assert.equal(slot.lastChild.playCalls, 1);
+    resolvePresented(true);
+
+    assert.equal(await mounting, true);
+    assert.equal(committedType, "mp4");
+    assert.equal(assignedEngine.type, "frigate_go2rtc");
+    assert.equal(assignedEngine.streamType, "mp4");
+    assert.deepEqual(startupStates, [
+      { phase: "resolving", failed: false },
+      { phase: "loading", failed: false },
+      { phase: "ready", failed: false },
+    ]);
+    assignedEngine.video.dispatchEvent({ type: "error" });
+    assert.deepEqual(recoveryReasons, ["mp4-error"]);
+    assignedEngine.activateRecovery();
+    assignedEngine.video.dispatchEvent({ type: "ended" });
+    assert.deepEqual(recoveryReasons, ["mp4-error", "mp4-ended"]);
+    assignedEngine.destroy();
   });
 });
 

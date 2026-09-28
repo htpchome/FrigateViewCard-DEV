@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildGo2rtcHlsSessionBaseUrl,
   buildGo2rtcHlsCandidates,
+  buildGo2rtcMp4Path,
   buildGo2rtcNativeHlsDataUrl,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
@@ -28,6 +29,17 @@ test("makeGo2rtcCacheKey composes client and camera", () => {
 test("buildGo2rtcWsPath URL-encodes client and camera", () => {
   const path = buildGo2rtcWsPath({ clientId: "frig ate", cam: "front/door" });
   assert.equal(path, "/api/frigate/frig%20ate/mse/api/ws?src=front%2Fdoor");
+});
+
+test("buildGo2rtcMp4Path URL-encodes client and camera", () => {
+  const path = buildGo2rtcMp4Path({
+    clientId: "frig ate",
+    cam: "front/door",
+  });
+  assert.equal(
+    path,
+    "/api/frigate/frig%20ate/go2rtc/api/stream.mp4?src=front%2Fdoor",
+  );
 });
 
 test("buildGo2rtcHlsCandidates returns the supported HA go2rtc HLS candidate", () => {

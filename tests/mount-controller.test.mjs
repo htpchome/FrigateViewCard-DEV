@@ -491,7 +491,7 @@ test("live mount controller delegates go2rtc race mounts outside the card shell"
   assert.equal(calls[7][1].mountTargetEntity, "");
 });
 
-test("live mount controller routes Catalyst-shaped go2rtc through card-managed native HLS", async () => {
+test("live mount controller routes Catalyst-shaped go2rtc through card-managed progressive MP4", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };
   let mountState = {
@@ -532,8 +532,8 @@ test("live mount controller routes Catalyst-shaped go2rtc through card-managed n
       },
     },
     go2rtcMounter: {
-      tryMountHls: async (...args) => {
-        calls.push(["hls", ...args]);
+      tryMountMp4: async (...args) => {
+        calls.push(["mp4", ...args]);
         args[2]?.onStartupState?.({ phase: "ready", failed: false });
         return true;
       },
@@ -543,7 +543,7 @@ test("live mount controller routes Catalyst-shaped go2rtc through card-managed n
         throw new Error("Catalyst must not start the transport race");
       },
     },
-    resolveGo2RtcStartupMode: () => "native-hls-only",
+    resolveGo2RtcStartupMode: () => "native-mp4-only",
     preferredStreamType: () => "webrtc",
     setActiveStreamType: (type) => calls.push(["type", type]),
     setStreamLoading: (...args) => calls.push(["loading", ...args]),
@@ -553,15 +553,15 @@ test("live mount controller routes Catalyst-shaped go2rtc through card-managed n
   });
 
   assert.equal(await controller.mount({ entity: "camera.front" }), true);
-  const hlsCall = calls.find(([name]) => name === "hls");
-  assert.deepEqual(hlsCall.slice(0, 3), ["hls", slot, null]);
-  assert.equal(hlsCall[3].entity, "camera.front");
-  assert.equal(hlsCall[3].commit, true);
-  assert.equal(typeof hlsCall[3].onStartupState, "function");
+  const mp4Call = calls.find(([name]) => name === "mp4");
+  assert.deepEqual(mp4Call.slice(0, 3), ["mp4", slot, null]);
+  assert.equal(mp4Call[3].entity, "camera.front");
+  assert.equal(mp4Call[3].commit, true);
+  assert.equal(typeof mp4Call[3].onStartupState, "function");
   assert.equal(calls.includes("cleanup"), true);
 });
 
-test("Catalyst-shaped go2rtc HLS failure reveals the snapshot without racing", async () => {
+test("Catalyst-shaped go2rtc MP4 failure reveals the snapshot without racing", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };
   let mountState = {
@@ -594,17 +594,17 @@ test("Catalyst-shaped go2rtc HLS failure reveals the snapshot without racing", a
       },
     },
     go2rtcMounter: {
-      tryMountHls: async (_slot, _startup, options) => {
-        options.onStartupState({ phase: "playlist-timeout", failed: true });
+      tryMountMp4: async (_slot, _startup, options) => {
+        options.onStartupState({ phase: "media-timeout", failed: true });
         return false;
       },
     },
     go2rtcRaceMounter: {
       mountWithRace: async () => {
-        throw new Error("HLS failure must not fall into a race");
+        throw new Error("MP4 failure must not fall into a race");
       },
     },
-    resolveGo2RtcStartupMode: () => "native-hls-only",
+    resolveGo2RtcStartupMode: () => "native-mp4-only",
     preferredStreamType: () => "webrtc",
     setActiveStreamType: (type) => calls.push(["type", type]),
     setStreamLoading: (...args) => calls.push(["loading", ...args]),
@@ -618,7 +618,7 @@ test("Catalyst-shaped go2rtc HLS failure reveals the snapshot without racing", a
     ["type", "snapshot"],
     ["loading", false],
     ["fallback", true, false],
-    ["loading", true, "HLS failed: playlist timed out"],
+    ["loading", true, "MP4 failed: media timed out"],
   ]);
 });
 

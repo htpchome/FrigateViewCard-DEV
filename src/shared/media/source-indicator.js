@@ -2,7 +2,7 @@ export const resolveLiveSourceIndicatorState = (streamType) => {
   const source = String(streamType || "")
     .trim()
     .toLowerCase();
-  const visible = ["webrtc", "mse", "hls"].includes(source);
+  const visible = ["webrtc", "mse", "hls", "mp4"].includes(source);
   if (!visible) {
     return { visible: false, label: "", showIcon: false, text: "" };
   }
