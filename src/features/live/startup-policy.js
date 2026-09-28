@@ -65,7 +65,7 @@ export const resolveWebRtcStartup = ({ startup = {} }) => ({
 });
 
 export const resolveHlsStartup = (startup = {}) => ({
-  waitMs: normalizeWaitMs(startup.waitMs, 5000),
+  waitMs: normalizeWaitMs(startup.waitMs, 15000),
 });
 
 export const resolveHaDirectMountUnavailableState = () => ({

@@ -24,7 +24,8 @@ function resolveMicrophoneTrack(stream) {
   return stream?.getAudioTracks?.()?.[0] || null;
 }
 
-function resolveGo2RtcCodecs(isSupported) {
+function resolveGo2RtcCodecs(isSupported, { excluded = [] } = {}) {
+  const excludedCodecs = new Set(excluded);
   const codecs = [
     "avc1.640029",
     "avc1.64002A",
@@ -36,6 +37,7 @@ function resolveGo2RtcCodecs(isSupported) {
     "opus",
   ];
   return codecs
+    .filter((codec) => !excludedCodecs.has(codec))
     .filter((codec) => isSupported(`video/mp4; codecs="${codec}"`))
     .join(",");
 }
@@ -402,6 +404,7 @@ export function createGo2RtcMounter({
         {
           muted: options?.muted ?? getStreamMuted(),
           controls: false,
+          preload: "auto",
         },
         { scopeKey },
       ),
@@ -815,8 +818,10 @@ export function createGo2RtcMounter({
         return;
       }
       try {
-        const codecs = resolveGo2RtcCodecs((mime) =>
-          Boolean(video.canPlayType?.(mime)),
+        const codecs = resolveGo2RtcCodecs(
+          (mime) => Boolean(video.canPlayType?.(mime)),
+          // WebKit advertises Opus support here but native HLS cannot use it.
+          { excluded: ["opus"] },
         );
         ws.send(JSON.stringify({ type: "hls", value: codecs }));
       } catch (_) {
@@ -862,7 +867,7 @@ export function createGo2RtcMounter({
       minDecodedFrames: 1,
       requireReadyState: 2,
       strict: false,
-      requirePresentedFrame: true,
+      requirePresentedFrame: false,
       abortSignal: startupAbort.signal,
     });
     if (!started) {

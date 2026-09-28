@@ -109,8 +109,8 @@ test("resolveWebRtcStartup applies browser-agnostic defaults", () => {
   assert.equal(policy.strict, true);
 });
 
-test("resolveHlsStartup applies default wait and floor", () => {
-  assert.equal(resolveHlsStartup({}).waitMs, 5000);
+test("resolveHlsStartup applies native HLS startup allowance and floor", () => {
+  assert.equal(resolveHlsStartup({}).waitMs, 15000);
   assert.equal(resolveHlsStartup({ waitMs: 1 }).waitMs, 500);
 });
 

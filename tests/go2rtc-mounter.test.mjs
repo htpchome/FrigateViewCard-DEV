@@ -737,9 +737,9 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
       scheduleResumeLive: (reason) => recoveryReasons.push(reason),
       waitForStreamStart: async (target, waitMs, opts) => {
         assert.equal(target, slot);
-        assert.equal(waitMs, 5000);
+        assert.equal(waitMs, 15000);
         assert.equal(opts.requireReadyState, 2);
-        assert.equal(opts.requirePresentedFrame, true);
+        assert.equal(opts.requirePresentedFrame, false);
         return presented;
       },
     });
@@ -753,6 +753,7 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
     assert.equal(sockets[0].sent.length, 1);
     assert.equal(sockets[0].sent[0].type, "hls");
     assert.equal(sockets[0].sent[0].value.includes("avc1.640029"), true);
+    assert.equal(sockets[0].sent[0].value.includes("opus"), false);
     sockets[0].message({
       type: "hls",
       value: "#EXTM3U\n#EXTINF:1,\nhls/session/segment.ts",
