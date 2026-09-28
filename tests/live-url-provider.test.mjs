@@ -2,10 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildGo2rtcHlsSessionBaseUrl,
   buildGo2rtcHlsCandidates,
-  buildGo2rtcMp4Path,
-  buildGo2rtcNativeHlsDataUrl,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
 } from "../src/integrations/frigate/url.js";
@@ -31,40 +28,11 @@ test("buildGo2rtcWsPath URL-encodes client and camera", () => {
   assert.equal(path, "/api/frigate/frig%20ate/mse/api/ws?src=front%2Fdoor");
 });
 
-test("buildGo2rtcMp4Path URL-encodes client and camera", () => {
-  const path = buildGo2rtcMp4Path({
-    clientId: "frig ate",
-    cam: "front/door",
-  });
-  assert.equal(
-    path,
-    "/api/frigate/frig%20ate/go2rtc/api/stream.mp4?src=front%2Fdoor",
-  );
-});
-
 test("buildGo2rtcHlsCandidates returns the supported HA go2rtc HLS candidate", () => {
   const candidates = buildGo2rtcHlsCandidates({ clientId: "c", cam: "x" });
   assert.deepEqual(candidates, [
     "/api/frigate/c/go2rtc/api/stream.m3u8?src=x&mp4",
   ]);
-});
-
-test("go2rtc native HLS helpers preserve the integration route and strip websocket signing", () => {
-  const websocketUrl =
-    "wss://ha.local/api/frigate/client/mse/api/ws?src=front&authSig=signed";
-  assert.equal(
-    buildGo2rtcHlsSessionBaseUrl(websocketUrl),
-    "https://ha.local/api/frigate/client/mse/api/hls/",
-  );
-  const dataUrl = buildGo2rtcNativeHlsDataUrl({
-    websocketUrl,
-    playlist: "#EXTM3U\n#EXTINF:1,\nhls/session/segment.ts",
-    encodeBase64: (value) => `encoded:${value}`,
-  });
-  assert.equal(
-    dataUrl,
-    "data:application/vnd.apple.mpegurl;base64,encoded:#EXTM3U\n#EXTINF:1,\nhttps://ha.local/api/frigate/client/mse/api/hls/session/segment.ts",
-  );
 });
 
 

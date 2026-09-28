@@ -80,9 +80,6 @@ export function detectDeviceProfile() {
     (platform.includes("mac") && maxTouchPoints > 1 && hasTouch);
   const isIPod = /ipod/.test(userAgent);
   const isIOS = isIPhone || isIPad || isIPod;
-  const isMacOS =
-    !isIOS &&
-    (platform.includes("mac") || userAgent.includes("macintosh"));
   const isTablet = isIPad || (isAndroid && hasTouch && !isMobileHint);
   const isPhone = (isIOS || isAndroid) && !isTablet;
   const isMobile = isPhone || isTablet;
@@ -93,7 +90,6 @@ export function detectDeviceProfile() {
     hasAnyTouch: anyPointerCoarse || hoverNone,
     isAndroid,
     isIOS,
-    isMacOS,
     isPhone,
     isTablet,
     isMobile,

@@ -169,8 +169,6 @@ const FORCE_LIVE_REMOUNT_REASONS = new Set([
   "active-camera-recovered",
   "hls-ended",
   "hls-error",
-  "mp4-ended",
-  "mp4-error",
   "mse-ws-closed",
   "webrtc-connection-lost",
   "webrtc-ws-closed",

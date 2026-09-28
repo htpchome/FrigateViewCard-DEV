@@ -1,6 +1,5 @@
 import {
   resolveHlsStartup,
-  resolveMp4Startup,
   resolveMseStartup,
   resolveWebRtcStartup,
 } from "./startup-policy.js";
@@ -9,7 +8,6 @@ import {
   createVideoElement,
   mountNodeIntoSlot,
 } from "../../shared/media/video-factory.js";
-import { buildGo2rtcNativeHlsDataUrl } from "../../integrations/frigate/url.js";
 
 const WEBRTC_NEGOTIATION_TIMEOUT_MS = 4000;
 
@@ -25,8 +23,7 @@ function resolveMicrophoneTrack(stream) {
   return stream?.getAudioTracks?.()?.[0] || null;
 }
 
-function resolveGo2RtcCodecs(isSupported, { excluded = [] } = {}) {
-  const excludedCodecs = new Set(excluded);
+function resolveGo2RtcCodecs(isSupported) {
   const codecs = [
     "avc1.640029",
     "avc1.64002A",
@@ -38,7 +35,6 @@ function resolveGo2RtcCodecs(isSupported, { excluded = [] } = {}) {
     "opus",
   ];
   return codecs
-    .filter((codec) => !excludedCodecs.has(codec))
     .filter((codec) => isSupported(`video/mp4; codecs="${codec}"`))
     .join(",");
 }
@@ -405,7 +401,6 @@ export function createGo2RtcMounter({
         {
           muted: options?.muted ?? getStreamMuted(),
           controls: false,
-          preload: "auto",
         },
         { scopeKey },
       ),
@@ -700,23 +695,18 @@ export function createGo2RtcMounter({
 
   const tryMountHls = async (slot, startup = null, options = {}) => {
     const { waitMs } = resolveHlsStartup(startup || {});
-    let startupState = { phase: "connecting", failed: false };
-    const reportStartupState = (phase, failed = false) => {
-      if (startupState.failed) return;
-      startupState = { phase, failed };
-      options?.onStartupState?.(startupState);
-    };
-    reportStartupState("connecting");
     const { entity, abortSignal, commit } =
       resolver.resolveMountRequest(options);
     if (abortSignal?.aborted) return false;
     if (!entity) return false;
 
-    const WebSocketCtor = window?.WebSocket;
-    if (!WebSocketCtor) return false;
-
-    const wsUrl = await resolver.websocketUrlForEntity(entity);
-    if (!wsUrl || abortSignal?.aborted) return false;
+    const hlsSource = await resolver.hlsUrlForEntity(entity);
+    if (!hlsSource?.url || abortSignal?.aborted) {
+      try {
+        hlsSource?.destroy?.();
+      } catch (_) {}
+      return false;
+    }
 
     const video = createVideoElement(
       buildVideoOptionsForView(
@@ -724,31 +714,20 @@ export function createGo2RtcMounter({
         {
           muted: options?.muted ?? getStreamMuted(),
           controls: false,
+          src: hlsSource.url,
         },
         { scopeKey },
       ),
     );
 
-    const supportsNativeHls = Boolean(
-      video.canPlayType?.("application/vnd.apple.mpegurl") ||
-        video.canPlayType?.("application/x-mpegURL"),
-    );
-    if (!supportsNativeHls) {
-      reportStartupState("unsupported-native-hls", true);
-      return false;
-    }
-
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
 
-    const startupAbort = new AbortController();
     let abortBound = false;
     let destroyed = false;
     let streamStarted = false;
     let recoveryScheduled = false;
     let recoveryEnabled = commit;
-    let recoveryHandler = scheduleResumeLive;
-    let ws = null;
     const scheduleRecovery = (reason) => {
       if (
         destroyed ||
@@ -759,30 +738,22 @@ export function createGo2RtcMounter({
         return;
       }
       recoveryScheduled = true;
-      recoveryHandler?.(reason);
+      scheduleResumeLive(reason);
     };
-    video.addEventListener("error", () => {
-      if (!streamStarted) {
-        reportStartupState("media-error", true);
-        abortStartup();
-        return;
-      }
-      scheduleRecovery("hls-error");
-    });
+    video.addEventListener("error", () => scheduleRecovery("hls-error"));
     video.addEventListener("ended", () => scheduleRecovery("hls-ended"));
     const destroy = () => {
-      if (destroyed) return;
       destroyed = true;
-      try {
-        if (!startupAbort.signal.aborted) startupAbort.abort();
-      } catch (_) {}
-      try {
-        ws?.close?.();
-      } catch (_) {}
       try {
         video.pause();
         video.removeAttribute("src");
         video.load();
+      } catch (_) {}
+      try {
+        hlsSource.destroy?.();
+      } catch (_) {}
+      try {
+        if (video.src?.startsWith("blob:")) URL.revokeObjectURL(video.src);
       } catch (_) {}
       if (abortSignal && abortBound) {
         abortSignal.removeEventListener("abort", onAbort);
@@ -798,21 +769,8 @@ export function createGo2RtcMounter({
       abortBound = true;
     }
 
-    try {
-      ws = new WebSocketCtor(wsUrl);
-    } catch (_) {
-      reportStartupState("websocket-construction", true);
-      destroy();
-      return false;
-    }
-
     const engine = {
-      type: "frigate_go2rtc",
-      streamType: "hls",
       video,
-      get ws() {
-        return ws;
-      },
       destroy,
       activateRecovery: () => {
         recoveryEnabled = true;
@@ -821,104 +779,22 @@ export function createGo2RtcMounter({
       deactivateRecovery: () => {
         recoveryEnabled = false;
       },
-      setRecoveryHandler: (handler) => {
-        recoveryHandler = typeof handler === "function" ? handler : null;
-      },
     };
     if (commit) assignCommittedEngine(engine);
-
-    const abortStartup = () => {
-      if (!startupAbort.signal.aborted) startupAbort.abort();
-    };
-
-    ws.addEventListener("open", () => {
-      if (destroyed || abortSignal?.aborted) {
-        destroy();
-        return;
-      }
-      try {
-        const codecs = resolveGo2RtcCodecs(
-          (mime) => Boolean(video.canPlayType?.(mime)),
-          // WebKit advertises Opus support here but native HLS cannot use it.
-          { excluded: ["opus"] },
-        );
-        ws.send(JSON.stringify({ type: "hls", value: codecs }));
-        reportStartupState("negotiating");
-      } catch (_) {
-        reportStartupState("websocket-error", true);
-        abortStartup();
-      }
-    });
-
-    ws.addEventListener("message", (event) => {
-      if (destroyed || typeof event.data !== "string") return;
-      let message;
-      try {
-        message = JSON.parse(event.data);
-      } catch (_) {
-        return;
-      }
-      if (message?.type === "error") {
-        reportStartupState("server-error", true);
-        abortStartup();
-        return;
-      }
-      if (message?.type !== "hls" || typeof message.value !== "string") {
-        return;
-      }
-      const dataUrl = buildGo2rtcNativeHlsDataUrl({
-        websocketUrl: wsUrl,
-        playlist: message.value,
-      });
-      if (!dataUrl) {
-        reportStartupState("invalid-playlist", true);
-        abortStartup();
-        return;
-      }
-      reportStartupState("playlist");
-      video.src = dataUrl;
-      startVideoPlayback(video, { load: true });
-    });
-
-    ws.addEventListener("error", () => {
-      if (!streamStarted) {
-        reportStartupState("websocket-error", true);
-        abortStartup();
-      }
-      scheduleRecovery("hls-error");
-    });
-
-    ws.addEventListener("close", () => {
-      if (!streamStarted) {
-        reportStartupState("websocket-closed", true);
-        abortStartup();
-      }
-      scheduleRecovery("hls-ws-closed");
-    });
+    startVideoPlayback(video, { load: true });
 
     const started = await waitForStreamStart(slot, waitMs, {
       minCurrentTime: 0.05,
       minDecodedFrames: 1,
       requireReadyState: 2,
       strict: false,
-      requirePresentedFrame: false,
-      abortSignal: startupAbort.signal,
+      abortSignal,
     });
     if (!started) {
-      if (!startupState.failed) {
-        const timeoutPhase =
-          startupState.phase === "connecting"
-            ? "connection-timeout"
-            : startupState.phase === "negotiating"
-              ? "playlist-timeout"
-              : "media-timeout";
-        reportStartupState(timeoutPhase, true);
-      }
       destroy();
       return false;
     }
     streamStarted = true;
-    reportStartupState("ready");
 
     return resolveCommittedResult({
       commit,
@@ -929,157 +805,9 @@ export function createGo2RtcMounter({
     });
   };
 
-  const tryMountMp4 = async (slot, startup = null, options = {}) => {
-    const { waitMs } = resolveMp4Startup(startup || {});
-    let startupState = { phase: "resolving", failed: false };
-    const reportStartupState = (phase, failed = false) => {
-      if (startupState.failed) return;
-      startupState = { phase, failed };
-      options?.onStartupState?.(startupState);
-    };
-    reportStartupState("resolving");
-
-    const { entity, abortSignal, commit } =
-      resolver.resolveMountRequest(options);
-    if (abortSignal?.aborted || !entity) return false;
-
-    const mp4Url = await resolver.mp4UrlForEntity?.(entity);
-    if (!mp4Url || abortSignal?.aborted) {
-      reportStartupState("url-unavailable", true);
-      return false;
-    }
-
-    const video = createVideoElement(
-      buildVideoOptionsForView(
-        "live",
-        {
-          muted: options?.muted ?? getStreamMuted(),
-          controls: false,
-          preload: "auto",
-        },
-        { scopeKey },
-      ),
-    );
-    const supportsNativeMp4 = Boolean(
-      video.canPlayType?.(
-        'video/mp4; codecs="avc1.4D4028, mp4a.40.2"',
-      ) || video.canPlayType?.("video/mp4"),
-    );
-    if (!supportsNativeMp4) {
-      reportStartupState("unsupported-native-mp4", true);
-      return false;
-    }
-
-    mountNodeIntoSlot(slot, video);
-    attachVideoFit(video);
-
-    const startupAbort = new AbortController();
-    let abortBound = false;
-    let destroyed = false;
-    let streamStarted = false;
-    let recoveryScheduled = false;
-    let recoveryEnabled = commit;
-    let recoveryHandler = scheduleResumeLive;
-    const abortStartup = () => {
-      if (!startupAbort.signal.aborted) startupAbort.abort();
-    };
-    const scheduleRecovery = (reason) => {
-      if (
-        destroyed ||
-        !streamStarted ||
-        !recoveryEnabled ||
-        recoveryScheduled
-      ) {
-        return;
-      }
-      recoveryScheduled = true;
-      recoveryHandler?.(reason);
-    };
-    const onVideoError = () => {
-      if (!streamStarted) {
-        reportStartupState("media-error", true);
-        abortStartup();
-        return;
-      }
-      scheduleRecovery("mp4-error");
-    };
-    const onVideoEnded = () => scheduleRecovery("mp4-ended");
-    video.addEventListener("error", onVideoError);
-    video.addEventListener("ended", onVideoEnded);
-
-    const destroy = () => {
-      if (destroyed) return;
-      destroyed = true;
-      abortStartup();
-      video.removeEventListener?.("error", onVideoError);
-      video.removeEventListener?.("ended", onVideoEnded);
-      try {
-        video.pause?.();
-        video.removeAttribute?.("src");
-        video.load?.();
-      } catch (_) {}
-      if (abortSignal && abortBound) {
-        abortSignal.removeEventListener("abort", onAbort);
-        abortBound = false;
-      }
-    };
-    const onAbort = () => destroy();
-    if (abortSignal) {
-      abortSignal.addEventListener("abort", onAbort, { once: true });
-      abortBound = true;
-    }
-
-    const engine = {
-      type: "frigate_go2rtc",
-      streamType: "mp4",
-      video,
-      destroy,
-      activateRecovery: () => {
-        recoveryEnabled = true;
-        recoveryScheduled = false;
-      },
-      deactivateRecovery: () => {
-        recoveryEnabled = false;
-      },
-      setRecoveryHandler: (handler) => {
-        recoveryHandler = typeof handler === "function" ? handler : null;
-      },
-    };
-    if (commit) assignCommittedEngine(engine);
-
-    reportStartupState("loading");
-    video.src = mp4Url;
-    startVideoPlayback(video, { load: true });
-
-    const started = await waitForStreamStart(slot, waitMs, {
-      minCurrentTime: 0.05,
-      minDecodedFrames: 1,
-      requireReadyState: 2,
-      strict: false,
-      requirePresentedFrame: false,
-      abortSignal: startupAbort.signal,
-    });
-    if (!started) {
-      if (!startupState.failed) reportStartupState("media-timeout", true);
-      destroy();
-      return false;
-    }
-    streamStarted = true;
-    reportStartupState("ready");
-
-    return resolveCommittedResult({
-      commit,
-      type: "mp4",
-      engine,
-      slot,
-      onCommittedStream,
-    });
-  };
-
   return {
     tryMountMse,
     tryMountWebRtc,
     tryMountHls,
-    tryMountMp4,
   };
 }

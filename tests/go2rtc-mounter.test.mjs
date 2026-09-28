@@ -78,9 +78,6 @@ function createFakeVideoElement() {
     load() {
       this.loadCalls += 1;
     },
-    canPlayType(type) {
-      return String(type || "").includes("mpegurl") ? "probably" : "maybe";
-    },
   };
 }
 
@@ -169,7 +166,6 @@ function createBaseMounter(overrides = {}) {
     resolveMountRequest: () => ({ entity: "camera.front" }),
     websocketUrlForEntity: async () => "ws://example.test/api/ws",
     hlsUrlForEntity: async () => ({ url: "https://example.test/live.m3u8" }),
-    mp4UrlForEntity: async () => "https://example.test/live.mp4",
     ...(overrides.resolver || {}),
   };
   return createGo2RtcMounter({
@@ -659,73 +655,20 @@ test("go2rtc mounter MSE path supports ManagedMediaSource and starts playback", 
   });
 });
 
-test("go2rtc mounter HLS path negotiates a native playlist over the signed websocket", async () => {
+test("go2rtc mounter HLS path commits the mounted engine on success", async () => {
   await withFakeDocument(async () => {
     const slot = createSlot();
     let attached = 0;
     let committedType = "";
     let assignedEngine = null;
     const recoveryReasons = [];
-    const sockets = [];
-    class FakeWebSocket {
-      static OPEN = 1;
-
-      constructor(url) {
-        this.url = url;
-        this.readyState = 0;
-        this.sent = [];
-        this.closeCalls = 0;
-        this._listeners = new Map();
-        sockets.push(this);
-      }
-
-      addEventListener(type, handler) {
-        const handlers = this._listeners.get(type) || [];
-        handlers.push(handler);
-        this._listeners.set(type, handlers);
-      }
-
-      _dispatch(type, event = {}) {
-        for (const handler of this._listeners.get(type) || []) {
-          handler(event);
-        }
-      }
-
-      open() {
-        this.readyState = FakeWebSocket.OPEN;
-        this._dispatch("open");
-      }
-
-      message(value) {
-        this._dispatch("message", { data: JSON.stringify(value) });
-      }
-
-      send(value) {
-        this.sent.push(JSON.parse(value));
-      }
-
-      closeFromServer() {
-        this.readyState = 3;
-        this._dispatch("close");
-      }
-
-      close() {
-        if (this.readyState >= 2) return;
-        this.closeCalls += 1;
-        this.closeFromServer();
-      }
-    }
-
-    let resolvePresented;
-    const startupStates = [];
-    const presented = new Promise((resolve) => {
-      resolvePresented = resolve;
-    });
     const mounter = createBaseMounter({
       resolver: {
         resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
-        websocketUrlForEntity: async () =>
-          "wss://ha.local/api/frigate/frigate/mse/api/ws?src=front&authSig=signed",
+        hlsUrlForEntity: async () => ({
+          url: "https://example.test/live.m3u8",
+          destroy: () => {},
+        }),
       },
       attachVideoFit: () => {
         attached += 1;
@@ -739,160 +682,30 @@ test("go2rtc mounter HLS path negotiates a native playlist over the signed webso
       scheduleResumeLive: (reason) => recoveryReasons.push(reason),
       waitForStreamStart: async (target, waitMs, opts) => {
         assert.equal(target, slot);
-        assert.equal(waitMs, 15000);
+        assert.equal(
+          target.lastChild.src,
+          "https://example.test/live.m3u8",
+        );
+        assert.equal(waitMs, 5000);
         assert.equal(opts.requireReadyState, 2);
-        assert.equal(opts.requirePresentedFrame, false);
-        return presented;
+        return true;
       },
     });
 
-    const mounting = withFakeWindow({ WebSocket: FakeWebSocket }, () =>
-      mounter.tryMountHls(slot, null, {
-        onStartupState: (state) => startupStates.push(state),
-      }),
-    );
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(sockets.length, 1);
-    sockets[0].open();
-    assert.equal(sockets[0].sent.length, 1);
-    assert.equal(sockets[0].sent[0].type, "hls");
-    assert.equal(sockets[0].sent[0].value.includes("avc1.640029"), true);
-    assert.equal(sockets[0].sent[0].value.includes("opus"), false);
-    sockets[0].message({
-      type: "hls",
-      value: "#EXTM3U\n#EXTINF:1,\nhls/session/segment.ts",
-    });
-    const encodedPlaylist = slot.lastChild.src.split(",")[1];
-    assert.equal(
-      atob(encodedPlaylist),
-      "#EXTM3U\n#EXTINF:1,\nhttps://ha.local/api/frigate/frigate/mse/api/hls/session/segment.ts",
-    );
-    resolvePresented(true);
-    const result = await mounting;
+    const result = await withFakeWindow({}, () => mounter.tryMountHls(slot));
     assert.equal(result, true);
     assert.equal(attached, 1);
     assert.equal(committedType, "hls");
     assert.equal(slot.innerHTML, "");
     assert.ok(assignedEngine);
-    assert.equal(assignedEngine.type, "frigate_go2rtc");
-    assert.equal(assignedEngine.streamType, "hls");
     assert.equal(assignedEngine.video, slot.lastChild);
     assert.equal(assignedEngine.video.loadCalls, 1);
     assert.equal(assignedEngine.video.playCalls, 1);
-    assert.deepEqual(startupStates, [
-      { phase: "connecting", failed: false },
-      { phase: "negotiating", failed: false },
-      { phase: "playlist", failed: false },
-      { phase: "ready", failed: false },
-    ]);
-    assert.strictEqual(assignedEngine.ws, sockets[0]);
     assignedEngine.video.dispatchEvent({ type: "error" });
     assert.deepEqual(recoveryReasons, ["hls-error"]);
-    assignedEngine.activateRecovery();
-    sockets[0].closeFromServer();
-    assert.deepEqual(recoveryReasons, ["hls-error", "hls-ws-closed"]);
     assignedEngine.destroy();
     assignedEngine.video.dispatchEvent({ type: "ended" });
-    assert.deepEqual(recoveryReasons, ["hls-error", "hls-ws-closed"]);
-
-    const failedStartupStates = [];
-    const failedMounter = createBaseMounter({
-      resolver: {
-        resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
-        websocketUrlForEntity: async () =>
-          "wss://ha.local/api/frigate/frigate/mse/api/ws?src=front&authSig=signed",
-      },
-      waitForStreamStart: async (_target, _waitMs, options) =>
-        await new Promise((resolve) => {
-          options.abortSignal.addEventListener(
-            "abort",
-            () => resolve(false),
-            { once: true },
-          );
-        }),
-    });
-    const failedSlot = createSlot();
-    const failedMount = withFakeWindow({ WebSocket: FakeWebSocket }, () =>
-      failedMounter.tryMountHls(failedSlot, null, {
-        onStartupState: (state) => failedStartupStates.push(state),
-      }),
-    );
-    await new Promise((resolve) => setImmediate(resolve));
-    const failedSocket = sockets.at(-1);
-    failedSocket.open();
-    failedSocket.message({
-      type: "hls",
-      value: "#EXTM3U\n#EXTINF:1,\nhls/session/segment.ts",
-    });
-    failedSlot.lastChild.dispatchEvent({ type: "error" });
-    assert.equal(await failedMount, false);
-    assert.deepEqual(failedStartupStates.at(-1), {
-      phase: "media-error",
-      failed: true,
-    });
-  });
-});
-
-test("go2rtc mounter MP4 path mounts one signed progressive stream", async () => {
-  await withFakeDocument(async () => {
-    const slot = createSlot();
-    let assignedEngine = null;
-    let committedType = "";
-    let resolvePresented;
-    const recoveryReasons = [];
-    const startupStates = [];
-    const presented = new Promise((resolve) => {
-      resolvePresented = resolve;
-    });
-    const mounter = createBaseMounter({
-      resolver: {
-        resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
-        mp4UrlForEntity: async () =>
-          "https://ha.local/api/frigate/frigate/go2rtc/api/stream.mp4?src=front&authSig=signed",
-      },
-      assignCommittedEngine: (engine) => {
-        assignedEngine = engine;
-      },
-      onCommittedStream: (type) => {
-        committedType = type;
-      },
-      scheduleResumeLive: (reason) => recoveryReasons.push(reason),
-      waitForStreamStart: async (target, waitMs, options) => {
-        assert.strictEqual(target, slot);
-        assert.equal(waitMs, 20000);
-        assert.equal(options.requireReadyState, 2);
-        assert.equal(options.requirePresentedFrame, false);
-        return presented;
-      },
-    });
-
-    const mounting = mounter.tryMountMp4(slot, null, {
-      onStartupState: (state) => startupStates.push(state),
-    });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(
-      slot.lastChild.src,
-      "https://ha.local/api/frigate/frigate/go2rtc/api/stream.mp4?src=front&authSig=signed",
-    );
-    assert.equal(slot.lastChild.loadCalls, 1);
-    assert.equal(slot.lastChild.playCalls, 1);
-    resolvePresented(true);
-
-    assert.equal(await mounting, true);
-    assert.equal(committedType, "mp4");
-    assert.equal(assignedEngine.type, "frigate_go2rtc");
-    assert.equal(assignedEngine.streamType, "mp4");
-    assert.deepEqual(startupStates, [
-      { phase: "resolving", failed: false },
-      { phase: "loading", failed: false },
-      { phase: "ready", failed: false },
-    ]);
-    assignedEngine.video.dispatchEvent({ type: "error" });
-    assert.deepEqual(recoveryReasons, ["mp4-error"]);
-    assignedEngine.activateRecovery();
-    assignedEngine.video.dispatchEvent({ type: "ended" });
-    assert.deepEqual(recoveryReasons, ["mp4-error", "mp4-ended"]);
-    assignedEngine.destroy();
+    assert.deepEqual(recoveryReasons, ["hls-error"]);
   });
 });
 

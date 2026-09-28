@@ -2,44 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  GO2RTC_STARTUP_MODES,
   buildHaDirectMountPlan,
   resolveHaDirectMountUnavailableState,
   resolveHaDirectFailedState,
   resolveHaDirectReadyState,
   resolveHaDirectStartup,
-  resolveGo2RtcStartupMode,
   resolveHlsStartup,
-  resolveMp4Startup,
   resolveMseStartup,
   resolveWebRtcStartup,
 } from "../src/features/live/startup-policy.js";
-
-test("go2rtc uses native MP4 only for the Catalyst-shaped capability profile", () => {
-  assert.equal(
-    resolveGo2RtcStartupMode({
-      isMacOS: true,
-      hasWebRtc: false,
-      hasMediaSource: false,
-    }),
-    GO2RTC_STARTUP_MODES.nativeMp4Only,
-  );
-});
-
-test("go2rtc keeps the normal race outside the Catalyst-shaped capability profile", () => {
-  const cases = [
-    { isMacOS: false },
-    { isMacOS: true, hasWebRtc: true },
-    { isMacOS: true, hasMediaSource: true },
-  ];
-
-  for (const capabilities of cases) {
-    assert.equal(
-      resolveGo2RtcStartupMode(capabilities),
-      GO2RTC_STARTUP_MODES.race,
-    );
-  }
-});
 
 test("resolveHaDirectStartup applies defaults and keeps stream type", () => {
   const policy = resolveHaDirectStartup({ streamType: "webrtc" });
@@ -108,14 +79,9 @@ test("resolveWebRtcStartup applies browser-agnostic defaults", () => {
   assert.equal(policy.strict, true);
 });
 
-test("resolveHlsStartup applies native HLS startup allowance and floor", () => {
-  assert.equal(resolveHlsStartup({}).waitMs, 15000);
+test("resolveHlsStartup applies default wait and floor", () => {
+  assert.equal(resolveHlsStartup({}).waitMs, 5000);
   assert.equal(resolveHlsStartup({ waitMs: 1 }).waitMs, 500);
-});
-
-test("resolveMp4Startup applies progressive MP4 startup allowance and floor", () => {
-  assert.equal(resolveMp4Startup({}).waitMs, 20000);
-  assert.equal(resolveMp4Startup({ waitMs: 1 }).waitMs, 500);
 });
 
 test("resolveHaDirectMountUnavailableState clears loading and fallback", () => {

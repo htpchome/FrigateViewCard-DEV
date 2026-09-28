@@ -43,7 +43,6 @@ test("isLiveTransportType matches known live transports", () => {
   assert.equal(isLiveTransportType("webrtc"), true);
   assert.equal(isLiveTransportType(" mse "), true);
   assert.equal(isLiveTransportType("hls"), true);
-  assert.equal(isLiveTransportType("mp4"), true);
   assert.equal(isLiveTransportType("snapshot"), false);
 });
 

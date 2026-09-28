@@ -280,7 +280,7 @@ test("Card View shell owns live, a collapsible activity drawer, arrows, and foot
   assert.match(markup, /data-card-view-standalone-talk-overlay/);
 });
 
-test("Card View source indicator uses an icon for WebRTC and text for other live transports", () => {
+test("Card View source indicator uses an icon for WebRTC and text for MSE or HLS", () => {
   assert.match(ICONS.webrtc, /^<svg[^>]*>[\s\S]*<\/svg>$/);
   assert.doesNotMatch(ICONS.webrtc, /<ha-icon|mdi:/);
   assert.deepEqual(resolveCardViewSourceIndicatorState("webrtc"), {
@@ -300,12 +300,6 @@ test("Card View source indicator uses an icon for WebRTC and text for other live
     label: "HLS",
     showIcon: false,
     text: "HLS",
-  });
-  assert.deepEqual(resolveCardViewSourceIndicatorState("mp4"), {
-    visible: true,
-    label: "MP4",
-    showIcon: false,
-    text: "MP4",
   });
   assert.deepEqual(resolveCardViewSourceIndicatorState("snapshot"), {
     visible: false,

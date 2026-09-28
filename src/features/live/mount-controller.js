@@ -18,27 +18,10 @@ import {
   shouldClearPendingDestroyersForPromise,
 } from "./pending-destroyers.js";
 import { resolveSnapshotFallbackState } from "./stream.state.js";
-import { GO2RTC_STARTUP_MODES } from "./startup-policy.js";
 
 const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
 const EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE = "ha-direct-webrtc-live";
 const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
-const LIVE_MOUNT_WATCHDOG_MS = 9000;
-const NATIVE_MP4_MOUNT_WATCHDOG_MS = 25000;
-
-const describeNativeMp4StartupState = ({ phase = "", failed = false } = {}) => {
-  const descriptions = {
-    resolving: "resolving stream URL",
-    loading: "loading media",
-    ready: "ready",
-    "url-unavailable": "stream URL unavailable",
-    "unsupported-native-mp4": "native playback unavailable",
-    "media-error": "media could not load",
-    "media-timeout": "media timed out",
-  };
-  const description = descriptions[phase] || "startup failed";
-  return failed ? `MP4 failed: ${description}` : `MP4: ${description}…`;
-};
 
 const resolveEditorHandoffConnectionType = (requestType) => {
   if (requestType === EDITOR_LIVE_HANDOFF_TYPE) return "frigate_go2rtc";
@@ -303,9 +286,7 @@ export function createLiveMountController({
   setPendingMountDestroyers,
   haDirectMounter,
   haDirectTwoWayTalkMounter,
-  go2rtcMounter,
   go2rtcRaceMounter,
-  resolveGo2RtcStartupMode,
   preferredStreamType,
   setActiveStreamType,
   setStreamLoading,
@@ -369,10 +350,7 @@ export function createLiveMountController({
     scheduleResumeLive?.("mount-watchdog-timeout");
   };
 
-  const beginLiveMountSession = (
-    entity,
-    { watchdogMs = LIVE_MOUNT_WATCHDOG_MS } = {},
-  ) => {
+  const beginLiveMountSession = (entity) => {
     const mountState = getMountState?.();
     const { mountToken, nextState } = beginMountTracking({
       mountSeq: mountState?.mountSeq,
@@ -382,7 +360,7 @@ export function createLiveMountController({
     applyMountTrackingState?.(nextState);
     const mountWatchdogT = setTimeout(
       () => onMountWatchdogTimeout(mountToken),
-      watchdogMs,
+      9000,
     );
     return {
       mountToken,
@@ -435,14 +413,6 @@ export function createLiveMountController({
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
-    const go2rtcStartupMode =
-      useGo2Rtc &&
-      !hasTwoWayTalkOptions &&
-      (!forcedType || forcedType === "mp4")
-        ? resolveGo2RtcStartupMode?.() || GO2RTC_STARTUP_MODES.race
-        : GO2RTC_STARTUP_MODES.race;
-    const nativeMp4Only =
-      go2rtcStartupMode === GO2RTC_STARTUP_MODES.nativeMp4Only;
 
     if (!useGo2Rtc && !hasTwoWayTalkOptions) {
       const graceHaDirectEntry =
@@ -484,7 +454,6 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
-      !nativeMp4Only &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "webrtc")
     ) {
@@ -521,7 +490,6 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
-      !nativeMp4Only &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "mse")
     ) {
@@ -612,14 +580,7 @@ export function createLiveMountController({
     }
 
     setEngineMountedMuted?.(getStreamMuted?.());
-    const { mountToken, clearMountState } = beginLiveMountSession(
-      targetEntity,
-      {
-        watchdogMs: nativeMp4Only
-          ? NATIVE_MP4_MOUNT_WATCHDOG_MS
-          : LIVE_MOUNT_WATCHDOG_MS,
-      },
-    );
+    const { mountToken, clearMountState } = beginLiveMountSession(targetEntity);
     try {
       cleanupEngine?.();
       slot.innerHTML = "";
@@ -650,47 +611,6 @@ export function createLiveMountController({
         }
         setEngineMountedMuted?.(getStreamMuted?.());
         return true;
-      }
-
-      if (nativeMp4Only) {
-        let mp4StartupState = { phase: "resolving", failed: false };
-        const mp4Result = await go2rtcMounter?.tryMountMp4?.(
-          slot,
-          null,
-          {
-            entity: targetEntity,
-            commit: true,
-            onStartupState: (state) => {
-              mp4StartupState = state || mp4StartupState;
-              setStreamLoading?.(
-                true,
-                describeNativeMp4StartupState(mp4StartupState),
-              );
-            },
-          },
-        );
-        if (mp4Result) {
-          setEngineMountedMuted?.(getStreamMuted?.());
-          return true;
-        }
-
-        if (
-          !isMountTokenCurrent({
-            mountToken,
-            mountSeq: getMountState?.()?.mountSeq,
-          })
-        ) {
-          return false;
-        }
-        applySnapshotFallbackState?.();
-        setStreamLoading?.(
-          true,
-          describeNativeMp4StartupState({
-            ...mp4StartupState,
-            failed: true,
-          }),
-        );
-        return false;
       }
 
       if (

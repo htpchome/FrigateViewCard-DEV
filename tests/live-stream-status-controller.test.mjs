@@ -76,9 +76,6 @@ test("stream status resolves active, retained, and preferred transport hints", (
   host._lastLiveStreamHint = " HLS ";
   assert.equal(controller.currentStreamHint(), "hls");
 
-  host._lastLiveStreamHint = " MP4 ";
-  assert.equal(controller.currentStreamHint(), "mp4");
-
   host._lastLiveStreamHint = "";
   assert.equal(controller.currentStreamHint(), "webrtc");
 });

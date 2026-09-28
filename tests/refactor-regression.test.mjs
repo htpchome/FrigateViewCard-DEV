@@ -771,7 +771,7 @@ test("live transport ownership is pulled out of the card shell", () => {
     true,
   );
   assert.equal(
-    go2rtcMounterSource.includes("buildGo2rtcNativeHlsDataUrl"),
+    go2rtcMounterSource.includes("resolver.hlsUrlForEntity(entity)"),
     true,
   );
   assert.equal(
@@ -990,13 +990,13 @@ test("live transport ownership is pulled out of the card shell", () => {
     true,
   );
   assert.equal(
-    /mount\s*=\s*async\s*\(\{[\s\S]*?const \{ mountToken, clearMountState \} = beginLiveMountSession\([\s\S]*?targetEntity,[\s\S]*?watchdogMs:[\s\S]*?\);[\s\S]*?finally \{[\s\S]*?clearMountState\(\);[\s\S]*?\}/.test(
+    /mount\s*=\s*async\s*\(\{[\s\S]*?const \{ mountToken, clearMountState \} = beginLiveMountSession\(targetEntity\);[\s\S]*?finally \{[\s\S]*?clearMountState\(\);[\s\S]*?\}/.test(
       liveMountControllerSource,
     ),
     true,
   );
   assert.equal(
-    /const beginLiveMountSession = \([\s\S]*?entity,[\s\S]*?watchdogMs[\s\S]*?\) => \{[\s\S]*?beginMountTracking\([\s\S]*?setTimeout\([\s\S]*?onMountWatchdogTimeout\(mountToken\)/.test(
+    /const beginLiveMountSession = \(entity\) => \{[\s\S]*?beginMountTracking\([\s\S]*?setTimeout\([\s\S]*?onMountWatchdogTimeout\(mountToken\)/.test(
       liveMountControllerSource,
     ),
     true,

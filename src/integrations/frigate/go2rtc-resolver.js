@@ -4,14 +4,12 @@ import {
 } from "./camera-context.js";
 import {
   buildGo2rtcHlsCandidates,
-  buildGo2rtcMp4Path,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
 } from "./url.js";
 import {
   buildGo2RtcHlsProbeResult,
   buildSignedGo2RtcWebSocketUrl,
-  resolveAbsoluteSignedPath,
   signHomeAssistantPath,
 } from "./bootstrap.js";
 import {
@@ -43,8 +41,6 @@ export function createGo2RtcResolver({
 }) {
   const wsUrlCache = new Map();
   const wsUrlInFlight = new Map();
-  const mp4UrlCache = new Map();
-  const mp4UrlInFlight = new Map();
   const hlsUrlCache = new Map();
   const hlsProbeInFlight = new Map();
 
@@ -203,51 +199,9 @@ export function createGo2RtcResolver({
     return probePromise;
   };
 
-  const mp4UrlForEntity = async (entity = "") => {
-    const state = await resolveTransportStateForEntity(entity);
-    if (!state) return null;
-
-    const { clientId, cam, cacheKey, nowMs } = state;
-    const cachedUrl = getFreshCachedValue({
-      cacheMap: mp4UrlCache,
-      cacheKey,
-      nowMs,
-    });
-    if (cachedUrl) return cachedUrl;
-
-    const inFlight = mp4UrlInFlight.get(cacheKey);
-    if (inFlight) return inFlight;
-
-    const mp4UrlPromise = (async () => {
-      const path = buildGo2rtcMp4Path({ clientId, cam });
-      const signedPath = await signHomeAssistantPath({
-        hass: getHass(),
-        path,
-      });
-      const url = resolveAbsoluteSignedPath({
-        signedPath,
-        origin: getOrigin(),
-      });
-      setCachedValue({
-        cacheMap: mp4UrlCache,
-        cacheKey,
-        url,
-        ttlMs: GO2RTC_CACHE_TTL_MS.wsSignedPath,
-        nowMs,
-      });
-      return url;
-    })().finally(() => {
-      mp4UrlInFlight.delete(cacheKey);
-    });
-
-    mp4UrlInFlight.set(cacheKey, mp4UrlPromise);
-    return mp4UrlPromise;
-  };
-
   return {
     resolveMountRequest,
     websocketUrlForEntity,
     hlsUrlForEntity,
-    mp4UrlForEntity,
   };
 }
