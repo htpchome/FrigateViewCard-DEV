@@ -1382,7 +1382,7 @@ test("HA-direct camera PTZ detection uses Frigate capability information", async
   assert.equal(states.at(-1).sourceType, "ha_direct");
 });
 
-test("HA-direct two-way talk is offered only when HA reports WebRTC playback", async () => {
+test("HA-direct two-way talk requires HA WebRTC and a Frigate audio backchannel", async () => {
   const editor = new FrigateViewCardEditor();
   const requests = [];
   const states = [];
@@ -1394,6 +1394,9 @@ test("HA-direct two-way talk is offered only when HA reports WebRTC playback", a
   };
   editor._cameraModalEntityValue = () => "camera.driveway";
   editor._cameraModalConnectionTypeValue = () => "ha_direct";
+  editor._fetchGo2RtcStreamMetadataForEntity = async () => ({
+    producers: [{ medias: ["audio, sendonly, OPUS/48000/2"] }],
+  });
   editor._syncCameraModalTwoWayTalkVisibility = (state) => states.push(state);
 
   await editor._refreshCameraModalTwoWayTalkSupport();
@@ -1406,6 +1409,80 @@ test("HA-direct two-way talk is offered only when HA reports WebRTC playback", a
   ]);
   assert.equal(states.at(-1).supported, true);
   assert.equal(states.at(-1).sourceType, "ha_direct");
+});
+
+test("HA-direct two-way talk stays unavailable without a Frigate audio backchannel", async () => {
+  const editor = new FrigateViewCardEditor();
+  const states = [];
+  editor._hass = {
+    callWS: async () => ({ frontend_stream_types: ["hls", "web_rtc"] }),
+  };
+  editor._cameraModalEntityValue = () => "camera.driveway";
+  editor._cameraModalConnectionTypeValue = () => "ha_direct";
+  editor._fetchGo2RtcStreamMetadataForEntity = async () => ({
+    producers: [
+      {
+        medias: [
+          "video, recvonly, H264",
+          "audio, recvonly, MPEG4-GENERIC/16000",
+        ],
+      },
+    ],
+  });
+  editor._syncCameraModalTwoWayTalkVisibility = (state) => states.push(state);
+
+  await editor._refreshCameraModalTwoWayTalkSupport();
+
+  assert.equal(states.at(-1).supported, false);
+  assert.equal(states.at(-1).preserveSelection, false);
+  assert.equal(
+    states.at(-1).unsupportedLocalizationKey,
+    "editor.cameraModal.talkUnsupportedFrigate",
+  );
+});
+
+test("unsupported two-way talk is hidden, disabled, and cleared in the editor", () => {
+  const editor = new FrigateViewCardEditor();
+  const attributes = new Map();
+  const row = { style: { display: "block" } };
+  const toggle = {
+    checked: true,
+    dataset: { supported: "true" },
+    disabled: false,
+  };
+  const message = {
+    style: { display: "none" },
+    textContent: "",
+    getAttribute: (name) => attributes.get(name) ?? null,
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: (name) => attributes.delete(name),
+  };
+  const nodes = {
+    "#camera-modal-two-way-talk-toggle-row": row,
+    "#camera-modal-two-way-talk-enabled": toggle,
+    "#camera-modal-two-way-talk-state": message,
+  };
+  editor._localization = { t: (key) => key };
+  editor.querySelector = (selector) => nodes[selector] || null;
+  editor._syncCameraModalAccordionSummaries = () => {};
+
+  editor._syncCameraModalTwoWayTalkVisibility({
+    supported: false,
+    loading: false,
+    sourceType: "ha_direct",
+    unsupportedLocalizationKey:
+      "editor.cameraModal.talkUnsupportedFrigate",
+  });
+
+  assert.equal(row.style.display, "none");
+  assert.equal(toggle.disabled, true);
+  assert.equal(toggle.checked, false);
+  assert.equal(toggle.dataset.supported, "false");
+  assert.equal(message.style.display, "block");
+  assert.equal(
+    message.textContent,
+    "editor.cameraModal.talkUnsupportedFrigate",
+  );
 });
 
 test("editor capability caches retain resolved and in-flight requests across unrelated hass updates", async () => {

@@ -1007,6 +1007,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     loading = false,
     sourceType = DEFAULT_CAMERA_CONNECTION_TYPE,
     preserveSelection = false,
+    unsupportedLocalizationKey = "",
   } = {}) {
     this._ensureLocalizationController();
     const twoWayTalkToggleRow = this.querySelector(
@@ -1041,7 +1042,8 @@ export class FrigateViewCardEditor extends HTMLElement {
         setLocalizedText(
           twoWayTalkStateMessage,
           isHaDirect
-            ? "editor.cameraModal.talkUnsupportedHa"
+            ? unsupportedLocalizationKey ||
+                "editor.cameraModal.talkUnsupportedHa"
             : "editor.cameraModal.talkUnsupportedFrigate",
           this._localization.t,
         );
@@ -1122,16 +1124,22 @@ export class FrigateViewCardEditor extends HTMLElement {
       });
       const token = (this._cameraModalTwoWayTalkToken || 0) + 1;
       this._cameraModalTwoWayTalkToken = token;
-      const capabilities =
-        await this._fetchHaCameraCapabilitiesForEntity(entity);
+      const [capabilities, go2rtcStreamInfo] = await Promise.all([
+        this._fetchHaCameraCapabilitiesForEntity(entity),
+        this._fetchGo2RtcStreamMetadataForEntity(entity),
+      ]);
       if (this._cameraModalTwoWayTalkToken !== token) return;
-      const twoWayTalkSupported =
-        hasHaCameraWebRtcPlaybackCapability(capabilities);
+      const hasHaWebRtc = hasHaCameraWebRtcPlaybackCapability(capabilities);
+      const hasAudioBackchannel = hasTwoWayTalkCapability(go2rtcStreamInfo);
+      const twoWayTalkSupported = hasHaWebRtc && hasAudioBackchannel;
       this._syncCameraModalTwoWayTalkVisibility({
         supported: twoWayTalkSupported,
         loading: false,
         sourceType: normalizedSourceType,
         preserveSelection: twoWayTalkSupported,
+        unsupportedLocalizationKey: hasHaWebRtc
+          ? "editor.cameraModal.talkUnsupportedFrigate"
+          : "editor.cameraModal.talkUnsupportedHa",
       });
       return;
     }
@@ -2549,7 +2557,10 @@ export class FrigateViewCardEditor extends HTMLElement {
         : "alerts_only";
     const ptzSupported = ptzEnabledToggle?.dataset?.supported === "true";
     const ptzEnabled = ptzSupported && resolveSwitchChecked(ptzEnabledToggle);
-    const twoWayTalkEnabled = resolveSwitchChecked(twoWayTalkToggle);
+    const twoWayTalkSupported =
+      twoWayTalkToggle?.dataset?.supported === "true";
+    const twoWayTalkEnabled =
+      twoWayTalkSupported && resolveSwitchChecked(twoWayTalkToggle);
     const requestedLinkedLights = [0, 1]
       .filter((index) => this._cameraModalLightEnabledAt(index))
       .map((index) => ({
