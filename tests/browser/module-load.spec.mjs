@@ -41,6 +41,10 @@ const bundlePaths = new Map([
     "dist/frigate-view-card-picture-in-picture.js",
   ],
   [
+    "/frigate-view-card-card-picker-demo.js",
+    "dist/frigate-view-card-card-picker-demo.js",
+  ],
+  [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
@@ -1185,6 +1189,60 @@ test("keeps PiP dormant on mobile and loads it on first desktop use", async ({
 
   expect(assetRequests).toHaveLength(1);
   expect(state).toEqual({ mobileLoaded: false, desktopLoaded: true });
+});
+
+test("loads the synthetic card-picker demo only inside HA's picker", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-card-picker-demo.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(25);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const Card = customElements.get("frigate-view-card");
+    const picker = document.createElement("hui-card-picker");
+    const card = document.createElement("frigate-view-card");
+    picker.append(card);
+    document.body.append(picker);
+    card.setConfig(Card.getStubConfig());
+
+    const deadline = performance.now() + 2000;
+    while (
+      !card.shadowRoot?.querySelector?.(".card-picker-demo-fvc-brand-logo") &&
+      performance.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return {
+      hostActive: card.classList.contains("card-picker-demo-host"),
+      cardActive: card.shadowRoot
+        ?.querySelector("#card")
+        ?.classList.contains("card-picker-demo"),
+      hasBranding: Boolean(
+        card.shadowRoot?.querySelector(".card-picker-demo-fvc-brand-logo"),
+      ),
+      hasScopedStyles: Boolean(
+        card.shadowRoot?.querySelector(
+          "style[data-fvc-card-picker-demo-styles]",
+        ),
+      ),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({
+    hostActive: true,
+    cardActive: true,
+    hasBranding: true,
+    hasScopedStyles: true,
+  });
 });
 
 test("loads dashboard swipe navigation only for an enabled owner card", async ({ page }) => {

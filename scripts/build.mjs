@@ -33,6 +33,8 @@ const recordingsOutputFile = "dist/frigate-view-card-recordings.js";
 const ptzOutputFile = "dist/frigate-view-card-ptz.js";
 const pictureInPictureOutputFile =
   "dist/frigate-view-card-picture-in-picture.js";
+const cardPickerDemoOutputFile =
+  "dist/frigate-view-card-card-picker-demo.js";
 const wideViewOutputFile = "dist/frigate-view-card-wide-view.js";
 const wideCompanionOutputFile =
   "dist/frigate-view-card-wide-companion.js";
@@ -150,6 +152,10 @@ const pictureInPictureOutput = await buildBundle({
   entryPoint: "src/shared/media/picture-in-picture.companion.js",
   outfile: pictureInPictureOutputFile,
 });
+const cardPickerDemoOutput = await buildBundle({
+  entryPoint: "src/features/editor-preview/card-picker-demo.ctrl.js",
+  outfile: cardPickerDemoOutputFile,
+});
 const wideViewOutput = await buildBundle({
   entryPoint: "src/features/wide-view/page.companion.js",
   outfile: wideViewOutputFile,
@@ -233,6 +239,9 @@ const ptzOutputSizeKib = (
 const pictureInPictureOutputSizeKib = (
   Buffer.byteLength(pictureInPictureOutput) / 1024
 ).toFixed(1);
+const cardPickerDemoOutputSizeKib = (
+  Buffer.byteLength(cardPickerDemoOutput) / 1024
+).toFixed(1);
 const wideViewOutputSizeKib = (
   Buffer.byteLength(wideViewOutput) / 1024
 ).toFixed(1);
@@ -274,6 +283,9 @@ console.info(
 console.info(`  ${ptzOutputFile}  ${ptzOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${pictureInPictureOutputFile}  ${pictureInPictureOutputSizeKib} KiB (lazy)`,
+);
+console.info(
+  `  ${cardPickerDemoOutputFile}  ${cardPickerDemoOutputSizeKib} KiB (lazy)`,
 );
 console.info(`  ${wideViewOutputFile}  ${wideViewOutputSizeKib} KiB (lazy)`);
 console.info(

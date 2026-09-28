@@ -1,19 +1,11 @@
-import {
-  buildCardPickerDemoAlertsMarkup,
-  buildCardPickerDemoLiveMarkup,
-} from "./card-picker-demo.tmpl.js";
-import { CARD_NAME } from "../../constants.js";
-import { createLocalizationController } from "../localization/localization.ctrl.js";
-import { applyLocalizedText } from "../localization/localized-dom.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
+import { LazyCardPickerDemoController } from "./card-picker-demo.loader.js";
 
 const EDITOR_LIFECYCLE_TRANSITION_GRACE_MS = 2000;
 // HA replaces card instances at editor boundaries, so use an ephemeral offer
 // instead of retaining media engines in a global registry.
 const EDITOR_LIVE_HANDOFF_REQUEST_EVENT =
   "frigate-view-card-editor-live-handoff-request";
-const englishT = createLocalizationController().t;
-
 export const EDITOR_PREVIEW_ROUTE_INTENTS = Object.freeze({
   enterStandalone: "enter-card-view-standalone",
   revertStandaloneDraft: "revert-card-view-standalone-draft",
@@ -99,8 +91,9 @@ export class EditorPreviewContextController {
           this._window()?.MutationObserver || globalThis.MutationObserver;
         return typeof Observer === "function" ? new Observer(callback) : null;
       });
-    this._cardPickerDemoEngine = null;
-    this._cardPickerDemoList = null;
+    this._cardPickerDemoController =
+      options.cardPickerDemoController ||
+      new LazyCardPickerDemoController(host);
     this._standaloneDraftReturnPageId = null;
     this._initialLandingPageSynced = false;
     this._liveHandoffProvider = null;
@@ -118,12 +111,7 @@ export class EditorPreviewContextController {
     this._dashboardEditLast = false;
     this._lastEditorPreviewContext = null;
     this._editorLifecycleTransitionUntil = 0;
-    this._host.classList?.remove?.("card-picker-demo-host");
-    this._host.shadowRoot
-      ?.querySelector?.("#card")
-      ?.classList?.remove?.("card-picker-demo");
-    this._cardPickerDemoEngine = null;
-    this._cardPickerDemoList = null;
+    this._cardPickerDemoController.dispose();
     this._standaloneDraftReturnPageId = null;
     this._initialLandingPageSynced = false;
     this.stopLiveHandoffProvider();
@@ -888,64 +876,7 @@ export class EditorPreviewContextController {
 
   renderCardPickerDemo() {
     const active = this.isCardPickerPreviewContext();
-    this._host.classList?.toggle?.("card-picker-demo-host", active);
-    if (!active) {
-      this._host.shadowRoot
-        ?.querySelector?.("#card")
-        ?.classList?.remove?.("card-picker-demo");
-      this._cardPickerDemoEngine = null;
-      this._cardPickerDemoList = null;
-      return false;
-    }
-
-    const root = this._host.shadowRoot;
-    const card = root?.querySelector?.("#card");
-    const engine = root?.querySelector?.("#engine");
-    const fallback = root?.querySelector?.("#stream-fallback");
-    const browse = root?.querySelector?.("#browse");
-    const browseHeader = root?.querySelector?.("#browse-head");
-    const browseHeaderLabel = root?.querySelector?.("#browse-head-label");
-    const list = root?.querySelector?.("#list");
-    if (!card || !engine || !browse || !browseHeader || !list) return true;
-    const t = this._host._localization?.t ?? englishT;
-
-    card.classList?.add?.("card-picker-demo");
-    const demoSurface = fallback || engine;
-    if (this._cardPickerDemoEngine !== demoSurface) {
-      demoSurface.innerHTML = buildCardPickerDemoLiveMarkup();
-      this._cardPickerDemoEngine = demoSurface;
-    }
-    if (fallback) {
-      fallback.hidden = false;
-      fallback.removeAttribute?.("hidden");
-    }
-    browse.style.display = "flex";
-    browseHeader.style.display = "flex";
-    if (browseHeaderLabel) browseHeaderLabel.textContent = t("runtime.browse.recentAlerts");
-
-    const alertsMarkup = buildCardPickerDemoAlertsMarkup();
-    if (this._cardPickerDemoList !== list) {
-      list.innerHTML = alertsMarkup;
-      this._cardPickerDemoList = list;
-    }
-    applyLocalizedText(demoSurface, t);
-    applyLocalizedText(list, t);
-    this._host._lastRenderedListHtml = alertsMarkup;
-
-    const title = root.querySelector?.("#info-title");
-    const subtitle = root.querySelector?.("#tl-range");
-    const streamType = root.querySelector?.("#stream-type");
-    const alertCount = root.querySelector?.("#alert-count");
-    const statusLabel = root.querySelector?.("#on-lbl");
-    const statusDot = root.querySelector?.("#on-dot");
-    if (title) title.textContent = CARD_NAME;
-    if (subtitle) subtitle.textContent = t("runtime.cardPickerDemo.demoCamera");
-    if (streamType) streamType.textContent = t("runtime.cardPickerDemo.demo");
-    if (alertCount) alertCount.textContent = "2";
-    if (statusLabel) statusLabel.textContent = t("runtime.preview.online");
-    if (statusDot) statusDot.style.color = "var(--c-on)";
-
-    return true;
+    return this._cardPickerDemoController.render(active);
   }
 
   isPreviewContext() {

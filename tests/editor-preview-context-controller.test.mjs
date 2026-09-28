@@ -8,6 +8,7 @@ import {
 } from "../src/features/editor-preview/context.ctrl.js";
 import { CARD_NAME } from "../src/constants.js";
 import { createLocalizationController } from "../src/features/localization/localization.ctrl.js";
+import { CardPickerDemoController } from "../src/features/editor-preview/card-picker-demo.ctrl.js";
 
 const withGlobals = (overrides, fn) => {
   const originalWindow = global.window;
@@ -592,7 +593,9 @@ test("renderCardPickerDemo paints an isolated presentation surface", () => {
   host.shadowRoot = {
     querySelector: (selector) => nodes[selector] || null,
   };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewContextController(host, {
+    cardPickerDemoController: new CardPickerDemoController(host),
+  });
 
   assert.equal(controller.renderCardPickerDemo(), true);
   assert.deepEqual(hostClasses, [["card-picker-demo-host", true]]);
@@ -632,7 +635,9 @@ test("renderCardPickerDemo suppresses normal startup before the shell exists", (
   const host = makeNode("FRIGATE-VIEW-CARD", { parentNode: picker });
   host.classList = { toggle: () => {} };
   host.shadowRoot = { querySelector: () => null };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewContextController(host, {
+    cardPickerDemoController: new CardPickerDemoController(host),
+  });
 
   assert.equal(controller.renderCardPickerDemo(), true);
 });

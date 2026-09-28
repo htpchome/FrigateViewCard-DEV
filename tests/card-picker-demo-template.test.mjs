@@ -7,6 +7,7 @@ import {
 } from "../src/features/editor-preview/card-picker-demo.tmpl.js";
 import { CARD_NAME } from "../src/constants.js";
 import { createLocalizationController } from "../src/features/localization/localization.ctrl.js";
+import { CARD_PICKER_DEMO_STYLES } from "../src/features/editor-preview/card-picker-demo.styles.js";
 
 const markedKeys = (markup) => [
   ...markup.matchAll(/data-fvc-i18n(?:-aria-label)?="([^"]+)"/g),
@@ -44,4 +45,13 @@ test("card picker alert demo renders two inert synthetic alerts", () => {
   for (const key of markedKeys(markup)) {
     assert.notEqual(t(key), key, `Missing English translation: ${key}`);
   }
+});
+
+test("card picker demo styles remain scoped to the active demo card", () => {
+  assert.match(CARD_PICKER_DEMO_STYLES, /\.card\.card-picker-demo/);
+  assert.match(CARD_PICKER_DEMO_STYLES, /card-picker-demo-alert/);
+  assert.doesNotMatch(
+    CARD_PICKER_DEMO_STYLES,
+    /(^|\})\s*\.list-item\s*\{/,
+  );
 });
