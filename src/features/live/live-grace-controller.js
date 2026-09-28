@@ -68,9 +68,6 @@ export function createLiveGraceController({
     );
   };
   const isHaDirectWebRtcEngineReusable = (engine) => {
-    if (engine?.tagName?.toLowerCase?.() === "ha-camera-stream") {
-      return engine?.type === "ha_direct";
-    }
     if (
       engine?.type !== "ha_direct" ||
       engine?.streamType !== "webrtc" ||
@@ -92,7 +89,6 @@ export function createLiveGraceController({
   };
   const isHaDirectEngineReusable = isHaDirectWebRtcEngineReusable;
   let mseGraceHost = null;
-  let haDirectGraceHost = null;
 
   const evictGraceMseEntry = (entity) => {
     const key = normalizeGraceEntityKey(entity);
@@ -174,16 +170,6 @@ export function createLiveGraceController({
     mseGraceHost = host;
     return host;
   };
-  const ensureHaDirectGraceHost = () => {
-    if (haDirectGraceHost?.isConnected) return haDirectGraceHost;
-    const host = document.createElement("div");
-    host.setAttribute("aria-hidden", "true");
-    host.style.cssText =
-      "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;opacity:0;pointer-events:none;z-index:-1";
-    getShadowRoot?.()?.appendChild?.(host);
-    haDirectGraceHost = host;
-    return host;
-  };
   const stashMseEngineForGrace = (entity, engine) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key || !engine?.video || !engine?.ws) return false;
@@ -229,21 +215,12 @@ export function createLiveGraceController({
     if (!key) return false;
     engine?.cancelPendingTakeover?.();
     if (!isHaDirectEngineReusable(engine)) return false;
-    const mediaNode = engine.video || engine;
+    const mediaNode = engine.video || null;
     if (!mediaNode) return false;
     evictGraceHaDirectEntry(key);
     engine.deactivateRecovery?.();
-    if (engine?.tagName?.toLowerCase?.() === "ha-camera-stream") {
-      ensureHaDirectGraceHost().appendChild(mediaNode);
-      mediaNode.muted = true;
-      mediaNode.defaultMuted = true;
-      mediaNode.controls = false;
-      mediaNode.style.cssText =
-        "width:100%;height:100%;display:block;pointer-events:none;background:var(--c-bg-deep)";
-    } else {
-      ensureMseGraceHost().appendChild(mediaNode);
-      prepareEngineVideoForGraceHost(mediaNode);
-    }
+    ensureMseGraceHost().appendChild(mediaNode);
+    prepareEngineVideoForGraceHost(mediaNode);
     const entry = createGraceEngineEntry({
       engine,
       graceMs,
@@ -408,28 +385,22 @@ export function createLiveGraceController({
       } catch (_) {}
       return false;
     }
-    const mediaNode = engine.video || engine;
+    const mediaNode = engine.video || null;
     const video = engine.video || null;
     if (!mediaNode) return false;
-    if (video) {
-      configureVideoElement(
-        video,
-        buildVideoOptionsForView(
-          "live",
-          {
-            muted: getStreamMuted?.(),
-            controls: false,
-          },
-          { scopeKey: getScopeKey?.() },
-        ),
-      );
-    } else {
-      mediaNode.muted = getStreamMuted?.();
-      mediaNode.defaultMuted = getStreamMuted?.();
-      mediaNode.controls = false;
-    }
+    configureVideoElement(
+      video,
+      buildVideoOptionsForView(
+        "live",
+        {
+          muted: getStreamMuted?.(),
+          controls: false,
+        },
+        { scopeKey: getScopeKey?.() },
+      ),
+    );
     mountNodeIntoSlot(slot, mediaNode);
-    if (video) attachVideoFit?.(video);
+    attachVideoFit?.(video);
     setEngine?.(engine);
     const ownershipAdopted = adoptHaDirectWebRtcEngine?.(engine);
     if (ownershipAdopted === false) {
@@ -444,7 +415,7 @@ export function createLiveGraceController({
     }
     if (ownershipAdopted !== true) engine.activateRecovery?.();
     setEngineMountedMuted?.(getStreamMuted?.());
-    setActiveStreamType?.(engine.streamType || "webrtc");
+    setActiveStreamType?.("webrtc");
     setStreamLoading?.(false);
     setStreamFallbackVisible?.(false);
     if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
@@ -499,7 +470,8 @@ export function createLiveGraceController({
       try {
         releaseHaDirectEngine?.(engine);
       } catch (_) {}
-      const mediaNode = engine.video || engine;
+      const mediaNode =
+        engine.streamType === "webrtc" ? engine.video : engine;
       try {
         mediaNode?.remove?.();
       } catch (_) {}
@@ -544,10 +516,6 @@ export function createLiveGraceController({
       mseGraceHost?.remove?.();
     } catch (_) {}
     mseGraceHost = null;
-    try {
-      haDirectGraceHost?.remove?.();
-    } catch (_) {}
-    haDirectGraceHost = null;
   };
 
   return {
