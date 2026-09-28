@@ -12,7 +12,6 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                     <div class="camera-suspended-placeholder" id="camera-suspended-placeholder" hidden>
                       <span class="camera-suspended-placeholder__icon">${icons.power || ""}</span>
                       <strong data-fvc-i18n="runtime.live.cameraSuspended">Camera suspended</strong>
-                      <span data-fvc-i18n="runtime.live.cameraSuspendedDetail">Resume this camera to restore live video.</span>
                     </div>
                     <div class="camera-group-pane-controls">
                       <button class="camera-group-pane-button camera-group-audio-select" type="button" data-media-overlay-ignore data-camera-group-audio="A" title="Use main camera audio" aria-label="Use main camera audio" data-fvc-i18n-title="runtime.cameraGroup.useMainAudio" data-fvc-i18n-aria-label="runtime.cameraGroup.useMainAudio" aria-pressed="true">${icons.volOn}<span>A</span></button>
@@ -28,7 +27,8 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                       <button class="camera-group-pane-button camera-group-focus-toggle" type="button" data-media-overlay-ignore data-camera-group-focus="B" title="Focus second camera" aria-label="Focus second camera" data-fvc-i18n-title="runtime.cameraGroup.focusSecond" data-fvc-i18n-aria-label="runtime.cameraGroup.focusSecond" aria-pressed="false">${icons.singleView}</button>
                     </div>
                   </div>
-                </div>
+                  </div>
+                  ${buildLiveCameraRuntimeConfirmationMarkup({ icons })}
                   <div id="grid-engine" aria-hidden="true" hidden></div>
                   <div class="slideshow-next-chip" id="slideshow-next-chip" data-fvc-i18n="runtime.live.nextSlide" data-fvc-i18n-values='{"seconds":0}' hidden>Next Slide: 0s</div>
                   <div class="stream-loading" id="stream-loading" hidden>
@@ -38,6 +38,21 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                     ${icons.chevron}
                   </button>
               </div>`;
+}
+
+export function buildLiveCameraRuntimeConfirmationMarkup({ icons = {} } = {}) {
+  return `<div class="camera-runtime-confirmation-modal" id="camera-runtime-confirmation-modal" hidden>
+            <button class="camera-runtime-confirmation-backdrop" type="button" data-camera-runtime-confirm-cancel aria-label="Cancel camera state change" data-fvc-i18n-aria-label="runtime.live.cancelCameraStateChange"></button>
+            <section class="camera-runtime-confirmation-dialog" role="dialog" aria-modal="true" aria-labelledby="camera-runtime-confirmation-title" aria-describedby="camera-runtime-confirmation-detail">
+              <div class="camera-runtime-confirmation-icon" aria-hidden="true">${icons.power || ""}</div>
+              <strong id="camera-runtime-confirmation-title" data-fvc-i18n="runtime.live.cameraSuspendDialogTitle">Suspend camera?</strong>
+              <p id="camera-runtime-confirmation-detail" data-fvc-i18n="runtime.live.cameraSuspendDialogDetail">Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.</p>
+              <footer class="camera-runtime-confirmation-actions">
+                <button class="camera-runtime-confirmation-cancel" type="button" data-camera-runtime-confirm-cancel data-fvc-i18n="runtime.live.cancelCameraStateChange">Cancel</button>
+                <button class="camera-runtime-confirmation-submit" id="camera-runtime-confirmation-submit" type="button" data-camera-runtime-confirm data-fvc-i18n="runtime.live.suspendCamera" data-fvc-i18n-title="runtime.live.suspendCamera" data-fvc-i18n-aria-label="runtime.live.suspendCamera">Suspend camera</button>
+              </footer>
+            </section>
+          </div>`;
 }
 
 export function buildRotateOverlayDismissButtonMarkup({ icons = {} } = {}) {

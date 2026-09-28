@@ -6,6 +6,26 @@ import { applyLocalizedText } from "../localization/localized-dom.js";
 import { buildLiveCameraPowerControlMarkup } from "./view.tmpl.js";
 
 const CONFIRMATION_TIMEOUT_MS = 12000;
+const DIALOG_COPY = Object.freeze({
+  suspend: {
+    titleKey: "runtime.live.cameraSuspendDialogTitle",
+    title: "Suspend camera?",
+    detailKey: "runtime.live.cameraSuspendDialogDetail",
+    detail:
+      "Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.",
+    actionKey: "runtime.live.suspendCamera",
+    action: "Suspend camera",
+  },
+  resume: {
+    titleKey: "runtime.live.cameraResumeDialogTitle",
+    title: "Resume camera?",
+    detailKey: "runtime.live.cameraResumeDialogDetail",
+    detail:
+      "Resuming this camera in Frigate restores live video, recordings, and detections. Frigate may need a short time before live video and new events become available.",
+    actionKey: "runtime.live.resumeCamera",
+    action: "Resume camera",
+  },
+});
 
 export class FrigateCameraRuntimeController {
   constructor(host, { icons = {}, confirmationTimeoutMs } = {}) {
@@ -16,6 +36,10 @@ export class FrigateCameraRuntimeController {
     this._activeSnapshot = null;
     this._pending = null;
     this._confirmationTimer = null;
+    this._dialogState = null;
+    this._dialogElement = null;
+    this._dialogReturnFocus = null;
+    this._onDialogKeyDown = (event) => this._handleDialogKeyDown(event);
   }
 
   activeEntity() {
@@ -123,6 +147,103 @@ export class FrigateCameraRuntimeController {
     applyLocalizedText(button.parentElement || button, this._host._localization?.t);
   }
 
+  _setDialogText(element, key, fallback) {
+    if (!element) return;
+    element.setAttribute?.("data-fvc-i18n", key);
+    element.textContent = fallback;
+  }
+
+  _renderConfirmationDialog({ focus = false } = {}) {
+    if (!this._dialogState) return false;
+    const modal = this._host._$("#camera-runtime-confirmation-modal");
+    if (!modal) return false;
+    if (this._dialogElement !== modal) {
+      this._dialogElement?.removeEventListener?.(
+        "keydown",
+        this._onDialogKeyDown,
+      );
+      this._dialogElement = modal;
+      modal.addEventListener?.("keydown", this._onDialogKeyDown);
+    }
+
+    const suspending = this._dialogState.suspended;
+    const copy = suspending ? DIALOG_COPY.suspend : DIALOG_COPY.resume;
+    const title = modal.querySelector?.("#camera-runtime-confirmation-title");
+    const detail = modal.querySelector?.("#camera-runtime-confirmation-detail");
+    const submit = modal.querySelector?.("#camera-runtime-confirmation-submit");
+    this._setDialogText(title, copy.titleKey, copy.title);
+    this._setDialogText(detail, copy.detailKey, copy.detail);
+    this._setDialogText(submit, copy.actionKey, copy.action);
+    submit?.setAttribute?.("data-fvc-i18n-title", copy.actionKey);
+    submit?.setAttribute?.("data-fvc-i18n-aria-label", copy.actionKey);
+    submit?.setAttribute?.("title", copy.action);
+    submit?.setAttribute?.("aria-label", copy.action);
+    submit?.classList?.toggle?.("is-resume", !suspending);
+    modal.dataset.cameraRuntimeAction = suspending ? "suspend" : "resume";
+    modal.hidden = false;
+    applyLocalizedText(modal, this._host._localization?.t);
+    if (focus) {
+      modal.querySelector?.(".camera-runtime-confirmation-cancel")?.focus?.();
+    }
+    return true;
+  }
+
+  openConfirmation() {
+    const runtime = this.resolve();
+    if (!runtime.controllable || this._pending) return false;
+    this.closeConfirmation({ restoreFocus: false });
+    this._dialogState = {
+      entity: runtime.entity,
+      suspended: !runtime.suspended,
+    };
+    this._dialogReturnFocus = this._host._$("#live-camera-power-btn");
+    if (this._renderConfirmationDialog({ focus: true })) return true;
+    this._dialogState = null;
+    this._dialogReturnFocus = null;
+    return false;
+  }
+
+  closeConfirmation({ restoreFocus = true } = {}) {
+    const currentModal = this._host._$("#camera-runtime-confirmation-modal");
+    for (const modal of new Set([this._dialogElement, currentModal])) {
+      if (!modal) continue;
+      modal.removeEventListener?.("keydown", this._onDialogKeyDown);
+      modal.hidden = true;
+    }
+    const returnFocus = this._dialogReturnFocus;
+    this._dialogState = null;
+    this._dialogElement = null;
+    this._dialogReturnFocus = null;
+    if (restoreFocus) returnFocus?.focus?.();
+  }
+
+  _handleDialogKeyDown(event) {
+    if (!this._dialogState) return;
+    if (event?.key === "Escape") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.closeConfirmation();
+      return;
+    }
+    if (event?.key !== "Tab") return;
+    const modal = this._dialogElement;
+    const controls = [
+      modal?.querySelector?.(".camera-runtime-confirmation-cancel"),
+      modal?.querySelector?.("#camera-runtime-confirmation-submit"),
+    ].filter((element) => element && !element.disabled);
+    if (controls.length < 2) return;
+    const active = this._host.shadowRoot?.activeElement;
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (event.shiftKey && (active === first || !controls.includes(active))) {
+      event.preventDefault?.();
+      last.focus?.();
+    } else if (!event.shiftKey && (active === last || !controls.includes(active))) {
+      event.preventDefault?.();
+      first.focus?.();
+    }
+  }
+
   sync(entity = this.activeEntity()) {
     const runtime = this.resolve(entity);
     const isActive = runtime.entity === this.activeEntity();
@@ -141,6 +262,14 @@ export class FrigateCameraRuntimeController {
       runtime.suspended,
     );
     this._syncButton(runtime);
+    if (this._dialogState) {
+      const dialogStillValid =
+        this._dialogState.entity === runtime.entity &&
+        runtime.controllable &&
+        this._dialogState.suspended !== runtime.suspended;
+      if (dialogStillValid) this._renderConfirmationDialog();
+      else this.closeConfirmation({ restoreFocus: false });
+    }
 
     if (runtime.suspended) {
       this._host._setStreamLoading?.(false);
@@ -200,11 +329,13 @@ export class FrigateCameraRuntimeController {
     return runtime;
   }
 
-  async toggle() {
-    const runtime = this.resolve();
+  async toggle({ entity = this.activeEntity(), suspended = null } = {}) {
+    const runtime = this.resolve(entity);
     if (!runtime.controllable || this._pending) return false;
-    const suspended = !runtime.suspended;
-    this._pending = { entity: runtime.entity, suspended };
+    const nextSuspended =
+      typeof suspended === "boolean" ? suspended : !runtime.suspended;
+    if (nextSuspended === runtime.suspended) return false;
+    this._pending = { entity: runtime.entity, suspended: nextSuspended };
     this._syncButton(runtime);
     this._clearConfirmationTimer();
     this._confirmationTimer = globalThis.setTimeout?.(() => {
@@ -221,30 +352,47 @@ export class FrigateCameraRuntimeController {
       await setFrigateCameraRuntimeSuspended({
         hass: this._host._hass,
         entity: runtime.entity,
-        suspended,
+        suspended: nextSuspended,
       });
       return true;
     } catch (_) {
       this._clearPending();
       this._syncButton(this.resolve(runtime.entity));
       this._toast(
-        suspended
+        nextSuspended
           ? "runtime.live.cameraSuspendFailed"
           : "runtime.live.cameraResumeFailed",
-        suspended ? "Unable to suspend camera" : "Unable to resume camera",
+        nextSuspended
+          ? "Unable to suspend camera"
+          : "Unable to resume camera",
       );
       return false;
     }
   }
 
   handleClick(target) {
+    if (target?.closest?.("[data-camera-runtime-confirm-cancel]")) {
+      this.closeConfirmation();
+      return true;
+    }
+    const submit = target?.closest?.("[data-camera-runtime-confirm]");
+    if (submit) {
+      const intent = this._dialogState;
+      if (intent && !submit.disabled) {
+        this.closeConfirmation({ restoreFocus: false });
+        void this.toggle(intent);
+      }
+      return true;
+    }
+    if (target?.closest?.("#camera-runtime-confirmation-modal")) return true;
     const button = target?.closest?.("#live-camera-power-btn");
     if (!button) return false;
-    if (!button.disabled) void this.toggle();
+    if (!button.disabled) this.openConfirmation();
     return true;
   }
 
   dispose() {
+    this.closeConfirmation({ restoreFocus: false });
     this._clearPending();
     this._activeSnapshot = null;
   }

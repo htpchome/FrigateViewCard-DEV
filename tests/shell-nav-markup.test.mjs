@@ -666,6 +666,22 @@ test("shared shell builders expose stable page region anchors", () => {
   });
   assert.doesNotMatch(liveEngineWrap, /id="(?:live-fs-btn|mute-btn)"/);
   assert.match(
+    liveEngineWrap,
+    /id="camera-suspended-placeholder"[^>]* hidden>[\s\S]*?Camera suspended/,
+  );
+  assert.match(
+    liveEngineWrap,
+    /id="camera-runtime-confirmation-modal"[^>]* hidden>[\s\S]*?role="dialog"[\s\S]*?data-camera-runtime-confirm-cancel[\s\S]*?data-camera-runtime-confirm/,
+  );
+  assert.match(
+    liveEngineWrap,
+    /If Frigate restarts, Frigate will lift this suspension automatically\./,
+  );
+  assert.match(
+    STYLES,
+    /\.camera-suspended-placeholder\{position:absolute;top:clamp\([^}]*left:50%;[^}]*transform:translateX\(-50%\);[^}]*border-radius:999px;/,
+  );
+  assert.match(
     liveFullscreen,
     /^<button[^>]*id="live-fs-btn"[^>]*data-fvc-region="live-fullscreen"/,
   );

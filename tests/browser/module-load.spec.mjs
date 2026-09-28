@@ -172,7 +172,34 @@ test("suspended Frigate cameras expose a transport-independent power control", a
         .classList.contains("camera-runtime-suspended"),
     };
 
-    await card._frigateCameraRuntimeController.toggle();
+    const primaryPane = card.shadowRoot.querySelector(
+      ".camera-group-live-pane--primary",
+    );
+    const indicatorRect = placeholder.getBoundingClientRect();
+    const paneRect = primaryPane.getBoundingClientRect();
+    suspendedState.indicatorCenterOffset = Math.abs(
+      indicatorRect.left + indicatorRect.width / 2 -
+        (paneRect.left + paneRect.width / 2),
+    );
+    suspendedState.indicatorTopOffset = indicatorRect.top - paneRect.top;
+
+    button.click();
+    const modal = card.shadowRoot.querySelector(
+      "#camera-runtime-confirmation-modal",
+    );
+    const title = modal.querySelector("#camera-runtime-confirmation-title");
+    const detail = modal.querySelector("#camera-runtime-confirmation-detail");
+    const submit = modal.querySelector("#camera-runtime-confirmation-submit");
+    const resumeDialog = {
+      hidden: modal.hidden,
+      action: modal.dataset.cameraRuntimeAction,
+      title: title.textContent,
+      detail: detail.textContent,
+      submit: submit.textContent,
+      serviceCallsBeforeConfirmation: serviceCalls.length,
+    };
+    submit.click();
+    await Promise.resolve();
     card._hass.states["camera.front"] = {
       state: "recording",
       attributes: {
@@ -187,26 +214,78 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       label: button.getAttribute("aria-label"),
       placeholderHidden: placeholder.hidden,
     };
+
+    button.click();
+    const suspendDialog = {
+      hidden: modal.hidden,
+      action: modal.dataset.cameraRuntimeAction,
+      title: title.textContent,
+      detail: detail.textContent,
+      submit: submit.textContent,
+      serviceCallsBeforeConfirmation: serviceCalls.length,
+    };
+    const cancel = modal.querySelector(".camera-runtime-confirmation-cancel");
+    cancel.click();
+    const cancelled = {
+      hidden: modal.hidden,
+      serviceCalls: serviceCalls.length,
+    };
+    button.click();
+    submit.click();
+    await Promise.resolve();
     card._frigateCameraRuntimeController.dispose();
     card.remove();
-    return { suspendedState, resumedState, serviceCalls };
+    return {
+      suspendedState,
+      resumeDialog,
+      resumedState,
+      suspendDialog,
+      cancelled,
+      serviceCalls,
+    };
   });
 
-  expect(state).toEqual({
-    suspendedState: {
-      buttonHidden: false,
-      pressed: "true",
-      label: "Resume camera",
-      placeholderHidden: false,
-      stageSuspended: true,
+  expect(state.suspendedState).toMatchObject({
+    buttonHidden: false,
+    pressed: "true",
+    label: "Resume camera",
+    placeholderHidden: false,
+    stageSuspended: true,
+  });
+  expect(state.suspendedState.indicatorCenterOffset).toBeLessThan(2);
+  expect(state.suspendedState.indicatorTopOffset).toBeGreaterThanOrEqual(7);
+  expect(state.suspendedState.indicatorTopOffset).toBeLessThanOrEqual(16);
+  expect(state).toMatchObject({
+    resumeDialog: {
+      hidden: false,
+      action: "resume",
+      title: "Resume camera?",
+      detail:
+        "Resuming this camera in Frigate restores live video, recordings, and detections. Frigate may need a short time before live video and new events become available.",
+      submit: "Resume camera",
+      serviceCallsBeforeConfirmation: 0,
     },
     resumedState: {
       pressed: "false",
       label: "Suspend camera",
       placeholderHidden: true,
     },
+    suspendDialog: {
+      hidden: false,
+      action: "suspend",
+      title: "Suspend camera?",
+      detail:
+        "Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.",
+      submit: "Suspend camera",
+      serviceCallsBeforeConfirmation: 1,
+    },
+    cancelled: {
+      hidden: true,
+      serviceCalls: 1,
+    },
     serviceCalls: [
       ["camera", "turn_on", {}, { entity_id: "camera.front" }],
+      ["camera", "turn_off", {}, { entity_id: "camera.front" }],
     ],
   });
 });

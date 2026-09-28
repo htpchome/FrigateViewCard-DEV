@@ -510,11 +510,27 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .stream-loading{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:6px;padding:4.8px 9.6px;border-radius:999px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:var(--c-text-rev);font-size:0.825rem;font-weight:600;line-height:1;z-index:3;backdrop-filter:blur(2px);}
   .stream-loading[hidden]{display:none;}
   .stream-loading .dot{width:10px;height:10px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--c-text-rev);border-radius:50%;animation:spin .9s linear infinite;}
-  .camera-suspended-placeholder{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px;box-sizing:border-box;background:var(--c-bg-deep);color:var(--c-text-rev);text-align:center;line-height:1.25;}
+  .camera-suspended-placeholder{position:absolute;top:clamp(8px,2vw,14px);left:50%;z-index:6;display:inline-flex;align-items:center;justify-content:center;gap:7px;max-width:calc(100% - 88px);padding:6px 11px;box-sizing:border-box;transform:translateX(-50%);border:1px solid var(--fvc-media-overlay-border);border-radius:999px;background:var(--fvc-media-overlay-bg);box-shadow:var(--fvc-media-overlay-shadow);color:var(--fvc-media-overlay-text);font-size:.8rem;line-height:1.1;text-align:center;white-space:nowrap;pointer-events:none;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);}
   .camera-suspended-placeholder[hidden]{display:none;}
-  .camera-suspended-placeholder__icon{display:grid;place-items:center;width:46px;height:46px;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;background:var(--fvc-media-overlay-bg);color:var(--c-off);}
-  .camera-suspended-placeholder__icon svg{width:28px;height:28px;}
-  .camera-suspended-placeholder > span:last-child{max-width:320px;font-size:.82rem;color:color-mix(in srgb,var(--c-text-rev) 75%,transparent);}
+  .camera-suspended-placeholder__icon{display:grid;place-items:center;width:18px;height:18px;flex:0 0 18px;color:var(--c-off);}
+  .camera-suspended-placeholder__icon svg{width:18px;height:18px;}
+  .camera-suspended-placeholder strong{overflow:hidden;text-overflow:ellipsis;}
+  .camera-runtime-confirmation-modal{position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:12px;box-sizing:border-box;}
+  .camera-runtime-confirmation-modal[hidden]{display:none;}
+  .camera-runtime-confirmation-backdrop{appearance:none;-webkit-appearance:none;position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;background:rgba(0,0,0,.68);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);cursor:pointer;}
+  .camera-runtime-confirmation-dialog{position:relative;z-index:1;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;width:min(460px,100%);max-height:calc(100% - 4px);padding:14px;box-sizing:border-box;overflow:auto;border:1px solid var(--c-border2);border-radius:12px;background:var(--c-bg-main);box-shadow:0 18px 54px rgba(0,0,0,.48);color:var(--c-text);}
+  .camera-runtime-confirmation-icon{grid-row:1 / span 2;display:grid;place-items:center;width:38px;height:38px;border:1px solid color-mix(in srgb,var(--error-color,var(--c-bg-alert)) 45%,var(--c-border2));border-radius:50%;background:color-mix(in srgb,var(--error-color,var(--c-bg-alert)) 14%,var(--c-bg-panel));color:var(--error-color,var(--c-bg-alert));}
+  .camera-runtime-confirmation-icon svg{width:23px;height:23px;}
+  .camera-runtime-confirmation-dialog > strong{align-self:end;font-size:1rem;line-height:1.2;}
+  .camera-runtime-confirmation-dialog > p{align-self:start;margin:0;color:var(--c-text2);font-size:.8rem;line-height:1.4;}
+  .camera-runtime-confirmation-actions{grid-column:1 / -1;display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
+  .camera-runtime-confirmation-actions button{appearance:none;-webkit-appearance:none;min-height:42px;padding:7px 12px;border:1px solid var(--c-border2);border-radius:8px;background:var(--c-bg-panel);color:var(--c-text);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;touch-action:manipulation;transition:transform .12s ease,background .16s ease,border-color .16s ease,opacity .16s ease;}
+  .camera-runtime-confirmation-actions button:focus-visible{outline:2px solid var(--c-primary-d);outline-offset:2px;}
+  .camera-runtime-confirmation-actions button:active:not(:disabled){transform:scale(.97);}
+  .camera-runtime-confirmation-actions button:disabled{opacity:.5;cursor:wait;}
+  .camera-runtime-confirmation-submit{border-color:var(--error-color,var(--c-bg-alert))!important;background:var(--error-color,var(--c-bg-alert))!important;color:var(--c-text-rev)!important;}
+  .camera-runtime-confirmation-submit.is-resume{border-color:var(--c-primary-d)!important;background:var(--c-primary-d)!important;}
+  @media (hover:hover) and (pointer:fine){.camera-runtime-confirmation-actions button:hover:not(:disabled){border-color:var(--c-primary-d);}.camera-runtime-confirmation-submit:hover:not(:disabled){filter:brightness(1.08);}}
 
   .square-btn{
     display: inline-grid;
