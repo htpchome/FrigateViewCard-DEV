@@ -771,7 +771,7 @@ test("live transport ownership is pulled out of the card shell", () => {
     true,
   );
   assert.equal(
-    go2rtcMounterSource.includes("resolver.hlsUrlForEntity(entity)"),
+    go2rtcMounterSource.includes("buildGo2rtcNativeHlsDataUrl"),
     true,
   );
   assert.equal(

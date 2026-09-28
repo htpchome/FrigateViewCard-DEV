@@ -287,6 +287,7 @@ export function createLiveMountController({
   setPendingMountDestroyers,
   haDirectMounter,
   haDirectTwoWayTalkMounter,
+  go2rtcMounter,
   go2rtcRaceMounter,
   resolveGo2RtcStartupMode,
   preferredStreamType,
@@ -626,17 +627,15 @@ export function createLiveMountController({
       }
 
       if (nativeHlsOnly) {
-        // Native HLS cannot attach HA auth to Frigate child requests. Let HA
-        // issue the tokenized HLS path while preserving the go2rtc camera mode.
-        const hlsResult = await haDirectMounter?.tryMount?.(
+        const hlsResult = await go2rtcMounter?.tryMountHls?.(
           slot,
-          { streamType: "hls" },
+          null,
           {
             entity: targetEntity,
             commit: true,
           },
         );
-        if (hlsResult?.ok) {
+        if (hlsResult) {
           setEngineMountedMuted?.(getStreamMuted?.());
           return true;
         }

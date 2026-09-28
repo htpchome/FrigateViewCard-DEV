@@ -177,6 +177,7 @@ export const createLiveLifecycleControllers = (
     },
     haDirectMounter: card._haDirectMounter,
     haDirectTwoWayTalkMounter: card._haDirectTwoWayTalkMounter,
+    go2rtcMounter: card._go2rtcMounter,
     go2rtcRaceMounter: card._go2rtcRaceMounter,
     resolveGo2RtcStartupMode: () =>
       resolveGo2RtcStartupMode({

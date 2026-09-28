@@ -78,6 +78,9 @@ function createFakeVideoElement() {
     load() {
       this.loadCalls += 1;
     },
+    canPlayType(type) {
+      return String(type || "").includes("mpegurl") ? "probably" : "maybe";
+    },
   };
 }
 
@@ -655,20 +658,72 @@ test("go2rtc mounter MSE path supports ManagedMediaSource and starts playback", 
   });
 });
 
-test("go2rtc mounter HLS path commits the mounted engine on success", async () => {
+test("go2rtc mounter HLS path negotiates a native playlist over the signed websocket", async () => {
   await withFakeDocument(async () => {
     const slot = createSlot();
     let attached = 0;
     let committedType = "";
     let assignedEngine = null;
     const recoveryReasons = [];
+    const sockets = [];
+    class FakeWebSocket {
+      static OPEN = 1;
+
+      constructor(url) {
+        this.url = url;
+        this.readyState = 0;
+        this.sent = [];
+        this.closeCalls = 0;
+        this._listeners = new Map();
+        sockets.push(this);
+      }
+
+      addEventListener(type, handler) {
+        const handlers = this._listeners.get(type) || [];
+        handlers.push(handler);
+        this._listeners.set(type, handlers);
+      }
+
+      _dispatch(type, event = {}) {
+        for (const handler of this._listeners.get(type) || []) {
+          handler(event);
+        }
+      }
+
+      open() {
+        this.readyState = FakeWebSocket.OPEN;
+        this._dispatch("open");
+      }
+
+      message(value) {
+        this._dispatch("message", { data: JSON.stringify(value) });
+      }
+
+      send(value) {
+        this.sent.push(JSON.parse(value));
+      }
+
+      closeFromServer() {
+        this.readyState = 3;
+        this._dispatch("close");
+      }
+
+      close() {
+        if (this.readyState >= 2) return;
+        this.closeCalls += 1;
+        this.closeFromServer();
+      }
+    }
+
+    let resolvePresented;
+    const presented = new Promise((resolve) => {
+      resolvePresented = resolve;
+    });
     const mounter = createBaseMounter({
       resolver: {
         resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
-        hlsUrlForEntity: async () => ({
-          url: "https://example.test/live.m3u8",
-          destroy: () => {},
-        }),
+        websocketUrlForEntity: async () =>
+          "wss://ha.local/api/frigate/frigate/mse/api/ws?src=front&authSig=signed",
       },
       attachVideoFit: () => {
         attached += 1;
@@ -682,18 +737,33 @@ test("go2rtc mounter HLS path commits the mounted engine on success", async () =
       scheduleResumeLive: (reason) => recoveryReasons.push(reason),
       waitForStreamStart: async (target, waitMs, opts) => {
         assert.equal(target, slot);
-        assert.equal(
-          target.lastChild.src,
-          "https://example.test/live.m3u8",
-        );
         assert.equal(waitMs, 5000);
         assert.equal(opts.requireReadyState, 2);
         assert.equal(opts.requirePresentedFrame, true);
-        return true;
+        return presented;
       },
     });
 
-    const result = await withFakeWindow({}, () => mounter.tryMountHls(slot));
+    const mounting = withFakeWindow({ WebSocket: FakeWebSocket }, () =>
+      mounter.tryMountHls(slot),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(sockets.length, 1);
+    sockets[0].open();
+    assert.equal(sockets[0].sent.length, 1);
+    assert.equal(sockets[0].sent[0].type, "hls");
+    assert.equal(sockets[0].sent[0].value.includes("avc1.640029"), true);
+    sockets[0].message({
+      type: "hls",
+      value: "#EXTM3U\n#EXTINF:1,\nhls/session/segment.ts",
+    });
+    const encodedPlaylist = slot.lastChild.src.split(",")[1];
+    assert.equal(
+      atob(encodedPlaylist),
+      "#EXTM3U\n#EXTINF:1,\nhttps://ha.local/api/frigate/frigate/mse/api/hls/session/segment.ts",
+    );
+    resolvePresented(true);
+    const result = await mounting;
     assert.equal(result, true);
     assert.equal(attached, 1);
     assert.equal(committedType, "hls");
@@ -704,11 +774,15 @@ test("go2rtc mounter HLS path commits the mounted engine on success", async () =
     assert.equal(assignedEngine.video, slot.lastChild);
     assert.equal(assignedEngine.video.loadCalls, 1);
     assert.equal(assignedEngine.video.playCalls, 1);
+    assert.strictEqual(assignedEngine.ws, sockets[0]);
     assignedEngine.video.dispatchEvent({ type: "error" });
     assert.deepEqual(recoveryReasons, ["hls-error"]);
+    assignedEngine.activateRecovery();
+    sockets[0].closeFromServer();
+    assert.deepEqual(recoveryReasons, ["hls-error", "hls-ws-closed"]);
     assignedEngine.destroy();
     assignedEngine.video.dispatchEvent({ type: "ended" });
-    assert.deepEqual(recoveryReasons, ["hls-error"]);
+    assert.deepEqual(recoveryReasons, ["hls-error", "hls-ws-closed"]);
   });
 });
 

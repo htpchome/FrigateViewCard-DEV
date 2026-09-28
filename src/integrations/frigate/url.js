@@ -5,6 +5,43 @@ export const makeGo2rtcCacheKey = ({ clientId, cam }) => `${clientId}:${cam}`;
 export const buildGo2rtcWsPath = ({ clientId, cam }) =>
   `/api/frigate/${encodeURIComponent(clientId)}/mse/api/ws?src=${encodeURIComponent(cam)}`;
 
+export const buildGo2rtcHlsSessionBaseUrl = (websocketUrl = "") => {
+  try {
+    const url = new URL(websocketUrl);
+    const websocketPathIndex = url.pathname.lastIndexOf("/ws");
+    if (websocketPathIndex < 0) return "";
+    url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+    url.pathname = `${url.pathname.slice(0, websocketPathIndex)}/hls/`;
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch (_) {
+    return "";
+  }
+};
+
+export const buildGo2rtcNativeHlsDataUrl = ({
+  websocketUrl = "",
+  playlist = "",
+  encodeBase64 = (value) => globalThis.btoa(value),
+} = {}) => {
+  const source = String(playlist || "");
+  const sessionBaseUrl = buildGo2rtcHlsSessionBaseUrl(websocketUrl);
+  if (
+    !source.startsWith("#EXTM3U") ||
+    !sessionBaseUrl ||
+    typeof encodeBase64 !== "function"
+  ) {
+    return "";
+  }
+  try {
+    const rewrittenPlaylist = source.split("hls/").join(sessionBaseUrl);
+    return `data:application/vnd.apple.mpegurl;base64,${encodeBase64(rewrittenPlaylist)}`;
+  } catch (_) {
+    return "";
+  }
+};
+
 export const buildGo2rtcHlsCandidates = ({ clientId, cam }) => {
   const encClient = encodeURIComponent(clientId);
   const encCam = encodeURIComponent(cam);

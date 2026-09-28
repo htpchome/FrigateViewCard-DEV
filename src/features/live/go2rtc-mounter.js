@@ -8,6 +8,7 @@ import {
   createVideoElement,
   mountNodeIntoSlot,
 } from "../../shared/media/video-factory.js";
+import { buildGo2rtcNativeHlsDataUrl } from "../../integrations/frigate/url.js";
 
 const WEBRTC_NEGOTIATION_TIMEOUT_MS = 4000;
 
@@ -700,13 +701,11 @@ export function createGo2RtcMounter({
     if (abortSignal?.aborted) return false;
     if (!entity) return false;
 
-    const hlsSource = await resolver.hlsUrlForEntity(entity);
-    if (!hlsSource?.url || abortSignal?.aborted) {
-      try {
-        hlsSource?.destroy?.();
-      } catch (_) {}
-      return false;
-    }
+    const WebSocketCtor = window?.WebSocket;
+    if (!WebSocketCtor) return false;
+
+    const wsUrl = await resolver.websocketUrlForEntity(entity);
+    if (!wsUrl || abortSignal?.aborted) return false;
 
     const video = createVideoElement(
       buildVideoOptionsForView(
@@ -714,20 +713,28 @@ export function createGo2RtcMounter({
         {
           muted: options?.muted ?? getStreamMuted(),
           controls: false,
-          src: hlsSource.url,
         },
         { scopeKey },
       ),
     );
 
+    const supportsNativeHls = Boolean(
+      video.canPlayType?.("application/vnd.apple.mpegurl") ||
+        video.canPlayType?.("application/x-mpegURL"),
+    );
+    if (!supportsNativeHls) return false;
+
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
 
+    const startupAbort = new AbortController();
     let abortBound = false;
     let destroyed = false;
     let streamStarted = false;
     let recoveryScheduled = false;
     let recoveryEnabled = commit;
+    let recoveryHandler = scheduleResumeLive;
+    let ws = null;
     const scheduleRecovery = (reason) => {
       if (
         destroyed ||
@@ -738,22 +745,23 @@ export function createGo2RtcMounter({
         return;
       }
       recoveryScheduled = true;
-      scheduleResumeLive(reason);
+      recoveryHandler?.(reason);
     };
     video.addEventListener("error", () => scheduleRecovery("hls-error"));
     video.addEventListener("ended", () => scheduleRecovery("hls-ended"));
     const destroy = () => {
+      if (destroyed) return;
       destroyed = true;
+      try {
+        if (!startupAbort.signal.aborted) startupAbort.abort();
+      } catch (_) {}
+      try {
+        ws?.close?.();
+      } catch (_) {}
       try {
         video.pause();
         video.removeAttribute("src");
         video.load();
-      } catch (_) {}
-      try {
-        hlsSource.destroy?.();
-      } catch (_) {}
-      try {
-        if (video.src?.startsWith("blob:")) URL.revokeObjectURL(video.src);
       } catch (_) {}
       if (abortSignal && abortBound) {
         abortSignal.removeEventListener("abort", onAbort);
@@ -769,10 +777,20 @@ export function createGo2RtcMounter({
       abortBound = true;
     }
 
+    try {
+      ws = new WebSocketCtor(wsUrl);
+    } catch (_) {
+      destroy();
+      return false;
+    }
+
     const engine = {
       type: "frigate_go2rtc",
       streamType: "hls",
       video,
+      get ws() {
+        return ws;
+      },
       destroy,
       activateRecovery: () => {
         recoveryEnabled = true;
@@ -781,9 +799,63 @@ export function createGo2RtcMounter({
       deactivateRecovery: () => {
         recoveryEnabled = false;
       },
+      setRecoveryHandler: (handler) => {
+        recoveryHandler = typeof handler === "function" ? handler : null;
+      },
     };
     if (commit) assignCommittedEngine(engine);
-    startVideoPlayback(video, { load: true });
+
+    const abortStartup = () => {
+      if (!startupAbort.signal.aborted) startupAbort.abort();
+    };
+
+    ws.addEventListener("open", () => {
+      if (destroyed || abortSignal?.aborted) {
+        destroy();
+        return;
+      }
+      try {
+        const codecs = resolveGo2RtcCodecs((mime) =>
+          Boolean(video.canPlayType?.(mime)),
+        );
+        ws.send(JSON.stringify({ type: "hls", value: codecs }));
+      } catch (_) {
+        abortStartup();
+      }
+    });
+
+    ws.addEventListener("message", (event) => {
+      if (destroyed || typeof event.data !== "string") return;
+      let message;
+      try {
+        message = JSON.parse(event.data);
+      } catch (_) {
+        return;
+      }
+      if (message?.type !== "hls" || typeof message.value !== "string") {
+        return;
+      }
+      const dataUrl = buildGo2rtcNativeHlsDataUrl({
+        websocketUrl: wsUrl,
+        playlist: message.value,
+      });
+      if (!dataUrl) {
+        abortStartup();
+        return;
+      }
+      video.src = dataUrl;
+      startVideoPlayback(video, { load: true });
+    });
+
+    ws.addEventListener("error", () => {
+      if (!streamStarted) abortStartup();
+      scheduleRecovery("hls-error");
+    });
+
+    ws.addEventListener("close", () => {
+      if (!streamStarted) abortStartup();
+      scheduleRecovery("hls-ws-closed");
+    });
 
     const started = await waitForStreamStart(slot, waitMs, {
       minCurrentTime: 0.05,
@@ -791,7 +863,7 @@ export function createGo2RtcMounter({
       requireReadyState: 2,
       strict: false,
       requirePresentedFrame: true,
-      abortSignal,
+      abortSignal: startupAbort.signal,
     });
     if (!started) {
       destroy();
