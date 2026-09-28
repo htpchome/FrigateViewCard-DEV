@@ -78,6 +78,12 @@ test("HACS release artifact is generated under dist", () => {
     true,
   );
   assert.equal(
+    fs.existsSync(
+      repositoryFile("dist/frigate-view-card-editor-preview-draft.js"),
+    ),
+    true,
+  );
+  assert.equal(
     fs.existsSync(repositoryFile("dist/frigate-view-card-wide-view.js")),
     true,
   );
@@ -187,6 +193,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-card-picker-demo.js"),
     "utf8",
   );
+  const editorPreviewDraftBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-editor-preview-draft.js"),
+    "utf8",
+  );
   const recordingScrubBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     "utf8",
@@ -252,6 +262,9 @@ test("HACS release artifact is production-minified", () => {
   assert.match(bundle, /frigate-view-card-card-picker-demo\.js/);
   assert.doesNotMatch(bundle, /card-picker-demo-fvc-brand-logo-gold/);
   assert.match(cardPickerDemoBundle, /card-picker-demo-fvc-brand-logo-gold/);
+  assert.match(bundle, /frigate-view-card-editor-preview-draft\.js/);
+  assert.doesNotMatch(bundle, /editor-preview-page-disabled/);
+  assert.match(editorPreviewDraftBundle, /editor-preview-page-disabled/);
   assert.match(bundle, /frigate-view-card-wide-view\.js/);
   assert.doesNotMatch(bundle, /wide-view-start-grid/);
   assert.doesNotMatch(bundle, /\.card \.wide-view-columns\{position:relative/);
@@ -307,6 +320,7 @@ test("development deployment keeps every lazy page asset beside the card", () =>
     assert.match(source, /frigate-view-card-ptz\.js/);
     assert.match(source, /frigate-view-card-picture-in-picture\.js/);
     assert.match(source, /frigate-view-card-card-picker-demo\.js/);
+    assert.match(source, /frigate-view-card-editor-preview-draft\.js/);
     assert.match(source, /frigate-view-card-wide-view\.js/);
     assert.match(source, /frigate-view-card-wide-companion\.js/);
   }

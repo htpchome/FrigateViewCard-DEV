@@ -9,6 +9,7 @@ import {
 import { CARD_NAME } from "../src/constants.js";
 import { createLocalizationController } from "../src/features/localization/localization.ctrl.js";
 import { CardPickerDemoController } from "../src/features/editor-preview/card-picker-demo.ctrl.js";
+import { EditorPreviewDraftController } from "../src/features/editor-preview/draft.ctrl.js";
 
 const withGlobals = (overrides, fn) => {
   const originalWindow = global.window;
@@ -253,7 +254,7 @@ test("config drafts update preview chrome without rebuilding media or lists", ()
     _cleanupEngine: () => calls.push(["cleanup-engine"]),
     _renderList: () => calls.push(["render-list"]),
   };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewDraftController(host);
 
   const result = controller.applyConfigDraft({
     previousConfig: { title: "Original", cameras: [] },
@@ -285,7 +286,7 @@ test("standalone Card View draft controls reach its lightweight config updater",
       },
     },
   };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewDraftController(host);
 
   controller.applyConfigDraft({
     previousConfig: {
@@ -330,7 +331,7 @@ test("Single and Wide page drafts reach their lightweight mode updaters", () => 
     },
     _syncToolbarButtons: () => calls.push(["toolbar"]),
   };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewDraftController(host);
 
   controller.applyConfigDraft({
     previousConfig: {
@@ -380,7 +381,7 @@ test("camera drafts resync linked lights and two-way talk without rebuilding med
     _syncToolbarButtons: () => calls.push(["toolbar"]),
     _cleanupEngine: () => calls.push(["cleanup-engine"]),
   };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewDraftController(host);
 
   controller.applyConfigDraft({
     previousConfig: {
@@ -430,7 +431,7 @@ test("Favorites scope drafts reload only the visible Favorites tab", () => {
     _isPreviewPageActive: () => false,
     _loadTabData: (tab) => calls.push(["load-tab", tab]),
   };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewDraftController(host);
 
   controller.applyConfigDraft({
     previousConfig: {
@@ -483,7 +484,7 @@ test("disabling the active page moves the editor preview to Single View", () => 
       applyEditorPreviewDraftRefresh: () => calls.push(["soft-preview"]),
     },
   };
-  const controller = new EditorPreviewContextController(host);
+  const controller = new EditorPreviewDraftController(host);
 
   assert.equal(controller.applyConfigDraft(), "navigated");
   assert.deepEqual(calls, [
@@ -514,8 +515,10 @@ test("changing a Wide View landing page moves editor preview to Single View", ()
       applyEditorPreviewDraftRefresh: () => calls.push(["soft-preview"]),
     },
   };
-  const controller = new EditorPreviewContextController(host);
-  controller.isEditorPreviewContext = () => true;
+  const controller = new EditorPreviewDraftController(host, {
+    resolveLandingPage: (pageId) =>
+      pageId === "wide-view" ? "single-view" : pageId,
+  });
 
   assert.equal(
     controller.applyConfigDraft({

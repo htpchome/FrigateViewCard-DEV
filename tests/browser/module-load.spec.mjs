@@ -45,6 +45,10 @@ const bundlePaths = new Map([
     "dist/frigate-view-card-card-picker-demo.js",
   ],
   [
+    "/frigate-view-card-editor-preview-draft.js",
+    "dist/frigate-view-card-editor-preview-draft.js",
+  ],
+  [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
@@ -1337,6 +1341,59 @@ test("loads the synthetic card-picker demo only inside HA's picker", async ({
     cardActive: true,
     hasBranding: true,
     hasScopedStyles: true,
+  });
+});
+
+test("loads editor-preview draft synchronization only on the first draft", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (
+      request.url().includes("frigate-view-card-editor-preview-draft.js")
+    ) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  await page.waitForTimeout(25);
+  expect(assetRequests).toEqual([]);
+
+  const state = await page.evaluate(async () => {
+    const card = document.createElement("frigate-view-card");
+    const calls = [];
+    card._pageId = "single-view";
+    card._pageNavigationController = {
+      isPageRouteAvailable: () => true,
+    };
+    card._singleViewPageController = {
+      applyEditorPreviewDraftRefresh: () => calls.push("refresh"),
+    };
+    card._syncToolbarButtons = () => calls.push("toolbar");
+
+    const first = await card._editorPreviewController.applyConfigDraft({
+      previousConfig: { title: "Before" },
+      nextConfig: { title: "After" },
+    });
+    const second = card._editorPreviewController.applyConfigDraft({
+      previousConfig: { title: "After" },
+      nextConfig: { title: "Again" },
+    });
+    return {
+      first,
+      second,
+      calls,
+      loaded: Boolean(card._editorPreviewController._draftController._delegate),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({
+    first: "synced",
+    second: "synced",
+    calls: ["refresh", "toolbar", "refresh", "toolbar"],
+    loaded: true,
   });
 });
 
@@ -4956,7 +5013,7 @@ test("Single and Mobile View footers become compact when the logo is disabled", 
       return state;
     };
 
-    const sampleReenabledLogo = (pageId) => {
+    const sampleReenabledLogo = async (pageId) => {
       const card = document.createElement("frigate-view-card");
       card.style.cssText = "display:block;width:500px;height:700px";
       document.body.append(card);
@@ -4975,7 +5032,7 @@ test("Single and Mobile View footers become compact when the logo is disabled", 
       const previousConfig = card._config;
       const nextConfig = { ...previousConfig, display_logo: true };
       card._config = nextConfig;
-      card._editorPreviewController.applyConfigDraft({
+      await card._editorPreviewController.applyConfigDraft({
         previousConfig,
         nextConfig,
       });
@@ -4996,8 +5053,8 @@ test("Single and Mobile View footers become compact when the logo is disabled", 
       singleWithoutLogo: sample("single-view", false),
       mobileWithLogo: sample("mobile-view", true),
       mobileWithoutLogo: sample("mobile-view", false),
-      singleReenabled: sampleReenabledLogo("single-view"),
-      mobileReenabled: sampleReenabledLogo("mobile-view"),
+      singleReenabled: await sampleReenabledLogo("single-view"),
+      mobileReenabled: await sampleReenabledLogo("mobile-view"),
     };
   });
 

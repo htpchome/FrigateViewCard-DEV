@@ -354,6 +354,14 @@ const editorPreviewContextControllerSource = fs.readFileSync(
   new URL("../src/features/editor-preview/context.ctrl.js", import.meta.url),
   "utf8",
 );
+const editorPreviewDraftLoaderSource = fs.readFileSync(
+  new URL("../src/features/editor-preview/draft.loader.js", import.meta.url),
+  "utf8",
+);
+const editorPreviewDraftControllerSource = fs.readFileSync(
+  new URL("../src/features/editor-preview/draft.ctrl.js", import.meta.url),
+  "utf8",
+);
 const cardStyleContextControllerSource = fs.readFileSync(
   new URL("../src/features/card-style/context.ctrl.js", import.meta.url),
   "utf8",
@@ -1825,6 +1833,36 @@ test("editor preview helpers delegate through the context controller", () => {
   );
   assert.equal(
     editorPreviewContextControllerSource.includes("syncHassPreviewContext()"),
+    true,
+  );
+  assert.equal(
+    editorPreviewContextControllerSource.includes(
+      'import { LazyEditorPreviewDraftController } from "./draft.loader.js";',
+    ),
+    true,
+  );
+  assert.equal(
+    /applyConfigDraft\(options = \{\}\) \{\s*return this\._draftController\.applyConfigDraft\(options\);\s*\}/s.test(
+      editorPreviewContextControllerSource,
+    ),
+    true,
+  );
+  assert.equal(
+    editorPreviewContextControllerSource.includes(
+      "editor-preview-page-disabled",
+    ),
+    false,
+  );
+  assert.equal(
+    editorPreviewDraftLoaderSource.includes(
+      "frigate-view-card-editor-preview-draft.js",
+    ),
+    true,
+  );
+  assert.equal(
+    editorPreviewDraftControllerSource.includes(
+      "editor-preview-page-disabled",
+    ),
     true,
   );
 });
