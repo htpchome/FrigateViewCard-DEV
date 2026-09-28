@@ -1201,6 +1201,10 @@ export class FrigateViewCard extends HTMLElement {
     return DEVICE_PROFILE.isPhone;
   }
 
+  _isCatalyst() {
+    return DEVICE_PROFILE.isCatalyst === true;
+  }
+
   _effectiveRealtimePollSeconds() {
     if (
       this._config?.mobile_poll_battery_saver === true &&

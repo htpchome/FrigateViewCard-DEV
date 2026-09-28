@@ -3,6 +3,8 @@ export const WIDE_VIEW_PAGE_STYLES = `
   .card .wide-view-columns{position:relative;isolation:isolate;display:flex;flex:1 1 0;width:100%;min-width:0;min-height:0;overflow:hidden;}
   .card .col-left > .wide-companion-panel{flex:1 1 0;min-height:32px;overflow:hidden;visibility:hidden;}
   .layout.wide-view .resize-handle{flex:0 0 10px;width:10px;height:auto;overflow:visible;cursor:col-resize;color:var(--c-text3);border-inline:1px solid var(--c-border2);box-sizing:border-box;}
+  .card.catalyst-client .layout.wide-view .resize-handle{cursor:grab;}
+  .card.catalyst-client .layout.wide-view .resize-handle.active{cursor:grabbing;}
   .layout.wide-view .resize-handle::before{content:'↔';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:.5rem;line-height:0.6;opacity:.82;transition:opacity .14s ease;}
   .layout.wide-view .resize-handle::after{content:'Resize ↕ Video';top:50%;left:50%;width:auto;height:auto;transform:translate(-50%,-50%);writing-mode:vertical-rl;text-orientation:mixed;background:transparent;color:var(--c-text3);font-size:.5rem;line-height:0.6;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;opacity:0;transition:opacity .14s ease;}
   .layout.wide-view .resize-handle:hover,

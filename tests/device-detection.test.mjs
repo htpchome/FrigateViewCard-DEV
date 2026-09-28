@@ -251,3 +251,25 @@ test("detects plain desktop as non-touch", () => {
   assert.equal(profile.hasTouch, false);
   assert.equal(profile.hasAnyTouch, false);
 });
+
+test("detects the Home Assistant Mac Catalyst app as desktop Catalyst", () => {
+  const detectDeviceProfile = loadDetector({
+    navigator: {
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15 Home Assistant/2026.9 (io.robbie.HomeAssistant; build:1; macOS 15.7.0) Mobile/HomeAssistant, like Safari",
+      platform: "MacIntel",
+      maxTouchPoints: 0,
+    },
+    window: {
+      innerWidth: 1440,
+      innerHeight: 900,
+      matchMedia: createMatchMedia(),
+    },
+  });
+
+  const profile = detectDeviceProfile();
+  assert.equal(profile.isCatalyst, true);
+  assert.equal(profile.isDesktop, true);
+  assert.equal(profile.isMobile, false);
+  assert.equal(profile.isIOS, false);
+});

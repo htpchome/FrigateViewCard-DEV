@@ -36,6 +36,8 @@ function isContinuousTrackpadWheelEvent(event) {
 
   const deltaX = Number(event?.deltaX) || 0;
   if (Math.abs(deltaX) > EPSILON) return true;
+  const deltaZ = Number(event?.deltaZ) || 0;
+  if (Math.abs(deltaZ) > EPSILON) return false;
 
   const legacyDelta = Number(event?.wheelDeltaY ?? event?.wheelDelta);
   if (Number.isFinite(legacyDelta) && Math.abs(legacyDelta) > EPSILON) {
@@ -269,14 +271,14 @@ export class VideoZoomController {
       "dblclick",
       this._onDoubleClick,
     );
-    // Catalyst WKWebView can dispatch WebKit gesture events without exposing
-    // GestureEvent or an ongesturestart property for feature detection.
+    // Catalyst WKWebView can dispatch non-bubbling WebKit gestures without
+    // exposing GestureEvent or an ongesturestart feature-detection property.
     for (const eventName of ["gesturestart", "gesturechange", "gestureend"]) {
       this._cleanup.addEventListener(
         this._interactionTarget,
         eventName,
         this._onTrackpadGesture,
-        { passive: false },
+        { passive: false, capture: true },
       );
     }
     this._cleanup.addEventListener(
@@ -732,7 +734,8 @@ export class VideoZoomController {
       return;
     }
     if (!event.ctrlKey && eventTime < this._trackpadWheelUntil) return;
-    const rawDelta = Number(event.deltaY) || 0;
+    const rawDelta =
+      Number(event.deltaY) || Number(event.deltaZ) || 0;
     if (!rawDelta) return;
     const deltaMode = Number(event.deltaMode) || 0;
     const deltaPixels = deltaMode === 1

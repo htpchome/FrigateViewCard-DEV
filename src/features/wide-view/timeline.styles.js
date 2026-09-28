@@ -36,6 +36,8 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
   .card .wide-timeline-push .wide-timeline-panel {box-shadow:none;}
   .card .wide-timeline-width-resizing,
   .card .wide-timeline-width-resizing * {cursor:col-resize!important;user-select:none;}
+  .card.catalyst-client .wide-timeline-width-resizing,
+  .card.catalyst-client .wide-timeline-width-resizing * {cursor:grabbing!important;}
   .card .wide-timeline-width-resizing.wide-timeline-enabled,
   .card .wide-timeline-width-resizing .wide-timeline-panel,
   .card .wide-timeline-width-resizing .wide-timeline-toggle {transition:none;}
@@ -83,6 +85,7 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
     border-radius:14px;
     cursor:col-resize;
   }
+  .card.catalyst-client .wide-timeline-open .wide-timeline-toggle {cursor:grab;}
   .card .wide-timeline-toggle:hover,
   .card .wide-timeline-toggle:focus-visible {
     color: var(--c-primary-d);

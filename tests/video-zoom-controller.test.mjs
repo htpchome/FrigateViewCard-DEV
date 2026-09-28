@@ -37,11 +37,13 @@ class FakeStyle {
 class FakeTarget {
   constructor() {
     this._listeners = new Map();
+    this._listenerOptions = new Map();
   }
 
   addEventListener(type, listener, options = {}) {
     if (!this._listeners.has(type)) this._listeners.set(type, new Set());
     this._listeners.get(type).add(listener);
+    this._listenerOptions.set(type, options);
     options?.signal?.addEventListener?.(
       "abort",
       () => this._listeners.get(type)?.delete(listener),
@@ -363,6 +365,7 @@ test("modified-wheel pinch and unadvertised Catalyst gestures preserve deliberat
   const { controller, video } = createZoomFixture();
 
   assert.equal("ongesturestart" in video, false);
+  assert.equal(video._listenerOptions.get("gesturestart")?.capture, true);
 
   video.dispatch("wheel", {
     deltaY: -2.5,
@@ -378,6 +381,15 @@ test("modified-wheel pinch and unadvertised Catalyst gestures preserve deliberat
   assert.equal(change.defaultPrevented, true);
   assert.equal(end.defaultPrevented, true);
   assert.equal(controller.state.scale, 2.01);
+
+  controller.reset();
+  const zAxisPinch = video.dispatch("wheel", {
+    deltaY: 0,
+    deltaZ: -100,
+    deltaMode: 0,
+  });
+  assert.equal(zAxisPinch.defaultPrevented, true);
+  assert.equal(controller.state.scale, 1.2);
 });
 
 test("unmodified plus and minus keys zoom only while displayed media is hovered", () => {

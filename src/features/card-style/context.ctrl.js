@@ -275,6 +275,7 @@ export class CardStyleContextController {
     if (this._host._isPreviewPageActive()) classes.push("preview-active");
     if (this._host._isLikelyMobileClient?.()) classes.push("mobile-client");
     if (this._host._isLikelyPhoneClient?.()) classes.push("phone-client");
+    if (this._host._isCatalyst?.() === true) classes.push("catalyst-client");
     if (this._host._isFirefox?.() === true) classes.push("firefox-client");
     if (this._host._config?.hidden_tabs?.includes?.("kept")) {
       classes.push("favorites-tab-hidden");

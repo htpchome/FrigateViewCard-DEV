@@ -73,6 +73,22 @@ test("cardStateClassNames marks Firefox for compositor-safe styles", () => {
   assert.equal(controller.cardStateClassNames(), "firefox-client");
 });
 
+test("cardStateClassNames marks Catalyst for pointer fallbacks", () => {
+  const controller = new CardStyleContextController({
+    _config: {},
+    _isPreviewPageActive: () => false,
+    _isLikelyMobileClient: () => false,
+    _isLikelyPhoneClient: () => false,
+    _isCatalyst: () => true,
+  });
+
+  assert.equal(controller.cardStateClassNames(), "catalyst-client");
+  assert.match(
+    STYLES,
+    /\.card\.catalyst-client \.live-resize-grip\{cursor:grab;\}/,
+  );
+});
+
 test("mobile Single View keeps filter and calendar panels inside the card", () => {
   assert.match(
     STYLES,

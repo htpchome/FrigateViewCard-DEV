@@ -5,6 +5,8 @@ export const WIDE_VIEW_COMPANION_STYLES = `
   .wide-companion-panel.is-expanded .wide-companion-surface{box-shadow:0 -8px 20px rgb(0 0 0 / 28%);}
   .wide-companion-header{display:grid;flex:0 0 auto;grid-template-columns:minmax(0,1fr) 30px;align-items:center;gap:4px;min-height:32px;}
   .wide-companion-resize-handle{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px;min-width:0;min-height:30px;padding:2px 0;box-sizing:border-box;color:var(--c-text);cursor:ns-resize;touch-action:none;user-select:none;outline:none;}
+  .card.catalyst-client .wide-companion-resize-handle{cursor:grab;}
+  .card.catalyst-client .wide-companion-resize-handle.active{cursor:grabbing;}
   .wide-companion-resize-handle:focus-visible{outline:2px solid var(--c-primary);outline-offset:-2px;border-radius:calc(var(--fvc-border-radius,0px) / 2);}
   .wide-companion-resize-handle.active{background:var(--c-bg-primary);}
   .wide-companion-title{min-width:0;overflow:hidden;color:inherit;font-size:.9rem;font-weight:700;letter-spacing:.02em;text-overflow:ellipsis;white-space:nowrap;}

@@ -72,6 +72,9 @@ export function detectDeviceProfile() {
     maxTouchPoints > 0 || primaryPointerCoarse || anyPointerCoarse || hoverNone;
   const isAndroid =
     platform.includes("android") || userAgent.includes("android");
+  const isCatalyst =
+    (platform.includes("mac") || userAgent.includes("macintosh")) &&
+    /mobile\/homeassistant|home assistant\//.test(userAgent);
   const isIPhone = /iphone/.test(userAgent);
   const isMobileHint =
     nav.userAgentData?.mobile === true || /mobile|mobi/.test(userAgent);
@@ -89,6 +92,7 @@ export function detectDeviceProfile() {
     hasPrimaryTouch: primaryPointerCoarse,
     hasAnyTouch: anyPointerCoarse || hoverNone,
     isAndroid,
+    isCatalyst,
     isIOS,
     isPhone,
     isTablet,
