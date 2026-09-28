@@ -4491,11 +4491,6 @@ export class FrigateViewCardEditor extends HTMLElement {
                           <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
                         </tr>
                         <tr>
-                          <th scope="row" data-fvc-i18n="editor.cameraModal.connectionMacApp">Mac App Store app</th>
-                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupportedThroughHls">Supported through HLS</span></span></td>
-                          <td><span class="camera-connection-capability camera-connection-capability--no"><span class="camera-connection-capability-mark" aria-hidden="true">×</span><span data-fvc-i18n="editor.cameraModal.connectionUnavailable">Not available</span></span></td>
-                        </tr>
-                        <tr>
                           <th scope="row" data-fvc-i18n="editor.cameraModal.connectionStartup">Typical startup</th>
                           <td><span class="camera-connection-capability camera-connection-capability--limited"><span class="camera-connection-capability-mark" aria-hidden="true">!</span><span data-fvc-i18n="editor.cameraModal.connectionHlsFirst">HLS first; WebRTC may take over</span></span></td>
                           <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionFastest">Fastest in most browsers</span></span></td>

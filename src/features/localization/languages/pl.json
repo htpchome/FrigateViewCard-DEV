@@ -773,8 +773,6 @@
       "connectionUnavailable": "Niedostępne",
       "connectionSupportedSlower": "Obsługiwane; wolniejsze",
       "connectionPtz": "PTZ",
-      "connectionMacApp": "Aplikacja z Mac App Store",
-      "connectionSupportedThroughHls": "Obsługiwane przez HLS",
       "connectionStartup": "Typowe uruchamianie",
       "connectionHlsFirst": "Najpierw HLS; WebRTC może przejąć odtwarzanie",
       "connectionFastest": "Najszybsze w większości przeglądarek",

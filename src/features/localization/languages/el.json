@@ -773,8 +773,6 @@
       "connectionUnavailable": "Μη διαθέσιμο",
       "connectionSupportedSlower": "Υποστηρίζεται· πιο αργό",
       "connectionPtz": "PTZ",
-      "connectionMacApp": "Εφαρμογή Mac App Store",
-      "connectionSupportedThroughHls": "Υποστηρίζεται μέσω HLS",
       "connectionStartup": "Τυπική εκκίνηση",
       "connectionHlsFirst": "Πρώτα HLS· το WebRTC μπορεί να αναλάβει",
       "connectionFastest": "Ταχύτερο στα περισσότερα προγράμματα περιήγησης",

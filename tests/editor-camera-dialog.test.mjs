@@ -994,7 +994,6 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
     "HLS",
     "Two-Way Talk",
     "PTZ",
-    "Mac App Store app",
     "Typical startup",
   ]) {
     assert.match(connectionSection, new RegExp(`>${feature}<`));

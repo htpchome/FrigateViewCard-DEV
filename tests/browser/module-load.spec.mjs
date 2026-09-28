@@ -553,10 +553,6 @@ test("camera connection settings explain transport capabilities", async ({ page 
     },
     { feature: "PTZ", values: ["✓Supported", "✓Supported"] },
     {
-      feature: "Mac App Store app",
-      values: ["✓Supported through HLS", "×Not available"],
-    },
-    {
       feature: "Typical startup",
       values: [
         "!HLS first; WebRTC may take over",
@@ -564,7 +560,7 @@ test("camera connection settings explain transport capabilities", async ({ page 
       ],
     },
   ]);
-  expect(state.statuses).toEqual({ yes: 9, limited: 2, no: 3 });
+  expect(state.statuses).toEqual({ yes: 8, limited: 2, no: 2 });
   expect(state.contained).toBe(true);
   expect(state.horizontallyScrollable).toBe(true);
 });
