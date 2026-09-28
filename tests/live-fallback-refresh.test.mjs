@@ -601,6 +601,28 @@ test("resolveFallbackRefreshSources returns combined source outcome", () => {
   assert.equal(withPrimary.src, "https://ha.local/primary.jpg");
   assert.equal(withPrimary.hasSource, true);
 
+  const updatingAlternate = resolveFallbackRefreshSources({
+    primarySrc: "https://ha.local/primary.jpg?authSig=signed",
+    altSrc: "https://ha.local/alt.jpg?token=entity",
+    cacheBustValue: 123,
+    preferAlternate: true,
+  });
+  assert.equal(
+    updatingAlternate.src,
+    "https://ha.local/alt.jpg?token=entity&fvc_loading_snapshot=123",
+  );
+
+  const signedOnly = resolveFallbackRefreshSources({
+    primarySrc: "https://ha.local/primary.jpg?authSig=signed",
+    altSrc: "",
+    cacheBustValue: 123,
+    preferAlternate: true,
+  });
+  assert.equal(
+    signedOnly.src,
+    "https://ha.local/primary.jpg?authSig=signed",
+  );
+
   const withAltOnly = resolveFallbackRefreshSources({
     primarySrc: "",
     altSrc: "https://ha.local/alt.jpg",

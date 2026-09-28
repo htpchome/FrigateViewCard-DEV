@@ -8,6 +8,8 @@ import {
   loadFallbackPrimaryForCard,
 } from "./fallback-url.js";
 
+const HA_DIRECT_LOADING_SNAPSHOT_REFRESH_MS = 1000;
+
 export class LiveFallbackController {
   constructor(
     host,
@@ -20,6 +22,8 @@ export class LiveFallbackController {
   ) {
     this._host = host;
     this._getOrigin = getOrigin;
+    this._loadingRefreshGeneration = 0;
+    this._loadingRefreshTimer = null;
   }
 
   originForAdapters() {
@@ -44,7 +48,10 @@ export class LiveFallbackController {
     });
   }
 
-  async refreshImage() {
+  async refreshImage({
+    cacheBustValue = null,
+    preferAlternate = false,
+  } = {}) {
     const host = this._host;
     return await runFallbackRefreshCycleForCard({
       card: host,
@@ -54,7 +61,46 @@ export class LiveFallbackController {
           t: host._localization.t,
         }),
       applySource: setFallbackImageSourceIfChanged,
+      cacheBustValue,
+      preferAlternate,
     });
+  }
+
+  startLoadingRefresh(
+    intervalMs = HA_DIRECT_LOADING_SNAPSHOT_REFRESH_MS,
+  ) {
+    this.stopLoadingRefresh();
+    const generation = this._loadingRefreshGeneration;
+    const delayMs = Math.max(250, Number(intervalMs) || 1000);
+    let active = true;
+
+    const schedule = () => {
+      if (!active || generation !== this._loadingRefreshGeneration) return;
+      this._loadingRefreshTimer = globalThis.setTimeout(() => {
+        this._loadingRefreshTimer = null;
+        void this.refreshImage({
+          cacheBustValue: Date.now(),
+          preferAlternate: true,
+        }).finally(schedule);
+      }, delayMs);
+      this._loadingRefreshTimer?.unref?.();
+    };
+    schedule();
+
+    return () => {
+      if (!active) return;
+      active = false;
+      if (generation !== this._loadingRefreshGeneration) return;
+      this.stopLoadingRefresh();
+    };
+  }
+
+  stopLoadingRefresh() {
+    this._loadingRefreshGeneration += 1;
+    if (this._loadingRefreshTimer != null) {
+      clearTimeout(this._loadingRefreshTimer);
+    }
+    this._loadingRefreshTimer = null;
   }
 }
 

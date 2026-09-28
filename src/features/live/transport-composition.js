@@ -113,6 +113,10 @@ export const createLiveTransportControllers = (
     },
     applyResolvedStreamUiState: (streamState) =>
       card._applyResolvedStreamUiState(streamState),
+    startLoadingFallbackRefresh: () =>
+      card._startStreamFallbackLoadingRefresh(),
+    stopLoadingFallbackRefresh: () =>
+      card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     scopeKey: card,

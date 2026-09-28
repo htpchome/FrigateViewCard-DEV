@@ -8,6 +8,13 @@ testing rejected the native `ha-camera-stream` provider-deck experiment in
 on the snapshot instead of live HLS. Begin further HA Direct optimization from
 `v1.1.8-dev.70` and preserve the transport contracts below.
 
+`v1.1.8-dev.71` is a candidate latency/presentation improvement and does not
+replace the physical fallback point until browser and Mac Catalyst validation.
+It refreshes the visible HA camera snapshot once per second while HA Direct is
+negotiating, and allows a fresh Home Assistant HLS player to replace that image
+at its native `loadeddata` boundary. WebRTC takeover and post-failure HLS
+recovery retain their stronger presented-frame checks.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
@@ -119,6 +126,10 @@ one of those policies is the cause.
   advance Mac Catalyst beyond the snapshot.
 - `v1.1.8-dev.70` restores the `v1.1.8-dev.68` transport implementation and is
   the new baseline for measured, incremental HA Direct latency work.
+- `v1.1.8-dev.71` matches Home Assistant/Advanced Camera Card's fresh-HLS
+  `loadeddata` handoff and keeps the fallback camera image updating during
+  negotiation. It does not retain or reparent HA HLS elements and does not
+  weaken WebRTC takeover or failed-HLS recovery readiness.
 
 ## Validation Expectations
 

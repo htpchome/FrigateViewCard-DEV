@@ -115,6 +115,61 @@ test("live fallback controller refreshes the active snapshot surface", async () 
     "runtime.live.entitySnapshot",
   );
   assert.equal(status.hidden, true);
+
+  const loadingResult = await controller.refreshImage({
+    cacheBustValue: 123,
+    preferAlternate: true,
+  });
+
+  assert.deepEqual(loadingResult, { shouldAbort: false, didWrite: true });
+  assert.equal(
+    image.src,
+    "https://ha.local/api/camera_proxy/camera.front?fallback=1&fvc_loading_snapshot=123",
+  );
+});
+
+test("live fallback controller refreshes once per second only while loading", async () => {
+  const host = createHost();
+  const controller = new LiveFallbackController(host);
+  const previousSetTimeout = globalThis.setTimeout;
+  const previousClearTimeout = globalThis.clearTimeout;
+  const timers = [];
+  const cleared = [];
+  const refreshes = [];
+  let nextTimerId = 0;
+
+  globalThis.setTimeout = (callback, delay) => {
+    const timer = { callback, delay, id: ++nextTimerId };
+    timers.push(timer);
+    return timer;
+  };
+  globalThis.clearTimeout = (timer) => cleared.push(timer);
+  controller.refreshImage = async (options) => {
+    refreshes.push(options);
+    return { shouldAbort: false, didWrite: true };
+  };
+
+  try {
+    const stop = controller.startLoadingRefresh();
+    assert.equal(timers.length, 1);
+    assert.equal(timers[0].delay, 1000);
+
+    timers[0].callback();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.equal(refreshes.length, 1);
+    assert.equal(refreshes[0].preferAlternate, true);
+    assert.equal(Number.isFinite(refreshes[0].cacheBustValue), true);
+    assert.equal(timers.length, 2);
+
+    stop();
+    assert.equal(cleared.includes(timers[1]), true);
+  } finally {
+    controller.stopLoadingRefresh();
+    globalThis.setTimeout = previousSetTimeout;
+    globalThis.clearTimeout = previousClearTimeout;
+  }
 });
 
 test("live fallback controller getter preserves an existing controller", () => {

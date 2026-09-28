@@ -1,4 +1,5 @@
 import { resolveFallbackDisplaySource } from "./fallback-image.js";
+import { appendCacheBustParam } from "./fallback-url.js";
 
 const FALLBACK_PRELOAD_TIMEOUT_MS = 3000;
 const FALLBACK_MAX_DEVICE_PIXEL_RATIO = 3;
@@ -123,16 +124,34 @@ export const resolveAltFallbackSource = ({ entity, loadAlt }) => {
   return loadAlt(entity);
 };
 
-export const resolveFallbackRefreshSources = ({ primarySrc, altSrc }) => {
+const canCacheBustFallbackSource = (src) =>
+  Boolean(src) && !/[?&]authSig=/i.test(String(src));
+
+export const resolveFallbackRefreshSources = ({
+  primarySrc,
+  altSrc,
+  cacheBustValue = null,
+  preferAlternate = false,
+}) => {
   const outcome = buildFallbackRefreshOutcome({
     primarySrc,
     altSrc,
   });
+  const preferredSource =
+    preferAlternate && altSrc ? altSrc : outcome.src;
+  const src =
+    cacheBustValue != null && canCacheBustFallbackSource(preferredSource)
+      ? appendCacheBustParam(
+          preferredSource,
+          cacheBustValue,
+          "fvc_loading_snapshot",
+        )
+      : preferredSource;
   return {
     primarySrc,
     altSrc,
-    src: outcome.src,
-    hasSource: outcome.hasSource,
+    src,
+    hasSource: Boolean(src),
   };
 };
 
@@ -140,6 +159,8 @@ export const buildFallbackRefreshContext = ({
   entity,
   primarySrc,
   loadAlt,
+  cacheBustValue = null,
+  preferAlternate = false,
 }) => {
   const altSrc = resolveAltFallbackSource({
     entity,
@@ -148,6 +169,8 @@ export const buildFallbackRefreshContext = ({
   const sources = resolveFallbackRefreshSources({
     primarySrc,
     altSrc,
+    cacheBustValue,
+    preferAlternate,
   });
   return {
     entity,
@@ -260,11 +283,15 @@ export const buildFallbackRefreshWritePlan = ({
   loadAlt,
   imgEl,
   statusEl,
+  cacheBustValue = null,
+  preferAlternate = false,
 }) => {
   const context = buildFallbackRefreshContext({
     entity,
     primarySrc,
     loadAlt,
+    cacheBustValue,
+    preferAlternate,
   });
   if (!shouldApplyFallbackRefreshSources({ sources: context.sources })) {
     return {
@@ -296,6 +323,8 @@ export const runFallbackRefreshCycle = async ({
   applySource,
   preloadSource = preloadFallbackImageSource,
   devicePixelRatio,
+  cacheBustValue = null,
+  preferAlternate = false,
 }) => {
   const { imgEl, statusEl } = getFallbackRefreshElements(shadowRoot);
   const begin = beginFallbackRefresh({
@@ -340,6 +369,8 @@ export const runFallbackRefreshCycle = async ({
     loadAlt,
     imgEl,
     statusEl,
+    cacheBustValue,
+    preferAlternate,
   });
   if (!writePlan.shouldWrite) {
     return {
@@ -395,6 +426,8 @@ export const runFallbackRefreshCycleForCard = async ({
   card,
   applyHandlers,
   applySource,
+  cacheBustValue = null,
+  preferAlternate = false,
 }) => {
   if (!card) {
     return {
@@ -419,6 +452,8 @@ export const runFallbackRefreshCycleForCard = async ({
     loadAlt: (nextEntity) => card._streamFallbackAltUrl(nextEntity),
     applyHandlers,
     applySource,
+    cacheBustValue,
+    preferAlternate,
   });
 };
 

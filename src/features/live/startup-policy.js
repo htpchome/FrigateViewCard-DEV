@@ -7,11 +7,11 @@ const normalizeNumber = (value, fallback) => Number(value ?? fallback);
 
 export const resolveHaDirectStartup = (startup = {}) => ({
   waitMs: normalizeWaitMs(startup.waitMs, 8000),
-  minCurrentTime: normalizeNumber(startup.minCurrentTime, 0.05),
-  minDecodedFrames: normalizeNumber(startup.minDecodedFrames, 1),
-  requireReadyState: normalizeNumber(startup.requireReadyState, 0),
+  minCurrentTime: normalizeNumber(startup.minCurrentTime, 0),
+  minDecodedFrames: normalizeNumber(startup.minDecodedFrames, 0),
+  requireReadyState: normalizeNumber(startup.requireReadyState, 2),
   strict: startup.strict ?? false,
-  requirePresentedFrame: startup.requirePresentedFrame !== false,
+  requirePresentedFrame: startup.requirePresentedFrame === true,
   streamType: startup.streamType,
 });
 

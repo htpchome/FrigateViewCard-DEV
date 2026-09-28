@@ -16,11 +16,11 @@ test("resolveHaDirectStartup applies defaults and keeps stream type", () => {
   const policy = resolveHaDirectStartup({ streamType: "webrtc" });
 
   assert.equal(policy.waitMs, 8000);
-  assert.equal(policy.minCurrentTime, 0.05);
-  assert.equal(policy.minDecodedFrames, 1);
-  assert.equal(policy.requireReadyState, 0);
+  assert.equal(policy.minCurrentTime, 0);
+  assert.equal(policy.minDecodedFrames, 0);
+  assert.equal(policy.requireReadyState, 2);
   assert.equal(policy.strict, false);
-  assert.equal(policy.requirePresentedFrame, true);
+  assert.equal(policy.requirePresentedFrame, false);
   assert.equal(policy.streamType, "webrtc");
 });
 
@@ -33,11 +33,11 @@ test("buildHaDirectMountPlan resolves stream type and wait options from startup 
     {
       streamType: "hls",
       waitOptions: {
-        minCurrentTime: 0.05,
-        minDecodedFrames: 1,
-        requireReadyState: 0,
+        minCurrentTime: 0,
+        minDecodedFrames: 0,
+        requireReadyState: 2,
         strict: true,
-        requirePresentedFrame: true,
+        requirePresentedFrame: false,
       },
       waitMs: 500,
     },
@@ -50,11 +50,11 @@ test("buildHaDirectMountPlan resolves stream type and wait options from startup 
     {
       streamType: "mse",
       waitOptions: {
-        minCurrentTime: 0.05,
-        minDecodedFrames: 1,
-        requireReadyState: 0,
+        minCurrentTime: 0,
+        minDecodedFrames: 0,
+        requireReadyState: 2,
         strict: false,
-        requirePresentedFrame: true,
+        requirePresentedFrame: false,
       },
       waitMs: 8000,
     },

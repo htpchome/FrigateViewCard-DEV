@@ -39,6 +39,8 @@ export function createHaDirectMounter({
   onCommittedMediaReady,
   onCommittedStream,
   applyResolvedStreamUiState,
+  startLoadingFallbackRefresh,
+  stopLoadingFallbackRefresh,
   setLiveNativeControls,
   scheduleResumeLive,
   scopeKey,
@@ -73,6 +75,7 @@ export function createHaDirectMounter({
     }
     binding.disposed = true;
     binding.revision += 1;
+    binding.stopLoadingFallbackRefresh?.();
     binding.cleanupRecovery?.();
     binding.abortController.abort();
     binding.fallbackAbortController?.abort?.();
@@ -99,6 +102,7 @@ export function createHaDirectMounter({
 
   const applyReady = (engine, streamType) => {
     if (!isCurrentEngine(engine)) return;
+    mediaBindings.get(engine)?.stopLoadingFallbackRefresh?.();
     engine.markStarted?.();
     onCommittedStream?.(streamType);
     const readyState = resolveHaDirectReadyState({
@@ -111,6 +115,8 @@ export function createHaDirectMounter({
 
   const applyFailed = (engine) => {
     if (!isCurrentEngine(engine)) return;
+    mediaBindings.get(engine)?.stopLoadingFallbackRefresh?.();
+    stopLoadingFallbackRefresh?.();
     onCommittedStream?.("snapshot");
     applyResolvedStreamUiState(resolveHaDirectFailedState());
   };
@@ -127,6 +133,7 @@ export function createHaDirectMounter({
       reconcile: null,
       onStreams: null,
       takeoverEngine: null,
+      stopLoadingFallbackRefresh: () => {},
     };
     const watchRecovery = (video) => {
       if (binding.recoveryVideo === video) return;
@@ -299,6 +306,7 @@ export function createHaDirectMounter({
       fallbackAbortController: null,
       fallbackEngine: null,
       takeoverEngine: null,
+      stopLoadingFallbackRefresh: () => {},
     };
     mediaBindings.set(engine, binding);
     return binding;
@@ -321,6 +329,7 @@ export function createHaDirectMounter({
     }
     binding.disposed = true;
     binding.revision += 1;
+    binding.stopLoadingFallbackRefresh?.();
     binding.abortController.abort();
     mediaBindings.delete(engine);
     engine.deactivateRecovery?.();
@@ -398,6 +407,8 @@ export function createHaDirectMounter({
 
       assignCommittedEngine(engine);
       const binding = bindHlsMedia(engine);
+      binding.stopLoadingFallbackRefresh =
+        startLoadingFallbackRefresh?.() || (() => {});
       if (getRotateOverlayActive()) setLiveNativeControls(true);
       void (async () => {
         const failureRevision = binding.failureRevision;
@@ -480,6 +491,8 @@ export function createHaDirectMounter({
 
     assignCommittedEngine(engine);
     const binding = createWebRtcBinding(engine);
+    binding.stopLoadingFallbackRefresh =
+      startLoadingFallbackRefresh?.() || (() => {});
     onCommittedMediaReady?.(engine, engine.video);
     if (getRotateOverlayActive()) setLiveNativeControls(true);
     // HLS is the first-picture path. Keep it visibly layered over the pending
@@ -519,6 +532,15 @@ export function createHaDirectMounter({
           waitForStreamStart(engine, haDirectPlan.waitMs, {
             ...haDirectPlan.waitOptions,
             strict: true,
+            minCurrentTime: Math.max(
+              0.05,
+              Number(haDirectPlan.waitOptions.minCurrentTime) || 0,
+            ),
+            minDecodedFrames: Math.max(
+              1,
+              Number(haDirectPlan.waitOptions.minDecodedFrames) || 0,
+            ),
+            requirePresentedFrame: true,
             abortSignal: binding.abortController.signal,
             resolveVideo: () => engine.video,
           }),
@@ -540,6 +562,7 @@ export function createHaDirectMounter({
       ]).catch(() => "");
       if (!isWebRtcAttemptActive()) return;
       if (winner === "hls") {
+        binding.stopLoadingFallbackRefresh();
         binding.fallbackAbortController = null;
         binding.fallbackEngine = null;
         fallbackAbortController.abort();
@@ -571,6 +594,7 @@ export function createHaDirectMounter({
         return;
       }
       if (winner === "webrtc") {
+        binding.stopLoadingFallbackRefresh();
         binding.fallbackAbortController = null;
         binding.fallbackEngine = null;
         fallbackAbortController.abort();
