@@ -2,9 +2,70 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  ensureHaCameraPlaybackElements,
   resolveHaDirectCameraStreamType,
   watchHaPlaybackFirstFrame,
 } from "../src/integrations/home-assistant/playback.js";
+
+test("HA camera playback preparation side-loads the camera stack once", async () => {
+  const definitions = new Map();
+  const registry = {
+    get: (tagName) => definitions.get(tagName),
+    whenDefined: async () => {},
+  };
+  let helperLoads = 0;
+  let cardCreations = 0;
+  const loadCardHelpers = async () => {
+    helperLoads += 1;
+    return {
+      createCardElement: async (config) => {
+        cardCreations += 1;
+        assert.deepEqual(config, {
+          type: "picture-glance",
+          entities: [],
+          camera_image: "camera.frigate_view_component_loader",
+        });
+        for (const tagName of [
+          "ha-camera-stream",
+          "ha-hls-player",
+          "ha-web-rtc-player",
+        ]) {
+          definitions.set(tagName, class {});
+        }
+      },
+    };
+  };
+
+  const [first, second] = await Promise.all([
+    ensureHaCameraPlaybackElements({ registry, loadCardHelpers }),
+    ensureHaCameraPlaybackElements({ registry, loadCardHelpers }),
+  ]);
+  const third = await ensureHaCameraPlaybackElements({
+    registry,
+    loadCardHelpers,
+  });
+
+  assert.equal(first, true);
+  assert.equal(second, true);
+  assert.equal(third, true);
+  assert.equal(helperLoads, 1);
+  assert.equal(cardCreations, 1);
+});
+
+test("HA camera playback preparation fails open when helpers are unavailable", async () => {
+  const registry = {
+    get: () => undefined,
+    whenDefined: async () => {},
+  };
+
+  assert.equal(
+    await ensureHaCameraPlaybackElements({
+      registry,
+      loadCardHelpers: async () => undefined,
+    }),
+    false,
+  );
+});
 
 const createEventTarget = () => {
   const listeners = new Map();

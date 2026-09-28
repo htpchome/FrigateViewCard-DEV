@@ -1126,12 +1126,18 @@ export class FrigateViewCard extends HTMLElement {
       )
         ? this._slideshowFeatureController.prepare()
         : Promise.resolve(null);
+    const haDirectPlaybackPreparation = flattenCameraMembers(
+      this._config.cameras,
+    ).some((camera) => !this._shouldUseGo2RtcForEntity(camera.entity))
+      ? this._haDirectMounter?.prepare?.()
+      : Promise.resolve(false);
 
     await Promise.all([
       this._discoverAll(),
       landingPagePreparation,
       gridLandingPreparation,
       slideshowLandingPreparation,
+      haDirectPlaybackPreparation,
     ]);
     if (this._editorPreviewController.renderCardPickerDemo()) {
       this._applyCardStyle();
@@ -2356,25 +2362,12 @@ export class FrigateViewCard extends HTMLElement {
     this._renderList();
     this._streamMuted = true;
     this._renderMuteButton();
-    const nextTransportEntity = resolveCameraSwitchTransportEntity({
-      cameraEntity: newEnt,
-      memberOverride: nextMemberOverride,
-    });
-    const preserveHaDirectManager =
-      !this._shouldUseGo2RtcForEntity(nextTransportEntity) &&
-      this._haDirectMounter?.canRetarget?.(
-        this._engine,
-        nextTransportEntity,
-      ) === true;
     this._cancelPendingMount(
       "switch-camera",
-      {
-        ...resolveCameraSwitchCleanupOptions({
-          previousEntity: previousTransportEntity,
-          mountInProgress: this._mountInProgress,
-        }),
-        preserveHaDirectManager,
-      },
+      resolveCameraSwitchCleanupOptions({
+        previousEntity: previousTransportEntity,
+        mountInProgress: this._mountInProgress,
+      }),
     );
     const adoptedGridAlertLive = gridAlertLiveHandoff
       ? this._adoptLiveAttemptResult(

@@ -95,7 +95,6 @@ export const createLiveTransportControllers = (
     getPreferredStreamType: () => card._preferredStreamType(),
     getStreamMuted: () => card._streamMuted,
     getRotateOverlayActive: () => card._rotateOverlayActive,
-    getCurrentEngine: () => card._engine,
     isCurrentEngine: (streamEl) => card._engine === streamEl,
     waitForStreamStart,
     assignCommittedEngine: (engine, options) =>

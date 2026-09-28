@@ -58,14 +58,6 @@ export class LiveAudioController {
     const engine = host._engine;
     if (!engine) return;
 
-    if (
-      engine.type === "ha_direct" &&
-      typeof engine.setOutputMuted === "function"
-    ) {
-      engine.setOutputMuted(host._streamMuted);
-      return;
-    }
-
     const applyToVideo = (video) => {
       if (!video) return false;
       if (typeof video.muted === "boolean") video.muted = host._streamMuted;

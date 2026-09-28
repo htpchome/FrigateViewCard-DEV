@@ -386,20 +386,123 @@ test("live grace controller shares its cache limit across MSE and WebRTC", async
   });
 });
 
-test("live grace controller preserves only the active HA manager for an in-place retarget", async () => {
-  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
-    let removeCalls = 0;
-    const manager = {
-      type: "ha_direct",
-      streamType: "hls",
-      tagName: "HA-CAMERA-STREAM",
+test("live grace controller retains HA-direct WebRTC without entering the Frigate pool", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const video = {
       style: { cssText: "" },
-      parentElement: { id: "active-live-slot" },
-      remove() {
-        removeCalls += 1;
+      dataset: {},
+      classList: { add() {} },
+      setAttribute() {},
+      removeAttribute() {},
+      play: () => Promise.resolve(),
+    };
+    const cachedEngine = {
+      type: "ha_direct",
+      streamType: "webrtc",
+      video,
+      pc: {
+        connectionState: "connected",
+        iceConnectionState: "connected",
+      },
+      destroyCalls: 0,
+      destroy() {
+        this.destroyCalls += 1;
       },
     };
-    let engine = manager;
+    let engine = cachedEngine;
+    let activeStreamType = "webrtc";
+    let retainedOptions = null;
+    let ownershipAdoptions = 0;
+    const controller = createLiveGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next, options) => {
+        engine = next;
+        retainedOptions = options;
+      },
+      getActiveStreamType: () => activeStreamType,
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: (next) => {
+        activeStreamType = next;
+      },
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: () => {
+        throw new Error("retained HA engine must not be released");
+      },
+      adoptHaDirectWebRtcEngine: (candidate) => {
+        assert.equal(engine, candidate);
+        ownershipAdoptions += 1;
+        return true;
+      },
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+
+    assert.equal(engine, null);
+    assert.deepEqual(retainedOptions, { retainPrevious: true });
+    assert.equal(controller.takeGraceWebRtcEntry("camera.front"), null);
+    const entry = controller.takeGraceHaDirectEntry("camera.front");
+    assert.equal(entry?.engine, cachedEngine);
+
+    const slot = {
+      innerHTML: "occupied",
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+    assert.equal(
+      controller.adoptGraceHaDirectEngine(slot, cachedEngine),
+      true,
+    );
+    assert.equal(engine, cachedEngine);
+    assert.equal(activeStreamType, "webrtc");
+    assert.equal(slot.child, video);
+    assert.equal(cachedEngine.destroyCalls, 0);
+    assert.equal(ownershipAdoptions, 1);
+  });
+});
+
+test("live grace controller releases HA-direct HLS instead of reparenting it", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+    let removeCalls = 0;
+    let connectedCalls = 0;
+    let disconnectedCalls = 0;
+    let cancelTakeoverCalls = 0;
+    const hlsEngine = {
+      type: "ha_direct",
+      streamType: "hls",
+      tagName: "HA-HLS-PLAYER",
+      style: { cssText: "" },
+      parentElement: { id: "active-live-slot" },
+      cancelPendingTakeover() {
+        cancelTakeoverCalls += 1;
+      },
+      connectedCallback() {
+        connectedCalls += 1;
+      },
+      disconnectedCallback() {
+        disconnectedCalls += 1;
+      },
+      remove() {
+        removeCalls += 1;
+        this.disconnectedCallback();
+      },
+    };
+    let engine = hlsEngine;
     const releasedEngines = [];
     let assignOptions = null;
     const controller = createLiveGraceController({
@@ -430,70 +533,26 @@ test("live grace controller preserves only the active HA manager for an in-place
       releaseHaDirectEngine: (released) => {
         releasedEngines.push(released);
       },
+      adoptHaDirectWebRtcEngine: () => {
+        throw new Error("HLS must not enter WebRTC handoff ownership");
+      },
     });
 
-    controller.cleanupEngine({
-      preserveLiveEntity: "camera.front",
-      preserveHaDirectManager: true,
-    });
-
-    assert.equal(engine, manager);
-    assert.equal(assignOptions, null);
-    assert.deepEqual(releasedEngines, []);
-    assert.equal(removeCalls, 0);
-    assert.equal(hostChildren.length, 0);
-
+    assert.equal(controller.isHaDirectEngineReusable(hlsEngine), false);
     controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
 
     assert.equal(engine, null);
     assert.deepEqual(assignOptions, { retainPrevious: true });
-    assert.deepEqual(releasedEngines, [manager]);
-    assert.equal(removeCalls, 1);
-    assert.equal(hostChildren.length, 0);
-    assert.equal(controller.takeGraceWebRtcEntry("camera.front"), null);
-  });
-});
-
-test("live grace controller never preserves a legacy HA-direct leaf player", async () => {
-  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
-    let removeCalls = 0;
-    const hlsEngine = {
-      type: "ha_direct",
-      streamType: "hls",
-      tagName: "HA-HLS-PLAYER",
-      remove() {
-        removeCalls += 1;
-      },
-    };
-    let engine = hlsEngine;
-    const releasedEngines = [];
-    const controller = createLiveGraceController({
-      graceMs: 100,
-      graceMax: 2,
-      getShadowRoot: () => shadowRoot,
-      getScopeKey: () => ({ id: "scope" }),
-      getPendingMountDestroyers: () => [],
-      setPendingMountDestroyers: () => {},
-      getPendingWebRtcTakeoverTimer: () => null,
-      setPendingWebRtcTakeoverTimer: () => {},
-      clearRotateOverlayAudioSync: () => {},
-      clearRotateVideoFullscreenStyle: () => {},
-      getEngine: () => engine,
-      setEngine: (next) => {
-        engine = next;
-      },
-      getActiveStreamType: () => "hls",
-      releaseHaDirectEngine: (released) => releasedEngines.push(released),
-    });
-
-    controller.cleanupEngine({
-      preserveLiveEntity: "camera.front",
-      preserveHaDirectManager: true,
-    });
-
-    assert.equal(engine, null);
+    assert.equal(cancelTakeoverCalls, 1);
     assert.deepEqual(releasedEngines, [hlsEngine]);
     assert.equal(removeCalls, 1);
+    assert.equal(connectedCalls, 0);
+    assert.equal(disconnectedCalls, 1);
     assert.equal(hostChildren.length, 0);
+    assert.equal(controller.takeGraceWebRtcEntry("camera.front"), null);
+    assert.equal(
+      controller.takeGraceHaDirectEntry("camera.front", "hls"),
+      null,
+    );
   });
 });

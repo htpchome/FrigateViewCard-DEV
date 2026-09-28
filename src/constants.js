@@ -1,4 +1,4 @@
-export const VERSION = "1.1.8-dev.67";
+export const VERSION = "1.1.8-dev.68";
 
 export const RECOMMENDED_HOME_ASSISTANT_VERSION = "2026.9.0";
 

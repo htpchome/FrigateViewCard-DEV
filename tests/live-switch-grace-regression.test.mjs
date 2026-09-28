@@ -22,10 +22,6 @@ const liveGraceControllerSource = fs.readFileSync(
   new URL("../src/features/live/live-grace-controller.js", import.meta.url),
   "utf8",
 );
-const haDirectMounterSource = fs.readFileSync(
-  new URL("../src/features/live/ha-direct-mounter.js", import.meta.url),
-  "utf8",
-);
 const liveLifecycleCompositionSource = fs.readFileSync(
   new URL(
     "../src/features/live/lifecycle-composition.js",
@@ -101,7 +97,7 @@ test("camera switching preserves recent live engines for short switch-back reuse
   );
   assert.equal(
     liveGraceControllerSource.includes("const haDirectGracePool = new Map()"),
-    false,
+    true,
   );
   assert.equal(
     liveGraceControllerSource.includes("takeGraceWebRtcEntry"),
@@ -113,7 +109,7 @@ test("camera switching preserves recent live engines for short switch-back reuse
   );
   assert.equal(
     liveGraceControllerSource.includes("adoptGraceHaDirectEngine"),
-    false,
+    true,
   );
   assert.equal(
     liveGraceControllerSource.includes("isHaDirectHlsEngineReusable"),
@@ -121,20 +117,6 @@ test("camera switching preserves recent live engines for short switch-back reuse
   );
   assert.equal(
     liveGraceControllerSource.includes("ensureHaDirectGraceHost"),
-    false,
-  );
-  assert.equal(cardSource.includes("preserveHaDirectManager"), true);
-  assert.equal(haDirectMounterSource.includes("canRetarget"), true);
-  assert.equal(
-    haDirectMounterSource.includes("createHaCameraStreamElement"),
-    true,
-  );
-  assert.equal(
-    haDirectMounterSource.includes("createHaDirectWebRtcPlayback"),
-    false,
-  );
-  assert.equal(
-    haDirectMounterSource.includes("createHaHlsPlayerElement"),
     false,
   );
   assert.equal(liveGraceControllerSource.includes("clearGracePool"), true);

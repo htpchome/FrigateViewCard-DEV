@@ -1,5 +1,50 @@
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
+const HA_CAMERA_PLAYBACK_ELEMENTS = Object.freeze([
+  "ha-camera-stream",
+  "ha-hls-player",
+  "ha-web-rtc-player",
+]);
+const playbackPreparationByRegistry = new WeakMap();
+
+const hasHaCameraPlaybackElements = (registry) =>
+  HA_CAMERA_PLAYBACK_ELEMENTS.every((tagName) => registry.get(tagName));
+
+export function ensureHaCameraPlaybackElements({
+  registry = globalThis.customElements,
+  loadCardHelpers = () => globalThis.loadCardHelpers?.(),
+} = {}) {
+  if (!registry?.get) return false;
+  if (hasHaCameraPlaybackElements(registry)) return true;
+
+  const existingPreparation = playbackPreparationByRegistry.get(registry);
+  if (existingPreparation) return existingPreparation;
+
+  const preparation = (async () => {
+    try {
+      const helpers = await loadCardHelpers?.();
+      if (typeof helpers?.createCardElement !== "function") return false;
+
+      // picture-glance statically imports hui-image, which imports HA's
+      // complete camera playback stack. Creating it loads code, not a stream.
+      await helpers.createCardElement({
+        type: "picture-glance",
+        entities: [],
+        camera_image: "camera.frigate_view_component_loader",
+      });
+      return hasHaCameraPlaybackElements(registry);
+    } catch (_) {
+      return false;
+    }
+  })();
+  const trackedPreparation = preparation.then((prepared) => {
+    if (!prepared) playbackPreparationByRegistry.delete(registry);
+    return prepared;
+  });
+  playbackPreparationByRegistry.set(registry, trackedPreparation);
+  return trackedPreparation;
+}
+
 const normalizeHaStreamType = (value) => {
   const normalized = String(value || "")
     .trim()
@@ -119,14 +164,6 @@ export function findActiveHaCameraStreamPlayer(stream) {
   );
 }
 
-export function resolveActiveHaCameraStreamType(stream, fallback = "hls") {
-  const playerTag = findActiveHaCameraStreamPlayer(stream)
-    ?.tagName?.toLowerCase?.();
-  if (playerTag === "ha-web-rtc-player") return "webrtc";
-  if (playerTag === "ha-hls-player") return "hls";
-  return normalizeHaStreamType(fallback) || "hls";
-}
-
 export function findActiveHaCameraStreamVideo(stream) {
   const player = findActiveHaCameraStreamPlayer(stream);
   if (!player) return null;
@@ -135,41 +172,6 @@ export function findActiveHaCameraStreamVideo(stream) {
     player.querySelector?.("video") ||
     null
   );
-}
-
-export function setHaCameraStreamOutputMuted(stream, muted) {
-  const nextMuted = muted === true;
-  const players = Array.from(
-    stream?.shadowRoot?.querySelectorAll?.(
-      "ha-web-rtc-player,ha-hls-player",
-    ) || [],
-  );
-  const directPlayerTag = stream?.tagName?.toLowerCase?.();
-  if (
-    directPlayerTag === "ha-web-rtc-player" ||
-    directPlayerTag === "ha-hls-player"
-  ) {
-    players.push(stream);
-  }
-
-  let applied = false;
-  for (const player of players) {
-    const video =
-      player?.shadowRoot?.querySelector?.("video") ||
-      player?.querySelector?.("video") ||
-      null;
-    if (!video) continue;
-    if (typeof video.muted === "boolean") video.muted = nextMuted;
-    if (typeof video.defaultMuted === "boolean") {
-      video.defaultMuted = nextMuted;
-    }
-    if (!nextMuted) {
-      if (typeof video.volume === "number") video.volume = 1;
-      video.play?.().catch?.(() => {});
-    }
-    applied = true;
-  }
-  return applied;
 }
 
 export function watchHaPlaybackFirstFrame({
