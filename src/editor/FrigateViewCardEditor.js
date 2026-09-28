@@ -3691,10 +3691,15 @@ export class FrigateViewCardEditor extends HTMLElement {
                 label: "Everyone",
                 translationKey: "editor.cameraPanel.suspendEveryone",
               },
+              {
+                value: CAMERA_SUSPEND_ACCESS.disabled,
+                label: "Disabled",
+                translationKey: "editor.cameraPanel.suspendDisabled",
+              },
             ],
             selectedValue: this._config?.camera_suspend_access,
           })}
-          <div class="field-helper" data-fvc-i18n="editor.cameraPanel.suspendAccessHelp">Applies to the suspend and resume controls for every configured camera.</div>
+          <div class="field-helper" data-fvc-i18n="editor.cameraPanel.suspendAccessHelp">Controls suspend and resume for every configured camera. Disabled removes the control for all users.</div>
         </div>
       </div>`;
 
@@ -4445,6 +4450,63 @@ export class FrigateViewCardEditor extends HTMLElement {
                 </div>
                 <div class="field-helper" data-fvc-i18n="editor.cameraModal.frigateIntegrationRequired">Requires the Home Assistant Frigate integration.</div>
               </div>
+              <details id="camera-modal-connection-help" class="camera-group-help camera-connection-help">
+                <summary data-fvc-i18n="editor.cameraModal.connectionGuideTitle">Which connection should I use?</summary>
+                <div class="camera-connection-help-copy">
+                  <p data-fvc-i18n="editor.cameraModal.connectionGuideIntro">Frigate go2rtc uses card-managed WebRTC and MSE through the Home Assistant Frigate integration. It is usually the fastest option and is recommended for most browsers. Home Assistant uses HA-managed HLS and WebRTC for broader client compatibility.</p>
+                  <div class="camera-connection-table-wrap">
+                    <table class="camera-connection-table">
+                      <caption data-fvc-i18n="editor.cameraModal.connectionComparison">Connection capability comparison</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col" data-fvc-i18n="editor.cameraModal.connectionFeature">Feature</th>
+                          <th scope="col" data-fvc-i18n="editor.cameraModal.homeAssistant">Home Assistant</th>
+                          <th scope="col" data-fvc-i18n="editor.cameraModal.frigateGo2rtc">Frigate go2rtc</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <th scope="row">WebRTC</th>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">MSE</th>
+                          <td><span class="camera-connection-capability camera-connection-capability--no"><span class="camera-connection-capability-mark" aria-hidden="true">×</span><span data-fvc-i18n="editor.cameraModal.connectionNotUsed">Not used</span></span></td>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">HLS</th>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
+                          <td><span class="camera-connection-capability camera-connection-capability--no"><span class="camera-connection-capability-mark" aria-hidden="true">×</span><span data-fvc-i18n="editor.cameraModal.connectionUnavailable">Not available</span></span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row" data-fvc-i18n="editor.cameraModal.twoWayTalk">Two-Way Talk</th>
+                          <td><span class="camera-connection-capability camera-connection-capability--limited"><span class="camera-connection-capability-mark" aria-hidden="true">!</span><span data-fvc-i18n="editor.cameraModal.connectionSupportedSlower">Supported; slower</span></span></td>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row" data-fvc-i18n="editor.cameraModal.connectionPtz">PTZ</th>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row" data-fvc-i18n="editor.cameraModal.connectionMacApp">Mac App Store app</th>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupportedThroughHls">Supported through HLS</span></span></td>
+                          <td><span class="camera-connection-capability camera-connection-capability--no"><span class="camera-connection-capability-mark" aria-hidden="true">×</span><span data-fvc-i18n="editor.cameraModal.connectionUnavailable">Not available</span></span></td>
+                        </tr>
+                        <tr>
+                          <th scope="row" data-fvc-i18n="editor.cameraModal.connectionStartup">Typical startup</th>
+                          <td><span class="camera-connection-capability camera-connection-capability--limited"><span class="camera-connection-capability-mark" aria-hidden="true">!</span><span data-fvc-i18n="editor.cameraModal.connectionHlsFirst">HLS first; WebRTC may take over</span></span></td>
+                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionFastest">Fastest in most browsers</span></span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p class="camera-connection-note" data-fvc-i18n="editor.cameraModal.connectionGuideMacNote">The Home Assistant Mac App Store app currently requires Home Assistant mode. Its Catalyst webview cannot use this card's Frigate WebRTC/MSE path, and the Frigate integration does not expose a compatible HLS path to the card.</p>
+                  <p class="camera-connection-note" data-fvc-i18n="editor.cameraModal.connectionGuideFootnote">Actual availability depends on browser support, camera codecs, Home Assistant, and Frigate/go2rtc configuration. PTZ uses the Frigate integration in either mode; PTZ and two-way talk must also be enabled and supported by the camera.</p>
+                </div>
+              </details>
             </div>
           </section>
           <section class="camera-modal-accordion" data-camera-modal-section="additional">

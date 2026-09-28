@@ -327,7 +327,7 @@
       "configuredCount": "{count} de {max} câmeras configuradas",
       "suspendAccess": "Quem pode suspender uma câmera",
       "suspendAdminOnly": "Somente administradores",
-      "suspendAccessHelp": "Aplica-se aos controles de suspensão e retomada de todas as câmeras configuradas."
+      "suspendAccessHelp": "Controla a suspensão e a retomada de todas as câmeras configuradas. Desativado remove o controle para todos os usuários."
     },
     "cameraModal": {
       "addCamera": "Adicionar câmera",

@@ -228,7 +228,7 @@ test("runtime config change planning remains deterministic and side-effect free"
   assert.equal(plan.realtimePollChanged, true);
 });
 
-test("camera suspension access is global, defaults to administrators, and persists everyone", () => {
+test("camera suspension access is global, defaults to administrators, and persists non-default policies", () => {
   const defaults = normalizeCardConfig({
     cameras: [{ entity: "camera.front" }],
   });
@@ -240,10 +240,15 @@ test("camera suspension access is global, defaults to administrators, and persis
     cameras: [{ entity: "camera.front" }],
     camera_suspend_access: CAMERA_SUSPEND_ACCESS.everyone,
   });
+  const disabled = normalizeCardConfig({
+    cameras: [{ entity: "camera.front" }],
+    camera_suspend_access: CAMERA_SUSPEND_ACCESS.disabled,
+  });
 
   assert.equal(defaults.camera_suspend_access, DEFAULT_CAMERA_SUSPEND_ACCESS);
   assert.equal(invalid.camera_suspend_access, DEFAULT_CAMERA_SUSPEND_ACCESS);
   assert.equal(everyone.camera_suspend_access, CAMERA_SUSPEND_ACCESS.everyone);
+  assert.equal(disabled.camera_suspend_access, CAMERA_SUSPEND_ACCESS.disabled);
   assert.equal(
     compactEditorConfigForYaml(defaults).camera_suspend_access,
     undefined,
@@ -253,8 +258,16 @@ test("camera suspension access is global, defaults to administrators, and persis
     CAMERA_SUSPEND_ACCESS.everyone,
   );
   assert.equal(
+    compactEditorConfigForYaml(disabled).camera_suspend_access,
+    CAMERA_SUSPEND_ACCESS.disabled,
+  );
+  assert.equal(
     createEditorPreviewDraft(everyone).camera_suspend_access,
     CAMERA_SUSPEND_ACCESS.everyone,
+  );
+  assert.equal(
+    createEditorPreviewDraft(disabled).camera_suspend_access,
+    CAMERA_SUSPEND_ACCESS.disabled,
   );
   assert.equal(
     applyEditorPreviewDraftToCardConfig({
@@ -264,11 +277,19 @@ test("camera suspension access is global, defaults to administrators, and persis
     CAMERA_SUSPEND_ACCESS.everyone,
   );
   assert.equal(
+    applyEditorPreviewDraftToCardConfig({
+      baseConfig: defaults,
+      previewConfig: createEditorPreviewDraft(disabled),
+    }).camera_suspend_access,
+    CAMERA_SUSPEND_ACCESS.disabled,
+  );
+  assert.equal(
     resolveRuntimeCardConfigChangePlan(defaults, everyone)
       .cameraSuspendAccessChanged,
     true,
   );
   assert.equal(everyone.cameras[0].camera_suspend_access, undefined);
+  assert.equal(disabled.cameras[0].camera_suspend_access, undefined);
 });
 
 test("runtime video defaults merge nested options without duplicate class names", () => {

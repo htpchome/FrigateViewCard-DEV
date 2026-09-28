@@ -310,6 +310,13 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       hidden: button.hidden,
       allowed: card._frigateCameraRuntimeController.canManageCameraSuspension(),
     };
+    card._hass.user = { is_admin: true };
+    card._config.camera_suspend_access = "disabled";
+    card._frigateCameraRuntimeController.sync();
+    const disabledAccess = {
+      hidden: button.hidden,
+      allowed: card._frigateCameraRuntimeController.canManageCameraSuspension(),
+    };
     card._frigateCameraRuntimeController.dispose();
     card.remove();
     return {
@@ -322,6 +329,7 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       suspendedToast,
       adminOnlyAccess,
       everyoneAccess,
+      disabledAccess,
       serviceCalls,
     };
   });
@@ -393,6 +401,10 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       hidden: false,
       allowed: true,
     },
+    disabledAccess: {
+      hidden: true,
+      allowed: false,
+    },
     serviceCalls: [
       ["camera", "turn_on", {}, { entity_id: "camera.front" }],
       ["camera", "turn_off", {}, { entity_id: "camera.front" }],
@@ -423,15 +435,30 @@ test("camera suspension access is one global editor setting", async ({ page }) =
     const everyone = editor.querySelector(
       '[name="camera_suspend_access"][value="everyone"]',
     );
+    const disabled = editor.querySelector(
+      '[name="camera_suspend_access"][value="disabled"]',
+    );
     const previewDrafts = [];
     window.addEventListener(
       "frigate-view-card-preview-draft",
       (event) => previewDrafts.push(event.detail?.config),
-      { once: true },
     );
 
     everyone.checked = true;
     everyone.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    const everyonePersisted =
+      editor._config.camera_suspend_access === "everyone" &&
+      previewDrafts.some(
+        (draft) => draft?.camera_suspend_access === "everyone",
+      );
+    const renderedDisabled = editor.querySelector(
+      '[name="camera_suspend_access"][value="disabled"]',
+    );
+    renderedDisabled.checked = true;
+    renderedDisabled.dispatchEvent(new Event("change", { bubbles: true }));
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
@@ -441,6 +468,8 @@ test("camera suspension access is one global editor setting", async ({ page }) =
         '[data-fvc-i18n="editor.cameraPanel.suspendAccess"]',
       ).textContent,
       adminDefault: adminOnly.defaultChecked || adminOnly.hasAttribute("checked"),
+      disabledLabel: disabled.getAttribute("aria-label"),
+      everyonePersisted,
       selected: editor._config.camera_suspend_access,
       saved: editor._homeAssistantConfig({ readDom: false })
         .camera_suspend_access,
@@ -450,7 +479,7 @@ test("camera suspension access is one global editor setting", async ({ page }) =
         (camera) => !Object.hasOwn(camera, "camera_suspend_access"),
       ),
       renderedSelection: editor.querySelector(
-        '[name="camera_suspend_access"][value="everyone"]',
+        '[name="camera_suspend_access"][value="disabled"]',
       )?.checked,
     };
   });
@@ -458,13 +487,86 @@ test("camera suspension access is one global editor setting", async ({ page }) =
   expect(state).toEqual({
     label: "Who can Suspend a Camera",
     adminDefault: true,
-    selected: "everyone",
-    saved: "everyone",
-    preview: "everyone",
+    disabledLabel: "Disabled",
+    everyonePersisted: true,
+    selected: "disabled",
+    saved: "disabled",
+    preview: "disabled",
     dirty: true,
     cameraValuesAbsent: true,
     renderedSelection: true,
   });
+});
+
+test("camera connection settings explain transport capabilities", async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 900 });
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+    });
+    editor.hass = { locale: { language: "en" }, states: {}, themes: {} };
+    editor._openCameraModal(0);
+    editor._setCameraModalAccordionActive("connection");
+    const guide = editor.querySelector("#camera-modal-connection-help");
+    guide.open = true;
+    const wrapper = guide.querySelector(".camera-connection-table-wrap");
+    const content = editor.querySelector("#camera-modal-connection-content");
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+
+    return {
+      title: guide.querySelector("summary").textContent,
+      intro: guide.querySelector(".camera-connection-help-copy p").textContent,
+      rows: [...guide.querySelectorAll("tbody tr")].map((row) => ({
+        feature: row.querySelector("th").textContent,
+        values: [...row.querySelectorAll("td")].map((cell) =>
+          cell.textContent.trim(),
+        ),
+      })),
+      statuses: {
+        yes: guide.querySelectorAll(".camera-connection-capability--yes").length,
+        limited: guide.querySelectorAll(
+          ".camera-connection-capability--limited",
+        ).length,
+        no: guide.querySelectorAll(".camera-connection-capability--no").length,
+      },
+      contained:
+        wrapperRect.left >= contentRect.left &&
+        wrapperRect.right <= contentRect.right,
+      horizontallyScrollable: wrapper.scrollWidth >= wrapper.clientWidth,
+    };
+  });
+
+  expect(state.title).toBe("Which connection should I use?");
+  expect(state.intro).toContain("recommended for most browsers");
+  expect(state.rows).toEqual([
+    { feature: "WebRTC", values: ["✓Supported", "✓Supported"] },
+    { feature: "MSE", values: ["×Not used", "✓Supported"] },
+    { feature: "HLS", values: ["✓Supported", "×Not available"] },
+    {
+      feature: "Two-Way Talk",
+      values: ["!Supported; slower", "✓Supported"],
+    },
+    { feature: "PTZ", values: ["✓Supported", "✓Supported"] },
+    {
+      feature: "Mac App Store app",
+      values: ["✓Supported through HLS", "×Not available"],
+    },
+    {
+      feature: "Typical startup",
+      values: [
+        "!HLS first; WebRTC may take over",
+        "✓Fastest in most browsers",
+      ],
+    },
+  ]);
+  expect(state.statuses).toEqual({ yes: 9, limited: 2, no: 3 });
+  expect(state.contained).toBe(true);
+  expect(state.horizontallyScrollable).toBe(true);
 });
 
 test("phone startup defers non-visible browse warming until delayed idle", async ({

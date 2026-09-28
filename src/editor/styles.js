@@ -400,6 +400,23 @@ export const EDITOR_STYLES = `
             .camera-group-help[hidden]{display:none;}
             .camera-group-help summary{padding:7px 10px;color:var(--c-primary, var(--editor-primary));font-weight:700;cursor:pointer;}
             .camera-group-help-copy{padding:0 10px 9px;color:var(--c-text2, var(--editor-muted));}
+            .camera-connection-help{margin-top:10px!important;}
+            .camera-connection-help-copy{padding:0 10px 10px;color:var(--c-text2, var(--editor-muted));}
+            .camera-connection-help-copy p{margin:0 0 9px;}
+            .camera-connection-table-wrap{max-width:100%;margin:4px 0 10px;overflow-x:auto;border:1px solid color-mix(in srgb,var(--c-border2,var(--editor-border)) 68%,transparent);border-radius:7px;background:var(--editor-card-bg);}
+            .camera-connection-table{width:100%;min-width:430px;border-collapse:collapse;table-layout:fixed;color:var(--editor-text);font-size:10px;line-height:1.25;}
+            .camera-connection-table caption{padding:7px 8px 5px;color:var(--c-text2,var(--editor-muted));font-weight:700;text-align:left;}
+            .camera-connection-table th,.camera-connection-table td{padding:6px 7px;border-top:1px solid color-mix(in srgb,var(--c-border2,var(--editor-border)) 55%,transparent);vertical-align:top;text-align:left;white-space:normal;overflow-wrap:anywhere;}
+            .camera-connection-table thead th{color:var(--editor-text);font-weight:700;}
+            .camera-connection-table th:first-child{width:22%;}
+            .camera-connection-table th:nth-child(2),.camera-connection-table th:nth-child(3){width:39%;}
+            .camera-connection-capability{display:inline-flex;align-items:flex-start;gap:5px;}
+            .camera-connection-capability-mark{display:inline-flex;width:14px;height:14px;flex:0 0 14px;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-size:10px;font-weight:800;line-height:1;}
+            .camera-connection-capability--yes .camera-connection-capability-mark{background:var(--success-color,#2e7d32);}
+            .camera-connection-capability--limited .camera-connection-capability-mark{background:var(--warning-color,#d97706);}
+            .camera-connection-capability--no .camera-connection-capability-mark{background:var(--error-color,#c62828);}
+            .camera-connection-note{font-size:10px;line-height:1.4;}
+            .camera-connection-note:last-child{margin-bottom:0;}
             .camera-group-fields{margin:0 0 10px 12px;padding:10px;border-inline-start:3px solid var(--editor-primary);background:var(--editor-secondary-bg);border-radius:0 10px 10px 0;}
             .camera-group-fields[hidden]{display:none!important;}
             .camera-group-fields-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}

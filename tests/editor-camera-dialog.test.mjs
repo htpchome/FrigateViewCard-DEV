@@ -979,6 +979,41 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
     source,
     /Requires the Home Assistant Frigate integration\./,
   );
+  const connectionSection = source.slice(
+    source.indexOf('data-camera-modal-section="connection"'),
+    source.indexOf('data-camera-modal-section="additional"'),
+  );
+  assert.match(
+    connectionSection,
+    /<details id="camera-modal-connection-help" class="camera-group-help camera-connection-help">[\s\S]*?Which connection should I use\?/,
+  );
+  assert.match(connectionSection, /<table class="camera-connection-table">/);
+  for (const feature of [
+    "WebRTC",
+    "MSE",
+    "HLS",
+    "Two-Way Talk",
+    "PTZ",
+    "Mac App Store app",
+    "Typical startup",
+  ]) {
+    assert.match(connectionSection, new RegExp(`>${feature}<`));
+  }
+  assert.match(connectionSection, /camera-connection-capability--yes/);
+  assert.match(connectionSection, /camera-connection-capability--limited/);
+  assert.match(connectionSection, /camera-connection-capability--no/);
+  assert.match(
+    connectionSection,
+    /Frigate go2rtc uses card-managed WebRTC and MSE[\s\S]*?recommended for most browsers/,
+  );
+  assert.match(
+    connectionSection,
+    /Mac App Store app currently requires Home Assistant mode/,
+  );
+  assert.match(
+    editorStylesSource,
+    /\.camera-connection-table-wrap\{[^}]*overflow-x:auto/,
+  );
   assert.match(
     source,
     /<dialog id="standalone-landing-modal" class="cam-modal-card cam-confirm-card standalone-landing-dialog"/,
@@ -1951,7 +1986,7 @@ test("editor accordion panels share one compact settings container", () => {
   );
   assert.match(
     source,
-    /const cameraPanelContent = `[\s\S]*?id="cam-list"[\s\S]*?id="camera_suspend_access"[\s\S]*?name: "camera_suspend_access"[\s\S]*?Admin Only[\s\S]*?Everyone/,
+    /const cameraPanelContent = `[\s\S]*?id="cam-list"[\s\S]*?id="camera_suspend_access"[\s\S]*?name: "camera_suspend_access"[\s\S]*?Admin Only[\s\S]*?Everyone[\s\S]*?Disabled/,
   );
   assert.doesNotMatch(
     source,
