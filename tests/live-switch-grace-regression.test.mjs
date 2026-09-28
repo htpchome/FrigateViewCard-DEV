@@ -117,7 +117,13 @@ test("camera switching preserves recent live engines for short switch-back reuse
   );
   assert.equal(
     liveGraceControllerSource.includes("ensureHaDirectGraceHost"),
-    false,
+    true,
+  );
+  assert.equal(
+    liveGraceControllerSource.includes(
+      '"position:absolute;inset:0;width:100%;height:100%;overflow:hidden;opacity:0;pointer-events:none;z-index:-1"',
+    ),
+    true,
   );
   assert.equal(liveGraceControllerSource.includes("clearGracePool"), true);
   assert.equal(

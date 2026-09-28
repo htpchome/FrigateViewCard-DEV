@@ -2,6 +2,12 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.65` is the stable fallback point for live transport work. It
+restores the behavior from `v1.1.8-dev.57` after reverting the Catalyst-native
+Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
+`v1.1.8-dev.64`. Begin any further HA Direct startup optimization from this
+baseline and preserve the transport contracts below.
+
 `v1.1.5-dev.63` established the original live connection baseline physically
 tested on September 6, 2026. Later Mac Catalyst testing found that its HA Direct
 HLS browser-player retention was not valid. `v1.1.7-dev.64` corrected that

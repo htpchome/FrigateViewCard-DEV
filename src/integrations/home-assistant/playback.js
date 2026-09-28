@@ -47,6 +47,7 @@ export function createHaCameraStreamElement({
   stateObj,
   muted = false,
   controls = false,
+  allowExoPlayer = false,
   defaultMuted,
   fitMode,
   styleText = "",
@@ -57,6 +58,7 @@ export function createHaCameraStreamElement({
   stream.stateObj = stateObj;
   stream.controls = controls;
   stream.muted = muted;
+  stream.allowExoPlayer = allowExoPlayer;
   if (fitMode !== undefined) {
     stream.fitMode = fitMode;
   }

@@ -780,12 +780,16 @@ test("live transport ownership is pulled out of the card shell", () => {
   );
   assert.equal(haDirectMounterSource.includes("buildHaDirectMountPlan"), true);
   assert.equal(
-    haDirectMounterSource.includes("createHaDirectWebRtcPlayback"),
+    haDirectMounterSource.includes("createHaCameraStreamElement"),
     true,
   );
   assert.equal(
+    haDirectMounterSource.includes("createHaDirectWebRtcPlayback"),
+    false,
+  );
+  assert.equal(
     haDirectMounterSource.includes("createHaHlsPlayerElement"),
-    true,
+    false,
   );
   assert.equal(
     haDirectTwoWayTalkMounterSource.includes(
