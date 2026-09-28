@@ -5,7 +5,6 @@ import {
   buildRecordingScrubDecorations,
   formatRecordingScrubTime,
   isRecordingSeekVerified,
-  isRecordingRangeContinuouslyAvailable,
   recordingAvailableDuration,
   RecordingScrubController,
   resolveClosestRecordingAvailableTime,
@@ -203,32 +202,23 @@ export class PopupRecordingScrubController {
 
   toggleSegmentManager(force = null) {
     if (!this._state) return false;
-    const wasOpen = this._state.segmentOpen;
     this._state.segmentOpen =
       typeof force === "boolean" ? force : !this._state.segmentOpen;
-    if (!wasOpen && this._state.segmentOpen) {
-      const availableRanges = this._playbackAvailableRanges();
-      if (
-        !isRecordingRangeContinuouslyAvailable({
-          start: this._state.segmentStart,
-          end: this._state.segmentEnd,
-          availableRanges,
-        })
-      ) {
-        this._resetSegmentToCurrentAvailableRange();
-      }
-    }
     this._renderCurrentDecorations();
     this._syncSegmentUi();
     this._setCursor(
-      this._state.start + Number(this._state.video?.currentTime || 0),
+      this._videoTimeToAbsolute(
+        this._state,
+        Number(this._state.video?.currentTime || 0),
+      ),
     );
     return this._state.segmentOpen;
   }
 
   resetSegmentSelection() {
     if (!this._state) return null;
-    this._resetSegmentToCurrentAvailableRange();
+    this._state.segmentStart = this._state.start;
+    this._state.segmentEnd = this._state.end;
     this._syncSegmentUi();
     return this.segmentRange();
   }
@@ -435,16 +425,6 @@ export class PopupRecordingScrubController {
         if (!state.availableRanges.length) {
           state.availableRanges = [{ start, end }];
         }
-        if (
-          state.segmentOpen &&
-          !isRecordingRangeContinuouslyAvailable({
-            start: state.segmentStart,
-            end: state.segmentEnd,
-            availableRanges: this._activeAvailableRanges(),
-          })
-        ) {
-          this._resetSegmentToCurrentAvailableRange();
-        }
         this._renderCurrentDecorations(elements);
         this._syncSegmentUi(elements);
         this._setCursor(
@@ -550,6 +530,17 @@ export class PopupRecordingScrubController {
     return this._availableRangesFor({ start: state.start, end: state.end });
   }
 
+  _selectedAvailableDuration(state = this._state) {
+    if (!state) return 0;
+    return recordingAvailableDuration(
+      resolveRecordingAvailableRanges({
+        recordings: this._activeAvailableRanges(),
+        start: state.segmentStart,
+        end: state.segmentEnd,
+      }),
+    );
+  }
+
   _usesCompressedAvailabilityTimeline(state = this._state) {
     const videoDuration = Number(state?.video?.duration);
     if (!state || !Number.isFinite(videoDuration) || videoDuration <= 0) {
@@ -586,35 +577,6 @@ export class PopupRecordingScrubController {
       time: absoluteTime,
       availableRanges: playbackRanges,
     });
-  }
-
-  _resetSegmentToCurrentAvailableRange() {
-    const state = this._state;
-    if (!state) return;
-    const availableRanges = this._playbackAvailableRanges();
-    if (
-      !availableRanges.length ||
-      isRecordingRangeContinuouslyAvailable({
-        start: state.start,
-        end: state.end,
-        availableRanges,
-      })
-    ) {
-      state.segmentStart = state.start;
-      state.segmentEnd = state.end;
-      return;
-    }
-
-    const currentTime = this._videoTimeToAbsolute(
-      state,
-      Number(state.video?.currentTime || 0),
-    );
-    const selectedRange =
-      availableRanges.find(
-        (range) => currentTime >= range.start && currentTime <= range.end,
-      ) || availableRanges[0];
-    state.segmentStart = selectedRange.start;
-    state.segmentEnd = selectedRange.end;
   }
 
   _renderCurrentDecorations(
@@ -1002,39 +964,29 @@ export class PopupRecordingScrubController {
     if (elements.segmentPreviewRange) {
       elements.segmentPreviewRange.textContent = `${startClock} – ${endClock}`;
     }
-    const duration = Math.max(0, state.segmentEnd - state.segmentStart);
-    const selectionAvailable = isRecordingRangeContinuouslyAvailable({
+    const selectedAvailableRanges = resolveRecordingAvailableRanges({
+      recordings: this._activeAvailableRanges(),
       start: state.segmentStart,
       end: state.segmentEnd,
-      availableRanges: this._activeAvailableRanges(),
     });
+    const duration = recordingAvailableDuration(selectedAvailableRanges);
     const fullRecording =
       state.segmentStart === state.start && state.segmentEnd === state.end;
     const durationText = formatRecordingScrubTime(duration);
     this._setLocalizedCopy(
       elements.segmentDuration,
-      !selectionAvailable
-        ? "runtime.popup.segment.selectionUnavailable"
-        : fullRecording
-          ? "runtime.popup.segment.entireRecordingDuration"
-          : "runtime.popup.segment.selectedDuration",
-      !selectionAvailable
-        ? "Selection includes unavailable footage"
-        : fullRecording
-          ? `Entire recording · ${durationText}`
-          : `Selected duration · ${durationText}`,
+      fullRecording
+        ? "runtime.popup.segment.entireRecordingDuration"
+        : "runtime.popup.segment.selectedDuration",
+      fullRecording
+        ? `Entire recording · ${durationText}`
+        : `Selected duration · ${durationText}`,
       { duration: durationText },
     );
-    elements.segmentManager?.classList?.toggle?.(
-      "has-unavailable-selection",
-      !selectionAvailable,
-    );
-    if (elements.segmentReset) {
-      elements.segmentReset.disabled = fullRecording && selectionAvailable;
-    }
+    if (elements.segmentReset) elements.segmentReset.disabled = fullRecording;
     if (elements.segmentPreviewButton) {
       elements.segmentPreviewButton.disabled =
-        duration < 1 || !selectionAvailable || state.segmentPreviewPending;
+        duration < 1 || state.segmentPreviewPending;
       elements.segmentPreviewButton.setAttribute?.(
         "aria-busy",
         String(state.segmentPreviewPending),
@@ -1042,7 +994,7 @@ export class PopupRecordingScrubController {
     }
     if (elements.segmentDownload) {
       elements.segmentDownload.disabled =
-        duration < 1 || !selectionAvailable || state.segmentDownloadPending;
+        duration < 1 || state.segmentDownloadPending;
       elements.segmentDownload.setAttribute?.(
         "aria-busy",
         String(state.segmentDownloadPending),
@@ -1050,7 +1002,7 @@ export class PopupRecordingScrubController {
     }
     if (elements.segmentPreviewDownload) {
       elements.segmentPreviewDownload.disabled =
-        duration < 1 || !selectionAvailable || state.segmentDownloadPending;
+        duration < 1 || state.segmentDownloadPending;
       elements.segmentPreviewDownload.setAttribute?.(
         "aria-busy",
         String(state.segmentDownloadPending),
@@ -1115,11 +1067,7 @@ export class PopupRecordingScrubController {
       !state?.segmentOpen ||
       state.segmentPreviewPending ||
       state.segmentEnd <= state.segmentStart ||
-      !isRecordingRangeContinuouslyAvailable({
-        start: state.segmentStart,
-        end: state.segmentEnd,
-        availableRanges: this._activeAvailableRanges(),
-      }) ||
+      this._selectedAvailableDuration(state) < 1 ||
       !elements.segmentPreviewModal ||
       !elements.segmentPreviewVideoHost
     ) {
@@ -1306,11 +1254,7 @@ export class PopupRecordingScrubController {
       !state?.segmentOpen ||
       state.segmentDownloadPending ||
       state.segmentEnd <= state.segmentStart ||
-      !isRecordingRangeContinuouslyAvailable({
-        start: state.segmentStart,
-        end: state.segmentEnd,
-        availableRanges: this._activeAvailableRanges(),
-      })
+      this._selectedAvailableDuration(state) < 1
     ) {
       return;
     }

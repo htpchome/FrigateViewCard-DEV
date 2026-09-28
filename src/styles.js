@@ -384,7 +384,6 @@ export const STYLES_BEFORE_CARD_VIEW = `
 
   /* ── feed area ── */
     #eng-wrap{background:var(--c-bg-deep);position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;max-height:var(--view-height,none);z-index:0;isolation:isolate;}
-    #eng-wrap.camera-runtime-confirmation-open{z-index:10;}
     #eng-wrap.live-resize-eligible{aspect-ratio:var(--live-view-aspect-ratio,16/9);}
     .live-resize-grip{position:absolute;left:50%;bottom:0;z-index:9;width:224px;height:44px;padding:0;border:0;border-radius:0;transform:translateX(-50%);display:flex;align-items:flex-end;justify-content:center;color:var(--c-text);background:transparent;box-shadow:none;opacity:.38;cursor:ns-resize;touch-action:none;-webkit-tap-highlight-color:transparent;transition:opacity .14s ease;}
     .card.catalyst-client .live-resize-grip{cursor:grab;}
@@ -516,7 +515,7 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .camera-suspended-placeholder__icon{display:grid;place-items:center;width:46px;height:46px;border:1px solid var(--fvc-media-overlay-border);border-radius:50%;background:var(--fvc-media-overlay-bg);color:var(--c-off);}
   .camera-suspended-placeholder__icon svg{width:28px;height:28px;}
   .camera-suspended-placeholder > span:last-child{max-width:320px;font-size:.82rem;color:color-mix(in srgb,var(--c-text-rev) 75%,transparent);}
-  .camera-runtime-confirmation-modal{position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:12px;box-sizing:border-box;}
+  .camera-runtime-confirmation-modal{position:absolute;inset:0;z-index:2600;display:grid;place-items:center;padding:12px;box-sizing:border-box;isolation:isolate;}
   .camera-runtime-confirmation-modal[hidden]{display:none;}
   .camera-runtime-confirmation-backdrop{appearance:none;-webkit-appearance:none;position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;background:rgba(0,0,0,.68);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);cursor:pointer;}
   .camera-runtime-confirmation-dialog{position:relative;z-index:1;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;width:min(460px,100%);max-height:calc(100% - 4px);padding:14px;box-sizing:border-box;overflow:auto;border:1px solid var(--c-border2);border-radius:12px;background:var(--c-bg-main);box-shadow:0 18px 54px rgba(0,0,0,.48);color:var(--c-text);}
@@ -909,7 +908,6 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .recording-segment-manager-copy {display:flex;flex-direction:column;gap:3px;min-width:0;}
   .recording-segment-manager-copy strong {font-size:.85rem;line-height:1.15;}
   .recording-segment-manager-copy span {font-size:.76rem;line-height:1.3;color:var(--c-text2);}
-  .recording-segment-manager.has-unavailable-selection .recording-segment-summary {color:var(--error-color,#dc3146);}
   .recording-segment-manager-footer {display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
   .recording-segment-summary {display:flex;flex-direction:column;gap:2px;min-width:0;font-size:.78rem;color:var(--c-text2);font-variant-numeric:tabular-nums;}
   .recording-segment-summary b {color:var(--c-text);font-size:.82rem;}

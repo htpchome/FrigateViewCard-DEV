@@ -578,7 +578,7 @@ test("popup recording segment manager extends only its selectable timeline", asy
   assert.equal(elements.get("#recording-segment-reset").disabled, true);
 });
 
-test("popup recording scrub blocks missing footage in seeking and segment actions", async () => {
+test("popup recording scrub blocks gap seeks but packages segment actions across gaps", async () => {
   const elements = createScrubElements();
   const downloads = [];
   let bindingOptions;
@@ -633,21 +633,39 @@ test("popup recording scrub blocks missing footage in seeking and segment action
   assert.equal(bindingOptions.resolveCurrentTime(40), 160);
 
   controller.toggleSegmentManager(true);
-  assert.deepEqual(controller.segmentRange(), { start: 100, end: 140 });
+  assert.deepEqual(controller.segmentRange(), { start: 100, end: 200 });
+  assert.equal(
+    elements.get("#recording-segment-duration").textContent,
+    "Entire recording · 1:20",
+  );
+  assert.equal(
+    elements.get("#recording-segment-preview-button").disabled,
+    false,
+  );
+  assert.equal(elements.get("#recording-segment-download").disabled, false);
+  await controller._downloadSelectedSegment();
+  assert.deepEqual(downloads, [
+    [100, 200, { clientId: "frigate", cam: "front" }],
+  ]);
+
   controller._state.segmentStart = 120;
   controller._state.segmentEnd = 180;
   controller._syncSegmentUi();
   assert.equal(
     elements.get("#recording-segment-duration").textContent,
-    "Selection includes unavailable footage",
+    "Selected duration · 0:40",
   );
   assert.equal(
     elements.get("#recording-segment-preview-button").disabled,
-    true,
+    false,
   );
-  assert.equal(elements.get("#recording-segment-download").disabled, true);
+  assert.equal(elements.get("#recording-segment-download").disabled, false);
   await controller._downloadSelectedSegment();
-  assert.deepEqual(downloads, []);
+  assert.deepEqual(downloads.at(-1), [
+    120,
+    180,
+    { clientId: "frigate", cam: "front" },
+  ]);
 
   controller._updateSegmentHandle("start", 150);
   assert.deepEqual(controller.segmentRange(), { start: 160, end: 180 });

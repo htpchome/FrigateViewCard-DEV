@@ -229,9 +229,6 @@ export class FrigateCameraRuntimeController {
         true,
       );
     }
-    this._host._$("#eng-wrap")?.classList?.add?.(
-      "camera-runtime-confirmation-open",
-    );
     applyLocalizedText(modal, this._host._localization?.t);
     if (focus) {
       modal.querySelector?.(".camera-runtime-confirmation-cancel")?.focus?.();
@@ -261,9 +258,6 @@ export class FrigateCameraRuntimeController {
       modal.removeEventListener?.("keydown", this._onDialogKeyDown);
       modal.hidden = true;
     }
-    this._host._$("#eng-wrap")?.classList?.remove?.(
-      "camera-runtime-confirmation-open",
-    );
     this._dialogDocument?.removeEventListener?.(
       "click",
       this._onDocumentClick,

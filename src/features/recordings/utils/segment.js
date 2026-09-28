@@ -131,28 +131,6 @@ export function resolveClosestRecordingAvailableTime({
   return target;
 }
 
-export function isRecordingRangeContinuouslyAvailable({
-  start = 0,
-  end = 0,
-  availableRanges = [],
-  toleranceSec = 0.25,
-} = {}) {
-  if (!availableRanges.length) return true;
-  const selectionStart = Number(start) || 0;
-  const selectionEnd = Math.max(selectionStart, Number(end) || selectionStart);
-  const tolerance = Math.max(0, Number(toleranceSec) || 0);
-  return normalizeProvidedAvailableRanges(availableRanges).some((range) => {
-    const availableStart = Number(range?.start);
-    const availableEnd = Number(range?.end);
-    return (
-      Number.isFinite(availableStart) &&
-      Number.isFinite(availableEnd) &&
-      selectionStart >= availableStart - tolerance &&
-      selectionEnd <= availableEnd + tolerance
-    );
-  });
-}
-
 export function recordingAvailableDuration(availableRanges = []) {
   return normalizeProvidedAvailableRanges(availableRanges).reduce(
     (total, range) =>

@@ -139,7 +139,7 @@
       },
       "segment": {
         "downloadRegion": "Baixar segmento da gravação",
-        "guidance": "Arraste as alças para escolher o que manter. A parte verde será baixada; a vermelha será excluída.",
+        "guidance": "Arraste as alças para escolher o que manter. A parte verde será baixada; a vermelha será excluída. As lacunas listradas estão indisponíveis e serão ignoradas.",
         "resetSegment": "Redefinir segmento",
         "reset": "Redefinir",
         "download": "Baixar segmento",

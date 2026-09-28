@@ -194,6 +194,9 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       "#camera-runtime-confirmation-warning",
     );
     const submit = modal.querySelector("#camera-runtime-confirmation-submit");
+    const cardSurface = card.shadowRoot.querySelector("#card");
+    const resumeModalRect = modal.getBoundingClientRect();
+    const cardRect = cardSurface.getBoundingClientRect();
     const resumeDialog = {
       hidden: modal.hidden,
       action: modal.dataset.cameraRuntimeAction,
@@ -201,17 +204,12 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       detail: detail.textContent,
       warningHidden: warning.hidden,
       submit: submit.textContent,
-      engineRaised: card.shadowRoot
-        .querySelector("#eng-wrap")
-        .classList.contains("camera-runtime-confirmation-open"),
-      engineZ: Number(
-        getComputedStyle(card.shadowRoot.querySelector("#eng-wrap")).zIndex,
-      ),
-      overlayZ: Number(
-        getComputedStyle(
-          card.shadowRoot.querySelector(".live-playback-controls"),
-        ).zIndex,
-      ),
+      parentId: modal.parentElement?.id,
+      widthDelta: Math.abs(resumeModalRect.width - cardRect.width),
+      heightDelta: Math.abs(resumeModalRect.height - cardRect.height),
+      backdrop: getComputedStyle(
+        modal.querySelector(".camera-runtime-confirmation-backdrop"),
+      ).backgroundColor,
       serviceCallsBeforeConfirmation: serviceCalls.length,
     };
     submit.click();
@@ -272,17 +270,6 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       warning: warning.textContent,
       warningHidden: warning.hidden,
       submit: submit.textContent,
-      engineRaised: card.shadowRoot
-        .querySelector("#eng-wrap")
-        .classList.contains("camera-runtime-confirmation-open"),
-      engineZ: Number(
-        getComputedStyle(card.shadowRoot.querySelector("#eng-wrap")).zIndex,
-      ),
-      overlayZ: Number(
-        getComputedStyle(
-          card.shadowRoot.querySelector(".live-playback-controls"),
-        ).zIndex,
-      ),
       serviceCallsBeforeConfirmation: serviceCalls.length,
     };
     const outsideCard = document.createElement("button");
@@ -291,9 +278,6 @@ test("suspended Frigate cameras expose a transport-independent power control", a
     outsideCard.remove();
     const cancelled = {
       hidden: modal.hidden,
-      engineRaised: card.shadowRoot
-        .querySelector("#eng-wrap")
-        .classList.contains("camera-runtime-confirmation-open"),
       serviceCalls: serviceCalls.length,
     };
     button.click();
@@ -345,7 +329,8 @@ test("suspended Frigate cameras expose a transport-independent power control", a
         "Resuming this camera in Frigate restores live video, recordings, and detections. Frigate may need a short time before live video and new events become available.",
       warningHidden: true,
       submit: "Resume camera",
-      engineRaised: true,
+      parentId: "card",
+      backdrop: "rgba(0, 0, 0, 0.68)",
       serviceCallsBeforeConfirmation: 0,
     },
     resumedState: {
@@ -374,12 +359,10 @@ test("suspended Frigate cameras expose a transport-independent power control", a
         "Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and FrigateViewCard. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.",
       warningHidden: false,
       submit: "Suspend camera",
-      engineRaised: true,
       serviceCallsBeforeConfirmation: 1,
     },
     cancelled: {
       hidden: true,
-      engineRaised: false,
       serviceCalls: 1,
     },
     suspendedToast: {
@@ -395,9 +378,8 @@ test("suspended Frigate cameras expose a transport-independent power control", a
   expect(state.resumedState.toast.centerOffset).toBeLessThan(2);
   expect(state.resumedState.toast.topOffset).toBeGreaterThanOrEqual(10);
   expect(state.resumedState.toast.topOffset).toBeLessThanOrEqual(14);
-  expect(state.suspendDialog.engineZ).toBeGreaterThan(
-    state.suspendDialog.overlayZ,
-  );
+  expect(state.resumeDialog.widthDelta).toBeLessThanOrEqual(2);
+  expect(state.resumeDialog.heightDelta).toBeLessThanOrEqual(2);
 });
 
 test("phone startup defers non-visible browse warming until delayed idle", async ({

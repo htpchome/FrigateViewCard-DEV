@@ -115,6 +115,7 @@ import {
 import { createLiveTransportControllers } from "../features/live/transport-composition.js";
 import { createLiveLifecycleControllers } from "../features/live/lifecycle-composition.js";
 import {
+  buildLiveCameraRuntimeConfirmationMarkup,
   buildLiveEngineWrapMarkup,
   buildLiveFullscreenControlMarkup,
   buildLivePictureInPictureControlMarkup,
@@ -2960,6 +2961,7 @@ export class FrigateViewCard extends HTMLElement {
     <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">
 
         ${mainLayoutShell}
+        ${buildLiveCameraRuntimeConfirmationMarkup({ icons: ICONS })}
         ${buildRotateOverlayDismissButtonMarkup({ icons: ICONS })}
         <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 

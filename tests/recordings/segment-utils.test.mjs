@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  isRecordingRangeContinuouslyAvailable,
   mergeRecordingSegments,
   recordingAvailableDuration,
   resolveClosestRecordingAvailableTime,
@@ -164,7 +163,7 @@ test("recording availability exposes missing intervals without changing hourly g
   );
 });
 
-test("recording availability clamps unavailable targets and validates continuous selections", () => {
+test("recording availability clamps unavailable targets", () => {
   const availableRanges = [
     { start: 100, end: 140 },
     { start: 160, end: 200 },
@@ -184,22 +183,6 @@ test("recording availability clamps unavailable targets and validates continuous
       preference: "next",
     }),
     160,
-  );
-  assert.equal(
-    isRecordingRangeContinuouslyAvailable({
-      start: 120,
-      end: 180,
-      availableRanges,
-    }),
-    false,
-  );
-  assert.equal(
-    isRecordingRangeContinuouslyAvailable({
-      start: 160,
-      end: 190,
-      availableRanges,
-    }),
-    true,
   );
 });
 

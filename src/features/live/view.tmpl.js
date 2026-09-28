@@ -29,7 +29,6 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                     </div>
                   </div>
                   </div>
-                  ${buildLiveCameraRuntimeConfirmationMarkup({ icons })}
                   <div id="grid-engine" aria-hidden="true" hidden></div>
                   <div class="slideshow-next-chip" id="slideshow-next-chip" data-fvc-i18n="runtime.live.nextSlide" data-fvc-i18n-values='{"seconds":0}' hidden>Next Slide: 0s</div>
                   <div class="stream-loading" id="stream-loading" hidden>

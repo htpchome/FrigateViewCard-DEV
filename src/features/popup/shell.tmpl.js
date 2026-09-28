@@ -50,7 +50,7 @@ export function buildPopupShellMarkup({ icons, version }) {
                 <section class="recording-segment-manager" id="recording-segment-manager" aria-label="Recording segment download" data-fvc-i18n-aria-label="runtime.popup.segment.downloadRegion" hidden>
                   <div class="recording-segment-manager-copy">
                     <strong data-fvc-i18n="runtime.popup.segment.select">Select a recording segment</strong>
-                    <span data-fvc-i18n="runtime.popup.segment.guidance">Drag the handles to choose what to keep. Green is downloaded; red is excluded.</span>
+                    <span data-fvc-i18n="runtime.popup.segment.guidance">Drag the handles to choose what to keep. Green is downloaded; red is excluded. Striped gaps are unavailable and will be skipped.</span>
                   </div>
                   <div class="recording-segment-manager-footer">
                     <div class="recording-segment-summary" id="recording-segment-summary" aria-live="polite">

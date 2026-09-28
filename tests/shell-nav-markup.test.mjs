@@ -30,6 +30,7 @@ import { buildPopupShellMarkup } from "../src/features/popup/shell.tmpl.js";
 import { STYLES } from "../src/styles.js";
 import { buildSingleViewMainLayoutShellMarkup } from "../src/features/single-view/page.tmpl.js";
 import {
+  buildLiveCameraRuntimeConfirmationMarkup,
   buildLiveEngineWrapMarkup,
   buildLiveCameraPowerControlMarkup,
   buildLiveFullscreenControlMarkup,
@@ -650,6 +651,8 @@ test("shared shell builders expose stable page region anchors", () => {
     },
     streamMuted: true,
   });
+  const liveCameraRuntimeConfirmation =
+    buildLiveCameraRuntimeConfirmationMarkup({ icons: { power: "O" } });
   const liveFullscreen = buildLiveFullscreenControlMarkup({
     icons: { expand: "E" },
   });
@@ -679,17 +682,22 @@ test("shared shell builders expose stable page region anchors", () => {
     liveEngineWrap,
     /camera-suspended-placeholder__icon">C<\/span>/,
   );
+  assert.doesNotMatch(liveEngineWrap, /camera-runtime-confirmation-modal/);
   assert.match(
-    liveEngineWrap,
+    liveCameraRuntimeConfirmation,
     /id="camera-runtime-confirmation-modal"[^>]* hidden>[\s\S]*?role="dialog"[\s\S]*?data-camera-runtime-confirm-cancel[\s\S]*?data-camera-runtime-confirm/,
   );
   assert.match(
-    liveEngineWrap,
+    liveCameraRuntimeConfirmation,
     /If Frigate restarts, Frigate will lift this suspension automatically\./,
   );
   assert.match(
-    liveEngineWrap,
+    liveCameraRuntimeConfirmation,
     /id="camera-runtime-confirmation-warning"[^>]*data-fvc-i18n="runtime\.live\.cameraSuspendDialogWarning"[^>]*>Warning:/,
+  );
+  assert.match(
+    STYLES,
+    /\.camera-runtime-confirmation-modal\{position:absolute;inset:0;z-index:2600;/,
   );
   assert.match(
     STYLES,

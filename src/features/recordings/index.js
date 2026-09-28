@@ -44,7 +44,6 @@ export { RecordingScrubController } from "./scrub.ctrl.js";
 export { buildRecordingsListMarkup } from "./recordings.tmpl.js";
 
 export {
-  isRecordingRangeContinuouslyAvailable,
   recordingAvailableDuration,
   RECORDING_AVAILABILITY_JOIN_TOLERANCE_SECONDS,
   RECORDING_SEGMENT_EXTENSION_SECONDS,
