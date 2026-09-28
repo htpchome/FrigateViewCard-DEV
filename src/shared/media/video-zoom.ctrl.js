@@ -16,6 +16,39 @@ const MOVE_TOLERANCE_PX = 8;
 const EPSILON = 0.001;
 const COVER_OVERFLOW_EPSILON_PX = 0.5;
 const WHEEL_LINE_HEIGHT_PX = 16;
+const DISCRETE_PIXEL_WHEEL_MIN = 40;
+const LEGACY_WHEEL_NOTCH = 120;
+const TRACKPAD_WHEEL_SEQUENCE_MS = 400;
+
+function wheelEventTime(event) {
+  const timeStamp = Number(event?.timeStamp);
+  return Number.isFinite(timeStamp) && timeStamp >= 0
+    ? timeStamp
+    : Date.now();
+}
+
+// WheelEvent has no device type; preserve continuous pixel streams for page
+// scrolling and reserve zoom for discrete wheel notches or explicit pinch.
+function isContinuousTrackpadWheelEvent(event) {
+  if (event?.ctrlKey) return false;
+  const deltaMode = Number(event?.deltaMode) || 0;
+  if (deltaMode !== 0) return false;
+
+  const deltaX = Number(event?.deltaX) || 0;
+  if (Math.abs(deltaX) > EPSILON) return true;
+
+  const legacyDelta = Number(event?.wheelDeltaY ?? event?.wheelDelta);
+  if (Number.isFinite(legacyDelta) && Math.abs(legacyDelta) > EPSILON) {
+    const notches = Math.abs(legacyDelta) / LEGACY_WHEEL_NOTCH;
+    return Math.abs(notches - Math.round(notches)) > EPSILON;
+  }
+
+  const deltaY = Number(event?.deltaY) || 0;
+  return (
+    !Number.isInteger(deltaY) ||
+    Math.abs(deltaY) < DISCRETE_PIXEL_WHEEL_MIN
+  );
+}
 
 export function clampVideoZoom(value, min = VIDEO_ZOOM_MIN, max = VIDEO_ZOOM_MAX) {
   return Math.min(max, Math.max(min, Number(value) || min));
@@ -162,6 +195,7 @@ export class VideoZoomController {
     this._presentationRefreshFrame = 0;
     this._presentationVideoFrameCallback = null;
     this._zoomed = false;
+    this._trackpadWheelUntil = 0;
   }
 
   get video() {
@@ -692,6 +726,12 @@ export class VideoZoomController {
   _onWheel = (event) => {
     if (this._presentationSuspended) return;
     if (!this._isMediaInteractionStart(event)) return;
+    const eventTime = wheelEventTime(event);
+    if (isContinuousTrackpadWheelEvent(event)) {
+      this._trackpadWheelUntil = eventTime + TRACKPAD_WHEEL_SEQUENCE_MS;
+      return;
+    }
+    if (!event.ctrlKey && eventTime < this._trackpadWheelUntil) return;
     const rawDelta = Number(event.deltaY) || 0;
     if (!rawDelta) return;
     const deltaMode = Number(event.deltaMode) || 0;

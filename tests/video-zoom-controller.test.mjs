@@ -323,7 +323,43 @@ test("wheel zoom is pointer-focused and capped while outward scroll is released 
   assert.equal(controller.state.scale, 1.2);
 });
 
-test("modified-wheel and unadvertised Catalyst gestures preserve deliberate trackpad intent", () => {
+test("continuous trackpad wheel sequences scroll without changing video zoom", () => {
+  const { controller, video } = createZoomFixture();
+
+  const initialScroll = video.dispatch("wheel", {
+    deltaY: -2.5,
+    deltaMode: 0,
+    timeStamp: 100,
+  });
+  const acceleratedScroll = video.dispatch("wheel", {
+    deltaY: -80,
+    deltaMode: 0,
+    timeStamp: 140,
+  });
+  assert.equal(initialScroll.defaultPrevented, false);
+  assert.equal(acceleratedScroll.defaultPrevented, false);
+  assert.equal(controller.state.scale, 1);
+
+  const mouseWheel = video.dispatch("wheel", {
+    deltaY: -100,
+    deltaMode: 0,
+    wheelDeltaY: 120,
+    timeStamp: 600,
+  });
+  assert.equal(mouseWheel.defaultPrevented, true);
+  assert.equal(controller.state.scale, 1.2);
+
+  const trackpadWhileZoomed = video.dispatch("wheel", {
+    deltaX: 0.5,
+    deltaY: 12,
+    deltaMode: 0,
+    timeStamp: 700,
+  });
+  assert.equal(trackpadWhileZoomed.defaultPrevented, false);
+  assert.equal(controller.state.scale, 1.2);
+});
+
+test("modified-wheel pinch and unadvertised Catalyst gestures preserve deliberate zoom intent", () => {
   const { controller, video } = createZoomFixture();
 
   assert.equal("ongesturestart" in video, false);
