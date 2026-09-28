@@ -376,6 +376,50 @@ test("alert review rows render clip download and snapshot view buttons", () => {
   assert.equal(html.includes('<div class="ed">22s</div>'), true);
 });
 
+test("alert review rows use the resolved in-window detection for all media", () => {
+  const sourceEvent = {
+    id: "20005.250-current",
+    camera: "doorbell",
+    start_time: 20005,
+    end_time: 20025,
+    has_clip: true,
+    has_snapshot: true,
+  };
+  const model = buildReviewListItemModel(
+    {
+      id: "review-1",
+      camera: "doorbell",
+      start_time: 20000,
+      end_time: 20030,
+      severity: "alert",
+      data: {
+        detections: ["10000.125-stale", sourceEvent.id],
+        objects: ["person"],
+      },
+    },
+    {
+      cap: String,
+      icons: ICONS,
+      labelColor: () => "#fff",
+      resolveSourceEvent: () => sourceEvent,
+      resolveSourceEventId: () => sourceEvent.id,
+      findEventById: (id) => (id === sourceEvent.id ? sourceEvent : null),
+      media: (id, file) => `/media/${id}/${file}`,
+      durationLabel: () => 20,
+    },
+  );
+  const html = buildReviewListItemHtml(model, {
+    cap: String,
+    icons: ICONS,
+  });
+
+  assert.match(html, /data-review-open="20005\.250-current"/);
+  assert.match(html, /src="\/media\/20005\.250-current\/thumbnail\.jpg"/);
+  assert.match(html, /data-dl="20005\.250-current"/);
+  assert.match(html, /data-popup-event-id="20005\.250-current"/);
+  assert.doesNotMatch(html, /10000\.125-stale/);
+});
+
 test("event duration badges render for clips and stay hidden for snapshots", () => {
   const buildModel = (showDurationBadge) =>
     buildEventListItemModel(

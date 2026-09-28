@@ -16,6 +16,7 @@ export function buildReviewListItemModel(review, deps) {
     icons,
     labelColor,
     resolveSourceEvent,
+    resolveSourceEventId,
     findEventById,
     media,
     durationLabel,
@@ -32,13 +33,20 @@ export function buildReviewListItemModel(review, deps) {
   const severityKey = `runtime.browse.row.${sev}`;
   const firstDet =
     (review?.data?.detections && review.data.detections[0]) || "";
-  const sourceEvent = resolveSourceEvent(review);
-  const favEv =
+  const sourceEvent = resolveSourceEvent?.(review) || null;
+  const mediaEventId = String(
+    sourceEvent?.id ||
+      (typeof resolveSourceEventId === "function"
+        ? resolveSourceEventId(review)
+        : firstDet) ||
+      "",
+  );
+  const mediaEvent =
     sourceEvent ||
-    (firstDet && typeof findEventById === "function"
-      ? findEventById(firstDet)
+    (mediaEventId && typeof findEventById === "function"
+      ? findEventById(mediaEventId)
       : null);
-  const mediaEvent = sourceEvent || favEv;
+  const favEv = mediaEvent;
   const metadataTitle = String(review?.data?.metadata?.title || "").trim();
   const rawObjects = (review?.data?.objects || []).filter(Boolean);
   const usesSeverityFallback =
@@ -60,11 +68,10 @@ export function buildReviewListItemModel(review, deps) {
   const cameraLabel = String(review?.camera || mediaEvent?.camera || "")
     .replace(/_/g, " ")
     .trim();
-  const mediaEventId = String(mediaEvent?.id || firstDet || "");
-  const favBtn = showFavoriteButton && firstDet
+  const favBtn = showFavoriteButton && mediaEventId
     ? favEv?.retain_indefinitely
-      ? `<button class="tool ico fav on" data-fav="${escapeHtmlAttribute(firstDet)}" ${rowActionLabel(t, "unfavorite", "Unfavorite")}>${icons.star}</button>`
-      : `<button class="tool ico fav" data-fav="${escapeHtmlAttribute(firstDet)}" ${rowActionLabel(t, "favorite", "Favorite")}>${icons.starO}</button>`
+      ? `<button class="tool ico fav on" data-fav="${escapeHtmlAttribute(mediaEventId)}" ${rowActionLabel(t, "unfavorite", "Unfavorite")}>${icons.star}</button>`
+      : `<button class="tool ico fav" data-fav="${escapeHtmlAttribute(mediaEventId)}" ${rowActionLabel(t, "favorite", "Favorite")}>${icons.starO}</button>`
     : "";
   const clipAction =
     showDownloadButtons && mediaEvent?.has_clip
@@ -100,7 +107,7 @@ export function buildReviewListItemModel(review, deps) {
 
   return {
     reviewId: review?.id || "",
-    firstDet,
+    firstDet: mediaEventId,
     sev,
     severityLabel: rowText(t, sev, cap(sev)),
     severityKey,
@@ -116,7 +123,7 @@ export function buildReviewListItemModel(review, deps) {
     zone,
     favBtn,
     mediaActions: `${clipAction}${snapshotAction}`,
-    thumbSrc: firstDet ? media(firstDet, "thumbnail.jpg") : "",
+    thumbSrc: mediaEventId ? media(mediaEventId, "thumbnail.jpg") : "",
     fallbackThumbSrc,
     duration:
       typeof durationLabel === "function"

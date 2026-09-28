@@ -203,6 +203,8 @@ export const createPopupControllers = (
       getReviews: () => card._reviews,
       getDisplayEvents: () => card._allDisplayEvents(),
       findEventById: (id) => card._findEventById(id),
+      resolveReviewSourceEvent: (review) =>
+        card._browseCollectionController?.reviewSourceEvent?.(review) || null,
       mediaUrl: (id, file, camera = "") =>
         card._mediaForCamera(id, file, camera),
       formatDateTime: (timestamp) => card._dateTimeLabel(timestamp),

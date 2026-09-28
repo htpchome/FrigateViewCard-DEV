@@ -315,14 +315,31 @@ export class BrowseRenderController {
     return `${this._browseFirstPaintKey()}|${timeZone}|${context.clientId || ""}|${context.cam || ""}`;
   }
 
-  _reviewRowSignature(review) {
+  _reviewSourceEventId(review) {
+    const resolver =
+      this._host._browseCollectionController?.reviewSourceEventId;
+    if (typeof resolver === "function") {
+      return String(
+        resolver.call(this._host._browseCollectionController, review) || "",
+      );
+    }
     const firstDetection = review?.data?.detections?.[0] || "";
     const sourceEvent =
       this._host._browseFilterController?.reviewSourceEvent?.(review) ||
       (firstDetection
         ? this._host._findEventById?.(firstDetection) || null
         : null);
-    if (firstDetection && !Number((sourceEvent || review)?.end_time)) {
+    return String(sourceEvent?.id || firstDetection || "");
+  }
+
+  _reviewRowSignature(review) {
+    const mediaEventId = this._reviewSourceEventId(review);
+    const sourceEvent =
+      this._host._browseFilterController?.reviewSourceEvent?.(review) ||
+      (mediaEventId
+        ? this._host._findEventById?.(mediaEventId) || null
+        : null);
+    if (mediaEventId && !Number((sourceEvent || review)?.end_time)) {
       return "";
     }
     try {
@@ -552,7 +569,7 @@ export class BrowseRenderController {
     if (this._host._tab !== "alerts") return itemSignature;
 
     const favoriteSignature = items.map((review) => {
-      const eventId = String(review?.data?.detections?.[0] || "");
+      const eventId = this._reviewSourceEventId(review);
       if (!eventId) return ["", false];
       const sourceEvent =
         this._host._browseFilterController?.reviewSourceEvent?.(review) || null;

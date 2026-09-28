@@ -18,6 +18,7 @@ export class PopupCarouselController {
     getReviews = () => [],
     getDisplayEvents = () => [],
     findEventById = () => null,
+    resolveReviewSourceEvent = null,
     mediaUrl = () => "",
     formatDateTime = () => "",
     formatTime = () => "",
@@ -35,6 +36,7 @@ export class PopupCarouselController {
     this._getReviews = getReviews;
     this._getDisplayEvents = getDisplayEvents;
     this._findEventById = findEventById;
+    this._resolveReviewSourceEvent = resolveReviewSourceEvent;
     this._mediaUrl = mediaUrl;
     this._formatDateTime = formatDateTime;
     this._formatTime = formatTime;
@@ -234,6 +236,7 @@ export class PopupCarouselController {
       reviews: this._getReviews() || [],
       displayEvents: this._getDisplayEvents() || [],
       findEventById: this._findEventById,
+      resolveReviewSourceEvent: this._resolveReviewSourceEvent,
     });
   }
 

@@ -84,6 +84,55 @@ test("review metadata hydration caches referenced events outside the event windo
   assert.equal(requests.length, 1);
 });
 
+test("review metadata hydration loads every referenced detection", async () => {
+  const staleId = "10000.125-stale";
+  const currentId = "864105.250-current";
+  const cache = {
+    clientId: "frigate",
+    cam: "front",
+    events: [
+      {
+        id: staleId,
+        camera: "front",
+        start_time: 10000,
+        end_time: 10030,
+        has_clip: true,
+      },
+    ],
+    reviewEvents: [],
+    reviewEventMetadataWindows: {},
+  };
+  const host = {
+    _activeCam: { entity: "camera.front" },
+    _config: { cameras: [{ entity: "camera.front" }] },
+    _camCache: { "camera.front": cache },
+    _ws: async () => [
+      {
+        id: currentId,
+        camera: "front",
+        start_time: 864105,
+        end_time: 864125,
+        has_clip: true,
+        has_snapshot: true,
+      },
+    ],
+  };
+  const collection = new BrowseCollectionController(host);
+  host._findEventById = (id) => collection.findEventById(id);
+  const controller = new BrowseWindowLoaderController(host);
+  const review = {
+    id: "review-1",
+    camera: "front",
+    start_time: 864100,
+    end_time: 864130,
+    data: { detections: [staleId, currentId] },
+  };
+
+  assert.equal(await controller.hydrateReviewEventMetadata([review]), true);
+  assert.equal(collection.reviewSourceEventId(review), currentId);
+  assert.equal(collection.reviewSourceEvent(review)?.has_snapshot, true);
+});
+
 test("review metadata hydration limits requests across cards sharing a connection", async () => {
   const connection = {};
   let activeRequests = 0;

@@ -56,6 +56,40 @@ test("buildPopupCarouselEvents resolves unique alert detections in review order"
   );
 });
 
+test("buildPopupCarouselEvents honors resolved review media identity", () => {
+  const current = { id: "current", start_time: 20 };
+  const events = buildPopupCarouselEvents({
+    mediaType: "alert",
+    reviews: [
+      {
+        start_time: 20,
+        data: { detections: ["stale", "current"] },
+      },
+    ],
+    findEventById: (id) =>
+      id === "stale" ? { id: "stale", start_time: 10 } : null,
+    resolveReviewSourceEvent: () => current,
+  });
+
+  assert.deepEqual(events, [current]);
+});
+
+test("buildPopupCarouselEvents does not restore a rejected stale detection", () => {
+  const events = buildPopupCarouselEvents({
+    mediaType: "alert",
+    reviews: [
+      {
+        start_time: 20,
+        data: { detections: ["stale"] },
+      },
+    ],
+    findEventById: () => ({ id: "stale", start_time: 10 }),
+    resolveReviewSourceEvent: () => null,
+  });
+
+  assert.deepEqual(events, []);
+});
+
 test("buildPopupCarouselEvents filters snapshot and clip media from display events", () => {
   const displayEvents = [
     {

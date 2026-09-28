@@ -554,7 +554,16 @@ export class DeepLinkController {
     const review = (this._host._reviews || []).find(
       (item) => String(item?.id || "") === this._host._deepLinkReviewId,
     );
-    const reviewEventId = String(review?.data?.detections?.[0] || "");
+    const reviewEventIdResolver =
+      this._host._browseCollectionController?.reviewSourceEventId;
+    const reviewEventId = String(
+      typeof reviewEventIdResolver === "function"
+        ? reviewEventIdResolver.call(
+            this._host._browseCollectionController,
+            review,
+          ) || ""
+        : review?.data?.detections?.[0] || "",
+    );
     if (reviewEventId) {
       this._host._deepLinkEventId = reviewEventId;
       this._host._deepLinkEventLookupTried = false;

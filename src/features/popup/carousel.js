@@ -50,6 +50,7 @@ export const buildPopupCarouselEvents = ({
   reviews = [],
   displayEvents = [],
   findEventById = () => null,
+  resolveReviewSourceEvent = null,
 }) => {
   const type = String(mediaType || "").toLowerCase();
 
@@ -61,11 +62,13 @@ export const buildPopupCarouselEvents = ({
     const out = [];
     const seen = new Set();
     for (const review of sortByStartTimeDesc(reviews)) {
-      const firstDetection = review?.data?.detections?.[0] || "";
-      if (!firstDetection || seen.has(firstDetection)) continue;
-      const event = findEventById(firstDetection);
+      const event =
+        typeof resolveReviewSourceEvent === "function"
+          ? resolveReviewSourceEvent(review)
+          : findEventById(review?.data?.detections?.[0] || "");
       if (!event) continue;
-      seen.add(firstDetection);
+      if (seen.has(event.id)) continue;
+      seen.add(event.id);
       out.push(event);
     }
     return out;

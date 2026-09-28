@@ -381,9 +381,17 @@ export class BrowseFilterController {
   }
 
   reviewSourceEvent(review) {
-    const firstDet =
-      (review?.data?.detections && review.data.detections[0]) || "";
-    return firstDet ? this._host._findEventById(firstDet) : null;
+    const resolver =
+      this._host._browseCollectionController?.reviewSourceEvent;
+    if (typeof resolver === "function") {
+      return (
+        resolver.call(this._host._browseCollectionController, review) || null
+      );
+    }
+    const firstDetection = review?.data?.detections?.[0] || "";
+    return firstDetection
+      ? this._host._findEventById?.(firstDetection) || null
+      : null;
   }
 
   filterOptionSourceEvents() {

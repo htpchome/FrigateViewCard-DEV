@@ -1,6 +1,7 @@
 import { DEFAULT_ALERTS_REVIEWS_DAYS } from "../../constants.js";
 import { reviewMatchesAlertsOnlyMode } from "./filter-state.js";
 import { flattenCameraMembers } from "../camera-groups/model.js";
+import { resolveFrigateReviewMediaEvent } from "../../integrations/frigate/event-media.js";
 
 export class BrowseCollectionController {
   constructor(host) {
@@ -115,6 +116,21 @@ export class BrowseCollectionController {
       }
     }
     return fallback;
+  }
+
+  reviewMediaEvent(review) {
+    return resolveFrigateReviewMediaEvent({
+      review,
+      findEventById: (id) => this.findEventById(id),
+    });
+  }
+
+  reviewSourceEvent(review) {
+    return this.reviewMediaEvent(review).event;
+  }
+
+  reviewSourceEventId(review) {
+    return this.reviewMediaEvent(review).eventId;
   }
 
   async loadGridMixedTabData(tab, { onProgress = null } = {}) {

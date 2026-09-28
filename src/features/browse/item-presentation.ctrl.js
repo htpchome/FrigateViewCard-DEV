@@ -80,6 +80,8 @@ export const renderBrowseReviewListItem = (
     icons: ICONS,
     resolveSourceEvent: (value) =>
       host._browseFilterController.reviewSourceEvent(value),
+    resolveSourceEventId: (value) =>
+      host._browseCollectionController.reviewSourceEventId(value),
     findEventById: (id) => host._findEventById(id),
     media: (id, file) =>
       resolveCameraMedia

@@ -20,6 +20,7 @@ import {
   isCameraGroup,
 } from "../camera-groups/model.js";
 import { reviewMatchesAlertsOnlyMode } from "./filter-state.js";
+import { frigateReviewDetectionIds } from "../../integrations/frigate/event-media.js";
 
 const sharedBrowseRequestsByConnection = new WeakMap();
 const sharedReviewMetadataSchedulersByConnection = new WeakMap();
@@ -545,8 +546,10 @@ export class BrowseWindowLoaderController {
     const groups = new Map();
     const now = Date.now();
     for (const review of Array.isArray(reviews) ? reviews : []) {
-      const eventId = String(review?.data?.detections?.[0] || "").trim();
-      if (!eventId || this._host._findEventById?.(eventId)) continue;
+      const eventIds = frigateReviewDetectionIds(review).filter(
+        (eventId) => !this._host._findEventById?.(eventId),
+      );
+      if (!eventIds.length) continue;
       const context = this._reviewEventContext(review, entity);
       if (!context) continue;
       const startTime = Math.floor(Number(review?.start_time || 0));
@@ -575,7 +578,7 @@ export class BrowseWindowLoaderController {
       };
       current.after = Math.min(current.after, Math.max(0, startTime - 30));
       current.before = Math.max(current.before, endTime + 30);
-      current.eventIds.add(eventId);
+      eventIds.forEach((eventId) => current.eventIds.add(eventId));
       groups.set(key, current);
     }
     if (!groups.size) return false;
