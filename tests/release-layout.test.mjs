@@ -66,6 +66,12 @@ test("HACS release artifact is generated under dist", () => {
     true,
   );
   assert.equal(
+    fs.existsSync(
+      repositoryFile("dist/frigate-view-card-picture-in-picture.js"),
+    ),
+    true,
+  );
+  assert.equal(
     fs.existsSync(repositoryFile("dist/frigate-view-card-wide-view.js")),
     true,
   );
@@ -167,6 +173,10 @@ test("HACS release artifact is production-minified", () => {
     repositoryFile("dist/frigate-view-card-ptz.js"),
     "utf8",
   );
+  const pictureInPictureBundle = fs.readFileSync(
+    repositoryFile("dist/frigate-view-card-picture-in-picture.js"),
+    "utf8",
+  );
   const recordingScrubBundle = fs.readFileSync(
     repositoryFile("dist/frigate-view-card-recording-scrub.js"),
     "utf8",
@@ -226,6 +236,9 @@ test("HACS release artifact is production-minified", () => {
   assert.doesNotMatch(bundle, /\[Frigate\] PTZ motion failed/);
   assert.match(ptzBundle, /\[Frigate\] PTZ motion failed/);
   assert.match(ptzBundle, /frigate-view-card-circle-pad\.js/);
+  assert.match(bundle, /frigate-view-card-picture-in-picture\.js/);
+  assert.doesNotMatch(bundle, /enterpictureinpicture/);
+  assert.match(pictureInPictureBundle, /enterpictureinpicture/);
   assert.match(bundle, /frigate-view-card-wide-view\.js/);
   assert.doesNotMatch(bundle, /wide-view-start-grid/);
   assert.doesNotMatch(bundle, /\.card \.wide-view-columns\{position:relative/);
@@ -279,6 +292,7 @@ test("development deployment keeps every lazy page asset beside the card", () =>
     assert.match(source, /frigate-view-card-preview\.js/);
     assert.match(source, /frigate-view-card-recordings\.js/);
     assert.match(source, /frigate-view-card-ptz\.js/);
+    assert.match(source, /frigate-view-card-picture-in-picture\.js/);
     assert.match(source, /frigate-view-card-wide-view\.js/);
     assert.match(source, /frigate-view-card-wide-companion\.js/);
   }

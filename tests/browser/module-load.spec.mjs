@@ -37,6 +37,10 @@ const bundlePaths = new Map([
   ],
   ["/frigate-view-card-ptz.js", "dist/frigate-view-card-ptz.js"],
   [
+    "/frigate-view-card-picture-in-picture.js",
+    "dist/frigate-view-card-picture-in-picture.js",
+  ],
+  [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
@@ -1148,6 +1152,39 @@ test("keeps PTZ runtime and circle pad out of startup until Controls opens", asy
   });
   expect(ptzRuntimeRequests).toBe(1);
   expect(circlePadRequests).toBe(1);
+});
+
+test("keeps PiP dormant on mobile and loads it on first desktop use", async ({
+  page,
+}) => {
+  const assetRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("frigate-view-card-picture-in-picture.js")) {
+      assetRequests.push(request.url());
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    card._isMobileTabletViewport = () => true;
+    card._pictureInPictureController.sync();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const mobileLoaded = Boolean(
+      card._pictureInPictureController._delegate,
+    );
+
+    card._isMobileTabletViewport = () => false;
+    await card._togglePictureInPicture(null);
+    return {
+      mobileLoaded,
+      desktopLoaded: Boolean(card._pictureInPictureController._delegate),
+    };
+  });
+
+  expect(assetRequests).toHaveLength(1);
+  expect(state).toEqual({ mobileLoaded: false, desktopLoaded: true });
 });
 
 test("loads dashboard swipe navigation only for an enabled owner card", async ({ page }) => {

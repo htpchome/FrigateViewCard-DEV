@@ -103,9 +103,7 @@ import {
 } from "../shared/media/video-factory.js";
 import { CameraGroupLiveController } from "../features/camera-groups/live.ctrl.js";
 import { LazyLinkedLightController } from "../features/linked-entities/light.loader.js";
-import {
-  PictureInPictureController,
-} from "../shared/media/picture-in-picture.js";
+import { LazyPictureInPictureController } from "../shared/media/picture-in-picture.loader.js";
 import {
   getLiveFallbackController,
   LiveFallbackController,
@@ -259,7 +257,7 @@ export class FrigateViewCard extends HTMLElement {
     this._localizedDateController = new LocalizedDateController(this);
     this._displayedFrameCaptureController = null;
     this._displayedFrameCaptureControllerPromise = null;
-    this._pictureInPictureController = new PictureInPictureController({
+    this._pictureInPictureController = new LazyPictureInPictureController({
       resolveButton: (scope) =>
         this._$(scope === "popup" ? "#popup-pip-btn" : "#live-pip-btn"),
       resolveLiveVideo: () => this._livePictureInPictureVideo(),

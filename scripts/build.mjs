@@ -31,6 +31,8 @@ const slideshowOutputFile = "dist/frigate-view-card-slideshow.js";
 const previewOutputFile = "dist/frigate-view-card-preview.js";
 const recordingsOutputFile = "dist/frigate-view-card-recordings.js";
 const ptzOutputFile = "dist/frigate-view-card-ptz.js";
+const pictureInPictureOutputFile =
+  "dist/frigate-view-card-picture-in-picture.js";
 const wideViewOutputFile = "dist/frigate-view-card-wide-view.js";
 const wideCompanionOutputFile =
   "dist/frigate-view-card-wide-companion.js";
@@ -144,6 +146,10 @@ const ptzOutput = await buildBundle({
   entryPoint: "src/features/ptz/runtime.companion.js",
   outfile: ptzOutputFile,
 });
+const pictureInPictureOutput = await buildBundle({
+  entryPoint: "src/shared/media/picture-in-picture.companion.js",
+  outfile: pictureInPictureOutputFile,
+});
 const wideViewOutput = await buildBundle({
   entryPoint: "src/features/wide-view/page.companion.js",
   outfile: wideViewOutputFile,
@@ -224,6 +230,9 @@ const recordingsOutputSizeKib = (
 const ptzOutputSizeKib = (
   Buffer.byteLength(ptzOutput) / 1024
 ).toFixed(1);
+const pictureInPictureOutputSizeKib = (
+  Buffer.byteLength(pictureInPictureOutput) / 1024
+).toFixed(1);
 const wideViewOutputSizeKib = (
   Buffer.byteLength(wideViewOutput) / 1024
 ).toFixed(1);
@@ -263,6 +272,9 @@ console.info(
   `  ${recordingsOutputFile}  ${recordingsOutputSizeKib} KiB (lazy)`,
 );
 console.info(`  ${ptzOutputFile}  ${ptzOutputSizeKib} KiB (lazy)`);
+console.info(
+  `  ${pictureInPictureOutputFile}  ${pictureInPictureOutputSizeKib} KiB (lazy)`,
+);
 console.info(`  ${wideViewOutputFile}  ${wideViewOutputSizeKib} KiB (lazy)`);
 console.info(
   `  ${wideCompanionOutputFile}  ${wideCompanionOutputSizeKib} KiB (lazy)`,
