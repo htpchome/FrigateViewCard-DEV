@@ -28,6 +28,10 @@ const bundlePaths = new Map([
     "dist/frigate-view-card-slideshow.js",
   ],
   [
+    "/frigate-view-card-preview.js",
+    "dist/frigate-view-card-preview.js",
+  ],
+  [
     "/frigate-view-card-recording-scrub.js",
     "dist/frigate-view-card-recording-scrub.js",
   ],
@@ -314,6 +318,130 @@ test("Slideshow runtime is ready before a configured landing page starts it", as
     pageId: "single-view",
     loaded: true,
     active: true,
+  });
+});
+
+test("Preview Page stays dormant until its enabled route is requested", async ({
+  page,
+}) => {
+  let previewRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-preview.js"
+    ) {
+      previewRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "single-view",
+      preview_page_enabled: true,
+    });
+    const before = {
+      delegate: Boolean(card._previewPageController._runtime._pageDelegate),
+      pageId: card._pageId,
+    };
+
+    card._pageNavigationController.navigateToPageRoute("preview", {
+      source: "lazy-preview-test",
+    });
+    await card._previewPageController.prepare();
+
+    const style = card.shadowRoot.querySelector(
+      "style[data-fvc-preview-page-styles]",
+    );
+    return {
+      before,
+      after: {
+        delegate: Boolean(card._previewPageController._runtime._pageDelegate),
+        pageId: card._pageId,
+        previewLayout: card.shadowRoot
+          .querySelector("#layout")
+          ?.classList.contains("layout--preview-view"),
+        previewShell: Boolean(card.shadowRoot.querySelector("#preview-shell")),
+        stylesInstalled: Boolean(style?.textContent?.trim()),
+      },
+    };
+  });
+
+  expect(state).toEqual({
+    before: { delegate: false, pageId: "single-view" },
+    after: {
+      delegate: true,
+      pageId: "preview",
+      previewLayout: true,
+      previewShell: true,
+      stylesInstalled: true,
+    },
+  });
+  expect(previewRequests).toBe(1);
+});
+
+test("Preview Page is ready before a configured landing route activates", async ({
+  page,
+}) => {
+  let previewRequests = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      "/frigate-view-card-preview.js"
+    ) {
+      previewRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "preview",
+      preview_page_enabled: true,
+    });
+    card._discoverAll = async () => {};
+    card._browseWindowLoaderController.loadWindow = async () => {};
+    card._browseWindowLoaderController.scheduleWarmOtherCamerasEvents =
+      () => {};
+    card._browseWindowLoaderController.warmVisibleCameraReviews =
+      async () => {};
+    card._previewAlertController.start = () => {};
+    card._renderAll = () => {};
+    card._prefetchCalendarActivityForActiveCamera = async () => {};
+    card._subscribe = () => {};
+    card._startEditModeWatchdog = () => {};
+    card._startEditorDialogCloseObserver = () => {};
+    card._restartRealtimeHeadPollTimer = () => {};
+    card._setupResizeObserver = () => {};
+
+    await card._start();
+    clearInterval(card._refresh);
+    card._refresh = null;
+
+    return {
+      pageId: card._pageId,
+      delegate: Boolean(card._previewPageController._runtime._pageDelegate),
+      previewLayout: card.shadowRoot
+        .querySelector("#layout")
+        ?.classList.contains("layout--preview-view"),
+      previewShell: Boolean(card.shadowRoot.querySelector("#preview-shell")),
+    };
+  });
+
+  expect(previewRequests).toBe(1);
+  expect(state).toEqual({
+    pageId: "preview",
+    delegate: true,
+    previewLayout: true,
+    previewShell: true,
   });
 });
 
@@ -1703,6 +1831,7 @@ test("Preview metadata relocalizes without replacing camera media", async ({ pag
       preview_page_enabled: true,
     });
     card._pageId = "preview";
+    await card._previewPageController.prepare();
     card._renderShell();
     const cell = document.createElement("div");
     cell.dataset.previewCamidx = "0";
@@ -5547,6 +5676,7 @@ test("single-camera Preview keeps the same tile width as a two-camera Preview", 
         preview_page_enabled: true,
       });
       card._pageId = "preview";
+      await card._previewPageController.prepare();
       card._renderShell();
       card._previewPageController.renderPreviewPage();
       await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -5799,6 +5929,9 @@ test("Card View back renders Preview when enabled and Single View otherwise", as
       card._syncCardViewPageMarkup();
 
       card.shadowRoot.querySelector("[data-card-view-video-back]").click();
+      if (previewPageEnabled) {
+        await card._previewPageController.prepare();
+      }
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
       const layout = card.shadowRoot.querySelector("#layout");

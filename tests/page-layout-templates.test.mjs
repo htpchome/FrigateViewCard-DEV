@@ -6,6 +6,7 @@ import {
   buildPreviewPageMainLayoutShellMarkup,
   buildPreviewShellHeaderMarkup,
 } from "../src/features/preview/page.tmpl.js";
+import { PREVIEW_PAGE_STYLES } from "../src/features/preview/page.styles.js";
 import { buildSingleViewMainLayoutShellMarkup } from "../src/features/single-view/page.tmpl.js";
 import { buildWideViewMainLayoutShellMarkup } from "../src/features/wide-view/page.tmpl.js";
 import { WIDE_VIEW_COMPANION_STYLES } from "../src/features/wide-view/companion.styles.js";
@@ -184,14 +185,14 @@ test("preview view can remove its footer from layout for the bottom HA navbar", 
 
   assert.match(markup, /id="preview-shell-footer" hidden/);
   assert.match(
-    STYLES,
+    PREVIEW_PAGE_STYLES,
     /\.preview-shell-footer\[hidden\]\{display:none !important;\}/,
   );
 });
 
 test("preview chrome stays inside the card when the Home Assistant page scrolls", () => {
   assert.doesNotMatch(
-    STYLES,
+    PREVIEW_PAGE_STYLES,
     /\.card\.preview-active \.preview-shell-(?:header|footer)\{[^}]*(?:position|z-index):/,
   );
 });
@@ -207,7 +208,7 @@ test("single, preview, and wide footers share one height and centered version al
     /\.wide-footer\{[^}]*height:var\(--fvc-footer-height\);[^}]*min-height:var\(--fvc-footer-height\)/,
   );
   assert.match(
-    STYLES,
+    PREVIEW_PAGE_STYLES,
     /\.card\.preview-active \.preview-shell-footer\{[^}]*height:var\(--fvc-footer-height\);[^}]*min-height:var\(--fvc-footer-height\)/,
   );
   assert.match(

@@ -83,6 +83,14 @@ const previewCompositionSource = fs.readFileSync(
   new URL("../src/features/preview/composition.js", import.meta.url),
   "utf8",
 );
+const previewPageLoaderSource = fs.readFileSync(
+  new URL("../src/features/preview/page.loader.js", import.meta.url),
+  "utf8",
+);
+const previewPageCompanionSource = fs.readFileSync(
+  new URL("../src/features/preview/page.companion.js", import.meta.url),
+  "utf8",
+);
 const navigationCompositionSource = fs.readFileSync(
   new URL("../src/features/navigation/composition.js", import.meta.url),
   "utf8",
@@ -2599,7 +2607,7 @@ test("Slideshow controller composition is feature-owned", () => {
   );
 });
 
-test("Preview controller composition is feature-owned", () => {
+test("Preview controllers and page shell stay behind its lazy feature asset", () => {
   assert.equal(
     cardSource.includes(
       'import { initializePreviewControllers } from "../features/preview/composition.js";',
@@ -2615,11 +2623,23 @@ test("Preview controller composition is feature-owned", () => {
   assert.equal(cardSource.includes("new PreviewAlertController"), false);
   assert.equal(cardSource.includes("new PreviewPageController"), false);
   assert.equal(
-    previewCompositionSource.includes("new PreviewAlertController"),
+    previewCompositionSource.includes("createLazyPreviewControllers"),
     true,
   );
   assert.equal(
     previewCompositionSource.includes("new PreviewPageController"),
+    false,
+  );
+  assert.equal(
+    previewPageLoaderSource.includes("frigate-view-card-preview.js"),
+    true,
+  );
+  assert.equal(
+    previewPageCompanionSource.includes("new PreviewAlertController"),
+    true,
+  );
+  assert.equal(
+    previewPageCompanionSource.includes("new PreviewPageController"),
     true,
   );
   assert.equal(
@@ -2628,6 +2648,16 @@ test("Preview controller composition is feature-owned", () => {
   );
   assert.equal(
     previewCompositionSource.includes("DEVICE_PROFILE,"),
+    true,
+  );
+  assert.equal(
+    pageShellRegistrySource.includes("../preview/page.tmpl.js"),
+    false,
+  );
+  assert.equal(
+    pageShellRegistrySource.includes(
+      "_previewPageController?.buildMainLayoutShellMarkup?.",
+    ),
     true,
   );
 });
@@ -3905,10 +3935,13 @@ test("outer page layouts live with their route owners", () => {
   for (const templatePath of [
     "../single-view/page.tmpl.js",
     "../mobile-view/page.tmpl.js",
-    "../preview/page.tmpl.js",
   ]) {
     assert.equal(pageShellRegistrySource.includes(templatePath), true);
   }
+  assert.equal(
+    pageShellRegistrySource.includes("../preview/page.tmpl.js"),
+    false,
+  );
   assert.equal(
     pageShellRegistrySource.includes("../wide-view/page.tmpl.js"),
     false,

@@ -964,6 +964,7 @@ export class FrigateViewCard extends HTMLElement {
     this._slideshowPageController.stop("disconnect", false);
     this._stopGridModeState();
     this._stopPreviewMode();
+    this._previewPageController?.dispose?.();
     this._wideViewPageController?.dispose?.();
     this._cardViewPageController?.deactivate?.();
     if (this._rt) clearTimeout(this._rt);
@@ -1118,6 +1119,8 @@ export class FrigateViewCard extends HTMLElement {
         ? this._wideViewPageController.prepare({ startup: true })
         : preparedLandingPage === PAGE_IDS.cardView
           ? this._cardViewPageController.prepare({ startup: true })
+          : preparedLandingPage === PAGE_IDS.preview
+            ? this._previewPageController.prepare({ startup: true })
           : Promise.resolve(null);
     const gridLandingPreparation =
       this._gridFeatureController.shouldPrepareForLandingPage(
@@ -2910,11 +2913,16 @@ export class FrigateViewCard extends HTMLElement {
       this.shadowRoot.querySelector(
         "style[data-fvc-wide-view-page-styles]",
       )?.textContent || "";
+    const previewPageStyles =
+      this.shadowRoot.querySelector(
+        "style[data-fvc-preview-page-styles]",
+      )?.textContent || "";
     this._preparePageLayoutReplacement({
       preserveLive: this._preservingLiveShell === true,
     });
     this.shadowRoot.innerHTML = `<style>${STYLES_BEFORE_CARD_VIEW}</style>
     <style data-fvc-wide-view-page-styles>${wideViewPageStyles}</style>
+    <style data-fvc-preview-page-styles>${previewPageStyles}</style>
     <style data-fvc-card-view-page-styles>${cardViewPageStyles}</style>
     <style>${STYLES_AFTER_CARD_VIEW}</style>
     <ha-card class="card ${this._cardStateClassNames()}" id="card" style="border-radius: var(--fvc-border-radius);">

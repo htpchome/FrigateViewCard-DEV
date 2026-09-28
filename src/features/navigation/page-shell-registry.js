@@ -3,7 +3,6 @@ import {
   buildMobileViewMainLayoutShellMarkup,
 } from "../mobile-view/page.tmpl.js";
 import { buildSingleViewMainLayoutShellMarkup } from "../single-view/page.tmpl.js";
-import { buildPreviewPageMainLayoutShellMarkup } from "../preview/page.tmpl.js";
 import { buildInfoRowMarkup } from "../../card/shell.tmpl.js";
 
 export const PAGE_SHELL_REGIONS = Object.freeze({
@@ -410,11 +409,11 @@ export function registerDefaultPageShellProfiles(registry, PAGE_IDS) {
     leftColumnClass: "col-left--preview-view",
     rightColumnClass: "col-right--preview-view",
     resizeHandleClass: "resize-handle--preview-view",
-    buildMainLayoutShellMarkup: ({ regions, layoutProfile }) =>
-      buildPreviewPageMainLayoutShellMarkup({
+    buildMainLayoutShellMarkup: ({ host, regions, layoutProfile }) =>
+      host?._previewPageController?.buildMainLayoutShellMarkup?.({
         regions,
         layoutProfile,
-      }),
+      }) || "",
     capabilities: {
       hasLive: true,
       hasBrowse: true,

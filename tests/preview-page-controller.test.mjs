@@ -5,12 +5,15 @@ import { GridMediaController } from "../src/features/grid/media.ctrl.js";
 import { PreviewPageController } from "../src/features/preview/page.ctrl.js";
 import { resolvePreviewStreamSourceLabel } from "../src/features/preview/utils.js";
 import { STYLES } from "../src/styles.js";
+import { PREVIEW_PAGE_STYLES } from "../src/features/preview/page.styles.js";
 import {
   buildPreviewCellMarkup,
   buildPreviewLightRegionMarkup,
   buildPreviewMetaMarkup,
   buildPreviewShellMarkup,
 } from "../src/features/preview/page.tmpl.js";
+
+const PREVIEW_STYLES = `${STYLES}${PREVIEW_PAGE_STYLES}`;
 
 const createHost = ({
   previewEnabled = true,
@@ -299,32 +302,32 @@ test("Preview linked lights render in metadata or over media when metadata is hi
   );
   assert.match(cell, /data-linked-light-position-slot="left"/);
   assert.match(
-    STYLES,
+    PREVIEW_STYLES,
     /\.preview-light-overlay\{[^}]*right:7px;bottom:7px;left:7px;[^}]*align-items:flex-end;justify-content:space-between/,
   );
   assert.match(
-    STYLES,
+    PREVIEW_STYLES,
     /\.preview-light-overlay \.linked-light-dimmer\{top:auto;bottom:calc\(100% \+ 8px\);\}/,
   );
   assert.match(
-    STYLES,
+    PREVIEW_STYLES,
     /\.media-linked-controls-overlay :is\([^}]*background-color:var\(--fvc-media-overlay-bg\);background-image:none;/,
   );
   assert.match(
-    STYLES,
+    PREVIEW_STYLES,
     /\.preview-meta-light \.linked-light-position-slot\[data-linked-light-position-slot="left"\]\{justify-self:start;/,
   );
 });
 
 test("Preview metadata stays two-column until its own card is very narrow", () => {
   assert.match(
-    STYLES,
+    PREVIEW_STYLES,
     /\.preview-cell\{[^}]*container-name:preview-cell/,
   );
-  assert.match(STYLES, /@container preview-cell \(max-width: 240px\)/);
-  assert.match(STYLES, /\.preview-grid :is\([^}]*line-height:1\.18/);
+  assert.match(PREVIEW_STYLES, /@container preview-cell \(max-width: 240px\)/);
+  assert.match(PREVIEW_STYLES, /\.preview-grid :is\([^}]*line-height:1\.18/);
   assert.doesNotMatch(
-    STYLES,
+    PREVIEW_STYLES,
     /@media \(max-width: 720px\)\{\s*\.preview-meta/,
   );
 });
@@ -345,7 +348,7 @@ test("Preview reserves a second camera slot when only one camera is configured",
   assert.match(singleCameraMarkup, /class="preview-grid-empty-slot"/);
   assert.doesNotMatch(twoCameraMarkup, /preview-grid-empty-slot/);
   assert.match(
-    STYLES,
+    PREVIEW_STYLES,
     /\.preview-grid-empty-slot\{visibility:hidden;pointer-events:none;\}/,
   );
 });
