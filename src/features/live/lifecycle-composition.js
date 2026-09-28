@@ -56,8 +56,6 @@ export const createLiveLifecycleControllers = (
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
     releaseHaDirectEngine: (engine) =>
       card._haDirectMounter?.release?.(engine),
-    adoptHaDirectWebRtcEngine: (engine) =>
-      card._haDirectMounter?.adoptRetainedWebRtcEngine?.(engine),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     resetMseDiagnostics: (connectedAt) => {
       card._mseConnectAt = connectedAt;
@@ -102,18 +100,13 @@ export const createLiveLifecycleControllers = (
       requestHandoff: (request) =>
         card._editorPreviewController.requestLiveHandoff(request),
       isEngineReusable: (engine, streamType, connectionType) =>
-        connectionType === "ha_direct"
-          ? liveGraceController.isHaDirectEngineReusable(engine)
-          : streamType === "mse"
-            ? liveGraceController.isMseEngineReusable(engine)
-            : liveGraceController.isWebRtcEngineReusable(engine),
-      detachEngine: (engine, _streamType, connectionType) => {
-        if (
-          connectionType === "ha_direct" &&
-          card._haDirectMounter?.detachWebRtcForHandoff?.(engine) !== true
-        ) {
-          return false;
-        }
+        connectionType === "frigate_go2rtc" && streamType === "mse"
+          ? liveGraceController.isMseEngineReusable(engine)
+          : connectionType === "frigate_go2rtc" && streamType === "webrtc"
+            ? liveGraceController.isWebRtcEngineReusable(engine)
+            : false,
+      detachEngine: (_engine, _streamType, connectionType) => {
+        if (connectionType !== "frigate_go2rtc") return false;
         card._assignLiveEngine(null, { retainPrevious: true });
         return true;
       },
@@ -125,11 +118,11 @@ export const createLiveLifecycleControllers = (
         const slot = card._$("#engine");
         if (!slot) return false;
         const adopted =
-          connectionType === "ha_direct"
-            ? liveGraceController.adoptGraceHaDirectEngine(slot, engine)
-            : streamType === "mse"
-              ? liveGraceController.adoptGraceMseEngine(slot, engine)
-              : liveGraceController.adoptGraceWebRtcEngine(slot, engine);
+          connectionType === "frigate_go2rtc" && streamType === "mse"
+            ? liveGraceController.adoptGraceMseEngine(slot, engine)
+            : connectionType === "frigate_go2rtc" && streamType === "webrtc"
+              ? liveGraceController.adoptGraceWebRtcEngine(slot, engine)
+              : false;
         if (adopted) card._dashboardLiveGraceActive = false;
         return adopted;
       },

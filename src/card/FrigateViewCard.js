@@ -2356,12 +2356,25 @@ export class FrigateViewCard extends HTMLElement {
     this._renderList();
     this._streamMuted = true;
     this._renderMuteButton();
+    const nextTransportEntity = resolveCameraSwitchTransportEntity({
+      cameraEntity: newEnt,
+      memberOverride: nextMemberOverride,
+    });
+    const preserveHaDirectManager =
+      !this._shouldUseGo2RtcForEntity(nextTransportEntity) &&
+      this._haDirectMounter?.canRetarget?.(
+        this._engine,
+        nextTransportEntity,
+      ) === true;
     this._cancelPendingMount(
       "switch-camera",
-      resolveCameraSwitchCleanupOptions({
-        previousEntity: previousTransportEntity,
-        mountInProgress: this._mountInProgress,
-      }),
+      {
+        ...resolveCameraSwitchCleanupOptions({
+          previousEntity: previousTransportEntity,
+          mountInProgress: this._mountInProgress,
+        }),
+        preserveHaDirectManager,
+      },
     );
     const adoptedGridAlertLive = gridAlertLiveHandoff
       ? this._adoptLiveAttemptResult(

@@ -130,6 +130,34 @@ test("live audio synchronizes current and delayed replacement video elements", (
   assert.equal(replacementVideo.playCalls, 3);
 });
 
+test("live audio delegates HA manager output mute without changing stream selection", () => {
+  const muteStates = [];
+  let scheduled = 0;
+  const engine = {
+    type: "ha_direct",
+    muted: false,
+    setOutputMuted(muted) {
+      muteStates.push(muted);
+    },
+  };
+  const host = {
+    _streamMuted: true,
+    _engine: engine,
+  };
+  const controller = new LiveAudioController(host, {
+    setTimer() {
+      scheduled += 1;
+    },
+  });
+
+  controller.setMuted(false);
+  controller.setMuted(true);
+
+  assert.deepEqual(muteStates, [false, true]);
+  assert.equal(engine.muted, false);
+  assert.equal(scheduled, 0);
+});
+
 test("live audio invokes injected timers without a controller receiver", () => {
   const receivers = [];
   const host = {

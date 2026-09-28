@@ -1,8 +1,10 @@
 import {
-  createHaHlsPlayerElement,
+  createHaCameraStreamElement,
   findActiveHaCameraStreamVideo,
+  resolveActiveHaCameraStreamType,
+  setHaCameraStreamOutputMuted,
+  watchHaPlaybackFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
-import { createHaDirectWebRtcPlayback } from "../../integrations/home-assistant/webrtc-playback.js";
 import {
   buildHaDirectMountPlan,
   resolveHaDirectFailedState,
@@ -10,28 +12,19 @@ import {
   resolveHaDirectReadyState,
 } from "./startup-policy.js";
 
-const normalizeHaDirectStreamType = (value) => {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replaceAll("-", "_");
-  return normalized === "hls" ? "hls" : "webrtc";
-};
-
-const HA_DIRECT_HIDDEN_ATTEMPT_STYLE =
-  "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px;background:var(--c-bg-deep)";
-const HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE =
-  "position:absolute;inset:0;z-index:1;width:100%;height:100%;display:block;pointer-events:none;background:var(--c-bg-deep)";
 const HA_DIRECT_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
-const HA_DIRECT_TIME_RECOVERY_MIN_ADVANCES = 2;
-const HA_DIRECT_TIME_RECOVERY_MIN_PROGRESS_SECONDS = 0.05;
+
+const isManagedHaCameraStream = (engine) =>
+  engine?.type === "ha_direct" &&
+  engine?.tagName?.toLowerCase?.() === "ha-camera-stream";
 
 export function createHaDirectMounter({
   getHass,
   getPreferredStreamType,
   getStreamMuted,
   getRotateOverlayActive,
+  getCurrentEngine,
   isCurrentEngine,
   waitForStreamStart,
   assignCommittedEngine,
@@ -39,64 +32,24 @@ export function createHaDirectMounter({
   onCommittedStream,
   applyResolvedStreamUiState,
   setLiveNativeControls,
-  scheduleResumeLive,
-  scopeKey,
 }) {
   const mediaBindings = new WeakMap();
-  let releaseBarrier = Promise.resolve();
 
-  const rememberRelease = (releaseResult) => {
-    if (!releaseResult?.then) return;
-    const pendingRelease = Promise.resolve(releaseResult).catch(() => {});
-    releaseBarrier = Promise.all([releaseBarrier, pendingRelease]).then(
-      () => undefined,
-    );
-  };
-
-  const release = (engine) => {
-    const binding = mediaBindings.get(engine);
-    if (!binding) {
-      if (engine?.type === "ha_direct" && engine?.streamType === "webrtc") {
-        rememberRelease(engine.destroy?.());
-      }
-      return;
-    }
-    binding.disposed = true;
-    binding.revision += 1;
-    binding.cleanupRecovery?.();
-    binding.abortController.abort();
-    binding.fallbackAbortController?.abort?.();
-    binding.fallbackEngine?.remove?.();
-    const takeoverEngine = binding.takeoverEngine || null;
-    binding.fallbackAbortController = null;
-    binding.fallbackEngine = null;
-    binding.takeoverEngine = null;
-    if (engine) engine.cancelPendingTakeover = null;
-    engine.removeEventListener?.("load", binding.reconcile, true);
-    engine.removeEventListener?.("streams", binding.onStreams, true);
-    mediaBindings.delete(engine);
-    if (takeoverEngine && takeoverEngine !== engine) {
-      release(takeoverEngine);
-    }
-    rememberRelease(engine?.destroy?.());
-  };
-
-  const awaitUpdate = async (element) => {
-    try {
-      await element?.updateComplete;
-    } catch (_) {}
-  };
-
-  const applyReady = (engine, streamType) => {
+  const applyReady = (engine) => {
     if (!isCurrentEngine(engine)) return;
-    engine.markStarted?.();
+    const streamType = resolveActiveHaCameraStreamType(
+      engine,
+      engine.streamType || "hls",
+    );
+    engine.streamType = streamType;
     onCommittedStream?.(streamType);
-    const readyState = resolveHaDirectReadyState({
-      rotateOverlayActive: getRotateOverlayActive(),
-      isCurrentEngine: true,
-      waitSucceeded: true,
-    });
-    applyResolvedStreamUiState(readyState);
+    applyResolvedStreamUiState(
+      resolveHaDirectReadyState({
+        rotateOverlayActive: getRotateOverlayActive(),
+        isCurrentEngine: true,
+        waitSucceeded: true,
+      }),
+    );
   };
 
   const applyFailed = (engine) => {
@@ -105,478 +58,265 @@ export function createHaDirectMounter({
     applyResolvedStreamUiState(resolveHaDirectFailedState());
   };
 
-  const bindHlsMedia = (engine) => {
-    const binding = {
-      disposed: false,
-      revision: 0,
-      failed: false,
-      failureRevision: 0,
-      recoveryVideo: null,
-      cleanupRecovery: () => {},
-      abortController: new AbortController(),
-      reconcile: null,
-      onStreams: null,
-      takeoverEngine: null,
+  const applyOutputMute = (engine, binding) => {
+    if (binding.disposed) return false;
+    return setHaCameraStreamOutputMuted(engine, binding.outputMuted);
+  };
+
+  const stopReadyWatch = (binding) => {
+    binding.readyRevision += 1;
+    binding.readyAbortController?.abort?.();
+    binding.readyAbortController = null;
+    binding.cleanupRecovery?.();
+    binding.cleanupRecovery = null;
+  };
+
+  const startReadyWatch = (engine, binding, expectedVideo = null) => {
+    stopReadyWatch(binding);
+    if (binding.disposed) return;
+
+    const revision = binding.readyRevision;
+    const abortController = new AbortController();
+    binding.readyAbortController = abortController;
+    const resolveVideo = () => {
+      const activeVideo = findActiveHaCameraStreamVideo(engine);
+      return expectedVideo && activeVideo !== expectedVideo
+        ? null
+        : activeVideo;
     };
-    const watchRecovery = (video) => {
-      if (binding.recoveryVideo === video) return;
-      binding.cleanupRecovery();
-      if (!video) return;
-      binding.recoveryVideo = video;
-      let active = true;
-      let frameId = null;
-      let firstPaintFrame = null;
-      let secondPaintFrame = null;
-      let presentationPending = false;
-      const initialTime = Number(video.currentTime);
-      let lastTime = Number.isFinite(initialTime) ? initialTime : null;
-      let advancingSamples = 0;
-      let progressStartTime = null;
-      const isActive = () =>
-        active && !binding.disposed && binding.failed &&
-        isCurrentEngine(engine) &&
-        findActiveHaCameraStreamVideo(engine) === video;
-      const hasUsablePlaybackState = () => {
-        const playbackRate = Number(video.playbackRate);
-        return !video.paused && !video.ended && !video.seeking &&
-          Number(video.readyState) >= 2 && Number(video.videoWidth) > 0 &&
-          (!Number.isFinite(playbackRate) || playbackRate > 0);
-      };
-      const resetTimeEvidence = (time) => {
-        lastTime = Number.isFinite(time) ? time : null;
-        advancingSamples = 0;
-        progressStartTime = null;
-      };
-      let onFrame = null;
-      const armFrameRecovery = () => {
-        if (
-          frameId == null &&
-          typeof video.requestVideoFrameCallback === "function"
-        ) {
-          frameId = video.requestVideoFrameCallback(onFrame);
-        }
-      };
-      const recover = () => {
-        presentationPending = false;
-        if (!isActive()) return;
-        if (!hasUsablePlaybackState()) {
-          armFrameRecovery();
-          return;
-        }
-        binding.failed = false;
-        binding.cleanupRecovery();
-        applyReady(engine, "hls");
-      };
-      const recoverAfterPaint = () => {
-        if (
-          !isActive() ||
-          !hasUsablePlaybackState() ||
-          presentationPending
-        ) {
-          return;
-        }
-        presentationPending = true;
-        const requestFrame = globalThis.requestAnimationFrame;
-        if (typeof requestFrame !== "function") {
-          recover();
-          return;
-        }
-        firstPaintFrame = requestFrame(() => {
-          firstPaintFrame = null;
-          if (!isActive()) return;
-          secondPaintFrame = requestFrame(() => {
-            secondPaintFrame = null;
-            recover();
-          });
-        });
-      };
-      const onTimeUpdate = () => {
-        if (!isActive()) return;
-        const time = Number(video.currentTime);
-        if (!Number.isFinite(time) || !hasUsablePlaybackState()) {
-          resetTimeEvidence(time);
-          return;
-        }
-        if (lastTime == null || time < lastTime) {
-          resetTimeEvidence(time);
-          return;
-        }
-        if (time === lastTime) return;
-        advancingSamples += 1;
-        if (progressStartTime == null) progressStartTime = time;
-        lastTime = time;
-        if (
-          advancingSamples >= HA_DIRECT_TIME_RECOVERY_MIN_ADVANCES &&
-          time - progressStartTime >=
-            HA_DIRECT_TIME_RECOVERY_MIN_PROGRESS_SECONDS
-        ) {
-          recoverAfterPaint();
-        }
-      };
-      onFrame = () => {
-        frameId = null;
-        if (!isActive()) return;
-        if (!hasUsablePlaybackState()) {
-          armFrameRecovery();
-          return;
-        }
-        recoverAfterPaint();
-      };
-      binding.cleanupRecovery = () => {
-        active = false;
-        if (frameId != null) video.cancelVideoFrameCallback?.(frameId);
-        if (firstPaintFrame != null) {
-          globalThis.cancelAnimationFrame?.(firstPaintFrame);
-        }
-        if (secondPaintFrame != null) {
-          globalThis.cancelAnimationFrame?.(secondPaintFrame);
-        }
-        firstPaintFrame = null;
-        secondPaintFrame = null;
-        presentationPending = false;
-        video.removeEventListener?.("timeupdate", onTimeUpdate);
-        binding.recoveryVideo = null;
-        binding.cleanupRecovery = () => {};
-      };
-      // A lone time jump can be a seek or stale buffered state. WKWebView may
-      // omit frame callbacks, so require sustained playback as the fallback.
-      video.addEventListener?.("timeupdate", onTimeUpdate);
-      armFrameRecovery();
-    };
-    binding.fail = () => {
-      if (binding.disposed || !isCurrentEngine(engine)) return;
-      if (!binding.failed) {
-        binding.failed = true;
-        binding.failureRevision += 1;
-        applyFailed(engine);
+
+    void (async () => {
+      const ready = await waitForStreamStart(engine, binding.plan.waitMs, {
+        ...binding.plan.waitOptions,
+        abortSignal: abortController.signal,
+        resolveVideo,
+        onVideoReady: (video) => onCommittedMediaReady?.(engine, video),
+      });
+      if (
+        binding.disposed ||
+        revision !== binding.readyRevision ||
+        !isCurrentEngine(engine)
+      ) {
+        return;
       }
-      binding.reconcile();
-    };
-    binding.reconcile = () => {
-      const revision = ++binding.revision;
-      void (async () => {
-        await awaitUpdate(engine);
-        if (
+      binding.readyAbortController = null;
+      const activeVideo = resolveVideo();
+      if (ready && activeVideo) {
+        binding.hasCommittedFrame = true;
+        binding.observedVideo = activeVideo;
+        binding.readyVideo = activeVideo;
+        applyOutputMute(engine, binding);
+        applyReady(engine);
+        return;
+      }
+
+      applyFailed(engine);
+      binding.cleanupRecovery = watchHaPlaybackFirstFrame({
+        stream: engine,
+        isDestroyed: () =>
           binding.disposed ||
-          revision !== binding.revision ||
-          !isCurrentEngine(engine)
-        ) {
-          return;
-        }
-        const video = findActiveHaCameraStreamVideo(engine);
-        if (video) onCommittedMediaReady?.(engine, video);
-        if (binding.failed) watchRecovery(video);
-      })();
-    };
-    binding.onStreams = (event) => {
-      if (event?.detail?.hasVideo === false) binding.fail();
-      else binding.reconcile();
-    };
-    mediaBindings.set(engine, binding);
-    engine.addEventListener?.("load", binding.reconcile, true);
-    engine.addEventListener?.("streams", binding.onStreams, true);
-    binding.reconcile();
-    return binding;
+          revision !== binding.readyRevision ||
+          !isCurrentEngine(engine),
+        onReady: () => {
+          if (
+            binding.disposed ||
+            revision !== binding.readyRevision ||
+            !isCurrentEngine(engine)
+          ) {
+            return;
+          }
+          const recoveredVideo = findActiveHaCameraStreamVideo(engine);
+          if (!recoveredVideo) return;
+          binding.hasCommittedFrame = true;
+          binding.observedVideo = recoveredVideo;
+          binding.readyVideo = recoveredVideo;
+          applyOutputMute(engine, binding);
+          onCommittedMediaReady?.(engine, recoveredVideo);
+          applyReady(engine);
+        },
+      });
+    })();
   };
 
-  const createWebRtcBinding = (engine) => {
+  const scheduleReconcile = (engine, binding) => {
+    const revision = ++binding.reconcileRevision;
+    void Promise.resolve().then(async () => {
+      try {
+        await engine.updateComplete;
+      } catch (_) {}
+      if (
+        binding.disposed ||
+        revision !== binding.reconcileRevision ||
+        !isCurrentEngine(engine)
+      ) {
+        return;
+      }
+
+      const video = findActiveHaCameraStreamVideo(engine);
+      applyOutputMute(engine, binding);
+      if (!video) return;
+      onCommittedMediaReady?.(engine, video);
+      if (video === binding.observedVideo) return;
+      binding.observedVideo = video;
+      if (binding.hasCommittedFrame) startReadyWatch(engine, binding, video);
+    });
+  };
+
+  const setOutputMuted = (engine, binding, muted) => {
+    binding.outputMuted = muted === true;
+    if (!binding.outputMuted && binding.selectionMuted) {
+      binding.selectionMuted = false;
+      engine.muted = false;
+    }
+    applyOutputMute(engine, binding);
+    scheduleReconcile(engine, binding);
+  };
+
+  const bindManagedMedia = (engine, { entity, plan, muted }) => {
     const binding = {
       disposed: false,
-      revision: 0,
-      abortController: new AbortController(),
+      entity,
+      plan,
+      selectionMuted: muted === true,
+      outputMuted: muted === true,
+      hasCommittedFrame: false,
+      observedVideo: null,
+      readyVideo: null,
+      readyRevision: 0,
+      readyAbortController: null,
+      cleanupRecovery: null,
+      reconcileRevision: 0,
       reconcile: null,
-      onStreams: null,
-      fallbackAbortController: null,
-      fallbackEngine: null,
-      takeoverEngine: null,
     };
+    binding.reconcile = () => scheduleReconcile(engine, binding);
     mediaBindings.set(engine, binding);
+    engine.setOutputMuted = (nextMuted) =>
+      setOutputMuted(engine, binding, nextMuted);
+    engine.addEventListener?.("load", binding.reconcile, true);
+    engine.addEventListener?.("streams", binding.reconcile, true);
+    scheduleReconcile(engine, binding);
+    startReadyWatch(engine, binding);
     return binding;
   };
 
-  const detachWebRtcForHandoff = (engine) => {
+  const release = (engine) => {
     const binding = mediaBindings.get(engine);
-    if (
-      engine?.type !== "ha_direct" ||
-      engine?.streamType !== "webrtc" ||
-      !engine?.video ||
-      !engine?.pc ||
-      !binding ||
-      binding.disposed ||
-      binding.fallbackEngine ||
-      binding.fallbackAbortController ||
-      binding.takeoverEngine
-    ) {
-      return false;
-    }
+    if (!binding) return;
     binding.disposed = true;
-    binding.revision += 1;
-    binding.abortController.abort();
+    binding.reconcileRevision += 1;
+    stopReadyWatch(binding);
+    engine.removeEventListener?.("load", binding.reconcile, true);
+    engine.removeEventListener?.("streams", binding.reconcile, true);
+    engine.setOutputMuted = null;
     mediaBindings.delete(engine);
-    engine.deactivateRecovery?.();
-    return true;
   };
 
-  const adoptRetainedWebRtcEngine = (engine) => {
-    if (
-      engine?.type !== "ha_direct" ||
-      engine?.streamType !== "webrtc" ||
-      !engine?.video ||
-      !engine?.pc
-    ) {
-      return false;
-    }
-    const existingBinding = mediaBindings.get(engine);
-    if (!existingBinding || existingBinding.disposed) {
-      createWebRtcBinding(engine);
-    }
-    engine.setRecoveryHandler?.((reason) => scheduleResumeLive?.(reason));
-    engine.activateRecovery?.();
-    return true;
+  const canRetarget = (engine, entity = "") => {
+    const candidate = engine || getCurrentEngine?.() || null;
+    const binding = mediaBindings.get(candidate);
+    const targetEntity = String(entity || "").trim();
+    return Boolean(
+      targetEntity &&
+        isManagedHaCameraStream(candidate) &&
+        binding &&
+        !binding.disposed &&
+        binding.entity !== targetEntity,
+    );
+  };
+
+  const configureManagedEngine = (
+    engine,
+    binding,
+    { hass, stateObj, entity, plan, muted, styleText },
+  ) => {
+    stopReadyWatch(binding);
+    binding.entity = entity;
+    binding.plan = plan;
+    binding.selectionMuted = muted === true;
+    binding.outputMuted = muted === true;
+    binding.hasCommittedFrame = false;
+    binding.observedVideo = null;
+    binding.readyVideo = null;
+    engine.hass = hass;
+    engine.controls = false;
+    engine.fitMode = "contain";
+    engine.style.cssText = styleText || HA_DIRECT_VISIBLE_STYLE;
+    engine.streamType = "hls";
+    engine.muted = binding.selectionMuted;
+    engine.defaultMuted = binding.outputMuted;
+    engine.stateObj = stateObj;
+    applyOutputMute(engine, binding);
+    scheduleReconcile(engine, binding);
+    startReadyWatch(engine, binding);
   };
 
   const tryMount = async (slot, startup = null, options = {}) => {
-    const preferredStreamType = getPreferredStreamType();
-    const haDirectPlan = buildHaDirectMountPlan({
-      startup: startup || {},
-      preferredStreamType,
-    });
-    const initialStreamType = normalizeHaDirectStreamType(
-      haDirectPlan.streamType,
-    );
-    const commit = options.commit !== false;
     const entity = String(options.entity || "").trim();
     const hass = getHass();
     if (!entity) return false;
-    if (!hass?.states?.[entity]) {
-      if (commit) {
+    const stateObj = hass?.states?.[entity];
+    if (!stateObj) {
+      if (options.commit !== false) {
         applyResolvedStreamUiState(resolveHaDirectMountUnavailableState());
       }
       return false;
     }
 
-    const replaceSlotContent = (node) => {
-      slot.innerHTML = "";
-      slot.appendChild(node);
-    };
-
-    const createHlsEngine = (styleText = "") => {
-      const engine = createHaHlsPlayerElement({
-        hass,
-        entity,
-        controls: false,
-        muted: options?.muted ?? getStreamMuted(),
-        defaultMuted: options.defaultMuted,
-        fitMode: "contain",
-        styleText: styleText || options.styleText || HA_DIRECT_VISIBLE_STYLE,
-      });
-      if (!engine) return false;
-      engine.type = "ha_direct";
-      engine.streamType = "hls";
-      return engine;
-    };
-
-    const mountHls = () => {
-      const engine = createHlsEngine();
-      if (!engine) return false;
-      replaceSlotContent(engine);
-      if (!commit) {
-        return { ok: true, type: "hls", engine, slot };
-      }
-
-      assignCommittedEngine(engine);
-      const binding = bindHlsMedia(engine);
-      if (getRotateOverlayActive()) setLiveNativeControls(true);
-      void (async () => {
-        const failureRevision = binding.failureRevision;
-        const ready = await waitForStreamStart(engine, haDirectPlan.waitMs, {
-          ...haDirectPlan.waitOptions,
-          abortSignal: binding.abortController.signal,
-          resolveVideo: () => findActiveHaCameraStreamVideo(engine),
-        });
-        if (binding.disposed || !isCurrentEngine(engine)) return;
-        // A stream error transfers readiness ownership to the recovery watcher.
-        // The older startup result must not undo its newer failure or recovery.
-        if (failureRevision !== binding.failureRevision) return;
-        if (!ready) {
-          binding.fail();
-          return;
-        }
-        applyReady(engine, "hls");
-      })();
-      return { ok: true, type: "hls", engine, slot };
-    };
-
-    const waitForHlsAttempt = async (engine, abortSignal) => {
-      const ready = await waitForStreamStart(engine, haDirectPlan.waitMs, {
-        ...haDirectPlan.waitOptions,
-        abortSignal,
-        resolveVideo: () => findActiveHaCameraStreamVideo(engine),
-      });
-      return ready === true;
-    };
-
-    const removeSlotChildrenExcept = (node) => {
-      for (const child of Array.from(slot.children || [])) {
-        if (child !== node) child.remove?.();
-      }
-    };
-
-    const commitReadyHls = (engine, { retainPrevious = false } = {}) => {
-      engine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
-      if (!retainPrevious) removeSlotChildrenExcept(engine);
-      if (engine.parentElement !== slot) slot.appendChild(engine);
-      assignCommittedEngine(engine, { retainPrevious });
-      bindHlsMedia(engine);
-      if (getRotateOverlayActive()) setLiveNativeControls(true);
-      applyReady(engine, "hls");
-      return { ok: true, type: "hls", engine, slot };
-    };
-
-    const showReadyWebRtc = (ownerEngine, hlsEngine) => {
-      ownerEngine.video.style.cssText =
-        options.styleText || HA_DIRECT_VISIBLE_STYLE;
-      removeSlotChildrenExcept(ownerEngine.video);
-      if (ownerEngine.video.parentElement !== slot) {
-        slot.appendChild(ownerEngine.video);
-      }
-      hlsEngine?.remove?.();
-      onCommittedMediaReady?.(ownerEngine, ownerEngine.video);
-      applyReady(ownerEngine, "webrtc");
-    };
-
-    if (initialStreamType === "hls") return mountHls();
-
-    const playback = createHaDirectWebRtcPlayback({
-      hass,
-      entity,
-      muted: options?.muted ?? getStreamMuted(),
-      controls: false,
-      scopeKey,
-      onConnectionLost: (reason) => {
-        if (isCurrentEngine(playback?.engine)) scheduleResumeLive?.(reason);
-      },
+    const plan = buildHaDirectMountPlan({
+      startup: startup || {},
+      preferredStreamType: getPreferredStreamType(),
     });
-    if (!playback) return mountHls();
+    const muted = options.muted ?? getStreamMuted();
+    const currentEngine = getCurrentEngine?.() || null;
+    if (options.commit !== false && canRetarget(currentEngine, entity)) {
+      const binding = mediaBindings.get(currentEngine);
+      configureManagedEngine(currentEngine, binding, {
+        hass,
+        stateObj,
+        entity,
+        plan,
+        muted,
+        styleText: options.styleText,
+      });
+      if (currentEngine.parentElement !== slot) {
+        slot.innerHTML = "";
+        slot.appendChild(currentEngine);
+      }
+      assignCommittedEngine(currentEngine, { retainPrevious: true });
+      if (getRotateOverlayActive()) setLiveNativeControls(true);
+      return { ok: true, type: "hls", engine: currentEngine, slot };
+    }
 
-    const { engine } = playback;
-    replaceSlotContent(engine.video);
-    if (!commit) {
-      void playback.start();
-      return { ok: true, type: "webrtc", engine, slot };
+    const engine = createHaCameraStreamElement({
+      hass,
+      stateObj,
+      muted,
+      controls: false,
+      defaultMuted: muted,
+      fitMode: "contain",
+      styleText: options.styleText || HA_DIRECT_VISIBLE_STYLE,
+    });
+    if (!engine) return false;
+    engine.type = "ha_direct";
+    engine.streamType = "hls";
+
+    slot.innerHTML = "";
+    slot.appendChild(engine);
+    if (options.commit === false) {
+      return { ok: true, type: "hls", engine, slot };
     }
 
     assignCommittedEngine(engine);
-    const binding = createWebRtcBinding(engine);
-    onCommittedMediaReady?.(engine, engine.video);
+    bindManagedMedia(engine, { entity, plan, muted });
     if (getRotateOverlayActive()) setLiveNativeControls(true);
-    // HLS is the first-picture path. Keep it visibly layered over the pending
-    // WebRTC attempt so WebKit/Catalyst will render it instead of throttling an
-    // offscreen 1px player. WebRTC remains owned and may take over when ready.
-    const fallbackEngine = createHlsEngine(
-      HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE,
-    );
-    const fallbackAbortController = new AbortController();
-    if (fallbackEngine) {
-      binding.fallbackEngine = fallbackEngine;
-      binding.fallbackAbortController = fallbackAbortController;
-      slot.appendChild(fallbackEngine);
-    }
-    const isWebRtcAttemptActive = () => {
-      if (binding.disposed) return false;
-      if (isCurrentEngine(engine)) return true;
-      const hlsBinding = fallbackEngine
-        ? mediaBindings.get(fallbackEngine)
-        : null;
-      return Boolean(
-        hlsBinding?.takeoverEngine === engine &&
-          !hlsBinding.disposed &&
-          isCurrentEngine(fallbackEngine),
-      );
-    };
-    void (async () => {
-      const priorRelease = releaseBarrier;
-      const webRtcReady = (async () => {
-        await priorRelease;
-        if (!isWebRtcAttemptActive()) return false;
-        const signalingStarted = await playback.start();
-        if (!signalingStarted || !isWebRtcAttemptActive()) {
-          return false;
-        }
-        const ready = await Promise.race([
-          waitForStreamStart(engine, haDirectPlan.waitMs, {
-            ...haDirectPlan.waitOptions,
-            strict: true,
-            abortSignal: binding.abortController.signal,
-            resolveVideo: () => engine.video,
-          }),
-          engine.failure,
-        ]);
-        return ready === true;
-      })();
-      const hlsReady = fallbackEngine
-        ? waitForHlsAttempt(fallbackEngine, fallbackAbortController.signal)
-        : Promise.resolve(false);
-      const readyCandidate = (type, promise) =>
-        promise.then((ready) => {
-          if (!ready) throw new Error(`${type} did not render`);
-          return type;
-        });
-      let winner = await Promise.any([
-        readyCandidate("webrtc", webRtcReady),
-        readyCandidate("hls", hlsReady),
-      ]).catch(() => "");
-      if (!isWebRtcAttemptActive()) return;
-      if (winner === "hls") {
-        binding.fallbackAbortController = null;
-        binding.fallbackEngine = null;
-        fallbackAbortController.abort();
-        engine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
-        commitReadyHls(fallbackEngine, { retainPrevious: true });
-        const hlsBinding = mediaBindings.get(fallbackEngine);
-        if (!hlsBinding || !isCurrentEngine(fallbackEngine)) {
-          release(engine);
-          return;
-        }
-        hlsBinding.takeoverEngine = engine;
-        fallbackEngine.cancelPendingTakeover = () => {
-          const activeBinding = mediaBindings.get(fallbackEngine);
-          const pendingEngine = activeBinding?.takeoverEngine || null;
-          if (activeBinding) activeBinding.takeoverEngine = null;
-          fallbackEngine.cancelPendingTakeover = null;
-          if (pendingEngine) release(pendingEngine);
-        };
-        const webRtcStarted = await webRtcReady;
-        if (hlsBinding.disposed || !isCurrentEngine(fallbackEngine)) return;
-        hlsBinding.takeoverEngine = null;
-        fallbackEngine.cancelPendingTakeover = null;
-        if (!webRtcStarted) {
-          release(engine);
-          return;
-        }
-        assignCommittedEngine(engine);
-        showReadyWebRtc(engine, fallbackEngine);
-        return;
-      }
-      if (winner === "webrtc") {
-        binding.fallbackAbortController = null;
-        binding.fallbackEngine = null;
-        fallbackAbortController.abort();
-        showReadyWebRtc(engine, fallbackEngine);
-        return;
-      }
-      applyFailed(engine);
-      release(engine);
-      fallbackAbortController.abort();
-      fallbackEngine?.remove?.();
-    })();
-
-    return { ok: true, type: "webrtc", engine, slot };
+    return { ok: true, type: "hls", engine, slot };
   };
 
   return {
-    adoptRetainedWebRtcEngine,
-    detachWebRtcForHandoff,
+    adoptRetainedWebRtcEngine: () => false,
+    canRetarget,
+    detachWebRtcForHandoff: () => false,
+    isManagedEngine: isManagedHaCameraStream,
     release,
     tryMount,
   };

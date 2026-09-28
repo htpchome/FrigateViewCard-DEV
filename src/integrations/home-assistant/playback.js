@@ -119,6 +119,14 @@ export function findActiveHaCameraStreamPlayer(stream) {
   );
 }
 
+export function resolveActiveHaCameraStreamType(stream, fallback = "hls") {
+  const playerTag = findActiveHaCameraStreamPlayer(stream)
+    ?.tagName?.toLowerCase?.();
+  if (playerTag === "ha-web-rtc-player") return "webrtc";
+  if (playerTag === "ha-hls-player") return "hls";
+  return normalizeHaStreamType(fallback) || "hls";
+}
+
 export function findActiveHaCameraStreamVideo(stream) {
   const player = findActiveHaCameraStreamPlayer(stream);
   if (!player) return null;
@@ -127,6 +135,41 @@ export function findActiveHaCameraStreamVideo(stream) {
     player.querySelector?.("video") ||
     null
   );
+}
+
+export function setHaCameraStreamOutputMuted(stream, muted) {
+  const nextMuted = muted === true;
+  const players = Array.from(
+    stream?.shadowRoot?.querySelectorAll?.(
+      "ha-web-rtc-player,ha-hls-player",
+    ) || [],
+  );
+  const directPlayerTag = stream?.tagName?.toLowerCase?.();
+  if (
+    directPlayerTag === "ha-web-rtc-player" ||
+    directPlayerTag === "ha-hls-player"
+  ) {
+    players.push(stream);
+  }
+
+  let applied = false;
+  for (const player of players) {
+    const video =
+      player?.shadowRoot?.querySelector?.("video") ||
+      player?.querySelector?.("video") ||
+      null;
+    if (!video) continue;
+    if (typeof video.muted === "boolean") video.muted = nextMuted;
+    if (typeof video.defaultMuted === "boolean") {
+      video.defaultMuted = nextMuted;
+    }
+    if (!nextMuted) {
+      if (typeof video.volume === "number") video.volume = 1;
+      video.play?.().catch?.(() => {});
+    }
+    applied = true;
+  }
+  return applied;
 }
 
 export function watchHaPlaybackFirstFrame({
