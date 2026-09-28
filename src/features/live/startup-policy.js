@@ -5,6 +5,21 @@ const normalizeWaitMs = (value, fallback) =>
 
 const normalizeNumber = (value, fallback) => Number(value ?? fallback);
 
+export const GO2RTC_STARTUP_MODES = Object.freeze({
+  race: "race",
+  nativeHlsOnly: "native-hls-only",
+});
+
+export const resolveGo2RtcStartupMode = ({
+  isMacOS = false,
+  supportsNativeHls = false,
+  hasWebRtc = false,
+  hasMediaSource = false,
+} = {}) =>
+  isMacOS && supportsNativeHls && !hasWebRtc && !hasMediaSource
+    ? GO2RTC_STARTUP_MODES.nativeHlsOnly
+    : GO2RTC_STARTUP_MODES.race;
+
 export const resolveHaDirectStartup = (startup = {}) => ({
   waitMs: normalizeWaitMs(startup.waitMs, 8000),
   minCurrentTime: normalizeNumber(startup.minCurrentTime, 0.05),

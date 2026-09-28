@@ -770,6 +770,8 @@ export function createGo2RtcMounter({
     }
 
     const engine = {
+      type: "frigate_go2rtc",
+      streamType: "hls",
       video,
       destroy,
       activateRecovery: () => {
@@ -788,6 +790,7 @@ export function createGo2RtcMounter({
       minDecodedFrames: 1,
       requireReadyState: 2,
       strict: false,
+      requirePresentedFrame: true,
       abortSignal,
     });
     if (!started) {

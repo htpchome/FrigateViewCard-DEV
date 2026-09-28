@@ -203,6 +203,27 @@ test("detects iPadOS Mac spoof as tablet", () => {
   assert.equal(profile.isTablet, true);
   assert.equal(profile.isPhone, false);
   assert.equal(profile.isMobile, true);
+  assert.equal(profile.isMacOS, false);
+});
+
+test("detects macOS desktop without confusing it with iPadOS", () => {
+  const detectDeviceProfile = loadDetector({
+    navigator: {
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15 (KHTML, like Gecko)",
+      platform: "MacIntel",
+      maxTouchPoints: 0,
+    },
+    window: {
+      matchMedia: createMatchMedia(),
+    },
+  });
+
+  const profile = detectDeviceProfile();
+  assert.equal(profile.isMacOS, true);
+  assert.equal(profile.isIOS, false);
+  assert.equal(profile.isDesktop, true);
+  assert.equal(profile.isMobile, false);
 });
 
 test("detects touchscreen desktop separately from mobile", () => {
@@ -250,4 +271,5 @@ test("detects plain desktop as non-touch", () => {
   assert.equal(profile.isMobile, false);
   assert.equal(profile.hasTouch, false);
   assert.equal(profile.hasAnyTouch, false);
+  assert.equal(profile.isMacOS, false);
 });

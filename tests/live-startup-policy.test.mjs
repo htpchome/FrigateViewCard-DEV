@@ -2,15 +2,45 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  GO2RTC_STARTUP_MODES,
   buildHaDirectMountPlan,
   resolveHaDirectMountUnavailableState,
   resolveHaDirectFailedState,
   resolveHaDirectReadyState,
   resolveHaDirectStartup,
+  resolveGo2RtcStartupMode,
   resolveHlsStartup,
   resolveMseStartup,
   resolveWebRtcStartup,
 } from "../src/features/live/startup-policy.js";
+
+test("go2rtc uses native HLS only for the Catalyst-shaped capability profile", () => {
+  assert.equal(
+    resolveGo2RtcStartupMode({
+      isMacOS: true,
+      supportsNativeHls: true,
+      hasWebRtc: false,
+      hasMediaSource: false,
+    }),
+    GO2RTC_STARTUP_MODES.nativeHlsOnly,
+  );
+});
+
+test("go2rtc keeps the normal race outside the Catalyst-shaped capability profile", () => {
+  const cases = [
+    { isMacOS: false, supportsNativeHls: true },
+    { isMacOS: true, supportsNativeHls: false },
+    { isMacOS: true, supportsNativeHls: true, hasWebRtc: true },
+    { isMacOS: true, supportsNativeHls: true, hasMediaSource: true },
+  ];
+
+  for (const capabilities of cases) {
+    assert.equal(
+      resolveGo2RtcStartupMode(capabilities),
+      GO2RTC_STARTUP_MODES.race,
+    );
+  }
+});
 
 test("resolveHaDirectStartup applies defaults and keeps stream type", () => {
   const policy = resolveHaDirectStartup({ streamType: "webrtc" });

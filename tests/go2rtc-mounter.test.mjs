@@ -688,6 +688,7 @@ test("go2rtc mounter HLS path commits the mounted engine on success", async () =
         );
         assert.equal(waitMs, 5000);
         assert.equal(opts.requireReadyState, 2);
+        assert.equal(opts.requirePresentedFrame, true);
         return true;
       },
     });
@@ -698,6 +699,8 @@ test("go2rtc mounter HLS path commits the mounted engine on success", async () =
     assert.equal(committedType, "hls");
     assert.equal(slot.innerHTML, "");
     assert.ok(assignedEngine);
+    assert.equal(assignedEngine.type, "frigate_go2rtc");
+    assert.equal(assignedEngine.streamType, "hls");
     assert.equal(assignedEngine.video, slot.lastChild);
     assert.equal(assignedEngine.video.loadCalls, 1);
     assert.equal(assignedEngine.video.playCalls, 1);

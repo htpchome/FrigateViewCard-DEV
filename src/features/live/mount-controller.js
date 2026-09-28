@@ -18,6 +18,7 @@ import {
   shouldClearPendingDestroyersForPromise,
 } from "./pending-destroyers.js";
 import { resolveSnapshotFallbackState } from "./stream.state.js";
+import { GO2RTC_STARTUP_MODES } from "./startup-policy.js";
 
 const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
 const EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE = "ha-direct-webrtc-live";
@@ -286,7 +287,9 @@ export function createLiveMountController({
   setPendingMountDestroyers,
   haDirectMounter,
   haDirectTwoWayTalkMounter,
+  go2rtcMounter,
   go2rtcRaceMounter,
+  resolveGo2RtcStartupMode,
   preferredStreamType,
   setActiveStreamType,
   setStreamLoading,
@@ -413,6 +416,14 @@ export function createLiveMountController({
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
+    const go2rtcStartupMode =
+      useGo2Rtc &&
+      !hasTwoWayTalkOptions &&
+      (!forcedType || forcedType === "hls")
+        ? resolveGo2RtcStartupMode?.() || GO2RTC_STARTUP_MODES.race
+        : GO2RTC_STARTUP_MODES.race;
+    const nativeHlsOnly =
+      go2rtcStartupMode === GO2RTC_STARTUP_MODES.nativeHlsOnly;
 
     if (!useGo2Rtc && !hasTwoWayTalkOptions) {
       const graceHaDirectEntry =
@@ -454,6 +465,7 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
+      !nativeHlsOnly &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "webrtc")
     ) {
@@ -490,6 +502,7 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
+      !nativeHlsOnly &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "mse")
     ) {
@@ -611,6 +624,29 @@ export function createLiveMountController({
         }
         setEngineMountedMuted?.(getStreamMuted?.());
         return true;
+      }
+
+      if (nativeHlsOnly) {
+        if (
+          await go2rtcMounter?.tryMountHls?.(slot, null, {
+            entity: targetEntity,
+            commit: true,
+          })
+        ) {
+          setEngineMountedMuted?.(getStreamMuted?.());
+          return true;
+        }
+
+        if (
+          !isMountTokenCurrent({
+            mountToken,
+            mountSeq: getMountState?.()?.mountSeq,
+          })
+        ) {
+          return false;
+        }
+        applySnapshotFallbackState?.();
+        return false;
       }
 
       if (

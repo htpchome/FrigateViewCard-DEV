@@ -2,6 +2,7 @@ import {
   LIVE_SWITCH_GRACE_MAX,
   LIVE_SWITCH_GRACE_MS,
 } from "../../constants.js";
+import { DEVICE_PROFILE } from "../../helpers.js";
 import { buildEditorLiveHandoffKey } from "../editor-preview/context.ctrl.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import {
@@ -9,6 +10,7 @@ import {
   createLiveMountController,
 } from "./mount-controller.js";
 import { createLiveGraceController } from "./live-grace-controller.js";
+import { resolveGo2RtcStartupMode } from "./startup-policy.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
   createLiveGraceController,
@@ -16,9 +18,19 @@ const DEFAULT_FACTORIES = Object.freeze({
   createLiveMountController,
 });
 
+const hasMediaSourceCapability = (windowTarget) => {
+  const mediaSource =
+    windowTarget.MediaSource || windowTarget.ManagedMediaSource;
+  return (
+    typeof mediaSource === "function" &&
+    typeof mediaSource.isTypeSupported === "function"
+  );
+};
+
 export const createLiveLifecycleControllers = (
   card,
   {
+    deviceProfile = DEVICE_PROFILE,
     factories = DEFAULT_FACTORIES,
     windowTarget = window,
   } = {},
@@ -165,7 +177,16 @@ export const createLiveLifecycleControllers = (
     },
     haDirectMounter: card._haDirectMounter,
     haDirectTwoWayTalkMounter: card._haDirectTwoWayTalkMounter,
+    go2rtcMounter: card._go2rtcMounter,
     go2rtcRaceMounter: card._go2rtcRaceMounter,
+    resolveGo2RtcStartupMode: () =>
+      resolveGo2RtcStartupMode({
+        isMacOS: deviceProfile.isMacOS,
+        supportsNativeHls: card._supportsNativeHlsPlayback(),
+        hasWebRtc:
+          typeof windowTarget.RTCPeerConnection === "function",
+        hasMediaSource: hasMediaSourceCapability(windowTarget),
+      }),
     preferredStreamType: () => card._preferredStreamType(),
     setActiveStreamType: (type) => card._setActiveStreamType(type),
     setStreamLoading: (loading) => card._setStreamLoading(loading),

@@ -491,6 +491,124 @@ test("live mount controller delegates go2rtc race mounts outside the card shell"
   assert.equal(calls[7][1].mountTargetEntity, "");
 });
 
+test("live mount controller routes Catalyst-shaped go2rtc directly to native HLS", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  let mountState = {
+    mountSeq: 2,
+    mountInProgress: false,
+    mountStartedAt: 0,
+    mountTargetEntity: "",
+  };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => mountState,
+    applyMountTrackingState: (nextState) => {
+      mountState = nextState;
+    },
+    mountGridEngine: () => {},
+    cleanupEngine: () => calls.push("cleanup"),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: (muted) =>
+      calls.push(["mounted-muted", muted]),
+    liveGraceController: {
+      takeGraceWebRtcEntry: () => {
+        throw new Error("Catalyst must not inspect WebRTC grace");
+      },
+      takeGraceMseEntry: () => {
+        throw new Error("Catalyst must not inspect MSE grace");
+      },
+    },
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    go2rtcMounter: {
+      tryMountHls: async (...args) => {
+        calls.push(["hls", ...args]);
+        return true;
+      },
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("Catalyst must not start the transport race");
+      },
+    },
+    resolveGo2RtcStartupMode: () => "native-hls-only",
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: (type) => calls.push(["type", type]),
+    setStreamLoading: (loading) => calls.push(["loading", loading]),
+    setStreamFallbackVisible: (...args) => calls.push(["fallback", ...args]),
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => true,
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(
+    calls.find(([name]) => name === "hls"),
+    [
+      "hls",
+      slot,
+      null,
+      { entity: "camera.front", commit: true },
+    ],
+  );
+  assert.equal(calls.includes("cleanup"), true);
+});
+
+test("Catalyst-shaped go2rtc HLS failure reveals the snapshot without racing", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  let mountState = {
+    mountSeq: 5,
+    mountInProgress: false,
+    mountStartedAt: 0,
+    mountTargetEntity: "",
+  };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => mountState,
+    applyMountTrackingState: (nextState) => {
+      mountState = nextState;
+    },
+    mountGridEngine: () => {},
+    cleanupEngine: () => {},
+    getStreamMuted: () => false,
+    setEngineMountedMuted: () => {},
+    liveGraceController: {},
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    go2rtcMounter: { tryMountHls: async () => false },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("HLS failure must not fall into a race");
+      },
+    },
+    resolveGo2RtcStartupMode: () => "native-hls-only",
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: (type) => calls.push(["type", type]),
+    setStreamLoading: (loading) => calls.push(["loading", loading]),
+    setStreamFallbackVisible: (...args) => calls.push(["fallback", ...args]),
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => true,
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), false);
+  assert.deepEqual(calls.slice(-3), [
+    ["type", "snapshot"],
+    ["loading", false],
+    ["fallback", true, false],
+  ]);
+});
+
 test("live mount controller reuses a cached WebRTC engine before starting a race", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };

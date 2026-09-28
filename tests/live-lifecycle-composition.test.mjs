@@ -84,6 +84,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _mseChunkCount: 0,
     _haDirectMounter: haDirectMounter,
     _haDirectTwoWayTalkMounter: { name: "ha-talk-mounter" },
+    _go2rtcMounter: { name: "go2rtc-mounter" },
     _go2rtcRaceMounter: { name: "go2rtc-race" },
     _editorPreviewController: {
       liveHandoffContext: () => ({ owner: "editor" }),
@@ -124,9 +125,11 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
       calls.push(["mount-tracking", state]),
     _cleanupEngine: () => calls.push(["cleanup-engine"]),
     _preferredStreamType: () => "webrtc",
+    _supportsNativeHlsPlayback: () => true,
   };
 
   const controllers = createLiveLifecycleControllers(card, {
+    deviceProfile: { isMacOS: true },
     factories,
     windowTarget: { location: { pathname: "/lovelace/cameras" } },
   });
@@ -149,8 +152,16 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     card._haDirectTwoWayTalkMounter,
   );
   assert.strictEqual(
+    optionsByFactory.liveMount.go2rtcMounter,
+    card._go2rtcMounter,
+  );
+  assert.strictEqual(
     optionsByFactory.liveMount.go2rtcRaceMounter,
     card._go2rtcRaceMounter,
+  );
+  assert.equal(
+    optionsByFactory.liveMount.resolveGo2RtcStartupMode(),
+    "native-hls-only",
   );
 
   assert.deepEqual(optionsByFactory.editorHandoff.getState(), {
