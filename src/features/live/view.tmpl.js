@@ -12,6 +12,7 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                     <div class="camera-suspended-placeholder" id="camera-suspended-placeholder" hidden>
                       <span class="camera-suspended-placeholder__icon">${icons.power || ""}</span>
                       <strong data-fvc-i18n="runtime.live.cameraSuspended">Camera suspended</strong>
+                      <span data-fvc-i18n="runtime.live.cameraSuspendedDetail">Resume this camera to restore live video.</span>
                     </div>
                     <div class="camera-group-pane-controls">
                       <button class="camera-group-pane-button camera-group-audio-select" type="button" data-media-overlay-ignore data-camera-group-audio="A" title="Use main camera audio" aria-label="Use main camera audio" data-fvc-i18n-title="runtime.cameraGroup.useMainAudio" data-fvc-i18n-aria-label="runtime.cameraGroup.useMainAudio" aria-pressed="true">${icons.volOn}<span>A</span></button>

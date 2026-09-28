@@ -169,6 +169,7 @@
       "liveCamera": "Live camera",
       "cameraOffline": "Camera offline",
       "cameraSuspended": "Camera suspended",
+      "cameraSuspendedDetail": "Resume this camera to restore live video.",
       "cameraSuspendedConfirmation": "Camera suspended",
       "cameraSuspendDialogTitle": "Suspend camera?",
       "cameraSuspendDialogDetail": "Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.",

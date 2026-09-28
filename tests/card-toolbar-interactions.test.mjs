@@ -431,6 +431,48 @@ test("favorite feedback can be placed over a Card View popup", () => {
   clearTimeout(context._toastT);
 });
 
+test("camera runtime feedback is centered near the top of the live view", () => {
+  const properties = new Map();
+  const toast = {
+    classList: createClassList("toast"),
+    dataset: {},
+    hidden: true,
+    style: {
+      removeProperty: (name) => properties.delete(name),
+      setProperty: (name, value) => properties.set(name, value),
+    },
+    textContent: "",
+  };
+  const card = {
+    getBoundingClientRect: () => ({ left: 100, top: 50, width: 600 }),
+  };
+  const liveStage = {
+    getBoundingClientRect: () => ({ left: 150, top: 90, width: 400 }),
+  };
+  const context = {
+    _$: (selector) =>
+      selector === "#toast"
+        ? toast
+        : selector === "#live-stage"
+          ? liveStage
+          : card,
+    _toastT: null,
+  };
+
+  FrigateViewCard.prototype._toast.call(context, "Camera suspended", {
+    duration: 10000,
+    placement: "live",
+    tone: "success",
+  });
+
+  assert.equal(toast.classList.contains("toast--live"), true);
+  assert.equal(toast.dataset.placement, "live");
+  assert.equal(properties.get("--fvc-toast-live-left"), "250px");
+  assert.equal(properties.get("--fvc-toast-live-top"), "52px");
+  assert.equal(properties.get("--fvc-toast-live-max-width"), "380px");
+  clearTimeout(context._toastT);
+});
+
 const createFavoriteContext = ({ callWS, retained = false }) => {
   const event = {
     id: "event-1",

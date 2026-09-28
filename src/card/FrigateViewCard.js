@@ -4147,6 +4147,7 @@ export class FrigateViewCard extends HTMLElement {
       "toast--error",
       "toast--browse",
       "toast--popup",
+      "toast--live",
     );
     t.classList?.add(`toast--${tone}`);
     t.style?.removeProperty?.("--fvc-toast-browse-left");
@@ -4155,6 +4156,9 @@ export class FrigateViewCard extends HTMLElement {
     t.style?.removeProperty?.("--fvc-toast-popup-left");
     t.style?.removeProperty?.("--fvc-toast-popup-top");
     t.style?.removeProperty?.("--fvc-toast-popup-max-width");
+    t.style?.removeProperty?.("--fvc-toast-live-left");
+    t.style?.removeProperty?.("--fvc-toast-live-top");
+    t.style?.removeProperty?.("--fvc-toast-live-max-width");
 
     if (normalizedOptions.placement === "browse") {
       const browse = this._pageShellRegion("browse");
@@ -4213,6 +4217,36 @@ export class FrigateViewCard extends HTMLElement {
         );
         t.classList?.add("toast--popup");
         placement = "popup";
+      }
+    }
+
+    if (normalizedOptions.placement === "live") {
+      const liveStage = this._$("#live-stage");
+      const card = this._$("#card");
+      const liveRect = liveStage?.getBoundingClientRect?.();
+      const cardRect = card?.getBoundingClientRect?.();
+      const liveWidth = Number(liveRect?.width) || 0;
+      const cardWidth = Number(cardRect?.width) || 0;
+      const availableWidth = Math.min(liveWidth, cardWidth) - 20;
+      if (
+        liveRect &&
+        cardRect &&
+        availableWidth >= 80 &&
+        Number.isFinite(liveRect.left) &&
+        Number.isFinite(liveRect.top) &&
+        Number.isFinite(cardRect.left) &&
+        Number.isFinite(cardRect.top)
+      ) {
+        const left = liveRect.left - cardRect.left + liveWidth / 2;
+        const top = Math.max(8, liveRect.top - cardRect.top + 12);
+        t.style?.setProperty?.("--fvc-toast-live-left", `${left}px`);
+        t.style?.setProperty?.("--fvc-toast-live-top", `${top}px`);
+        t.style?.setProperty?.(
+          "--fvc-toast-live-max-width",
+          `${availableWidth}px`,
+        );
+        t.classList?.add("toast--live");
+        placement = "live";
       }
     }
 

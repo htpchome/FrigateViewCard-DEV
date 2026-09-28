@@ -169,6 +169,7 @@
       "liveCamera": "Caméra en direct",
       "cameraOffline": "Caméra hors ligne",
       "cameraSuspended": "Caméra suspendue",
+      "cameraSuspendedDetail": "Reprenez cette caméra pour rétablir la vidéo en direct.",
       "cameraSuspendedConfirmation": "Caméra suspendue",
       "cameraSuspendDialogTitle": "Suspendre la caméra ?",
       "cameraSuspendDialogDetail": "La suspension de cette caméra dans Frigate arrête la vidéo en direct, les enregistrements et les détections. Les alertes, clips, instantanés et enregistrements existants restent disponibles dans la carte. Si Frigate redémarre, Frigate lèvera automatiquement cette suspension.",

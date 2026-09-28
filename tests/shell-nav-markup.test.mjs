@@ -679,7 +679,7 @@ test("shared shell builders expose stable page region anchors", () => {
   );
   assert.match(
     STYLES,
-    /\.camera-suspended-placeholder\{position:absolute;top:clamp\([^}]*left:50%;[^}]*transform:translateX\(-50%\);[^}]*border-radius:999px;/,
+    /\.camera-suspended-placeholder\{position:absolute;inset:0;[^}]*justify-content:center;[^}]*background:var\(--c-bg-deep\);/,
   );
   assert.match(
     liveFullscreen,

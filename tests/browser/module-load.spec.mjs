@@ -175,13 +175,14 @@ test("suspended Frigate cameras expose a transport-independent power control", a
     const primaryPane = card.shadowRoot.querySelector(
       ".camera-group-live-pane--primary",
     );
-    const indicatorRect = placeholder.getBoundingClientRect();
+    const placeholderRect = placeholder.getBoundingClientRect();
     const paneRect = primaryPane.getBoundingClientRect();
-    suspendedState.indicatorCenterOffset = Math.abs(
-      indicatorRect.left + indicatorRect.width / 2 -
-        (paneRect.left + paneRect.width / 2),
+    suspendedState.placeholderWidthDelta = Math.abs(
+      placeholderRect.width - paneRect.width,
     );
-    suspendedState.indicatorTopOffset = indicatorRect.top - paneRect.top;
+    suspendedState.placeholderHeightDelta = Math.abs(
+      placeholderRect.height - paneRect.height,
+    );
 
     button.click();
     const modal = card.shadowRoot.querySelector(
@@ -199,7 +200,7 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       serviceCallsBeforeConfirmation: serviceCalls.length,
     };
     submit.click();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     card._hass.states["camera.front"] = {
       state: "recording",
       attributes: {
@@ -209,10 +210,42 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       },
     };
     card._frigateCameraRuntimeController.reconcileHass();
+    const toast = card.shadowRoot.querySelector("#toast");
+    const liveStage = card.shadowRoot.querySelector("#live-stage");
+    const toastRect = toast.getBoundingClientRect();
+    const liveRect = liveStage.getBoundingClientRect();
     const resumedState = {
       pressed: button.getAttribute("aria-pressed"),
       label: button.getAttribute("aria-label"),
       placeholderHidden: placeholder.hidden,
+      toast: {
+        text: toast.textContent,
+        placement: toast.dataset.placement,
+        liveClass: toast.classList.contains("toast--live"),
+        centerOffset: Math.abs(
+          toastRect.left + toastRect.width / 2 -
+            (liveRect.left + liveRect.width / 2),
+        ),
+        topOffset: toastRect.top - liveRect.top,
+      },
+    };
+
+    card._hass.states["camera.front"] = {
+      state: "idle",
+      attributes: {
+        client_id: "frigate-main",
+        camera_name: "front",
+        supported_features: 0,
+      },
+    };
+    card._frigateCameraRuntimeController.reconcileHass();
+    card._syncStatus();
+    const resumedIdleState = {
+      available:
+        card._frigateCameraRuntimeController.isAvailable("camera.front"),
+      buttonLabel: button.getAttribute("aria-label"),
+      placeholderHidden: placeholder.hidden,
+      status: card.shadowRoot.querySelector("#on-lbl")?.textContent || "",
     };
 
     button.click();
@@ -232,15 +265,31 @@ test("suspended Frigate cameras expose a transport-independent power control", a
     };
     button.click();
     submit.click();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    card._hass.states["camera.front"] = {
+      state: "idle",
+      attributes: {
+        client_id: "frigate-main",
+        camera_name: "front",
+        supported_features: 0,
+      },
+    };
+    card._frigateCameraRuntimeController.reconcileHass();
+    const suspendedToast = {
+      text: toast.textContent,
+      placement: toast.dataset.placement,
+      liveClass: toast.classList.contains("toast--live"),
+    };
     card._frigateCameraRuntimeController.dispose();
     card.remove();
     return {
       suspendedState,
       resumeDialog,
       resumedState,
+      resumedIdleState,
       suspendDialog,
       cancelled,
+      suspendedToast,
       serviceCalls,
     };
   });
@@ -252,9 +301,8 @@ test("suspended Frigate cameras expose a transport-independent power control", a
     placeholderHidden: false,
     stageSuspended: true,
   });
-  expect(state.suspendedState.indicatorCenterOffset).toBeLessThan(2);
-  expect(state.suspendedState.indicatorTopOffset).toBeGreaterThanOrEqual(7);
-  expect(state.suspendedState.indicatorTopOffset).toBeLessThanOrEqual(16);
+  expect(state.suspendedState.placeholderWidthDelta).toBeLessThan(2);
+  expect(state.suspendedState.placeholderHeightDelta).toBeLessThan(2);
   expect(state).toMatchObject({
     resumeDialog: {
       hidden: false,
@@ -269,6 +317,17 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       pressed: "false",
       label: "Suspend camera",
       placeholderHidden: true,
+      toast: {
+        text: "Camera resumed",
+        placement: "live",
+        liveClass: true,
+      },
+    },
+    resumedIdleState: {
+      available: true,
+      buttonLabel: "Suspend camera",
+      placeholderHidden: true,
+      status: "Online",
     },
     suspendDialog: {
       hidden: false,
@@ -283,11 +342,19 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       hidden: true,
       serviceCalls: 1,
     },
+    suspendedToast: {
+      text: "Camera suspended",
+      placement: "live",
+      liveClass: true,
+    },
     serviceCalls: [
       ["camera", "turn_on", {}, { entity_id: "camera.front" }],
       ["camera", "turn_off", {}, { entity_id: "camera.front" }],
     ],
   });
+  expect(state.resumedState.toast.centerOffset).toBeLessThan(2);
+  expect(state.resumedState.toast.topOffset).toBeGreaterThanOrEqual(10);
+  expect(state.resumedState.toast.topOffset).toBeLessThanOrEqual(14);
 });
 
 test("phone startup defers non-visible browse warming until delayed idle", async ({

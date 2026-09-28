@@ -34,6 +34,7 @@ export class FrigateCameraRuntimeController {
     this._confirmationTimeoutMs =
       Number(confirmationTimeoutMs) || CONFIRMATION_TIMEOUT_MS;
     this._activeSnapshot = null;
+    this._confirmedResumedEntities = new Set();
     this._pending = null;
     this._confirmationTimer = null;
     this._dialogState = null;
@@ -50,12 +51,24 @@ export class FrigateCameraRuntimeController {
     ).trim();
   }
 
-  resolve(entity = this.activeEntity()) {
+  _resolveReportedState(entity = this.activeEntity()) {
     const normalizedEntity = String(entity || "").trim();
     return resolveFrigateCameraRuntimeState({
       entity: normalizedEntity,
       state: this._host._hass?.states?.[normalizedEntity] || null,
     });
+  }
+
+  resolve(entity = this.activeEntity()) {
+    const runtime = this._resolveReportedState(entity);
+    if (
+      runtime.suspended &&
+      !runtime.unavailable &&
+      this._confirmedResumedEntities.has(runtime.entity)
+    ) {
+      return { ...runtime, suspended: false };
+    }
+    return runtime;
   }
 
   isSuspended(entity = this.activeEntity()) {
@@ -95,17 +108,24 @@ export class FrigateCameraRuntimeController {
   _toast(key, fallback, tone = "error") {
     this._host._toast?.(fallback, {
       localizationKey: key,
+      placement: "live",
       tone,
     });
   }
 
   _finishPending(runtime) {
     if (!this._pending || this._pending.entity !== runtime.entity) return;
+    if (this._pending.serviceResolved !== true) return;
     const confirmed = this._pending.suspended
       ? runtime.suspended
       : !runtime.suspended && !runtime.unavailable;
     if (!confirmed) return;
     const suspended = this._pending.suspended;
+    if (suspended) {
+      this._confirmedResumedEntities.delete(runtime.entity);
+    } else {
+      this._confirmedResumedEntities.add(runtime.entity);
+    }
     this._clearPending();
     this._toast(
       suspended
@@ -299,10 +319,11 @@ export class FrigateCameraRuntimeController {
   }
 
   reconcileHass() {
-    const runtime = this.resolve();
+    const reportedRuntime = this._resolveReportedState();
     const previous = this._activeSnapshot;
+    this._finishPending(reportedRuntime);
+    const runtime = this.resolve(reportedRuntime.entity);
     this._activeSnapshot = runtime;
-    this._finishPending(runtime);
 
     if (
       this._host._started === true &&
@@ -335,7 +356,11 @@ export class FrigateCameraRuntimeController {
     const nextSuspended =
       typeof suspended === "boolean" ? suspended : !runtime.suspended;
     if (nextSuspended === runtime.suspended) return false;
-    this._pending = { entity: runtime.entity, suspended: nextSuspended };
+    this._pending = {
+      entity: runtime.entity,
+      suspended: nextSuspended,
+      serviceResolved: false,
+    };
     this._syncButton(runtime);
     this._clearConfirmationTimer();
     this._confirmationTimer = globalThis.setTimeout?.(() => {
@@ -354,6 +379,10 @@ export class FrigateCameraRuntimeController {
         entity: runtime.entity,
         suspended: nextSuspended,
       });
+      if (this._pending?.entity === runtime.entity) {
+        this._pending.serviceResolved = true;
+        this.reconcileHass();
+      }
       return true;
     } catch (_) {
       this._clearPending();
@@ -394,6 +423,7 @@ export class FrigateCameraRuntimeController {
   dispose() {
     this.closeConfirmation({ restoreFocus: false });
     this._clearPending();
+    this._confirmedResumedEntities.clear();
     this._activeSnapshot = null;
   }
 }

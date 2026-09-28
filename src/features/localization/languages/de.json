@@ -169,6 +169,7 @@
       "liveCamera": "Livekamera",
       "cameraOffline": "Kamera offline",
       "cameraSuspended": "Kamera pausiert",
+      "cameraSuspendedDetail": "Setzen Sie diese Kamera fort, um das Livevideo wiederherzustellen.",
       "cameraSuspendedConfirmation": "Kamera pausiert",
       "cameraSuspendDialogTitle": "Kamera pausieren?",
       "cameraSuspendDialogDetail": "Wenn Sie diese Kamera in Frigate pausieren, werden Live-Video, Aufzeichnungen und Erkennungen gestoppt. Vorhandene Warnungen, Clips, Schnappschüsse und Aufzeichnungen bleiben in der Karte verfügbar. Wenn Frigate neu startet, hebt Frigate diese Pausierung automatisch auf.",

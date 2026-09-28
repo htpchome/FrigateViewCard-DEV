@@ -111,3 +111,33 @@ test("camera power control waits for Home Assistant state confirmation", async (
   );
   controller.dispose();
 });
+
+test("a confirmed resume stays online through an ambiguous idle update", async () => {
+  const { calls, host } = createHost();
+  host._hass.states["camera.front"] = cameraState("idle", 0);
+  const controller = new FrigateCameraRuntimeController(host, {
+    confirmationTimeoutMs: 100,
+  });
+  controller.reconcileHass();
+
+  assert.equal(await controller.toggle(), true);
+  host._hass.states["camera.front"] = cameraState("recording", 1);
+  controller.reconcileHass();
+  assert.equal(controller.isAvailable("camera.front"), true);
+
+  calls.length = 0;
+  host._hass.states["camera.front"] = cameraState("idle", 0);
+  const runtime = controller.reconcileHass();
+
+  assert.equal(runtime.suspended, false);
+  assert.equal(controller.isSuspended("camera.front"), false);
+  assert.equal(controller.isAvailable("camera.front"), true);
+  assert.equal(
+    calls.some(
+      ([type, reason]) =>
+        type === "cancel" && reason === "camera-suspended",
+    ),
+    false,
+  );
+  controller.dispose();
+});
