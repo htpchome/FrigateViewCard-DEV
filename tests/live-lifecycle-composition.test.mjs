@@ -84,7 +84,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _mseChunkCount: 0,
     _haDirectMounter: haDirectMounter,
     _haDirectTwoWayTalkMounter: { name: "ha-talk-mounter" },
-    _go2rtcMounter: { name: "go2rtc-mounter" },
     _go2rtcRaceMounter: { name: "go2rtc-race" },
     _editorPreviewController: {
       liveHandoffContext: () => ({ owner: "editor" }),
@@ -150,10 +149,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.strictEqual(
     optionsByFactory.liveMount.haDirectTwoWayTalkMounter,
     card._haDirectTwoWayTalkMounter,
-  );
-  assert.strictEqual(
-    optionsByFactory.liveMount.go2rtcMounter,
-    card._go2rtcMounter,
   );
   assert.strictEqual(
     optionsByFactory.liveMount.go2rtcRaceMounter,

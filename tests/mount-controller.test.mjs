@@ -491,7 +491,7 @@ test("live mount controller delegates go2rtc race mounts outside the card shell"
   assert.equal(calls[7][1].mountTargetEntity, "");
 });
 
-test("live mount controller routes Catalyst-shaped go2rtc directly to native HLS", async () => {
+test("live mount controller routes Catalyst-shaped go2rtc through HA native HLS", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };
   let mountState = {
@@ -526,10 +526,10 @@ test("live mount controller routes Catalyst-shaped go2rtc directly to native HLS
     },
     getPendingMountDestroyers: () => [],
     setPendingMountDestroyers: () => {},
-    go2rtcMounter: {
-      tryMountHls: async (...args) => {
+    haDirectMounter: {
+      tryMount: async (...args) => {
         calls.push(["hls", ...args]);
-        return true;
+        return { ok: true, type: "hls" };
       },
     },
     go2rtcRaceMounter: {
@@ -552,7 +552,7 @@ test("live mount controller routes Catalyst-shaped go2rtc directly to native HLS
     [
       "hls",
       slot,
-      null,
+      { streamType: "hls" },
       { entity: "camera.front", commit: true },
     ],
   );
@@ -586,7 +586,7 @@ test("Catalyst-shaped go2rtc HLS failure reveals the snapshot without racing", a
     liveGraceController: {},
     getPendingMountDestroyers: () => [],
     setPendingMountDestroyers: () => {},
-    go2rtcMounter: { tryMountHls: async () => false },
+    haDirectMounter: { tryMount: async () => ({ ok: false }) },
     go2rtcRaceMounter: {
       mountWithRace: async () => {
         throw new Error("HLS failure must not fall into a race");
