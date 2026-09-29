@@ -92,6 +92,7 @@ export const createLiveTransportControllers = (
   });
   const haDirectMounter = resolvedFactories.createHaDirectMounter({
     getHass: () => card._hass,
+    getPreferredStreamType: () => card._preferredStreamType(),
     getStreamMuted: () => card._streamMuted,
     getRotateOverlayActive: () => card._rotateOverlayActive,
     isCurrentEngine: (streamEl) => card._engine === streamEl,
@@ -114,6 +115,8 @@ export const createLiveTransportControllers = (
       card._applyResolvedStreamUiState(streamState),
     startLoadingFallbackRefresh: () =>
       card._startStreamFallbackLoadingRefresh(),
+    stopLoadingFallbackRefresh: () =>
+      card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     scopeKey: card,

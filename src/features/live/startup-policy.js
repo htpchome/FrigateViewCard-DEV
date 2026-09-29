@@ -5,6 +5,34 @@ const normalizeWaitMs = (value, fallback) =>
 
 const normalizeNumber = (value, fallback) => Number(value ?? fallback);
 
+export const resolveHaDirectStartup = (startup = {}) => ({
+  waitMs: normalizeWaitMs(startup.waitMs, 8000),
+  minCurrentTime: normalizeNumber(startup.minCurrentTime, 0),
+  minDecodedFrames: normalizeNumber(startup.minDecodedFrames, 0),
+  requireReadyState: normalizeNumber(startup.requireReadyState, 2),
+  strict: startup.strict ?? false,
+  requirePresentedFrame: startup.requirePresentedFrame === true,
+  streamType: startup.streamType,
+});
+
+export const buildHaDirectMountPlan = ({
+  startup = {},
+  preferredStreamType,
+}) => {
+  const policy = resolveHaDirectStartup(startup);
+  return {
+    streamType: policy.streamType || preferredStreamType,
+    waitOptions: {
+      minCurrentTime: policy.minCurrentTime,
+      minDecodedFrames: policy.minDecodedFrames,
+      requireReadyState: policy.requireReadyState,
+      strict: policy.strict,
+      requirePresentedFrame: policy.requirePresentedFrame,
+    },
+    waitMs: policy.waitMs,
+  };
+};
+
 export const resolveMseStartup = (startup = {}) => ({
   waitMs: normalizeWaitMs(startup.waitMs, 8000),
   minCurrentTime: normalizeNumber(startup.minCurrentTime, 0.2),
@@ -23,4 +51,28 @@ export const resolveWebRtcStartup = ({ startup = {} }) => ({
 
 export const resolveHlsStartup = (startup = {}) => ({
   waitMs: normalizeWaitMs(startup.waitMs, 5000),
+});
+
+export const resolveHaDirectMountUnavailableState = () => ({
+  loading: false,
+  fallbackVisible: false,
+  refreshFallbackImage: false,
+});
+
+export const resolveHaDirectFailedState = () => ({
+  loading: false,
+  fallbackVisible: true,
+  refreshFallbackImage: true,
+});
+
+export const resolveHaDirectReadyState = ({
+  rotateOverlayActive = false,
+  isCurrentEngine = false,
+  waitSucceeded = false,
+}) => ({
+  shouldApply: Boolean(isCurrentEngine && waitSucceeded),
+  loading: false,
+  fallbackVisible: false,
+  refreshFallbackImage: false,
+  enableNativeControls: Boolean(rotateOverlayActive && isCurrentEngine),
 });

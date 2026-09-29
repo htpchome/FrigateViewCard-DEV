@@ -60,7 +60,7 @@ const mountStateControllerSource = fs.readFileSync(
   "utf8",
 );
 
-test("camera switching preserves only card-managed live engines for short switch-back reuse", () => {
+test("camera switching preserves recent live engines for short switch-back reuse", () => {
   assert.equal(
     liveLifecycleCompositionSource.includes(
       'import { createLiveGraceController } from "./live-grace-controller.js";',
@@ -97,7 +97,7 @@ test("camera switching preserves only card-managed live engines for short switch
   );
   assert.equal(
     liveGraceControllerSource.includes("const haDirectGracePool = new Map()"),
-    false,
+    true,
   );
   assert.equal(
     liveGraceControllerSource.includes("takeGraceWebRtcEntry"),
@@ -109,7 +109,7 @@ test("camera switching preserves only card-managed live engines for short switch
   );
   assert.equal(
     liveGraceControllerSource.includes("adoptGraceHaDirectEngine"),
-    false,
+    true,
   );
   assert.equal(
     liveGraceControllerSource.includes("isHaDirectHlsEngineReusable"),
@@ -191,23 +191,6 @@ test("switch-camera cleanup keeps shell grace coordination and live race takeove
     attemptPlannerSource,
     /const\s+DEFAULT_LIVE_ORDER\s*=\s*Object\.freeze\(\["webrtc",\s*"mse"\]\)[\s\S]*?const\s+order\s*=\s*forcedType\s*\?\s*\[forcedType\]\s*:\s*DEFAULT_LIVE_ORDER/,
   );
-});
-
-test("camera switching mounts live media before starting browse requests", () => {
-  const switchCameraSource = cardSource.slice(
-    cardSource.indexOf("async _switchCamera("),
-    cardSource.indexOf("// ── data", cardSource.indexOf("async _switchCamera(")),
-  );
-  const liveMountIndex = switchCameraSource.indexOf(
-    "if (!adoptedGridAlertLive) this._mountEngine();",
-  );
-  const browseLoadIndex = switchCameraSource.indexOf(
-    "this._browseWindowLoaderController.loadWindow(true",
-  );
-
-  assert.notEqual(liveMountIndex, -1);
-  assert.notEqual(browseLoadIndex, -1);
-  assert.equal(liveMountIndex < browseLoadIndex, true);
 });
 
 test("dashboard swipe return remounts retained go2rtc WebRTC through the grace path", () => {

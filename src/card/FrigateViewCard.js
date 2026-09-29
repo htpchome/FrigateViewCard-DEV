@@ -2374,6 +2374,12 @@ export class FrigateViewCard extends HTMLElement {
       .forEach((p) =>
         p.classList.toggle("active", p.dataset.viewmode === "single"),
       );
+    if (opts?.skipBrowseLoad !== true) {
+      void this._browseWindowLoaderController.loadWindow(true, {
+        supersede: true,
+        reuseRecentCache: true,
+      });
+    }
     this._syncTabsShell();
     this._renderCamSwitcher();
     this._syncStatus();
@@ -2407,12 +2413,6 @@ export class FrigateViewCard extends HTMLElement {
       cleanupStaleWinnerResult(gridAlertLiveHandoff);
     }
     if (!adoptedGridAlertLive) this._mountEngine();
-    if (opts?.skipBrowseLoad !== true) {
-      void this._browseWindowLoaderController.loadWindow(true, {
-        supersede: true,
-        reuseRecentCache: true,
-      });
-    }
     clearTimeout(this._switchLoadT);
     this._applyCalendarActivityCacheForActiveCamera();
     void this._prefetchCalendarActivityForActiveCamera();

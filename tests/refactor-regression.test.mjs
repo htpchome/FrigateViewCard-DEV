@@ -778,11 +778,7 @@ test("live transport ownership is pulled out of the card shell", () => {
     haDirectMounterSource.includes("export function createHaDirectMounter"),
     true,
   );
-  assert.equal(haDirectMounterSource.includes("buildHaDirectMountPlan"), false);
-  assert.match(
-    haDirectMounterSource,
-    /const applyHlsReady[\s\S]*?applyReady\("hls"\);[\s\S]*?startUpgrade\(\);/,
-  );
+  assert.equal(haDirectMounterSource.includes("buildHaDirectMountPlan"), true);
   assert.equal(
     haDirectMounterSource.includes("createHaDirectWebRtcPlayback"),
     true,

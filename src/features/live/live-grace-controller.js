@@ -34,12 +34,14 @@ export function createLiveGraceController({
   setStreamFallbackVisible,
   setLiveNativeControls,
   releaseHaDirectEngine,
+  adoptHaDirectWebRtcEngine,
   scheduleResumeLive,
   resetMseDiagnostics,
   markMseChunk,
 }) {
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
+  const haDirectGracePool = new Map();
   const terminalWebRtcStates = new Set(["closed", "failed", "disconnected"]);
   let graceEntrySequence = 0;
 
@@ -65,6 +67,27 @@ export function createLiveGraceController({
       (!Number.isFinite(wsState) || wsState <= 1 || signalingClosedAfterConnect)
     );
   };
+  const isHaDirectWebRtcEngineReusable = (engine) => {
+    if (
+      engine?.type !== "ha_direct" ||
+      engine?.streamType !== "webrtc" ||
+      !engine?.video ||
+      !engine?.pc
+    ) {
+      return false;
+    }
+    const connectionState = String(engine.pc.connectionState || "")
+      .trim()
+      .toLowerCase();
+    const iceState = String(engine.pc.iceConnectionState || "")
+      .trim()
+      .toLowerCase();
+    return (
+      !terminalWebRtcStates.has(connectionState) &&
+      !terminalWebRtcStates.has(iceState)
+    );
+  };
+  const isHaDirectEngineReusable = isHaDirectWebRtcEngineReusable;
   let mseGraceHost = null;
 
   const evictGraceMseEntry = (entity) => {
@@ -93,6 +116,23 @@ export function createLiveGraceController({
     } catch (_) {}
   };
 
+  const evictGraceHaDirectEntry = (entity) => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key) return;
+    const entry = haDirectGracePool.get(key);
+    if (!entry) return;
+    entry.cancelled = true;
+    if (entry.timer) clearTimeout(entry.timer);
+    haDirectGracePool.delete(key);
+    try {
+      releaseHaDirectEngine?.(entry.engine);
+    } catch (_) {}
+    const mediaNode = entry.engine?.video || entry.engine;
+    try {
+      mediaNode?.remove?.();
+    } catch (_) {}
+  };
+
   const trimGracePool = () => {
     const maxEntries = Math.max(0, Number(graceMax) || 0);
     while (mseGracePool.size + webRtcGracePool.size > maxEntries) {
@@ -108,6 +148,15 @@ export function createLiveGraceController({
         if (!webRtcKey) break;
         evictGraceWebRtcEntry(webRtcKey);
       }
+    }
+  };
+
+  const trimHaDirectGracePool = () => {
+    const maxEntries = Math.max(0, Number(graceMax) || 0);
+    while (haDirectGracePool.size > maxEntries) {
+      const oldestKey = haDirectGracePool.keys().next().value || "";
+      if (!oldestKey) break;
+      evictGraceHaDirectEntry(oldestKey);
     }
   };
 
@@ -161,6 +210,31 @@ export function createLiveGraceController({
     trimGracePool();
     return true;
   };
+  const stashHaDirectEngineForGrace = (entity, engine) => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key) return false;
+    engine?.cancelPendingTakeover?.();
+    if (!isHaDirectEngineReusable(engine)) return false;
+    const mediaNode = engine.video || null;
+    if (!mediaNode) return false;
+    evictGraceHaDirectEntry(key);
+    engine.deactivateRecovery?.();
+    ensureMseGraceHost().appendChild(mediaNode);
+    prepareEngineVideoForGraceHost(mediaNode);
+    const entry = createGraceEngineEntry({
+      engine,
+      graceMs,
+      onExpire: () => {
+        if (haDirectGracePool.get(key) !== entry) return;
+        evictGraceHaDirectEntry(key);
+      },
+    });
+    entry.graceOrder = ++graceEntrySequence;
+    haDirectGracePool.set(key, entry);
+    trimHaDirectGracePool();
+    return true;
+  };
+
   const stashPendingMsePromiseForGrace = (entity, promise) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key || !promise) return false;
@@ -222,6 +296,20 @@ export function createLiveGraceController({
     webRtcGracePool.delete(key);
     return entry;
   };
+  const takeGraceHaDirectEntry = (entity, streamType = "") => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key) return null;
+    const entry = haDirectGracePool.get(key);
+    if (!entry) return null;
+    const expectedType = String(streamType || "")
+      .trim()
+      .toLowerCase();
+    if (expectedType && entry.engine?.streamType !== expectedType) return null;
+    if (entry.timer) clearTimeout(entry.timer);
+    haDirectGracePool.delete(key);
+    return entry;
+  };
+
   const adoptGraceMseEngine = (slot, engine) => {
     if (!slot || !isMseEngineReusable(engine)) {
       try {
@@ -286,6 +374,55 @@ export function createLiveGraceController({
     void engine.video.play?.().catch?.(() => {});
     return true;
   };
+  const adoptGraceHaDirectEngine = (slot, engine) => {
+    if (!slot || !isHaDirectEngineReusable(engine)) {
+      try {
+        releaseHaDirectEngine?.(engine);
+      } catch (_) {}
+      const mediaNode = engine?.video || engine;
+      try {
+        mediaNode?.remove?.();
+      } catch (_) {}
+      return false;
+    }
+    const mediaNode = engine.video || null;
+    const video = engine.video || null;
+    if (!mediaNode) return false;
+    configureVideoElement(
+      video,
+      buildVideoOptionsForView(
+        "live",
+        {
+          muted: getStreamMuted?.(),
+          controls: false,
+        },
+        { scopeKey: getScopeKey?.() },
+      ),
+    );
+    mountNodeIntoSlot(slot, mediaNode);
+    attachVideoFit?.(video);
+    setEngine?.(engine);
+    const ownershipAdopted = adoptHaDirectWebRtcEngine?.(engine);
+    if (ownershipAdopted === false) {
+      setEngine?.(null, { retainPrevious: true });
+      try {
+        releaseHaDirectEngine?.(engine);
+      } catch (_) {}
+      try {
+        mediaNode.remove?.();
+      } catch (_) {}
+      return false;
+    }
+    if (ownershipAdopted !== true) engine.activateRecovery?.();
+    setEngineMountedMuted?.(getStreamMuted?.());
+    setActiveStreamType?.("webrtc");
+    setStreamLoading?.(false);
+    setStreamFallbackVisible?.(false);
+    if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
+    void video?.play?.().catch?.(() => {});
+    return true;
+  };
+
   const cleanupEngine = (options = {}) => {
     const pendingTakeoverTimer = getPendingWebRtcTakeoverTimer?.();
     if (pendingTakeoverTimer) {
@@ -320,9 +457,23 @@ export function createLiveGraceController({
     const activeStreamType = String(getActiveStreamType?.() || "")
       .trim()
       .toLowerCase();
+    if (
+      preserveLiveEntity &&
+      engine?.type === "ha_direct" &&
+      engine?.streamType === activeStreamType &&
+      stashHaDirectEngineForGrace(preserveLiveEntity, engine)
+    ) {
+      setEngine?.(null, { retainPrevious: true });
+      return;
+    }
     if (engine?.type === "ha_direct") {
       try {
         releaseHaDirectEngine?.(engine);
+      } catch (_) {}
+      const mediaNode =
+        engine.streamType === "webrtc" ? engine.video : engine;
+      try {
+        mediaNode?.remove?.();
       } catch (_) {}
       setEngine?.(null, { retainPrevious: true });
       return;
@@ -358,6 +509,9 @@ export function createLiveGraceController({
     for (const entity of [...webRtcGracePool.keys()]) {
       evictGraceWebRtcEntry(entity);
     }
+    for (const entity of [...haDirectGracePool.keys()]) {
+      evictGraceHaDirectEntry(entity);
+    }
     try {
       mseGraceHost?.remove?.();
     } catch (_) {}
@@ -367,6 +521,7 @@ export function createLiveGraceController({
   const evictEntity = (entity) => {
     evictGraceMseEntry(entity);
     evictGraceWebRtcEntry(entity);
+    evictGraceHaDirectEntry(entity);
   };
 
   return {
@@ -379,5 +534,8 @@ export function createLiveGraceController({
     takeGraceWebRtcEntry,
     adoptGraceWebRtcEngine,
     isWebRtcEngineReusable,
+    takeGraceHaDirectEntry,
+    adoptGraceHaDirectEngine,
+    isHaDirectEngineReusable,
   };
 }

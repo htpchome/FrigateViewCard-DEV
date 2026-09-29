@@ -20,16 +20,19 @@ import {
 import { resolveSnapshotFallbackState } from "./stream.state.js";
 
 const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
+const EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE = "ha-direct-webrtc-live";
 const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
 
 const resolveEditorHandoffConnectionType = (requestType) => {
   if (requestType === EDITOR_LIVE_HANDOFF_TYPE) return "frigate_go2rtc";
+  if (requestType === EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE) return "ha_direct";
   return "";
 };
 
 const isEditorLiveHandoffSupported = (connectionType, streamType) =>
-  connectionType === "frigate_go2rtc" &&
-  EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType);
+  connectionType === "frigate_go2rtc"
+    ? EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType)
+    : connectionType === "ha_direct" && streamType === "webrtc";
 
 export function createEditorLiveHandoffController({
   getState,
@@ -146,7 +149,10 @@ export function createEditorLiveHandoffController({
       entity,
       key: identityKey(entity),
       streamType: requestedStreamType,
-      type: EDITOR_LIVE_HANDOFF_TYPE,
+      type:
+        requestedConnectionType === "ha_direct"
+          ? EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE
+          : EDITOR_LIVE_HANDOFF_TYPE,
     });
     const engine = offer?.claim?.() || null;
     if (!engine) return null;
@@ -414,6 +420,44 @@ export function createLiveMountController({
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
+
+    if (!useGo2Rtc && !hasTwoWayTalkOptions) {
+      const graceHaDirectEntry =
+        liveGraceController.takeGraceHaDirectEntry?.(
+          targetEntity,
+          forcedType || "",
+        ) || null;
+      if (
+        graceHaDirectEntry?.engine &&
+        liveGraceController.adoptGraceHaDirectEngine?.(
+          slot,
+          graceHaDirectEntry.engine,
+        )
+      ) {
+        return true;
+      }
+
+      if (!forcedType || forcedType === "webrtc") {
+        const editorHandoff =
+          takeEditorLiveHandoff?.({
+            connectionType: "ha_direct",
+            entity: targetEntity,
+            streamType: "webrtc",
+          }) || null;
+        if (editorHandoff?.engine) {
+          if (
+            liveGraceController.adoptGraceHaDirectEngine?.(
+              slot,
+              editorHandoff.engine,
+            )
+          ) {
+            editorHandoff.commit?.();
+            return true;
+          }
+          editorHandoff.reject?.();
+        }
+      }
+    }
 
     if (
       useGo2Rtc &&
