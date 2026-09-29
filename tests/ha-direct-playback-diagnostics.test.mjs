@@ -89,3 +89,24 @@ test("HA Direct diagnostics can be enabled without storage for Chrome", () => {
     true,
   );
 });
+
+test("HA Direct diagnostics assign attempt IDs without mutable module state", () => {
+  const target = { __FVC_HA_DIRECT_DIAGNOSTICS__: true };
+  const options = {
+    target,
+    storage: { getItem: () => null },
+    now: () => 0,
+    logger: { info: () => {} },
+  };
+
+  const first = createHaDirectPlaybackDiagnostic({}, options);
+  const second = createHaDirectPlaybackDiagnostic({}, options);
+
+  assert.equal(first.attemptId, 1);
+  assert.equal(second.attemptId, 2);
+  target.__fvcHaDirectDiagnostics.clear();
+  assert.equal(
+    createHaDirectPlaybackDiagnostic({}, options).attemptId,
+    1,
+  );
+});

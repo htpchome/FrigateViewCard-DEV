@@ -9,8 +9,6 @@ const NOOP_DIAGNOSTIC = Object.freeze({
   finish: () => {},
 });
 
-let nextAttemptId = 0;
-
 const safeStorageEnabled = (storage) => {
   try {
     return storage?.getItem?.(HA_DIRECT_DIAGNOSTICS_STORAGE_KEY) === "1";
@@ -71,7 +69,10 @@ export const createHaDirectPlaybackDiagnostic = (
   }
 
   const store = ensureDiagnosticStore(target);
-  const attemptId = ++nextAttemptId;
+  const previousAttemptId = Number(store.attempts.at(-1)?.id);
+  const attemptId = Number.isFinite(previousAttemptId)
+    ? previousAttemptId + 1
+    : 1;
   const startedAt = now();
   const attempt = {
     id: attemptId,
