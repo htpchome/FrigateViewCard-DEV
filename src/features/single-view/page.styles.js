@@ -155,20 +155,5 @@ export const SINGLE_VIEW_PAGE_STYLES = `
       grid-column: 5;
     }
 
-    .card .layout--single-view .live-playback-controls {
-      gap: 6px;
-    }
-
-    .card .layout--single-view .live-playback-controls > button {
-      width: 29px;
-      height: 29px;
-      flex-basis: 29px;
-    }
-
-    .card .layout--single-view .live-playback-controls.overlay-controls svg,
-    .card .layout--single-view .live-playback-controls.overlay-controls:hover svg {
-      width: 24px;
-      height: 24px;
-    }
   }
 `;

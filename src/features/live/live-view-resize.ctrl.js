@@ -141,6 +141,19 @@ export class LiveViewResizeController {
         "pointercancel",
         this._onPointerCancel,
       );
+      for (const eventName of [
+        "touchstart",
+        "touchmove",
+        "touchend",
+        "touchcancel",
+      ]) {
+        this._gripCleanup.addEventListener(
+          this._grip,
+          eventName,
+          this._onTouchBoundary,
+          { passive: false },
+        );
+      }
       this._gripCleanup.addEventListener(
         this._grip,
         "keydown",
@@ -412,6 +425,14 @@ export class LiveViewResizeController {
 
   _onPointerCancel = (event) =>
     this._finishPointer(event, { cancelled: true });
+
+  _onTouchBoundary = (event) => {
+    if (this._grip?.hidden) return;
+    if (event.type === "touchmove" && event.cancelable !== false) {
+      event.preventDefault?.();
+    }
+    event.stopPropagation?.();
+  };
 
   _onKeyDown = (event) => {
     if (!this._bounds || this._grip?.hidden) return;

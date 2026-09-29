@@ -186,7 +186,7 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .layout:not(.wide-view) .resize-handle{display:none;}
   .resize-handle:hover,.resize-handle.active{background:var(--c-bg-primary);}
   .resize-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:2px;background:var(--c-text4);border-radius:1px;}
-  .card .live-stage{position:relative;width:100%;min-height:0;flex-shrink:0;}
+  .card .live-stage{position:relative;width:100%;min-height:0;flex-shrink:0;container-type:inline-size;container-name:live-stage;}
   .card #eng-wrap{min-height:0;}
   .card .browse{
     display:flex;
@@ -574,6 +574,12 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .overlay-controls[hidden]{display:none !important;}
   .overlay-controls svg {width:30px;height:30px;opacity: 0.8; }
   .overlay-controls:hover svg {width:30px;height:30px;opacity: 0.95; }
+  @container live-stage (max-width:520px){
+    .live-playback-controls{gap:6px;}
+    .live-playback-controls > button{width:29px;height:29px;flex-basis:29px;}
+    .live-playback-controls.overlay-controls svg,
+    .live-playback-controls.overlay-controls:hover svg{width:19px;height:19px;}
+  }
   .popup-playback-controls .popup-playback-btn{position:relative;width:36px;height:36px;padding:3px;}
   .popup-playback-controls .square-btn svg{width:24px;height:24px;opacity:1;}
   #viewer.popup-controls-visible .popup-playback-controls{opacity:1;pointer-events:auto;}

@@ -173,13 +173,20 @@ test("Single View adds a responsive live status overlay", () => {
     SINGLE_VIEW_PAGE_STYLES,
     /two-way-talk-active[\s\S]*?data-linked-light-position-slot="left"[\s\S]*?grid-column: 1;[\s\S]*?two-way-talk-active[\s\S]*?data-linked-light-position-slot="right"[\s\S]*?grid-column: 5;/,
   );
+});
+
+test("live overlay controls use the shared narrow-video breakpoint", () => {
   assert.match(
-    SINGLE_VIEW_PAGE_STYLES,
-    /\.live-playback-controls > button\s*\{[^}]*width: 29px;[^}]*height: 29px;/,
+    STYLES,
+    /\.card \.live-stage\{[^}]*container-type:inline-size;[^}]*container-name:live-stage;/,
   );
   assert.match(
-    SINGLE_VIEW_PAGE_STYLES,
-    /\.live-playback-controls\.overlay-controls svg,[\s\S]*?width: 24px;[\s\S]*?height: 24px;/,
+    STYLES,
+    /@container live-stage \(max-width:520px\)\{[\s\S]*?\.live-playback-controls\{gap:6px;\}[\s\S]*?\.live-playback-controls > button\{width:29px;height:29px;flex-basis:29px;\}/,
+  );
+  assert.match(
+    STYLES,
+    /@container live-stage \(max-width:520px\)\{[\s\S]*?\.live-playback-controls\.overlay-controls svg,[\s\S]*?width:19px;height:19px;/,
   );
 });
 

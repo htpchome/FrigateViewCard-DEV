@@ -34,7 +34,7 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                   <div class="stream-loading" id="stream-loading" hidden>
                     <span class="dot"></span><span class="label" data-fvc-i18n="runtime.live.loading">Loading…</span>
                   </div>
-                  <button class="live-resize-grip" id="live-resize-grip" type="button" role="slider" aria-orientation="vertical" aria-label="Resize live view height" title="Drag to resize live view; double-click or double-tap to reset" data-fvc-i18n-aria-label="runtime.live.resizeHeight" data-fvc-i18n-title="runtime.live.resizeHint" hidden>
+                  <button class="live-resize-grip" id="live-resize-grip" type="button" role="slider" aria-orientation="vertical" aria-label="Resize live view height" title="Drag to resize live view; double-click or double-tap to reset" data-no-swipe data-fvc-i18n-aria-label="runtime.live.resizeHeight" data-fvc-i18n-title="runtime.live.resizeHint" hidden>
                     ${icons.chevron}
                   </button>
               </div>`;

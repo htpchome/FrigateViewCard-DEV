@@ -53,6 +53,7 @@ class FakeTarget {
       button: 0,
       clientY: 0,
       key: "",
+      cancelable: true,
       defaultPrevented: false,
       propagationStopped: false,
       preventDefault() {
@@ -324,6 +325,7 @@ test("live markup and styles provide one unobtrusive unified resize grip", () =>
   });
 
   assert.match(markup, /id="live-resize-grip"/);
+  assert.match(markup, /id="live-resize-grip"[^>]*data-no-swipe/);
   assert.match(markup, /role="slider"/);
   assert.match(markup, /CHEVRON/);
   assert.match(STYLES, /touch-action:none/);
@@ -346,4 +348,19 @@ test("live markup and styles provide one unobtrusive unified resize grip", () =>
     STYLES,
     /\.live-resize-grip svg\{[^}]*width:14px;height:14px;/,
   );
+});
+
+test("live resize grip keeps touch drag gestures inside the card", () => {
+  const fixture = createFixture();
+
+  const start = fixture.grip.dispatch("touchstart");
+  const move = fixture.grip.dispatch("touchmove");
+  const end = fixture.grip.dispatch("touchend");
+
+  assert.equal(start.propagationStopped, true);
+  assert.equal(start.defaultPrevented, false);
+  assert.equal(move.propagationStopped, true);
+  assert.equal(move.defaultPrevented, true);
+  assert.equal(end.propagationStopped, true);
+  assert.equal(end.defaultPrevented, false);
 });
