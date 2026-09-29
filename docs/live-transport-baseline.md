@@ -2,11 +2,12 @@
 
 ## Current Baseline
 
-`v1.1.8-dev.70` restores the `v1.1.8-dev.68` HA Direct pipeline after physical
-testing rejected the native `ha-camera-stream` provider-deck experiment in
-`v1.1.8-dev.69`. The experiment was no faster in browsers and left Mac Catalyst
-on the snapshot instead of live HLS. Begin further HA Direct optimization from
-`v1.1.8-dev.70` and preserve the transport contracts below.
+`v1.1.8-dev.90` replaces the rejected HA Direct startup race with one explicit
+session: mount Home Assistant HLS first, commit its first usable video, and only
+then attempt an optional low-latency upgrade. The upgrade may replace HLS only
+after it renders usable media. A failed or unavailable upgrade leaves HLS
+untouched. Physical browser and Mac Catalyst validation is required before this
+candidate replaces `v1.1.8-dev.89` as the fallback point.
 
 `v1.1.8-dev.71` is a candidate latency/presentation improvement and does not
 replace the physical fallback point until browser and Mac Catalyst validation.
@@ -22,6 +23,8 @@ player is committed, fails, or is cancelled. A later optional takeover remains
 independent after HLS has committed. This removes the repeated initial player
 construction and teardown recorded by the `v1.1.8-dev.88` diagnostics without
 changing transport selection or retaining HLS players across camera switches.
+It remains the pre-rewrite fallback point, but physical testing found its
+first-load and camera-switch latency unacceptable.
 
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
@@ -39,10 +42,10 @@ required.
 - `frigate_go2rtc` connections are good. Preserve its established WebRTC/MSE
   startup, connection retention, camera-switch behavior, fallbacks, and
   two-way-talk behavior exactly unless a request explicitly targets this mode.
-- `ha_direct` HLS supplies the first picture nearly
-  immediately, a capable WebRTC connection may take over when ready, retained
-  WebRTC connections are reused, and browsers that cannot complete WebRTC
-  remain on HLS.
+- `ha_direct` mounts HLS without a competing media negotiation. After HLS is
+  usable, a capable browser may establish one optional low-latency upgrade.
+  HA Direct sessions are not cached across cameras or transferred between card
+  and editor instances.
 - HA Direct WebRTC takeover and HA Direct two-way-talk negotiation work, but
   remain slower than desired. This is accepted for this baseline. Treat faster
   negotiation as deferred optimization, not an active defect requiring a
@@ -55,20 +58,17 @@ layout behavior while optimizing either transport.
 
 Preserve all of these behaviors together:
 
-1. Start HLS and WebRTC asynchronously for a WebRTC-capable HA Direct camera.
-2. Commit ready HLS immediately; do not delay the first picture while waiting
-   for WebRTC.
-3. Keep the pending WebRTC attempt explicitly owned after HLS is committed.
-4. Replace HLS only after WebRTC has rendered usable media.
-5. Release HLS after a successful WebRTC takeover.
-6. If WebRTC fails, keep the already-playing HLS connection.
-7. When the camera changes, cancel the pending takeover before retaining or
-   releasing the current HLS engine so no WebRTC session is orphaned.
-8. Preserve card-owned HA Direct WebRTC retention and reuse across camera
-   switches. Do not retain or reparent Home Assistant's `ha-hls-player` custom
-   element; release it on departure and create a fresh player on return.
-9. On browsers where WebRTC is unavailable or cannot complete, use HA HLS and
-   do not force the stream down to snapshots while HLS is viable.
+1. Create and mount exactly one Home Assistant HLS player first.
+2. Do not start the optional low-latency request before HLS is usable.
+3. Keep the snapshot refresh visible only while HLS is starting or unavailable.
+4. Start at most one optional upgrade for the active session.
+5. Replace HLS only after the upgrade has rendered usable media.
+6. If the upgrade is unavailable or fails, leave playing HLS untouched.
+7. When the camera changes, destroy the complete HA Direct session and mount a
+   fresh HLS player for the new camera.
+8. Do not put HA Direct sessions in the Frigate live grace pool or transfer them
+   through the editor handoff channel.
+9. Do not begin browse-data requests ahead of the selected camera's live mount.
 
 Home Assistant owns the HA Direct HLS player lifecycle. Removing or reparenting
 `ha-hls-player` invokes its disconnect cleanup, which destroys browser-side HLS
@@ -138,6 +138,9 @@ one of those policies is the cause.
   `loadeddata` handoff and keeps the fallback camera image updating during
   negotiation. It does not retain or reparent HA HLS elements and does not
   weaken WebRTC takeover or failed-HLS recovery readiness.
+- `v1.1.8-dev.90` removes the HA Direct race, release barrier, grace pool, and
+  editor handoff. It mounts HLS before browse work on camera changes and starts
+  one optional low-latency upgrade only after HLS becomes usable.
 
 ## Validation Expectations
 
@@ -147,8 +150,8 @@ and must include physical checks for:
 - first-picture time on WebRTC-capable and non-WebRTC clients;
 - eventual WebRTC takeover on a capable client;
 - stable HLS playback when WebRTC cannot complete;
-- retained WebRTC/MSE connection counts during fast camera switching and fresh
-  HA Direct HLS player creation on return;
+- retained Frigate WebRTC/MSE connection counts during fast camera switching
+  and fresh HA Direct HLS player creation on every HA Direct camera entry;
 - complete teardown without increasing connection or subscription counts;
 - HA Direct two-way-talk incoming and outgoing audio;
 - unchanged `frigate_go2rtc` startup, fallback, switching, and talk behavior.

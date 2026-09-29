@@ -15,13 +15,8 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   const engineSlot = { id: "engine" };
   const gridSlot = { id: "grid-engine" };
   const liveGraceController = {
-    isHaDirectEngineReusable: (engine) => engine === "ha-engine",
     isMseEngineReusable: (engine) => engine === "mse-engine",
     isWebRtcEngineReusable: (engine) => engine === "webrtc-engine",
-    adoptGraceHaDirectEngine: (slot, engine) => {
-      calls.push(["adopt-ha", slot, engine]);
-      return true;
-    },
     adoptGraceMseEngine: (slot, engine) => {
       calls.push(["adopt-mse", slot, engine]);
       return true;
@@ -54,9 +49,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   };
   const haDirectMounter = {
     release: (engine) => calls.push(["release-ha", engine]),
-    adoptRetainedWebRtcEngine: (engine) =>
-      calls.push(["adopt-retained-ha", engine]),
-    detachWebRtcForHandoff: (engine) => engine !== "blocked-engine",
   };
   const card = {
     shadowRoot: {
@@ -180,7 +172,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
       "webrtc",
       "ha_direct",
     ),
-    true,
+    false,
   );
   assert.equal(
     optionsByFactory.editorHandoff.isEngineReusable(
@@ -200,17 +192,9 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   );
   assert.equal(
     optionsByFactory.editorHandoff.detachEngine(
-      "blocked-engine",
+      "webrtc-engine",
       "webrtc",
-      "ha_direct",
-    ),
-    false,
-  );
-  assert.equal(
-    optionsByFactory.editorHandoff.detachEngine(
-      "ha-engine",
-      "webrtc",
-      "ha_direct",
+      "frigate_go2rtc",
     ),
     true,
   );
@@ -222,14 +206,18 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
 
   assert.equal(
     optionsByFactory.editorHandoff.adoptEngine(
-      "ha-engine",
+      "webrtc-engine",
       "webrtc",
-      "ha_direct",
+      "frigate_go2rtc",
     ),
     true,
   );
   assert.equal(card._dashboardLiveGraceActive, false);
-  assert.deepEqual(calls.at(-1), ["adopt-ha", engineSlot, "ha-engine"]);
+  assert.deepEqual(calls.at(-1), [
+    "adopt-webrtc",
+    engineSlot,
+    "webrtc-engine",
+  ]);
 
   assert.equal(
     optionsByFactory.liveMount.takeEditorLiveHandoff({
@@ -254,9 +242,5 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   optionsByFactory.liveGrace.setStreamFallbackVisible(true, true);
   assert.deepEqual(calls.at(-1), ["fallback", true, true]);
   optionsByFactory.liveGrace.releaseHaDirectEngine("ha-engine");
-  optionsByFactory.liveGrace.adoptHaDirectWebRtcEngine("ha-engine");
-  assert.deepEqual(calls.slice(-2), [
-    ["release-ha", "ha-engine"],
-    ["adopt-retained-ha", "ha-engine"],
-  ]);
+  assert.deepEqual(calls.at(-1), ["release-ha", "ha-engine"]);
 });
