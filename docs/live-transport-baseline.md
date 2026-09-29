@@ -15,6 +15,14 @@ negotiating, and allows a fresh Home Assistant HLS player to replace that image
 at its native `loadeddata` boundary. WebRTC takeover and post-failure HLS
 recovery retain their stronger presented-frame checks.
 
+`v1.1.8-dev.89` prevents connected, resize, and intersection recovery callbacks
+from replacing an HA Direct mount while its first usable media is still
+starting. Mount ownership now remains active until HLS or the alternate HA
+player is committed, fails, or is cancelled. A later optional takeover remains
+independent after HLS has committed. This removes the repeated initial player
+construction and teardown recorded by the `v1.1.8-dev.88` diagnostics without
+changing transport selection or retaining HLS players across camera switches.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

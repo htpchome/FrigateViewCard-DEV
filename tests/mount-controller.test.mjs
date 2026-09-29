@@ -422,6 +422,79 @@ test("live mount controller delegates ha-direct mounts outside the card shell", 
   ]);
 });
 
+test("HA-direct mount ownership prevents lifecycle callbacks from replacing startup", async () => {
+  const slot = { innerHTML: "occupied" };
+  let mountState = {
+    mountSeq: 0,
+    mountInProgress: false,
+    mountStartedAt: 0,
+    mountTargetEntity: "",
+  };
+  let finishStartup;
+  const startupReady = new Promise((resolve) => {
+    finishStartup = resolve;
+  });
+  let mountCalls = 0;
+  let cleanupCalls = 0;
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => mountState.mountInProgress,
+    getMountTargetEntity: () => mountState.mountTargetEntity,
+    getMountState: () => mountState,
+    applyMountTrackingState: (nextState) => {
+      mountState = nextState;
+    },
+    mountGridEngine: () => {},
+    cleanupEngine: () => {
+      cleanupCalls += 1;
+    },
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    liveGraceController: {
+      takeGraceHaDirectEntry: () => null,
+      adoptGraceHaDirectEngine: () => false,
+    },
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    haDirectMounter: {
+      tryMount: async () => {
+        mountCalls += 1;
+        return { ok: true, startupReady };
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+  });
+
+  const firstMount = controller.mount({ entity: "camera.front" });
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(mountState.mountInProgress, true);
+  assert.equal(mountState.mountTargetEntity, "camera.front");
+  assert.equal(mountCalls, 1);
+  assert.equal(cleanupCalls, 1);
+
+  assert.equal(
+    await controller.mount({ entity: "camera.front" }),
+    false,
+  );
+  assert.equal(mountCalls, 1);
+  assert.equal(cleanupCalls, 1);
+
+  finishStartup(true);
+  assert.equal(await firstMount, true);
+  assert.equal(mountState.mountInProgress, false);
+  assert.equal(mountState.mountTargetEntity, "");
+});
+
 test("live mount controller delegates go2rtc race mounts outside the card shell", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };

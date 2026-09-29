@@ -461,7 +461,7 @@ export function createHaDirectMounter({
       binding.stopLoadingFallbackRefresh =
         startLoadingFallbackRefresh?.() || (() => {});
       if (getRotateOverlayActive()) setLiveNativeControls(true);
-      void (async () => {
+      const startupReady = (async () => {
         const failureRevision = binding.failureRevision;
         diagnostic.mark("hls-readiness-wait-start");
         const ready = await waitForStreamStart(engine, haDirectPlan.waitMs, {
@@ -471,19 +471,20 @@ export function createHaDirectMounter({
         });
         diagnostic.mark("hls-readiness-wait-finished", { ready });
         stopHlsDiagnostic(engine);
-        if (binding.disposed || !isCurrentEngine(engine)) return;
+        if (binding.disposed || !isCurrentEngine(engine)) return false;
         // A stream error transfers readiness ownership to the recovery watcher.
         // The older startup result must not undo its newer failure or recovery.
-        if (failureRevision !== binding.failureRevision) return;
+        if (failureRevision !== binding.failureRevision) return false;
         if (!ready) {
           diagnostic.finish("hls-failed");
           binding.fail();
-          return;
+          return false;
         }
         applyReady(engine, "hls");
         diagnostic.finish("hls-ready");
+        return true;
       })();
-      return { ok: true, type: "hls", engine, slot };
+      return { ok: true, type: "hls", engine, slot, startupReady };
     };
 
     const waitForHlsAttempt = async (engine, abortSignal) => {
@@ -583,7 +584,7 @@ export function createHaDirectMounter({
           isCurrentEngine(fallbackEngine),
       );
     };
-    void (async () => {
+    const startupReady = (async () => {
       const priorRelease = releaseBarrier;
       const webRtcReady = (async () => {
         diagnostic.mark("webrtc-release-barrier-wait-start");
@@ -646,7 +647,7 @@ export function createHaDirectMounter({
         readyCandidate("hls", hlsReady),
       ]).catch(() => "");
       diagnostic.mark("first-ready-transport", { winner: winner || "none" });
-      if (!isWebRtcAttemptActive()) return;
+      if (!isWebRtcAttemptActive()) return false;
       if (winner === "hls") {
         binding.stopLoadingFallbackRefresh();
         binding.fallbackAbortController = null;
@@ -658,7 +659,7 @@ export function createHaDirectMounter({
         const hlsBinding = mediaBindings.get(fallbackEngine);
         if (!hlsBinding || !isCurrentEngine(fallbackEngine)) {
           release(engine);
-          return;
+          return false;
         }
         hlsBinding.takeoverEngine = engine;
         fallbackEngine.cancelPendingTakeover = () => {
@@ -668,19 +669,24 @@ export function createHaDirectMounter({
           fallbackEngine.cancelPendingTakeover = null;
           if (pendingEngine) release(pendingEngine);
         };
-        const webRtcStarted = await webRtcReady;
-        if (hlsBinding.disposed || !isCurrentEngine(fallbackEngine)) return;
-        hlsBinding.takeoverEngine = null;
-        fallbackEngine.cancelPendingTakeover = null;
-        if (!webRtcStarted) {
-          release(engine);
-          diagnostic.finish("hls-ready");
-          return;
-        }
-        assignCommittedEngine(engine);
-        showReadyWebRtc(engine, fallbackEngine);
-        diagnostic.finish("webrtc-takeover-ready");
-        return;
+        // HLS is already usable, so release mount ownership now. The optional
+        // takeover continues under the committed HLS binding without allowing
+        // visibility/lifecycle callbacks to restart this mount in the gap.
+        void (async () => {
+          const webRtcStarted = await webRtcReady;
+          if (hlsBinding.disposed || !isCurrentEngine(fallbackEngine)) return;
+          hlsBinding.takeoverEngine = null;
+          fallbackEngine.cancelPendingTakeover = null;
+          if (!webRtcStarted) {
+            release(engine);
+            diagnostic.finish("hls-ready");
+            return;
+          }
+          assignCommittedEngine(engine);
+          showReadyWebRtc(engine, fallbackEngine);
+          diagnostic.finish("webrtc-takeover-ready");
+        })();
+        return true;
       }
       if (winner === "webrtc") {
         binding.stopLoadingFallbackRefresh();
@@ -689,16 +695,17 @@ export function createHaDirectMounter({
         fallbackAbortController.abort();
         showReadyWebRtc(engine, fallbackEngine);
         diagnostic.finish("webrtc-ready");
-        return;
+        return true;
       }
       applyFailed(engine);
       release(engine);
       fallbackAbortController.abort();
       fallbackEngine?.remove?.();
       diagnostic.finish("failed");
+      return false;
     })();
 
-    return { ok: true, type: "webrtc", engine, slot };
+    return { ok: true, type: "webrtc", engine, slot, startupReady };
   };
 
   return {

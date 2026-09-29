@@ -772,6 +772,31 @@ function createHlsHarness(waitForStreamStart = async () => true) {
   };
 }
 
+test("HLS exposes startup ownership until its first usable media settles", async () => {
+  await withFakeDocument(async () => {
+    let finishStartup;
+    const h = createHlsHarness(
+      () => new Promise((resolve) => {
+        finishStartup = resolve;
+      }),
+    );
+    const result = await h.mount();
+    let settled = false;
+    result.startupReady.then(() => {
+      settled = true;
+    });
+
+    await flushAsyncWork();
+    assert.equal(settled, false);
+
+    finishStartup(true);
+    assert.equal(await result.startupReady, true);
+    assert.equal(settled, true);
+    assert.deepEqual(h.types, ["hls"]);
+    h.mounter.release(h.engine);
+  });
+});
+
 test("HLS clears a timed-out snapshot only after a fresh video frame", async () => {
   await withFakeDocument(async () => {
     const h = createHlsHarness(async () => false);

@@ -628,6 +628,11 @@ export function createLiveMountController({
           return false;
         }
         setEngineMountedMuted?.(getStreamMuted?.());
+        if (haDirectResult.startupReady?.then) {
+          try {
+            await haDirectResult.startupReady;
+          } catch (_) {}
+        }
         return true;
       }
 
