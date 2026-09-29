@@ -162,6 +162,12 @@ and a slow connection, copy the structured records from the Console:
 copy(window.__fvcHaDirectDiagnostics.export());
 ```
 
+The recorder also marks the HA HLS player's update, first newly completed HLS
+resource type, video discovery, and video readiness events. Resource records
+contain only their class, duration, and transfer size; signed URLs are never
+stored. Comparing these marks between a fast and slow attempt distinguishes a
+delay before the first playlist from a later segment or media-readiness delay.
+
 Disable the recorder when finished:
 
 ```js

@@ -5,6 +5,7 @@ import {
 } from "../../integrations/home-assistant/playback.js";
 import {
   createHaDirectPlaybackDiagnostic,
+  watchHaHlsStartupDiagnostic,
 } from "../../integrations/home-assistant/playback-diagnostics.js";
 import { createHaDirectWebRtcPlayback } from "../../integrations/home-assistant/webrtc-playback.js";
 import {
@@ -51,7 +52,14 @@ export function createHaDirectMounter({
   createPlaybackDiagnostic = createHaDirectPlaybackDiagnostic,
 }) {
   const mediaBindings = new WeakMap();
+  const hlsDiagnosticCleanups = new WeakMap();
   let releaseBarrier = Promise.resolve();
+
+  const stopHlsDiagnostic = (engine) => {
+    if (!engine) return;
+    hlsDiagnosticCleanups.get(engine)?.();
+    hlsDiagnosticCleanups.delete(engine);
+  };
 
   const prepare = () => {
     try {
@@ -70,6 +78,7 @@ export function createHaDirectMounter({
   };
 
   const release = (engine) => {
+    stopHlsDiagnostic(engine);
     const binding = mediaBindings.get(engine);
     if (!binding) {
       if (engine?.type === "ha_direct" && engine?.streamType === "webrtc") {
@@ -83,6 +92,7 @@ export function createHaDirectMounter({
     binding.cleanupRecovery?.();
     binding.abortController.abort();
     binding.fallbackAbortController?.abort?.();
+    stopHlsDiagnostic(binding.fallbackEngine);
     binding.fallbackEngine?.remove?.();
     const takeoverEngine = binding.takeoverEngine || null;
     binding.fallbackAbortController = null;
@@ -420,6 +430,16 @@ export function createHaDirectMounter({
       engine.type = "ha_direct";
       engine.streamType = "hls";
       diagnostic.mark("hls-element-created");
+      if (commit) {
+        hlsDiagnosticCleanups.set(
+          engine,
+          watchHaHlsStartupDiagnostic({
+            player: engine,
+            diagnostic,
+            resolveVideo: findActiveHaCameraStreamVideo,
+          }),
+        );
+      }
       return engine;
     };
 
@@ -450,6 +470,7 @@ export function createHaDirectMounter({
           resolveVideo: () => findActiveHaCameraStreamVideo(engine),
         });
         diagnostic.mark("hls-readiness-wait-finished", { ready });
+        stopHlsDiagnostic(engine);
         if (binding.disposed || !isCurrentEngine(engine)) return;
         // A stream error transfers readiness ownership to the recovery watcher.
         // The older startup result must not undo its newer failure or recovery.
@@ -611,6 +632,7 @@ export function createHaDirectMounter({
             diagnostic.mark("hls-fallback-readiness-wait-finished", {
               ready,
             });
+            stopHlsDiagnostic(fallbackEngine);
             return ready;
           })()
         : Promise.resolve(false);

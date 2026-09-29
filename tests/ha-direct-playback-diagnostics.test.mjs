@@ -5,6 +5,7 @@ import {
   createHaDirectPlaybackDiagnostic,
   HA_DIRECT_DIAGNOSTICS_STORAGE_KEY,
   isHaDirectDiagnosticsEnabled,
+  watchHaHlsStartupDiagnostic,
 } from "../src/integrations/home-assistant/playback-diagnostics.js";
 
 test("HA Direct diagnostics stay disabled unless explicitly enabled", () => {
@@ -109,4 +110,105 @@ test("HA Direct diagnostics assign attempt IDs without mutable module state", ()
     createHaDirectPlaybackDiagnostic({}, options).attemptId,
     1,
   );
+});
+
+test("HA HLS startup diagnostics record player, resource, and video milestones", () => {
+  const createEventTarget = () => {
+    const listeners = new Map();
+    return {
+      addEventListener(type, handler) {
+        const handlers = listeners.get(type) || new Set();
+        handlers.add(handler);
+        listeners.set(type, handlers);
+      },
+      removeEventListener(type, handler) {
+        listeners.get(type)?.delete(handler);
+      },
+      dispatch(type, detail) {
+        for (const handler of listeners.get(type) || []) {
+          handler({ type, detail });
+        }
+      },
+      listenerCount(type) {
+        return listeners.get(type)?.size || 0;
+      },
+    };
+  };
+  const player = createEventTarget();
+  const video = Object.assign(createEventTarget(), {
+    readyState: 0,
+    networkState: 2,
+    currentTime: 0,
+    videoWidth: 0,
+    videoHeight: 0,
+    paused: true,
+    error: null,
+  });
+  const marks = [];
+  let intervalCallback = null;
+  let clearedInterval = null;
+  let resources = [
+    {
+      name: "https://example.test/api/hls/old/master_playlist.m3u8",
+      startTime: 1,
+      duration: 900,
+      transferSize: 999,
+    },
+  ];
+  const cleanup = watchHaHlsStartupDiagnostic({
+    player,
+    diagnostic: {
+      enabled: true,
+      mark: (stage, detail) => marks.push({ stage, detail }),
+    },
+    resolveVideo: () => video,
+    performanceApi: { getEntriesByType: () => resources },
+    setIntervalFn: (callback) => {
+      intervalCallback = callback;
+      return 42;
+    },
+    clearIntervalFn: (id) => {
+      clearedInterval = id;
+    },
+  });
+
+  resources = [
+    ...resources,
+    {
+      name: "https://example.test/api/hls/token/master_playlist.m3u8",
+      startTime: 5,
+      duration: 18.24,
+      transferSize: 321,
+    },
+  ];
+  intervalCallback();
+  player.dispatch("streams", { hasAudio: true, hasVideo: true });
+  video.readyState = 2;
+  video.videoWidth = 1920;
+  video.videoHeight = 1080;
+  video.dispatch("loadeddata");
+  video.dispatch("loadeddata");
+  video.paused = false;
+  video.currentTime = 0.12;
+  video.dispatch("playing");
+  cleanup();
+
+  assert.deepEqual(
+    marks.map(({ stage }) => stage),
+    [
+      "hls-video-discovered",
+      "hls-resource-finished",
+      "hls-player-streams-event",
+      "hls-video-loadeddata",
+      "hls-video-playing",
+    ],
+  );
+  assert.deepEqual(marks[1].detail, {
+    resourceType: "master-playlist",
+    durationMs: 18.2,
+    transferSize: 321,
+  });
+  assert.equal(clearedInterval, 42);
+  assert.equal(player.listenerCount("streams"), 0);
+  assert.equal(video.listenerCount("playing"), 0);
 });
