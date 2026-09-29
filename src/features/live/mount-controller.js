@@ -296,6 +296,7 @@ export function createLiveMountController({
   isCameraRuntimeSuspended,
   applyCameraSuspendedState,
   takeEditorLiveHandoff,
+  createHaDirectPlaybackDiagnostic,
 }) {
   const applyLiveMountUiState = (quiet = false) => {
     const mountUi = resolveLiveMountUiState({ quiet });
@@ -586,9 +587,19 @@ export function createLiveMountController({
     }
 
     setEngineMountedMuted?.(getStreamMuted?.());
+    const playbackDiagnostic =
+      !useGo2Rtc && !hasTwoWayTalkOptions
+        ? createHaDirectPlaybackDiagnostic?.({
+            entity: targetEntity,
+            requestedStreamType: forcedType || preferredStreamType?.() || "",
+          })
+        : null;
+    playbackDiagnostic?.mark?.("live-mount-controller-entered");
     const { mountToken, clearMountState } = beginLiveMountSession(targetEntity);
     try {
+      playbackDiagnostic?.mark?.("previous-engine-cleanup-start");
       cleanupEngine?.();
+      playbackDiagnostic?.mark?.("previous-engine-cleanup-finished");
       slot.innerHTML = "";
       applyLiveMountUiState?.(quiet);
 
@@ -609,6 +620,7 @@ export function createLiveMountController({
           {
             entity: targetEntity,
             commit: true,
+            ...(playbackDiagnostic ? { playbackDiagnostic } : {}),
             ...(hasTwoWayTalkOptions ? twoWayTalkOptions : {}),
           },
         );

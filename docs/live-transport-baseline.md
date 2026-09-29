@@ -144,3 +144,30 @@ and must include physical checks for:
 - complete teardown without increasing connection or subscription counts;
 - HA Direct two-way-talk incoming and outgoing audio;
 - unchanged `frigate_go2rtc` startup, fallback, switching, and talk behavior.
+
+## Opt-In HA Direct Timing Diagnostics
+
+Chrome can retain HA Direct timing logs across reloads without changing the
+transport policy. Enable the recorder in the DevTools Console and reload:
+
+```js
+localStorage.setItem("frigate-view-card:ha-direct-diagnostics", "1");
+location.reload();
+```
+
+Each attempt is logged with a relative timestamp. After reproducing both a fast
+and a slow connection, copy the structured records from the Console:
+
+```js
+copy(window.__fvcHaDirectDiagnostics.export());
+```
+
+Disable the recorder when finished:
+
+```js
+localStorage.removeItem("frigate-view-card:ha-direct-diagnostics");
+location.reload();
+```
+
+The recorder logs lifecycle milestones and outcome metadata only. It does not
+record SDP, ICE candidates, signed URLs, credentials, or media data.

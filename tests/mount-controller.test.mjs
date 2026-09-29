@@ -309,6 +309,10 @@ test("grid mounts do not cancel the existing main live session", async () => {
 
 test("live mount controller delegates ha-direct mounts outside the card shell", async () => {
   const calls = [];
+  const diagnosticMarks = [];
+  const playbackDiagnostic = {
+    mark: (stage) => diagnosticMarks.push(stage),
+  };
   const slot = { innerHTML: "occupied" };
   let mountState = {
     mountSeq: 6,
@@ -373,6 +377,13 @@ test("live mount controller delegates ha-direct mounts outside the card shell", 
       calls.push(["scheduleResumeLive", reason]);
     },
     resolveUseGo2Rtc: () => false,
+    createHaDirectPlaybackDiagnostic: (options) => {
+      assert.deepEqual(options, {
+        entity: "camera.front",
+        requestedStreamType: "webrtc",
+      });
+      return playbackDiagnostic;
+    },
   });
 
   await controller.mount({ entity: "camera.front", quiet: true });
@@ -390,7 +401,11 @@ test("live mount controller delegates ha-direct mounts outside the card shell", 
     "haDirectTryMount",
     slot,
     { streamType: "webrtc" },
-    { entity: "camera.front", commit: true },
+    {
+      entity: "camera.front",
+      commit: true,
+      playbackDiagnostic,
+    },
   ]);
   assert.deepEqual(calls[6], ["setEngineMountedMuted", true]);
   assert.equal(calls[7][0], "applyMountTrackingState");
@@ -400,6 +415,11 @@ test("live mount controller delegates ha-direct mounts outside the card shell", 
   assert.equal(calls[7][1].mountTargetEntity, "");
   assert.equal(mountState.mountSeq, 7);
   assert.equal(mountState.mountInProgress, false);
+  assert.deepEqual(diagnosticMarks, [
+    "live-mount-controller-entered",
+    "previous-engine-cleanup-start",
+    "previous-engine-cleanup-finished",
+  ]);
 });
 
 test("live mount controller delegates go2rtc race mounts outside the card shell", async () => {

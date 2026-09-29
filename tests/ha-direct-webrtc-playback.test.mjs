@@ -98,6 +98,7 @@ const withMediaGlobals = async (run) => {
 test("HA direct WebRTC owns exactly one non-resubscribing signaling subscription", async () => {
   await withMediaGlobals(async () => {
     const subscriptionCalls = [];
+    const diagnosticMarks = [];
     let unsubscribeCalls = 0;
     const hass = {
       callWS: async (message) => {
@@ -120,6 +121,9 @@ test("HA direct WebRTC owns exactly one non-resubscribing signaling subscription
       hass,
       entity: "camera.front",
       muted: true,
+      diagnostic: {
+        mark: (stage, detail) => diagnosticMarks.push([stage, detail]),
+      },
     });
 
     assert.equal(await playback.start(), true);
@@ -143,6 +147,23 @@ test("HA direct WebRTC owns exactly one non-resubscribing signaling subscription
 
     assert.equal(unsubscribeCalls, 1);
     assert.equal(FakePeerConnection.instances[0].closed, true);
+    assert.equal(
+      diagnosticMarks.some(([stage]) =>
+        stage === "webrtc-client-config-request"),
+      true,
+    );
+    assert.equal(
+      diagnosticMarks.some(
+        ([stage, detail]) =>
+          stage === "webrtc-provider-event" &&
+          detail.eventType === "answer",
+      ),
+      true,
+    );
+    assert.equal(
+      diagnosticMarks.some(([stage]) => stage === "webrtc-destroy-finished"),
+      true,
+    );
   });
 });
 
