@@ -144,6 +144,74 @@ function withImmediateTimeout(run) {
     });
 }
 
+test("ha direct mounter selects native HLS without creating an HA player", async () => {
+  const nativeVideo = createFakeVideo("native-hls");
+  nativeVideo.hidden = false;
+  nativeVideo.classList.contains = () => false;
+  nativeVideo.removeCalled = false;
+  nativeVideo.remove = () => {
+    nativeVideo.removeCalled = true;
+  };
+  nativeVideo.destroyCalled = false;
+  nativeVideo.destroy = () => {
+    nativeVideo.destroyCalled = true;
+  };
+  const slot = {
+    innerHTML: "occupied",
+    appendChild(node) {
+      this.lastChild = node;
+      node.parentElement = this;
+    },
+  };
+  const hass = {
+    states: {
+      "camera.front": {
+        entity_id: "camera.front",
+        attributes: {},
+      },
+    },
+  };
+  let assignedEngine = null;
+  let nativeOptions = null;
+  const mounter = createHaDirectMounter({
+    getHass: () => hass,
+    getPreferredStreamType: () => "hls",
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => engine === assignedEngine,
+    waitForStreamStart: async () => true,
+    assignCommittedEngine: (engine) => {
+      assignedEngine = engine;
+    },
+    applyResolvedStreamUiState: () => {},
+    startLoadingFallbackRefresh: () => () => {},
+    stopLoadingFallbackRefresh: () => {},
+    setLiveNativeControls: () => {},
+    shouldUseNativeHls: () => true,
+    preparePlaybackElements: () => false,
+    createNativeHlsVideo: async (options) => {
+      nativeOptions = options;
+      return nativeVideo;
+    },
+  });
+
+  const result = await mounter.tryMount(
+    slot,
+    { streamType: "hls" },
+    { entity: "camera.front", commit: true },
+  );
+  assert.equal(await result.startupReady, true);
+  assert.equal(result.engine, nativeVideo);
+  assert.equal(assignedEngine, nativeVideo);
+  assert.equal(slot.lastChild, nativeVideo);
+  assert.equal(nativeOptions.hass, hass);
+  assert.equal(nativeOptions.entity, "camera.front");
+  assert.equal(nativeOptions.fitMode, "contain");
+
+  mounter.release(nativeVideo);
+  assert.equal(nativeVideo.destroyCalled, true);
+});
+
 test("ha direct mounter mounts and schedules follow-up without blocking", async () => {
   await withFakeDocument(async () => {
     await withImmediateTimeout(async () => {

@@ -1,5 +1,6 @@
 import {
   createHaHlsPlayerElement,
+  createHaNativeHlsVideoElement,
   ensureHaCameraPlaybackElements,
   findActiveHaCameraStreamVideo,
 } from "../../integrations/home-assistant/playback.js";
@@ -48,8 +49,10 @@ export function createHaDirectMounter({
   setLiveNativeControls,
   scheduleResumeLive,
   scopeKey,
+  shouldUseNativeHls = () => false,
   preparePlaybackElements = ensureHaCameraPlaybackElements,
   createPlaybackDiagnostic = createHaDirectPlaybackDiagnostic,
+  createNativeHlsVideo = createHaNativeHlsVideoElement,
 }) {
   const mediaBindings = new WeakMap();
   const hlsDiagnosticCleanups = new WeakMap();
@@ -93,6 +96,7 @@ export function createHaDirectMounter({
     binding.abortController.abort();
     binding.fallbackAbortController?.abort?.();
     stopHlsDiagnostic(binding.fallbackEngine);
+    binding.fallbackEngine?.destroy?.();
     binding.fallbackEngine?.remove?.();
     const takeoverEngine = binding.takeoverEngine || null;
     binding.fallbackAbortController = null;
@@ -376,10 +380,15 @@ export function createHaDirectMounter({
         entity,
         requestedStreamType: startup?.streamType || "",
       }) || { mark: () => {}, finish: () => {} };
-    diagnostic.mark("playback-elements-prepare-start");
-    const playbackPreparation = prepare();
-    if (playbackPreparation?.then) await playbackPreparation;
-    diagnostic.mark("playback-elements-prepare-finished");
+    const useNativeHls = shouldUseNativeHls?.() === true;
+    if (useNativeHls) {
+      diagnostic.mark("playback-elements-prepare-skipped-native-hls");
+    } else {
+      diagnostic.mark("playback-elements-prepare-start");
+      const playbackPreparation = prepare();
+      if (playbackPreparation?.then) await playbackPreparation;
+      diagnostic.mark("playback-elements-prepare-finished");
+    }
     const preferredStreamType = getPreferredStreamType();
     const haDirectPlan = buildHaDirectMountPlan({
       startup: startup || {},
@@ -412,9 +421,9 @@ export function createHaDirectMounter({
       slot.appendChild(node);
     };
 
-    const createHlsEngine = (styleText = "") => {
+    const createHlsEngine = async (styleText = "") => {
       diagnostic.mark("hls-element-create-start");
-      const engine = createHaHlsPlayerElement({
+      const hlsOptions = {
         hass,
         entity,
         controls: false,
@@ -422,14 +431,24 @@ export function createHaDirectMounter({
         defaultMuted: options.defaultMuted,
         fitMode: "contain",
         styleText: styleText || options.styleText || HA_DIRECT_VISIBLE_STYLE,
-      });
+      };
+      let engine = null;
+      try {
+        engine = useNativeHls
+          ? await createNativeHlsVideo(hlsOptions)
+          : createHaHlsPlayerElement(hlsOptions);
+      } catch (_) {
+        engine = null;
+      }
       if (!engine) {
         diagnostic.mark("hls-element-create-failed");
         return false;
       }
       engine.type = "ha_direct";
       engine.streamType = "hls";
-      diagnostic.mark("hls-element-created");
+      diagnostic.mark("hls-element-created", {
+        renderer: useNativeHls ? "native" : "home-assistant",
+      });
       if (commit) {
         hlsDiagnosticCleanups.set(
           engine,
@@ -443,8 +462,8 @@ export function createHaDirectMounter({
       return engine;
     };
 
-    const mountHls = () => {
-      const engine = createHlsEngine();
+    const mountHls = async () => {
+      const engine = await createHlsEngine();
       if (!engine) {
         diagnostic.finish("hls-element-unavailable");
         return false;
@@ -513,6 +532,11 @@ export function createHaDirectMounter({
       return { ok: true, type: "hls", engine, slot };
     };
 
+    const releaseHlsEngine = (hlsEngine) => {
+      hlsEngine?.destroy?.();
+      hlsEngine?.remove?.();
+    };
+
     const showReadyWebRtc = (ownerEngine, hlsEngine) => {
       ownerEngine.video.style.cssText =
         options.styleText || HA_DIRECT_VISIBLE_STYLE;
@@ -520,7 +544,7 @@ export function createHaDirectMounter({
       if (ownerEngine.video.parentElement !== slot) {
         slot.appendChild(ownerEngine.video);
       }
-      hlsEngine?.remove?.();
+      releaseHlsEngine(hlsEngine);
       onCommittedMediaReady?.(ownerEngine, ownerEngine.video);
       applyReady(ownerEngine, "webrtc");
     };
@@ -562,7 +586,7 @@ export function createHaDirectMounter({
     // HLS is the first-picture path. Keep it visibly layered over the pending
     // WebRTC attempt so WebKit/Catalyst will render it instead of throttling an
     // offscreen 1px player. WebRTC remains owned and may take over when ready.
-    const fallbackEngine = createHlsEngine(
+    const fallbackEngine = await createHlsEngine(
       HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE,
     );
     const fallbackAbortController = new AbortController();
@@ -700,7 +724,7 @@ export function createHaDirectMounter({
       applyFailed(engine);
       release(engine);
       fallbackAbortController.abort();
-      fallbackEngine?.remove?.();
+      releaseHlsEngine(fallbackEngine);
       diagnostic.finish("failed");
       return false;
     })();

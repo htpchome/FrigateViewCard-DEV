@@ -23,6 +23,18 @@ independent after HLS has committed. This removes the repeated initial player
 construction and teardown recorded by the `v1.1.8-dev.88` diagnostics without
 changing transport selection or retaining HLS players across camera switches.
 
+`v1.1.8-dev.90` was rejected by physical testing and reverted. Its HLS-first
+rewrite improved connection start time, but playback was choppy on iPhone and
+delayed and choppy on Mac Safari. Catalyst playback was comparatively smooth,
+with the expected HLS delay.
+
+`v1.1.8-dev.91` begins from the restored `v1.1.8-dev.89` pipeline. For HA
+Direct HLS on iOS, Mac Catalyst, and Safari, it requests the authenticated HLS
+URL through Home Assistant's `camera/stream` WebSocket command and assigns it
+directly to a native video element. This bypasses Home Assistant's hls.js
+selection on Apple clients without changing the HA Direct takeover, retention,
+two-way-talk, Frigate go2rtc, or non-Apple playback paths.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

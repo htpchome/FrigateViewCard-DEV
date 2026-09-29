@@ -34,6 +34,11 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   const shadowRoot = {
     appendChild: (node) => calls.push(["append-audio", node]),
   };
+  const deviceProfile = {
+    isMobile: true,
+    isIOS: false,
+    isCatalyst: false,
+  };
   const card = {
     shadowRoot,
     _hass: { language: "en" },
@@ -58,6 +63,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
       calls.push(["fallback", visible]),
     _scheduleResumeLive: (reason) => calls.push(["resume", reason]),
     _isFirefox: () => false,
+    _isSafari: () => false,
     _attachMainLiveVideoZoom: (...args) => calls.push(["zoom", ...args]),
     _applyResolvedStreamUiState: (state) => calls.push(["ui-state", state]),
     _setLiveNativeControls: (enabled) =>
@@ -67,7 +73,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   };
 
   const controllers = createLiveTransportControllers(card, {
-    deviceProfile: { isMobile: true },
+    deviceProfile,
     factories,
   });
 
@@ -96,6 +102,9 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     attachContainedVideoFit,
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
+  assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
+  deviceProfile.isIOS = true;
+  assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMobile, true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(7), true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(6), false);

@@ -144,8 +144,59 @@ export function createHaHlsPlayerElement({
   return player;
 }
 
+export function createHaNativeHlsVideoElement({
+  hass,
+  entity,
+  muted = false,
+  controls = false,
+  defaultMuted,
+  fitMode,
+  styleText = "",
+} = {}) {
+  const entityId = String(entity || "").trim();
+  if (!hass?.callWS || !entityId) return null;
+
+  const video = document.createElement("video");
+  let destroyed = false;
+  video.autoplay = true;
+  video.playsInline = true;
+  video.controls = controls;
+  video.muted = muted;
+  video.preload = "auto";
+  if (defaultMuted !== undefined) video.defaultMuted = defaultMuted;
+  if (styleText) video.style.cssText = styleText;
+  if (fitMode !== undefined) video.style.objectFit = fitMode;
+  video.hlsUrlReady = Promise.resolve(
+    hass.callWS({
+      type: "camera/stream",
+      entity_id: entityId,
+    }),
+  )
+    .then((response) => {
+      const path = String(response?.url || "").trim();
+      if (destroyed || !path) return false;
+      video.src = hass.hassUrl?.(path) || path;
+      return true;
+    })
+    .catch(() => false);
+  video.destroy = () => {
+    destroyed = true;
+    try {
+      video.pause?.();
+      video.removeAttribute?.("src");
+      video.load?.();
+    } catch (_) {}
+  };
+  return video;
+}
+
 export function findActiveHaCameraStreamPlayer(stream) {
   const tagName = stream?.tagName?.toLowerCase?.();
+  if (tagName === "video") {
+    return !stream?.hidden && !stream?.classList?.contains?.("hidden")
+      ? stream
+      : null;
+  }
   if (tagName === "ha-web-rtc-player" || tagName === "ha-hls-player") {
     return !stream?.hidden && !stream?.classList?.contains?.("hidden")
       ? stream
@@ -167,6 +218,7 @@ export function findActiveHaCameraStreamPlayer(stream) {
 export function findActiveHaCameraStreamVideo(stream) {
   const player = findActiveHaCameraStreamPlayer(stream);
   if (!player) return null;
+  if (player.tagName?.toLowerCase?.() === "video") return player;
   return (
     player.shadowRoot?.querySelector?.("video") ||
     player.querySelector?.("video") ||

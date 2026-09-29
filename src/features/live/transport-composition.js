@@ -119,6 +119,10 @@ export const createLiveTransportControllers = (
       card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
+    shouldUseNativeHls: () =>
+      deviceProfile.isIOS === true ||
+      deviceProfile.isCatalyst === true ||
+      card._isSafari(),
     scopeKey: card,
   });
   const haDirectTwoWayTalkMounter =

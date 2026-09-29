@@ -2,10 +2,116 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createHaNativeHlsVideoElement,
   ensureHaCameraPlaybackElements,
+  findActiveHaCameraStreamVideo,
   resolveHaDirectCameraStreamType,
   watchHaPlaybackFirstFrame,
 } from "../src/integrations/home-assistant/playback.js";
+
+test("HA native HLS video uses the authenticated camera stream URL", async () => {
+  const previousDocument = globalThis.document;
+  const calls = [];
+  const video = {
+    tagName: "VIDEO",
+    hidden: false,
+    classList: { contains: () => false },
+    style: { cssText: "", objectFit: "" },
+    paused: false,
+    removedSource: false,
+    loaded: false,
+    pause() {
+      this.paused = true;
+    },
+    removeAttribute(name) {
+      if (name === "src") this.removedSource = true;
+    },
+    load() {
+      this.loaded = true;
+    },
+  };
+  globalThis.document = {
+    createElement: (tagName) => {
+      assert.equal(tagName, "video");
+      return video;
+    },
+  };
+
+  try {
+    const result = createHaNativeHlsVideoElement({
+      hass: {
+        callWS: async (message) => {
+          calls.push(message);
+          return { url: "/api/hls/test/master_playlist.m3u8" };
+        },
+        hassUrl: (path) => `https://ha.example${path}`,
+      },
+      entity: "camera.front",
+      muted: true,
+      defaultMuted: true,
+      fitMode: "contain",
+      styleText: "width:100%",
+    });
+    assert.equal(await result.hlsUrlReady, true);
+
+    assert.equal(result, video);
+    assert.deepEqual(calls, [
+      { type: "camera/stream", entity_id: "camera.front" },
+    ]);
+    assert.equal(video.src, "https://ha.example/api/hls/test/master_playlist.m3u8");
+    assert.equal(video.autoplay, true);
+    assert.equal(video.playsInline, true);
+    assert.equal(video.muted, true);
+    assert.equal(video.defaultMuted, true);
+    assert.equal(video.preload, "auto");
+    assert.equal(video.style.objectFit, "contain");
+    assert.equal(findActiveHaCameraStreamVideo(video), video);
+
+    video.destroy();
+    assert.equal(video.paused, true);
+    assert.equal(video.removedSource, true);
+    assert.equal(video.loaded, true);
+  } finally {
+    globalThis.document = previousDocument;
+  }
+});
+
+test("HA native HLS video ignores a stream URL after release", async () => {
+  const previousDocument = globalThis.document;
+  let resolveStream;
+  const streamResponse = new Promise((resolve) => {
+    resolveStream = resolve;
+  });
+  const video = {
+    tagName: "VIDEO",
+    classList: { contains: () => false },
+    style: {},
+    pause() {},
+    removeAttribute() {},
+    load() {},
+  };
+  globalThis.document = {
+    createElement: () => video,
+  };
+
+  try {
+    const result = createHaNativeHlsVideoElement({
+      hass: {
+        callWS: () => streamResponse,
+        hassUrl: (path) => `https://ha.example${path}`,
+      },
+      entity: "camera.front",
+    });
+
+    result.destroy();
+    resolveStream({ url: "/api/hls/test/master_playlist.m3u8" });
+
+    assert.equal(await result.hlsUrlReady, false);
+    assert.equal(result.src, undefined);
+  } finally {
+    globalThis.document = previousDocument;
+  }
+});
 
 test("HA camera playback preparation side-loads the camera stack once", async () => {
   const definitions = new Map();
