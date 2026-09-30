@@ -51,6 +51,22 @@ export class GridMediaController {
     return this._shouldUseLive(entity);
   }
 
+  _retainedMainLiveEntity() {
+    return String(
+      this._host._gridPageController?.retainedMainLiveEntity?.() || "",
+    ).trim();
+  }
+
+  _shouldUseRetainedMainLive(entity, useLive) {
+    const targetEntity = String(entity || "").trim();
+    return (
+      useLive === true &&
+      Boolean(targetEntity) &&
+      targetEntity === this._retainedMainLiveEntity() &&
+      this._host._shouldUseGo2RtcForEntity?.(targetEntity) !== true
+    );
+  }
+
   _resolveGridCellLiveStreamHint(entity) {
     if (this._host._shouldUseGo2RtcForEntity(entity)) return "webrtc";
     return this._cameraCellMediaController.resolveHaDirectLiveStreamHint(
@@ -68,6 +84,50 @@ export class GridMediaController {
     slot.setAttribute?.("aria-hidden", active ? "false" : "true");
     const liveSlot = this._host.shadowRoot?.querySelector?.("#engine");
     liveSlot?.setAttribute?.("aria-hidden", active ? "true" : "false");
+    if (!active) this._clearRetainedMainLivePresentation();
+  }
+
+  _clearRetainedMainLivePresentation({ hideLiveSlot = false } = {}) {
+    const primaryPane = this._host.shadowRoot?.querySelector?.(
+      ".camera-group-live-pane--primary",
+    );
+    primaryPane?.classList?.remove?.(
+      "grid-retained-main-live",
+      "grid-alert",
+      "grid-detection",
+    );
+    if (primaryPane?.dataset) {
+      delete primaryPane.dataset.gridRetainedPosition;
+      delete primaryPane.dataset.gridRetainedLabel;
+    }
+    this._host.shadowRoot
+      ?.querySelector?.("#engine")
+      ?.setAttribute?.("aria-hidden", hideLiveSlot ? "true" : "false");
+  }
+
+  _syncRetainedMainLivePresentation(entry) {
+    this._clearRetainedMainLivePresentation({ hideLiveSlot: true });
+    const retained = entry?.retainedMainLive;
+    if (
+      !retained ||
+      retained.entity !== this._retainedMainLiveEntity()
+    ) {
+      return;
+    }
+    const primaryPane = this._host.shadowRoot?.querySelector?.(
+      ".camera-group-live-pane--primary",
+    );
+    if (!primaryPane) return;
+    primaryPane.classList?.add?.("grid-retained-main-live");
+    primaryPane.dataset.gridRetainedPosition = String(retained.position);
+    primaryPane.dataset.gridRetainedLabel = String(retained.label || "");
+    applyGridCellSeverityClass(
+      primaryPane,
+      this._host._gridCellSeverity(retained.entity),
+    );
+    this._host.shadowRoot
+      ?.querySelector?.("#engine")
+      ?.setAttribute?.("aria-hidden", "false");
   }
 
   _gridSessionSignature(cameras = []) {
@@ -82,7 +142,7 @@ export class GridMediaController {
         return [entity, source, this._buildLabelText(camera)].join(":");
       })
       .join("|");
-    return `${this._host._gridLiveViewEnabled() ? "live" : "snapshot"}|${cameraSignature}`;
+    return `${this._host._gridLiveViewEnabled() ? "live" : "snapshot"}|retained:${this._retainedMainLiveEntity()}|${cameraSignature}`;
   }
 
   _setGridPageActive(entry, active) {
@@ -162,6 +222,7 @@ export class GridMediaController {
       this._setGridPageActive(entry, key === pageKey);
     }
     session.activePageKey = pageKey;
+    this._syncRetainedMainLivePresentation(session.pages.get(pageKey));
   }
 
   _refreshGridPageSeverity(entry) {
@@ -217,6 +278,10 @@ export class GridMediaController {
       const entity = camera?.entity || "";
       const severity = idx >= 0 ? this._host._gridCellSeverity(entity) : "";
       const useLive = idx >= 0 && this._shouldUseLive(entity);
+      const useRetainedMainLive = this._shouldUseRetainedMainLive(
+        entity,
+        useLive,
+      );
       const liveStreamHint =
         idx >= 0 ? this._resolveGridCellLiveStreamHint(entity) : "webrtc";
       signatureParts.push(
@@ -229,13 +294,13 @@ export class GridMediaController {
         }),
       );
       mediaSignatureParts.push(
-        buildGridSignaturePart({
+        `${buildGridSignaturePart({
           index: idx,
           entity,
           severity: "",
           useLive,
           liveStreamHint,
-        }),
+        })}:${useRetainedMainLive ? "retained-main" : "mounted"}`,
       );
     }
 
@@ -266,6 +331,7 @@ export class GridMediaController {
       grid,
       gridState,
       liveHandoffs: new Map(),
+      retainedMainLive: null,
       signature: nextSignature,
       mediaSignature: nextMediaSignature,
       destroyed: false,
@@ -273,7 +339,7 @@ export class GridMediaController {
     this._setGridPageActive(pageEntry, false);
     session.pages.set(pageKey, pageEntry);
     slot.appendChild(grid);
-    for (const idx of indices) {
+    for (const [position, idx] of indices.entries()) {
       const cell = createGridCellElement();
       grid.appendChild(cell);
       if (idx >= 0) {
@@ -298,8 +364,12 @@ export class GridMediaController {
         const severity = this._host._gridCellSeverity(entity);
         applyGridCellSeverityClass(cell, severity);
         const useLive = this._shouldUseLive(entity);
+        const useRetainedMainLive = this._shouldUseRetainedMainLive(
+          entity,
+          useLive,
+        );
         cell.dataset.gridUseLive = useLive ? "1" : "0";
-        if (entity) {
+        if (entity && !useRetainedMainLive) {
           this._mountGridCameraCellMedia(cell, {
             entity,
             stateObj,
@@ -316,15 +386,23 @@ export class GridMediaController {
               }
             },
           });
-        } else {
+        } else if (!entity) {
           cell.classList.add("empty");
         }
         cell.dataset.gridCamidx = String(
           camera?.logical_camera_index ?? idx,
         );
         cell.dataset.gridEntity = entity;
-        const label = createGridLabelElement(this._buildLabelText(camera));
+        const labelText = this._buildLabelText(camera);
+        const label = createGridLabelElement(labelText);
         cell.appendChild(label);
+        if (useRetainedMainLive) {
+          pageEntry.retainedMainLive = {
+            entity,
+            position,
+            label: labelText,
+          };
+        }
       } else {
         cell.classList.add("empty");
       }

@@ -502,10 +502,22 @@ test("Grid live preference reaches the go2rtc cell mount", () => {
   assert.equal(mountedOptions?.preferWebRtc, true);
 });
 
-test("entering live Grid releases the duplicate main-camera connection", () => {
+test("entering live Grid releases only duplicate go2rtc main-camera connections", () => {
   assert.match(
     cardSource,
     /prepareLiveForGrid\(\)[\s\S]*?gridPreparation\?\.releaseMainLive === true[\s\S]*?_cancelPendingMount\("grid-mode-entry"\)[\s\S]*?_clearLiveEngineSlot\(\)/,
+  );
+  assert.match(
+    gridPageControllerSource,
+    /retainMainLiveInGrid[\s\S]*?_shouldUseGo2RtcForEntity\?\.\(activeEntity\) !== true/,
+  );
+  assert.match(
+    gridRuntimeMediaControllerSource,
+    /_shouldUseRetainedMainLive[\s\S]*?entity && !useRetainedMainLive[\s\S]*?_mountGridCameraCellMedia/,
+  );
+  assert.match(
+    stylesSource,
+    /\.camera-group-live-pane--primary\.grid-retained-main-live/,
   );
 });
 

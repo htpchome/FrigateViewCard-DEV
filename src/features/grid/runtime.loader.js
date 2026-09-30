@@ -204,6 +204,10 @@ export class LazyGridPageController {
     return this._delegate()?.prepareLiveForGrid?.() || null;
   }
 
+  retainedMainLiveEntity() {
+    return this._delegate()?.retainedMainLiveEntity?.() || "";
+  }
+
   restoreLiveAfterGrid() {
     return this._delegate()?.restoreLiveAfterGrid?.() === true;
   }

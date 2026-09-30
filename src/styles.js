@@ -676,6 +676,13 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .live-grid-cell > .preview-live-placeholder{z-index:1;}
   .live-grid-cell > .preview-live-layer{z-index:2;opacity:0;transition:opacity .16s ease;}
   .live-grid-cell > .preview-live-layer.is-ready{opacity:1;}
+  #eng-wrap .camera-group-live-pane--primary.grid-retained-main-live{position:absolute!important;inset:auto!important;z-index:7!important;overflow:hidden;border-radius:calc(var(--fvc-border-radius, 0px) / 2);background:var(--c-bg-deep);pointer-events:none;}
+  #eng-wrap .camera-group-live-pane--primary.grid-retained-main-live[data-grid-retained-position="0"]{left:7px!important;top:7px!important;width:calc((100% - 18px) / 2 - 2px)!important;height:calc((100% - 18px) / 2 - 2px)!important;}
+  #eng-wrap .camera-group-live-pane--primary.grid-retained-main-live[data-grid-retained-position="1"]{left:calc((100% + 6px) / 2 + 1px)!important;top:7px!important;width:calc((100% - 18px) / 2 - 2px)!important;height:calc((100% - 18px) / 2 - 2px)!important;}
+  #eng-wrap .camera-group-live-pane--primary.grid-retained-main-live[data-grid-retained-position="2"]{left:7px!important;top:calc((100% + 6px) / 2 + 1px)!important;width:calc((100% - 18px) / 2 - 2px)!important;height:calc((100% - 18px) / 2 - 2px)!important;}
+  #eng-wrap .camera-group-live-pane--primary.grid-retained-main-live[data-grid-retained-position="3"]{left:calc((100% + 6px) / 2 + 1px)!important;top:calc((100% + 6px) / 2 + 1px)!important;width:calc((100% - 18px) / 2 - 2px)!important;height:calc((100% - 18px) / 2 - 2px)!important;}
+  #eng-wrap .camera-group-live-pane--primary.grid-retained-main-live::after{content:attr(data-grid-retained-label);position:absolute;left:5px;top:5px;z-index:10;padding:2px 6px;border-radius:999px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:var(--c-text-rev);font-size:.68rem;line-height:1.2;pointer-events:none;text-transform:none;}
+  #eng-wrap .camera-group-live-pane--primary.grid-retained-main-live .camera-group-pane-controls{display:none!important;}
   .media-linked-controls-overlay :is(.info-row-mic-btn.round-btn,.two-way-talk-microphone-mute-btn.icon-btn,.two-way-talk-inline-mute-btn.icon-btn,.linked-light-button.icon-btn){
     color:var(--fvc-media-overlay-text);background-color:var(--fvc-media-overlay-bg);background-image:none;
     border:1px solid var(--fvc-media-overlay-border);box-shadow:var(--fvc-media-overlay-shadow);

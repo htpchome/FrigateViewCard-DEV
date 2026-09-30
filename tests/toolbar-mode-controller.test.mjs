@@ -144,7 +144,7 @@ test("non-cold Grid keeps its retained main live engine instead of taking a cell
   assert.equal(handoffCalls, 0);
 });
 
-test("Grid releases a retained main connection when it will mount the same camera live", () => {
+test("Grid keeps the go2rtc cell handoff when it will mount the same camera live", () => {
   const handoffResult = {
     ok: true,
     type: "webrtc",
@@ -161,6 +161,7 @@ test("Grid releases a retained main connection when it will mount the same camer
     _lastLiveStreamHint: "webrtc",
     _engine: { id: "single-back-engine" },
     _mountInProgress: false,
+    _shouldUseGo2RtcForEntity: () => true,
     _config: {
       cameras: [
         { entity: "camera.front" },
@@ -199,6 +200,48 @@ test("Grid releases a retained main connection when it will mount the same camer
     ["takeGridLiveHandoff", "camera.back"],
     ["setStreamType", "webrtc"],
   ]);
+});
+
+test("Grid retains the current HA-direct connection for its matching live cell", () => {
+  let handoffCalls = 0;
+  const restoredTypes = [];
+  const host = {
+    _viewMode: "single",
+    _activeCam: { entity: "camera.front" },
+    _activeStreamType: "webrtc",
+    _lastLiveStreamHint: "webrtc",
+    _engine: { id: "single-front-engine" },
+    _mountInProgress: false,
+    _config: {
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+    },
+    _shouldUseGo2RtcForEntity: () => false,
+    _gridMediaController: {
+      shouldUseLive: () => true,
+      takeGridLiveHandoff: () => {
+        handoffCalls += 1;
+        return null;
+      },
+    },
+    _setActiveStreamType: (type) => restoredTypes.push(type),
+  };
+  const controller = new GridPageController(host);
+
+  assert.deepEqual(controller.prepareLiveForGrid(), {
+    releaseMainLive: false,
+    returnEntity: "",
+  });
+  assert.equal(controller.retainedMainLiveEntity(), "camera.front");
+  host._viewMode = "grid";
+  assert.equal(controller.takeColdStartLiveHandoff(), null);
+  host._viewMode = "single";
+  assert.equal(controller.restoreLiveAfterGrid(), true);
+  assert.equal(controller.retainedMainLiveEntity(), "");
+  assert.equal(handoffCalls, 0);
+  assert.deepEqual(restoredTypes, ["webrtc"]);
 });
 
 test("Grid retains the main connection when the active camera is snapshot-only", () => {
@@ -254,6 +297,127 @@ test("Grid media hands off a mounted camera engine only once", () => {
   assert.equal(controller.takeGridLiveHandoff("camera.front"), result);
   assert.equal(controller.takeGridLiveHandoff("camera.front"), null);
   assert.equal(takeCalls, 1);
+});
+
+test("Grid presents the retained HA-direct player without mounting a duplicate", () => {
+  const previousDocument = globalThis.document;
+  const createElement = () => {
+    const classes = new Set();
+    const attributes = new Map();
+    const element = {
+      style: {},
+      dataset: {},
+      children: [],
+      parentNode: null,
+      isConnected: true,
+      innerHTML: "",
+      hidden: false,
+      classList: {
+        add: (...tokens) => tokens.forEach((token) => classes.add(token)),
+        remove: (...tokens) => tokens.forEach((token) => classes.delete(token)),
+        contains: (token) => classes.has(token),
+      },
+      appendChild(child) {
+        child.parentNode = this;
+        this.children.push(child);
+        return child;
+      },
+      setAttribute(name, value) {
+        attributes.set(name, String(value));
+      },
+      getAttribute(name) {
+        return attributes.get(name) ?? null;
+      },
+      querySelectorAll: () => [],
+      remove() {
+        this.isConnected = false;
+      },
+    };
+    Object.defineProperty(element, "className", {
+      set: (value) => {
+        classes.clear();
+        String(value || "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .forEach((token) => classes.add(token));
+      },
+    });
+    return element;
+  };
+  globalThis.document = { createElement };
+
+  try {
+    const primaryPane = createElement();
+    const engineSlot = createElement();
+    const gridSlot = createElement();
+    const host = {
+      _config: {
+        cameras: [
+          { entity: "camera.front", name: "Front" },
+          { entity: "camera.back", name: "Back" },
+        ],
+      },
+      _hass: {
+        states: {
+          "camera.front": { attributes: {} },
+          "camera.back": { attributes: {} },
+        },
+      },
+      _gridRotationStart: 0,
+      _gridEngine: null,
+      _gridLastRenderSignature: "",
+      _gridLiveViewEnabled: () => true,
+      _isGridCameraAlertLive: () => false,
+      _gridCellSeverity: () => "",
+      _gridPageController: {
+        retainedMainLiveEntity: () => "camera.front",
+      },
+      _shouldUseGo2RtcForEntity: () => false,
+      _activeCam: { entity: "camera.front" },
+      _activeStreamType: "webrtc",
+      _preferredStreamType: () => "webrtc",
+      _setActiveStreamType() {},
+      _syncSnapshotRefreshTimer() {},
+      shadowRoot: {
+        querySelector: (selector) => {
+          if (selector === ".camera-group-live-pane--primary") {
+            return primaryPane;
+          }
+          if (selector === "#engine") return engineSlot;
+          return null;
+        },
+      },
+    };
+    const controller = new GridMediaController(host, {
+      buildLabelText: (camera) => camera.name,
+    });
+    const mountedEntities = [];
+    controller._mountGridCameraCellMedia = (_cell, { entity }) => {
+      mountedEntities.push(entity);
+      return true;
+    };
+
+    controller.mountGridEngine(gridSlot);
+
+    assert.deepEqual(mountedEntities, ["camera.back"]);
+    assert.equal(
+      primaryPane.classList.contains("grid-retained-main-live"),
+      true,
+    );
+    assert.equal(primaryPane.dataset.gridRetainedPosition, "0");
+    assert.equal(primaryPane.dataset.gridRetainedLabel, "Front");
+    assert.equal(engineSlot.getAttribute("aria-hidden"), "false");
+
+    controller.teardownGridEngine({ slot: gridSlot });
+
+    assert.equal(
+      primaryPane.classList.contains("grid-retained-main-live"),
+      false,
+    );
+    assert.equal(engineSlot.getAttribute("aria-hidden"), "false");
+  } finally {
+    globalThis.document = previousDocument;
+  }
 });
 
 test("Grid media activates the selected page directly through its Grid slot", () => {
