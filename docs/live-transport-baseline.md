@@ -35,14 +35,14 @@ directly to a native video element. This bypasses Home Assistant's hls.js
 selection on Apple clients without changing the HA Direct takeover, retention,
 two-way-talk, Frigate go2rtc, or non-Apple playback paths.
 
-`v1.1.8-dev.108` is a candidate deterministic startup change. HA Direct gives
-HLS an exclusive 2.5-second startup window instead of issuing an HLS request
-and a WebRTC offer together. A rendered HLS stream starts the optional WebRTC
-upgrade; an HLS timeout or explicit stream failure also starts WebRTC while HLS
-recovery remains active. Mac Catalyst remains a native-HLS-only pipeline and
-does not create or signal a WebRTC attempt. Every HA Direct HLS startup leaves
-the loading state no more than 2.5 seconds after its player is mounted, while
-later HLS recovery remains armed.
+`v1.1.8-dev.109` corrects the candidate deterministic startup introduced in
+`v1.1.8-dev.108`. HA Direct starts HLS without issuing a WebRTC offer. A
+rendered HLS stream starts the optional WebRTC upgrade. An HLS readiness timeout
+can start WebRTC, but it does not classify the still-running HLS player as a
+Snapshot connection. HLS recovery remains active, and Snapshot is published
+only for an explicit HLS failure or after both startup transports fail. Mac
+Catalyst remains a native-HLS-only pipeline and does not create or signal a
+WebRTC attempt.
 
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
@@ -77,8 +77,8 @@ Preserve all of these behaviors together:
 
 1. Start HLS alone for a WebRTC-capable HA Direct camera.
 2. Commit ready HLS immediately, then begin the optional WebRTC upgrade.
-3. If HLS has not rendered within 2.5 seconds or reports a stream failure,
-   begin WebRTC without cancelling HLS recovery.
+3. If HLS reaches its readiness timeout, begin WebRTC without publishing a
+   Snapshot state or cancelling HLS recovery.
 4. Never attempt WebRTC in the Mac Catalyst HA Direct pipeline.
 5. Keep the pending WebRTC attempt explicitly owned by HLS.
 6. Replace HLS only after WebRTC has rendered usable media.

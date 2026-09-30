@@ -26,7 +26,6 @@ const HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE =
   "position:relative;z-index:1;width:100%;height:100%;display:block;background:var(--c-bg-deep)";
 const HA_DIRECT_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
-const HA_DIRECT_HLS_START_WAIT_MS = 2500;
 const HA_DIRECT_TIME_RECOVERY_MIN_ADVANCES = 2;
 const HA_DIRECT_TIME_RECOVERY_MIN_PROGRESS_SECONDS = 0.05;
 
@@ -50,6 +49,7 @@ export function createHaDirectMounter({
   shouldAttemptWebRtc = () => true,
   preparePlaybackElements = ensureHaCameraPlaybackElements,
   createNativeHlsVideo = createHaNativeHlsVideoElement,
+  createWebRtcPlayback = createHaDirectWebRtcPlayback,
 }) {
   const mediaBindings = new WeakMap();
   let releaseBarrier = Promise.resolve();
@@ -127,6 +127,7 @@ export function createHaDirectMounter({
       disposed: false,
       revision: 0,
       failed: false,
+      fallbackPublished: false,
       failureRevision: 0,
       recoveryVideo: null,
       cleanupRecovery: () => {},
@@ -184,6 +185,7 @@ export function createHaDirectMounter({
           return;
         }
         binding.failed = false;
+        binding.fallbackPublished = false;
         binding.cleanupRecovery();
         applyReady(engine, "hls");
       };
@@ -263,13 +265,16 @@ export function createHaDirectMounter({
       video.addEventListener?.("timeupdate", onTimeUpdate);
       armFrameRecovery();
     };
-    binding.fail = () => {
+    binding.fail = ({ publishFallback = true } = {}) => {
       if (binding.disposed || !isCurrentEngine(engine)) return;
       if (!binding.failed) {
         binding.failed = true;
         binding.failureRevision += 1;
-        applyFailed(engine);
         binding.onFailure?.();
+      }
+      if (publishFallback && !binding.fallbackPublished) {
+        binding.fallbackPublished = true;
+        applyFailed(engine);
       }
       binding.reconcile();
     };
@@ -433,7 +438,12 @@ export function createHaDirectMounter({
         return false;
       }
       hlsBinding.takeoverStarted = true;
-      const playback = createHaDirectWebRtcPlayback({
+      const publishFallbackIfHlsStillUnready = () => {
+        if (hlsBinding.failed && !hlsBinding.fallbackPublished) {
+          hlsBinding.fail({ publishFallback: true });
+        }
+      };
+      const playback = createWebRtcPlayback({
         hass,
         entity,
         muted: options?.muted ?? getStreamMuted(),
@@ -443,7 +453,10 @@ export function createHaDirectMounter({
           if (isCurrentEngine(playback?.engine)) scheduleResumeLive?.(reason);
         },
       });
-      if (!playback) return false;
+      if (!playback) {
+        publishFallbackIfHlsStillUnready();
+        return false;
+      }
 
       const { engine } = playback;
       engine.video.style.cssText = HA_DIRECT_PENDING_WEBRTC_STYLE;
@@ -465,6 +478,8 @@ export function createHaDirectMounter({
         hlsBinding.takeoverEngine !== engine ||
         !isCurrentEngine(hlsEngine)
       ) {
+        discard();
+        publishFallbackIfHlsStillUnready();
         return false;
       }
       const signalingStarted = await playback.start();
@@ -502,6 +517,7 @@ export function createHaDirectMounter({
         !isCurrentEngine(hlsEngine)
       ) {
         discard();
+        publishFallbackIfHlsStillUnready();
         return false;
       }
 
@@ -537,11 +553,7 @@ export function createHaDirectMounter({
       if (getRotateOverlayActive()) setLiveNativeControls(true);
       const startupReady = (async () => {
         const failureRevision = binding.failureRevision;
-        const waitMs = Math.min(
-          haDirectPlan.waitMs,
-          HA_DIRECT_HLS_START_WAIT_MS,
-        );
-        const ready = await waitForStreamStart(engine, waitMs, {
+        const ready = await waitForStreamStart(engine, haDirectPlan.waitMs, {
           ...haDirectPlan.waitOptions,
           abortSignal: binding.abortController.signal,
           resolveVideo: () => findActiveHaCameraStreamVideo(engine),
@@ -551,7 +563,7 @@ export function createHaDirectMounter({
         // The older startup result must not undo its newer failure or recovery.
         if (failureRevision !== binding.failureRevision) return false;
         if (!ready) {
-          binding.fail();
+          binding.fail({ publishFallback: !allowWebRtcTakeover });
           return false;
         }
         applyReady(engine, "hls");

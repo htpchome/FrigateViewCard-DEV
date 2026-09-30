@@ -212,7 +212,7 @@ test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled"
   assert.equal(nativeOptions.hass, hass);
   assert.equal(nativeOptions.entity, "camera.front");
   assert.equal(nativeOptions.fitMode, "contain");
-  assert.equal(nativeWaitMs, 2500);
+  assert.equal(nativeWaitMs, 8000);
 
   mounter.release(nativeVideo);
   assert.equal(nativeVideo.destroyCalled, true);
@@ -608,7 +608,7 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
     assert.equal(
       readinessWaitMs.find(({ target }) => target === "HA-HLS-PLAYER")
         ?.waitMs,
-      2500,
+      8000,
     );
     assert.equal(
       readinessWaitMs.find(({ target }) => target === "webrtc")?.waitMs,
@@ -627,6 +627,92 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
     globalThis.MediaStream = previousMediaStream;
     globalThis.RTCPeerConnection = previousPeerConnection;
   }
+});
+
+test("HA Direct HLS timeout does not publish Snapshot while WebRTC is pending", async () => {
+  await withFakeDocument(async () => {
+    let assignedEngine = null;
+    let resolveWebRtcReady;
+    let webRtcStarts = 0;
+    let webRtcDestroyCalls = 0;
+    const committedTypes = [];
+    const webRtcVideo = {
+      style: { cssText: "" },
+      removeCalled: false,
+      remove() {
+        this.removeCalled = true;
+      },
+    };
+    const webRtcEngine = {
+      type: "ha_direct",
+      streamType: "webrtc",
+      video: webRtcVideo,
+      failure: new Promise(() => {}),
+      destroy() {
+        webRtcDestroyCalls += 1;
+      },
+    };
+    const slot = {
+      innerHTML: "",
+      appendChild(node) {
+        this.lastChild = node;
+        node.parentElement = this;
+      },
+    };
+    const mounter = createHaDirectMounter({
+      getHass: () => ({
+        states: { "camera.front": { entity_id: "camera.front", attributes: {} } },
+      }),
+      getPreferredStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: (engine) => assignedEngine === engine,
+      waitForStreamStart: async (engine) => {
+        if (engine?.tagName === "HA-HLS-PLAYER") return false;
+        return await new Promise((resolve) => {
+          resolveWebRtcReady = resolve;
+        });
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      onCommittedMediaReady: () => {},
+      onCommittedStream: (type) => committedTypes.push(type),
+      applyResolvedStreamUiState: () => {},
+      startLoadingFallbackRefresh: () => () => {},
+      stopLoadingFallbackRefresh: () => {},
+      setLiveNativeControls: () => {},
+      scheduleResumeLive: () => {},
+      createWebRtcPlayback: () => ({
+        engine: webRtcEngine,
+        start: async () => {
+          webRtcStarts += 1;
+          return true;
+        },
+      }),
+    });
+
+    const result = await mounter.tryMount(slot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    assert.equal(await result.startupReady, false);
+    await flushAsyncWork();
+
+    assert.equal(webRtcStarts, 1);
+    assert.equal(assignedEngine, result.engine);
+    assert.deepEqual(committedTypes, []);
+
+    resolveWebRtcReady(false);
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    assert.deepEqual(committedTypes, ["snapshot"]);
+    assert.equal(assignedEngine, result.engine);
+    assert.equal(webRtcVideo.removeCalled, true);
+    assert.equal(webRtcDestroyCalls, 1);
+    mounter.release(result.engine);
+  });
 });
 
 test("ha direct mounter starts WebRTC only after HLS is ready", async () => {
