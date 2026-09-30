@@ -264,6 +264,7 @@ export class WideViewPageController {
   }
 
   syncColHeight() {
+    this.syncToolbarPanelPlacement();
     const l = this._host.shadowRoot?.querySelector(".col-left");
     const r = this._host.shadowRoot?.querySelector(".col-right");
     if (!l || !r) return;
@@ -308,6 +309,59 @@ export class WideViewPageController {
     if (this._syncColHeightFrame !== null) {
       this._syncColHeightFrame = frameId;
     }
+  }
+
+  scheduleToolbarPanelPlacement() {
+    if (!this.isWideViewPageActive()) return false;
+    this._requestFrame(() => this.syncToolbarPanelPlacement());
+    return true;
+  }
+
+  syncToolbarPanelPlacement() {
+    const panels = [
+      this._host._pageShellRegion?.("filterPanel"),
+      this._host._pageShellRegion?.("calendarPanel"),
+    ].filter(Boolean);
+    for (const panel of panels) {
+      panel.classList.remove("wide-toolbar-panel--above");
+      panel.style.removeProperty("--wide-toolbar-panel-space");
+    }
+    if (!this.isWideViewPageActive()) return false;
+
+    const layout = this._host._$?.("#layout");
+    const layoutRect = layout?.getBoundingClientRect?.();
+    if (!layoutRect) return false;
+
+    const viewportHeight = Number(
+      layout.ownerDocument?.defaultView?.innerHeight ??
+        this._windowTarget?.innerHeight,
+    );
+    const visibleTop = Math.max(0, layoutRect.top);
+    const visibleBottom = Math.min(
+      layoutRect.bottom,
+      Number.isFinite(viewportHeight) && viewportHeight > 0
+        ? viewportHeight
+        : layoutRect.bottom,
+    );
+    let positioned = false;
+
+    for (const panel of panels) {
+      if (panel.hidden || panel.style.display === "none") continue;
+      const panelRect = panel.getBoundingClientRect();
+      const anchorRect = panel.parentElement?.getBoundingClientRect?.();
+      if (!anchorRect) continue;
+      const belowSpace = Math.max(0, visibleBottom - panelRect.top);
+      const aboveSpace = Math.max(0, anchorRect.top - visibleTop - 4);
+      const opensAbove =
+        panelRect.height > belowSpace + 0.5 && aboveSpace > belowSpace;
+      panel.classList.toggle("wide-toolbar-panel--above", opensAbove);
+      panel.style.setProperty(
+        "--wide-toolbar-panel-space",
+        `${Math.floor(opensAbove ? aboveSpace : belowSpace)}px`,
+      );
+      positioned = true;
+    }
+    return positioned;
   }
 
   isWideViewPageActive() {

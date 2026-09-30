@@ -308,10 +308,18 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   );
 });
 
-test("Wide View filter and calendar panels open above the toolbar", () => {
+test("Wide View filter and calendar panels open above only when needed", () => {
   assert.match(
     WIDE_VIEW_PAGE_STYLES,
-    /\.layout--wide-view :is\(\.filter-panel,\.cal-panel\)\{[^}]*top:auto;[^}]*bottom:calc\(100% \+ 4px\);[^}]*max-height:min\(360px,calc\(100dvh - 24px\)\)/,
+    /\.layout--wide-view :is\(\.filter-panel,\.cal-panel\)\{max-height:min\(360px,var\(--wide-toolbar-panel-space,calc\(100dvh - 24px\)\)\);box-sizing:border-box;\}/,
+  );
+  assert.doesNotMatch(
+    WIDE_VIEW_PAGE_STYLES,
+    /\.layout--wide-view :is\(\.filter-panel,\.cal-panel\)\{[^}]*(?:top:auto|bottom:calc)/,
+  );
+  assert.match(
+    WIDE_VIEW_PAGE_STYLES,
+    /\.layout--wide-view :is\(\.filter-panel,\.cal-panel\)\.wide-toolbar-panel--above\{top:auto;bottom:calc\(100% \+ 4px\);\}/,
   );
 });
 

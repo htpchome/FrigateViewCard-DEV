@@ -2073,6 +2073,7 @@ export class FrigateViewCard extends HTMLElement {
       "has-open-toolbar-panel",
       filterOpen || calOpen,
     );
+    this._wideViewPageController?.scheduleToolbarPanelPlacement?.();
 
     if (!buttonStates.controlsVisible && this._tab === "controls") {
       this._setTab(this._resolveControlsReturnTab());

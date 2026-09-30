@@ -313,6 +313,10 @@ export class LazyWideViewPageController {
     this._delegate?.syncColHeight?.();
   }
 
+  scheduleToolbarPanelPlacement() {
+    return this._delegate?.scheduleToolbarPanelPlacement?.() === true;
+  }
+
   wideViewLayoutState(leftWidthPct) {
     return (
       this._delegate?.wideViewLayoutState?.(leftWidthPct) || {

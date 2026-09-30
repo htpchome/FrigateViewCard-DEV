@@ -17,5 +17,6 @@ export const WIDE_VIEW_PAGE_STYLES = `
   .card .layout--wide-view{flex:1 1 0;height:auto;min-height:0;}
   .card .col-left--wide-view{height:100%;max-height:100%;overflow:hidden;}
   .card .layout--wide-view .tabs-holder.has-open-toolbar-panel{position:relative;z-index:30;}
-  .card .layout--wide-view :is(.filter-panel,.cal-panel){top:auto;bottom:calc(100% + 4px);max-height:min(360px,calc(100dvh - 24px));box-sizing:border-box;}
+  .card .layout--wide-view :is(.filter-panel,.cal-panel){max-height:min(360px,var(--wide-toolbar-panel-space,calc(100dvh - 24px)));box-sizing:border-box;}
+  .card .layout--wide-view :is(.filter-panel,.cal-panel).wide-toolbar-panel--above{top:auto;bottom:calc(100% + 4px);}
 `;

@@ -87,6 +87,11 @@ test("supported Wide View loads once and replays startup activation", async () =
     applyPageConfigUpdate(options) {
       calls.push(["config", options]);
     }
+
+    scheduleToolbarPanelPlacement() {
+      calls.push(["position-toolbar-panel"]);
+      return true;
+    }
   }
   const host = {
     _config: { wide_view_page_enabled: true },
@@ -118,6 +123,7 @@ test("supported Wide View loads once and replays startup activation", async () =
   controller.activateWideViewPageRoute({ startup: true });
   controller.applyPageConfigUpdate({ startModeChanged: true });
   await controller.prepare();
+  assert.equal(controller.scheduleToolbarPanelPlacement(), true);
 
   assert.equal(loads, 1);
   assert.equal(
@@ -136,6 +142,7 @@ test("supported Wide View loads once and replays startup activation", async () =
     ["timeline-prepare"],
     ["activate", { startup: true }],
     ["config", { startModeChanged: true }],
+    ["position-toolbar-panel"],
   ]);
 });
 
