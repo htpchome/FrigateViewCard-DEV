@@ -144,7 +144,7 @@ function withImmediateTimeout(run) {
     });
 }
 
-test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled", async () => {
+test("ha direct mounter selects native HLS without creating an HA player", async () => {
   const nativeVideo = createFakeVideo("native-hls");
   nativeVideo.hidden = false;
   nativeVideo.classList.contains = () => false;
@@ -173,19 +173,13 @@ test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled"
   };
   let assignedEngine = null;
   let nativeOptions = null;
-  let nativeWaitMs = null;
-  let checkedWebRtcEntity = "";
-  let webRtcCreationCalls = 0;
   const mounter = createHaDirectMounter({
     getHass: () => hass,
-    getPreferredStreamType: () => "webrtc",
+    getPreferredStreamType: () => "hls",
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => engine === assignedEngine,
-    waitForStreamStart: async (_engine, waitMs) => {
-      nativeWaitMs = waitMs;
-      return true;
-    },
+    waitForStreamStart: async () => true,
     assignCommittedEngine: (engine) => {
       assignedEngine = engine;
     },
@@ -194,24 +188,16 @@ test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled"
     stopLoadingFallbackRefresh: () => {},
     setLiveNativeControls: () => {},
     shouldUseNativeHls: () => true,
-    shouldAttemptWebRtc: (entity) => {
-      checkedWebRtcEntity = entity;
-      return false;
-    },
     preparePlaybackElements: () => false,
     createNativeHlsVideo: async (options) => {
       nativeOptions = options;
       return nativeVideo;
     },
-    createWebRtcPlayback: () => {
-      webRtcCreationCalls += 1;
-      return null;
-    },
   });
 
   const result = await mounter.tryMount(
     slot,
-    { streamType: "webrtc" },
+    { streamType: "hls" },
     { entity: "camera.front", commit: true },
   );
   assert.equal(await result.startupReady, true);
@@ -221,9 +207,6 @@ test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled"
   assert.equal(nativeOptions.hass, hass);
   assert.equal(nativeOptions.entity, "camera.front");
   assert.equal(nativeOptions.fitMode, "contain");
-  assert.equal(nativeWaitMs, 8000);
-  assert.equal(checkedWebRtcEntity, "camera.front");
-  assert.equal(webRtcCreationCalls, 0);
 
   mounter.release(nativeVideo);
   assert.equal(nativeVideo.destroyCalled, true);
@@ -473,7 +456,7 @@ test("ha direct mounter applies unavailable state when no camera state exists", 
   ]);
 });
 
-test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () => {
+test("ha direct mounter replaces WebRTC with HLS when no video frame starts", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
   const previousPeerConnection = globalThis.RTCPeerConnection;
@@ -483,7 +466,6 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
   const committedTypes = [];
   const readinessTargets = [];
   const readinessOptions = [];
-  const readinessWaitMs = [];
 
   class FakePeerConnection {
     constructor() {
@@ -569,11 +551,10 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => assignedEngine === engine,
-    waitForStreamStart: async (engine, waitMs, options) => {
+    waitForStreamStart: async (engine, _waitMs, options) => {
       const target = engine?.tagName || engine?.streamType || "";
       readinessTargets.push(target);
       readinessOptions.push({ target, options });
-      readinessWaitMs.push({ target, waitMs });
       return engine?.tagName === "HA-HLS-PLAYER";
     },
     assignCommittedEngine: (engine) => {
@@ -594,8 +575,7 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
     await flushAsyncWork();
     await flushAsyncWork();
 
-    assert.equal(result.type, "hls");
-    assert.equal(result.engine, assignedEngine);
+    assert.equal(result.type, "webrtc");
     assert.equal(subscriptionCalls, 1);
     assert.equal(unsubscribeCalls, 1);
     assert.equal(assignedEngine.tagName, "HA-HLS-PLAYER");
@@ -616,15 +596,6 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
     assert.equal(hlsReadiness?.strict, false);
     assert.equal(hlsReadiness?.requireReadyState, 2);
     assert.equal(hlsReadiness?.requirePresentedFrame, false);
-    assert.equal(
-      readinessWaitMs.find(({ target }) => target === "HA-HLS-PLAYER")
-        ?.waitMs,
-      8000,
-    );
-    assert.equal(
-      readinessWaitMs.find(({ target }) => target === "webrtc")?.waitMs,
-      8000,
-    );
 
     assignedEngine.dispatch("streams", { hasVideo: false });
     await flushAsyncWork();
@@ -640,100 +611,12 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
   }
 });
 
-test("HA Direct HLS timeout does not publish Snapshot while WebRTC is pending", async () => {
-  await withFakeDocument(async () => {
-    let assignedEngine = null;
-    let resolveWebRtcReady;
-    let webRtcStarts = 0;
-    let webRtcDestroyCalls = 0;
-    const committedTypes = [];
-    const webRtcVideo = {
-      style: { cssText: "" },
-      removeCalled: false,
-      remove() {
-        this.removeCalled = true;
-      },
-    };
-    const webRtcEngine = {
-      type: "ha_direct",
-      streamType: "webrtc",
-      video: webRtcVideo,
-      failure: new Promise(() => {}),
-      destroy() {
-        webRtcDestroyCalls += 1;
-      },
-    };
-    const slot = {
-      innerHTML: "",
-      appendChild(node) {
-        this.lastChild = node;
-        node.parentElement = this;
-      },
-    };
-    const mounter = createHaDirectMounter({
-      getHass: () => ({
-        states: { "camera.front": { entity_id: "camera.front", attributes: {} } },
-      }),
-      getPreferredStreamType: () => "webrtc",
-      getStreamMuted: () => true,
-      getRotateOverlayActive: () => false,
-      isCurrentEngine: (engine) => assignedEngine === engine,
-      waitForStreamStart: async (engine) => {
-        if (engine?.tagName === "HA-HLS-PLAYER") return false;
-        return await new Promise((resolve) => {
-          resolveWebRtcReady = resolve;
-        });
-      },
-      assignCommittedEngine: (engine) => {
-        assignedEngine = engine;
-      },
-      onCommittedMediaReady: () => {},
-      onCommittedStream: (type) => committedTypes.push(type),
-      applyResolvedStreamUiState: () => {},
-      startLoadingFallbackRefresh: () => () => {},
-      stopLoadingFallbackRefresh: () => {},
-      setLiveNativeControls: () => {},
-      scheduleResumeLive: () => {},
-      createWebRtcPlayback: () => ({
-        engine: webRtcEngine,
-        start: async () => {
-          webRtcStarts += 1;
-          return true;
-        },
-      }),
-    });
-
-    const result = await mounter.tryMount(slot, null, {
-      entity: "camera.front",
-      commit: true,
-    });
-    assert.equal(await result.startupReady, false);
-    await flushAsyncWork();
-
-    assert.equal(webRtcStarts, 1);
-    assert.equal(assignedEngine, result.engine);
-    assert.deepEqual(committedTypes, []);
-
-    resolveWebRtcReady(false);
-    await flushAsyncWork();
-    await flushAsyncWork();
-
-    assert.deepEqual(committedTypes, ["snapshot"]);
-    assert.equal(assignedEngine, result.engine);
-    assert.equal(webRtcVideo.removeCalled, true);
-    assert.equal(webRtcDestroyCalls, 1);
-    mounter.release(result.engine);
-  });
-});
-
-test("ha direct mounter starts WebRTC only after HLS is ready", async () => {
+test("ha direct mounter shows ready HLS while WebRTC continues and takes over", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
   const previousPeerConnection = globalThis.RTCPeerConnection;
   let assignedEngine = null;
-  let resolveHlsReady = null;
   let resolveWebRtcReady = null;
-  let subscriptionCalls = 0;
   let unsubscribeCalls = 0;
   const committedTypes = [];
   const hlsPlayers = [];
@@ -808,7 +691,6 @@ test("ha direct mounter starts WebRTC only after HLS is ready", async () => {
     callWS: async () => ({ configuration: { iceServers: [] } }),
     connection: {
       subscribeMessage(callback) {
-        subscriptionCalls += 1;
         queueMicrotask(() =>
           callback({ type: "answer", answer: "ha-direct-answer" }),
         );
@@ -831,11 +713,7 @@ test("ha direct mounter starts WebRTC only after HLS is ready", async () => {
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => assignedEngine === engine,
     waitForStreamStart: async (engine) => {
-      if (engine?.tagName === "HA-HLS-PLAYER") {
-        return await new Promise((resolve) => {
-          resolveHlsReady = resolve;
-        });
-      }
+      if (engine?.tagName === "HA-HLS-PLAYER") return true;
       return await new Promise((resolve) => {
         resolveWebRtcReady = resolve;
       });
@@ -864,61 +742,42 @@ test("ha direct mounter starts WebRTC only after HLS is ready", async () => {
       entity: "camera.front",
       commit: true,
     });
-    assert.match(hlsPlayers[0].style.cssText, /position:relative;z-index:1/);
+    assert.match(
+      hlsPlayers[0].style.cssText,
+      /position:absolute;inset:0/,
+    );
     assert.equal(hlsPlayers[0].style.cssText.includes("opacity:0"), false);
     const result = await mountPromise;
-    const hlsEngine = result.engine;
-    let pendingWebRtcVideo = null;
+    const webRtcEngine = result.engine;
     await flushAsyncWork();
     await flushAsyncWork();
 
-    assert.equal(result.type, "hls");
-    assert.equal(result.engine, hlsPlayers[0]);
+    assert.equal(result.type, "webrtc");
     assert.equal(assignedEngine, hlsPlayers[0]);
     assert.deepEqual(assignments, [
-      { engine: hlsPlayers[0], retainPrevious: undefined },
-    ]);
-    assert.deepEqual(committedTypes, []);
-    assert.equal(hlsPlayers[0].removeCalled, false);
-    assert.equal(hlsPlayers[0].cancelPendingTakeover, undefined);
-    assert.equal(slot.lastChild, hlsEngine);
-    assert.equal(subscriptionCalls, 0);
-    assert.equal(unsubscribeCalls, 0);
-
-    resolveHlsReady(true);
-    assert.equal(await result.startupReady, true);
-    await flushAsyncWork();
-    await flushAsyncWork();
-
-    assert.equal(assignedEngine, hlsEngine);
-    assert.deepEqual(assignments, [
-      { engine: hlsEngine, retainPrevious: undefined },
+      { engine: webRtcEngine, retainPrevious: undefined },
+      { engine: hlsPlayers[0], retainPrevious: true },
     ]);
     assert.deepEqual(committedTypes, ["hls"]);
-    assert.equal(subscriptionCalls, 1);
-    pendingWebRtcVideo = slot.lastChild;
-    assert.notEqual(pendingWebRtcVideo, hlsEngine);
+    assert.equal(hlsPlayers[0].removeCalled, false);
     assert.equal(typeof hlsPlayers[0].cancelPendingTakeover, "function");
-    assert.match(pendingWebRtcVideo.style.cssText, /position:absolute;inset:0/);
+    assert.match(webRtcEngine.video.style.cssText, /left:-9999px/);
+    assert.equal(unsubscribeCalls, 0);
 
     resolveWebRtcReady(true);
     await flushAsyncWork();
     await flushAsyncWork();
 
-    const webRtcEngine = assignedEngine;
     assert.equal(assignedEngine, webRtcEngine);
     assert.deepEqual(assignments, [
-      { engine: hlsEngine, retainPrevious: undefined },
-      { engine: webRtcEngine, retainPrevious: true },
+      { engine: webRtcEngine, retainPrevious: undefined },
+      { engine: hlsPlayers[0], retainPrevious: true },
+      { engine: webRtcEngine, retainPrevious: undefined },
     ]);
     assert.deepEqual(committedTypes, ["hls", "webrtc"]);
     assert.equal(hlsPlayers[0].removeCalled, true);
     assert.equal(hlsPlayers[0].cancelPendingTakeover, null);
-    assert.equal(webRtcEngine.video, pendingWebRtcVideo);
-    assert.equal(
-      webRtcEngine.video.style.cssText.includes("position:absolute"),
-      false,
-    );
+    assert.equal(webRtcEngine.video.style.cssText.includes("left:-9999px"), false);
     assert.equal(unsubscribeCalls, 0);
 
     const recoveryReasons = [];

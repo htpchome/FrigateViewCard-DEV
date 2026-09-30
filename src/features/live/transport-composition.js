@@ -7,7 +7,6 @@ import {
 import { createGo2RtcResolver } from "../../integrations/frigate/go2rtc-resolver.js";
 import { createHaDirectTwoWayTalkBackchannel } from "../../integrations/home-assistant/two-way-talk-backchannel.js";
 import { createHaDirectTwoWayTalkMounter } from "../../integrations/home-assistant/two-way-talk-mounter.js";
-import { hasHaCameraWebRtcPlaybackCapability } from "../../integrations/home-assistant/camera-capabilities.js";
 import { waitForMediaStart } from "../../shared/media/first-frame.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import { createGo2RtcTwoWayTalkBackchannel } from "../two-way-talk/go2rtc-backchannel.js";
@@ -124,11 +123,6 @@ export const createLiveTransportControllers = (
       deviceProfile.isIOS === true ||
       deviceProfile.isCatalyst === true ||
       card._isSafari(),
-    shouldAttemptWebRtc: (entity) =>
-      deviceProfile.isCatalyst !== true &&
-      hasHaCameraWebRtcPlaybackCapability(
-        card._hass?.states?.[entity]?.attributes,
-      ),
     scopeKey: card,
   });
   const haDirectTwoWayTalkMounter =

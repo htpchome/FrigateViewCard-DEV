@@ -42,7 +42,6 @@ import {
 } from "../features/navigation/router.js";
 import { createPageNavigationController } from "../features/navigation/composition.js";
 import { createHomeAssistantDashboardControllers } from "../integrations/home-assistant/dashboard-composition.js";
-import { hasHaCameraWebRtcPlaybackCapability } from "../integrations/home-assistant/camera-capabilities.js";
 import {
   PAGE_SHELL_REGIONS,
   createPageShellRegistry,
@@ -789,15 +788,6 @@ export class FrigateViewCard extends HTMLElement {
     this._ensureEditorPreviewController();
     const previousTimeFormat = this._hass?.locale?.time_format;
     const previousTimeZone = this._hass?.config?.time_zone;
-    const activeLiveEntity =
-      this._activeGroupMemberOverride || this._activeCam?.entity || "";
-    const haDirectWebRtcNoLongerAdvertised =
-      this._engine?.type === "ha_direct" &&
-      this._engine?.streamType === "webrtc" &&
-      this._shouldUseGo2RtcForEntity(activeLiveEntity) === false &&
-      !hasHaCameraWebRtcPlaybackCapability(
-        hass?.states?.[activeLiveEntity]?.attributes,
-      );
     this._hass = hass;
     const languageChanged = this._localization.updateHass(hass);
     const dateSettingsChanged =
@@ -870,9 +860,6 @@ export class FrigateViewCard extends HTMLElement {
       return;
     }
     this._editorPreviewController.syncHassPreviewContext();
-    if (haDirectWebRtcNoLongerAdvertised) {
-      this._scheduleResumeLive("ha-direct-webrtc-unavailable");
-    }
     if (shouldApplyHaReviewStatus) {
       this._lastHaReviewStatusApplyAt = nowMs;
       this._applyHaReviewStatusAlerts();
@@ -946,9 +933,6 @@ export class FrigateViewCard extends HTMLElement {
           this._twoWayTalkStarting || this._twoWayTalkSession,
         ),
         useGo2Rtc: this._shouldUseGo2RtcForEntity(activeLiveEntity),
-        haDirectWebRtcSupported: hasHaCameraWebRtcPlaybackCapability(
-          this._hass?.states?.[activeLiveEntity]?.attributes,
-        ),
         activeStreamType: this._currentLiveStreamHint(),
       });
     const preserveDashboardLive =

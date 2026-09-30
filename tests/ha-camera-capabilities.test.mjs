@@ -16,13 +16,5 @@ test("Home Assistant camera capability detection recognizes WebRTC playback", ()
     }),
     false,
   );
-  assert.equal(
-    hasHaCameraWebRtcPlaybackCapability({ frontend_stream_type: "web_rtc" }),
-    true,
-  );
-  assert.equal(
-    hasHaCameraWebRtcPlaybackCapability({ frontend_stream_type: "hls" }),
-    false,
-  );
   assert.equal(hasHaCameraWebRtcPlaybackCapability(null), false);
 });

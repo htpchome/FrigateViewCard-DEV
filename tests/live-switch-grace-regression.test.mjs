@@ -200,7 +200,7 @@ test("dashboard swipe return remounts retained go2rtc WebRTC through the grace p
   );
   assert.match(
     liveDashboardRetentionSource,
-    /handleNavigationSettled\(\)[\s\S]*?host\._currentLiveStreamHint\(\)\s*!==\s*"webrtc"/,
+    /handleNavigationSettled\(\)[\s\S]*?host\._shouldUseGo2RtcForEntity\(entity\)[\s\S]*?host\._currentLiveStreamHint\(\)\s*!==\s*"webrtc"/,
   );
   assert.match(
     liveDashboardRetentionSource,
@@ -215,7 +215,7 @@ test("same-dashboard departure uses the complete camera-switch grace policy", ()
   );
   assert.match(
     liveDashboardRetentionSource,
-    /preserveForNavigation\(\)[\s\S]*?const reusableStream = useGo2Rtc[\s\S]*?streamType === "webrtc"[\s\S]*?streamType === "mse"[\s\S]*?resolveCameraSwitchCleanupOptions\(\{[\s\S]*?host\._cancelPendingMount\("same-dashboard-navigation", cleanupOptions\)/,
+    /preserveForNavigation\(\)[\s\S]*?streamType !== "webrtc" && streamType !== "mse"[\s\S]*?resolveCameraSwitchCleanupOptions\(\{[\s\S]*?host\._cancelPendingMount\("same-dashboard-navigation", cleanupOptions\)/,
   );
   assert.match(
     cardSource,

@@ -16,13 +16,7 @@ const createHost = () => {
     _dashboardLiveGraceActive: false,
     _disconnectTeardownT: null,
     _engine: engine,
-    _hass: {
-      states: {
-        "camera.front": {
-          attributes: { frontend_stream_type: "web_rtc" },
-        },
-      },
-    },
+    _hass: {},
     _mountInProgress: false,
     _started: true,
     _twoWayTalkSession: null,
@@ -62,34 +56,6 @@ test("dashboard retention preserves eligible card-owned WebRTC and MSE", () => {
   }
 });
 
-test("dashboard retention preserves HA Direct WebRTC", () => {
-  const { calls, host } = createHost();
-  host._shouldUseGo2RtcForEntity = () => false;
-  const controller = new LiveDashboardRetentionController(host);
-
-  assert.equal(controller.preserveForNavigation(), true);
-  assert.equal(host._dashboardLiveGraceActive, true);
-  assert.deepEqual(calls, [
-    [
-      "cancel",
-      "same-dashboard-navigation",
-      { preserveLiveEntity: "camera.front" },
-    ],
-    ["clear-slot"],
-  ]);
-});
-
-test("dashboard retention rejects HA Direct WebRTC no longer advertised by HA", () => {
-  const { calls, host } = createHost();
-  host._shouldUseGo2RtcForEntity = () => false;
-  host._hass.states["camera.front"].attributes.frontend_stream_type = "hls";
-  const controller = new LiveDashboardRetentionController(host);
-
-  assert.equal(controller.preserveForNavigation(), false);
-  assert.equal(host._dashboardLiveGraceActive, false);
-  assert.deepEqual(calls, []);
-});
-
 test("dashboard retention rejects unsupported or busy live sessions", () => {
   const { calls, host } = createHost();
   const controller = new LiveDashboardRetentionController(host);
@@ -97,6 +63,9 @@ test("dashboard retention rejects unsupported or busy live sessions", () => {
   host._mountInProgress = true;
   assert.equal(controller.preserveForNavigation(), false);
   host._mountInProgress = false;
+  host._shouldUseGo2RtcForEntity = () => false;
+  assert.equal(controller.preserveForNavigation(), false);
+  host._shouldUseGo2RtcForEntity = () => true;
   host._currentLiveStreamHint = () => "hls";
   assert.equal(controller.preserveForNavigation(), false);
 

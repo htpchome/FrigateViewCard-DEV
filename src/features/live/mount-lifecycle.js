@@ -167,7 +167,6 @@ export const isLiveVideoStale = ({
 
 const FORCE_LIVE_REMOUNT_REASONS = new Set([
   "active-camera-recovered",
-  "ha-direct-webrtc-unavailable",
   "hls-ended",
   "hls-error",
   "mse-ws-closed",
@@ -206,7 +205,6 @@ export const shouldRetainMountedLiveForEditorTransition = ({
   viewMode = "",
   twoWayTalkActive = false,
   useGo2Rtc = false,
-  haDirectWebRtcSupported = true,
   activeStreamType = "",
 } = {}) =>
   sameDashboard === true &&
@@ -217,7 +215,6 @@ export const shouldRetainMountedLiveForEditorTransition = ({
   previewPageActive !== true &&
   String(viewMode || "").trim().toLowerCase() !== "grid" &&
   twoWayTalkActive !== true &&
-  (useGo2Rtc === true || haDirectWebRtcSupported === true) &&
   String(activeStreamType || "").trim().toLowerCase() === "webrtc";
 
 export const shouldForceLiveRemountForReason = (

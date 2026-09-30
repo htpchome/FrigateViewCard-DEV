@@ -20,10 +20,10 @@ const normalizeHaDirectStreamType = (value) => {
   return normalized === "hls" ? "hls" : "webrtc";
 };
 
-const HA_DIRECT_PENDING_WEBRTC_STYLE =
-  "position:absolute;inset:0;z-index:0;width:100%;height:100%;display:block;pointer-events:none;background:var(--c-bg-deep)";
+const HA_DIRECT_HIDDEN_ATTEMPT_STYLE =
+  "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px;background:var(--c-bg-deep)";
 const HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE =
-  "position:relative;z-index:1;width:100%;height:100%;display:block;background:var(--c-bg-deep)";
+  "position:absolute;inset:0;z-index:1;width:100%;height:100%;display:block;pointer-events:none;background:var(--c-bg-deep)";
 const HA_DIRECT_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
 const HA_DIRECT_TIME_RECOVERY_MIN_ADVANCES = 2;
@@ -46,10 +46,8 @@ export function createHaDirectMounter({
   scheduleResumeLive,
   scopeKey,
   shouldUseNativeHls = () => false,
-  shouldAttemptWebRtc = () => true,
   preparePlaybackElements = ensureHaCameraPlaybackElements,
   createNativeHlsVideo = createHaNativeHlsVideoElement,
-  createWebRtcPlayback = createHaDirectWebRtcPlayback,
 }) {
   const mediaBindings = new WeakMap();
   let releaseBarrier = Promise.resolve();
@@ -83,7 +81,12 @@ export function createHaDirectMounter({
     binding.stopLoadingFallbackRefresh?.();
     binding.cleanupRecovery?.();
     binding.abortController.abort();
+    binding.fallbackAbortController?.abort?.();
+    binding.fallbackEngine?.destroy?.();
+    binding.fallbackEngine?.remove?.();
     const takeoverEngine = binding.takeoverEngine || null;
+    binding.fallbackAbortController = null;
+    binding.fallbackEngine = null;
     binding.takeoverEngine = null;
     if (engine) engine.cancelPendingTakeover = null;
     engine.removeEventListener?.("load", binding.reconcile, true);
@@ -127,7 +130,6 @@ export function createHaDirectMounter({
       disposed: false,
       revision: 0,
       failed: false,
-      fallbackPublished: false,
       failureRevision: 0,
       recoveryVideo: null,
       cleanupRecovery: () => {},
@@ -135,8 +137,6 @@ export function createHaDirectMounter({
       reconcile: null,
       onStreams: null,
       takeoverEngine: null,
-      takeoverStarted: false,
-      onFailure: null,
       stopLoadingFallbackRefresh: () => {},
     };
     const watchRecovery = (video) => {
@@ -185,7 +185,6 @@ export function createHaDirectMounter({
           return;
         }
         binding.failed = false;
-        binding.fallbackPublished = false;
         binding.cleanupRecovery();
         applyReady(engine, "hls");
       };
@@ -265,15 +264,11 @@ export function createHaDirectMounter({
       video.addEventListener?.("timeupdate", onTimeUpdate);
       armFrameRecovery();
     };
-    binding.fail = ({ publishFallback = true } = {}) => {
+    binding.fail = () => {
       if (binding.disposed || !isCurrentEngine(engine)) return;
       if (!binding.failed) {
         binding.failed = true;
         binding.failureRevision += 1;
-        binding.onFailure?.();
-      }
-      if (publishFallback && !binding.fallbackPublished) {
-        binding.fallbackPublished = true;
         applyFailed(engine);
       }
       binding.reconcile();
@@ -312,6 +307,9 @@ export function createHaDirectMounter({
       abortController: new AbortController(),
       reconcile: null,
       onStreams: null,
+      fallbackAbortController: null,
+      fallbackEngine: null,
+      takeoverEngine: null,
       stopLoadingFallbackRefresh: () => {},
     };
     mediaBindings.set(engine, binding);
@@ -327,6 +325,8 @@ export function createHaDirectMounter({
       !engine?.pc ||
       !binding ||
       binding.disposed ||
+      binding.fallbackEngine ||
+      binding.fallbackAbortController ||
       binding.takeoverEngine
     ) {
       return false;
@@ -412,137 +412,8 @@ export function createHaDirectMounter({
       return engine;
     };
 
-    const removeSlotChildrenExcept = (node) => {
-      for (const child of Array.from(slot.children || [])) {
-        if (child !== node) child.remove?.();
-      }
-    };
-
-    const showReadyWebRtc = (ownerEngine) => {
-      ownerEngine.video.style.cssText =
-        options.styleText || HA_DIRECT_VISIBLE_STYLE;
-      removeSlotChildrenExcept(ownerEngine.video);
-      if (ownerEngine.video.parentElement !== slot) {
-        slot.appendChild(ownerEngine.video);
-      }
-      onCommittedMediaReady?.(ownerEngine, ownerEngine.video);
-      applyReady(ownerEngine, "webrtc");
-    };
-
-    const startWebRtcTakeover = async (hlsEngine, hlsBinding) => {
-      if (
-        hlsBinding.disposed ||
-        hlsBinding.takeoverStarted ||
-        !isCurrentEngine(hlsEngine)
-      ) {
-        return false;
-      }
-      if (shouldAttemptWebRtc?.(entity) !== true) {
-        if (hlsBinding.failed && !hlsBinding.fallbackPublished) {
-          hlsBinding.fail({ publishFallback: true });
-        }
-        return false;
-      }
-      hlsBinding.takeoverStarted = true;
-      const publishFallbackIfHlsStillUnready = () => {
-        if (hlsBinding.failed && !hlsBinding.fallbackPublished) {
-          hlsBinding.fail({ publishFallback: true });
-        }
-      };
-      const playback = createWebRtcPlayback({
-        hass,
-        entity,
-        muted: options?.muted ?? getStreamMuted(),
-        controls: false,
-        scopeKey,
-        onConnectionLost: (reason) => {
-          if (isCurrentEngine(playback?.engine)) scheduleResumeLive?.(reason);
-        },
-      });
-      if (!playback) {
-        publishFallbackIfHlsStillUnready();
-        return false;
-      }
-
-      const { engine } = playback;
-      engine.video.style.cssText = HA_DIRECT_PENDING_WEBRTC_STYLE;
-      slot.appendChild(engine.video);
-      hlsBinding.takeoverEngine = engine;
-      const discard = () => {
-        if (hlsBinding.takeoverEngine !== engine) return;
-        hlsBinding.takeoverEngine = null;
-        hlsEngine.cancelPendingTakeover = null;
-        release(engine);
-        engine.video.remove?.();
-      };
-      hlsEngine.cancelPendingTakeover = discard;
-
-      const priorRelease = releaseBarrier;
-      await priorRelease;
-      if (
-        hlsBinding.disposed ||
-        hlsBinding.takeoverEngine !== engine ||
-        !isCurrentEngine(hlsEngine) ||
-        shouldAttemptWebRtc?.(entity) !== true
-      ) {
-        discard();
-        publishFallbackIfHlsStillUnready();
-        return false;
-      }
-      const signalingStarted = await playback.start();
-      if (
-        !signalingStarted ||
-        hlsBinding.disposed ||
-        hlsBinding.takeoverEngine !== engine ||
-        !isCurrentEngine(hlsEngine) ||
-        shouldAttemptWebRtc?.(entity) !== true
-      ) {
-        discard();
-        return false;
-      }
-      const ready = await Promise.race([
-        waitForStreamStart(engine, haDirectPlan.waitMs, {
-          ...haDirectPlan.waitOptions,
-          strict: true,
-          minCurrentTime: Math.max(
-            0.05,
-            Number(haDirectPlan.waitOptions.minCurrentTime) || 0,
-          ),
-          minDecodedFrames: Math.max(
-            1,
-            Number(haDirectPlan.waitOptions.minDecodedFrames) || 0,
-          ),
-          requirePresentedFrame: true,
-          abortSignal: hlsBinding.abortController.signal,
-          resolveVideo: () => engine.video,
-        }),
-        engine.failure,
-      ]);
-      if (
-        ready !== true ||
-        hlsBinding.disposed ||
-        hlsBinding.takeoverEngine !== engine ||
-        !isCurrentEngine(hlsEngine)
-      ) {
-        discard();
-        publishFallbackIfHlsStillUnready();
-        return false;
-      }
-
-      hlsBinding.takeoverEngine = null;
-      hlsEngine.cancelPendingTakeover = null;
-      createWebRtcBinding(engine);
-      assignCommittedEngine(engine, { retainPrevious: true });
-      showReadyWebRtc(engine);
-      hlsEngine.remove?.();
-      release(hlsEngine);
-      return true;
-    };
-
-    const mountHls = async ({ allowWebRtcTakeover = false } = {}) => {
-      const engine = await createHlsEngine(
-        allowWebRtcTakeover ? HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE : "",
-      );
+    const mountHls = async () => {
+      const engine = await createHlsEngine();
       if (!engine) return false;
       replaceSlotContent(engine);
       if (!commit) {
@@ -551,11 +422,6 @@ export function createHaDirectMounter({
 
       assignCommittedEngine(engine);
       const binding = bindHlsMedia(engine);
-      if (allowWebRtcTakeover) {
-        binding.onFailure = () => {
-          void startWebRtcTakeover(engine, binding);
-        };
-      }
       binding.stopLoadingFallbackRefresh =
         startLoadingFallbackRefresh?.() || (() => {});
       if (getRotateOverlayActive()) setLiveNativeControls(true);
@@ -571,24 +437,210 @@ export function createHaDirectMounter({
         // The older startup result must not undo its newer failure or recovery.
         if (failureRevision !== binding.failureRevision) return false;
         if (!ready) {
-          binding.fail({ publishFallback: !allowWebRtcTakeover });
+          binding.fail();
           return false;
         }
         applyReady(engine, "hls");
-        if (allowWebRtcTakeover) {
-          void startWebRtcTakeover(engine, binding);
-        }
         return true;
       })();
       return { ok: true, type: "hls", engine, slot, startupReady };
     };
 
-    return mountHls({
-      allowWebRtcTakeover:
-        commit &&
-        initialStreamType === "webrtc" &&
-        shouldAttemptWebRtc?.(entity) === true,
+    const waitForHlsAttempt = async (engine, abortSignal) => {
+      const ready = await waitForStreamStart(engine, haDirectPlan.waitMs, {
+        ...haDirectPlan.waitOptions,
+        abortSignal,
+        resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+      });
+      return ready === true;
+    };
+
+    const removeSlotChildrenExcept = (node) => {
+      for (const child of Array.from(slot.children || [])) {
+        if (child !== node) child.remove?.();
+      }
+    };
+
+    const commitReadyHls = (engine, { retainPrevious = false } = {}) => {
+      engine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
+      if (!retainPrevious) removeSlotChildrenExcept(engine);
+      if (engine.parentElement !== slot) slot.appendChild(engine);
+      assignCommittedEngine(engine, { retainPrevious });
+      bindHlsMedia(engine);
+      if (getRotateOverlayActive()) setLiveNativeControls(true);
+      applyReady(engine, "hls");
+      return { ok: true, type: "hls", engine, slot };
+    };
+
+    const releaseHlsEngine = (hlsEngine) => {
+      hlsEngine?.destroy?.();
+      hlsEngine?.remove?.();
+    };
+
+    const showReadyWebRtc = (ownerEngine, hlsEngine) => {
+      ownerEngine.video.style.cssText =
+        options.styleText || HA_DIRECT_VISIBLE_STYLE;
+      removeSlotChildrenExcept(ownerEngine.video);
+      if (ownerEngine.video.parentElement !== slot) {
+        slot.appendChild(ownerEngine.video);
+      }
+      releaseHlsEngine(hlsEngine);
+      onCommittedMediaReady?.(ownerEngine, ownerEngine.video);
+      applyReady(ownerEngine, "webrtc");
+    };
+
+    if (initialStreamType === "hls") return mountHls();
+
+    const playback = createHaDirectWebRtcPlayback({
+      hass,
+      entity,
+      muted: options?.muted ?? getStreamMuted(),
+      controls: false,
+      scopeKey,
+      onConnectionLost: (reason) => {
+        if (isCurrentEngine(playback?.engine)) scheduleResumeLive?.(reason);
+      },
     });
+    if (!playback) return mountHls();
+
+    const { engine } = playback;
+    replaceSlotContent(engine.video);
+    if (!commit) {
+      void playback.start();
+      return { ok: true, type: "webrtc", engine, slot };
+    }
+
+    assignCommittedEngine(engine);
+    const binding = createWebRtcBinding(engine);
+    binding.stopLoadingFallbackRefresh =
+      startLoadingFallbackRefresh?.() || (() => {});
+    onCommittedMediaReady?.(engine, engine.video);
+    if (getRotateOverlayActive()) setLiveNativeControls(true);
+    // HLS is the first-picture path. Keep it visibly layered over the pending
+    // WebRTC attempt so WebKit/Catalyst will render it instead of throttling an
+    // offscreen 1px player. WebRTC remains owned and may take over when ready.
+    const fallbackEngine = await createHlsEngine(
+      HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE,
+    );
+    const fallbackAbortController = new AbortController();
+    if (fallbackEngine) {
+      binding.fallbackEngine = fallbackEngine;
+      binding.fallbackAbortController = fallbackAbortController;
+      slot.appendChild(fallbackEngine);
+    }
+    const isWebRtcAttemptActive = () => {
+      if (binding.disposed) return false;
+      if (isCurrentEngine(engine)) return true;
+      const hlsBinding = fallbackEngine
+        ? mediaBindings.get(fallbackEngine)
+        : null;
+      return Boolean(
+        hlsBinding?.takeoverEngine === engine &&
+          !hlsBinding.disposed &&
+          isCurrentEngine(fallbackEngine),
+      );
+    };
+    const startupReady = (async () => {
+      const priorRelease = releaseBarrier;
+      const webRtcReady = (async () => {
+        await priorRelease;
+        if (!isWebRtcAttemptActive()) return false;
+        const signalingStarted = await playback.start();
+        if (!signalingStarted || !isWebRtcAttemptActive()) {
+          return false;
+        }
+        const ready = await Promise.race([
+          waitForStreamStart(engine, haDirectPlan.waitMs, {
+            ...haDirectPlan.waitOptions,
+            strict: true,
+            minCurrentTime: Math.max(
+              0.05,
+              Number(haDirectPlan.waitOptions.minCurrentTime) || 0,
+            ),
+            minDecodedFrames: Math.max(
+              1,
+              Number(haDirectPlan.waitOptions.minDecodedFrames) || 0,
+            ),
+            requirePresentedFrame: true,
+            abortSignal: binding.abortController.signal,
+            resolveVideo: () => engine.video,
+          }),
+          engine.failure,
+        ]);
+        return ready === true;
+      })();
+      const hlsReady = fallbackEngine
+        ? (async () => {
+            const ready = await waitForHlsAttempt(
+              fallbackEngine,
+              fallbackAbortController.signal,
+            );
+            return ready;
+          })()
+        : Promise.resolve(false);
+      const readyCandidate = (type, promise) =>
+        promise.then((ready) => {
+          if (!ready) throw new Error(`${type} did not render`);
+          return type;
+        });
+      let winner = await Promise.any([
+        readyCandidate("webrtc", webRtcReady),
+        readyCandidate("hls", hlsReady),
+      ]).catch(() => "");
+      if (!isWebRtcAttemptActive()) return false;
+      if (winner === "hls") {
+        binding.stopLoadingFallbackRefresh();
+        binding.fallbackAbortController = null;
+        binding.fallbackEngine = null;
+        fallbackAbortController.abort();
+        engine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
+        commitReadyHls(fallbackEngine, { retainPrevious: true });
+        const hlsBinding = mediaBindings.get(fallbackEngine);
+        if (!hlsBinding || !isCurrentEngine(fallbackEngine)) {
+          release(engine);
+          return false;
+        }
+        hlsBinding.takeoverEngine = engine;
+        fallbackEngine.cancelPendingTakeover = () => {
+          const activeBinding = mediaBindings.get(fallbackEngine);
+          const pendingEngine = activeBinding?.takeoverEngine || null;
+          if (activeBinding) activeBinding.takeoverEngine = null;
+          fallbackEngine.cancelPendingTakeover = null;
+          if (pendingEngine) release(pendingEngine);
+        };
+        // HLS is already usable, so release mount ownership now. The optional
+        // takeover continues under the committed HLS binding without allowing
+        // visibility/lifecycle callbacks to restart this mount in the gap.
+        void (async () => {
+          const webRtcStarted = await webRtcReady;
+          if (hlsBinding.disposed || !isCurrentEngine(fallbackEngine)) return;
+          hlsBinding.takeoverEngine = null;
+          fallbackEngine.cancelPendingTakeover = null;
+          if (!webRtcStarted) {
+            release(engine);
+            return;
+          }
+          assignCommittedEngine(engine);
+          showReadyWebRtc(engine, fallbackEngine);
+        })();
+        return true;
+      }
+      if (winner === "webrtc") {
+        binding.stopLoadingFallbackRefresh();
+        binding.fallbackAbortController = null;
+        binding.fallbackEngine = null;
+        fallbackAbortController.abort();
+        showReadyWebRtc(engine, fallbackEngine);
+        return true;
+      }
+      applyFailed(engine);
+      release(engine);
+      fallbackAbortController.abort();
+      releaseHlsEngine(fallbackEngine);
+      return false;
+    })();
+
+    return { ok: true, type: "webrtc", engine, slot, startupReady };
   };
 
   return {

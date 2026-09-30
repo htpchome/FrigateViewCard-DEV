@@ -41,14 +41,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   };
   const card = {
     shadowRoot,
-    _hass: {
-      language: "en",
-      states: {
-        "camera.front": {
-          attributes: { frontend_stream_type: "web_rtc" },
-        },
-      },
-    },
+    _hass: { language: "en" },
     _config: { cameras: [] },
     _activeCam: { entity: "camera.front" },
     _camCache: {},
@@ -110,23 +103,8 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
-  assert.equal(
-    optionsByFactory.haDirectMounter.shouldAttemptWebRtc("camera.front"),
-    true,
-  );
-  card._hass.states["camera.front"].attributes.frontend_stream_type = "hls";
-  assert.equal(
-    optionsByFactory.haDirectMounter.shouldAttemptWebRtc("camera.front"),
-    false,
-  );
-  card._hass.states["camera.front"].attributes.frontend_stream_type = "web_rtc";
   deviceProfile.isIOS = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
-  deviceProfile.isCatalyst = true;
-  assert.equal(
-    optionsByFactory.haDirectMounter.shouldAttemptWebRtc("camera.front"),
-    false,
-  );
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMobile, true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(7), true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(6), false);

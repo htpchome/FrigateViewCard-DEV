@@ -1,4 +1,3 @@
-import { hasHaCameraWebRtcPlaybackCapability } from "../../integrations/home-assistant/camera-capabilities.js";
 import {
   resolveCameraSwitchCleanupOptions,
   resolveCameraSwitchTransportEntity,
@@ -41,16 +40,10 @@ export class LiveDashboardRetentionController {
       memberOverride: host._activeGroupMemberOverride,
     });
     const streamType = host._currentLiveStreamHint();
-    const useGo2Rtc = host._shouldUseGo2RtcForEntity(entity);
-    const reusableStream = useGo2Rtc
-      ? streamType === "webrtc" || streamType === "mse"
-      : streamType === "webrtc" &&
-        hasHaCameraWebRtcPlaybackCapability(
-          host._hass?.states?.[entity]?.attributes,
-        );
     if (
       !entity ||
-      !reusableStream
+      !host._shouldUseGo2RtcForEntity(entity) ||
+      (streamType !== "webrtc" && streamType !== "mse")
     ) {
       return false;
     }
@@ -108,11 +101,8 @@ export class LiveDashboardRetentionController {
       });
       if (
         !entity ||
-        host._currentLiveStreamHint() !== "webrtc" ||
-        (host._shouldUseGo2RtcForEntity(entity) === false &&
-          !hasHaCameraWebRtcPlaybackCapability(
-            host._hass?.states?.[entity]?.attributes,
-          ))
+        !host._shouldUseGo2RtcForEntity(entity) ||
+        host._currentLiveStreamHint() !== "webrtc"
       ) {
         return;
       }

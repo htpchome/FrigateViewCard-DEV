@@ -5,9 +5,8 @@ const normalizeStreamType = (value) =>
     .replaceAll("-", "_");
 
 export const hasHaCameraWebRtcPlaybackCapability = (capabilities) => {
-  const streamTypes = Array.isArray(capabilities?.frontend_stream_types)
-    ? capabilities.frontend_stream_types
-    : [capabilities?.frontend_stream_type];
+  const streamTypes = capabilities?.frontend_stream_types;
+  if (!Array.isArray(streamTypes)) return false;
   return streamTypes.some((value) => {
     const streamType = normalizeStreamType(value);
     return streamType === "web_rtc" || streamType === "webrtc";

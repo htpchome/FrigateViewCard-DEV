@@ -35,21 +35,11 @@ directly to a native video element. This bypasses Home Assistant's hls.js
 selection on Apple clients without changing the HA Direct takeover, retention,
 two-way-talk, Frigate go2rtc, or non-Apple playback paths.
 
-`v1.1.8-dev.109` corrects the candidate deterministic startup introduced in
-`v1.1.8-dev.108`. HA Direct starts HLS without issuing a WebRTC offer. A
-rendered HLS stream starts the optional WebRTC upgrade. An HLS readiness timeout
-can start WebRTC, but it does not classify the still-running HLS player as a
-Snapshot connection. HLS recovery remains active, and Snapshot is published
-only for an explicit HLS failure or after both startup transports fail. Mac
-Catalyst remains a native-HLS-only pipeline and does not create or signal a
-WebRTC attempt.
-
-`v1.1.8-dev.110` makes Home Assistant's advertised camera stream type the
-authority for WebRTC eligibility. An HA Direct camera whose current
-`frontend_stream_type` is `hls` never creates a `camera/webrtc/offer`
-subscription, never adopts a cached WebRTC engine, and never accepts an editor
-or dashboard WebRTC handoff. If an active camera stops advertising WebRTC, its
-existing WebRTC session is released and the camera remounts through HLS.
+`v1.1.8-dev.111` restores the HA Direct startup implementation from
+`v1.1.8-dev.106`. The successive startup and takeover rewrites in
+`v1.1.8-dev.107` through `v1.1.8-dev.110` were rejected by physical testing.
+HA Direct once again starts HLS and WebRTC concurrently, commits the first
+usable HLS picture immediately, and lets a ready WebRTC connection take over.
 
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
@@ -71,9 +61,10 @@ required.
   immediately, a capable WebRTC connection may take over when ready, retained
   WebRTC connections are reused, and browsers that cannot complete WebRTC
   remain on HLS.
-- HA Direct WebRTC takeover and HA Direct two-way-talk negotiation can take
-  several seconds. Keep ordinary live startup on HLS while that negotiation
-  runs so WebRTC latency cannot delay the first picture.
+- HA Direct WebRTC takeover and HA Direct two-way-talk negotiation work, but
+  remain slower than desired. This is accepted for this baseline. Treat faster
+  negotiation as deferred optimization, not an active defect requiring a
+  speculative change.
 
 Do not change unrelated popup, fullscreen, iOS, aspect-ratio, resize, zoom, or
 layout behavior while optimizing either transport.
@@ -82,23 +73,19 @@ layout behavior while optimizing either transport.
 
 Preserve all of these behaviors together:
 
-1. Start HLS alone for a WebRTC-capable HA Direct camera.
-2. Commit ready HLS immediately, then begin the optional WebRTC upgrade.
-3. If HLS reaches its readiness timeout, begin WebRTC without publishing a
-   Snapshot state or cancelling HLS recovery.
-4. Never attempt WebRTC in the Mac Catalyst HA Direct pipeline.
-5. Never attempt or retain WebRTC unless the camera currently advertises
-   `frontend_stream_type: web_rtc` (or `webrtc`).
-6. Keep the pending WebRTC attempt explicitly owned by HLS.
-7. Replace HLS only after WebRTC has rendered usable media.
-8. Release HLS after a successful WebRTC takeover.
-9. If WebRTC fails, keep the already-playing HLS connection.
-10. When the camera changes, cancel the pending takeover before retaining or
+1. Start HLS and WebRTC asynchronously for a WebRTC-capable HA Direct camera.
+2. Commit ready HLS immediately; do not delay the first picture while waiting
+   for WebRTC.
+3. Keep the pending WebRTC attempt explicitly owned after HLS is committed.
+4. Replace HLS only after WebRTC has rendered usable media.
+5. Release HLS after a successful WebRTC takeover.
+6. If WebRTC fails, keep the already-playing HLS connection.
+7. When the camera changes, cancel the pending takeover before retaining or
    releasing the current HLS engine so no WebRTC session is orphaned.
-11. Preserve card-owned HA Direct WebRTC retention and reuse across camera
+8. Preserve card-owned HA Direct WebRTC retention and reuse across camera
    switches. Do not retain or reparent Home Assistant's `ha-hls-player` custom
    element; release it on departure and create a fresh player on return.
-12. On browsers where WebRTC is unavailable or cannot complete, use HA HLS and
+9. On browsers where WebRTC is unavailable or cannot complete, use HA HLS and
    do not force the stream down to snapshots while HLS is viable.
 
 Home Assistant owns the HA Direct HLS player lifecycle. Removing or reparenting
