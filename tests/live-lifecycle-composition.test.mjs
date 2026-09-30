@@ -83,7 +83,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _dashboardLiveGraceActive: true,
     _mseChunkCount: 0,
     _haDirectMounter: haDirectMounter,
-    _haExperimentalMounter: { name: "ha-experimental-mounter" },
     _haDirectTwoWayTalkMounter: { name: "ha-talk-mounter" },
     _go2rtcRaceMounter: { name: "go2rtc-race" },
     _editorPreviewController: {
@@ -146,10 +145,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.strictEqual(optionsByFactory.liveMount.liveGraceController, liveGraceController);
   assert.strictEqual(optionsByFactory.liveMount.haDirectMounter, haDirectMounter);
   assert.strictEqual(
-    optionsByFactory.liveMount.haExperimentalMounter,
-    card._haExperimentalMounter,
-  );
-  assert.strictEqual(
     optionsByFactory.liveMount.haDirectTwoWayTalkMounter,
     card._haDirectTwoWayTalkMounter,
   );
@@ -157,14 +152,9 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     optionsByFactory.liveMount.go2rtcRaceMounter,
     card._go2rtcRaceMounter,
   );
-  assert.equal(
-    optionsByFactory.liveMount.resolveConnectionType("camera.ha"),
-    "ha_direct",
-  );
 
   assert.deepEqual(optionsByFactory.editorHandoff.getState(), {
     activeStreamType: "mse",
-    connectionType: "frigate_go2rtc",
     engine: "mse-engine",
     entity: "camera.front",
     hasSlot: true,

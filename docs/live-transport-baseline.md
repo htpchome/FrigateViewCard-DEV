@@ -41,14 +41,6 @@ two-way-talk, Frigate go2rtc, or non-Apple playback paths.
 HA Direct once again starts HLS and WebRTC concurrently, commits the first
 usable HLS picture immediately, and lets a ready WebRTC connection take over.
 
-`v1.1.8-dev.112` adds `ha_experimental` as a separate temporary connection
-mode. It mounts a fresh native `ha-camera-stream` with the unmodified Home
-Assistant camera state and delegates HLS/WebRTC selection to Home Assistant,
-following Advanced Camera Card's HA provider boundary. It has no card-owned
-transport race, forced `frontend_stream_type`, connection cache, last-stream
-hint, or Catalyst-specific pipeline. The existing `ha_direct` and
-`frigate_go2rtc` implementations remain unchanged.
-
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
@@ -73,10 +65,6 @@ required.
   remain slower than desired. This is accepted for this baseline. Treat faster
   negotiation as deferred optimization, not an active defect requiring a
   speculative change.
-- `ha_experimental` is a physical-testing candidate. Home Assistant owns its
-  stream selection and child-player lifecycle. The card observes the visible
-  native player only to update its source label, first-frame presentation, and
-  output mute state.
 
 Do not change unrelated popup, fullscreen, iOS, aspect-ratio, resize, zoom, or
 layout behavior while optimizing either transport.
@@ -171,7 +159,7 @@ one of those policies is the cause.
 
 ## Validation Expectations
 
-Any future live-transport change must test the connection modes separately
+Any future live-transport change must test the two connection modes separately
 and must include physical checks for:
 
 - first-picture time on WebRTC-capable and non-WebRTC clients;
@@ -182,5 +170,3 @@ and must include physical checks for:
 - complete teardown without increasing connection or subscription counts;
 - HA Direct two-way-talk incoming and outgoing audio;
 - unchanged `frigate_go2rtc` startup, fallback, switching, and talk behavior.
-- `ha_experimental` selection and first-picture timing on Chromium, Firefox,
-  Safari, iOS, and Catalyst without a browser-specific transport branch.

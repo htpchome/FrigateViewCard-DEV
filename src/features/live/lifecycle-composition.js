@@ -76,7 +76,6 @@ export const createLiveLifecycleControllers = (
           card._activeGroupMemberOverride || card._activeCam?.entity || "";
         return {
           activeStreamType: card._currentLiveStreamHint(),
-          connectionType: card._cameraConnectionType(entity),
           engine: card._engine,
           entity,
           hasSlot: Boolean(card._$("#engine")),
@@ -165,7 +164,6 @@ export const createLiveLifecycleControllers = (
       card._pendingMountDestroyers = pendingDestroyers;
     },
     haDirectMounter: card._haDirectMounter,
-    haExperimentalMounter: card._haExperimentalMounter,
     haDirectTwoWayTalkMounter: card._haDirectTwoWayTalkMounter,
     go2rtcRaceMounter: card._go2rtcRaceMounter,
     preferredStreamType: () => card._preferredStreamType(),
@@ -175,7 +173,6 @@ export const createLiveLifecycleControllers = (
       card._setStreamFallbackVisible(visible, refreshImage),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     resolveUseGo2Rtc: (entity) => card._shouldUseGo2RtcForEntity(entity),
-    resolveConnectionType: (entity) => card._cameraConnectionType(entity),
     isCameraRuntimeSuspended: (entity) =>
       card._frigateCameraRuntimeController?.isSuspended?.(entity) === true,
     applyCameraSuspendedState: (entity) =>

@@ -763,19 +763,7 @@ test("resolveLiveMountUiState shapes loading and fallback state for quiet and no
   });
 });
 
-test("resolveLiveMountTransportPlan selects each explicit transport mode", () => {
-  assert.deepEqual(
-    resolveLiveMountTransportPlan({
-      connectionType: "ha_experimental",
-      useGo2Rtc: false,
-      forcedType: "webrtc",
-      preferredStreamType: "webrtc",
-    }),
-    {
-      mode: "ha-experimental",
-      streamType: null,
-    },
-  );
+test("resolveLiveMountTransportPlan selects ha-direct stream type or go2rtc mode", () => {
   assert.deepEqual(
     resolveLiveMountTransportPlan({
       useGo2Rtc: false,

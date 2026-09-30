@@ -561,7 +561,7 @@ test("live mount attempts pass the target entity through strategy start", () => 
 
 test("live transport ownership is pulled out of the card shell", () => {
   assert.equal(
-    /_shouldUseGo2RtcForEntity\(entity\) \{[\s\S]*?_cameraConnectionType\(key\) === "frigate_go2rtc";[\s\S]*?\}/.test(
+    /_shouldUseGo2RtcForEntity\(entity\) \{[\s\S]*?_cameraConnectionType\(key\) !== "ha_direct";[\s\S]*?\}/.test(
       cardSource,
     ),
     true,

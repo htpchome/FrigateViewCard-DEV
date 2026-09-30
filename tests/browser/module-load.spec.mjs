@@ -517,12 +517,8 @@ test("camera connection settings explain transport capabilities", async ({ page 
     const content = editor.querySelector("#camera-modal-connection-content");
     const wrapperRect = wrapper.getBoundingClientRect();
     const contentRect = content.getBoundingClientRect();
-    const connectionOptions = editor.querySelector(
-      "#camera-modal-connection-type",
-    )?.selector?.select?.options;
 
     return {
-      connectionOptions,
       title: guide.querySelector("summary").textContent,
       intro: guide.querySelector(".camera-connection-help-copy p").textContent,
       rows: [...guide.querySelectorAll("tbody tr")].map((row) => ({
@@ -546,14 +542,6 @@ test("camera connection settings explain transport capabilities", async ({ page 
   });
 
   expect(state.title).toBe("Which connection should I use?");
-  expect(state.connectionOptions).toEqual([
-    { value: "frigate_go2rtc", label: "Frigate go2rtc (default)" },
-    { value: "ha_direct", label: "Home Assistant" },
-    {
-      value: "ha_experimental",
-      label: "Home Assistant (experimental)",
-    },
-  ]);
   expect(state.intro).toContain("recommended for most browsers");
   expect(state.rows).toEqual([
     { feature: "WebRTC", values: ["✓Supported", "✓Supported"] },

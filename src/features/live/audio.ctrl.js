@@ -71,13 +71,9 @@ export class LiveAudioController {
       return true;
     };
 
-    if (typeof engine.setOutputMuted === "function") {
-      engine.setOutputMuted(host._streamMuted);
-    } else {
-      if (typeof engine.muted === "boolean") engine.muted = host._streamMuted;
-      if (typeof engine.defaultMuted === "boolean") {
-        engine.defaultMuted = host._streamMuted;
-      }
+    if (typeof engine.muted === "boolean") engine.muted = host._streamMuted;
+    if (typeof engine.defaultMuted === "boolean") {
+      engine.defaultMuted = host._streamMuted;
     }
     if (engine.video && typeof engine.video.muted === "boolean") {
       engine.video.muted = host._streamMuted;

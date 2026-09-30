@@ -33,7 +33,7 @@ export function shouldUseGo2RtcForEntity({
       entity: key,
       defaultConnectionType,
       normalizeCameraConnectionType,
-    }) === "frigate_go2rtc"
+    }) !== "ha_direct"
   );
 }
 
