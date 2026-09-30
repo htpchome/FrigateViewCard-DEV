@@ -165,11 +165,7 @@ export const createLiveLifecycleControllers = (
     },
     haDirectMounter: card._haDirectMounter,
     haDirectTwoWayTalkMounter: card._haDirectTwoWayTalkMounter,
-    go2rtcMounter: card._go2rtcMounter,
     go2rtcRaceMounter: card._go2rtcRaceMounter,
-    shouldUseCatalystGo2RtcHls: () =>
-      card._isCatalyst?.() === true &&
-      card._supportsNativeHlsPlayback?.() === true,
     preferredStreamType: () => card._preferredStreamType(),
     setActiveStreamType: (type) => card._setActiveStreamType(type),
     setStreamLoading: (loading) => card._setStreamLoading(loading),
