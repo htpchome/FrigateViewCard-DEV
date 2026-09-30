@@ -130,7 +130,7 @@ test("go2rtc resolver builds Catalyst HLS URL from the current HA session token"
   assert.deepEqual(
     await resolver.catalystHlsUrlForEntity("camera.front"),
     {
-      url: "https://ha.local/api/frigate/go2rtc/api/stream.m3u8?src=front&hls=hls&token=test+token%2F%2B",
+      url: "https://ha.local/api/frigate/webhook?token=test%20token%2F%2B&path=go2rtc/api/stream.m3u8%3Fsrc%3Dfront%26hls%3Dhls",
       destroy: null,
     },
   );
@@ -138,14 +138,14 @@ test("go2rtc resolver builds Catalyst HLS URL from the current HA session token"
   assert.equal(calls.fetch, 1);
 });
 
-test("go2rtc resolver falls back to the instance-scoped Catalyst HLS route", async () => {
+test("go2rtc resolver rejects an unsuccessful Catalyst webhook response", async () => {
   const requestedUrls = [];
   const { resolver, calls } = createResolverHarness({
     accessToken: "test-token",
     fetchResult: (url) => {
       requestedUrls.push(url);
       return {
-        ok: requestedUrls.length === 2,
+        ok: false,
         headers: { get: () => "application/vnd.apple.mpegurl" },
         text: async () => "#EXTM3U\n#EXTINF:2.0,\nsegment.ts",
       };
@@ -154,15 +154,11 @@ test("go2rtc resolver falls back to the instance-scoped Catalyst HLS route", asy
 
   assert.deepEqual(
     await resolver.catalystHlsUrlForEntity("camera.front"),
-    {
-      url: "https://ha.local/api/frigate/frigate/go2rtc/api/stream.m3u8?src=front&hls=hls&token=test-token",
-      destroy: null,
-    },
+    null,
   );
-  assert.equal(calls.fetch, 2);
+  assert.equal(calls.fetch, 1);
   assert.deepEqual(requestedUrls, [
-    "https://ha.local/api/frigate/go2rtc/api/stream.m3u8?src=front&hls=hls&token=test-token",
-    "https://ha.local/api/frigate/frigate/go2rtc/api/stream.m3u8?src=front&hls=hls&token=test-token",
+    "https://ha.local/api/frigate/webhook?token=test-token&path=go2rtc/api/stream.m3u8%3Fsrc%3Dfront%26hls%3Dhls",
   ]);
 });
 

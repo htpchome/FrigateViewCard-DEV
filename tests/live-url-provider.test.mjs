@@ -36,16 +36,14 @@ test("buildGo2rtcHlsCandidates returns the supported HA go2rtc HLS candidate", (
   ]);
 });
 
-test("buildGo2rtcCatalystHlsCandidates starts with the supplied unscoped route", () => {
+test("buildGo2rtcCatalystHlsCandidates builds the Catalyst webhook route", () => {
   assert.deepEqual(
     buildGo2rtcCatalystHlsCandidates({
-      clientId: "frig ate",
       cam: "front/door",
       token: "test token/+",
     }),
     [
-      "/api/frigate/go2rtc/api/stream.m3u8?src=front%2Fdoor&hls=hls&token=test+token%2F%2B",
-      "/api/frigate/frig%20ate/go2rtc/api/stream.m3u8?src=front%2Fdoor&hls=hls&token=test+token%2F%2B",
+      "/api/frigate/webhook?token=test%20token%2F%2B&path=go2rtc/api/stream.m3u8%3Fsrc%3Dfront%252Fdoor%26hls%3Dhls",
     ],
   );
 });

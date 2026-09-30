@@ -11,16 +11,10 @@ export const buildGo2rtcHlsCandidates = ({ clientId, cam }) => {
   return [`/api/frigate/${encClient}/go2rtc/api/stream.m3u8?src=${encCam}&mp4`];
 };
 
-export const buildGo2rtcCatalystHlsCandidates = ({ clientId, cam, token }) => {
-  const params = new URLSearchParams({
-    src: String(cam || ""),
-    hls: "hls",
-    token: String(token || ""),
-  });
-  const query = params.toString();
+export const buildGo2rtcCatalystHlsCandidates = ({ cam, token }) => {
+  const encodedCam = encodeURIComponent(encodeURIComponent(String(cam || "")));
   return [
-    `/api/frigate/go2rtc/api/stream.m3u8?${query}`,
-    `/api/frigate/${encodeURIComponent(clientId)}/go2rtc/api/stream.m3u8?${query}`,
+    `/api/frigate/webhook?token=${encodeURIComponent(String(token || ""))}&path=go2rtc/api/stream.m3u8%3Fsrc%3D${encodedCam}%26hls%3Dhls`,
   ];
 };
 

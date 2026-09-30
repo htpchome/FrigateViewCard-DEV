@@ -214,7 +214,6 @@ export function createGo2RtcResolver({
     if (!token) return null;
 
     const candidates = buildGo2rtcCatalystHlsCandidates({
-      clientId: state.clientId,
       cam: state.cam,
       token,
     });
