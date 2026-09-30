@@ -82,9 +82,24 @@ export function createLiveGraceController({
     const iceState = String(engine.pc.iceConnectionState || "")
       .trim()
       .toLowerCase();
+    const peerConnected =
+      connectionState === "connected" ||
+      (!connectionState && ["connected", "completed"].includes(iceState));
+    const iceConnected =
+      !iceState || ["connected", "completed"].includes(iceState);
+    const video = engine.video;
+    const playbackRate = Number(video.playbackRate);
+    const hasUsableFrame =
+      !video.paused &&
+      !video.ended &&
+      !video.seeking &&
+      Number(video.readyState) >= 2 &&
+      Number(video.videoWidth) > 0 &&
+      (!Number.isFinite(playbackRate) || playbackRate > 0);
     return (
-      !terminalWebRtcStates.has(connectionState) &&
-      !terminalWebRtcStates.has(iceState)
+      peerConnected &&
+      iceConnected &&
+      hasUsableFrame
     );
   };
   const isHaDirectEngineReusable = isHaDirectWebRtcEngineReusable;

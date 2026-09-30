@@ -442,6 +442,12 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
       classList: { add() {} },
       setAttribute() {},
       removeAttribute() {},
+      paused: false,
+      ended: false,
+      seeking: false,
+      readyState: 4,
+      videoWidth: 1920,
+      playbackRate: 1,
       play: () => Promise.resolve(),
     };
     const cachedEngine = {
@@ -521,6 +527,74 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
     assert.equal(slot.child, video);
     assert.equal(cachedEngine.destroyCalls, 0);
     assert.equal(ownershipAdoptions, 1);
+  });
+});
+
+test("live grace controller rejects HA-direct WebRTC that is not immediately reusable", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const releasedEngines = [];
+    const video = {
+      style: { cssText: "" },
+      paused: false,
+      ended: false,
+      seeking: false,
+      readyState: 4,
+      videoWidth: 1920,
+      playbackRate: 1,
+      remove() {},
+    };
+    const cachedEngine = {
+      type: "ha_direct",
+      streamType: "webrtc",
+      video,
+      pc: {
+        connectionState: "connecting",
+        iceConnectionState: "connected",
+      },
+    };
+    let engine = cachedEngine;
+    const controller = createLiveGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: (releasedEngine) => {
+        releasedEngines.push(releasedEngine);
+      },
+    });
+
+    assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    cachedEngine.pc.connectionState = "connected";
+    video.readyState = 1;
+    video.videoWidth = 0;
+    assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+
+    assert.equal(engine, null);
+    assert.equal(
+      controller.takeGraceHaDirectEntry("camera.front", "webrtc"),
+      null,
+    );
+    assert.deepEqual(releasedEngines, [cachedEngine]);
   });
 });
 
