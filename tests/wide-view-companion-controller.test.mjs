@@ -288,7 +288,7 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
-    /\.wide-companion-grid\{[^}]*width:100%;[^}]*justify-content:stretch;[^}]*grid-template-columns:repeat\(var\(--wide-companion-columns,2\),minmax\(0,1fr\)\)/,
+    /\.wide-companion-grid\{display:grid;[^}]*width:100%;[^}]*justify-content:stretch;[^}]*grid-template-columns:repeat\(var\(--wide-companion-columns,2\),minmax\(0,1fr\)\)/,
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,

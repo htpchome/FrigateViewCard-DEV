@@ -7009,6 +7009,12 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     const calendarButton = root.querySelector("#cal-btn");
     const calendarPanel = root.querySelector("#cal-panel");
     const toolbarHolder = filterButton.closest(".tabs-holder");
+    const companionGrid = root.querySelector("#wide-companion-grid");
+    const companionCells = Array.from(
+      root.querySelectorAll(".wide-companion-cell"),
+    );
+    const firstCellTop =
+      companionCells[0]?.getBoundingClientRect().top ?? -1;
     const before = {
       panelTop: panel.getBoundingClientRect().top,
       surfaceTop: surface.getBoundingClientRect().top,
@@ -7016,15 +7022,30 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       liveHeight: liveStage.getBoundingClientRect().height,
       surfacePaddingLeft: getComputedStyle(surface).paddingLeft,
       gridInsetLeft:
-        root.querySelector("#wide-companion-grid").getBoundingClientRect().left -
+        companionGrid.getBoundingClientRect().left -
         surface.getBoundingClientRect().left,
       buttonInsetRight:
         surface.getBoundingClientRect().right -
         expandButton.getBoundingClientRect().right,
-      cellCount: root.querySelectorAll(".wide-companion-cell").length,
-      renderedColumns: getComputedStyle(
-        root.querySelector("#wide-companion-grid"),
-      ).gridTemplateColumns.split(" ").length,
+      cellCount: companionCells.length,
+      cellEntities: companionCells.map(
+        (cell) =>
+          cell.querySelector(".wide-companion-media-host")?.dataset
+            .wideCompanionMediaEntity,
+      ),
+      gridDisplay: getComputedStyle(companionGrid).display,
+      previewStylesLoaded: Boolean(
+        root
+          .querySelector("[data-fvc-preview-page-styles]")
+          ?.textContent?.trim(),
+      ),
+      firstRowCellCount: companionCells.filter(
+        (cell) =>
+          Math.abs(cell.getBoundingClientRect().top - firstCellTop) <= 1,
+      ).length,
+      renderedColumns: getComputedStyle(companionGrid).gridTemplateColumns.split(
+        " ",
+      ).length,
     };
     filterPanel.style.height = "40px";
     filterButton.click();
@@ -7214,6 +7235,17 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.gridInsetLeft).toBeCloseTo(8, 0);
   expect(result.before.buttonInsetRight).toBeCloseTo(8, 0);
   expect(result.before.cellCount).toBe(6);
+  expect(result.before.cellEntities).toEqual([
+    "camera.camera_1",
+    "camera.camera_2",
+    "camera.camera_3",
+    "camera.camera_4",
+    "camera.camera_5",
+    "camera.camera_6",
+  ]);
+  expect(result.before.gridDisplay).toBe("grid");
+  expect(result.before.previewStylesLoaded).toBe(false);
+  expect(result.before.firstRowCellCount).toBeGreaterThan(1);
   expect(result.before.renderedColumns).toBeGreaterThan(1);
   expect(result.filterOpen).toEqual({
     display: "block",
