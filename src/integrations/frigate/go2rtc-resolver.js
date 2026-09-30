@@ -3,6 +3,7 @@ import {
   resolveGo2RtcEntity,
 } from "./camera-context.js";
 import {
+  buildGo2rtcCatalystHlsCandidates,
   buildGo2rtcHlsCandidates,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
@@ -24,6 +25,8 @@ export const GO2RTC_CACHE_TTL_MS = Object.freeze({
   hlsPlaylist: 30 * 60 * 1000,
   hlsNegative: 30 * 60 * 1000,
 });
+
+const CATALYST_HLS_SIGNATURE_TTL_SECONDS = 24 * 60 * 60;
 
 export function createGo2RtcResolver({
   getHass,
@@ -199,9 +202,40 @@ export function createGo2RtcResolver({
     return probePromise;
   };
 
+  const catalystHlsUrlForEntity = async (entity = "") => {
+    const state = await resolveTransportStateForEntity(entity);
+    if (!state || !supportsNativeHlsPlayback()) return null;
+
+    const candidates = buildGo2rtcCatalystHlsCandidates({
+      cam: state.cam,
+    });
+    for (const path of candidates) {
+      const signedPath = await signHomeAssistantPath({
+        hass: getHass(),
+        path,
+        expires: CATALYST_HLS_SIGNATURE_TTL_SECONDS,
+      });
+      if (!/[?&]authSig=/.test(signedPath)) continue;
+      const manifestUrl = `${getOrigin()}${signedPath}`;
+      try {
+        const response = await fetchImpl(manifestUrl, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) continue;
+        const playlist = await response.text();
+        if (!/^\s*#EXTM3U/.test(String(playlist || ""))) continue;
+        return { url: manifestUrl, destroy: null };
+      } catch (_) {}
+    }
+    return null;
+  };
+
   return {
     resolveMountRequest,
     websocketUrlForEntity,
     hlsUrlForEntity,
+    catalystHlsUrlForEntity,
   };
 }

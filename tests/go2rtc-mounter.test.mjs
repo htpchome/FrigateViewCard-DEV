@@ -698,6 +698,8 @@ test("go2rtc mounter HLS path commits the mounted engine on success", async () =
     assert.equal(committedType, "hls");
     assert.equal(slot.innerHTML, "");
     assert.ok(assignedEngine);
+    assert.equal(assignedEngine.type, "frigate_go2rtc");
+    assert.equal(assignedEngine.streamType, "hls");
     assert.equal(assignedEngine.video, slot.lastChild);
     assert.equal(assignedEngine.video.loadCalls, 1);
     assert.equal(assignedEngine.video.playCalls, 1);
@@ -706,6 +708,94 @@ test("go2rtc mounter HLS path commits the mounted engine on success", async () =
     assignedEngine.destroy();
     assignedEngine.video.dispatchEvent({ type: "ended" });
     assert.deepEqual(recoveryReasons, ["hls-error"]);
+  });
+});
+
+test("go2rtc mounter uses the Catalyst signed HLS source when requested", async () => {
+  await withFakeDocument(async () => {
+    const slot = createSlot();
+    let regularHlsLookups = 0;
+    let catalystHlsLookups = 0;
+    let assignedEngine = null;
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({
+          entity: "camera.front",
+          commit: true,
+        }),
+        hlsUrlForEntity: async () => {
+          regularHlsLookups += 1;
+          return null;
+        },
+        catalystHlsUrlForEntity: async () => {
+          catalystHlsLookups += 1;
+          return {
+            url: "https://ha.local/api/frigate/go2rtc/api/stream.m3u8?src=front&hls=hls&authSig=signed",
+            destroy: null,
+          };
+        },
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      waitForStreamStart: async (target, waitMs, options) => {
+        assert.equal(target, slot);
+        assert.equal(waitMs, 8000);
+        assert.equal(options.requirePresentedFrame, true);
+        return true;
+      },
+    });
+
+    const result = await withFakeWindow({}, () =>
+      mounter.tryMountHls(
+        slot,
+        { waitMs: 8000 },
+        {
+          useCatalystSignedHls: true,
+          requirePresentedFrame: true,
+          canCommit: () => true,
+        },
+      ),
+    );
+
+    assert.equal(result, true);
+    assert.equal(regularHlsLookups, 0);
+    assert.equal(catalystHlsLookups, 1);
+    assert.equal(assignedEngine?.type, "frigate_go2rtc");
+    assert.equal(assignedEngine?.streamType, "hls");
+  });
+});
+
+test("go2rtc mounter destroys stale Catalyst HLS startup before commit", async () => {
+  await withFakeDocument(async () => {
+    const slot = createSlot();
+    let assignedEngine = null;
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({
+          entity: "camera.front",
+          commit: true,
+        }),
+        catalystHlsUrlForEntity: async () => ({
+          url: "https://example.test/live.m3u8",
+          destroy: null,
+        }),
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+    });
+
+    assert.equal(
+      await withFakeWindow({}, () =>
+        mounter.tryMountHls(slot, null, {
+          useCatalystSignedHls: true,
+          canCommit: () => false,
+        }),
+      ),
+      false,
+    );
+    assert.equal(assignedEngine, null);
   });
 });
 

@@ -11,6 +11,10 @@ export const buildGo2rtcHlsCandidates = ({ clientId, cam }) => {
   return [`/api/frigate/${encClient}/go2rtc/api/stream.m3u8?src=${encCam}&mp4`];
 };
 
+export const buildGo2rtcCatalystHlsCandidates = ({ cam }) => [
+  `/api/frigate/go2rtc/api/stream.m3u8?src=${encodeURIComponent(String(cam || ""))}&hls=hls`,
+];
+
 export const buildFrigateNotificationMediaPath = ({
   clientId = "",
   eventId = "",
