@@ -144,7 +144,7 @@ function withImmediateTimeout(run) {
     });
 }
 
-test("ha direct mounter selects native HLS without creating an HA player", async () => {
+test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled", async () => {
   const nativeVideo = createFakeVideo("native-hls");
   nativeVideo.hidden = false;
   nativeVideo.classList.contains = () => false;
@@ -173,13 +173,17 @@ test("ha direct mounter selects native HLS without creating an HA player", async
   };
   let assignedEngine = null;
   let nativeOptions = null;
+  let nativeWaitMs = null;
   const mounter = createHaDirectMounter({
     getHass: () => hass,
-    getPreferredStreamType: () => "hls",
+    getPreferredStreamType: () => "webrtc",
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => engine === assignedEngine,
-    waitForStreamStart: async () => true,
+    waitForStreamStart: async (_engine, waitMs) => {
+      nativeWaitMs = waitMs;
+      return true;
+    },
     assignCommittedEngine: (engine) => {
       assignedEngine = engine;
     },
@@ -188,6 +192,7 @@ test("ha direct mounter selects native HLS without creating an HA player", async
     stopLoadingFallbackRefresh: () => {},
     setLiveNativeControls: () => {},
     shouldUseNativeHls: () => true,
+    shouldAttemptWebRtc: () => false,
     preparePlaybackElements: () => false,
     createNativeHlsVideo: async (options) => {
       nativeOptions = options;
@@ -197,7 +202,7 @@ test("ha direct mounter selects native HLS without creating an HA player", async
 
   const result = await mounter.tryMount(
     slot,
-    { streamType: "hls" },
+    { streamType: "webrtc" },
     { entity: "camera.front", commit: true },
   );
   assert.equal(await result.startupReady, true);
@@ -207,6 +212,7 @@ test("ha direct mounter selects native HLS without creating an HA player", async
   assert.equal(nativeOptions.hass, hass);
   assert.equal(nativeOptions.entity, "camera.front");
   assert.equal(nativeOptions.fitMode, "contain");
+  assert.equal(nativeWaitMs, 2500);
 
   mounter.release(nativeVideo);
   assert.equal(nativeVideo.destroyCalled, true);
@@ -466,6 +472,7 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
   const committedTypes = [];
   const readinessTargets = [];
   const readinessOptions = [];
+  const readinessWaitMs = [];
 
   class FakePeerConnection {
     constructor() {
@@ -551,10 +558,11 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => assignedEngine === engine,
-    waitForStreamStart: async (engine, _waitMs, options) => {
+    waitForStreamStart: async (engine, waitMs, options) => {
       const target = engine?.tagName || engine?.streamType || "";
       readinessTargets.push(target);
       readinessOptions.push({ target, options });
+      readinessWaitMs.push({ target, waitMs });
       return engine?.tagName === "HA-HLS-PLAYER";
     },
     assignCommittedEngine: (engine) => {
@@ -597,6 +605,15 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
     assert.equal(hlsReadiness?.strict, false);
     assert.equal(hlsReadiness?.requireReadyState, 2);
     assert.equal(hlsReadiness?.requirePresentedFrame, false);
+    assert.equal(
+      readinessWaitMs.find(({ target }) => target === "HA-HLS-PLAYER")
+        ?.waitMs,
+      2500,
+    );
+    assert.equal(
+      readinessWaitMs.find(({ target }) => target === "webrtc")?.waitMs,
+      8000,
+    );
 
     assignedEngine.dispatch("streams", { hasVideo: false });
     await flushAsyncWork();
@@ -612,13 +629,14 @@ test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () 
   }
 });
 
-test("ha direct mounter keeps HLS as startup owner when WebRTC is ready first", async () => {
+test("ha direct mounter starts WebRTC only after HLS is ready", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
   const previousPeerConnection = globalThis.RTCPeerConnection;
   let assignedEngine = null;
   let resolveHlsReady = null;
   let resolveWebRtcReady = null;
+  let subscriptionCalls = 0;
   let unsubscribeCalls = 0;
   const committedTypes = [];
   const hlsPlayers = [];
@@ -693,6 +711,7 @@ test("ha direct mounter keeps HLS as startup owner when WebRTC is ready first", 
     callWS: async () => ({ configuration: { iceServers: [] } }),
     connection: {
       subscribeMessage(callback) {
+        subscriptionCalls += 1;
         queueMicrotask(() =>
           callback({ type: "answer", answer: "ha-direct-answer" }),
         );
@@ -752,7 +771,7 @@ test("ha direct mounter keeps HLS as startup owner when WebRTC is ready first", 
     assert.equal(hlsPlayers[0].style.cssText.includes("opacity:0"), false);
     const result = await mountPromise;
     const hlsEngine = result.engine;
-    const pendingWebRtcVideo = slot.lastChild;
+    let pendingWebRtcVideo = null;
     await flushAsyncWork();
     await flushAsyncWork();
 
@@ -764,11 +783,13 @@ test("ha direct mounter keeps HLS as startup owner when WebRTC is ready first", 
     ]);
     assert.deepEqual(committedTypes, []);
     assert.equal(hlsPlayers[0].removeCalled, false);
-    assert.equal(typeof hlsPlayers[0].cancelPendingTakeover, "function");
-    assert.match(pendingWebRtcVideo.style.cssText, /position:absolute;inset:0/);
+    assert.equal(hlsPlayers[0].cancelPendingTakeover, undefined);
+    assert.equal(slot.lastChild, hlsEngine);
+    assert.equal(subscriptionCalls, 0);
     assert.equal(unsubscribeCalls, 0);
 
-    resolveWebRtcReady(true);
+    resolveHlsReady(true);
+    assert.equal(await result.startupReady, true);
     await flushAsyncWork();
     await flushAsyncWork();
 
@@ -776,10 +797,14 @@ test("ha direct mounter keeps HLS as startup owner when WebRTC is ready first", 
     assert.deepEqual(assignments, [
       { engine: hlsEngine, retainPrevious: undefined },
     ]);
-    assert.deepEqual(committedTypes, []);
+    assert.deepEqual(committedTypes, ["hls"]);
+    assert.equal(subscriptionCalls, 1);
+    pendingWebRtcVideo = slot.lastChild;
+    assert.notEqual(pendingWebRtcVideo, hlsEngine);
+    assert.equal(typeof hlsPlayers[0].cancelPendingTakeover, "function");
+    assert.match(pendingWebRtcVideo.style.cssText, /position:absolute;inset:0/);
 
-    resolveHlsReady(true);
-    assert.equal(await result.startupReady, true);
+    resolveWebRtcReady(true);
     await flushAsyncWork();
     await flushAsyncWork();
 

@@ -103,8 +103,11 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
+  assert.equal(optionsByFactory.haDirectMounter.shouldAttemptWebRtc(), true);
   deviceProfile.isIOS = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
+  deviceProfile.isCatalyst = true;
+  assert.equal(optionsByFactory.haDirectMounter.shouldAttemptWebRtc(), false);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMobile, true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(7), true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(6), false);

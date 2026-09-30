@@ -123,6 +123,7 @@ export const createLiveTransportControllers = (
       deviceProfile.isIOS === true ||
       deviceProfile.isCatalyst === true ||
       card._isSafari(),
+    shouldAttemptWebRtc: () => deviceProfile.isCatalyst !== true,
     scopeKey: card,
   });
   const haDirectTwoWayTalkMounter =

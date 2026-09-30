@@ -56,6 +56,23 @@ test("dashboard retention preserves eligible card-owned WebRTC and MSE", () => {
   }
 });
 
+test("dashboard retention preserves HA Direct WebRTC", () => {
+  const { calls, host } = createHost();
+  host._shouldUseGo2RtcForEntity = () => false;
+  const controller = new LiveDashboardRetentionController(host);
+
+  assert.equal(controller.preserveForNavigation(), true);
+  assert.equal(host._dashboardLiveGraceActive, true);
+  assert.deepEqual(calls, [
+    [
+      "cancel",
+      "same-dashboard-navigation",
+      { preserveLiveEntity: "camera.front" },
+    ],
+    ["clear-slot"],
+  ]);
+});
+
 test("dashboard retention rejects unsupported or busy live sessions", () => {
   const { calls, host } = createHost();
   const controller = new LiveDashboardRetentionController(host);
@@ -63,9 +80,6 @@ test("dashboard retention rejects unsupported or busy live sessions", () => {
   host._mountInProgress = true;
   assert.equal(controller.preserveForNavigation(), false);
   host._mountInProgress = false;
-  host._shouldUseGo2RtcForEntity = () => false;
-  assert.equal(controller.preserveForNavigation(), false);
-  host._shouldUseGo2RtcForEntity = () => true;
   host._currentLiveStreamHint = () => "hls";
   assert.equal(controller.preserveForNavigation(), false);
 
