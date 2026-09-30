@@ -2,6 +2,7 @@ import {
   resolveFrigateCameraRuntimeState,
   setFrigateCameraRuntimeSuspended,
 } from "../../integrations/home-assistant/frigate-camera-runtime.js";
+import { CARD_DISPLAY_NAME } from "../../product-identity.mjs";
 import { applyLocalizedText } from "../localization/localized-dom.js";
 import { buildLiveCameraPowerControlMarkup } from "./view.tmpl.js";
 import { canUserManageCameraSuspension } from "./camera-suspension-policy.js";
@@ -16,7 +17,7 @@ const DIALOG_COPY = Object.freeze({
       "Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.",
     warningKey: "runtime.live.cameraSuspendDialogWarning",
     warning:
-      "Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and FrigateViewCard. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.",
+      `Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and ${CARD_DISPLAY_NAME}. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.`,
     actionKey: "runtime.live.suspendCamera",
     action: "Suspend camera",
   },
@@ -188,9 +189,17 @@ export class FrigateCameraRuntimeController {
     applyLocalizedText(button.parentElement || button, this._host._localization?.t);
   }
 
-  _setDialogText(element, key, fallback) {
+  _setDialogText(element, key, fallback, values = null) {
     if (!element) return;
     element.setAttribute?.("data-fvc-i18n", key);
+    if (values) {
+      element.setAttribute?.(
+        "data-fvc-i18n-values",
+        JSON.stringify(values),
+      );
+    } else {
+      element.removeAttribute?.("data-fvc-i18n-values");
+    }
     element.textContent = fallback;
   }
 
@@ -220,7 +229,9 @@ export class FrigateCameraRuntimeController {
     if (warning) {
       warning.hidden = !suspending;
       if (suspending) {
-        this._setDialogText(warning, copy.warningKey, copy.warning);
+        this._setDialogText(warning, copy.warningKey, copy.warning, {
+          cardName: CARD_DISPLAY_NAME,
+        });
       }
     }
     this._setDialogText(submit, copy.actionKey, copy.action);

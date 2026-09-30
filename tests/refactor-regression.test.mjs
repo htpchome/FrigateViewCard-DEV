@@ -947,7 +947,7 @@ test("live transport ownership is pulled out of the card shell", () => {
     true,
   );
   assert.equal(
-    gridRuntimeLoaderSource.includes("frigate-view-card-grid.js"),
+    gridRuntimeLoaderSource.includes("GRID_RUNTIME_ASSET_NAME"),
     true,
   );
   assert.equal(cardSource.includes("_mountGridCameraCellMedia("), false);
@@ -1855,7 +1855,7 @@ test("editor preview helpers delegate through the context controller", () => {
   );
   assert.equal(
     editorPreviewDraftLoaderSource.includes(
-      "frigate-view-card-editor-preview-draft.js",
+      "EDITOR_PREVIEW_DRAFT_ASSET_NAME",
     ),
     true,
   );
@@ -2650,7 +2650,7 @@ test("Slideshow controller composition is feature-owned", () => {
   );
   assert.equal(
     slideshowRuntimeLoaderSource.includes(
-      "frigate-view-card-slideshow.js",
+      "SLIDESHOW_RUNTIME_ASSET_NAME",
     ),
     true,
   );
@@ -2688,7 +2688,7 @@ test("Preview controllers and page shell stay behind its lazy feature asset", ()
     false,
   );
   assert.equal(
-    previewPageLoaderSource.includes("frigate-view-card-preview.js"),
+    previewPageLoaderSource.includes("PREVIEW_PAGE_ASSET_NAME"),
     true,
   );
   assert.equal(
@@ -2814,7 +2814,7 @@ test("Wide View controller composition is owned by the Wide View feature", () =>
     false,
   );
   assert.equal(
-    wideViewPageLoaderSource.includes("frigate-view-card-wide-view.js"),
+    wideViewPageLoaderSource.includes("WIDE_VIEW_PAGE_ASSET_NAME"),
     true,
   );
   assert.equal(
@@ -2842,7 +2842,7 @@ test("Card View controller and page shell stay behind its lazy feature asset", (
   assert.equal(cardSource.includes("new CardViewPageController"), false);
   assert.equal(
     cardViewPageLoaderSource.includes(
-      "frigate-view-card-card-view.js",
+      "CARD_VIEW_ASSET_NAME",
     ),
     true,
   );
@@ -2878,7 +2878,7 @@ test("recordings browse nav delegates through the lazy recordings runtime", () =
   assert.equal(cardSource.includes("new RecordingsBrowseNavController"), false);
   assert.equal(
     recordingsRuntimeLoaderSource.includes(
-      "frigate-view-card-recordings.js",
+      "RECORDINGS_RUNTIME_ASSET_NAME",
     ),
     true,
   );
@@ -3928,7 +3928,7 @@ test("PTZ interaction state and behavior are feature-owned", () => {
     true,
   );
   assert.equal(
-    ptzRuntimeLoaderSource.includes("frigate-view-card-ptz.js"),
+    ptzRuntimeLoaderSource.includes("PTZ_RUNTIME_ASSET_NAME"),
     true,
   );
   assert.equal(

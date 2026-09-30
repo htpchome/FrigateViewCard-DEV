@@ -1,4 +1,5 @@
 import { VERSION } from "../../constants.js";
+import { LINKED_LIGHT_ASSET_NAME } from "../../release-artifacts.mjs";
 import { flattenCameraMembers } from "../camera-groups/model.js";
 import {
   linkedLightForCamera,
@@ -6,7 +7,6 @@ import {
   normalizeLinkedLightPosition,
 } from "./config.js";
 
-const LINKED_LIGHT_ASSET_NAME = "frigate-view-card-linked-light.js";
 const linkedLightModuleState = { promise: null };
 
 export const ensureLinkedLightModule = ({

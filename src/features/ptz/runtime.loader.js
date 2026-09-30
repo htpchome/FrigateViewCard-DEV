@@ -1,7 +1,6 @@
 import { VERSION } from "../../constants.js";
+import { PTZ_RUNTIME_ASSET_NAME } from "../../release-artifacts.mjs";
 import { hasCameraPtz } from "./index.js";
-
-const PTZ_RUNTIME_ASSET_NAME = "frigate-view-card-ptz.js";
 const ptzRuntimeModuleState = { promise: null };
 
 export const ensurePtzRuntimeModule = ({

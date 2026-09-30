@@ -1,6 +1,5 @@
 import { VERSION } from "../../constants.js";
-
-const WIDE_TIMELINE_ASSET_NAME = "frigate-view-card-wide-timeline.js";
+import { WIDE_TIMELINE_ASSET_NAME } from "../../release-artifacts.mjs";
 const wideTimelineModuleState = { promise: null };
 
 export const ensureWideViewTimelineModule = ({

@@ -1,6 +1,5 @@
 import { VERSION } from "../../constants.js";
-
-const PREVIEW_PAGE_ASSET_NAME = "frigate-view-card-preview.js";
+import { PREVIEW_PAGE_ASSET_NAME } from "../../release-artifacts.mjs";
 const previewPageModuleState = { promise: null };
 
 export const ensurePreviewPageModule = ({

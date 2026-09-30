@@ -1,6 +1,5 @@
 import { VERSION } from "../constants.js";
-
-const FRAME_CAPTURE_ASSET_NAME = "frigate-view-card-frame-capture.js";
+import { FRAME_CAPTURE_ASSET_NAME } from "../release-artifacts.mjs";
 const frameCaptureModuleState = { promise: null };
 
 export const ensureDisplayedFrameCaptureModule = ({

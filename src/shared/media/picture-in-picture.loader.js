@@ -1,11 +1,10 @@
 import { VERSION } from "../../constants.js";
+import { PICTURE_IN_PICTURE_ASSET_NAME } from "../../release-artifacts.mjs";
 import {
   disableNativePictureInPicture,
   enableNativePictureInPicture,
 } from "./video-factory.js";
 
-const PICTURE_IN_PICTURE_ASSET_NAME =
-  "frigate-view-card-picture-in-picture.js";
 const pictureInPictureModuleState = { promise: null };
 
 export const ensurePictureInPictureModule = ({

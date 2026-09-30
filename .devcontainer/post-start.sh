@@ -25,15 +25,18 @@ if [ -d "/config" ]; then
   fi
   
   # Auto-sync card on startup
-  if [ -n "$WORKSPACE_DIR" ] &&
-    [ -f "$WORKSPACE_DIR/dist/frigate-view-card.js" ] &&
-    [ -f "$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.js" ] &&
-    [ -f "$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.LICENSE.txt" ]; then
-    cp \
-      "$WORKSPACE_DIR/dist/frigate-view-card.js" \
-      "$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.js" \
-      "$WORKSPACE_DIR/dist/frigate-view-card-hls-1.5.17.LICENSE.txt" \
-      /config/www/
+  mapfile -t ASSET_FILES < <(
+    node "$WORKSPACE_DIR/scripts/list-release-assets.mjs" "$WORKSPACE_DIR/dist"
+  )
+  ASSETS_READY=true
+  for ASSET_FILE in "${ASSET_FILES[@]}"; do
+    if [ ! -f "$ASSET_FILE" ]; then
+      ASSETS_READY=false
+      break
+    fi
+  done
+  if [ -n "$WORKSPACE_DIR" ] && $ASSETS_READY; then
+    cp "${ASSET_FILES[@]}" /config/www/
     echo "✓ Card assets synced to Home Assistant"
   fi
 fi

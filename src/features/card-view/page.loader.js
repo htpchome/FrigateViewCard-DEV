@@ -1,11 +1,11 @@
 import { VERSION } from "../../constants.js";
+import { CARD_VIEW_ASSET_NAME } from "../../release-artifacts.mjs";
 import {
   CARD_VIEW_VIEW_MODES,
   normalizeCardViewViewMode,
 } from "./config.js";
 import { POPUP_PRESENTATION_CARD_VIEW_DRAWER } from "../popup/media.js";
 
-const CARD_VIEW_PAGE_ASSET_NAME = "frigate-view-card-card-view.js";
 const cardViewPageModuleState = { promise: null };
 
 export const ensureCardViewPageModule = ({
@@ -15,7 +15,7 @@ export const ensureCardViewPageModule = ({
   if (cardViewPageModuleState.promise) {
     return cardViewPageModuleState.promise;
   }
-  const assetUrl = new URL(`./${CARD_VIEW_PAGE_ASSET_NAME}`, baseUrl);
+  const assetUrl = new URL(`./${CARD_VIEW_ASSET_NAME}`, baseUrl);
   assetUrl.searchParams.set("fvc-version", VERSION);
   cardViewPageModuleState.promise = Promise.resolve()
     .then(() => importModule(assetUrl.href))

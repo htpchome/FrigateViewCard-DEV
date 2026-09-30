@@ -1,4 +1,4 @@
-export const LANGUAGE_ASSET_PREFIX = "frigate-view-card-locale";
+export { LANGUAGE_ASSET_PREFIX } from "../../release-artifacts.mjs";
 
 export const LANGUAGE_ASSETS = Object.freeze({
   "en-GB": "en-GB",

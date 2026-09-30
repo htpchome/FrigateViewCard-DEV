@@ -1,7 +1,5 @@
 import { VERSION } from "../../constants.js";
-
-const CARD_PICKER_DEMO_ASSET_NAME =
-  "frigate-view-card-card-picker-demo.js";
+import { CARD_PICKER_DEMO_ASSET_NAME } from "../../release-artifacts.mjs";
 const cardPickerDemoModuleState = { promise: null };
 
 export const ensureCardPickerDemoModule = ({

@@ -12,43 +12,72 @@ import {
   LANGUAGE_ASSET_NAMES,
   LANGUAGE_ASSET_PREFIX,
 } from "../src/features/localization/catalogs.mjs";
+import { CARD_DISPLAY_NAME } from "../src/product-identity.mjs";
+import {
+  CARD_LICENSE_ASSET_NAME,
+  CARD_PICKER_DEMO_ASSET_NAME,
+  CARD_VIEW_ASSET_NAME,
+  CIRCLE_PAD_ASSET_NAME,
+  DASHBOARD_SWIPE_ASSET_NAME,
+  EDITOR_ASSET_NAME,
+  EDITOR_PREVIEW_DRAFT_ASSET_NAME,
+  FRAME_CAPTURE_ASSET_NAME,
+  GRID_RUNTIME_ASSET_NAME,
+  LINKED_LIGHT_ASSET_NAME,
+  MAIN_CARD_ASSET_NAME,
+  NAVBAR_ASSET_NAME,
+  PICTURE_IN_PICTURE_ASSET_NAME,
+  PREVIEW_PAGE_ASSET_NAME,
+  PTZ_RUNTIME_ASSET_NAME,
+  RECORDINGS_RUNTIME_ASSET_NAME,
+  RECORDING_HLS_JS_ASSET_NAME,
+  RECORDING_HLS_LICENSE_ASSET_NAME,
+  RECORDING_SCRUB_ASSET_NAME,
+  SLIDESHOW_RUNTIME_ASSET_NAME,
+  WIDE_COMPANION_ASSET_NAME,
+  WIDE_TIMELINE_ASSET_NAME,
+  WIDE_VIEW_PAGE_ASSET_NAME,
+} from "../src/release-artifacts.mjs";
 
-const outputFile = "dist/frigate-view-card.js";
-const editorOutputFile = "dist/frigate-view-card-editor.js";
-const circlePadOutputFile = "dist/frigate-view-card-circle-pad.js";
-const dashboardSwipeOutputFile =
-  "dist/frigate-view-card-dashboard-swipe-navigation.js";
-const navbarOutputFile = "dist/frigate-view-card-navbar.js";
-const recordingScrubOutputFile =
-  "dist/frigate-view-card-recording-scrub.js";
-const frameCaptureOutputFile =
-  "dist/frigate-view-card-frame-capture.js";
-const linkedLightOutputFile =
-  "dist/frigate-view-card-linked-light.js";
-const cardViewOutputFile = "dist/frigate-view-card-card-view.js";
-const gridOutputFile = "dist/frigate-view-card-grid.js";
-const slideshowOutputFile = "dist/frigate-view-card-slideshow.js";
-const previewOutputFile = "dist/frigate-view-card-preview.js";
-const recordingsOutputFile = "dist/frigate-view-card-recordings.js";
-const ptzOutputFile = "dist/frigate-view-card-ptz.js";
-const pictureInPictureOutputFile =
-  "dist/frigate-view-card-picture-in-picture.js";
-const cardPickerDemoOutputFile =
-  "dist/frigate-view-card-card-picker-demo.js";
-const editorPreviewDraftOutputFile =
-  "dist/frigate-view-card-editor-preview-draft.js";
-const wideViewOutputFile = "dist/frigate-view-card-wide-view.js";
-const wideCompanionOutputFile =
-  "dist/frigate-view-card-wide-companion.js";
-const wideTimelineOutputFile =
-  "dist/frigate-view-card-wide-timeline.js";
-const hlsOutputFile = "dist/frigate-view-card-hls-1.5.17.js";
-const hlsLicenseOutputFile =
-  "dist/frigate-view-card-hls-1.5.17.LICENSE.txt";
-const cardLicenseOutputFile = "dist/frigate-view-card.LICENSE.txt";
+const distAssetPath = (assetName) => `dist/${assetName}`;
+const outputFile = distAssetPath(MAIN_CARD_ASSET_NAME);
+const editorOutputFile = distAssetPath(EDITOR_ASSET_NAME);
+const circlePadOutputFile = distAssetPath(CIRCLE_PAD_ASSET_NAME);
+const dashboardSwipeOutputFile = distAssetPath(
+  DASHBOARD_SWIPE_ASSET_NAME,
+);
+const navbarOutputFile = distAssetPath(NAVBAR_ASSET_NAME);
+const recordingScrubOutputFile = distAssetPath(
+  RECORDING_SCRUB_ASSET_NAME,
+);
+const frameCaptureOutputFile = distAssetPath(FRAME_CAPTURE_ASSET_NAME);
+const linkedLightOutputFile = distAssetPath(LINKED_LIGHT_ASSET_NAME);
+const cardViewOutputFile = distAssetPath(CARD_VIEW_ASSET_NAME);
+const gridOutputFile = distAssetPath(GRID_RUNTIME_ASSET_NAME);
+const slideshowOutputFile = distAssetPath(SLIDESHOW_RUNTIME_ASSET_NAME);
+const previewOutputFile = distAssetPath(PREVIEW_PAGE_ASSET_NAME);
+const recordingsOutputFile = distAssetPath(RECORDINGS_RUNTIME_ASSET_NAME);
+const ptzOutputFile = distAssetPath(PTZ_RUNTIME_ASSET_NAME);
+const pictureInPictureOutputFile = distAssetPath(
+  PICTURE_IN_PICTURE_ASSET_NAME,
+);
+const cardPickerDemoOutputFile = distAssetPath(
+  CARD_PICKER_DEMO_ASSET_NAME,
+);
+const editorPreviewDraftOutputFile = distAssetPath(
+  EDITOR_PREVIEW_DRAFT_ASSET_NAME,
+);
+const wideViewOutputFile = distAssetPath(WIDE_VIEW_PAGE_ASSET_NAME);
+const wideCompanionOutputFile = distAssetPath(WIDE_COMPANION_ASSET_NAME);
+const wideTimelineOutputFile = distAssetPath(WIDE_TIMELINE_ASSET_NAME);
+const hlsOutputFile = distAssetPath(RECORDING_HLS_JS_ASSET_NAME);
+const hlsLicenseOutputFile = distAssetPath(
+  RECORDING_HLS_LICENSE_ASSET_NAME,
+);
+const cardLicenseOutputFile = distAssetPath(CARD_LICENSE_ASSET_NAME);
 const languageSourceDirectory = "src/features/localization/languages";
 const outputBanner =
-  "/** FrigateView Card - generated file. Edit src/ instead. MIT license: frigate-view-card.LICENSE.txt. */";
+  `/** ${CARD_DISPLAY_NAME} - generated file. Edit src/ instead. MIT license: ${CARD_LICENSE_ASSET_NAME}. */`;
 
 const minifyStyleModulesPlugin = {
   name: "minify-style-modules",

@@ -9,9 +9,9 @@ import {
   syncControlsPadLabels,
 } from "./controls.tmpl.js";
 import { VERSION } from "../../constants.js";
+import { CIRCLE_PAD_ASSET_NAME } from "../../release-artifacts.mjs";
 
 const CIRCLE_PAD_TAG = "circle-pad-control-2";
-const CIRCLE_PAD_ASSET_NAME = "frigate-view-card-circle-pad.js";
 const circlePadLoaderState = { promise: null };
 
 export const ensureCirclePadControl = ({

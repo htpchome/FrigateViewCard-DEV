@@ -8,6 +8,7 @@ import {
   isM3u8Url,
 } from "../../shared/media/url-utils.js";
 import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-geometry.js";
+import { RECORDING_HLS_JS_ASSET_NAME } from "../../release-artifacts.mjs";
 import { isIOS } from "../../helpers.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
 import {
@@ -41,13 +42,12 @@ import {
   resolvePopupViewAvailableMaxHeight,
 } from "./view-resize.ctrl.js";
 
-const RECORDING_HLS_JS_FILENAME = "frigate-view-card-hls-1.5.17.js";
 const RECORDING_HLS_JS_INTEGRITY =
   "sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni";
 const MOBILE_POPUP_STAGE_HEIGHT_RATIO = 9 / 16;
 
 export const resolveRecordingHlsJsUrl = (moduleUrl = import.meta.url) =>
-  new URL(`./${RECORDING_HLS_JS_FILENAME}`, moduleUrl).href;
+  new URL(`./${RECORDING_HLS_JS_ASSET_NAME}`, moduleUrl).href;
 
 export const resolvePopupMediaSizing = (media = null) => {
   const { width, height } = resolveDisplayedFrameDimensions(media);

@@ -1,9 +1,9 @@
 import { SLIDESHOW_ROTATION_OPTIONS_SECONDS, VERSION } from "../../constants.js";
+import { SLIDESHOW_RUNTIME_ASSET_NAME } from "../../release-artifacts.mjs";
 import { flattenCameraMembers } from "../camera-groups/model.js";
 import { setLocalizedText } from "../localization/localized-dom.js";
 import { shouldHandleSlideshowReview } from "./routing.js";
 
-const SLIDESHOW_RUNTIME_ASSET_NAME = "frigate-view-card-slideshow.js";
 const slideshowRuntimeModuleState = { promise: null };
 
 export const ensureSlideshowRuntimeModule = ({

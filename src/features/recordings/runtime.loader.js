@@ -1,7 +1,5 @@
 import { VERSION } from "../../constants.js";
-
-const RECORDINGS_RUNTIME_ASSET_NAME =
-  "frigate-view-card-recordings.js";
+import { RECORDINGS_RUNTIME_ASSET_NAME } from "../../release-artifacts.mjs";
 const recordingsRuntimeModuleState = { promise: null };
 
 export const ensureRecordingsRuntimeModule = ({

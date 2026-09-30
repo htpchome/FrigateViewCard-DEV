@@ -19,6 +19,7 @@ import {
   DEFAULT_EVENT_DAYS,
   DEFAULT_ALERTS_REVIEWS_DAYS,
 } from "../constants.js";
+import { EDITOR_ASSET_NAME } from "../release-artifacts.mjs";
 import { ICONS } from "../icons.js";
 import {
   STYLES_AFTER_CARD_VIEW,
@@ -606,7 +607,7 @@ export class FrigateViewCard extends HTMLElement {
   static async getConfigElement() {
     if (!customElements.get(CARD_EDITOR_TAG)) {
       const editorUrl = new URL(
-        "./frigate-view-card-editor.js",
+        `./${EDITOR_ASSET_NAME}`,
         import.meta.url,
       );
       editorUrl.searchParams.set("fvc-version", VERSION);

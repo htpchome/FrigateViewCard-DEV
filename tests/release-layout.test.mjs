@@ -6,8 +6,68 @@ import {
   LANGUAGE_ASSET_NAMES,
   LANGUAGE_ASSET_PREFIX,
 } from "../src/features/localization/catalogs.mjs";
+import { CARD_DISPLAY_NAME } from "../src/product-identity.mjs";
+import {
+  CARD_LICENSE_ASSET_NAME,
+  CARD_PICKER_DEMO_ASSET_NAME,
+  CARD_VIEW_ASSET_NAME,
+  COMPATIBILITY_ASSET_PREFIX,
+  EDITOR_ASSET_NAME,
+  EDITOR_PREVIEW_DRAFT_ASSET_NAME,
+  FRAME_CAPTURE_ASSET_NAME,
+  GRID_RUNTIME_ASSET_NAME,
+  LINKED_LIGHT_ASSET_NAME,
+  MAIN_CARD_ASSET_NAME,
+  NAVBAR_ASSET_NAME,
+  PICTURE_IN_PICTURE_ASSET_NAME,
+  PREVIEW_PAGE_ASSET_NAME,
+  PTZ_RUNTIME_ASSET_NAME,
+  RECORDINGS_RUNTIME_ASSET_NAME,
+  RECORDING_HLS_JS_ASSET_NAME,
+  RECORDING_SCRUB_ASSET_NAME,
+  RELEASE_ASSET_NAMES,
+  SLIDESHOW_RUNTIME_ASSET_NAME,
+  WIDE_COMPANION_ASSET_NAME,
+  WIDE_TIMELINE_ASSET_NAME,
+  WIDE_VIEW_PAGE_ASSET_NAME,
+} from "../src/release-artifacts.mjs";
 
 const repositoryFile = (path) => new URL(`../${path}`, import.meta.url);
+const distAsset = (assetName) => repositoryFile(`dist/${assetName}`);
+
+test("release filenames remain on the permanent compatibility prefix", () => {
+  assert.equal(COMPATIBILITY_ASSET_PREFIX, "frigate-view-card");
+  assert.equal(MAIN_CARD_ASSET_NAME, "frigate-view-card.js");
+  assert.deepEqual(RELEASE_ASSET_NAMES, [
+    "frigate-view-card.js",
+    "frigate-view-card-editor.js",
+    "frigate-view-card-circle-pad.js",
+    "frigate-view-card-dashboard-swipe-navigation.js",
+    "frigate-view-card-navbar.js",
+    "frigate-view-card-recording-scrub.js",
+    "frigate-view-card-frame-capture.js",
+    "frigate-view-card-linked-light.js",
+    "frigate-view-card-card-view.js",
+    "frigate-view-card-grid.js",
+    "frigate-view-card-slideshow.js",
+    "frigate-view-card-preview.js",
+    "frigate-view-card-recordings.js",
+    "frigate-view-card-ptz.js",
+    "frigate-view-card-picture-in-picture.js",
+    "frigate-view-card-card-picker-demo.js",
+    "frigate-view-card-editor-preview-draft.js",
+    "frigate-view-card-wide-view.js",
+    "frigate-view-card-wide-companion.js",
+    "frigate-view-card-wide-timeline.js",
+    "frigate-view-card-hls-1.5.17.js",
+    "frigate-view-card-hls-1.5.17.LICENSE.txt",
+    "frigate-view-card.LICENSE.txt",
+  ]);
+  assert.equal(new Set(RELEASE_ASSET_NAMES).size, RELEASE_ASSET_NAMES.length);
+  for (const assetName of RELEASE_ASSET_NAMES) {
+    assert.match(assetName, /^frigate-view-card(?:[.-])/);
+  }
+});
 
 test("HACS release artifact is generated under dist", () => {
   const manifest = JSON.parse(
@@ -17,122 +77,16 @@ test("HACS release artifact is generated under dist", () => {
     fs.readFileSync(repositoryFile("package.json"), "utf8"),
   );
 
-  assert.equal(manifest.filename, "frigate-view-card.js");
+  assert.equal(manifest.filename, MAIN_CARD_ASSET_NAME);
   assert.equal(manifest.content_in_root, false);
   assert.match(packageJson.scripts.check, /dist\/frigate-view-card\.js/);
-  assert.equal(fs.existsSync(repositoryFile("dist/frigate-view-card.js")), true);
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-editor.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-circle-pad.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile(
-        "dist/frigate-view-card-dashboard-swipe-navigation.js",
-      ),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-navbar.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-card-view.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-grid.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-slideshow.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-preview.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-recordings.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-ptz.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-picture-in-picture.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-card-picker-demo.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-editor-preview-draft.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card-wide-view.js")),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-recording-scrub.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-frame-capture.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-linked-light.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-wide-timeline.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-wide-companion.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-hls-1.5.17.js"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(
-      repositoryFile("dist/frigate-view-card-hls-1.5.17.LICENSE.txt"),
-    ),
-    true,
-  );
-  assert.equal(
-    fs.existsSync(repositoryFile("dist/frigate-view-card.LICENSE.txt")),
-    true,
-  );
+  for (const assetName of RELEASE_ASSET_NAMES) {
+    assert.equal(
+      fs.existsSync(distAsset(assetName)),
+      true,
+      `Missing release asset ${assetName}`,
+    );
+  }
   for (const language of LANGUAGE_ASSET_NAMES) {
     assert.equal(
       fs.existsSync(
@@ -143,87 +97,87 @@ test("HACS release artifact is generated under dist", () => {
     );
   }
   assert.equal(
-    fs.readFileSync(
-      repositoryFile("dist/frigate-view-card.LICENSE.txt"),
-      "utf8",
-    ),
+    fs.readFileSync(distAsset(CARD_LICENSE_ASSET_NAME), "utf8"),
     fs.readFileSync(repositoryFile("LICENSE"), "utf8"),
   );
-  assert.equal(fs.existsSync(repositoryFile("frigate-view-card.js")), false);
+  assert.equal(fs.existsSync(repositoryFile(MAIN_CARD_ASSET_NAME)), false);
 });
 
 test("HACS release artifact is production-minified", () => {
   const bundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card.js"),
+    distAsset(MAIN_CARD_ASSET_NAME),
     "utf8",
   );
   const navbarBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-navbar.js"),
+    distAsset(NAVBAR_ASSET_NAME),
     "utf8",
   );
   const cardViewBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-card-view.js"),
+    distAsset(CARD_VIEW_ASSET_NAME),
     "utf8",
   );
   const gridBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-grid.js"),
+    distAsset(GRID_RUNTIME_ASSET_NAME),
     "utf8",
   );
   const slideshowBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-slideshow.js"),
+    distAsset(SLIDESHOW_RUNTIME_ASSET_NAME),
     "utf8",
   );
   const previewBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-preview.js"),
+    distAsset(PREVIEW_PAGE_ASSET_NAME),
     "utf8",
   );
   const recordingsBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-recordings.js"),
+    distAsset(RECORDINGS_RUNTIME_ASSET_NAME),
     "utf8",
   );
   const ptzBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-ptz.js"),
+    distAsset(PTZ_RUNTIME_ASSET_NAME),
     "utf8",
   );
   const pictureInPictureBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-picture-in-picture.js"),
+    distAsset(PICTURE_IN_PICTURE_ASSET_NAME),
     "utf8",
   );
   const cardPickerDemoBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-card-picker-demo.js"),
+    distAsset(CARD_PICKER_DEMO_ASSET_NAME),
     "utf8",
   );
   const editorPreviewDraftBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-editor-preview-draft.js"),
+    distAsset(EDITOR_PREVIEW_DRAFT_ASSET_NAME),
     "utf8",
   );
   const recordingScrubBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-recording-scrub.js"),
+    distAsset(RECORDING_SCRUB_ASSET_NAME),
     "utf8",
   );
   const frameCaptureBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-frame-capture.js"),
+    distAsset(FRAME_CAPTURE_ASSET_NAME),
     "utf8",
   );
   const linkedLightBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-linked-light.js"),
+    distAsset(LINKED_LIGHT_ASSET_NAME),
     "utf8",
   );
   const wideTimelineBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-wide-timeline.js"),
+    distAsset(WIDE_TIMELINE_ASSET_NAME),
     "utf8",
   );
   const wideCompanionBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-wide-companion.js"),
+    distAsset(WIDE_COMPANION_ASSET_NAME),
     "utf8",
   );
   const wideViewBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-wide-view.js"),
+    distAsset(WIDE_VIEW_PAGE_ASSET_NAME),
     "utf8",
   );
   const [banner] = bundle.split("\n", 1);
 
-  assert.match(banner, /^\/\*\* FrigateView Card - generated file\./);
+  assert.match(
+    banner,
+    new RegExp(`^/\\*\\* ${CARD_DISPLAY_NAME} - generated file\\.`),
+  );
   assert.match(banner, /MIT license: frigate-view-card\.LICENSE\.txt/);
   assert.ok(Buffer.byteLength(bundle) < 1_900_000);
   assert.match(bundle, /frigate-view-card-hls-1\.5\.17\.js/);
@@ -309,20 +263,27 @@ test("development deployment keeps every lazy page asset beside the card", () =>
   for (const path of [
     ".devcontainer/sync-card.sh",
     ".devcontainer/watch-card.sh",
-    "README.md",
+    ".devcontainer/post-start.sh",
   ]) {
     const source = fs.readFileSync(repositoryFile(path), "utf8");
-    assert.match(source, /frigate-view-card-card-view\.js/);
-    assert.match(source, /frigate-view-card-grid\.js/);
-    assert.match(source, /frigate-view-card-slideshow\.js/);
-    assert.match(source, /frigate-view-card-preview\.js/);
-    assert.match(source, /frigate-view-card-recordings\.js/);
-    assert.match(source, /frigate-view-card-ptz\.js/);
-    assert.match(source, /frigate-view-card-picture-in-picture\.js/);
-    assert.match(source, /frigate-view-card-card-picker-demo\.js/);
-    assert.match(source, /frigate-view-card-editor-preview-draft\.js/);
-    assert.match(source, /frigate-view-card-wide-view\.js/);
-    assert.match(source, /frigate-view-card-wide-companion\.js/);
+    assert.match(source, /scripts\/list-release-assets\.mjs/);
+    assert.doesNotMatch(source, /frigate-view-card-card-view\.js/);
+  }
+  const releaseAssetScript = fs.readFileSync(
+    repositoryFile("scripts/list-release-assets.mjs"),
+    "utf8",
+  );
+  assert.match(releaseAssetScript, /RELEASE_ASSET_NAMES/);
+  assert.match(releaseAssetScript, /LANGUAGE_ASSET_NAMES/);
+
+  const readme = fs.readFileSync(repositoryFile("README.md"), "utf8");
+  for (const assetName of [
+    CARD_VIEW_ASSET_NAME,
+    GRID_RUNTIME_ASSET_NAME,
+    WIDE_VIEW_PAGE_ASSET_NAME,
+    WIDE_COMPANION_ASSET_NAME,
+  ]) {
+    assert.match(readme, new RegExp(assetName.replaceAll(".", "\\.")));
   }
   const postCreate = fs.readFileSync(
     repositoryFile(".devcontainer/post-create.sh"),
@@ -338,11 +299,11 @@ test("production bundles enable tree shaking", () => {
     "utf8",
   );
   const runtimeBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card.js"),
+    distAsset(MAIN_CARD_ASSET_NAME),
     "utf8",
   );
   const editorBundle = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-editor.js"),
+    distAsset(EDITOR_ASSET_NAME),
     "utf8",
   );
 
@@ -354,7 +315,7 @@ test("production bundles enable tree shaking", () => {
 
 test("lazy HLS release asset matches the pinned integrity hash", () => {
   const hlsAsset = fs.readFileSync(
-    repositoryFile("dist/frigate-view-card-hls-1.5.17.js"),
+    distAsset(RECORDING_HLS_JS_ASSET_NAME),
   );
   const integrity = createHash("sha384").update(hlsAsset).digest("base64");
 

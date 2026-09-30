@@ -1,6 +1,5 @@
 import { VERSION } from "../../constants.js";
-
-const WIDE_VIEW_PAGE_ASSET_NAME = "frigate-view-card-wide-view.js";
+import { WIDE_VIEW_PAGE_ASSET_NAME } from "../../release-artifacts.mjs";
 const wideViewPageModuleState = { promise: null };
 
 export const ensureWideViewPageModule = ({

@@ -1,8 +1,6 @@
 import { VERSION } from "../../constants.js";
+import { WIDE_COMPANION_ASSET_NAME } from "../../release-artifacts.mjs";
 import { buildWideCompanionRegionMarkup } from "./companion.tmpl.js";
-
-const WIDE_COMPANION_ASSET_NAME =
-  "frigate-view-card-wide-companion.js";
 const MAX_PENDING_REALTIME_MESSAGES = 50;
 const wideCompanionModuleState = { promise: null };
 

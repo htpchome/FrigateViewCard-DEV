@@ -22,7 +22,10 @@ The new product name is intentionally undecided.
 
 - Product display name, custom-element tag, YAML type, editor tag, accepted
   legacy tags, and HACS update identities are derived from the identity
-  constants in `src/constants.js`.
+  contract in `src/product-identity.mjs`.
+- Generated bundle, locale, and license filenames are defined once in
+  `src/release-artifacts.mjs`. The build, runtime lazy loaders, and development
+  deployment scripts consume that contract.
 - Runtime registration has a legacy-tag path that uses subclass constructors,
   as required by the Custom Elements registry.
 - Dashboard navbar ownership, dashboard swipe ownership, editor-preview
@@ -47,7 +50,7 @@ they do not diverge across assets.
 
 ## Rename release procedure
 
-1. Change `CARD_NAME` and `CARD_TAG` in `src/constants.js`.
+1. Change `CARD_NAME` and `CARD_TAG` in `src/product-identity.mjs`.
 2. Add `frigate-view-card` to `LEGACY_CARD_TAGS`; keep the new tag canonical.
 3. Add the new HACS/repository match term to `CARD_UPDATE_IDENTITIES` while
    retaining `frigateviewcard`.

@@ -1,7 +1,6 @@
 import { GRID_ROTATION_OPTIONS_SECONDS, VERSION } from "../../constants.js";
+import { GRID_RUNTIME_ASSET_NAME } from "../../release-artifacts.mjs";
 import { resolveGridCameras } from "./config.js";
-
-const GRID_RUNTIME_ASSET_NAME = "frigate-view-card-grid.js";
 const gridRuntimeModuleState = { promise: null };
 
 export const ensureGridRuntimeModule = ({

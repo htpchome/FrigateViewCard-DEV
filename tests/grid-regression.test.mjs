@@ -124,7 +124,7 @@ test("grid mode toolbar and runtime hooks are present", () => {
     gridCompositionSource,
     /new LazyGridFeatureController\(card, options\)/,
   );
-  assert.match(gridRuntimeLoaderSource, /frigate-view-card-grid\.js/);
+  assert.match(gridRuntimeLoaderSource, /GRID_RUNTIME_ASSET_NAME/);
   assert.doesNotMatch(gridCompositionSource, /new GridMediaController/);
   assert.match(
     gridPageControllerSource,

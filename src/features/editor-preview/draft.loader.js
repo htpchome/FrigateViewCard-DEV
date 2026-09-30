@@ -1,7 +1,5 @@
 import { VERSION } from "../../constants.js";
-
-const EDITOR_PREVIEW_DRAFT_ASSET_NAME =
-  "frigate-view-card-editor-preview-draft.js";
+import { EDITOR_PREVIEW_DRAFT_ASSET_NAME } from "../../release-artifacts.mjs";
 const editorPreviewDraftModuleState = { promise: null };
 
 export const ensureEditorPreviewDraftModule = ({

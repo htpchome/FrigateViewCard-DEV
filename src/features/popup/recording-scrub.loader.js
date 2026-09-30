@@ -1,7 +1,5 @@
 import { VERSION } from "../../constants.js";
-
-const RECORDING_SCRUB_ASSET_NAME =
-  "frigate-view-card-recording-scrub.js";
+import { RECORDING_SCRUB_ASSET_NAME } from "../../release-artifacts.mjs";
 const recordingScrubModuleState = { promise: null };
 
 export const ensurePopupRecordingScrubModule = ({

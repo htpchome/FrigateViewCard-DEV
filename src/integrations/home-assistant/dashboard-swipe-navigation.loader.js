@@ -4,13 +4,12 @@ import {
   normalizeCardTag,
   normalizeCardTags,
 } from "../../constants.js";
+import { DASHBOARD_SWIPE_ASSET_NAME } from "../../release-artifacts.mjs";
 import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelacePanel,
 } from "./lovelace-dom.js";
 
-const DASHBOARD_SWIPE_ASSET_NAME =
-  "frigate-view-card-dashboard-swipe-navigation.js";
 const DASHBOARD_SWIPE_LOADER_KEY = Symbol.for(
   "frigate-view-card.dashboard-swipe-navigation-loader",
 );

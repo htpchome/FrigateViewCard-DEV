@@ -1,4 +1,5 @@
 import { VERSION, SUPPORTED_CARD_TAGS } from "../../constants.js";
+import { NAVBAR_ASSET_NAME } from "../../release-artifacts.mjs";
 import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelacePanel,
@@ -6,7 +7,6 @@ import {
 } from "./lovelace-dom.js";
 import { resolveDashboardNavbarOwnership } from "./navbar-policy.js";
 
-const NAVBAR_ASSET_NAME = "frigate-view-card-navbar.js";
 const NAVBAR_LOADER_KEY = Symbol.for(
   "frigate-view-card.dashboard-navbar-loader",
 );
