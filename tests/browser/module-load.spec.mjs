@@ -1288,7 +1288,9 @@ test("Single View preserves source and alerts below the online-status breakpoint
 
     const read = async (width) => {
       card.style.width = `${width}px`;
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
       const title = root.querySelector("#info-title");
       const subtitle = root.querySelector("#tl-range");
       const infoRowRect = root.querySelector(".info-row").getBoundingClientRect();
