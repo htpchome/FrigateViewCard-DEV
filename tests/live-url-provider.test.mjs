@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildGo2rtcCatalystHlsPath,
+  buildGo2rtcCatalystHlsCandidates,
   buildGo2rtcHlsCandidates,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
@@ -36,14 +36,17 @@ test("buildGo2rtcHlsCandidates returns the supported HA go2rtc HLS candidate", (
   ]);
 });
 
-test("buildGo2rtcCatalystHlsPath encodes the camera and token", () => {
-  assert.equal(
-    buildGo2rtcCatalystHlsPath({
+test("buildGo2rtcCatalystHlsCandidates starts with the supplied unscoped route", () => {
+  assert.deepEqual(
+    buildGo2rtcCatalystHlsCandidates({
       clientId: "frig ate",
       cam: "front/door",
       token: "test token/+",
     }),
-    "/api/frigate/frig%20ate/go2rtc/api/stream.m3u8?src=front%2Fdoor&hls=hls&token=test+token%2F%2B",
+    [
+      "/api/frigate/go2rtc/api/stream.m3u8?src=front%2Fdoor&hls=hls&token=test+token%2F%2B",
+      "/api/frigate/frig%20ate/go2rtc/api/stream.m3u8?src=front%2Fdoor&hls=hls&token=test+token%2F%2B",
+    ],
   );
 });
 

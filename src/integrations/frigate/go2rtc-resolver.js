@@ -3,7 +3,7 @@ import {
   resolveGo2RtcEntity,
 } from "./camera-context.js";
 import {
-  buildGo2rtcCatalystHlsPath,
+  buildGo2rtcCatalystHlsCandidates,
   buildGo2rtcHlsCandidates,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
@@ -205,22 +205,34 @@ export function createGo2RtcResolver({
     if (!state || !supportsNativeHlsPlayback()) return null;
 
     const hass = getHass();
-    const token = String(
-      hass?.auth?.data?.access_token ||
-        hass?.auth?.accessToken ||
-        hass?.auth?.access_token ||
-        "",
-    ).trim();
+    const token = [
+      hass?.auth?.data?.access_token,
+      hass?.auth?.accessToken,
+      hass?.auth?.access_token,
+      hass?.connection?.options?.auth?.data?.access_token,
+    ].find((value) => typeof value === "string" && value.trim())?.trim();
     if (!token) return null;
 
-    return {
-      url: `${getOrigin()}${buildGo2rtcCatalystHlsPath({
-        clientId: state.clientId,
-        cam: state.cam,
-        token,
-      })}`,
-      destroy: null,
-    };
+    const candidates = buildGo2rtcCatalystHlsCandidates({
+      clientId: state.clientId,
+      cam: state.cam,
+      token,
+    });
+    for (const path of candidates) {
+      const manifestUrl = `${getOrigin()}${path}`;
+      try {
+        const response = await fetchImpl(manifestUrl, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) continue;
+        const playlist = await response.text();
+        if (!/^\s*#EXTM3U/.test(String(playlist || ""))) continue;
+        return { url: manifestUrl, destroy: null };
+      } catch (_) {}
+    }
+    return null;
   };
 
   return {
