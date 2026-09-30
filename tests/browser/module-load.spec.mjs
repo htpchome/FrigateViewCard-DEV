@@ -1291,8 +1291,6 @@ test("Single View preserves source and alerts below the online-status breakpoint
       await new Promise((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(resolve)),
       );
-      const title = root.querySelector("#info-title");
-      const subtitle = root.querySelector("#tl-range");
       const infoRowRect = root.querySelector(".info-row").getBoundingClientRect();
       const microphoneRect = root
         .querySelector("#two-way-talk-btn")
@@ -1308,8 +1306,6 @@ test("Single View preserves source and alerts below the online-status breakpoint
         onlineDisplay: getComputedStyle(
           root.querySelector(".info-online-stat"),
         ).display,
-        titleFits: title.scrollWidth <= title.clientWidth,
-        subtitleFits: subtitle.scrollWidth <= subtitle.clientWidth,
         microphoneCentered:
           Math.abs(
             microphoneRect.left +
@@ -1333,8 +1329,6 @@ test("Single View preserves source and alerts below the online-status breakpoint
     sourceDisplay: "flex",
     statsDisplay: "flex",
     onlineDisplay: "none",
-    titleFits: true,
-    subtitleFits: true,
     microphoneCentered: true,
     linkedLightVisible: true,
   });

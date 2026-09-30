@@ -700,7 +700,9 @@ export function createGo2RtcMounter({
     if (abortSignal?.aborted) return false;
     if (!entity) return false;
 
-    const hlsSource = await resolver.hlsUrlForEntity(entity);
+    const hlsSource = options?.useCatalystTokenAuth
+      ? await resolver.catalystHlsUrlForEntity?.(entity)
+      : await resolver.hlsUrlForEntity(entity);
     if (!hlsSource?.url || abortSignal?.aborted) {
       try {
         hlsSource?.destroy?.();
@@ -770,6 +772,8 @@ export function createGo2RtcMounter({
     }
 
     const engine = {
+      type: "frigate_go2rtc",
+      streamType: "hls",
       video,
       destroy,
       activateRecovery: () => {
@@ -780,7 +784,6 @@ export function createGo2RtcMounter({
         recoveryEnabled = false;
       },
     };
-    if (commit) assignCommittedEngine(engine);
     startVideoPlayback(video, { load: true });
 
     const started = await waitForStreamStart(slot, waitMs, {
@@ -788,13 +791,15 @@ export function createGo2RtcMounter({
       minDecodedFrames: 1,
       requireReadyState: 2,
       strict: false,
+      requirePresentedFrame: options?.requirePresentedFrame === true,
       abortSignal,
     });
-    if (!started) {
+    if (!started || (commit && options?.canCommit?.() === false)) {
       destroy();
       return false;
     }
     streamStarted = true;
+    if (commit) assignCommittedEngine(engine);
 
     return resolveCommittedResult({
       commit,

@@ -286,7 +286,9 @@ export function createLiveMountController({
   setPendingMountDestroyers,
   haDirectMounter,
   haDirectTwoWayTalkMounter,
+  go2rtcMounter,
   go2rtcRaceMounter,
+  shouldUseCatalystGo2RtcHls,
   preferredStreamType,
   setActiveStreamType,
   setStreamLoading,
@@ -419,6 +421,12 @@ export function createLiveMountController({
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
+    const useCatalystGo2RtcHls = Boolean(
+      useGo2Rtc &&
+        !hasTwoWayTalkOptions &&
+        (!forcedType || forcedType === "hls") &&
+        shouldUseCatalystGo2RtcHls?.(),
+    );
 
     if (!useGo2Rtc && !hasTwoWayTalkOptions) {
       const graceHaDirectEntry =
@@ -460,6 +468,7 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
+      !useCatalystGo2RtcHls &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "webrtc")
     ) {
@@ -496,6 +505,7 @@ export function createLiveMountController({
 
     if (
       useGo2Rtc &&
+      !useCatalystGo2RtcHls &&
       !hasTwoWayTalkOptions &&
       (!forcedType || forcedType === "mse")
     ) {
@@ -622,6 +632,40 @@ export function createLiveMountController({
           } catch (_) {}
         }
         return true;
+      }
+
+      if (useCatalystGo2RtcHls) {
+        if (
+          await go2rtcMounter?.tryMountHls?.(
+            slot,
+            { waitMs: 8000 },
+            {
+              entity: targetEntity,
+              commit: true,
+              useCatalystTokenAuth: true,
+              requirePresentedFrame: true,
+              canCommit: () =>
+                isMountTokenCurrent({
+                  mountToken,
+                  mountSeq: getMountState?.()?.mountSeq,
+                }),
+            },
+          )
+        ) {
+          setEngineMountedMuted?.(getStreamMuted?.());
+          return true;
+        }
+
+        if (
+          !isMountTokenCurrent({
+            mountToken,
+            mountSeq: getMountState?.()?.mountSeq,
+          })
+        ) {
+          return false;
+        }
+        applySnapshotFallbackState?.();
+        return false;
       }
 
       if (

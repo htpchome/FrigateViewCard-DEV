@@ -10,6 +10,9 @@ function createResolverHarness(options = {}) {
     fetch: 0,
   };
   const hass = {
+    ...(options.accessToken !== undefined
+      ? { auth: { data: { access_token: options.accessToken } } }
+      : {}),
     callWS: async (msg) => {
       calls.signPath += 1;
       return options.callWSResult?.(msg) || { path: msg.path };
@@ -116,5 +119,32 @@ test("go2rtc resolver rejects and negative-caches signed native HLS", async () =
   assert.equal(first, null);
   assert.equal(second, null);
   assert.equal(calls.signPath, 1);
+  assert.equal(calls.fetch, 0);
+});
+
+test("go2rtc resolver builds Catalyst HLS URL from the current HA session token", async () => {
+  const { resolver, calls } = createResolverHarness({
+    accessToken: "test token/+",
+  });
+
+  assert.deepEqual(
+    await resolver.catalystHlsUrlForEntity("camera.front"),
+    {
+      url: "https://ha.local/api/frigate/frigate/go2rtc/api/stream.m3u8?src=front&hls=hls&token=test+token%2F%2B",
+      destroy: null,
+    },
+  );
+  assert.equal(calls.signPath, 0);
+  assert.equal(calls.fetch, 0);
+});
+
+test("go2rtc resolver does not expose a Catalyst HLS URL without an HA session token", async () => {
+  const { resolver, calls } = createResolverHarness();
+
+  assert.equal(
+    await resolver.catalystHlsUrlForEntity("camera.front"),
+    null,
+  );
+  assert.equal(calls.signPath, 0);
   assert.equal(calls.fetch, 0);
 });

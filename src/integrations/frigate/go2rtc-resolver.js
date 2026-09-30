@@ -3,6 +3,7 @@ import {
   resolveGo2RtcEntity,
 } from "./camera-context.js";
 import {
+  buildGo2rtcCatalystHlsPath,
   buildGo2rtcHlsCandidates,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
@@ -199,9 +200,33 @@ export function createGo2RtcResolver({
     return probePromise;
   };
 
+  const catalystHlsUrlForEntity = async (entity = "") => {
+    const state = await resolveTransportStateForEntity(entity);
+    if (!state || !supportsNativeHlsPlayback()) return null;
+
+    const hass = getHass();
+    const token = String(
+      hass?.auth?.data?.access_token ||
+        hass?.auth?.accessToken ||
+        hass?.auth?.access_token ||
+        "",
+    ).trim();
+    if (!token) return null;
+
+    return {
+      url: `${getOrigin()}${buildGo2rtcCatalystHlsPath({
+        clientId: state.clientId,
+        cam: state.cam,
+        token,
+      })}`,
+      destroy: null,
+    };
+  };
+
   return {
     resolveMountRequest,
     websocketUrlForEntity,
     hlsUrlForEntity,
+    catalystHlsUrlForEntity,
   };
 }
