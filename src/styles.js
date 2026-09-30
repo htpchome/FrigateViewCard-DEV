@@ -16,6 +16,7 @@ export const STYLES_BEFORE_CARD_VIEW = `
     min-height: 0;
     overflow: hidden;
     position: relative;
+    isolation: isolate;
     box-sizing: border-box !important;
     display: block !important;
     border: 0 !important;

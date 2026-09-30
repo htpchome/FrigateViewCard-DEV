@@ -143,7 +143,7 @@ test("Single View adds a responsive live status overlay", () => {
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.info-alert-stat,[\s\S]*?\.stats\s*\{\s*display: none;/,
+    /@container single-view \(max-width: 420px\)[\s\S]*?\.info-online-stat\s*\{\s*display: none;/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
@@ -155,23 +155,23 @@ test("Single View adds a responsive live status overlay", () => {
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.info-row\s*\{[^}]*--single-view-center-controls-width: 224px;[^}]*grid-template-columns: minmax\(0, 1fr\) var\(--single-view-center-controls-width\) minmax\(0, 1fr\);/,
+    /\.info-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto max-content;[^}]*column-gap: 4px;/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.info-row-center-controls\s*\{[^}]*grid-template-columns: repeat\(5, 40px\);[^}]*column-gap: 6px;[^}]*width: var\(--single-view-center-controls-width\);/,
+    /\.info-row-center-controls\s*\{[^}]*grid-template-columns: auto auto auto;[^}]*column-gap: 6px;[^}]*width: auto;/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /two-way-talk-control-row:not\(\.has-soundwave\)\s*\{[^}]*grid-template-columns: repeat\(3, 40px\);[^}]*width: var\(--single-view-talk-controls-width\);/,
+    /data-fvc-region="two-way-talk"\]:not\(:has\(\.info-row-mic-btn:not\(\[hidden\]\)\)\)\s*\{\s*display: none;/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /two-way-talk-control-row:not\(\.has-soundwave\) \.info-row-mic-btn\s*\{\s*grid-column: 2;/,
+    /@container single-view \(max-width: 390px\)[\s\S]*?\.info-alert-stat,[\s\S]*?\.stats\s*\{\s*display: none;/,
   );
-  assert.match(
+  assert.doesNotMatch(
     SINGLE_VIEW_PAGE_STYLES,
-    /two-way-talk-active[\s\S]*?data-linked-light-position-slot="left"[\s\S]*?grid-column: 1;[\s\S]*?two-way-talk-active[\s\S]*?data-linked-light-position-slot="right"[\s\S]*?grid-column: 5;/,
+    /single-view-center-controls-width|single-view-talk-controls-width|repeat\(5, 40px\)/,
   );
 });
 

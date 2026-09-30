@@ -54,6 +54,7 @@ export function resolveWideCompanionGridLayout({
     Math.floor(Number(cameraCount) || 0),
   );
   const count = configuredCount === 1 ? 2 : Math.max(1, configuredCount);
+  const minimumColumns = count > 1 ? 2 : 1;
   const availableWidth = Math.max(0, Number(width) || 0);
   const availableHeight = Math.max(0, Number(height) || 0);
   const resolvedMetaHeight = Math.max(
@@ -63,7 +64,7 @@ export function resolveWideCompanionGridLayout({
   if (availableWidth <= 0) return { columns: 1, cellWidth: 0 };
 
   const candidates = [];
-  for (let columns = 1; columns <= count; columns += 1) {
+  for (let columns = minimumColumns; columns <= count; columns += 1) {
     const totalGapWidth = COMPANION_GRID_GAP_PX * (columns - 1);
     const cellWidth = Math.max(
       0,

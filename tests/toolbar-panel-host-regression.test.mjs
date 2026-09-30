@@ -377,6 +377,10 @@ test("Card View overlay timing matrix keeps mouse and touch behavior separate", 
 
 test("mobile rotate overlay promotes the card host above Home Assistant chrome", () => {
   assert.match(
+    stylesSource,
+    /:host\s*\{[^}]*position: relative;[^}]*isolation: isolate;/,
+  );
+  assert.match(
     mobileViewStylesSource,
     /:host\(\.mobile-view-rotate-cover\)[\s\S]*?position: fixed !important;[\s\S]*?width: var\(--rotate-vw, 100vw\) !important;[\s\S]*?height: var\(--rotate-vh, 100dvh\) !important;[\s\S]*?z-index: 3000 !important;/,
   );

@@ -74,10 +74,8 @@ export const SINGLE_VIEW_PAGE_STYLES = `
 
   @container single-view (max-width: 420px) {
     .card .layout--single-view .info-row {
-      --single-view-center-controls-width: 224px;
-      --single-view-talk-controls-width: 132px;
-      grid-template-columns: minmax(0, 1fr) var(--single-view-center-controls-width) minmax(0, 1fr);
-      column-gap: 0;
+      grid-template-columns: minmax(0, 1fr) auto max-content;
+      column-gap: 4px;
     }
 
     .card .layout--single-view .single-view-live-status-overlay {
@@ -99,61 +97,46 @@ export const SINGLE_VIEW_PAGE_STYLES = `
     .card .layout--single-view .info-left {
       min-width: 0;
       overflow: hidden;
-      gap: 0;
+      gap: clamp(4px, 2vw, 14px);
     }
 
-    .card .layout--single-view .info-alert-stat,
-    .card .layout--single-view .stats {
+    .card .layout--single-view .info-online-stat {
       display: none;
     }
 
     .card .layout--single-view .info-row-center-controls {
       display: grid;
-      grid-template-columns: repeat(5, 40px);
+      grid-template-columns: auto auto auto;
       column-gap: 6px;
-      width: var(--single-view-center-controls-width);
-      min-width: var(--single-view-center-controls-width);
+      width: auto;
+      min-width: 0;
       justify-self: center;
       overflow: visible;
     }
 
+    .card .layout--single-view .info-row-center-controls > [data-fvc-region="two-way-talk"]:not(:has(.info-row-mic-btn:not([hidden]))) {
+      display: none;
+    }
+
     .card .layout--single-view .info-row-center-controls > [data-fvc-region="two-way-talk"] {
-      grid-column: 2 / 5;
+      grid-column: 2;
       grid-row: 1;
-      width: var(--single-view-talk-controls-width);
-      min-width: var(--single-view-talk-controls-width);
       justify-self: center;
     }
 
-    .card .layout--single-view .info-row-center-controls .two-way-talk-control-row:not(.has-soundwave) {
-      grid-template-columns: repeat(3, 40px);
-      column-gap: 6px;
-      width: var(--single-view-talk-controls-width);
-    }
-
-    .card .layout--single-view .info-row-center-controls .two-way-talk-control-row:not(.has-soundwave) .info-row-mic-btn {
-      grid-column: 2;
-    }
-
-    .card .layout--single-view .info-row-center-controls .two-way-talk-control-row.has-soundwave {
-      width: 112px;
-    }
-
     .card .layout--single-view .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="left"] {
-      grid-column: 2;
-    }
-
-    .card .layout--single-view .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="right"] {
-      grid-column: 4;
-    }
-
-    .card.two-way-talk-active .layout--single-view .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="left"] {
       grid-column: 1;
     }
 
-    .card.two-way-talk-active .layout--single-view .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="right"] {
-      grid-column: 5;
+    .card .layout--single-view .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="right"] {
+      grid-column: 3;
     }
+  }
 
+  @container single-view (max-width: 390px) {
+    .card .layout--single-view .info-alert-stat,
+    .card .layout--single-view .stats {
+      display: none;
+    }
   }
 `;

@@ -96,13 +96,21 @@ export class FrigateCameraRuntimeController {
     });
   }
 
+  canShowControl(runtime = this.resolve()) {
+    return (
+      this._host._viewMode !== "grid" &&
+      runtime.controllable &&
+      this.canManageCameraSuspension()
+    );
+  }
+
   buildControlMarkup({ buttonClass = "square-btn" } = {}) {
     const runtime = this.resolve();
     return buildLiveCameraPowerControlMarkup({
       icons: this._icons,
       buttonClass,
       suspended: runtime.suspended,
-      hidden: !runtime.controllable || !this.canManageCameraSuspension(),
+      hidden: !this.canShowControl(runtime),
     });
   }
 
@@ -168,8 +176,7 @@ export class FrigateCameraRuntimeController {
       : runtime.suspended
         ? "Resume camera"
         : "Suspend camera";
-    button.hidden =
-      !runtime.controllable || !this.canManageCameraSuspension();
+    button.hidden = !this.canShowControl(runtime);
     button.disabled = pending;
     button.classList?.toggle?.("is-camera-suspended", runtime.suspended);
     button.classList?.toggle?.("is-pending", pending);
@@ -248,8 +255,7 @@ export class FrigateCameraRuntimeController {
   openConfirmation() {
     const runtime = this.resolve();
     if (
-      !runtime.controllable ||
-      !this.canManageCameraSuspension() ||
+      !this.canShowControl(runtime) ||
       this._pending
     ) {
       return false;
@@ -352,8 +358,7 @@ export class FrigateCameraRuntimeController {
     if (this._dialogState) {
       const dialogStillValid =
         this._dialogState.entity === runtime.entity &&
-        runtime.controllable &&
-        this.canManageCameraSuspension() &&
+        this.canShowControl(runtime) &&
         this._dialogState.suspended !== runtime.suspended;
       if (dialogStillValid) this._renderConfirmationDialog();
       else this.closeConfirmation({ restoreFocus: false });
@@ -421,8 +426,7 @@ export class FrigateCameraRuntimeController {
   async toggle({ entity = this.activeEntity(), suspended = null } = {}) {
     const runtime = this.resolve(entity);
     if (
-      !runtime.controllable ||
-      !this.canManageCameraSuspension() ||
+      !this.canShowControl(runtime) ||
       this._pending
     ) {
       return false;

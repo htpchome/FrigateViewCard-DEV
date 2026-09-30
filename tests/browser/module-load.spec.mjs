@@ -1198,6 +1198,124 @@ test("bottom HA navbar styling does not trap Bubble popup behind its backdrop", 
   });
 });
 
+test("ordinary card overlays stay below a bottom navbar while rotated fullscreen stays above it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const style = document.createElement("style");
+    style.textContent = `
+      .ha-header { position:fixed;z-index:2;inset:auto 0 0;height:70px;background:#fff; }
+    `;
+    const card = document.createElement("frigate-view-card");
+    card.style.width = "390px";
+    card.style.setProperty("--card-host-height", "700px");
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      mobile_view_rotate_to_fullscreen: true,
+    });
+    document.body.append(style, card);
+    const probe = document.createElement("div");
+    probe.dataset.testCardOverlay = "";
+    probe.style.cssText =
+      "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.01)";
+    card.shadowRoot.append(probe);
+    const header = document.createElement("div");
+    header.className = "ha-header";
+    document.body.append(header);
+
+    const normalHit = document.elementFromPoint(195, 680);
+    const isolation = getComputedStyle(card).isolation;
+    card.style.setProperty("--rotate-vw", "390px");
+    card.style.setProperty("--rotate-vh", "700px");
+    card.style.setProperty("--rotate-ox", "0px");
+    card.style.setProperty("--rotate-oy", "0px");
+    card.classList.add("mobile-view-rotate-cover");
+    const rotatedHit = card.shadowRoot.elementFromPoint(195, 680);
+
+    return {
+      isolation,
+      normalNavbarWins:
+        normalHit === header || Boolean(normalHit?.closest?.(".ha-header")),
+      rotatedCardWins:
+        rotatedHit === probe ||
+        Boolean(rotatedHit?.closest?.("[data-test-card-overlay]")),
+      rotatedZIndex: getComputedStyle(card).zIndex,
+    };
+  });
+
+  expect(state).toEqual({
+    isolation: "isolate",
+    normalNavbarWins: true,
+    rotatedCardWins: true,
+    rotatedZIndex: "3000",
+  });
+});
+
+test("Single View preserves source and alerts below the online-status breakpoint", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const card = document.createElement("frigate-view-card");
+    card.style.setProperty("--card-host-height", "600px");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Doorbell" }],
+      title: "FrigateView",
+      subtitle: "Doorbell",
+    });
+    card._pageId = "single-view";
+    card._renderShell();
+    const root = card.shadowRoot;
+
+    const read = async (width) => {
+      card.style.width = `${width}px`;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const title = root.querySelector("#info-title");
+      const subtitle = root.querySelector("#tl-range");
+      return {
+        alertDisplay: getComputedStyle(
+          root.querySelector(".info-alert-stat"),
+        ).display,
+        sourceDisplay: getComputedStyle(
+          root.querySelector(".info-stream-stat"),
+        ).display,
+        statsDisplay: getComputedStyle(root.querySelector(".stats")).display,
+        onlineDisplay: getComputedStyle(
+          root.querySelector(".info-online-stat"),
+        ).display,
+        titleFits: title.scrollWidth <= title.clientWidth,
+        subtitleFits: subtitle.scrollWidth <= subtitle.clientWidth,
+      };
+    };
+
+    return {
+      at410: await read(410),
+      at380: await read(380),
+    };
+  });
+
+  expect(state.at410).toEqual({
+    alertDisplay: "flex",
+    sourceDisplay: "flex",
+    statsDisplay: "flex",
+    onlineDisplay: "none",
+    titleFits: true,
+    subtitleFits: true,
+  });
+  expect(state.at380).toMatchObject({
+    alertDisplay: "none",
+    statsDisplay: "none",
+    onlineDisplay: "none",
+  });
+});
+
 test("bottom HA navbar keeps its layout anchor while painting at the viewport bottom", async ({
   browserName,
   page,
@@ -6874,20 +6992,21 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       buttonInsetRight:
         surface.getBoundingClientRect().right -
         expandButton.getBoundingClientRect().right,
+      cellCount: root.querySelectorAll(".wide-companion-cell").length,
+      renderedColumns: getComputedStyle(
+        root.querySelector("#wide-companion-grid"),
+      ).gridTemplateColumns.split(" ").length,
     };
     filterButton.click();
     const filterRect = filterPanel.getBoundingClientRect();
     const surfaceRect = surface.getBoundingClientRect();
-    const overlapX = Math.max(filterRect.left, surfaceRect.left) + 8;
-    const overlapY = Math.max(filterRect.top, surfaceRect.top) + 8;
-    const overlapTarget = root.elementFromPoint(overlapX, overlapY);
+    const cardRect = card.getBoundingClientRect();
     const filterOpen = {
       display: filterPanel.style.display,
       raised: toolbarHolder.classList.contains("has-open-toolbar-panel"),
       zIndex: getComputedStyle(toolbarHolder).zIndex,
-      aboveCompanion:
-        overlapTarget === filterPanel ||
-        overlapTarget?.closest?.("#filter-panel") === filterPanel,
+      clearsCompanion: filterRect.bottom <= surfaceRect.top,
+      insideCardTop: filterRect.top >= cardRect.top,
     };
     const pointerId = 7;
     const startY = handle.getBoundingClientRect().top + 10;
@@ -7025,11 +7144,14 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.surfacePaddingLeft).toBe("8px");
   expect(result.before.gridInsetLeft).toBeCloseTo(8, 0);
   expect(result.before.buttonInsetRight).toBeCloseTo(8, 0);
+  expect(result.before.cellCount).toBe(6);
+  expect(result.before.renderedColumns).toBeGreaterThan(1);
   expect(result.filterOpen).toEqual({
     display: "block",
     raised: true,
     zIndex: "30",
-    aboveCompanion: true,
+    clearsCompanion: true,
+    insideCardTop: true,
   });
   expect(result.expanded.now).toBe(result.expanded.max);
   expect(result.expanded.surfaceTop).toBeLessThan(

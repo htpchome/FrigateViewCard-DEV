@@ -229,6 +229,14 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   });
   assert.deepEqual(singleCameraLayout, twoCameraLayout);
   assert.deepEqual(singleCameraLayout, { columns: 2, cellWidth: 368.5 });
+  assert.deepEqual(
+    resolveWideCompanionGridLayout({
+      cameraCount: 4,
+      width: 745,
+      height: 0,
+    }),
+    { columns: 2, cellWidth: 368.5 },
+  );
 
   assert.deepEqual(
     resolveWideCompanionGridLayout({
@@ -280,7 +288,7 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
-    /\.wide-companion-grid\{[^}]*width:100%;[^}]*justify-content:stretch;[^}]*grid-template-columns:repeat\(var\(--wide-companion-columns,1\),minmax\(0,1fr\)\)/,
+    /\.wide-companion-grid\{[^}]*width:100%;[^}]*justify-content:stretch;[^}]*grid-template-columns:repeat\(var\(--wide-companion-columns,2\),minmax\(0,1fr\)\)/,
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
@@ -297,6 +305,13 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-cell\{[^}]*border-radius:calc\(var\(--fvc-border-radius,0px\) \/ 2\)/,
+  );
+});
+
+test("Wide View filter and calendar panels open above the toolbar", () => {
+  assert.match(
+    WIDE_VIEW_PAGE_STYLES,
+    /\.layout--wide-view :is\(\.filter-panel,\.cal-panel\)\{[^}]*top:auto;[^}]*bottom:calc\(100% \+ 4px\);[^}]*max-height:min\(360px,calc\(100dvh - 24px\)\)/,
   );
 });
 

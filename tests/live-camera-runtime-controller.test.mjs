@@ -93,6 +93,17 @@ test("disabled camera suspension access hides and rejects controls for administr
   assert.equal(calls.some(([type]) => type === "service"), false);
 });
 
+test("grid mode hides and rejects the camera suspension control", async () => {
+  const { calls, host } = createHost();
+  host._viewMode = "grid";
+  const controller = new FrigateCameraRuntimeController(host);
+
+  assert.match(controller.buildControlMarkup(), / hidden>/);
+  assert.equal(controller.openConfirmation(), false);
+  assert.equal(await controller.toggle(), false);
+  assert.equal(calls.some(([type]) => type === "service"), false);
+});
+
 test("suspended Frigate state tears down active live without touching browse data", () => {
   const { calls, host } = createHost();
   const controller = new FrigateCameraRuntimeController(host);
