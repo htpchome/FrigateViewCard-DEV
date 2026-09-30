@@ -321,7 +321,7 @@ export class CameraCellMediaController {
     const activeStreamType =
       String(this._host._activeStreamType || "").trim().toLowerCase() ===
       "grid"
-        ? this._host._lastLiveStreamHint
+        ? ""
         : this._host._activeStreamType;
     return resolveHaDirectCameraStreamType({
       entity,

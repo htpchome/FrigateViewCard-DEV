@@ -9,9 +9,13 @@ const createFakeVideo = () => ({
   classList: { add() {} },
   muted: true,
   defaultMuted: true,
+  currentTime: 1,
+  webkitDecodedFrameCount: 1,
   srcObject: null,
   setAttribute() {},
   removeAttribute() {},
+  addEventListener() {},
+  removeEventListener() {},
   play: () => Promise.resolve(),
   pause() {},
 });
@@ -27,6 +31,10 @@ class FakeMediaStream {
 
   getTracks() {
     return this.tracks;
+  }
+
+  getVideoTracks() {
+    return this.tracks.filter((track) => track.kind === "video");
   }
 }
 
@@ -299,6 +307,80 @@ test("HA direct WebRTC recovery ownership can move between card instances", asyn
     assert.deepEqual(lostReasons, [
       ["receiver", "webrtc-connection-lost"],
     ]);
+
+    await playback.engine.destroy();
+  });
+});
+
+test("HA direct WebRTC recovers when a connected peer stops delivering video", async () => {
+  await withMediaGlobals(async () => {
+    let nowMs = 1000;
+    let nextTimerId = 0;
+    const timers = new Map();
+    const lostReasons = [];
+    let offerCallback = null;
+    const trackListeners = new Map();
+    const videoTrack = {
+      kind: "video",
+      muted: false,
+      readyState: "live",
+      addEventListener(name, callback) {
+        trackListeners.set(name, callback);
+      },
+      removeEventListener(name, callback) {
+        if (trackListeners.get(name) === callback) trackListeners.delete(name);
+      },
+      stop() {},
+    };
+    const hass = {
+      callWS: async () => ({ configuration: { iceServers: [] } }),
+      connection: {
+        subscribeMessage(callback) {
+          offerCallback = callback;
+          return Promise.resolve(() => {});
+        },
+      },
+    };
+    const playback = createHaDirectWebRtcPlayback({
+      hass,
+      entity: "camera.front",
+      mediaStallMs: 100,
+      now: () => nowMs,
+      setTimer: (callback) => {
+        const timerId = ++nextTimerId;
+        timers.set(timerId, callback);
+        return timerId;
+      },
+      clearTimer: (timerId) => timers.delete(timerId),
+      onConnectionLost: (reason) => lostReasons.push(reason),
+    });
+
+    assert.equal(await playback.start(), true);
+    await offerCallback({ type: "answer", answer: "one-answer" });
+    const peerConnection = FakePeerConnection.instances[0];
+    peerConnection.connectionState = "connected";
+    peerConnection.iceConnectionState = "connected";
+    peerConnection.ontrack({ track: videoTrack, streams: [] });
+    playback.engine.markStarted();
+
+    assert.equal(playback.engine.hasLiveVideoTrack(), true);
+    assert.equal(playback.engine.hasRecentMediaActivity(), true);
+
+    const runNextTimer = () => {
+      const [timerId, callback] = timers.entries().next().value;
+      timers.delete(timerId);
+      callback();
+    };
+    nowMs = 1050;
+    playback.engine.video.currentTime = 2;
+    playback.engine.video.webkitDecodedFrameCount = 2;
+    runNextTimer();
+    assert.deepEqual(lostReasons, []);
+
+    nowMs = 1160;
+    runNextTimer();
+    assert.deepEqual(lostReasons, ["webrtc-media-stalled"]);
+    assert.equal(playback.engine.hasRecentMediaActivity(), false);
 
     await playback.engine.destroy();
   });

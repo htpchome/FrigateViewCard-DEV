@@ -4,6 +4,8 @@ import {
 } from "../../shared/media/video-factory.js";
 
 const HA_WEBRTC_PROVIDER_START_WAIT_MS = 3000;
+const HA_WEBRTC_MEDIA_STALL_MS = 10000;
+const HA_WEBRTC_MEDIA_WATCH_INTERVAL_MS = 2000;
 
 const stopMediaStream = (stream) => {
   for (const track of stream?.getTracks?.() || []) {
@@ -20,6 +22,11 @@ export function createHaDirectWebRtcPlayback({
   controls = false,
   scopeKey,
   onConnectionLost,
+  now = () => Date.now(),
+  setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
+  clearTimer = (timer) => globalThis.clearTimeout(timer),
+  mediaStallMs = HA_WEBRTC_MEDIA_STALL_MS,
+  documentTarget = globalThis.document,
 } = {}) {
   const entityId = String(entity || "").trim();
   if (
@@ -59,6 +66,18 @@ export function createHaDirectWebRtcPlayback({
   let resolveFailure = null;
   let providerStartedSettled = false;
   let resolveProviderStarted = null;
+  let remoteVideoTrack = null;
+  let cleanupRemoteVideoTrack = () => {};
+  let mediaWatchTimer = null;
+  let frameCallbackId = null;
+  let lastMediaActivityAt = 0;
+  let lastMediaTime = null;
+  let lastDecodedFrames = null;
+  let mediaFailureNotified = false;
+  const normalizedMediaStallMs = Math.max(
+    1,
+    Number(mediaStallMs) || HA_WEBRTC_MEDIA_STALL_MS,
+  );
   const failure = new Promise((resolve) => {
     resolveFailure = resolve;
   });
@@ -89,11 +108,149 @@ export function createHaDirectWebRtcPlayback({
     if (recoveryActive) recoveryHandler?.(reason);
   };
 
+  const clearMediaWatchTimer = () => {
+    if (mediaWatchTimer != null) clearTimer(mediaWatchTimer);
+    mediaWatchTimer = null;
+  };
+
+  const readDecodedFrames = () => {
+    const decodedFrames = Number(
+      video.webkitDecodedFrameCount ||
+        video.getVideoPlaybackQuality?.()?.totalVideoFrames,
+    );
+    return Number.isFinite(decodedFrames) ? decodedFrames : null;
+  };
+
+  const recordMediaActivity = () => {
+    lastMediaActivityAt = now();
+    mediaFailureNotified = false;
+  };
+
+  const sampleMediaProgress = ({ establish = false } = {}) => {
+    const mediaTime = Number(video.currentTime);
+    const decodedFrames = readDecodedFrames();
+    const timeAdvanced =
+      Number.isFinite(mediaTime) &&
+      lastMediaTime != null &&
+      mediaTime > lastMediaTime;
+    const framesAdvanced =
+      decodedFrames != null &&
+      lastDecodedFrames != null &&
+      decodedFrames > lastDecodedFrames;
+    if (Number.isFinite(mediaTime)) lastMediaTime = mediaTime;
+    if (decodedFrames != null) lastDecodedFrames = decodedFrames;
+    if (establish || timeAdvanced || framesAdvanced) recordMediaActivity();
+    return timeAdvanced || framesAdvanced;
+  };
+
+  const currentVideoTrack = () =>
+    remoteVideoTrack || video.srcObject?.getVideoTracks?.()?.[0] || null;
+
+  const hasLiveVideoTrack = () => {
+    const track = currentVideoTrack();
+    return Boolean(
+      track && track.readyState !== "ended" && track.muted !== true,
+    );
+  };
+
+  const hasRecentMediaActivity = (maxAgeMs = normalizedMediaStallMs) => {
+    if (!started || destroyed || !hasLiveVideoTrack()) return false;
+    sampleMediaProgress();
+    const activityAge = now() - lastMediaActivityAt;
+    return (
+      lastMediaActivityAt > 0 &&
+      activityAge >= 0 &&
+      activityAge <= Math.max(1, Number(maxAgeMs) || normalizedMediaStallMs)
+    );
+  };
+
+  const notifyMediaStalled = () => {
+    if (mediaFailureNotified || destroyed) return;
+    mediaFailureNotified = true;
+    clearMediaWatchTimer();
+    notifyConnectionLost("webrtc-media-stalled");
+  };
+
+  const watchMediaActivity = () => {
+    clearMediaWatchTimer();
+    if (destroyed || !started || !recoveryActive || mediaFailureNotified) {
+      return;
+    }
+    mediaWatchTimer = setTimer(() => {
+      mediaWatchTimer = null;
+      if (destroyed || !started || !recoveryActive) return;
+      if (documentTarget?.visibilityState === "hidden") {
+        watchMediaActivity();
+        return;
+      }
+      sampleMediaProgress();
+      if (
+        !hasLiveVideoTrack() ||
+        now() - lastMediaActivityAt >= normalizedMediaStallMs
+      ) {
+        notifyMediaStalled();
+        return;
+      }
+      watchMediaActivity();
+    }, Math.min(
+      HA_WEBRTC_MEDIA_WATCH_INTERVAL_MS,
+      normalizedMediaStallMs,
+    ));
+  };
+
+  const armFrameActivity = () => {
+    if (
+      destroyed ||
+      frameCallbackId != null ||
+      typeof video.requestVideoFrameCallback !== "function"
+    ) {
+      return;
+    }
+    frameCallbackId = video.requestVideoFrameCallback(() => {
+      frameCallbackId = null;
+      if (destroyed) return;
+      sampleMediaProgress({ establish: true });
+      armFrameActivity();
+    });
+  };
+
+  const onTimeUpdate = () => {
+    if (destroyed) return;
+    sampleMediaProgress();
+  };
+
+  const bindRemoteVideoTrack = (track) => {
+    cleanupRemoteVideoTrack();
+    remoteVideoTrack = track || null;
+    if (!remoteVideoTrack) return;
+    const onUnavailable = () => notifyMediaStalled();
+    const onUnmute = () => sampleMediaProgress({ establish: started });
+    remoteVideoTrack.addEventListener?.("ended", onUnavailable);
+    remoteVideoTrack.addEventListener?.("mute", onUnavailable);
+    remoteVideoTrack.addEventListener?.("unmute", onUnmute);
+    cleanupRemoteVideoTrack = () => {
+      remoteVideoTrack?.removeEventListener?.("ended", onUnavailable);
+      remoteVideoTrack?.removeEventListener?.("mute", onUnavailable);
+      remoteVideoTrack?.removeEventListener?.("unmute", onUnmute);
+      remoteVideoTrack = null;
+      cleanupRemoteVideoTrack = () => {};
+    };
+  };
+
+  video.addEventListener?.("timeupdate", onTimeUpdate);
+
   const destroy = () => {
     if (destroyed) return shutdownPromise || Promise.resolve();
     destroyed = true;
     recoveryActive = false;
     recoveryHandler = null;
+    clearMediaWatchTimer();
+    if (frameCallbackId != null) {
+      video.cancelVideoFrameCallback?.(frameCallbackId);
+      frameCallbackId = null;
+    }
+    video.removeEventListener?.("timeupdate", onTimeUpdate);
+    cleanupRemoteVideoTrack();
     if (!failureSettled && !started) {
       failureSettled = true;
       resolveFailure?.(false);
@@ -153,14 +310,22 @@ export function createHaDirectWebRtcPlayback({
     markStarted: () => {
       if (destroyed) return false;
       started = true;
+      sampleMediaProgress({ establish: true });
+      armFrameActivity();
+      watchMediaActivity();
       return true;
     },
     activateRecovery: () => {
-      if (!destroyed) recoveryActive = true;
+      if (destroyed) return;
+      recoveryActive = true;
+      watchMediaActivity();
     },
     deactivateRecovery: () => {
       recoveryActive = false;
+      clearMediaWatchTimer();
     },
+    hasLiveVideoTrack,
+    hasRecentMediaActivity,
     setRecoveryHandler: (handler) => {
       recoveryHandler = typeof handler === "function" ? handler : null;
     },
@@ -190,6 +355,9 @@ export function createHaDirectWebRtcPlayback({
           video.srcObject = remoteStream;
         } else if (event.streams?.[0]) {
           video.srcObject = event.streams[0];
+        }
+        if (event.track?.kind === "video") {
+          bindRemoteVideoTrack(event.track);
         }
         video.play?.().catch?.(() => {});
       };

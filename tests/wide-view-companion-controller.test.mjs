@@ -84,6 +84,16 @@ const createHost = ({ live = false, takeover = false } = {}) => {
   return { host, calls, grid };
 };
 
+test("Companion Cameras do not carry the prior transport into HA Direct", () => {
+  const { host } = createHost();
+  host._activeStreamType = "grid";
+  host._lastLiveStreamHint = "webrtc";
+  const controller = new WideViewCompanionController(host, constants);
+
+  assert.equal(controller.cameraLiveStreamHint("camera.front_door"), "hls");
+  assert.equal(controller.cameraLiveStreamHint("camera.driveway"), "webrtc");
+});
+
 test("Companion Cameras expansion covers controls and stops at live midpoint", () => {
   assert.equal(
     resolveWideCompanionExpansionMax({

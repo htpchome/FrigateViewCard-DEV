@@ -1,6 +1,9 @@
 import { cap, camDisplayName, DEVICE_PROFILE } from "../../helpers.js";
 import { CleanupController } from "../../shared/cleanup.js";
-import { buildHaCameraStreamState } from "../../integrations/home-assistant/playback.js";
+import {
+  buildHaCameraStreamState,
+  resolveHaDirectCameraStreamType,
+} from "../../integrations/home-assistant/playback.js";
 import { WideViewCompanionAlertController } from "./companion-alert.ctrl.js";
 import {
   buildWideCompanionCellMarkup,
@@ -209,6 +212,22 @@ export class WideViewCompanionController {
       .toLowerCase();
     if (LIVE_STREAM_HINTS.has(previous)) return previous;
     return DEVICE_PROFILE.isIOS ? "webrtc" : "mse";
+  }
+
+  cameraLiveStreamHint(entity) {
+    const useGo2Rtc = this._host._shouldUseGo2RtcForEntity?.(entity);
+    const connectionType = this._host._cameraConnectionType?.(entity);
+    if (useGo2Rtc !== false && connectionType !== "ha_direct") {
+      return this.liveStreamHint();
+    }
+    return resolveHaDirectCameraStreamType({
+      entity,
+      activeEntity: this._host._activeCam?.entity,
+      activeStreamType: this._host._activeStreamType,
+      advertisedStreamType:
+        this._host._hass?.states?.[entity]?.attributes?.frontend_stream_type,
+      fallbackStreamType: "hls",
+    });
   }
 
   updateLayout({ width = null, height = null, metadataHeight = null } = {}) {
@@ -553,12 +572,12 @@ export class WideViewCompanionController {
     if (!grid) return;
     this._bindLayoutObserver(grid);
     const cameras = flattenCameraMembers(this._host._config?.cameras);
-    const liveStreamHint = this.liveStreamHint();
     const hassReady = !!this._host._hass?.states;
     const nextSignature = cameras
       .map((camera, index) => {
         const entity = camera?.entity || "";
         const useLive = this.shouldUseLive(entity);
+        const liveStreamHint = this.cameraLiveStreamHint(entity);
         return `${index}:${entity}:${useLive ? `live:${liveStreamHint}` : "snap"}`;
       })
       .concat(`hass:${hassReady ? "1" : "0"}`)
@@ -644,12 +663,12 @@ export class WideViewCompanionController {
       });
       return;
     }
-    const liveStreamHint = this.liveStreamHint();
     const mediaState = { destroyed: false, cleanup: [] };
     this._mediaState = mediaState;
     mediaHosts.forEach((mediaHost) => {
       const entity = mediaHost.dataset.wideCompanionMediaEntity || "";
       const useLive = mediaHost.dataset.wideCompanionUseLive === "1";
+      const liveStreamHint = this.cameraLiveStreamHint(entity);
       const stateObj = entity
         ? buildHaCameraStreamState(
             this._host._hass,

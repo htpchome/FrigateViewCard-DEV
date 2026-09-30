@@ -454,6 +454,8 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
       type: "ha_direct",
       streamType: "webrtc",
       video,
+      hasLiveVideoTrack: () => true,
+      hasRecentMediaActivity: () => true,
       pc: {
         connectionState: "connected",
         iceConnectionState: "connected",
@@ -533,6 +535,8 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
 test("live grace controller rejects HA-direct WebRTC that is not immediately reusable", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {
     const releasedEngines = [];
+    let hasLiveVideoTrack = true;
+    let hasRecentMediaActivity = true;
     const video = {
       style: { cssText: "" },
       paused: false,
@@ -547,6 +551,8 @@ test("live grace controller rejects HA-direct WebRTC that is not immediately reu
       type: "ha_direct",
       streamType: "webrtc",
       video,
+      hasLiveVideoTrack: () => hasLiveVideoTrack,
+      hasRecentMediaActivity: () => hasRecentMediaActivity,
       pc: {
         connectionState: "connecting",
         iceConnectionState: "connected",
@@ -586,6 +592,13 @@ test("live grace controller rejects HA-direct WebRTC that is not immediately reu
     cachedEngine.pc.connectionState = "connected";
     video.readyState = 1;
     video.videoWidth = 0;
+    assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    video.readyState = 4;
+    video.videoWidth = 1920;
+    hasRecentMediaActivity = false;
+    assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    hasRecentMediaActivity = true;
+    hasLiveVideoTrack = false;
     assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
     controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
 

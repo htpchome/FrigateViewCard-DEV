@@ -116,6 +116,7 @@ test("editor reparenting retains established WebRTC for both live connection mod
 test("connection-loss reasons force a remount without broadening normal stale checks", () => {
   assert.equal(shouldForceLiveRemountForReason("mse-ws-closed"), true);
   assert.equal(shouldForceLiveRemountForReason("active-camera-recovered"), true);
+  assert.equal(shouldForceLiveRemountForReason("webrtc-media-stalled"), true);
   assert.equal(shouldForceLiveRemountForReason("resize-visible"), false);
   assert.equal(shouldForceLiveRemountForReason("connected"), false);
   assert.equal(

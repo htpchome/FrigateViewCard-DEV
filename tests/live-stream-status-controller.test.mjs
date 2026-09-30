@@ -26,6 +26,7 @@ const createHost = () => {
   const fallbackStatus = { hidden: false };
   const host = {
     _activeStreamType: "--",
+    _activeCam: { entity: "camera.front" },
     _lastLiveStreamHint: "webrtc",
     _localization: {
       t: (key) =>
@@ -38,6 +39,7 @@ const createHost = () => {
       sync: () => calls.push(["resize"]),
     },
     _preferredStreamType: () => "webrtc",
+    _shouldUseGo2RtcForEntity: () => true,
     _refreshStreamFallbackImage: () => calls.push(["refresh-fallback"]),
     _renderStats: () => calls.push(["render-stats"]),
     _setLiveNativeControls: (enabled) =>
@@ -78,6 +80,10 @@ test("stream status resolves active, retained, and preferred transport hints", (
 
   host._lastLiveStreamHint = "";
   assert.equal(controller.currentStreamHint(), "webrtc");
+
+  host._lastLiveStreamHint = "webrtc";
+  host._shouldUseGo2RtcForEntity = () => false;
+  assert.equal(controller.currentStreamHint(), "");
 });
 
 test("stream status localizes default loading text and preserves custom text", () => {

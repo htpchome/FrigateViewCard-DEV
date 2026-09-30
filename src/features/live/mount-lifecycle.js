@@ -171,6 +171,7 @@ const FORCE_LIVE_REMOUNT_REASONS = new Set([
   "hls-error",
   "mse-ws-closed",
   "webrtc-connection-lost",
+  "webrtc-media-stalled",
   "webrtc-ws-closed",
 ]);
 

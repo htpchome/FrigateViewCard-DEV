@@ -87,8 +87,18 @@ export class GridPageController {
     const hasReturnLiveTarget =
       this._hasReturnLiveTarget || Boolean(this._host._engine);
     const returnLiveEntity = this._returnLiveEntity;
+    const activeEntity = String(
+      returnLiveEntity ||
+        this._host._activeGroupMemberOverride ||
+        this._host._activeCam?.entity ||
+        "",
+    ).trim();
+    const retainedHint =
+      this._host._shouldUseGo2RtcForEntity?.(activeEntity) === false
+        ? ""
+        : this._host._lastLiveStreamHint;
     const activeStreamType =
-      this._returnLiveStreamType || this._host._lastLiveStreamHint || "--";
+      this._returnLiveStreamType || retainedHint || "--";
     this._returnLiveStreamType = "";
     this._returnLiveEntity = "";
     this._hasReturnLiveTarget = false;

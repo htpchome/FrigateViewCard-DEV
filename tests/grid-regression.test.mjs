@@ -521,7 +521,7 @@ test("entering live Grid releases only duplicate go2rtc main-camera connections"
   );
 });
 
-test("Grid keeps the active HA-direct camera transport stable after entering Grid", () => {
+test("Grid does not reuse the prior HA-direct camera transport after entering Grid", () => {
   const controller = new GridMediaController({
     _activeCam: { entity: "camera.ha_direct" },
     _activeStreamType: "grid",
@@ -536,7 +536,7 @@ test("Grid keeps the active HA-direct camera transport stable after entering Gri
 
   assert.equal(
     controller._resolveGridCellLiveStreamHint("camera.ha_direct"),
-    "webrtc",
+    "hls",
   );
 });
 

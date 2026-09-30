@@ -96,10 +96,15 @@ export function createLiveGraceController({
       Number(video.readyState) >= 2 &&
       Number(video.videoWidth) > 0 &&
       (!Number.isFinite(playbackRate) || playbackRate > 0);
+    const hasLiveVideoTrack = engine.hasLiveVideoTrack?.() === true;
+    const hasRecentMediaActivity =
+      engine.hasRecentMediaActivity?.() === true;
     return (
       peerConnected &&
       iceConnected &&
-      hasUsableFrame
+      hasUsableFrame &&
+      hasLiveVideoTrack &&
+      hasRecentMediaActivity
     );
   };
   const isHaDirectEngineReusable = isHaDirectWebRtcEngineReusable;

@@ -18,6 +18,15 @@ export class LiveStreamStatusController {
     if (active === "webrtc" || active === "mse" || active === "hls") {
       return active;
     }
+    const activeEntity = String(
+      host._activeGroupMemberOverride || host._activeCam?.entity || "",
+    ).trim();
+    if (
+      activeEntity &&
+      host._shouldUseGo2RtcForEntity?.(activeEntity) === false
+    ) {
+      return "";
+    }
     const lastHint = String(host._lastLiveStreamHint || "")
       .trim()
       .toLowerCase();
