@@ -16,7 +16,13 @@ const createHost = () => {
     _dashboardLiveGraceActive: false,
     _disconnectTeardownT: null,
     _engine: engine,
-    _hass: {},
+    _hass: {
+      states: {
+        "camera.front": {
+          attributes: { frontend_stream_type: "web_rtc" },
+        },
+      },
+    },
     _mountInProgress: false,
     _started: true,
     _twoWayTalkSession: null,
@@ -71,6 +77,17 @@ test("dashboard retention preserves HA Direct WebRTC", () => {
     ],
     ["clear-slot"],
   ]);
+});
+
+test("dashboard retention rejects HA Direct WebRTC no longer advertised by HA", () => {
+  const { calls, host } = createHost();
+  host._shouldUseGo2RtcForEntity = () => false;
+  host._hass.states["camera.front"].attributes.frontend_stream_type = "hls";
+  const controller = new LiveDashboardRetentionController(host);
+
+  assert.equal(controller.preserveForNavigation(), false);
+  assert.equal(host._dashboardLiveGraceActive, false);
+  assert.deepEqual(calls, []);
 });
 
 test("dashboard retention rejects unsupported or busy live sessions", () => {

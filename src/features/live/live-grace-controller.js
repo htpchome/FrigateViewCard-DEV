@@ -557,5 +557,6 @@ export function createLiveGraceController({
     takeGraceHaDirectEntry,
     adoptGraceHaDirectEngine,
     isHaDirectEngineReusable,
+    evictGraceHaDirectEntity: evictGraceHaDirectEntry,
   };
 }

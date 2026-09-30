@@ -2,6 +2,7 @@ import {
   LIVE_SWITCH_GRACE_MAX,
   LIVE_SWITCH_GRACE_MS,
 } from "../../constants.js";
+import { hasHaCameraWebRtcPlaybackCapability } from "../../integrations/home-assistant/camera-capabilities.js";
 import { buildEditorLiveHandoffKey } from "../editor-preview/context.ctrl.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import {
@@ -173,6 +174,10 @@ export const createLiveLifecycleControllers = (
       card._setStreamFallbackVisible(visible, refreshImage),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     resolveUseGo2Rtc: (entity) => card._shouldUseGo2RtcForEntity(entity),
+    shouldAttemptHaDirectWebRtc: (entity) =>
+      hasHaCameraWebRtcPlaybackCapability(
+        card._hass?.states?.[entity]?.attributes,
+      ),
     isCameraRuntimeSuspended: (entity) =>
       card._frigateCameraRuntimeController?.isSuspended?.(entity) === true,
     applyCameraSuspendedState: (entity) =>

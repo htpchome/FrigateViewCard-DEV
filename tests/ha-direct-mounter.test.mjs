@@ -174,6 +174,8 @@ test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled"
   let assignedEngine = null;
   let nativeOptions = null;
   let nativeWaitMs = null;
+  let checkedWebRtcEntity = "";
+  let webRtcCreationCalls = 0;
   const mounter = createHaDirectMounter({
     getHass: () => hass,
     getPreferredStreamType: () => "webrtc",
@@ -192,11 +194,18 @@ test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled"
     stopLoadingFallbackRefresh: () => {},
     setLiveNativeControls: () => {},
     shouldUseNativeHls: () => true,
-    shouldAttemptWebRtc: () => false,
+    shouldAttemptWebRtc: (entity) => {
+      checkedWebRtcEntity = entity;
+      return false;
+    },
     preparePlaybackElements: () => false,
     createNativeHlsVideo: async (options) => {
       nativeOptions = options;
       return nativeVideo;
+    },
+    createWebRtcPlayback: () => {
+      webRtcCreationCalls += 1;
+      return null;
     },
   });
 
@@ -213,6 +222,8 @@ test("ha direct mounter keeps native HLS only when WebRTC attempts are disabled"
   assert.equal(nativeOptions.entity, "camera.front");
   assert.equal(nativeOptions.fitMode, "contain");
   assert.equal(nativeWaitMs, 8000);
+  assert.equal(checkedWebRtcEntity, "camera.front");
+  assert.equal(webRtcCreationCalls, 0);
 
   mounter.release(nativeVideo);
   assert.equal(nativeVideo.destroyCalled, true);

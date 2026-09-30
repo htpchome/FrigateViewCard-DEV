@@ -437,6 +437,12 @@ export function createHaDirectMounter({
       ) {
         return false;
       }
+      if (shouldAttemptWebRtc?.(entity) !== true) {
+        if (hlsBinding.failed && !hlsBinding.fallbackPublished) {
+          hlsBinding.fail({ publishFallback: true });
+        }
+        return false;
+      }
       hlsBinding.takeoverStarted = true;
       const publishFallbackIfHlsStillUnready = () => {
         if (hlsBinding.failed && !hlsBinding.fallbackPublished) {
@@ -476,7 +482,8 @@ export function createHaDirectMounter({
       if (
         hlsBinding.disposed ||
         hlsBinding.takeoverEngine !== engine ||
-        !isCurrentEngine(hlsEngine)
+        !isCurrentEngine(hlsEngine) ||
+        shouldAttemptWebRtc?.(entity) !== true
       ) {
         discard();
         publishFallbackIfHlsStillUnready();
@@ -487,7 +494,8 @@ export function createHaDirectMounter({
         !signalingStarted ||
         hlsBinding.disposed ||
         hlsBinding.takeoverEngine !== engine ||
-        !isCurrentEngine(hlsEngine)
+        !isCurrentEngine(hlsEngine) ||
+        shouldAttemptWebRtc?.(entity) !== true
       ) {
         discard();
         return false;
@@ -579,7 +587,7 @@ export function createHaDirectMounter({
       allowWebRtcTakeover:
         commit &&
         initialStreamType === "webrtc" &&
-        shouldAttemptWebRtc?.() === true,
+        shouldAttemptWebRtc?.(entity) === true,
     });
   };
 

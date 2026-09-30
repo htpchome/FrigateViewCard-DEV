@@ -825,6 +825,62 @@ test("live mount controller reuses only the HA-direct retained engine for HA-dir
   ]);
 });
 
+test("HA-direct HLS-only cameras evict cached WebRTC and skip editor handoff", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => ({
+      mountSeq: 1,
+      mountInProgress: false,
+      mountStartedAt: 0,
+      mountTargetEntity: "",
+    }),
+    applyMountTrackingState: () => {},
+    mountGridEngine: () => {},
+    cleanupEngine: () => calls.push("cleanup"),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    liveGraceController: {
+      evictGraceHaDirectEntity: (entity) =>
+        calls.push(["evict-ha-direct", entity]),
+      takeGraceHaDirectEntry: () => {
+        throw new Error("HLS-only cameras must not take cached WebRTC");
+      },
+    },
+    takeEditorLiveHandoff: () => {
+      throw new Error("HLS-only cameras must not request a WebRTC handoff");
+    },
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    haDirectMounter: {
+      tryMount: async (_slot, _startup, options) => {
+        calls.push(["mount-ha-direct", options.entity]);
+        return { ok: true, type: "hls", startupReady: Promise.resolve(true) };
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+    shouldAttemptHaDirectWebRtc: () => false,
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    ["evict-ha-direct", "camera.front"],
+    "cleanup",
+    ["mount-ha-direct", "camera.front"],
+  ]);
+});
+
 test("live mount controller adopts an editor HA-direct WebRTC handoff before restarting HLS", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };

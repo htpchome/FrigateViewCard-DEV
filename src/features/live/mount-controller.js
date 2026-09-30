@@ -293,6 +293,7 @@ export function createLiveMountController({
   setStreamFallbackVisible,
   scheduleResumeLive,
   resolveUseGo2Rtc,
+  shouldAttemptHaDirectWebRtc = () => true,
   isCameraRuntimeSuspended,
   applyCameraSuspendedState,
   takeEditorLiveHandoff,
@@ -416,11 +417,17 @@ export function createLiveMountController({
       return false;
     }
     const useGo2Rtc = resolveUseGo2Rtc?.(targetEntity) === true;
+    const allowHaDirectWebRtc =
+      !useGo2Rtc && shouldAttemptHaDirectWebRtc?.(targetEntity) === true;
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
 
-    if (!useGo2Rtc && !hasTwoWayTalkOptions) {
+    if (!useGo2Rtc && !allowHaDirectWebRtc) {
+      liveGraceController.evictGraceHaDirectEntity?.(targetEntity);
+    }
+
+    if (!useGo2Rtc && allowHaDirectWebRtc && !hasTwoWayTalkOptions) {
       const graceHaDirectEntry =
         liveGraceController.takeGraceHaDirectEntry?.(
           targetEntity,

@@ -59,6 +59,13 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     detachWebRtcForHandoff: (engine) => engine !== "blocked-engine",
   };
   const card = {
+    _hass: {
+      states: {
+        "camera.front": {
+          attributes: { frontend_stream_type: "web_rtc" },
+        },
+      },
+    },
     shadowRoot: {
       querySelector: (selector) =>
         selector === "#engine" ? engineSlot : null,
@@ -143,6 +150,15 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     attachContainedVideoFit,
   );
   assert.strictEqual(optionsByFactory.liveMount.liveGraceController, liveGraceController);
+  assert.equal(
+    optionsByFactory.liveMount.shouldAttemptHaDirectWebRtc("camera.front"),
+    true,
+  );
+  card._hass.states["camera.front"].attributes.frontend_stream_type = "hls";
+  assert.equal(
+    optionsByFactory.liveMount.shouldAttemptHaDirectWebRtc("camera.front"),
+    false,
+  );
   assert.strictEqual(optionsByFactory.liveMount.haDirectMounter, haDirectMounter);
   assert.strictEqual(
     optionsByFactory.liveMount.haDirectTwoWayTalkMounter,
