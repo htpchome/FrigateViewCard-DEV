@@ -74,8 +74,7 @@ export const SINGLE_VIEW_PAGE_STYLES = `
 
   @container single-view (max-width: 420px) {
     .card .layout--single-view .info-row {
-      grid-template-columns: minmax(0, 1fr) auto max-content;
-      column-gap: 4px;
+      grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
     }
 
     .card .layout--single-view .single-view-live-status-overlay {
@@ -105,31 +104,8 @@ export const SINGLE_VIEW_PAGE_STYLES = `
     }
 
     .card .layout--single-view .info-row-center-controls {
-      display: grid;
-      grid-template-columns: auto auto auto;
-      column-gap: 6px;
-      width: auto;
-      min-width: 0;
+      width: max-content;
       justify-self: center;
-      overflow: visible;
-    }
-
-    .card .layout--single-view .info-row-center-controls > [data-fvc-region="two-way-talk"]:not(:has(.info-row-mic-btn:not([hidden]))) {
-      display: none;
-    }
-
-    .card .layout--single-view .info-row-center-controls > [data-fvc-region="two-way-talk"] {
-      grid-column: 2;
-      grid-row: 1;
-      justify-self: center;
-    }
-
-    .card .layout--single-view .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="left"] {
-      grid-column: 1;
-    }
-
-    .card .layout--single-view .info-row-center-controls .linked-light-position-slot[data-linked-light-position-slot="right"] {
-      grid-column: 3;
     }
   }
 

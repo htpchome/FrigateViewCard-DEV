@@ -1266,12 +1266,24 @@ test("Single View preserves source and alerts below the online-status breakpoint
     card.style.setProperty("--card-host-height", "600px");
     document.body.append(card);
     card.setConfig({
-      cameras: [{ entity: "camera.front", name: "Doorbell" }],
+      cameras: [
+        {
+          entity: "camera.front",
+          name: "Doorbell",
+          two_way_talk: true,
+          linked_entities: [{ entity: "light.porch" }],
+        },
+      ],
       title: "FrigateView",
       subtitle: "Doorbell",
     });
     card._pageId = "single-view";
+    card._hass = {
+      states: { "light.porch": { state: "off", attributes: {} } },
+    };
     card._renderShell();
+    await card._linkedLightController._ensureDelegate();
+    card._linkedLightController.sync();
     const root = card.shadowRoot;
 
     const read = async (width) => {
@@ -1279,6 +1291,10 @@ test("Single View preserves source and alerts below the online-status breakpoint
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const title = root.querySelector("#info-title");
       const subtitle = root.querySelector("#tl-range");
+      const infoRowRect = root.querySelector(".info-row").getBoundingClientRect();
+      const microphoneRect = root
+        .querySelector("#two-way-talk-btn")
+        .getBoundingClientRect();
       return {
         alertDisplay: getComputedStyle(
           root.querySelector(".info-alert-stat"),
@@ -1292,6 +1308,15 @@ test("Single View preserves source and alerts below the online-status breakpoint
         ).display,
         titleFits: title.scrollWidth <= title.clientWidth,
         subtitleFits: subtitle.scrollWidth <= subtitle.clientWidth,
+        microphoneCentered:
+          Math.abs(
+            microphoneRect.left +
+              microphoneRect.width / 2 -
+              (infoRowRect.left + infoRowRect.width / 2),
+          ) <= 0.5,
+        linkedLightVisible:
+          getComputedStyle(root.querySelector("[data-linked-light]")).display !==
+          "none",
       };
     };
 
@@ -1308,11 +1333,15 @@ test("Single View preserves source and alerts below the online-status breakpoint
     onlineDisplay: "none",
     titleFits: true,
     subtitleFits: true,
+    microphoneCentered: true,
+    linkedLightVisible: true,
   });
   expect(state.at380).toMatchObject({
     alertDisplay: "none",
     statsDisplay: "none",
     onlineDisplay: "none",
+    microphoneCentered: true,
+    linkedLightVisible: true,
   });
 });
 

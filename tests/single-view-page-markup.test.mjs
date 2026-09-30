@@ -155,15 +155,11 @@ test("Single View adds a responsive live status overlay", () => {
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.info-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto max-content;[^}]*column-gap: 4px;/,
+    /\.info-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) 40px minmax\(0, 1fr\);/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
-    /\.info-row-center-controls\s*\{[^}]*grid-template-columns: auto auto auto;[^}]*column-gap: 6px;[^}]*width: auto;/,
-  );
-  assert.match(
-    SINGLE_VIEW_PAGE_STYLES,
-    /data-fvc-region="two-way-talk"\]:not\(:has\(\.info-row-mic-btn:not\(\[hidden\]\)\)\)\s*\{\s*display: none;/,
+    /\.info-row-center-controls\s*\{[^}]*width: max-content;[^}]*justify-self: center;/,
   );
   assert.match(
     SINGLE_VIEW_PAGE_STYLES,
