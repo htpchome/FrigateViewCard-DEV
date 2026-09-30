@@ -487,23 +487,30 @@ export class CameraCellMediaController {
           onFailure: liveStage?.retainPlaceholder,
         });
       } else if (stateObj) {
-        const haDirectStreamHint = this.resolveHaDirectLiveStreamHint(
-          entity,
-          liveStreamHint,
-          "webrtc",
-        );
-        const haDirectStateObj = {
-          ...stateObj,
-          attributes: {
-            ...stateObj.attributes,
-            frontend_stream_type:
-              haDirectStreamHint === "webrtc" ? "web_rtc" : "hls",
-          },
-        };
+        const connectionType =
+          this._host._cameraConnectionType?.(entity) || "ha_direct";
+        const useHaExperimental = connectionType === "ha_experimental";
+        const haDirectStreamHint = useHaExperimental
+          ? ""
+          : this.resolveHaDirectLiveStreamHint(
+              entity,
+              liveStreamHint,
+              "webrtc",
+            );
+        const haDirectStateObj = useHaExperimental
+          ? this._host._hass?.states?.[entity] || stateObj
+          : {
+              ...stateObj,
+              attributes: {
+                ...stateObj.attributes,
+                frontend_stream_type:
+                  haDirectStreamHint === "webrtc" ? "web_rtc" : "hls",
+              },
+            };
         const styleText =
           "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
         const stream =
-          haDirectStreamHint === "hls"
+          !useHaExperimental && haDirectStreamHint === "hls"
             ? createHaHlsPlayerElement({
                 hass: this._host._hass,
                 entity,
@@ -526,6 +533,7 @@ export class CameraCellMediaController {
           liveStage?.retainPlaceholder?.();
           return Boolean(liveStage);
         }
+        if (useHaExperimental) stream.type = "ha_experimental";
         liveTarget.appendChild(stream);
         attachContainedVideoFit(stream);
         let released = false;
@@ -533,7 +541,7 @@ export class CameraCellMediaController {
         const handoff = {
           type: handoffType,
           take: () => {
-            if (released || !stream) return null;
+            if (useHaExperimental || released || !stream) return null;
             released = true;
             return {
               ok: true,

@@ -173,6 +173,11 @@ const EDITOR_DIRTY_STATE_KEY = "frigate-view-card-editor";
 const EDITOR_TEXT_PREVIEW_DELAY_MS = 200;
 const EDITOR_GO2RTC_METADATA_CACHE_TTL_MS = 30_000;
 
+const isHomeAssistantCameraConnectionType = (value) =>
+  ["ha_direct", "ha_experimental"].includes(
+    normalizeCameraConnectionType(value),
+  );
+
 const escapeEditorChoiceMarkup = escapeHtml;
 
 const formatDurationChoice = (value) => {
@@ -975,8 +980,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       rotationRow.hidden =
         !supported || loading || resolveSwitchChecked(ptzEnabled) !== true;
     }
-    const isHaDirect =
-      normalizeCameraConnectionType(sourceType) === "ha_direct";
+    const isHaDirect = isHomeAssistantCameraConnectionType(sourceType);
 
     if (stateMessage) {
       if (loading) {
@@ -1020,8 +1024,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     const twoWayTalkStateMessage = this.querySelector(
       "#camera-modal-two-way-talk-state",
     );
-    const isHaDirect =
-      normalizeCameraConnectionType(sourceType) === "ha_direct";
+    const isHaDirect = isHomeAssistantCameraConnectionType(sourceType);
     const showToggle = supported || loading || preserveSelection;
     const allowSelection = supported || preserveSelection;
 
@@ -1106,7 +1109,9 @@ export class FrigateViewCardEditor extends HTMLElement {
     const entity = this._cameraModalEntityValue();
     const sourceType = this._cameraModalConnectionTypeValue();
     const normalizedSourceType = normalizeCameraConnectionType(sourceType);
-    const isHaDirect = normalizedSourceType === "ha_direct";
+    const isHaDirect = isHomeAssistantCameraConnectionType(
+      normalizedSourceType,
+    );
     if (!entity) {
       this._syncCameraModalTwoWayTalkVisibility({
         supported: false,
@@ -1734,9 +1739,10 @@ export class FrigateViewCardEditor extends HTMLElement {
   }
 
   _cameraConnectionLabel(value) {
-    return normalizeCameraConnectionType(value) === "ha_direct"
-      ? "HA direct"
-      : "Frigate go2rtc";
+    const connectionType = normalizeCameraConnectionType(value);
+    if (connectionType === "ha_direct") return "HA direct";
+    if (connectionType === "ha_experimental") return "HA experimental";
+    return "Frigate go2rtc";
   }
 
   _cameraAlertsContentLabel(value) {
@@ -1850,6 +1856,10 @@ export class FrigateViewCardEditor extends HTMLElement {
         value: "ha_direct",
         label: this._t("editor.cameraModal.homeAssistant"),
       },
+      {
+        value: "ha_experimental",
+        label: this._t("editor.cameraModal.homeAssistantExperimental"),
+      },
     ];
     const currentOptions = selector.selector.select.options || [];
     if (
@@ -1872,11 +1882,14 @@ export class FrigateViewCardEditor extends HTMLElement {
   }
 
   _syncCameraModalAccordionSummaries() {
+    const connectionType = this._cameraModalConnectionTypeValue();
     this._setCameraModalAccordionSummary(
       "connection",
-      this._cameraModalConnectionTypeValue() === "ha_direct"
-        ? this._t("editor.cameraModal.homeAssistant")
-        : this._t("editor.cameraModal.frigateGo2rtc"),
+      connectionType === "ha_experimental"
+        ? this._t("editor.cameraModal.homeAssistantExperimental")
+        : connectionType === "ha_direct"
+          ? this._t("editor.cameraModal.homeAssistant")
+          : this._t("editor.cameraModal.frigateGo2rtc"),
     );
 
     const secondaryEntity = this._cameraModalGroupEnabled
@@ -4871,6 +4884,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       options: [
         { value: "frigate_go2rtc", label: this._t("editor.cameraModal.frigateGo2rtcDefault") },
         { value: "ha_direct", label: this._t("editor.cameraModal.homeAssistant") },
+        { value: "ha_experimental", label: this._t("editor.cameraModal.homeAssistantExperimental") },
       ],
       initialValue: DEFAULT_CAMERA_CONNECTION_TYPE,
       fallbackValue: DEFAULT_CAMERA_CONNECTION_TYPE,

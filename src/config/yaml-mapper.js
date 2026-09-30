@@ -88,6 +88,12 @@ const normalizeCameraConnectionType = (value) => {
   const type = String(value ?? "")
     .trim()
     .toLowerCase();
+  if (
+    type === "ha_experimental" ||
+    type === "home_assistant_experimental"
+  ) {
+    return "ha_experimental";
+  }
   if (type === "ha_direct" || type === "ha" || type === "home_assistant") {
     return "ha_direct";
   }

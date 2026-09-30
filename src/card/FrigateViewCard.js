@@ -789,6 +789,7 @@ export class FrigateViewCard extends HTMLElement {
     const previousTimeFormat = this._hass?.locale?.time_format;
     const previousTimeZone = this._hass?.config?.time_zone;
     this._hass = hass;
+    this._haExperimentalMounter?.updateHass?.(this._engine);
     const languageChanged = this._localization.updateHass(hass);
     const dateSettingsChanged =
       previousTimeFormat !== hass?.locale?.time_format ||
@@ -1141,10 +1142,17 @@ export class FrigateViewCard extends HTMLElement {
       )
         ? this._slideshowFeatureController.prepare()
         : Promise.resolve(null);
-    const haDirectPlaybackPreparation = flattenCameraMembers(
-      this._config.cameras,
-    ).some((camera) => !this._shouldUseGo2RtcForEntity(camera.entity))
+    const configuredCameras = flattenCameraMembers(this._config.cameras);
+    const haDirectPlaybackPreparation = configuredCameras.some(
+      (camera) => this._cameraConnectionType(camera.entity) === "ha_direct",
+    )
       ? this._haDirectMounter?.prepare?.()
+      : Promise.resolve(false);
+    const haExperimentalPlaybackPreparation = configuredCameras.some(
+      (camera) =>
+        this._cameraConnectionType(camera.entity) === "ha_experimental",
+    )
+      ? this._haExperimentalMounter?.prepare?.()
       : Promise.resolve(false);
 
     await Promise.all([
@@ -1153,6 +1161,7 @@ export class FrigateViewCard extends HTMLElement {
       gridLandingPreparation,
       slideshowLandingPreparation,
       haDirectPlaybackPreparation,
+      haExperimentalPlaybackPreparation,
     ]);
     if (this._editorPreviewController.renderCardPickerDemo()) {
       this._applyCardStyle();
@@ -1315,7 +1324,7 @@ export class FrigateViewCard extends HTMLElement {
   _shouldUseGo2RtcForEntity(entity) {
     const key = entity || this._activeCam?.entity || "";
     if (!key) return true;
-    return this._cameraConnectionType(key) !== "ha_direct";
+    return this._cameraConnectionType(key) === "frigate_go2rtc";
   }
 
   _isEditorPreviewContext() {

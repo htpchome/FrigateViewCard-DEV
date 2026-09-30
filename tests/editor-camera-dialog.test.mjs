@@ -977,6 +977,10 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
   );
   assert.match(
     source,
+    /value: "ha_experimental", label: this\._t\("editor\.cameraModal\.homeAssistantExperimental"\)/,
+  );
+  assert.match(
+    source,
     /Requires the Home Assistant Frigate integration\./,
   );
   const connectionSection = source.slice(

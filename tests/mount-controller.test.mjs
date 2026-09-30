@@ -1186,6 +1186,71 @@ test("ha-direct talk mounts use only the Home Assistant talk pipeline", async ()
   });
 });
 
+test("experimental Home Assistant connections use only the native HA mounter", async () => {
+  const slot = { innerHTML: "occupied" };
+  let mountState = {
+    mountSeq: 8,
+    mountInProgress: false,
+    mountStartedAt: 0,
+    mountTargetEntity: "",
+  };
+  const calls = [];
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => mountState.mountInProgress,
+    getMountTargetEntity: () => mountState.mountTargetEntity,
+    getMountState: () => mountState,
+    applyMountTrackingState: (nextState) => {
+      mountState = nextState;
+    },
+    mountGridEngine: () => {},
+    cleanupEngine: () => calls.push("cleanup"),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: (muted) => calls.push(["mounted-muted", muted]),
+    liveGraceController: {},
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    haDirectMounter: {
+      tryMount: async () => {
+        throw new Error("HA Direct must not mount for the experimental mode");
+      },
+    },
+    haExperimentalMounter: {
+      tryMount: async (_slot, startup, options) => {
+        calls.push(["experimental", startup, options]);
+        return { ok: true, startupReady: Promise.resolve(true) };
+      },
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("go2rtc must not mount for the experimental mode");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+    resolveConnectionType: () => "ha_experimental",
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    ["mounted-muted", true],
+    "cleanup",
+    [
+      "experimental",
+      null,
+      { entity: "camera.front", commit: true },
+    ],
+    ["mounted-muted", true],
+  ]);
+});
+
 test("suspended cameras stop before either live transport is selected", async () => {
   const calls = [];
   const controller = createLiveMountController({

@@ -70,7 +70,10 @@ export function resolvePreviewStreamSourceLabel({
   const translate = (key, fallback, values = {}) =>
     typeof t === "function" ? t(key, values) : fallback;
   if (!useLive) return translate("runtime.preview.snapshot", "Snapshot");
-  if (connectionType === "ha_direct") {
+  if (
+    connectionType === "ha_direct" ||
+    connectionType === "ha_experimental"
+  ) {
     return translate("runtime.preview.haLive", "HA Live");
   }
   const hint = String(liveStreamHint || "")

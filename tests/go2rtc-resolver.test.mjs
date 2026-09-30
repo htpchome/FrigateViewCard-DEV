@@ -56,19 +56,26 @@ function createResolverHarness(options = {}) {
   return { resolver, calls };
 }
 
-test("go2rtc resolver mount request honors HA direct camera policy", () => {
-  const { resolver } = createResolverHarness({
-    config: {
-      cameras: [{ entity: "camera.front", connection_type: "ha_direct" }],
-    },
-    activeEntity: "camera.front",
-  });
+test("go2rtc resolver rejects both Home Assistant connection modes", () => {
+  for (const connectionType of ["ha_direct", "ha_experimental"]) {
+    const { resolver } = createResolverHarness({
+      config: {
+        cameras: [
+          { entity: "camera.front", connection_type: connectionType },
+        ],
+      },
+      activeEntity: "camera.front",
+    });
 
-  assert.deepEqual(resolver.resolveMountRequest({ entity: "camera.front" }), {
-    entity: "",
-    abortSignal: null,
-    commit: true,
-  });
+    assert.deepEqual(
+      resolver.resolveMountRequest({ entity: "camera.front" }),
+      {
+        entity: "",
+        abortSignal: null,
+        commit: true,
+      },
+    );
+  }
 });
 
 test("go2rtc resolver caches websocket URLs per camera", async () => {

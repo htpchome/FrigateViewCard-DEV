@@ -1169,6 +1169,38 @@ test("camera connection type normalizes HA aliases to ha_direct", () => {
   });
 });
 
+test("camera connection type preserves the experimental Home Assistant mode", () => {
+  const normalized = normalizeCardConfig({
+    cameras: [
+      {
+        entity: "camera.garage",
+        connection_type: "ha_experimental",
+      },
+    ],
+  });
+  const config = compactEditorConfigForYaml({
+    cameras: [
+      {
+        entity: "camera.garage",
+        connection_type: "home_assistant_experimental",
+      },
+    ],
+  });
+
+  assert.deepEqual(config, {
+    cameras: [
+      {
+        entity: "camera.garage",
+        connection_type: "ha_experimental",
+      },
+    ],
+  });
+  assert.equal(
+    normalized.cameras[0].connection_type,
+    "ha_experimental",
+  );
+});
+
 test("compact YAML discards legacy per-camera PTZ motion tuning", () => {
   const config = compactEditorConfigForYaml({
     cameras: [

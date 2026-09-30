@@ -135,9 +135,7 @@ export class GridMediaController {
       .map((camera) => {
         const entity = String(camera?.entity || "");
         const source = entity
-          ? this._host._shouldUseGo2RtcForEntity(entity)
-            ? "frigate_go2rtc"
-            : "ha_direct"
+          ? this._host._cameraConnectionType?.(entity) || "frigate_go2rtc"
           : "";
         return [entity, source, this._buildLabelText(camera)].join(":");
       })

@@ -386,10 +386,17 @@ export const resolveLiveMountUiState = ({ quiet = false } = {}) => {
 };
 
 export const resolveLiveMountTransportPlan = ({
+  connectionType,
   useGo2Rtc,
   forcedType,
   preferredStreamType,
 }) => {
+  if (connectionType === "ha_experimental") {
+    return {
+      mode: "ha-experimental",
+      streamType: null,
+    };
+  }
   if (useGo2Rtc) {
     return {
       mode: "go2rtc",

@@ -87,9 +87,9 @@ export function createEditorLiveHandoffController({
     const requestContext = String(request.context || "");
     const streamType = String(request.streamType || "").toLowerCase();
     const connectionType = resolveEditorHandoffConnectionType(request.type);
-    const currentConnectionType = current.useGo2Rtc
-      ? "frigate_go2rtc"
-      : "ha_direct";
+    const currentConnectionType =
+      current.connectionType ||
+      (current.useGo2Rtc ? "frigate_go2rtc" : "ha_direct");
     const engine = current.engine;
     if (
       !isEditorLiveHandoffSupported(connectionType, streamType) ||
@@ -177,9 +177,9 @@ export function createEditorLiveHandoffController({
     connectionType,
   } = {}) => {
     const current = state();
-    const currentConnectionType = current.useGo2Rtc
-      ? "frigate_go2rtc"
-      : "ha_direct";
+    const currentConnectionType =
+      current.connectionType ||
+      (current.useGo2Rtc ? "frigate_go2rtc" : "ha_direct");
     return (
       current.hostConnected === true &&
       suspended === true &&
@@ -224,9 +224,9 @@ export function createEditorLiveHandoffController({
     const key = identityKey(entity);
     const engine = current.engine;
     const streamType = String(current.activeStreamType || "").toLowerCase();
-    const connectionType = current.useGo2Rtc
-      ? "frigate_go2rtc"
-      : "ha_direct";
+    const connectionType =
+      current.connectionType ||
+      (current.useGo2Rtc ? "frigate_go2rtc" : "ha_direct");
     if (
       target?.canAcceptReturn?.({
         entity,
@@ -285,6 +285,7 @@ export function createLiveMountController({
   getPendingMountDestroyers,
   setPendingMountDestroyers,
   haDirectMounter,
+  haExperimentalMounter,
   haDirectTwoWayTalkMounter,
   go2rtcRaceMounter,
   preferredStreamType,
@@ -293,6 +294,7 @@ export function createLiveMountController({
   setStreamFallbackVisible,
   scheduleResumeLive,
   resolveUseGo2Rtc,
+  resolveConnectionType,
   isCameraRuntimeSuspended,
   applyCameraSuspendedState,
   takeEditorLiveHandoff,
@@ -415,12 +417,17 @@ export function createLiveMountController({
       applyCameraSuspendedState?.(targetEntity);
       return false;
     }
-    const useGo2Rtc = resolveUseGo2Rtc?.(targetEntity) === true;
+    const connectionType =
+      resolveConnectionType?.(targetEntity) ||
+      (resolveUseGo2Rtc?.(targetEntity) === true
+        ? "frigate_go2rtc"
+        : "ha_direct");
+    const useGo2Rtc = connectionType === "frigate_go2rtc";
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
 
-    if (!useGo2Rtc && !hasTwoWayTalkOptions) {
+    if (connectionType === "ha_direct" && !hasTwoWayTalkOptions) {
       const graceHaDirectEntry =
         liveGraceController.takeGraceHaDirectEntry?.(
           targetEntity,
@@ -593,6 +600,7 @@ export function createLiveMountController({
       applyLiveMountUiState?.(quiet);
 
       const transportPlan = resolveLiveMountTransportPlan({
+        connectionType,
         useGo2Rtc,
         forcedType,
         preferredStreamType: preferredStreamType?.(),
@@ -619,6 +627,30 @@ export function createLiveMountController({
         if (haDirectResult.startupReady?.then) {
           try {
             await haDirectResult.startupReady;
+          } catch (_) {}
+        }
+        return true;
+      }
+
+      if (transportPlan.mode === "ha-experimental") {
+        const experimentalMounter = hasTwoWayTalkOptions
+          ? haDirectTwoWayTalkMounter
+          : haExperimentalMounter;
+        if (!experimentalMounter?.tryMount) return false;
+        const experimentalResult = await experimentalMounter.tryMount(
+          slot,
+          null,
+          {
+            entity: targetEntity,
+            commit: true,
+            ...(hasTwoWayTalkOptions ? twoWayTalkOptions : {}),
+          },
+        );
+        if (!experimentalResult?.ok) return false;
+        setEngineMountedMuted?.(getStreamMuted?.());
+        if (experimentalResult.startupReady?.then) {
+          try {
+            await experimentalResult.startupReady;
           } catch (_) {}
         }
         return true;

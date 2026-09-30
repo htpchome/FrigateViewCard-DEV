@@ -15,6 +15,7 @@ export class LiveMediaPresentationController {
     }
     if (options.retainPrevious !== true) {
       host._haDirectMounter?.release?.(host._engine);
+      host._haExperimentalMounter?.release?.(host._engine);
     }
     this.clearVideoZoom();
     host._clearPictureInPictureButtonController("live");

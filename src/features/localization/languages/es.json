@@ -763,6 +763,7 @@
       "frigateGo2rtc": "Frigate go2rtc",
       "frigateGo2rtcDefault": "Frigate go2rtc (predeterminado)",
       "homeAssistant": "Home Assistant",
+      "homeAssistantExperimental": "Home Assistant (experimental)",
       "frigateIntegrationRequired": "Requiere la integración de Frigate en Home Assistant.",
       "connectionGuideTitle": "¿Qué conexión debo usar?",
       "connectionGuideIntro": "Frigate go2rtc usa WebRTC y MSE administrados por la tarjeta mediante la integración de Frigate en Home Assistant. Suele ser la opción más rápida y se recomienda para la mayoría de los navegadores. Home Assistant usa HLS y WebRTC administrados por HA para ofrecer mayor compatibilidad con los clientes.",

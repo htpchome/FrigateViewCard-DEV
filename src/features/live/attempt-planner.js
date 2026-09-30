@@ -9,7 +9,7 @@ export const buildLiveAttemptPlan = ({
   forcedType = null,
   builders = {},
 }) => {
-  if (connectionType === "ha_direct") return [];
+  if (connectionType !== "frigate_go2rtc") return [];
 
   const order = forcedType ? [forcedType] : DEFAULT_LIVE_ORDER;
   return order

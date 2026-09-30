@@ -7,6 +7,7 @@ import {
 import { createGo2RtcResolver } from "../../integrations/frigate/go2rtc-resolver.js";
 import { createHaDirectTwoWayTalkBackchannel } from "../../integrations/home-assistant/two-way-talk-backchannel.js";
 import { createHaDirectTwoWayTalkMounter } from "../../integrations/home-assistant/two-way-talk-mounter.js";
+import { createHaExperimentalMounter } from "../../integrations/home-assistant/experimental-mounter.js";
 import { waitForMediaStart } from "../../shared/media/first-frame.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import { createGo2RtcTwoWayTalkBackchannel } from "../two-way-talk/go2rtc-backchannel.js";
@@ -23,6 +24,7 @@ const DEFAULT_FACTORIES = Object.freeze({
   createGo2RtcTwoWayTalkBackchannel,
   createGo2RtcMounter,
   createHaDirectMounter,
+  createHaExperimentalMounter,
   createHaDirectTwoWayTalkMounter,
   createHaDirectTwoWayTalkBackchannel,
   createGo2RtcRaceMounter,
@@ -125,6 +127,30 @@ export const createLiveTransportControllers = (
       card._isSafari(),
     scopeKey: card,
   });
+  const haExperimentalMounter =
+    resolvedFactories.createHaExperimentalMounter({
+      getHass: () => card._hass,
+      getStreamMuted: () => card._streamMuted,
+      isCurrentEngine: (stream) => card._engine === stream,
+      assignCommittedEngine: (engine) => card._assignLiveEngine(engine),
+      onCommittedMediaReady: (engine, video) => {
+        const liveEngineHost = card._$("#engine");
+        card._attachMainLiveVideoZoom(engine, video, {
+          host: liveEngineHost,
+          interactionTarget: liveEngineHost,
+        });
+      },
+      onCommittedStream: (type) => {
+        card._setActiveStreamType(type);
+        card._setStreamLoading(false);
+        card._setStreamFallbackVisible(false);
+      },
+      onCommittedFailure: () => {
+        card._setActiveStreamType("snapshot");
+        card._setStreamLoading(false);
+        card._setStreamFallbackVisible(true);
+      },
+    });
   const haDirectTwoWayTalkMounter =
     resolvedFactories.createHaDirectTwoWayTalkMounter({
       getHass: () => card._hass,
@@ -191,6 +217,7 @@ export const createLiveTransportControllers = (
     _go2rtcTwoWayTalkBackchannel: go2rtcTwoWayTalkBackchannel,
     _go2rtcMounter: go2rtcMounter,
     _haDirectMounter: haDirectMounter,
+    _haExperimentalMounter: haExperimentalMounter,
     _haDirectTwoWayTalkMounter: haDirectTwoWayTalkMounter,
     _haDirectTwoWayTalkBackchannel: haDirectTwoWayTalkBackchannel,
     _go2rtcRaceMounter: go2rtcRaceMounter,

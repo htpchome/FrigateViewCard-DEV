@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createLiveTransportControllers } from "../src/features/live/transport-composition.js";
 import { attachContainedVideoFit } from "../src/shared/media/video-fit.js";
 
-test("live transport composition keeps go2rtc and HA Direct stacks explicit", async () => {
+test("live transport composition keeps all transport stacks explicit", async () => {
   const optionsByFactory = {};
   const createFactory = (name, result = { name }) => (options) => {
     optionsByFactory[name] = options;
@@ -21,6 +21,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     ),
     createGo2RtcMounter: createFactory("go2rtcMounter"),
     createHaDirectMounter: createFactory("haDirectMounter"),
+    createHaExperimentalMounter: createFactory("haExperimentalMounter"),
     createHaDirectTwoWayTalkMounter: createFactory(
       "haDirectTwoWayTalkMounter",
     ),
@@ -82,6 +83,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     "_go2rtcTwoWayTalkBackchannel",
     "_go2rtcMounter",
     "_haDirectMounter",
+    "_haExperimentalMounter",
     "_haDirectTwoWayTalkMounter",
     "_haDirectTwoWayTalkBackchannel",
     "_go2rtcRaceMounter",
@@ -102,6 +104,10 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     attachContainedVideoFit,
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
+  assert.equal(
+    typeof optionsByFactory.haExperimentalMounter.onCommittedFailure,
+    "function",
+  );
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
   deviceProfile.isIOS = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
@@ -140,6 +146,18 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     "ha-engine",
     "ha-video",
     { host: engineHost, interactionTarget: engineHost },
+  ]);
+  optionsByFactory.haExperimentalMounter.onCommittedStream("webrtc");
+  assert.deepEqual(calls.slice(-3), [
+    ["stream-type", "webrtc"],
+    ["loading", false],
+    ["fallback", false],
+  ]);
+  optionsByFactory.haExperimentalMounter.onCommittedFailure();
+  assert.deepEqual(calls.slice(-3), [
+    ["stream-type", "snapshot"],
+    ["loading", false],
+    ["fallback", true],
   ]);
 
   optionsByFactory.go2rtcMounter.resetMseDiagnostics(100);
