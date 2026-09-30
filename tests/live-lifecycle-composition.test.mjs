@@ -84,7 +84,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _mseChunkCount: 0,
     _haDirectMounter: haDirectMounter,
     _haDirectTwoWayTalkMounter: { name: "ha-talk-mounter" },
-    _go2rtcMounter: { name: "go2rtc-mounter" },
     _go2rtcRaceMounter: { name: "go2rtc-race" },
     _editorPreviewController: {
       liveHandoffContext: () => ({ owner: "editor" }),
@@ -117,8 +116,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _scheduleResumeLive: (reason) => calls.push(["resume", reason]),
     _currentLiveStreamHint: () => "mse",
     _isPreviewPageActive: () => false,
-    _isCatalyst: () => true,
-    _supportsNativeHlsPlayback: () => true,
     _shouldUseGo2RtcForEntity: () => true,
     _cameraConnectionType: (entity) =>
       entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
@@ -152,14 +149,9 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     card._haDirectTwoWayTalkMounter,
   );
   assert.strictEqual(
-    optionsByFactory.liveMount.go2rtcMounter,
-    card._go2rtcMounter,
-  );
-  assert.strictEqual(
     optionsByFactory.liveMount.go2rtcRaceMounter,
     card._go2rtcRaceMounter,
   );
-  assert.equal(optionsByFactory.liveMount.shouldUseCatalystGo2RtcHls(), true);
 
   assert.deepEqual(optionsByFactory.editorHandoff.getState(), {
     activeStreamType: "mse",

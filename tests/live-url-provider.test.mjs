@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildGo2rtcCatalystHlsCandidates,
   buildGo2rtcHlsCandidates,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
@@ -34,18 +33,6 @@ test("buildGo2rtcHlsCandidates returns the supported HA go2rtc HLS candidate", (
   assert.deepEqual(candidates, [
     "/api/frigate/c/go2rtc/api/stream.m3u8?src=x&mp4",
   ]);
-});
-
-test("buildGo2rtcCatalystHlsCandidates builds the Catalyst webhook route", () => {
-  assert.deepEqual(
-    buildGo2rtcCatalystHlsCandidates({
-      cam: "front/door",
-      token: "test token/+",
-    }),
-    [
-      "/api/frigate/webhook?token=test%20token%2F%2B&path=go2rtc/api/stream.m3u8%3Fsrc%3Dfront%252Fdoor%26hls%3Dhls",
-    ],
-  );
 });
 
 

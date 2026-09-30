@@ -10,9 +10,6 @@ function createResolverHarness(options = {}) {
     fetch: 0,
   };
   const hass = {
-    ...(options.accessToken !== undefined
-      ? { auth: { data: { access_token: options.accessToken } } }
-      : {}),
     callWS: async (msg) => {
       calls.signPath += 1;
       return options.callWSResult?.(msg) || { path: msg.path };
@@ -119,56 +116,5 @@ test("go2rtc resolver rejects and negative-caches signed native HLS", async () =
   assert.equal(first, null);
   assert.equal(second, null);
   assert.equal(calls.signPath, 1);
-  assert.equal(calls.fetch, 0);
-});
-
-test("go2rtc resolver builds Catalyst HLS URL from the current HA session token", async () => {
-  const { resolver, calls } = createResolverHarness({
-    accessToken: "test token/+",
-  });
-
-  assert.deepEqual(
-    await resolver.catalystHlsUrlForEntity("camera.front"),
-    {
-      url: "https://ha.local/api/frigate/webhook?token=test%20token%2F%2B&path=go2rtc/api/stream.m3u8%3Fsrc%3Dfront%26hls%3Dhls",
-      destroy: null,
-    },
-  );
-  assert.equal(calls.signPath, 0);
-  assert.equal(calls.fetch, 1);
-});
-
-test("go2rtc resolver rejects an unsuccessful Catalyst webhook response", async () => {
-  const requestedUrls = [];
-  const { resolver, calls } = createResolverHarness({
-    accessToken: "test-token",
-    fetchResult: (url) => {
-      requestedUrls.push(url);
-      return {
-        ok: false,
-        headers: { get: () => "application/vnd.apple.mpegurl" },
-        text: async () => "#EXTM3U\n#EXTINF:2.0,\nsegment.ts",
-      };
-    },
-  });
-
-  assert.deepEqual(
-    await resolver.catalystHlsUrlForEntity("camera.front"),
-    null,
-  );
-  assert.equal(calls.fetch, 1);
-  assert.deepEqual(requestedUrls, [
-    "https://ha.local/api/frigate/webhook?token=test-token&path=go2rtc/api/stream.m3u8%3Fsrc%3Dfront%26hls%3Dhls",
-  ]);
-});
-
-test("go2rtc resolver does not expose a Catalyst HLS URL without an HA session token", async () => {
-  const { resolver, calls } = createResolverHarness();
-
-  assert.equal(
-    await resolver.catalystHlsUrlForEntity("camera.front"),
-    null,
-  );
-  assert.equal(calls.signPath, 0);
   assert.equal(calls.fetch, 0);
 });
