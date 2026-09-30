@@ -306,6 +306,26 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
     WIDE_VIEW_COMPANION_STYLES,
     /\.wide-companion-cell\{[^}]*border-radius:calc\(var\(--fvc-border-radius,0px\) \/ 2\)/,
   );
+  assert.match(
+    WIDE_VIEW_COMPANION_STYLES,
+    /\.wide-companion-cell\{display:flex;flex-direction:column;[^}]*overflow:hidden/,
+  );
+  assert.match(
+    WIDE_VIEW_COMPANION_STYLES,
+    /\.wide-companion-media-host\{position:relative;[^}]*overflow:hidden;[^}]*background:var\(--c-bg-deep\)/,
+  );
+  assert.match(
+    WIDE_VIEW_COMPANION_STYLES,
+    /\.wide-companion-meta\{display:grid;[^}]*grid-template-areas:"name status";[^}]*background:var\(--c-bg-main\)/,
+  );
+  assert.match(
+    WIDE_VIEW_COMPANION_STYLES,
+    /\.wide-companion-meta-name\{grid-area:name;[^}]*text-overflow:ellipsis/,
+  );
+  assert.match(
+    WIDE_VIEW_COMPANION_STYLES,
+    /\.wide-companion-meta-status\{grid-area:status;[^}]*justify-self:end/,
+  );
 });
 
 test("Wide View filter and calendar panels open above only when needed", () => {

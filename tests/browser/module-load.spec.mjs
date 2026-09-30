@@ -7015,6 +7015,22 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     );
     const firstCellTop =
       companionCells[0]?.getBoundingClientRect().top ?? -1;
+    const firstCompanionCell = companionCells[0];
+    const firstCompanionMedia = firstCompanionCell.querySelector(
+      ".wide-companion-media-host",
+    );
+    const firstCompanionMeta = firstCompanionCell.querySelector(
+      ".wide-companion-meta",
+    );
+    const firstCompanionName = firstCompanionCell.querySelector(
+      ".wide-companion-meta-name",
+    );
+    const firstCompanionStatus = firstCompanionCell.querySelector(
+      ".wide-companion-meta-status",
+    );
+    const firstCompanionMediaRect =
+      firstCompanionMedia.getBoundingClientRect();
+    const firstCompanionMetaRect = firstCompanionMeta.getBoundingClientRect();
     const before = {
       panelTop: panel.getBoundingClientRect().top,
       surfaceTop: surface.getBoundingClientRect().top,
@@ -7043,6 +7059,17 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
         (cell) =>
           Math.abs(cell.getBoundingClientRect().top - firstCellTop) <= 1,
       ).length,
+      cellDisplay: getComputedStyle(firstCompanionCell).display,
+      cellDirection: getComputedStyle(firstCompanionCell).flexDirection,
+      mediaPosition: getComputedStyle(firstCompanionMedia).position,
+      mediaOverflow: getComputedStyle(firstCompanionMedia).overflow,
+      metaDisplay: getComputedStyle(firstCompanionMeta).display,
+      metaBelowMedia:
+        firstCompanionMetaRect.top >= firstCompanionMediaRect.bottom - 1,
+      metaHeight: firstCompanionMetaRect.height,
+      nameBeforeStatus:
+        firstCompanionName.getBoundingClientRect().left <
+        firstCompanionStatus.getBoundingClientRect().left,
       renderedColumns: getComputedStyle(companionGrid).gridTemplateColumns.split(
         " ",
       ).length,
@@ -7246,6 +7273,14 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.gridDisplay).toBe("grid");
   expect(result.before.previewStylesLoaded).toBe(false);
   expect(result.before.firstRowCellCount).toBeGreaterThan(1);
+  expect(result.before.cellDisplay).toBe("flex");
+  expect(result.before.cellDirection).toBe("column");
+  expect(result.before.mediaPosition).toBe("relative");
+  expect(result.before.mediaOverflow).toBe("hidden");
+  expect(result.before.metaDisplay).toBe("grid");
+  expect(result.before.metaBelowMedia).toBe(true);
+  expect(result.before.metaHeight).toBeGreaterThanOrEqual(24);
+  expect(result.before.nameBeforeStatus).toBe(true);
   expect(result.before.renderedColumns).toBeGreaterThan(1);
   expect(result.filterOpen).toEqual({
     display: "block",
