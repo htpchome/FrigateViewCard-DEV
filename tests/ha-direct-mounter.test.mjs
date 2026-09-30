@@ -456,7 +456,7 @@ test("ha direct mounter applies unavailable state when no camera state exists", 
   ]);
 });
 
-test("ha direct mounter replaces WebRTC with HLS when no video frame starts", async () => {
+test("ha direct mounter keeps HLS when WebRTC renders no video frame", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
   const previousPeerConnection = globalThis.RTCPeerConnection;
@@ -575,7 +575,8 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
     await flushAsyncWork();
     await flushAsyncWork();
 
-    assert.equal(result.type, "webrtc");
+    assert.equal(result.type, "hls");
+    assert.equal(result.engine, assignedEngine);
     assert.equal(subscriptionCalls, 1);
     assert.equal(unsubscribeCalls, 1);
     assert.equal(assignedEngine.tagName, "HA-HLS-PLAYER");
@@ -611,11 +612,12 @@ test("ha direct mounter replaces WebRTC with HLS when no video frame starts", as
   }
 });
 
-test("ha direct mounter shows ready HLS while WebRTC continues and takes over", async () => {
+test("ha direct mounter keeps HLS as startup owner when WebRTC is ready first", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
   const previousPeerConnection = globalThis.RTCPeerConnection;
   let assignedEngine = null;
+  let resolveHlsReady = null;
   let resolveWebRtcReady = null;
   let unsubscribeCalls = 0;
   const committedTypes = [];
@@ -713,7 +715,11 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => assignedEngine === engine,
     waitForStreamStart: async (engine) => {
-      if (engine?.tagName === "HA-HLS-PLAYER") return true;
+      if (engine?.tagName === "HA-HLS-PLAYER") {
+        return await new Promise((resolve) => {
+          resolveHlsReady = resolve;
+        });
+      }
       return await new Promise((resolve) => {
         resolveWebRtcReady = resolve;
       });
@@ -742,42 +748,55 @@ test("ha direct mounter shows ready HLS while WebRTC continues and takes over", 
       entity: "camera.front",
       commit: true,
     });
-    assert.match(
-      hlsPlayers[0].style.cssText,
-      /position:absolute;inset:0/,
-    );
+    assert.match(hlsPlayers[0].style.cssText, /position:relative;z-index:1/);
     assert.equal(hlsPlayers[0].style.cssText.includes("opacity:0"), false);
     const result = await mountPromise;
-    const webRtcEngine = result.engine;
+    const hlsEngine = result.engine;
+    const pendingWebRtcVideo = slot.lastChild;
     await flushAsyncWork();
     await flushAsyncWork();
 
-    assert.equal(result.type, "webrtc");
+    assert.equal(result.type, "hls");
+    assert.equal(result.engine, hlsPlayers[0]);
     assert.equal(assignedEngine, hlsPlayers[0]);
     assert.deepEqual(assignments, [
-      { engine: webRtcEngine, retainPrevious: undefined },
-      { engine: hlsPlayers[0], retainPrevious: true },
+      { engine: hlsPlayers[0], retainPrevious: undefined },
     ]);
-    assert.deepEqual(committedTypes, ["hls"]);
+    assert.deepEqual(committedTypes, []);
     assert.equal(hlsPlayers[0].removeCalled, false);
     assert.equal(typeof hlsPlayers[0].cancelPendingTakeover, "function");
-    assert.match(webRtcEngine.video.style.cssText, /left:-9999px/);
+    assert.match(pendingWebRtcVideo.style.cssText, /position:absolute;inset:0/);
     assert.equal(unsubscribeCalls, 0);
 
     resolveWebRtcReady(true);
     await flushAsyncWork();
     await flushAsyncWork();
 
+    assert.equal(assignedEngine, hlsEngine);
+    assert.deepEqual(assignments, [
+      { engine: hlsEngine, retainPrevious: undefined },
+    ]);
+    assert.deepEqual(committedTypes, []);
+
+    resolveHlsReady(true);
+    assert.equal(await result.startupReady, true);
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    const webRtcEngine = assignedEngine;
     assert.equal(assignedEngine, webRtcEngine);
     assert.deepEqual(assignments, [
-      { engine: webRtcEngine, retainPrevious: undefined },
-      { engine: hlsPlayers[0], retainPrevious: true },
-      { engine: webRtcEngine, retainPrevious: undefined },
+      { engine: hlsEngine, retainPrevious: undefined },
+      { engine: webRtcEngine, retainPrevious: true },
     ]);
     assert.deepEqual(committedTypes, ["hls", "webrtc"]);
     assert.equal(hlsPlayers[0].removeCalled, true);
     assert.equal(hlsPlayers[0].cancelPendingTakeover, null);
-    assert.equal(webRtcEngine.video.style.cssText.includes("left:-9999px"), false);
+    assert.equal(webRtcEngine.video, pendingWebRtcVideo);
+    assert.equal(
+      webRtcEngine.video.style.cssText.includes("position:absolute"),
+      false,
+    );
     assert.equal(unsubscribeCalls, 0);
 
     const recoveryReasons = [];
