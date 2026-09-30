@@ -24,6 +24,22 @@ test("FrigateView update entity detection ignores unrelated updates", () => {
   );
 });
 
+test("update entity detection accepts a future product identity", () => {
+  const states = {
+    "update.future_camera_card_update": {
+      state: "off",
+      attributes: { repository: "example/FutureCameraCard" },
+    },
+  };
+
+  assert.equal(
+    findFrigateViewCardUpdateEntity(states, {
+      identities: ["frigateviewcard", "futurecameracard"],
+    })?.[0],
+    "update.future_camera_card_update",
+  );
+});
+
 test("FrigateView update status reports current, available, and updating states", () => {
   assert.deepEqual(
     resolveFrigateViewCardUpdateStatus({

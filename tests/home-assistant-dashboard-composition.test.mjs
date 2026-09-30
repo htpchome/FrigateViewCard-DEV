@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CARD_TAG } from "../src/constants.js";
+import { SUPPORTED_CARD_TAGS } from "../src/constants.js";
 import { createHomeAssistantDashboardControllers } from "../src/integrations/home-assistant/dashboard-composition.js";
 
 test("Home Assistant dashboard composition preserves controller order and navigation delegates", () => {
@@ -72,13 +72,13 @@ test("Home Assistant dashboard composition preserves controller order and naviga
     ["create-background", card],
   ]);
   assert.deepEqual(options.navbar, {
-    cardTag: CARD_TAG,
+    cardTag: SUPPORTED_CARD_TAGS,
     isMobile: true,
     isPhone: true,
     isIOS: true,
   });
   assert.equal(options.swipe.hasTouch, true);
-  assert.equal(options.swipe.cardTag, CARD_TAG);
+  assert.equal(options.swipe.cardTag, SUPPORTED_CARD_TAGS);
   assert.equal(options.swipe.enforceDashboardOwner, true);
   assert.equal(options.swipe.isSwipeNavigationOwner(), true);
 

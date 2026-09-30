@@ -462,7 +462,7 @@ test("Whole Dashboard ownership is deterministic across nested cards", () => {
     mobile_view_ha_navbar_dashboard: false,
   };
   const duplicate = {
-    type: "custom:frigate-view-card",
+    type: "custom:future-camera-card",
     mobile_view_ha_navbar_bottom: true,
     mobile_view_ha_navbar_dashboard: true,
   };
@@ -477,7 +477,10 @@ test("Whole Dashboard ownership is deterministic across nested cards", () => {
     ],
   };
 
-  const ownership = resolveDashboardNavbarOwnership(dashboardConfig);
+  const ownership = resolveDashboardNavbarOwnership(dashboardConfig, [
+    "frigate-view-card",
+    "future-camera-card",
+  ]);
   assert.equal(ownership.owner.config, first);
   assert.deepEqual(
     ownership.claimants.map(({ config }) => config),
@@ -489,6 +492,7 @@ test("Whole Dashboard ownership is deterministic across nested cards", () => {
     dashboardConfig,
     sourceConfig: local,
     requested: false,
+    cardTag: ["frigate-view-card", "future-camera-card"],
     currentViewName: "mobile",
   });
   assert.equal(localState.isOwner, false);
@@ -499,6 +503,7 @@ test("Whole Dashboard ownership is deterministic across nested cards", () => {
     dashboardConfig,
     sourceConfig: duplicate,
     requested: true,
+    cardTag: ["frigate-view-card", "future-camera-card"],
     currentViewName: "garage",
   });
   assert.equal(duplicateState.isOwner, false);

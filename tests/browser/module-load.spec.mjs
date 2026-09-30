@@ -379,7 +379,7 @@ test("suspended Frigate cameras expose a transport-independent power control", a
       detail:
         "Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.",
       warning:
-        "Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and FrigateViewCard. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.",
+        "Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and FrigateView Card. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.",
       warningHidden: false,
       submit: "Suspend camera",
       serviceCallsBeforeConfirmation: 1,

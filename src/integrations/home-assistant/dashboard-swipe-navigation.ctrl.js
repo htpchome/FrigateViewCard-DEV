@@ -7,6 +7,11 @@ import {
   DASHBOARD_SWIPE_NAVIGATION_MODES,
   normalizeDashboardSwipeNavigationMode,
 } from "../../features/navigation/router.js";
+import {
+  SUPPORTED_CARD_TAGS,
+  normalizeCardTag,
+  normalizeCardTags,
+} from "../../constants.js";
 
 const AXIS_LOCK_PX = 12;
 const HORIZONTAL_AXIS_RATIO = 1.25;
@@ -304,22 +309,16 @@ const viewRouteName = (view, index) => {
   return configuredPath || String(index);
 };
 
-const normalizeCardTag = (cardTag) =>
-  String(cardTag || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^custom:/, "");
-
-const isConfiguredCardType = (config, normalizedCardTag) =>
-  normalizeCardTag(config?.type) === normalizedCardTag;
+const isConfiguredCardType = (config, normalizedCardTags) =>
+  normalizedCardTags.has(normalizeCardTag(config?.type));
 
 export const collectDashboardFrigateViewCards = (
   dashboardConfig,
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
 ) => {
-  const normalizedCardTag = normalizeCardTag(cardTag);
+  const normalizedCardTags = new Set(normalizeCardTags(cardTag));
   const views = dashboardConfig?.views;
-  if (!normalizedCardTag || !Array.isArray(views)) return [];
+  if (!normalizedCardTags.size || !Array.isArray(views)) return [];
 
   const records = [];
   let cardOrder = 0;
@@ -331,7 +330,7 @@ export const collectDashboardFrigateViewCards = (
       visited.add(value);
       if (
         !Array.isArray(value) &&
-        isConfiguredCardType(value, normalizedCardTag)
+        isConfiguredCardType(value, normalizedCardTags)
       ) {
         records.push({
           config: value,
@@ -355,7 +354,7 @@ export const collectDashboardFrigateViewCards = (
 
 export const resolveDashboardSwipeNavigationOwnership = (
   dashboardConfig,
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
 ) => {
   const cards = collectDashboardFrigateViewCards(dashboardConfig, cardTag);
   const claimants = cards.filter(
@@ -371,7 +370,7 @@ export const resolveDashboardSwipeNavigationOwnership = (
 
 export const resolveDashboardSwipeNavigationPolicy = ({
   dashboardConfig,
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
   currentViewName = "",
 } = {}) => {
   const ownership = resolveDashboardSwipeNavigationOwnership(
@@ -1519,7 +1518,7 @@ const findCurrentDashboardHuiRoot = (documentRef) =>
 
 export const dashboardConfigEnablesPreMountSwipeNavigation = (
   dashboardConfig,
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
 ) => {
   const { owner } = resolveDashboardSwipeNavigationOwnership(
     dashboardConfig,
@@ -1563,7 +1562,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
       navigateInternalPage = null,
       onDashboardNavigationSettled = null,
       onDashboardScopeExited = null,
-      cardTag = "frigate-view-card",
+      cardTag = SUPPORTED_CARD_TAGS,
       enforceDashboardOwner = false,
       isSwipeNavigationOwner = null,
     } = {},
@@ -1598,7 +1597,8 @@ export class HomeAssistantDashboardSwipeNavigationController {
     this._navigateInternalPage = navigateInternalPage;
     this._onDashboardNavigationSettled = onDashboardNavigationSettled;
     this._onDashboardScopeExited = onDashboardScopeExited;
-    this._cardTag = normalizeCardTag(cardTag) || "frigate-view-card";
+    this._cardTag = normalizeCardTags(cardTag);
+    if (!this._cardTag.length) this._cardTag = [...SUPPORTED_CARD_TAGS];
     this._enforceDashboardOwner = enforceDashboardOwner === true;
     this._isSwipeNavigationOwner = isSwipeNavigationOwner;
     this._huiRoot = null;
@@ -1895,7 +1895,7 @@ export class HomeAssistantDashboardSwipeNavigationController {
 }
 
 export const installHomeAssistantDashboardSwipeNavigation = ({
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
   documentRef = globalThis.document,
   windowRef = globalThis.window,
   MutationObserverCtor = globalThis.MutationObserver,

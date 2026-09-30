@@ -117,7 +117,7 @@
     },
     "cardPickerDemo": {
       "brandTagline": "Dla Home Assistant i Frigate",
-      "brandLabel": "Podgląd logo FrigateView",
+      "brandLabel": "Podgląd logo {cardName}",
       "demo": "Demo",
       "demoCamera": "Kamera demonstracyjna",
       "personAlertLabel": "Przykładowy alert: osoba",
@@ -173,7 +173,7 @@
       "cameraSuspendedConfirmation": "Kamera wstrzymana",
       "cameraSuspendDialogTitle": "Wstrzymać kamerę?",
       "cameraSuspendDialogDetail": "Wstrzymanie tej kamery w Frigate zatrzymuje podgląd na żywo, nagrywanie i wykrywanie. Istniejące alerty, klipy, migawki i nagrania pozostaną dostępne na karcie. Jeśli Frigate uruchomi się ponownie, zawieszenie zostanie automatycznie anulowane.",
-      "cameraSuspendDialogWarning": "Ostrzeżenie: wstrzymanie tej kamery wyłącza podgląd na żywo i nagrywanie w Frigate, Home Assistant i FrigateViewCard. Nie zatrzymuje nagrywania na karcie SD kamery ani bezpośrednich połączeń na żywo przez go2rtc.",
+      "cameraSuspendDialogWarning": "Ostrzeżenie: wstrzymanie tej kamery wyłącza podgląd na żywo i nagrywanie w Frigate, Home Assistant i {cardName}. Nie zatrzymuje nagrywania na karcie SD kamery ani bezpośrednich połączeń na żywo przez go2rtc.",
       "cameraResumeDialogTitle": "Wznowić kamerę?",
       "cameraResumeDialogDetail": "Wznowienie tej kamery w Frigate przywraca podgląd na żywo, nagrywanie i wykrywanie. Udostępnienie podglądu na żywo i nowych zdarzeń może chwilę potrwać.",
       "cancelCameraStateChange": "Anuluj",

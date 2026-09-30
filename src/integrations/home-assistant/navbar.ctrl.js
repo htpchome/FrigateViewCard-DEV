@@ -6,10 +6,13 @@ import {
   resolveHomeAssistantDashboardKey,
 } from "./lovelace-dom.js";
 import {
-  normalizeCardTag,
   resolveDashboardNavbarCardOwnership,
   resolveDashboardNavbarOwnership,
 } from "./navbar-policy.js";
+import {
+  SUPPORTED_CARD_TAGS,
+  normalizeCardTags,
+} from "../../constants.js";
 
 export {
   findCurrentHomeAssistantLovelaceRoot,
@@ -540,7 +543,7 @@ export class HomeAssistantNavbarController {
         findCurrentHomeAssistantLovelaceRoot(documentRef),
       findPanel = (huiRoot) =>
         findHomeAssistantLovelacePanel(huiRoot, documentRef),
-      cardTag = "frigate-view-card",
+      cardTag = SUPPORTED_CARD_TAGS,
     } = {},
   ) {
     this._host = host;
@@ -566,7 +569,8 @@ export class HomeAssistantNavbarController {
         : (callback) => Promise.resolve().then(callback);
     this._findCurrentHuiRoot = findCurrentHuiRoot;
     this._findPanel = findPanel;
-    this._cardTag = normalizeCardTag(cardTag) || "frigate-view-card";
+    this._cardTag = normalizeCardTags(cardTag);
+    if (!this._cardTag.length) this._cardTag = [...SUPPORTED_CARD_TAGS];
     this._huiRoot = null;
     this._dashboardKey = null;
     this._dashboardScopeActive = false;
@@ -850,7 +854,7 @@ export class HomeAssistantNavbarController {
 }
 
 export const installHomeAssistantDashboardNavbarCustomization = ({
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
   documentRef = globalThis.document,
   windowRef = globalThis.window,
   MutationObserverCtor = globalThis.MutationObserver,

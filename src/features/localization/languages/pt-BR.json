@@ -59,7 +59,7 @@
       "loading": "Carregando…"
     },
     "cardPickerDemo": {
-      "brandLabel": "Marca FrigateView na prévia",
+      "brandLabel": "Marca {cardName} na prévia",
       "demoCamera": "Câmera de demonstração"
     },
     "ptz": {

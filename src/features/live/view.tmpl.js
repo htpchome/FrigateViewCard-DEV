@@ -41,13 +41,16 @@ export function buildLiveEngineWrapMarkup({ icons }) {
 }
 
 export function buildLiveCameraRuntimeConfirmationMarkup({ icons = {} } = {}) {
+  const localizationValues = escapeHtmlAttribute(
+    JSON.stringify({ cardName: CARD_DISPLAY_NAME }),
+  );
   return `<div class="camera-runtime-confirmation-modal" id="camera-runtime-confirmation-modal" hidden>
             <button class="camera-runtime-confirmation-backdrop" type="button" data-camera-runtime-confirm-cancel aria-label="Cancel camera state change" data-fvc-i18n-aria-label="runtime.live.cancelCameraStateChange"></button>
             <section class="camera-runtime-confirmation-dialog" role="dialog" aria-modal="true" aria-labelledby="camera-runtime-confirmation-title" aria-describedby="camera-runtime-confirmation-detail camera-runtime-confirmation-warning">
               <div class="camera-runtime-confirmation-icon" aria-hidden="true">${icons.power || ""}</div>
               <strong id="camera-runtime-confirmation-title" data-fvc-i18n="runtime.live.cameraSuspendDialogTitle">Suspend camera?</strong>
               <p id="camera-runtime-confirmation-detail" data-fvc-i18n="runtime.live.cameraSuspendDialogDetail">Suspending this camera in Frigate stops live video, recordings, and detections. Existing alerts, clips, snapshots, and recordings remain available in the card. If Frigate restarts, Frigate will lift this suspension automatically.</p>
-              <p class="camera-runtime-confirmation-warning" id="camera-runtime-confirmation-warning" data-fvc-i18n="runtime.live.cameraSuspendDialogWarning">Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and FrigateViewCard. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.</p>
+              <p class="camera-runtime-confirmation-warning" id="camera-runtime-confirmation-warning" data-fvc-i18n="runtime.live.cameraSuspendDialogWarning" data-fvc-i18n-values="${localizationValues}">Warning: Suspending this camera disables live view and recording in Frigate, Home Assistant, and ${CARD_DISPLAY_NAME}. It does not stop recording to the camera’s SD card or prevent direct live connections through go2rtc.</p>
               <footer class="camera-runtime-confirmation-actions">
                 <button class="camera-runtime-confirmation-cancel" type="button" data-camera-runtime-confirm-cancel data-fvc-i18n="runtime.live.cancelCameraStateChange">Cancel</button>
                 <button class="camera-runtime-confirmation-submit" id="camera-runtime-confirmation-submit" type="button" data-camera-runtime-confirm data-fvc-i18n="runtime.live.suspendCamera" data-fvc-i18n-title="runtime.live.suspendCamera" data-fvc-i18n-aria-label="runtime.live.suspendCamera">Suspend camera</button>
@@ -139,3 +142,5 @@ export function buildLivePlaybackControlsMarkup(regions = {}) {
               ${regions.liveMute || ""}
             </div>`;
 }
+import { CARD_DISPLAY_NAME } from "../../constants.js";
+import { escapeHtmlAttribute } from "../../shared/html.js";

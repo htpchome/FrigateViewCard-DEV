@@ -1,4 +1,9 @@
-import { VERSION } from "../../constants.js";
+import {
+  VERSION,
+  SUPPORTED_CARD_TAGS,
+  normalizeCardTag,
+  normalizeCardTags,
+} from "../../constants.js";
 import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelacePanel,
@@ -12,18 +17,12 @@ const DASHBOARD_SWIPE_LOADER_KEY = Symbol.for(
 const LOADER_RETRY_FRAMES = 120;
 const dashboardSwipeModuleState = { promise: null };
 
-const normalizeCardTag = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^custom:/, "");
-
 const findDashboardSwipeOwnerConfig = (
   dashboardConfig,
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
 ) => {
-  const normalizedCardTag = normalizeCardTag(cardTag);
-  if (!normalizedCardTag || !Array.isArray(dashboardConfig?.views)) {
+  const normalizedCardTags = new Set(normalizeCardTags(cardTag));
+  if (!normalizedCardTags.size || !Array.isArray(dashboardConfig?.views)) {
     return null;
   }
   for (const view of dashboardConfig.views) {
@@ -42,7 +41,7 @@ const findDashboardSwipeOwnerConfig = (
       visited.add(value);
       if (
         !Array.isArray(value) &&
-        normalizeCardTag(value.type) === normalizedCardTag
+        normalizedCardTags.has(normalizeCardTag(value.type))
       ) {
         if (value.ha_dashboard_swipe_navigation_owner === true) {
           ownerConfig = value;
@@ -75,7 +74,7 @@ export const cardConfigEnablesDashboardSwipeNavigation = (
 export const dashboardConfigNeedsPreMountSwipeNavigation = (
   dashboardConfig,
   {
-    cardTag = "frigate-view-card",
+    cardTag = SUPPORTED_CARD_TAGS,
     hasTouch = true,
   } = {},
 ) => {
@@ -187,7 +186,7 @@ export class LazyHomeAssistantDashboardSwipeNavigationController {
 }
 
 export const installLazyHomeAssistantDashboardSwipeNavigation = ({
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
   documentRef = globalThis.document,
   windowRef = globalThis.window,
   MutationObserverCtor = globalThis.MutationObserver,

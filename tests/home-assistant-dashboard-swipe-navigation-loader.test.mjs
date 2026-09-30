@@ -7,6 +7,7 @@ import {
   dashboardConfigNeedsPreMountSwipeNavigation,
   installLazyHomeAssistantDashboardSwipeNavigation,
 } from "../src/integrations/home-assistant/dashboard-swipe-navigation.loader.js";
+import { SUPPORTED_CARD_TAGS } from "../src/constants.js";
 
 const flushPromises = async () => {
   await Promise.resolve();
@@ -198,7 +199,7 @@ test("pre-mount bootstrap loads once when dashboard config requires it", async (
   await flushPromises();
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].cardTag, "frigate-view-card");
+  assert.equal(calls[0].cardTag, SUPPORTED_CARD_TAGS);
   assert.equal(listeners.size, 0);
   bootstrap.disconnect();
 });

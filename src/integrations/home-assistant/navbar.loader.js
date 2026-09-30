@@ -1,4 +1,4 @@
-import { VERSION } from "../../constants.js";
+import { VERSION, SUPPORTED_CARD_TAGS } from "../../constants.js";
 import {
   findCurrentHomeAssistantLovelaceRoot,
   findHomeAssistantLovelacePanel,
@@ -15,7 +15,7 @@ const navbarModuleState = { promise: null };
 
 export const dashboardConfigNeedsPreMountNavbar = (
   dashboardConfig,
-  { cardTag = "frigate-view-card" } = {},
+  { cardTag = SUPPORTED_CARD_TAGS } = {},
 ) =>
   Boolean(resolveDashboardNavbarOwnership(dashboardConfig, cardTag).owner);
 
@@ -185,7 +185,7 @@ const findNavbarLoaderObserverTargets = (documentRef) => {
 };
 
 export const installLazyHomeAssistantDashboardNavbarCustomization = ({
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
   documentRef = globalThis.document,
   windowRef = globalThis.window,
   MutationObserverCtor = globalThis.MutationObserver,

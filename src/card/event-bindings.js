@@ -1,4 +1,8 @@
-import { CARD_TAG } from "../constants.js";
+import {
+  CARD_PREVIEW_DRAFT_EVENT,
+  SUPPORTED_CARD_TAGS,
+  isSupportedCardTag,
+} from "../constants.js";
 
 export const bindCardShadowEvents = (card) => {
   const shadowRoot = card.shadowRoot;
@@ -69,6 +73,7 @@ export const bindCardGlobalEvents = (
   {
     documentTarget = document,
     windowTarget = window,
+    supportedCardTags = SUPPORTED_CARD_TAGS,
   } = {},
 ) => {
   card._onDocVisibility = () => {
@@ -170,14 +175,18 @@ export const bindCardGlobalEvents = (
   );
 
   card._onEditorPreviewDraft = (event) => {
-    if (event?.detail?.cardTag !== CARD_TAG) return;
+    if (
+      !isSupportedCardTag(event?.detail?.cardTag, supportedCardTags)
+    ) {
+      return;
+    }
     card._applyEditorPreviewDraft(
       event.detail?.config || null,
       event.detail?.routeIntent || null,
     );
   };
   windowTarget.addEventListener(
-    "frigate-view-card-preview-draft",
+    CARD_PREVIEW_DRAFT_EVENT,
     card._onEditorPreviewDraft,
   );
 

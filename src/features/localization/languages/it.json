@@ -117,7 +117,7 @@
     },
     "cardPickerDemo": {
       "brandTagline": "Per Home Assistant e Frigate",
-      "brandLabel": "Marchio FrigateView nell'anteprima",
+      "brandLabel": "Marchio {cardName} nell'anteprima",
       "demo": "Demo",
       "demoCamera": "Telecamera dimostrativa",
       "personAlertLabel": "Avviso demo: persona",
@@ -173,7 +173,7 @@
       "cameraSuspendedConfirmation": "Telecamera sospesa",
       "cameraSuspendDialogTitle": "Sospendere la telecamera?",
       "cameraSuspendDialogDetail": "La sospensione di questa telecamera in Frigate interrompe il video in diretta, le registrazioni e i rilevamenti. Gli avvisi, i clip, le istantanee e le registrazioni esistenti rimangono disponibili nella scheda. Se Frigate si riavvia, Frigate rimuoverà automaticamente la sospensione.",
-      "cameraSuspendDialogWarning": "Avviso: la sospensione di questa telecamera disattiva la visualizzazione in diretta e la registrazione in Frigate, Home Assistant e FrigateViewCard. Non interrompe la registrazione sulla scheda SD della telecamera né impedisce le connessioni dirette tramite go2rtc.",
+      "cameraSuspendDialogWarning": "Avviso: la sospensione di questa telecamera disattiva la visualizzazione in diretta e la registrazione in Frigate, Home Assistant e {cardName}. Non interrompe la registrazione sulla scheda SD della telecamera né impedisce le connessioni dirette tramite go2rtc.",
       "cameraResumeDialogTitle": "Riprendere la telecamera?",
       "cameraResumeDialogDetail": "La ripresa di questa telecamera in Frigate ripristina il video in diretta, le registrazioni e i rilevamenti. Potrebbe essere necessario un breve periodo prima che il video in diretta e i nuovi eventi siano disponibili.",
       "cancelCameraStateChange": "Annulla",

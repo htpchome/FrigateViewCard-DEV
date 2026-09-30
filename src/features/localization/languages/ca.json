@@ -117,7 +117,7 @@
     },
     "cardPickerDemo": {
       "brandTagline": "Per a Home Assistant i Frigate",
-      "brandLabel": "Marca de la vista prèvia de FrigateView",
+      "brandLabel": "Marca de la vista prèvia de {cardName}",
       "demo": "Demostració",
       "demoCamera": "Càmera de demostració",
       "personAlertLabel": "Alerta de demostració: persona",
@@ -173,7 +173,7 @@
       "cameraSuspendedConfirmation": "Càmera suspesa",
       "cameraSuspendDialogTitle": "Vols suspendre la càmera?",
       "cameraSuspendDialogDetail": "Si suspens aquesta càmera a Frigate, s’aturaran el vídeo en directe, les gravacions i les deteccions. Les alertes, els clips, les instantànies i les gravacions existents continuaran disponibles a la targeta. Si Frigate es reinicia, Frigate anul·larà automàticament la suspensió.",
-      "cameraSuspendDialogWarning": "Avís: suspendre aquesta càmera desactiva la visualització en directe i la gravació a Frigate, Home Assistant i FrigateViewCard. No atura la gravació a la targeta SD de la càmera ni impedeix les connexions directes mitjançant go2rtc.",
+      "cameraSuspendDialogWarning": "Avís: suspendre aquesta càmera desactiva la visualització en directe i la gravació a Frigate, Home Assistant i {cardName}. No atura la gravació a la targeta SD de la càmera ni impedeix les connexions directes mitjançant go2rtc.",
       "cameraResumeDialogTitle": "Vols reprendre la càmera?",
       "cameraResumeDialogDetail": "En reprendre aquesta càmera a Frigate es restauraran el vídeo en directe, les gravacions i les deteccions. Frigate pot necessitar una mica de temps abans que el vídeo en directe i els nous esdeveniments estiguin disponibles.",
       "cancelCameraStateChange": "Cancel·la",

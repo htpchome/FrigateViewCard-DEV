@@ -40,6 +40,7 @@ import {
   buildLiveTakeSnapshotControlMarkup,
   buildLiveMuteControlMarkup,
 } from "../src/features/live/view.tmpl.js";
+import { CARD_DISPLAY_NAME } from "../src/constants.js";
 
 const icons = {
   alerts: "A",
@@ -694,6 +695,11 @@ test("shared shell builders expose stable page region anchors", () => {
   assert.match(
     liveCameraRuntimeConfirmation,
     /id="camera-runtime-confirmation-warning"[^>]*data-fvc-i18n="runtime\.live\.cameraSuspendDialogWarning"[^>]*>Warning:/,
+  );
+  assert.match(liveCameraRuntimeConfirmation, new RegExp(CARD_DISPLAY_NAME));
+  assert.match(
+    liveCameraRuntimeConfirmation,
+    /data-fvc-i18n-values="\{&quot;cardName&quot;:/,
   );
   assert.match(
     STYLES,

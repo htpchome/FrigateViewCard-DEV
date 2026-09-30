@@ -1,4 +1,5 @@
 import { CARD_NAME } from "../../constants.js";
+import { escapeHtmlAttribute } from "../../shared/html.js";
 
 const buildGenericCameraSceneMarkup = (variant = "entry") => {
   const subjectMarkup =
@@ -58,7 +59,10 @@ const buildFvcBrandLogoMarkup = () => `
   </svg>`;
 
 export function buildCardPickerDemoLiveMarkup() {
-  return `<div class="card-picker-demo-live" role="img" aria-label="${CARD_NAME} preview branding" data-fvc-i18n-aria-label="runtime.cardPickerDemo.brandLabel">
+  const localizationValues = escapeHtmlAttribute(
+    JSON.stringify({ cardName: CARD_NAME }),
+  );
+  return `<div class="card-picker-demo-live" role="img" aria-label="${CARD_NAME} preview branding" data-fvc-i18n-aria-label="runtime.cardPickerDemo.brandLabel" data-fvc-i18n-values="${localizationValues}">
       ${buildFvcBrandLogoMarkup()}
     </div>`;
 }

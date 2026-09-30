@@ -1,6 +1,6 @@
 import {
   ALLOWED_HIDDEN_TABS,
-  CARD_TAG,
+  CARD_TYPE,
   DEFAULT_CAMERA_CONNECTION_TYPE,
   DEFAULT_HIDDEN_TABS,
   DEFAULT_TITLE,
@@ -784,7 +784,7 @@ export const compactEditorConfigForYaml = (
 
 export const withCardTypeForYaml = (config, { sourceConfig = null } = {}) => {
   const payload = {
-    type: `custom:${CARD_TAG}`,
+    type: CARD_TYPE,
     ...(config && typeof config === "object" ? config : {}),
   };
 

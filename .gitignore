@@ -171,5 +171,6 @@ core.*
 docs/*
 !docs/config-editor-contract.md
 !docs/live-transport-baseline.md
+!docs/product-rename-plan.md
 Agents.md
 ARCHITECTURE.md

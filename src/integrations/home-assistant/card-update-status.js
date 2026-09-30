@@ -1,3 +1,5 @@
+import { CARD_UPDATE_IDENTITIES } from "../../constants.js";
+
 const normalizeMatchText = (value) =>
   String(value || "")
     .toLowerCase()
@@ -11,7 +13,16 @@ const normalizeVersionLabel = (value) => {
     : `v${normalized}`;
 };
 
-export const findFrigateViewCardUpdateEntity = (states = {}) => {
+const normalizeUpdateIdentities = (identities) =>
+  (Array.isArray(identities) ? identities : [identities])
+    .map(normalizeMatchText)
+    .filter(Boolean);
+
+export const findFrigateViewCardUpdateEntity = (
+  states = {},
+  { identities = CARD_UPDATE_IDENTITIES } = {},
+) => {
+  const acceptedIdentities = normalizeUpdateIdentities(identities);
   const entries = Object.entries(states || {});
   return (
     entries.find(([entityId, state]) => {
@@ -26,15 +37,18 @@ export const findFrigateViewCardUpdateEntity = (states = {}) => {
           attributes.release_url,
         ].join(" "),
       );
-      return identity.includes("frigateviewcard");
+      return acceptedIdentities.some((candidate) =>
+        identity.includes(candidate),
+      );
     }) || null
   );
 };
 
 export const resolveFrigateViewCardUpdateStatus = ({
   states = {},
+  identities = CARD_UPDATE_IDENTITIES,
 } = {}) => {
-  const match = findFrigateViewCardUpdateEntity(states);
+  const match = findFrigateViewCardUpdateEntity(states, { identities });
   if (!match) {
     return {
       entityId: "",

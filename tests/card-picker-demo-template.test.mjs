@@ -13,10 +13,14 @@ const markedKeys = (markup) => [
   ...markup.matchAll(/data-fvc-i18n(?:-aria-label)?="([^"]+)"/g),
 ].map((match) => match[1]);
 
-test("card picker live demo uses self-contained FrigateView branding", () => {
+test("card picker live demo uses the centralized product branding", () => {
   const markup = buildCardPickerDemoLiveMarkup();
 
   assert.ok(markup.includes(`${CARD_NAME} preview branding`));
+  assert.match(
+    markup,
+    new RegExp(`data-fvc-i18n-values="[^\"]*${CARD_NAME}[^\"]*"`),
+  );
   assert.match(markup, /card-picker-demo-fvc-brand-logo/);
   assert.ok(markup.includes(CARD_NAME.toUpperCase()));
   assert.match(markup, /For Home Assistant and Frigate/);

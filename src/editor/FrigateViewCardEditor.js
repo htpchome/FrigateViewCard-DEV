@@ -4,6 +4,9 @@ import {
   CARD_NAME,
   CARD_DISPLAY_NAME,
   CARD_TAG,
+  CARD_EDITOR_DIRTY_STATE_KEY,
+  CARD_PREVIEW_DRAFT_EVENT,
+  SUPPORTED_CARD_TAGS,
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DEFAULT_HIDDEN_TABS,
@@ -169,7 +172,6 @@ const CAMERA_MODAL_SELECTOR_IDS = Object.freeze(
 );
 
 const HOME_ASSISTANT_DIRTY_STATE_CONTEXT = "dirtyState";
-const EDITOR_DIRTY_STATE_KEY = "frigate-view-card-editor";
 const EDITOR_TEXT_PREVIEW_DELAY_MS = 200;
 const EDITOR_GO2RTC_METADATA_CACHE_TTL_MS = 30_000;
 
@@ -496,13 +498,13 @@ export class FrigateViewCardEditor extends HTMLElement {
       this._haDirtyStateSeeded = true;
       context.setState(
         this._haDirtyBaselineConfig,
-        EDITOR_DIRTY_STATE_KEY,
+        CARD_EDITOR_DIRTY_STATE_KEY,
       );
     }
     if (this._pendingHaDirtyConfig === undefined) return;
     const pendingConfig = this._pendingHaDirtyConfig;
     this._pendingHaDirtyConfig = undefined;
-    context.setState(pendingConfig, EDITOR_DIRTY_STATE_KEY);
+    context.setState(pendingConfig, CARD_EDITOR_DIRTY_STATE_KEY);
   }
 
   _findHomeAssistantEditCardDialog() {
@@ -603,9 +605,9 @@ export class FrigateViewCardEditor extends HTMLElement {
         ".container",
         ".card.full-width",
         "hui-card",
-        "frigate-view-card",
+        ...SUPPORTED_CARD_TAGS,
       ].join(","),
-      { stopAtTagNames: ["frigate-view-card"] },
+      { stopAtTagNames: SUPPORTED_CARD_TAGS },
     );
     return [...new Set([preview, ...previewContents])];
   }
@@ -1462,7 +1464,7 @@ export class FrigateViewCardEditor extends HTMLElement {
 
     const ownership = resolveDashboardSwipeNavigationOwnership(
       dashboardConfig,
-      CARD_TAG,
+      SUPPORTED_CARD_TAGS,
     );
     const currentViewName = resolveCurrentHomeAssistantViewName({
       panel,
@@ -1534,7 +1536,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       dashboardConfig,
       sourceConfig: this._sourceConfig,
       requested,
-      cardTag: CARD_TAG,
+      cardTag: SUPPORTED_CARD_TAGS,
       currentViewName,
     });
     const configuredDashboardName =
@@ -5543,7 +5545,7 @@ export class FrigateViewCardEditor extends HTMLElement {
 
   _emitPreviewDraft(config, routeIntent = null) {
     window.dispatchEvent(
-      new CustomEvent("frigate-view-card-preview-draft", {
+      new CustomEvent(CARD_PREVIEW_DRAFT_EVENT, {
         detail: {
           cardTag: CARD_TAG,
           config,

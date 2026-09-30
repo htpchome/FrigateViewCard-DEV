@@ -1,8 +1,10 @@
-export const normalizeCardTag = (cardTag) =>
-  String(cardTag || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^custom:/, "");
+import {
+  SUPPORTED_CARD_TAGS,
+  normalizeCardTag,
+  normalizeCardTags,
+} from "../../constants.js";
+
+export { normalizeCardTag };
 
 const dashboardViewName = (view, index) => {
   const configuredPath = String(view?.path || "")
@@ -13,11 +15,11 @@ const dashboardViewName = (view, index) => {
 
 export const resolveDashboardNavbarOwnership = (
   dashboardConfig,
-  cardTag = "frigate-view-card",
+  cardTags = SUPPORTED_CARD_TAGS,
 ) => {
-  const normalizedCardTag = normalizeCardTag(cardTag);
+  const normalizedCardTags = new Set(normalizeCardTags(cardTags));
   const cards = [];
-  if (!normalizedCardTag || !Array.isArray(dashboardConfig?.views)) {
+  if (!normalizedCardTags.size || !Array.isArray(dashboardConfig?.views)) {
     return { cards, claimants: [], owner: null, conflicts: [] };
   }
 
@@ -30,7 +32,7 @@ export const resolveDashboardNavbarOwnership = (
       visited.add(value);
       if (
         !Array.isArray(value) &&
-        normalizeCardTag(value.type) === normalizedCardTag
+        normalizedCardTags.has(normalizeCardTag(value.type))
       ) {
         cards.push({
           config: value,
@@ -66,7 +68,7 @@ export const resolveDashboardNavbarCardOwnership = ({
   dashboardConfig,
   sourceConfig = null,
   requested = false,
-  cardTag = "frigate-view-card",
+  cardTag = SUPPORTED_CARD_TAGS,
   currentViewName = "",
 } = {}) => {
   const ownership = resolveDashboardNavbarOwnership(dashboardConfig, cardTag);

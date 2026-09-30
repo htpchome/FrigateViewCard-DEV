@@ -5,7 +5,10 @@ import {
   bindCardGlobalEvents,
   bindCardShadowEvents,
 } from "../src/card/event-bindings.js";
-import { CARD_TAG } from "../src/constants.js";
+import {
+  CARD_PREVIEW_DRAFT_EVENT,
+  CARD_TAG,
+} from "../src/constants.js";
 
 class FakeEventTarget {
   constructor() {
@@ -131,7 +134,11 @@ test("global card bindings retain viewport, lifecycle, and preview behavior", ()
     },
   };
 
-  bindCardGlobalEvents(card, { documentTarget, windowTarget });
+  bindCardGlobalEvents(card, {
+    documentTarget,
+    windowTarget,
+    supportedCardTags: [CARD_TAG, "future-camera-card"],
+  });
 
   assert.deepEqual([...documentTarget.listeners.keys()], [
     "visibilitychange",
@@ -146,7 +153,7 @@ test("global card bindings retain viewport, lifecycle, and preview behavior", ()
     "pointercancel",
     "resize",
     "orientationchange",
-    "frigate-view-card-preview-draft",
+    CARD_PREVIEW_DRAFT_EVENT,
   ]);
   assert.deepEqual([...visualViewport.listeners.keys()], ["resize", "scroll"]);
 
@@ -169,12 +176,12 @@ test("global card bindings retain viewport, lifecycle, and preview behavior", ()
   windowTarget.listener("resize")();
   assert.equal(calls.filter(([name]) => name === "card-style").length, 1);
 
-  windowTarget.listener("frigate-view-card-preview-draft")({
+  windowTarget.listener(CARD_PREVIEW_DRAFT_EVENT)({
     detail: { cardTag: "not-this-card", config: { title: "ignored" } },
   });
-  windowTarget.listener("frigate-view-card-preview-draft")({
+  windowTarget.listener(CARD_PREVIEW_DRAFT_EVENT)({
     detail: {
-      cardTag: CARD_TAG,
+      cardTag: "custom:future-camera-card",
       config: { title: "Draft" },
       routeIntent: "mobile",
     },

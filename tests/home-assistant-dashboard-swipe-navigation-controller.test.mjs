@@ -757,7 +757,7 @@ test("dashboard swipe ownership is deterministic and ignores later YAML claimant
     ha_dashboard_swipe_navigation: "inside-card",
   };
   const second = {
-    type: "custom:frigate-view-card",
+    type: "custom:future-camera-card",
     ha_dashboard_swipe_navigation_owner: true,
     ha_dashboard_swipe_navigation: "dashboard-wide",
   };
@@ -773,7 +773,10 @@ test("dashboard swipe ownership is deterministic and ignores later YAML claimant
   };
 
   assert.deepEqual(
-    collectDashboardFrigateViewCards(dashboardConfig).map(
+    collectDashboardFrigateViewCards(dashboardConfig, [
+      "frigate-view-card",
+      "future-camera-card",
+    ]).map(
       ({ viewName, viewTitle }) => ({ viewName, viewTitle }),
     ),
     [
@@ -782,13 +785,17 @@ test("dashboard swipe ownership is deterministic and ignores later YAML claimant
     ],
   );
   const ownership =
-    resolveDashboardSwipeNavigationOwnership(dashboardConfig);
+    resolveDashboardSwipeNavigationOwnership(dashboardConfig, [
+      "frigate-view-card",
+      "future-camera-card",
+    ]);
   assert.equal(ownership.owner.config, first);
   assert.equal(ownership.conflicts.length, 1);
   assert.equal(ownership.conflicts[0].config, second);
 
   const policy = resolveDashboardSwipeNavigationPolicy({
     dashboardConfig,
+    cardTag: ["frigate-view-card", "future-camera-card"],
     currentViewName: "cameras",
   });
   assert.equal(policy.mode, "inside-card");

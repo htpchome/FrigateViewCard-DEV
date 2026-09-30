@@ -1,4 +1,4 @@
-import { CARD_TAG } from "../../constants.js";
+import { SUPPORTED_CARD_TAGS } from "../../constants.js";
 import { DEVICE_PROFILE } from "../../helpers.js";
 import { LazyHomeAssistantDashboardSwipeNavigationController } from "./dashboard-swipe-navigation.loader.js";
 import { LazyHomeAssistantNavbarController } from "./navbar.loader.js";
@@ -22,7 +22,7 @@ export const createHomeAssistantDashboardControllers = (
 ) => {
   const resolvedFactories = { ...DEFAULT_FACTORIES, ...factories };
   const haNavbarController = resolvedFactories.createNavbarController(card, {
-    cardTag: CARD_TAG,
+    cardTag: SUPPORTED_CARD_TAGS,
     isMobile: deviceProfile.isMobile,
     isPhone: deviceProfile.isPhone,
     isIOS: deviceProfile.isIOS,
@@ -56,7 +56,7 @@ export const createHomeAssistantDashboardControllers = (
       onDashboardNavigationSettled: () =>
         card._handleDashboardSwipeNavigationSettled(),
       onDashboardScopeExited: () => card._handleDashboardScopeExited(),
-      cardTag: CARD_TAG,
+      cardTag: SUPPORTED_CARD_TAGS,
       enforceDashboardOwner: true,
       isSwipeNavigationOwner: () =>
         card._config?.ha_dashboard_swipe_navigation_owner === true,

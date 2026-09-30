@@ -1,4 +1,10 @@
-import { CARD_DISPLAY_NAME, CARD_TAG, VERSION } from "./constants.js";
+import {
+  CARD_DISPLAY_NAME,
+  CARD_TAG,
+  LEGACY_CARD_TAGS,
+  SUPPORTED_CARD_TAGS,
+  VERSION,
+} from "./constants.js";
 import { FrigateViewCard } from "./card/FrigateViewCard.js";
 import { registerLiveStreamHostElement } from "./features/live/stream.element.js";
 import { DEVICE_PROFILE } from "./helpers.js";
@@ -10,14 +16,21 @@ import { installDeepLinkHashRouteBridge } from "./features/navigation/deep-link.
 installDeepLinkHashRouteBridge();
 if (!customElements.get(CARD_TAG))
   customElements.define(CARD_TAG, FrigateViewCard);
+for (const legacyTag of LEGACY_CARD_TAGS) {
+  if (!customElements.get(legacyTag)) {
+    customElements.define(legacyTag, class extends FrigateViewCard {});
+  }
+}
 registerLiveStreamHostElement();
 installLazyHomeAssistantDashboardNavbarCustomization({
-  cardTag: CARD_TAG,
+  cardTag: SUPPORTED_CARD_TAGS,
   isMobile: DEVICE_PROFILE.isMobile,
   isPhone: DEVICE_PROFILE.isPhone,
   isIOS: DEVICE_PROFILE.isIOS,
 });
-installLazyHomeAssistantDashboardSwipeNavigation({ cardTag: CARD_TAG });
+installLazyHomeAssistantDashboardSwipeNavigation({
+  cardTag: SUPPORTED_CARD_TAGS,
+});
 window.customCards = window.customCards || [];
 
 if (!window.customCards.find((c) => c.type === CARD_TAG))

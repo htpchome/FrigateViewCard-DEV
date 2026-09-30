@@ -7,6 +7,7 @@ import {
   dashboardConfigNeedsPreMountNavbar,
   installLazyHomeAssistantDashboardNavbarCustomization,
 } from "../src/integrations/home-assistant/navbar.loader.js";
+import { SUPPORTED_CARD_TAGS } from "../src/constants.js";
 
 const flushPromises = async () => {
   await Promise.resolve();
@@ -209,7 +210,7 @@ test("pre-mount navbar bootstrap loads once for a dashboard owner", async () => 
   await flushPromises();
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].cardTag, "frigate-view-card");
+  assert.equal(calls[0].cardTag, SUPPORTED_CARD_TAGS);
   assert.equal(listeners.size, 0);
   bootstrap.disconnect();
   assert.equal(calls.at(-1), "disconnect");

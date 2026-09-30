@@ -1,7 +1,8 @@
 import {
   VERSION,
   CARD_NAME,
-  CARD_TAG,
+  CARD_EDITOR_TAG,
+  CARD_PREVIEW_DRAFT_EVENT,
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
   DAY,
@@ -603,8 +604,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   static async getConfigElement() {
-    const editorTag = `${CARD_TAG}-editor`;
-    if (!customElements.get(editorTag)) {
+    if (!customElements.get(CARD_EDITOR_TAG)) {
       const editorUrl = new URL(
         "./frigate-view-card-editor.js",
         import.meta.url,
@@ -612,7 +612,7 @@ export class FrigateViewCard extends HTMLElement {
       editorUrl.searchParams.set("fvc-version", VERSION);
       await import(editorUrl.href);
     }
-    return document.createElement(editorTag);
+    return document.createElement(CARD_EDITOR_TAG);
   }
   static getStubConfig(hass) {
     return {
@@ -1074,7 +1074,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     if (this._onEditorPreviewDraft) {
       window.removeEventListener(
-        "frigate-view-card-preview-draft",
+        CARD_PREVIEW_DRAFT_EVENT,
         this._onEditorPreviewDraft,
       );
     }
