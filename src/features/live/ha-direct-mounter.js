@@ -4,10 +4,6 @@ import {
   ensureHaCameraPlaybackElements,
   findActiveHaCameraStreamVideo,
 } from "../../integrations/home-assistant/playback.js";
-import {
-  createHaDirectPlaybackDiagnostic,
-  watchHaHlsStartupDiagnostic,
-} from "../../integrations/home-assistant/playback-diagnostics.js";
 import { createHaDirectWebRtcPlayback } from "../../integrations/home-assistant/webrtc-playback.js";
 import {
   buildHaDirectMountPlan,
@@ -51,18 +47,10 @@ export function createHaDirectMounter({
   scopeKey,
   shouldUseNativeHls = () => false,
   preparePlaybackElements = ensureHaCameraPlaybackElements,
-  createPlaybackDiagnostic = createHaDirectPlaybackDiagnostic,
   createNativeHlsVideo = createHaNativeHlsVideoElement,
 }) {
   const mediaBindings = new WeakMap();
-  const hlsDiagnosticCleanups = new WeakMap();
   let releaseBarrier = Promise.resolve();
-
-  const stopHlsDiagnostic = (engine) => {
-    if (!engine) return;
-    hlsDiagnosticCleanups.get(engine)?.();
-    hlsDiagnosticCleanups.delete(engine);
-  };
 
   const prepare = () => {
     try {
@@ -81,7 +69,6 @@ export function createHaDirectMounter({
   };
 
   const release = (engine) => {
-    stopHlsDiagnostic(engine);
     const binding = mediaBindings.get(engine);
     if (!binding) {
       if (engine?.type === "ha_direct" && engine?.streamType === "webrtc") {
@@ -95,7 +82,6 @@ export function createHaDirectMounter({
     binding.cleanupRecovery?.();
     binding.abortController.abort();
     binding.fallbackAbortController?.abort?.();
-    stopHlsDiagnostic(binding.fallbackEngine);
     binding.fallbackEngine?.destroy?.();
     binding.fallbackEngine?.remove?.();
     const takeoverEngine = binding.takeoverEngine || null;
@@ -374,20 +360,10 @@ export function createHaDirectMounter({
 
   const tryMount = async (slot, startup = null, options = {}) => {
     const entity = String(options.entity || "").trim();
-    const diagnostic =
-      options.playbackDiagnostic ||
-      createPlaybackDiagnostic?.({
-        entity,
-        requestedStreamType: startup?.streamType || "",
-      }) || { mark: () => {}, finish: () => {} };
     const useNativeHls = shouldUseNativeHls?.() === true;
-    if (useNativeHls) {
-      diagnostic.mark("playback-elements-prepare-skipped-native-hls");
-    } else {
-      diagnostic.mark("playback-elements-prepare-start");
+    if (!useNativeHls) {
       const playbackPreparation = prepare();
       if (playbackPreparation?.then) await playbackPreparation;
-      diagnostic.mark("playback-elements-prepare-finished");
     }
     const preferredStreamType = getPreferredStreamType();
     const haDirectPlan = buildHaDirectMountPlan({
@@ -399,20 +375,11 @@ export function createHaDirectMounter({
     );
     const commit = options.commit !== false;
     const hass = getHass();
-    diagnostic.mark("mount-plan-resolved", {
-      preferredStreamType,
-      initialStreamType,
-      commit,
-    });
-    if (!entity) {
-      diagnostic.finish("missing-entity");
-      return false;
-    }
+    if (!entity) return false;
     if (!hass?.states?.[entity]) {
       if (commit) {
         applyResolvedStreamUiState(resolveHaDirectMountUnavailableState());
       }
-      diagnostic.finish("entity-unavailable");
       return false;
     }
 
@@ -422,7 +389,6 @@ export function createHaDirectMounter({
     };
 
     const createHlsEngine = async (styleText = "") => {
-      diagnostic.mark("hls-element-create-start");
       const hlsOptions = {
         hass,
         entity,
@@ -440,38 +406,17 @@ export function createHaDirectMounter({
       } catch (_) {
         engine = null;
       }
-      if (!engine) {
-        diagnostic.mark("hls-element-create-failed");
-        return false;
-      }
+      if (!engine) return false;
       engine.type = "ha_direct";
       engine.streamType = "hls";
-      diagnostic.mark("hls-element-created", {
-        renderer: useNativeHls ? "native" : "home-assistant",
-      });
-      if (commit) {
-        hlsDiagnosticCleanups.set(
-          engine,
-          watchHaHlsStartupDiagnostic({
-            player: engine,
-            diagnostic,
-            resolveVideo: findActiveHaCameraStreamVideo,
-          }),
-        );
-      }
       return engine;
     };
 
     const mountHls = async () => {
       const engine = await createHlsEngine();
-      if (!engine) {
-        diagnostic.finish("hls-element-unavailable");
-        return false;
-      }
+      if (!engine) return false;
       replaceSlotContent(engine);
-      diagnostic.mark("hls-element-mounted");
       if (!commit) {
-        diagnostic.finish("hls-mounted-uncommitted");
         return { ok: true, type: "hls", engine, slot };
       }
 
@@ -482,25 +427,20 @@ export function createHaDirectMounter({
       if (getRotateOverlayActive()) setLiveNativeControls(true);
       const startupReady = (async () => {
         const failureRevision = binding.failureRevision;
-        diagnostic.mark("hls-readiness-wait-start");
         const ready = await waitForStreamStart(engine, haDirectPlan.waitMs, {
           ...haDirectPlan.waitOptions,
           abortSignal: binding.abortController.signal,
           resolveVideo: () => findActiveHaCameraStreamVideo(engine),
         });
-        diagnostic.mark("hls-readiness-wait-finished", { ready });
-        stopHlsDiagnostic(engine);
         if (binding.disposed || !isCurrentEngine(engine)) return false;
         // A stream error transfers readiness ownership to the recovery watcher.
         // The older startup result must not undo its newer failure or recovery.
         if (failureRevision !== binding.failureRevision) return false;
         if (!ready) {
-          diagnostic.finish("hls-failed");
           binding.fail();
           return false;
         }
         applyReady(engine, "hls");
-        diagnostic.finish("hls-ready");
         return true;
       })();
       return { ok: true, type: "hls", engine, slot, startupReady };
@@ -560,20 +500,13 @@ export function createHaDirectMounter({
       onConnectionLost: (reason) => {
         if (isCurrentEngine(playback?.engine)) scheduleResumeLive?.(reason);
       },
-      diagnostic,
     });
-    if (!playback) {
-      diagnostic.mark("webrtc-playback-unavailable");
-      return mountHls();
-    }
+    if (!playback) return mountHls();
 
     const { engine } = playback;
-    diagnostic.mark("webrtc-playback-created");
     replaceSlotContent(engine.video);
-    diagnostic.mark("webrtc-video-mounted");
     if (!commit) {
       void playback.start();
-      diagnostic.finish("webrtc-mounted-uncommitted");
       return { ok: true, type: "webrtc", engine, slot };
     }
 
@@ -594,7 +527,6 @@ export function createHaDirectMounter({
       binding.fallbackEngine = fallbackEngine;
       binding.fallbackAbortController = fallbackAbortController;
       slot.appendChild(fallbackEngine);
-      diagnostic.mark("hls-fallback-mounted");
     }
     const isWebRtcAttemptActive = () => {
       if (binding.disposed) return false;
@@ -611,19 +543,12 @@ export function createHaDirectMounter({
     const startupReady = (async () => {
       const priorRelease = releaseBarrier;
       const webRtcReady = (async () => {
-        diagnostic.mark("webrtc-release-barrier-wait-start");
         await priorRelease;
-        diagnostic.mark("webrtc-release-barrier-wait-finished");
         if (!isWebRtcAttemptActive()) return false;
-        diagnostic.mark("webrtc-signaling-start");
         const signalingStarted = await playback.start();
-        diagnostic.mark("webrtc-signaling-finished", {
-          signalingStarted,
-        });
         if (!signalingStarted || !isWebRtcAttemptActive()) {
           return false;
         }
-        diagnostic.mark("webrtc-readiness-wait-start");
         const ready = await Promise.race([
           waitForStreamStart(engine, haDirectPlan.waitMs, {
             ...haDirectPlan.waitOptions,
@@ -642,22 +567,14 @@ export function createHaDirectMounter({
           }),
           engine.failure,
         ]);
-        diagnostic.mark("webrtc-readiness-wait-finished", {
-          ready: ready === true,
-        });
         return ready === true;
       })();
       const hlsReady = fallbackEngine
         ? (async () => {
-            diagnostic.mark("hls-fallback-readiness-wait-start");
             const ready = await waitForHlsAttempt(
               fallbackEngine,
               fallbackAbortController.signal,
             );
-            diagnostic.mark("hls-fallback-readiness-wait-finished", {
-              ready,
-            });
-            stopHlsDiagnostic(fallbackEngine);
             return ready;
           })()
         : Promise.resolve(false);
@@ -670,7 +587,6 @@ export function createHaDirectMounter({
         readyCandidate("webrtc", webRtcReady),
         readyCandidate("hls", hlsReady),
       ]).catch(() => "");
-      diagnostic.mark("first-ready-transport", { winner: winner || "none" });
       if (!isWebRtcAttemptActive()) return false;
       if (winner === "hls") {
         binding.stopLoadingFallbackRefresh();
@@ -679,7 +595,6 @@ export function createHaDirectMounter({
         fallbackAbortController.abort();
         engine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
         commitReadyHls(fallbackEngine, { retainPrevious: true });
-        diagnostic.mark("hls-fallback-committed");
         const hlsBinding = mediaBindings.get(fallbackEngine);
         if (!hlsBinding || !isCurrentEngine(fallbackEngine)) {
           release(engine);
@@ -703,12 +618,10 @@ export function createHaDirectMounter({
           fallbackEngine.cancelPendingTakeover = null;
           if (!webRtcStarted) {
             release(engine);
-            diagnostic.finish("hls-ready");
             return;
           }
           assignCommittedEngine(engine);
           showReadyWebRtc(engine, fallbackEngine);
-          diagnostic.finish("webrtc-takeover-ready");
         })();
         return true;
       }
@@ -718,14 +631,12 @@ export function createHaDirectMounter({
         binding.fallbackEngine = null;
         fallbackAbortController.abort();
         showReadyWebRtc(engine, fallbackEngine);
-        diagnostic.finish("webrtc-ready");
         return true;
       }
       applyFailed(engine);
       release(engine);
       fallbackAbortController.abort();
       releaseHlsEngine(fallbackEngine);
-      diagnostic.finish("failed");
       return false;
     })();
 

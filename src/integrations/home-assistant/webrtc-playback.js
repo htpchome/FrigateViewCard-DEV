@@ -20,7 +20,6 @@ export function createHaDirectWebRtcPlayback({
   controls = false,
   scopeKey,
   onConnectionLost,
-  diagnostic = null,
 } = {}) {
   const entityId = String(entity || "").trim();
   if (
@@ -60,7 +59,6 @@ export function createHaDirectWebRtcPlayback({
   let resolveFailure = null;
   let providerStartedSettled = false;
   let resolveProviderStarted = null;
-  const mark = (stage, detail = {}) => diagnostic?.mark?.(stage, detail);
   const failure = new Promise((resolve) => {
     resolveFailure = resolve;
   });
@@ -93,7 +91,6 @@ export function createHaDirectWebRtcPlayback({
 
   const destroy = () => {
     if (destroyed) return shutdownPromise || Promise.resolve();
-    mark("webrtc-destroy-start", { started });
     destroyed = true;
     recoveryActive = false;
     recoveryHandler = null;
@@ -141,7 +138,6 @@ export function createHaDirectWebRtcPlayback({
     }
     pendingCandidates.length = 0;
     sessionId = "";
-    void shutdownPromise.finally(() => mark("webrtc-destroy-finished"));
     return shutdownPromise;
   };
 
@@ -173,31 +169,18 @@ export function createHaDirectWebRtcPlayback({
 
   const start = async () => {
     try {
-      mark("webrtc-client-config-request");
       const clientConfig = await hass.callWS({
         type: "camera/webrtc/get_client_config",
         entity_id: entityId,
       });
-      mark("webrtc-client-config-received", {
-        hasConfiguration: !!clientConfig?.configuration,
-        hasDataChannel: !!clientConfig?.dataChannel,
-      });
-      if (destroyed) {
-        mark("webrtc-start-aborted-after-client-config");
-        return false;
-      }
+      if (destroyed) return false;
 
       peerConnection = new RTCPeerConnection(clientConfig?.configuration);
-      mark("webrtc-peer-created");
       if (clientConfig?.dataChannel) {
         peerConnection.createDataChannel(clientConfig.dataChannel);
-        mark("webrtc-data-channel-created");
       }
 
       peerConnection.ontrack = (event) => {
-        mark("webrtc-track-received", {
-          kind: event.track?.kind || "unknown",
-        });
         if (destroyed) {
           event.track?.stop?.();
           return;
@@ -228,14 +211,12 @@ export function createHaDirectWebRtcPlayback({
       };
       peerConnection.onconnectionstatechange = () => {
         const state = peerConnection?.connectionState;
-        mark("webrtc-connection-state", { state: state || "unknown" });
         if (state === "failed" || (started && state === "disconnected")) {
           notifyConnectionLost("webrtc-connection-lost");
         }
       };
       peerConnection.oniceconnectionstatechange = () => {
         const state = peerConnection?.iceConnectionState;
-        mark("webrtc-ice-state", { state: state || "unknown" });
         if (state === "failed" || (started && state === "disconnected")) {
           notifyConnectionLost("webrtc-connection-lost");
         }
@@ -247,10 +228,8 @@ export function createHaDirectWebRtcPlayback({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
       });
-      mark("webrtc-offer-created");
       if (destroyed) return false;
       await peerConnection.setLocalDescription(offer);
-      mark("webrtc-local-description-set");
       if (destroyed) return false;
 
       let gatheredCandidates = "";
@@ -263,9 +242,6 @@ export function createHaDirectWebRtcPlayback({
       const offerSdp = `${offer.sdp || ""}${gatheredCandidates}`;
 
       const handleOfferEvent = async (event) => {
-        mark("webrtc-provider-event", {
-          eventType: event?.type || "unknown",
-        });
         if (
           event?.type === "answer" ||
           event?.type === "candidate" ||
@@ -330,17 +306,12 @@ export function createHaDirectWebRtcPlayback({
           { resubscribe: false },
         ),
       );
-      mark("webrtc-offer-subscribed");
       unsubscribePromise.catch(() => {
-        mark("webrtc-offer-subscription-failed");
         settleProviderStarted();
         settleFailure();
       });
       return true;
-    } catch (error) {
-      mark("webrtc-start-failed", {
-        errorName: error?.name || "Error",
-      });
+    } catch (_) {
       settleProviderStarted();
       settleFailure();
       return false;

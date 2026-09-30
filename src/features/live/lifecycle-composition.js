@@ -3,7 +3,6 @@ import {
   LIVE_SWITCH_GRACE_MS,
 } from "../../constants.js";
 import { buildEditorLiveHandoffKey } from "../editor-preview/context.ctrl.js";
-import { createHaDirectPlaybackDiagnostic } from "../../integrations/home-assistant/playback-diagnostics.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import {
   createEditorLiveHandoffController,
@@ -180,7 +179,6 @@ export const createLiveLifecycleControllers = (
       card._frigateCameraRuntimeController?.applySuspendedMountState?.(entity),
     takeEditorLiveHandoff: ({ entity, streamType, connectionType }) =>
       editorLiveHandoffController.take(entity, streamType, connectionType),
-    createHaDirectPlaybackDiagnostic,
   });
 
   return {
