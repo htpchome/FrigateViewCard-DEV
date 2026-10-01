@@ -6960,6 +6960,93 @@ test("Wide View footer remains singular across landing and route swaps", async (
   });
 });
 
+test("Wide View live resize stops at the Companion Cameras header", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto(baseUrl);
+
+  const before = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const card = document.createElement("frigate-view-card");
+    card.style.width = "1000px";
+    document.body.append(card);
+    card.setConfig({
+      cameras: Array.from({ length: 4 }, (_, index) => ({
+        entity: `camera.camera_${index + 1}`,
+        name: `Camera ${index + 1}`,
+      })),
+      wide_view_page_enabled: true,
+      stream_height: 700,
+      stream_height_unit: "px",
+    });
+    await card._wideViewPageController.prepare();
+    card._pageId = "wide-view";
+    card._renderShell();
+    card._wideViewPageController.startWideViewMode();
+    await card._wideViewCompanionController._ensureDelegate();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    card._viewMode = "single";
+    card._activeStreamType = "mse";
+    card.shadowRoot.querySelector("#stream-fallback").hidden = true;
+    const media = new EventTarget();
+    media.videoWidth = 1024;
+    media.videoHeight = 768;
+    card._liveViewResizeController.bind();
+    card._liveViewResizeController.attachMedia(media);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const root = card.shadowRoot;
+    const wrap = root.querySelector("#eng-wrap");
+    const panel = root.querySelector("#wide-companion-panel");
+    const header = root.querySelector(".wide-companion-header");
+    const grip = root.querySelector("#live-resize-grip");
+    return {
+      gripVisible: !grip.hidden,
+      gripMaximum: Number(grip.getAttribute("aria-valuemax")),
+      wrapHeight: wrap.getBoundingClientRect().height,
+      companionSpace:
+        panel.getBoundingClientRect().height -
+        header.getBoundingClientRect().height,
+    };
+  });
+
+  expect(before.gripVisible).toBe(true);
+  expect(before.gripMaximum).toBeGreaterThan(75);
+  expect(before.companionSpace).toBeGreaterThan(20);
+
+  const grip = page.locator("frigate-view-card #live-resize-grip");
+  await grip.press("End");
+
+  const after = await page.evaluate(() => {
+    const card = document.querySelector("frigate-view-card");
+    const root = card.shadowRoot;
+    const wrap = root.querySelector("#eng-wrap");
+    const panel = root.querySelector("#wide-companion-panel");
+    const header = root.querySelector(".wide-companion-header");
+    const footer = root.querySelector('[data-fvc-region="footer"]');
+    return {
+      wrapHeight: wrap.getBoundingClientRect().height,
+      companionSpace:
+        panel.getBoundingClientRect().height -
+        header.getBoundingClientRect().height,
+      footerGap: Math.abs(
+        footer.getBoundingClientRect().bottom -
+          card.getBoundingClientRect().bottom,
+      ),
+    };
+  });
+
+  expect(after.wrapHeight - before.wrapHeight).toBeGreaterThan(50);
+  expect(
+    after.companionSpace,
+    JSON.stringify({ before, after }),
+  ).toBeLessThanOrEqual(1);
+  expect(after.footerGap).toBeLessThanOrEqual(2);
+});
+
 test("Wide View Companion Cameras drag upward over controls without resizing live", async ({
   page,
 }) => {

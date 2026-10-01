@@ -290,6 +290,40 @@ test("syncColHeightIfWideView syncs only for wide route", () => {
   assert.deepEqual(single.calls, []);
 });
 
+test("Wide View live resize maximum collapses companions to their header", () => {
+  const { host } = createHost({ isWide: true });
+  const header = {
+    getBoundingClientRect: () => ({ height: 32 }),
+  };
+  const panel = {
+    getBoundingClientRect: () => ({ height: 152 }),
+    querySelector: (selector) =>
+      selector === ".wide-companion-header" ? header : null,
+  };
+  host._$ = (selector) =>
+    selector === "#wide-companion-panel" ? panel : null;
+  const controller = new WideViewPageController(host, { PAGE_IDS });
+
+  assert.equal(
+    controller.resolveLiveResizeMaxHeightRatio({
+      wrap: { getBoundingClientRect: () => ({ height: 225 }) },
+      containerWidth: 400,
+      currentHeightRatio: 9 / 16,
+    }),
+    0.8625,
+  );
+
+  host._pageId = "single-view";
+  assert.equal(
+    controller.resolveLiveResizeMaxHeightRatio({
+      wrap: { getBoundingClientRect: () => ({ height: 225 }) },
+      containerWidth: 400,
+      currentHeightRatio: 9 / 16,
+    }),
+    null,
+  );
+});
+
 test("card resize observation resyncs wide-view column height", () => {
   assert.match(
     cardSource,

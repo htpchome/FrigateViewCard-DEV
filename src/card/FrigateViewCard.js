@@ -416,7 +416,17 @@ export class FrigateViewCard extends HTMLElement {
           ? { videoWidth: 1, videoHeight: 1 }
           : { videoWidth: 16, videoHeight: 9 };
       },
+      getMaximumHeightRatio: (context) => {
+        if (normalizePageRoute(this._pageId) !== PAGE_IDS.wideView) {
+          return null;
+        }
+        return this._wideViewPageController
+          ?.resolveLiveResizeMaxHeightRatio?.(context);
+      },
       getAvailableGrowth: () => {
+        if (normalizePageRoute(this._pageId) === PAGE_IDS.wideView) {
+          return null;
+        }
         if (
           this._isCardViewPageActive() &&
           (this._cardStyleController.isPanelView() ||

@@ -312,6 +312,10 @@ export class LazyWideViewPageController {
     this._delegate?.syncColHeight?.();
   }
 
+  resolveLiveResizeMaxHeightRatio(options = {}) {
+    return this._delegate?.resolveLiveResizeMaxHeightRatio?.(options) ?? null;
+  }
+
   scheduleToolbarPanelPlacement() {
     return this._delegate?.scheduleToolbarPanelPlacement?.() === true;
   }

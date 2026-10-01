@@ -263,6 +263,41 @@ export class WideViewPageController {
     this.syncColHeight();
   }
 
+  resolveLiveResizeMaxHeightRatio({
+    wrap,
+    containerWidth,
+    currentHeightRatio,
+  } = {}) {
+    if (!this.isWideViewPageActive()) return null;
+    const panel = this._host._$?.("#wide-companion-panel");
+    const header = panel?.querySelector?.(".wide-companion-header");
+    const width = Number(containerWidth);
+    const panelHeight = Number(
+      panel?.getBoundingClientRect?.().height || panel?.clientHeight,
+    );
+    const headerHeight = Number(
+      header?.getBoundingClientRect?.().height || header?.offsetHeight,
+    );
+    const renderedLiveHeight = Number(
+      wrap?.getBoundingClientRect?.().height ||
+        width * Number(currentHeightRatio),
+    );
+    if (
+      !Number.isFinite(width) ||
+      width <= 0 ||
+      !Number.isFinite(panelHeight) ||
+      !Number.isFinite(headerHeight) ||
+      !Number.isFinite(renderedLiveHeight)
+    ) {
+      return null;
+    }
+    const collapsibleCompanionHeight = Math.max(
+      0,
+      panelHeight - headerHeight,
+    );
+    return (renderedLiveHeight + collapsibleCompanionHeight) / width;
+  }
+
   syncColHeight() {
     this.syncToolbarPanelPlacement();
     const l = this._host.shadowRoot?.querySelector(".col-left");
