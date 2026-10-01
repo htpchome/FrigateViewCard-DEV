@@ -648,8 +648,10 @@
       "initialTimelineRange": "Anfänglicher Zeitraum der Zeitleiste",
       "initialTimelineRangeHelp": "Legt den anfänglichen Zeitraum fest. Er kann später im Kopfbereich der Zeitleiste geändert werden.",
       "leftColumnWidth": "Breite der linken Spalte",
-      "leftColumnWidthHelp": "Legt die Breite der linken Spalte der Breiten Ansicht fest.",
-      "columnWidthRangeValidation": "Wähle eine ganze Zahl zwischen {min} und {max}."
+      "halfWidth": "Halbe Breite",
+      "threeQuarterWidth": "Dreiviertelbreite",
+      "maxWidth": "Maximale Breite",
+      "widthDisclaimer": "Die Breiteneinstellungen funktionieren aufgrund des Elements, in dem die Karte platziert ist (Panel, Abschnitt usw.), oder des maximal verfügbaren Platzes für die Kartendarstellung möglicherweise nicht immer wie erwartet"
     },
     "cardView": {
       "enable": "Seite „Kartenansicht“ aktivieren",

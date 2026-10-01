@@ -4225,16 +4225,17 @@ test("Single, Wide, and Card View settings localize in place with their choices 
       wide_view_page_enabled: true,
       wide_view_timeline_enabled: true,
       wide_view_timeline_default_scale: 6,
+      wide_view_width: 75,
       card_view_page_enabled: true,
       card_view_view_mode: "bottom-panel-open",
     });
     editor.hass = { locale: { language: "en" }, states: {}, themes: {} };
     const takeover = editor.querySelector("#single_view_alert_takeover");
     const wideScale = editor.querySelector('[name="wide_view_timeline_default_scale"][value="6"]');
+    const wideWidth = editor.querySelector('[name="wide_view_width"][value="75"]');
     const cardMode = editor.querySelector('[name="card_view_view_mode"][value="bottom-panel-open"]');
     const disabledGrid = editor.querySelector('[name="single_view_start_mode"][value="grid"]');
     const disabledGridLabel = disabledGrid.closest("label");
-    editor._setEditorFieldError("#col_left_width_pct", "Select a whole number from 25 to 75.");
     let configChanged = 0;
     editor.addEventListener("config-changed", () => { configChanged += 1; });
 
@@ -4250,7 +4251,8 @@ test("Single, Wide, and Card View settings localize in place with their choices 
       "editor.wideView.enable": "Activer Vue large",
       "editor.wideView.initialTimelineRange": "Plage initiale",
       "editor.wideView.leftColumnWidth": "Largeur gauche",
-      "editor.wideView.columnWidthRangeValidation": "Choisir entre {min} et {max}.",
+      "editor.wideView.threeQuarterWidth": "Trois quarts",
+      "editor.wideView.widthDisclaimer": "La largeur dépend de l'espace disponible.",
       "editor.duration.hours": "{count} heures",
       "editor.cardView.enable": "Activer Vue carte",
       "editor.cardView.startModeAria": "Mode initial Vue carte",
@@ -4287,7 +4289,10 @@ test("Single, Wide, and Card View settings localize in place with their choices 
       wideScaleChecked: wideScale.checked,
       wideScaleLabel: wideScale.getAttribute("aria-label"),
       wideWidthHeading: editor.querySelector('[data-fvc-i18n="editor.wideView.leftColumnWidth"]').textContent,
-      wideWidthError: editor.querySelector("#col_left_width_pct-helper").textContent,
+      wideWidthPreserved: editor.querySelector('[name="wide_view_width"][value="75"]') === wideWidth,
+      wideWidthChecked: wideWidth.checked,
+      wideWidthLabel: wideWidth.getAttribute("aria-label"),
+      wideWidthDisclaimer: editor.querySelector('[data-fvc-i18n="editor.wideView.widthDisclaimer"]').textContent,
       cardEnable: editor.querySelector('[data-fvc-i18n="editor.cardView.enable"]').textContent,
       cardStartAria: editor.querySelector('[data-fvc-i18n-aria-label="editor.cardView.startModeAria"]').getAttribute("aria-label"),
       cardModeHeading: editor.querySelector('[data-fvc-i18n="editor.cardView.viewMode"]').textContent,
@@ -4316,7 +4321,10 @@ test("Single, Wide, and Card View settings localize in place with their choices 
     wideScaleChecked: true,
     wideScaleLabel: "6 heures",
     wideWidthHeading: "Largeur gauche",
-    wideWidthError: "Choisir entre 25 et 75.",
+    wideWidthPreserved: true,
+    wideWidthChecked: true,
+    wideWidthLabel: "Trois quarts",
+    wideWidthDisclaimer: "La largeur dépend de l'espace disponible.",
     cardEnable: "Activer Vue carte",
     cardStartAria: "Mode initial Vue carte",
     cardModeHeading: "Mode d'affichage",
@@ -6960,6 +6968,65 @@ test("Wide View footer remains singular across landing and route swaps", async (
   });
 });
 
+test("Wide View width presets paint an equal split and preserve 250px on wider starts", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto(baseUrl);
+
+  const widths = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const card = document.createElement("frigate-view-card");
+    card.style.width = "1000px";
+    document.body.append(card);
+    card.setConfig({
+      cameras: Array.from({ length: 4 }, (_, index) => ({
+        entity: `camera.camera_${index + 1}`,
+        name: `Camera ${index + 1}`,
+      })),
+      wide_view_page_enabled: true,
+      wide_view_width: 50,
+      stream_height: 420,
+      stream_height_unit: "px",
+    });
+    await card._wideViewPageController.prepare();
+    card._pageId = "wide-view";
+    card._renderShell();
+    card._wideViewPageController.startWideViewMode();
+    await card._wideViewCompanionController._ensureDelegate();
+    card._applyCardStyle();
+    card.style.setProperty("--card-host-height", "650px");
+
+    const measure = async (preset) => {
+      card._config.wide_view_width = preset;
+      card._wideViewPageController.applyLayoutModeForCard();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const root = card.shadowRoot;
+      return {
+        left: root
+          .querySelector(".col-left--wide-view")
+          .getBoundingClientRect().width,
+        right: root
+          .querySelector(".col-right--wide-view")
+          .getBoundingClientRect().width,
+      };
+    };
+
+    return {
+      half: await measure(50),
+      threeQuarter: await measure(75),
+      max: await measure(100),
+    };
+  });
+
+  expect(Math.abs(widths.half.left - widths.half.right)).toBeLessThanOrEqual(1);
+  expect(widths.threeQuarter.right).toBeGreaterThanOrEqual(249);
+  expect(widths.threeQuarter.right).toBeLessThanOrEqual(251);
+  expect(widths.max.right).toBeGreaterThanOrEqual(249);
+  expect(widths.max.left).toBeGreaterThanOrEqual(widths.threeQuarter.left - 1);
+});
+
 test("Wide View divider expands past 75% until companions reach their header", async ({
   page,
 }) => {
@@ -6993,6 +7060,7 @@ test("Wide View divider expands past 75% until companions reach their header", a
     const root = card.shadowRoot;
     const columns = root.querySelector(".wide-view-columns");
     const left = root.querySelector(".col-left--wide-view");
+    const right = root.querySelector(".col-right--wide-view");
     const panel = root.querySelector("#wide-companion-panel");
     const header = root.querySelector(".wide-companion-header");
     const grid = root.querySelector("#wide-companion-grid");
@@ -7003,6 +7071,7 @@ test("Wide View divider expands past 75% until companions reach their header", a
         (left.getBoundingClientRect().width /
           columns.getBoundingClientRect().width) *
         100,
+      rightWidth: right.getBoundingClientRect().width,
       companionSpace:
         panel.getBoundingClientRect().height -
         header.getBoundingClientRect().height,
@@ -7015,6 +7084,7 @@ test("Wide View divider expands past 75% until companions reach their header", a
   });
 
   expect(before.visibleCompanionHeight).toBeGreaterThan(10);
+  expect(before.rightWidth).toBeGreaterThanOrEqual(249);
 
   const divider = page.locator("frigate-view-card #resize-handle");
   const bounds = await divider.boundingBox();
@@ -7031,6 +7101,7 @@ test("Wide View divider expands past 75% until companions reach their header", a
     const root = card.shadowRoot;
     const columns = root.querySelector(".wide-view-columns");
     const left = root.querySelector(".col-left--wide-view");
+    const right = root.querySelector(".col-right--wide-view");
     const panel = root.querySelector("#wide-companion-panel");
     const header = root.querySelector(".wide-companion-header");
     const grid = root.querySelector("#wide-companion-grid");
@@ -7041,6 +7112,7 @@ test("Wide View divider expands past 75% until companions reach their header", a
         (left.getBoundingClientRect().width /
           columns.getBoundingClientRect().width) *
         100,
+      rightWidth: right.getBoundingClientRect().width,
       companionSpace:
         panel.getBoundingClientRect().height -
         header.getBoundingClientRect().height,
@@ -7057,6 +7129,7 @@ test("Wide View divider expands past 75% until companions reach their header", a
     after.visibleCompanionHeight,
     JSON.stringify({ before, after }),
   ).toBeLessThanOrEqual(1);
+  expect(after.rightWidth).toBeLessThan(249);
 });
 
 test("Wide View Companion Cameras drag upward over controls without resizing live", async ({
@@ -7460,6 +7533,7 @@ test("Wide View timeline push width remains stable across wide breakpoints", asy
       card.setConfig({
         cameras: [{ entity: "camera.front", name: "Front" }],
         wide_view_page_enabled: true,
+        wide_view_width: 50,
         wide_view_timeline_enabled: true,
         wide_view_timeline_default_open: true,
         stream_height: 640,

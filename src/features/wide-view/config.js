@@ -1,19 +1,16 @@
-export const WIDE_LEFT_WIDTH_MIN = 25;
-export const WIDE_LEFT_WIDTH_MAX = 75;
-export const WIDE_LEFT_WIDTH_DEFAULT = 60;
+export const WIDE_VIEW_WIDTH_OPTIONS = Object.freeze([50, 75, 100]);
+export const WIDE_VIEW_WIDTH_DEFAULT = 100;
+export const WIDE_VIEW_RIGHT_COLUMN_MIN_PX = 250;
+export const WIDE_LEFT_RESIZE_MIN = 50;
+export const WIDE_LEFT_RESIZE_FALLBACK_MAX = 75;
 export const WIDE_TIMELINE_SCALE_OPTIONS_HOURS = Object.freeze([1, 6, 12, 24]);
 export const WIDE_TIMELINE_DEFAULT_SCALE_HOURS = 12;
 
-export const normalizeWideLeftWidth = (value) => {
-  if (value == null || String(value).trim() === "") {
-    return WIDE_LEFT_WIDTH_DEFAULT;
-  }
+export const normalizeWideViewWidth = (value) => {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return WIDE_LEFT_WIDTH_DEFAULT;
-  return Math.min(
-    WIDE_LEFT_WIDTH_MAX,
-    Math.max(WIDE_LEFT_WIDTH_MIN, Math.round(numeric)),
-  );
+  return WIDE_VIEW_WIDTH_OPTIONS.includes(numeric)
+    ? numeric
+    : WIDE_VIEW_WIDTH_DEFAULT;
 };
 
 export const normalizeWideTimelineScale = (value) => {

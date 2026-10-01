@@ -648,8 +648,10 @@
       "initialTimelineRange": "Initial Timeline Range",
       "initialTimelineRangeHelp": "Sets the initial time range. Change it later from the Timeline header.",
       "leftColumnWidth": "Left Column Width",
-      "leftColumnWidthHelp": "Sets the width of Wide View's left column.",
-      "columnWidthRangeValidation": "Select a whole number from {min} to {max}."
+      "halfWidth": "Half Width",
+      "threeQuarterWidth": "Three Quarter Width",
+      "maxWidth": "Max Width",
+      "widthDisclaimer": "The width settings will sometimes not function as expected due to factors such as what element the card is placed in (panel, section, etc) or the max space available for the cards presentation"
     },
     "cardView": {
       "enable": "Enable Card View Page",

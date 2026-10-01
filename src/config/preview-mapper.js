@@ -33,7 +33,7 @@ import {
   normalizeCardHeightUnit,
 } from "../features/card-style/config.js";
 import {
-  normalizeWideLeftWidth,
+  normalizeWideViewWidth,
   normalizeWideTimelineScale,
 } from "../features/wide-view/config.js";
 import { normalizeGridOrderConfig } from "../features/grid/config.js";
@@ -178,7 +178,7 @@ export const createEditorPreviewDraft = (config) => ({
   borders: config.borders,
   rounded_corners: config.rounded_corners,
   outer_shadows: config.outer_shadows,
-  col_left_width_pct: config.col_left_width_pct,
+  wide_view_width: config.wide_view_width,
   video_defaults: config.video_defaults,
   video_live_defaults: config.video_live_defaults,
   video_popup_defaults: config.video_popup_defaults,
@@ -384,9 +384,7 @@ export const applyEditorPreviewDraftToCardConfig = ({
       previewConfig.card_view_hide_camera_name !== false,
     landing_page: normalizePageRoute(previewConfig.landing_page),
     mobile_page: normalizeMobilePageMode(previewConfig.mobile_page),
-    col_left_width_pct: normalizeWideLeftWidth(
-      previewConfig.col_left_width_pct,
-    ),
+    wide_view_width: normalizeWideViewWidth(previewConfig.wide_view_width),
     video_defaults:
       previewConfig.video_defaults &&
       typeof previewConfig.video_defaults === "object" &&

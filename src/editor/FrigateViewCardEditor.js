@@ -103,9 +103,8 @@ import {
 import { resolveHomeAssistantThemeContext } from "../features/card-style/context.ctrl.js";
 import { resolveDashboardNavbarCardOwnership } from "../integrations/home-assistant/navbar-policy.js";
 import {
-  WIDE_LEFT_WIDTH_MAX,
-  WIDE_LEFT_WIDTH_MIN,
-  normalizeWideLeftWidth,
+  WIDE_VIEW_WIDTH_OPTIONS,
+  normalizeWideViewWidth,
   normalizeWideTimelineScale,
   WIDE_TIMELINE_SCALE_OPTIONS_HOURS,
 } from "../features/wide-view/config.js";
@@ -3094,7 +3093,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#mobile_page",
       "#stream_height",
       "#stream_height_unit",
-      "#col_left_width_pct",
+      '[name="wide_view_width"]',
       "#tight_margins",
       "#shadows",
       "#borders",
@@ -3172,16 +3171,12 @@ export class FrigateViewCardEditor extends HTMLElement {
       ? "editor.layout.cardHeightRangeValidation"
       : selector === "#event_days" || selector === "#alerts_reviews_days"
         ? "editor.general.daysRangeValidation"
-        : selector === "#col_left_width_pct"
-          ? "editor.wideView.columnWidthRangeValidation"
         : null;
     if (!key) return;
     const helper = this.querySelector?.(`${selector}-helper`);
     const values = selector === "#stream_height"
       ? { min: CARD_HEIGHT_MIN, max: CARD_HEIGHT_MAX }
-      : selector === "#col_left_width_pct"
-        ? { min: WIDE_LEFT_WIDTH_MIN, max: WIDE_LEFT_WIDTH_MAX }
-        : {};
+      : {};
     this._setLocalizedMessage(helper, message ? key : null, values);
   }
 
@@ -3229,25 +3224,6 @@ export class FrigateViewCardEditor extends HTMLElement {
         });
     this._setEditorFieldError("#stream_height", streamHeightMessage);
     if (streamHeightMessage) valid = false;
-
-    const wideViewEnabled =
-      this.querySelector("#wide_view_page_enabled")?.checked === true;
-    const colWidthRaw = String(
-      this.querySelector("#col_left_width_pct")?.value || "",
-    ).trim();
-    const colWidth = Number(colWidthRaw);
-    const colWidthMessage =
-      !wideViewEnabled ||
-      (Number.isInteger(colWidth) &&
-        colWidth >= WIDE_LEFT_WIDTH_MIN &&
-        colWidth <= WIDE_LEFT_WIDTH_MAX)
-        ? ""
-        : this._t("editor.wideView.columnWidthRangeValidation", {
-          min: WIDE_LEFT_WIDTH_MIN,
-          max: WIDE_LEFT_WIDTH_MAX,
-        });
-    this._setEditorFieldError("#col_left_width_pct", colWidthMessage);
-    if (colWidthMessage) valid = false;
 
     return valid;
   }
@@ -3457,8 +3433,8 @@ export class FrigateViewCardEditor extends HTMLElement {
     const streamHeightUnit = normalizeCardHeightUnit(
       this._config?.stream_height_unit,
     );
-    const wideLeftWidth = normalizeWideLeftWidth(
-      this._config?.col_left_width_pct,
+    const wideViewWidth = normalizeWideViewWidth(
+      this._config?.wide_view_width,
     );
     const timelineDefaultScale = normalizeWideTimelineScale(
       this._config?.wide_view_timeline_default_scale,
@@ -4149,11 +4125,29 @@ export class FrigateViewCardEditor extends HTMLElement {
         <div class="field-helper" data-fvc-i18n="editor.wideView.initialTimelineRangeHelp">Sets the initial time range. Change it later from the Timeline header.</div>
       </div>
       <div class="section" id="col-width-row" style="${this._config?.wide_view_page_enabled ? "" : "display:none"}">
-        <span class="field-label" data-fvc-i18n="editor.wideView.leftColumnWidth">Left Column Width</span>
-        <input id="col_left_width_pct" type="range" min="${WIDE_LEFT_WIDTH_MIN}" max="${WIDE_LEFT_WIDTH_MAX}" step="1" value="${wideLeftWidth}" style="width:100%">
-        <div class="field-helper" data-fvc-i18n="editor.wideView.leftColumnWidthHelp">Sets the width of Wide View's left column.</div>
-        <div class="field-helper" id="col_left_width_pct-output">${wideLeftWidth}%</div>
-        <div class="field-helper" id="col_left_width_pct-helper"></div>
+        <div class="editor-choice-field" role="radiogroup" aria-label="Left Column Width" data-fvc-i18n-aria-label="editor.wideView.leftColumnWidth">
+          <div class="field-label" data-fvc-i18n="editor.wideView.leftColumnWidth">Left Column Width</div>
+          ${buildEditorBubbleSelectorMarkup({
+            name: "wide_view_width",
+            options: WIDE_VIEW_WIDTH_OPTIONS.map((value) => ({
+              value,
+              label:
+                value === 50
+                  ? "Half Width"
+                  : value === 75
+                    ? "Three Quarter Width"
+                    : "Max Width",
+              translationKey:
+                value === 50
+                  ? "editor.wideView.halfWidth"
+                  : value === 75
+                    ? "editor.wideView.threeQuarterWidth"
+                    : "editor.wideView.maxWidth",
+            })),
+            selectedValue: wideViewWidth,
+          })}
+        </div>
+        <div class="field-helper" data-fvc-i18n="editor.wideView.widthDisclaimer">The width settings will sometimes not function as expected due to factors such as what element the card is placed in (panel, section, etc) or the max space available for the cards presentation</div>
       </div>
       `;
     const mobileViewPanelContent = `
@@ -5072,16 +5066,6 @@ export class FrigateViewCardEditor extends HTMLElement {
       "change",
       () => this._syncStreamHeightOutput(),
     );
-    this.querySelector("#col_left_width_pct")?.addEventListener(
-      "input",
-      (event) => {
-        this._setRangeValueOutput(
-          "#col_left_width_pct",
-          event.currentTarget?.value,
-          "%",
-        );
-      },
-    );
     this._wireCameraDragAndDrop();
     this._wireGridOrderControls();
     this._wireSettingsPanels();
@@ -5166,7 +5150,7 @@ export class FrigateViewCardEditor extends HTMLElement {
 
     bindEventsForIds({
       root: this,
-      ids: ["stream_height", "col_left_width_pct"],
+      ids: ["stream_height"],
       events: ["change"],
       handler: () => update(),
     });

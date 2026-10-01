@@ -648,8 +648,10 @@
       "initialTimelineRange": "Période initiale de la chronologie",
       "initialTimelineRangeHelp": "Définit la période initiale. Vous pourrez la modifier dans l'en-tête de la chronologie.",
       "leftColumnWidth": "Largeur de la colonne gauche",
-      "leftColumnWidthHelp": "Définit la largeur de la colonne gauche de la Vue large.",
-      "columnWidthRangeValidation": "Sélectionnez un nombre entier entre {min} et {max}."
+      "halfWidth": "Demi-largeur",
+      "threeQuarterWidth": "Trois quarts de largeur",
+      "maxWidth": "Largeur maximale",
+      "widthDisclaimer": "Les réglages de largeur peuvent parfois ne pas fonctionner comme prévu en raison de facteurs tels que l'élément dans lequel la carte est placée (panneau, section, etc.) ou l'espace maximal disponible pour sa présentation"
     },
     "cardView": {
       "enable": "Activer la page Vue carte",

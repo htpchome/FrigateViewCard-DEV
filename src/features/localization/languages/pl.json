@@ -648,8 +648,10 @@
       "initialTimelineRange": "Początkowy zakres osi czasu",
       "initialTimelineRangeHelp": "Ustawia początkowy zakres czasu. Można go później zmienić w nagłówku osi czasu.",
       "leftColumnWidth": "Szerokość lewej kolumny",
-      "leftColumnWidthHelp": "Ustawia szerokość lewej kolumny widoku szerokiego.",
-      "columnWidthRangeValidation": "Wybierz liczbę całkowitą od {min} do {max}."
+      "halfWidth": "Połowa szerokości",
+      "threeQuarterWidth": "Trzy czwarte szerokości",
+      "maxWidth": "Maksymalna szerokość",
+      "widthDisclaimer": "Ustawienia szerokości mogą czasami nie działać zgodnie z oczekiwaniami z powodu takich czynników, jak element, w którym umieszczono kartę (panel, sekcja itp.), lub maksymalna przestrzeń dostępna do jej wyświetlenia"
     },
     "cardView": {
       "enable": "Włącz stronę widoku karty",

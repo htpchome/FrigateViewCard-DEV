@@ -648,8 +648,10 @@
       "initialTimelineRange": "Intervallo iniziale della cronologia",
       "initialTimelineRangeHelp": "Imposta l'intervallo iniziale. Puoi modificarlo in seguito dall'intestazione della cronologia.",
       "leftColumnWidth": "Larghezza colonna sinistra",
-      "leftColumnWidthHelp": "Imposta la larghezza della colonna sinistra della Vista ampia.",
-      "columnWidthRangeValidation": "Seleziona un numero intero da {min} a {max}."
+      "halfWidth": "Metà larghezza",
+      "threeQuarterWidth": "Tre quarti di larghezza",
+      "maxWidth": "Larghezza massima",
+      "widthDisclaimer": "Le impostazioni della larghezza potrebbero talvolta non funzionare come previsto a causa di fattori quali l'elemento in cui è inserita la scheda (pannello, sezione, ecc.) o lo spazio massimo disponibile per la sua visualizzazione"
     },
     "cardView": {
       "enable": "Attiva pagina Vista scheda",

@@ -33,7 +33,7 @@ import {
   normalizeCardViewViewMode,
   resolveCardViewMasonrySizeHint,
 } from "../src/features/card-view/config.js";
-import { normalizeWideLeftWidth } from "../src/features/wide-view/config.js";
+import { normalizeWideViewWidth } from "../src/features/wide-view/config.js";
 import {
   DASHBOARD_SWIPE_NAVIGATION_MODES,
   MOBILE_PAGE_MODES,
@@ -379,6 +379,7 @@ test("requested editor settings use the shared choice-chip control", () => {
     "grid_rotation_seconds",
     "grid_alert_hold_seconds",
     "wide_view_timeline_default_scale",
+    "wide_view_width",
     "stream_height_unit",
     "camera-modal-group-layout",
     "camera-modal-light-position",
@@ -396,6 +397,7 @@ test("requested editor settings use the shared choice-chip control", () => {
     editorSource,
     /<input id="(?:snapshot_update_seconds|preview_page_alert_live_duration_seconds|slideshow_alert_hold_seconds|grid_alert_hold_seconds)" type="range"/,
   );
+  assert.doesNotMatch(editorSource, /id="col_left_width_pct"/);
   assert.match(
     editorSource,
     /editor-choice-field--single-row" id="grid_rotation_seconds"/,
@@ -771,7 +773,7 @@ test("editor YAML config omits normalized default values", () => {
     outer_shadows: true,
     outer_rounded_corners: true,
     wide_view: false,
-    col_left_width_pct: 60,
+    wide_view_width: 100,
     preview_page_alert_live_duration_seconds: 10,
     wide_view_live_cameras: false,
     wide_view_alert_takeover: false,
@@ -1106,10 +1108,11 @@ test("card layout controls normalize to hardened ranges and defaults", () => {
   assert.equal(normalizeCardHeightUnit("px"), "%");
   assert.equal(normalizeCardHeightUnit("vh"), "dvh");
   assert.equal(normalizeCardHeightUnit("dvh"), "dvh");
-  assert.equal(normalizeWideLeftWidth(), 60);
-  assert.equal(normalizeWideLeftWidth(null), 60);
-  assert.equal(normalizeWideLeftWidth(10), 25);
-  assert.equal(normalizeWideLeftWidth(90), 75);
+  assert.equal(normalizeWideViewWidth(), 100);
+  assert.equal(normalizeWideViewWidth(null), 100);
+  assert.equal(normalizeWideViewWidth(50), 50);
+  assert.equal(normalizeWideViewWidth("75"), 75);
+  assert.equal(normalizeWideViewWidth(90), 100);
 });
 
 test("compact YAML omits new layout defaults and preserves non-defaults", () => {
@@ -1117,13 +1120,13 @@ test("compact YAML omits new layout defaults and preserves non-defaults", () => 
     cameras: [{ entity: "camera.front_door" }],
     stream_height: 100,
     stream_height_unit: "%",
-    col_left_width_pct: 60,
+    wide_view_width: 100,
   });
   const customized = compactEditorConfigForYaml({
     cameras: [{ entity: "camera.front_door" }],
     stream_height: 80,
     stream_height_unit: "dvh",
-    col_left_width_pct: 75,
+    wide_view_width: 75,
   });
 
   assert.deepEqual(defaults, {
@@ -1131,7 +1134,20 @@ test("compact YAML omits new layout defaults and preserves non-defaults", () => 
   });
   assert.equal(customized.stream_height, 80);
   assert.equal(customized.stream_height_unit, "dvh");
-  assert.equal(customized.col_left_width_pct, 75);
+  assert.equal(customized.wide_view_width, 75);
+});
+
+test("legacy left-column percentages migrate to Max Width and leave saved YAML", () => {
+  const normalized = normalizeCardConfig({
+    cameras: [{ entity: "camera.front_door" }],
+    col_left_width_pct: 50,
+  });
+  const saved = compactEditorConfigForYaml(normalized);
+
+  assert.equal(normalized.wide_view_width, 100);
+  assert.equal("col_left_width_pct" in normalized, false);
+  assert.equal("col_left_width_pct" in saved, false);
+  assert.equal("wide_view_width" in saved, false);
 });
 
 test("camera connection type defaults to go2rtc and is omitted in compact YAML", () => {
@@ -2067,7 +2083,7 @@ test("editor previews apply content and styling from the same draft", () => {
       rounded_corners: false,
       stream_height: 80,
       stream_height_unit: "px",
-      col_left_width_pct: 62,
+      wide_view_width: 75,
     },
   });
 
@@ -2076,7 +2092,7 @@ test("editor previews apply content and styling from the same draft", () => {
   assert.equal(previewConfig.theme, "custom");
   assert.equal(previewConfig.rounded_corners, false);
   assert.equal(previewConfig.stream_height, 80);
-  assert.equal(previewConfig.col_left_width_pct, 62);
+  assert.equal(previewConfig.wide_view_width, 75);
 });
 
 test("compact YAML defaults duration values that are not chip choices", () => {
@@ -2188,6 +2204,7 @@ test("choice-chip config fields read their checked native radio values", () => {
       "120",
     ],
     ['[name="wide_view_timeline_default_scale"]:checked', "24"],
+    ['[name="wide_view_width"]:checked', "75"],
     ['[name="stream_height_unit"]:checked', "dvh"],
   ]);
   const root = {
@@ -2216,6 +2233,7 @@ test("choice-chip config fields read their checked native radio values", () => {
   assert.equal(result.grid_alert_hold_seconds, 60);
   assert.equal(result.preview_page_alert_live_duration_seconds, 120);
   assert.equal(result.wide_view_timeline_default_scale, 24);
+  assert.equal(result.wide_view_width, 75);
   assert.equal(result.stream_height, 80);
   assert.equal(result.stream_height_unit, "dvh");
 });

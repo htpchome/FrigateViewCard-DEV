@@ -247,7 +247,7 @@ test("wide view inserts Companion Cameras below its tool controls", () => {
   );
   assert.match(
     markup,
-    /id="resize-handle" title="Resize Video" aria-label="Resize Video"/,
+    /id="resize-handle" data-no-swipe title="Resize Video" aria-label="Resize Video"/,
   );
   assert.match(
     WIDE_VIEW_PAGE_STYLES,

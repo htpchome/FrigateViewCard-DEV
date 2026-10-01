@@ -43,7 +43,7 @@ import {
   resolveThemeCustomEditorConfig,
 } from "./features/card-style/config.js";
 import {
-  normalizeWideLeftWidth,
+  normalizeWideViewWidth,
   normalizeWideTimelineScale,
 } from "./features/wide-view/config.js";
 import {
@@ -1142,8 +1142,9 @@ export const buildEditorConfigFromDom = ({
       ha_dashboard_swipe_mobile_pages: selectedMobileSwipePages,
     });
 
-  nextConfig.col_left_width_pct = normalizeWideLeftWidth(
-    root.querySelector("#col_left_width_pct")?.value,
+  nextConfig.wide_view_width = normalizeWideViewWidth(
+    root.querySelector('[name="wide_view_width"]:checked')?.value ||
+      baseConfig?.wide_view_width,
   );
 
   return nextConfig;

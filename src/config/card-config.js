@@ -41,7 +41,7 @@ import {
   normalizeCardHeightUnit,
 } from "../features/card-style/config.js";
 import {
-  normalizeWideLeftWidth,
+  normalizeWideViewWidth,
   normalizeWideTimelineScale,
 } from "../features/wide-view/config.js";
 import { limitCameraConfigsByPhysicalCount } from "../features/camera-groups/model.js";
@@ -140,7 +140,8 @@ export const normalizeCardConfig = (config) => {
   src.outer_shadows = src.outer_shadows !== false;
   src.stream_height = normalizeCardHeight(src.stream_height);
   src.stream_height_unit = normalizeCardHeightUnit(src.stream_height_unit);
-  src.col_left_width_pct = normalizeWideLeftWidth(src.col_left_width_pct);
+  src.wide_view_width = normalizeWideViewWidth(src.wide_view_width);
+  delete src.col_left_width_pct;
 
   src.realtime_poll_seconds = REALTIME_POLL_OPTIONS_SECONDS.includes(
     Number(src.realtime_poll_seconds),
@@ -396,7 +397,7 @@ const RUNTIME_CARD_CONFIG_KEYS = Object.freeze([
   "borders",
   "rounded_corners",
   "outer_shadows",
-  "col_left_width_pct",
+  "wide_view_width",
   "video_defaults",
   "video_live_defaults",
   "video_popup_defaults",

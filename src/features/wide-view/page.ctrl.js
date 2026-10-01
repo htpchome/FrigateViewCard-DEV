@@ -6,9 +6,10 @@ import {
 } from "../navigation/start-mode.js";
 
 import {
-  WIDE_LEFT_WIDTH_MAX,
-  WIDE_LEFT_WIDTH_MIN,
-  normalizeWideLeftWidth,
+  WIDE_LEFT_RESIZE_FALLBACK_MAX,
+  WIDE_LEFT_RESIZE_MIN,
+  WIDE_VIEW_RIGHT_COLUMN_MIN_PX,
+  normalizeWideViewWidth,
 } from "./config.js";
 
 const WIDE_LEFT_RESIZE_MAX = 100;
@@ -34,11 +35,11 @@ export function resolveWideLeftResizeMaxPct({
   const header = positiveNumber(companionHeaderHeight);
   const mediaWidth = positiveNumber(liveWidth);
   const mediaHeight = positiveNumber(liveHeight);
-  if (!layout || !left) return WIDE_LEFT_WIDTH_MAX;
+  if (!layout || !left) return WIDE_LEFT_RESIZE_FALLBACK_MAX;
 
   const currentPct = styledPct || (left / layout) * 100;
   if (!panel || !header || !mediaWidth || !mediaHeight) {
-    return Math.max(currentPct, WIDE_LEFT_WIDTH_MAX);
+    return Math.max(currentPct, WIDE_LEFT_RESIZE_FALLBACK_MAX);
   }
 
   const collapsibleHeight = Math.max(0, panel - header);
@@ -50,6 +51,32 @@ export function resolveWideLeftResizeMaxPct({
     WIDE_LEFT_RESIZE_MAX,
     Math.max(currentPct, boundaryLeftWidth / renderedPixelsPerPct),
   );
+}
+
+export function resolveWideInitialWidthPct({
+  configuredWidth,
+  layoutWidth,
+  handleWidth = 0,
+  maximumWidthPct = WIDE_LEFT_RESIZE_FALLBACK_MAX,
+} = {}) {
+  const requestedPct = normalizeWideViewWidth(configuredWidth);
+  if (requestedPct === WIDE_LEFT_RESIZE_MIN) return WIDE_LEFT_RESIZE_MIN;
+
+  const layout = positiveNumber(layoutWidth);
+  const handle = Math.max(0, Number(handleWidth) || 0);
+  const columnSpace = Math.max(0, layout - handle);
+  const rightColumnLimit = columnSpace
+    ? ((columnSpace - WIDE_VIEW_RIGHT_COLUMN_MIN_PX) / columnSpace) * 100
+    : WIDE_LEFT_RESIZE_FALLBACK_MAX;
+  const initialLimit = Math.max(
+    WIDE_LEFT_RESIZE_MIN,
+    Math.min(
+      WIDE_LEFT_RESIZE_MAX,
+      positiveNumber(maximumWidthPct) || WIDE_LEFT_RESIZE_FALLBACK_MAX,
+      rightColumnLimit,
+    ),
+  );
+  return Math.min(requestedPct, initialLimit);
 }
 
 export class WideViewPageController {
@@ -296,7 +323,7 @@ export class WideViewPageController {
   applyLayoutModeForCard() {
     const layout = this._host.shadowRoot?.querySelector("#layout");
     if (!layout) return;
-    this.applyWideLayoutMode(layout, this._host._config?.col_left_width_pct);
+    this.applyWideLayoutMode(layout, this._host._config?.wide_view_width);
   }
 
   syncColHeightIfWideView() {
@@ -409,12 +436,12 @@ export class WideViewPageController {
     return this._host._pageId === this._constants.PAGE_IDS.wideView;
   }
 
-  wideViewLayoutState(leftWidthPct) {
+  wideViewLayoutState(wideViewWidth) {
     if (!this.isWideViewPageActive()) {
       return { isWide: false, leftWidth: "", rightWidth: "" };
     }
 
-    const pct = normalizeWideLeftWidth(leftWidthPct);
+    const pct = normalizeWideViewWidth(wideViewWidth);
     return {
       isWide: true,
       leftWidth: `${pct}%`,
@@ -422,18 +449,68 @@ export class WideViewPageController {
     };
   }
 
-  applyWideLayoutMode(layout, leftWidthPct) {
+  _setColumnWidths(colL, colR, pct) {
+    colL.style.width = `${pct}%`;
+    colR.style.width = `${100 - pct}%`;
+  }
+
+  _measureWideLeftResizeMaxPct(layout, colL, leftStylePct) {
+    const columns = layout.querySelector?.(".wide-view-columns") || layout;
+    const handle = layout.querySelector?.("#resize-handle");
+    const layoutWidth = Number(columns.getBoundingClientRect?.().width) || 0;
+    const handleWidth = Number(handle?.getBoundingClientRect?.().width) || 0;
+    const columnSpaceWidth = Math.max(0, layoutWidth - handleWidth);
+    const leftWidth = Number(colL.getBoundingClientRect?.().width) || 0;
+    const companionPanel = colL.querySelector?.("#wide-companion-panel");
+    const companionHeader = companionPanel?.querySelector?.(
+      ".wide-companion-header",
+    );
+    const liveWrap = colL.querySelector?.("#eng-wrap");
+    return {
+      layoutWidth,
+      handleWidth,
+      columnSpaceWidth,
+      maximumWidthPct: resolveWideLeftResizeMaxPct({
+        layoutWidth: columnSpaceWidth,
+        leftWidth,
+        leftStylePct,
+        companionHeight: companionPanel?.getBoundingClientRect?.().height,
+        companionHeaderHeight:
+          companionHeader?.getBoundingClientRect?.().height,
+        liveWidth: liveWrap?.getBoundingClientRect?.().width,
+        liveHeight: liveWrap?.getBoundingClientRect?.().height,
+      }),
+    };
+  }
+
+  applyWideLayoutMode(layout, wideViewWidth) {
     if (!layout) return;
 
-    const wideLayout = this.wideViewLayoutState(leftWidthPct);
+    const wideLayout = this.wideViewLayoutState(wideViewWidth);
     layout.classList.toggle("wide-view", wideLayout.isWide);
 
     const colL = layout.querySelector(".col-left");
     const colR = layout.querySelector(".col-right");
     if (colL && colR) {
       if (wideLayout.isWide) {
-        colL.style.width = wideLayout.leftWidth;
-        colR.style.width = wideLayout.rightWidth;
+        const configuredWidth = normalizeWideViewWidth(wideViewWidth);
+        this._setColumnWidths(
+          colL,
+          colR,
+          Math.min(configuredWidth, WIDE_LEFT_RESIZE_MIN),
+        );
+        const measurements = this._measureWideLeftResizeMaxPct(
+          layout,
+          colL,
+          WIDE_LEFT_RESIZE_MIN,
+        );
+        const initialWidthPct = resolveWideInitialWidthPct({
+          configuredWidth,
+          layoutWidth: measurements.layoutWidth,
+          handleWidth: measurements.handleWidth,
+          maximumWidthPct: measurements.maximumWidthPct,
+        });
+        this._setColumnWidths(colL, colR, initialWidthPct);
       } else {
         colL.style.width = "";
         colR.style.width = "";
@@ -459,27 +536,18 @@ export class WideViewPageController {
     const colL = this._host._$(".col-left");
     const colR = this._host._$(".col-right");
     if (!layout || !colL || !colR) return;
-    const layoutWidth = Number(layout.getBoundingClientRect?.().width) || 0;
+    const columns = layout.querySelector?.(".wide-view-columns") || layout;
+    const layoutWidth = Number(columns.getBoundingClientRect?.().width) || 0;
+    const handleWidth = Number(handle.getBoundingClientRect?.().width) || 0;
+    const columnSpaceWidth = Math.max(0, layoutWidth - handleWidth);
     const startLeftWidth = Number(colL.getBoundingClientRect?.().width) || 0;
-    if (layoutWidth <= 0) return;
+    if (columnSpaceWidth <= 0) return;
 
-    const companionPanel = colL.querySelector?.("#wide-companion-panel");
-    const companionHeader = companionPanel?.querySelector?.(
-      ".wide-companion-header",
+    const { maximumWidthPct: maxPct } = this._measureWideLeftResizeMaxPct(
+      layout,
+      colL,
+      Number.parseFloat(colL.style?.width),
     );
-    const liveWrap = colL.querySelector?.("#eng-wrap");
-    const companionRect = companionPanel?.getBoundingClientRect?.();
-    const companionHeaderRect = companionHeader?.getBoundingClientRect?.();
-    const liveRect = liveWrap?.getBoundingClientRect?.();
-    const maxPct = resolveWideLeftResizeMaxPct({
-      layoutWidth,
-      leftWidth: startLeftWidth,
-      leftStylePct: Number.parseFloat(colL.style?.width),
-      companionHeight: companionRect?.height,
-      companionHeaderHeight: companionHeaderRect?.height,
-      liveWidth: liveRect?.width,
-      liveHeight: liveRect?.height,
-    });
 
     const documentTarget = handle.ownerDocument || this._documentTarget;
     const windowTarget = documentTarget?.defaultView || this._windowTarget;
@@ -488,7 +556,7 @@ export class WideViewPageController {
     this._resizeDragState = {
       startX: Number(event.clientX) || 0,
       startLeftWidth,
-      layoutWidth,
+      columnSpaceWidth,
       maxPct,
       colL,
       colR,
@@ -499,10 +567,10 @@ export class WideViewPageController {
     cleanup.addEventListener(documentTarget, "mousemove", (moveEvent) => {
       const state = this._resizeDragState;
       if (!state) return;
-      const minPct = WIDE_LEFT_WIDTH_MIN;
+      const minPct = WIDE_LEFT_RESIZE_MIN;
       const dx = (Number(moveEvent.clientX) || 0) - state.startX;
       const newLeftWidth = state.startLeftWidth + dx;
-      let pct = (newLeftWidth / state.layoutWidth) * 100;
+      let pct = (newLeftWidth / state.columnSpaceWidth) * 100;
       pct = Math.max(minPct, Math.min(state.maxPct, pct));
       state.colL.style.width = pct + "%";
       state.colR.style.width = 100 - pct + "%";
