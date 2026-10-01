@@ -7271,6 +7271,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       surfaceTop: surface.getBoundingClientRect().top,
       panelOverflow: getComputedStyle(panel).overflow,
       liveHeight: liveStage.getBoundingClientRect().height,
+      gridWidth: companionGrid.getBoundingClientRect().width,
       surfacePaddingLeft: getComputedStyle(surface).paddingLeft,
       gridInsetLeft:
         companionGrid.getBoundingClientRect().left -
@@ -7295,11 +7296,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
           Math.abs(cell.getBoundingClientRect().top - firstCellTop) <= 1,
       ).length,
       cellWidth: firstCompanionCell.getBoundingClientRect().width,
-      resolvedCellWidth: Number.parseFloat(
-        getComputedStyle(companionGrid).getPropertyValue(
-          "--wide-companion-cell-width",
-        ),
-      ),
+      mediaHeight: firstCompanionMediaRect.height,
       cellDisplay: getComputedStyle(firstCompanionCell).display,
       cellDirection: getComputedStyle(firstCompanionCell).flexDirection,
       mediaPosition: getComputedStyle(firstCompanionMedia).position,
@@ -7394,6 +7391,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
         "has-open-toolbar-panel",
       ),
       cellWidth: firstCompanionCell.getBoundingClientRect().width,
+      mediaHeight: firstCompanionMedia.getBoundingClientRect().height,
       renderedColumns: getComputedStyle(
         companionGrid,
       ).gridTemplateColumns.split(" ").length,
@@ -7434,6 +7432,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       now: Number(handle.getAttribute("aria-valuenow")),
       panelExpanded: panel.classList.contains("is-expanded"),
       cellWidth: firstCompanionCell.getBoundingClientRect().width,
+      mediaHeight: firstCompanionMedia.getBoundingClientRect().height,
       renderedColumns: getComputedStyle(
         companionGrid,
       ).gridTemplateColumns.split(" ").length,
@@ -7536,11 +7535,15 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.gridDisplay).toBe("grid");
   expect(result.before.previewStylesLoaded).toBe(false);
   expect(result.before.firstRowCellCount).toBeGreaterThan(1);
-  expect(result.before.resolvedCellWidth).toBeGreaterThan(0);
   expect(result.before.cellWidth).toBeCloseTo(
-    result.before.resolvedCellWidth,
+    (result.before.gridWidth -
+      8 * (result.before.renderedColumns - 1)) /
+      result.before.renderedColumns,
     0,
   );
+  expect(
+    result.before.cellWidth / result.before.mediaHeight,
+  ).toBeCloseTo(16 / 9, 2);
   expect(result.before.cellDisplay).toBe("flex");
   expect(result.before.cellDirection).toBe("column");
   expect(result.before.mediaPosition).toBe("relative");
@@ -7582,6 +7585,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.expanded.panelTop).toBeCloseTo(result.before.panelTop, 0);
   expect(result.expanded.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
   expect(result.expanded.cellWidth).toBeCloseTo(result.before.cellWidth, 0);
+  expect(result.expanded.mediaHeight).toBeCloseTo(
+    result.before.mediaHeight,
+    0,
+  );
   expect(result.expanded.renderedColumns).toBe(
     result.before.renderedColumns,
   );
@@ -7596,6 +7603,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.collapsed.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
   expect(result.collapsed.panelExpanded).toBe(false);
   expect(result.collapsed.cellWidth).toBeCloseTo(result.before.cellWidth, 0);
+  expect(result.collapsed.mediaHeight).toBeCloseTo(
+    result.before.mediaHeight,
+    0,
+  );
   expect(result.collapsed.renderedColumns).toBe(
     result.before.renderedColumns,
   );

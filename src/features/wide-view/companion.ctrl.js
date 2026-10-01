@@ -81,40 +81,31 @@ export function resolveWideCompanionGridLayout({
     );
     const rows = Math.ceil(count / columns);
     const totalGapHeight = COMPANION_GRID_GAP_PX * (rows - 1);
-    const heightLimitedCellWidth = availableHeight > 0
-      ? Math.max(
-          0,
-          (availableHeight - totalGapHeight) / rows - resolvedMetaHeight,
-        ) * (16 / 9)
-      : widthLimitedCellWidth;
-    const fittedCellWidth = Math.min(
-      widthLimitedCellWidth,
-      heightLimitedCellWidth,
-    );
     candidates.push({
       columns,
-      cellWidth: Math.max(
-        fittedCellWidth,
-        Math.min(
-          widthLimitedCellWidth,
-          resolvedMinimumCellWidth,
-        ),
-      ),
+      cellWidth: widthLimitedCellWidth,
+      contentHeight:
+        rows * (widthLimitedCellWidth * (9 / 16) + resolvedMetaHeight) +
+        totalGapHeight,
     });
   }
 
-  const bestLayout = candidates.reduce((best, candidate) => {
-    if (!best || candidate.cellWidth > best.cellWidth + 0.05) {
-      return candidate;
-    }
-    if (
-      Math.abs(candidate.cellWidth - best.cellWidth) <= 0.05 &&
-      candidate.columns > best.columns
-    ) {
-      return candidate;
-    }
-    return best;
-  }, null);
+  const preferredCandidates = candidates.filter(
+    ({ cellWidth }) => cellWidth >= resolvedMinimumCellWidth,
+  );
+  const preferredFitting = preferredCandidates.filter(
+    ({ contentHeight }) =>
+      availableHeight <= 0 || contentHeight <= availableHeight + 0.5,
+  );
+  const fittingCandidates = candidates.filter(
+    ({ contentHeight }) =>
+      availableHeight <= 0 || contentHeight <= availableHeight + 0.5,
+  );
+  const bestLayout =
+    preferredFitting[0] ||
+    preferredCandidates.at(-1) ||
+    fittingCandidates[0] ||
+    candidates.at(-1);
 
   return {
     columns: bestLayout.columns,
@@ -174,7 +165,6 @@ export class WideViewCompanionController {
     this._layoutResizeObserver = null;
     this._layoutGrid = null;
     this._lastLayoutColumns = null;
-    this._lastLayoutCellWidth = null;
     this._ResizeObserver = resizeObserverCtor;
     this._alertController = new WideViewCompanionAlertController(
       host,
@@ -300,22 +290,12 @@ export class WideViewCompanionController {
       height: layoutHeight,
       metadataHeight: resolvedMetadataHeight,
     });
-    if (
-      layout.columns === this._lastLayoutColumns &&
-      layout.cellWidth === this._lastLayoutCellWidth
-    ) return;
+    if (layout.columns === this._lastLayoutColumns) return;
     this._lastLayoutColumns = layout.columns;
-    this._lastLayoutCellWidth = layout.cellWidth;
     grid.style?.setProperty?.(
       "--wide-companion-columns",
       String(layout.columns),
     );
-    if (layout.cellWidth > 0) {
-      grid.style?.setProperty?.(
-        "--wide-companion-cell-width",
-        `${layout.cellWidth}px`,
-      );
-    }
   }
 
   _bindLayoutObserver(grid) {
@@ -345,7 +325,6 @@ export class WideViewCompanionController {
     this._layoutResizeObserver = null;
     this._layoutGrid = null;
     this._lastLayoutColumns = null;
-    this._lastLayoutCellWidth = null;
   }
 
   bindPanelExpansion() {

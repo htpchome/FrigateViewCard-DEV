@@ -309,7 +309,7 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
       width: 1260,
       height: 300,
     }),
-    { columns: 5, cellWidth: 216.8 },
+    { columns: 6, cellWidth: 203.3 },
   );
   assert.deepEqual(
     resolveWideCompanionGridLayout({
@@ -325,7 +325,7 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
       width: 745,
       height: 100,
     }),
-    { columns: 4, cellWidth: 160 },
+    { columns: 4, cellWidth: 180.2 },
   );
   assert.deepEqual(
     resolveWideCompanionGridLayout({
@@ -349,7 +349,7 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
       width: 494,
       height: 657,
     }),
-    { columns: 2, cellWidth: 238.6 },
+    { columns: 2, cellWidth: 243 },
   );
   const belowOldThreshold = resolveWideCompanionGridLayout({
     cameraCount: 7,
@@ -362,15 +362,31 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
     height: 657,
   });
   assert.deepEqual(belowOldThreshold, { columns: 2, cellWidth: 238.5 });
-  assert.deepEqual(aboveOldThreshold, { columns: 2, cellWidth: 238.6 });
+  assert.deepEqual(aboveOldThreshold, { columns: 2, cellWidth: 239 });
   assert.ok(
     Math.abs(
       aboveOldThreshold.cellWidth - belowOldThreshold.cellWidth,
-    ) <= 0.1,
+    ) <= 0.5,
+  );
+  assert.deepEqual(
+    resolveWideCompanionGridLayout({
+      cameraCount: 12,
+      width: 1600,
+      height: 900,
+    }),
+    { columns: 4, cellWidth: 394 },
+  );
+  assert.deepEqual(
+    resolveWideCompanionGridLayout({
+      cameraCount: 12,
+      width: 720,
+      height: 1000,
+    }),
+    { columns: 3, cellWidth: 234.6 },
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
-    /\.wide-companion-grid\{display:grid;[^}]*width:100%;[^}]*justify-content:center;[^}]*grid-template-columns:repeat\(var\(--wide-companion-columns,2\),minmax\(0,var\(--wide-companion-cell-width,1fr\)\)\)/,
+    /\.wide-companion-grid\{display:grid;[^}]*width:100%;[^}]*justify-content:stretch;[^}]*grid-template-columns:repeat\(var\(--wide-companion-columns,2\),minmax\(0,1fr\)\);grid-auto-rows:max-content/,
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
@@ -390,7 +406,7 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
-    /\.wide-companion-cell\{display:flex;flex-direction:column;[^}]*overflow:hidden/,
+    /\.wide-companion-cell\{display:flex;[^}]*flex-direction:column;[^}]*height:max-content;[^}]*overflow:hidden/,
   );
   assert.match(
     WIDE_VIEW_COMPANION_STYLES,
@@ -462,18 +478,12 @@ test("Companion Camera layout uses observed dimensions without grid reads", () =
     ]),
   );
   assert.equal(grid.style.values["--wide-companion-columns"], "2");
-  assert.equal(
-    grid.style.values["--wide-companion-cell-width"],
-    "368.5px",
-  );
+  assert.equal(grid.style.values["--wide-companion-cell-width"], undefined);
   resizeCallback([
     { target: grid, contentRect: { width: 700, height: 550 } },
   ]);
   assert.equal(grid.style.values["--wide-companion-columns"], "2");
-  assert.equal(
-    grid.style.values["--wide-companion-cell-width"],
-    "346px",
-  );
+  assert.equal(grid.style.values["--wide-companion-cell-width"], undefined);
 });
 
 test("Companion Camera layout uses the full row at the largest fitting size", () => {
@@ -508,7 +518,7 @@ test("Companion Camera controller applies the resolved column count", () => {
   controller.updateLayout();
 
   assert.equal(grid.style.values["--wide-companion-columns"], "3");
-  assert.equal(grid.style.values["--wide-companion-cell-width"], "243px");
+  assert.equal(grid.style.values["--wide-companion-cell-width"], undefined);
 });
 
 test("visible snapshot companions rerender and retry snapshot loading", () => {
