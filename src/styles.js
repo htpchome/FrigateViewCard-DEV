@@ -1342,6 +1342,30 @@ export const STYLES_AFTER_CARD_VIEW = `
     }
   }
 
+  @container browse-list (max-width:380px){
+    .card .layout--wide-view .browse .list-item:is(.list-item--event,.list-item--review){
+      grid-template-areas:"thumb tags" "thumb meta" "actions ." "description description";
+      align-items:start;
+    }
+    .card .layout--wide-view .browse .list-item:is(.list-item--event,.list-item--review) > .list-item-middle--narrow{
+      display:contents;
+    }
+    .card .layout--wide-view .browse .list-item-middle--narrow > :is(.etop,.rev-head){
+      grid-area:tags;
+    }
+    .card .layout--wide-view .browse .list-item-middle--narrow .list-item-meta{
+      grid-area:meta;
+    }
+    .card .layout--wide-view .browse .list-item-middle--narrow .list-item-actions--narrow{
+      grid-area:actions;
+      align-self:start;
+      justify-self:center;
+    }
+    .card .layout--wide-view .browse .list-item-middle--narrow > .desc{
+      grid-area:description;
+    }
+  }
+
   ${CAMERA_GROUP_LIVE_STYLES}
   ${TWO_WAY_TALK_SOUNDWAVE_STYLES}
 

@@ -775,6 +775,21 @@ test("list actions remain horizontal and list bubbles share one geometry", () =>
   );
 });
 
+test("narrow Wide View browse rows place actions below the thumbnail", () => {
+  assert.match(
+    STYLES,
+    /@container browse-list \(max-width:380px\)[\s\S]*\.layout--wide-view \.browse \.list-item:is\(\.list-item--event,\.list-item--review\)\{[\s\S]*grid-template-areas:"thumb tags" "thumb meta" "actions \." "description description";/,
+  );
+  assert.match(
+    STYLES,
+    /\.layout--wide-view \.browse \.list-item:is\(\.list-item--event,\.list-item--review\) > \.list-item-middle--narrow\{\s*display:contents;/,
+  );
+  assert.match(
+    STYLES,
+    /\.layout--wide-view \.browse \.list-item-middle--narrow \.list-item-actions--narrow\{[\s\S]*grid-area:actions;[\s\S]*justify-self:center;/,
+  );
+});
+
 test("Mobile View outer border is removed only by its config state class", () => {
   assert.match(
     MOBILE_VIEW_PAGE_STYLES,
