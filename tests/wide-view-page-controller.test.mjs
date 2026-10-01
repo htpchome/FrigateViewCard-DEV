@@ -2,7 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-import { WideViewPageController } from "../src/features/wide-view/page.ctrl.js";
+import {
+  WideViewPageController,
+  resolveWideLeftResizeMaxPct,
+} from "../src/features/wide-view/page.ctrl.js";
 
 const PAGE_IDS = { preview: "preview", wideView: "wide-view" };
 const cardSource = fs.readFileSync(
@@ -290,37 +293,37 @@ test("syncColHeightIfWideView syncs only for wide route", () => {
   assert.deepEqual(single.calls, []);
 });
 
-test("Wide View live resize maximum collapses companions to their header", () => {
-  const { host } = createHost({ isWide: true });
-  const header = {
-    getBoundingClientRect: () => ({ height: 32 }),
-  };
-  const panel = {
-    getBoundingClientRect: () => ({ height: 152 }),
-    querySelector: (selector) =>
-      selector === ".wide-companion-header" ? header : null,
-  };
-  host._$ = (selector) =>
-    selector === "#wide-companion-panel" ? panel : null;
-  const controller = new WideViewPageController(host, { PAGE_IDS });
-
+test("Wide View column resize maximum follows Companion Cameras space", () => {
   assert.equal(
-    controller.resolveLiveResizeMaxHeightRatio({
-      wrap: { getBoundingClientRect: () => ({ height: 225 }) },
-      containerWidth: 400,
-      currentHeightRatio: 9 / 16,
+    resolveWideLeftResizeMaxPct({
+      layoutWidth: 1000,
+      leftWidth: 600,
+      leftStylePct: 60,
+      companionHeight: 122,
+      companionHeaderHeight: 32,
+      liveWidth: 600,
+      liveHeight: 337.5,
     }),
-    0.8625,
+    76,
   );
-
-  host._pageId = "single-view";
   assert.equal(
-    controller.resolveLiveResizeMaxHeightRatio({
-      wrap: { getBoundingClientRect: () => ({ height: 225 }) },
-      containerWidth: 400,
-      currentHeightRatio: 9 / 16,
+    resolveWideLeftResizeMaxPct({
+      layoutWidth: 1000,
+      leftWidth: 750,
+      leftStylePct: 75,
+      companionHeight: 32,
+      companionHeaderHeight: 32,
+      liveWidth: 750,
+      liveHeight: 421.875,
     }),
-    null,
+    75,
+  );
+  assert.equal(
+    resolveWideLeftResizeMaxPct({
+      layoutWidth: 1000,
+      leftWidth: 600,
+    }),
+    75,
   );
 });
 

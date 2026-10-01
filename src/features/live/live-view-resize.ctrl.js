@@ -78,7 +78,6 @@ export class LiveViewResizeController {
     onInteractionStart = () => {},
     onZoomScaleChange = () => {},
     getMediaDimensions = null,
-    getMaximumHeightRatio = null,
     getAvailableGrowth = null,
     resizeObserverCtor = globalThis.ResizeObserver,
   } = {}) {
@@ -87,7 +86,6 @@ export class LiveViewResizeController {
     this._onInteractionStart = onInteractionStart;
     this._onZoomScaleChange = onZoomScaleChange;
     this._getMediaDimensions = getMediaDimensions;
-    this._getMaximumHeightRatio = getMaximumHeightRatio;
     this._getAvailableGrowth = getAvailableGrowth;
     this._ResizeObserver = resizeObserverCtor;
     this._wrap = null;
@@ -272,26 +270,11 @@ export class LiveViewResizeController {
       return;
     }
 
-    const contextualMaximum = this._getMaximumHeightRatio?.({
-      wrap: this._wrap,
-      containerWidth: bounds.containerWidth,
-      currentHeightRatio: this._heightRatio,
-      defaultMaxHeightRatio: bounds.maxHeightRatio,
-    });
-    const contextualMaximumNumber = Number(contextualMaximum);
-    this._bounds = {
-      ...bounds,
-      maxHeightRatio:
-        contextualMaximum != null &&
-        Number.isFinite(contextualMaximumNumber) &&
-        contextualMaximumNumber > 0
-          ? Math.max(bounds.minHeightRatio, contextualMaximumNumber)
-          : bounds.maxHeightRatio,
-    };
+    this._bounds = bounds;
     this._heightRatio = clampLiveViewHeightRatio(
       this._heightRatio,
-      this._bounds.minHeightRatio,
-      this._bounds.maxHeightRatio,
+      bounds.minHeightRatio,
+      bounds.maxHeightRatio,
     );
     this._wrap.classList?.add("live-resize-eligible");
     this._grip.hidden = false;

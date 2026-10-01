@@ -6960,7 +6960,7 @@ test("Wide View footer remains singular across landing and route swaps", async (
   });
 });
 
-test("Wide View live resize stops at the Companion Cameras header", async ({
+test("Wide View divider expands past 75% until companions reach their header", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
@@ -6978,7 +6978,7 @@ test("Wide View live resize stops at the Companion Cameras header", async ({
         name: `Camera ${index + 1}`,
       })),
       wide_view_page_enabled: true,
-      stream_height: 700,
+      stream_height: 420,
       stream_height_unit: "px",
     });
     await card._wideViewPageController.prepare();
@@ -6986,65 +6986,77 @@ test("Wide View live resize stops at the Companion Cameras header", async ({
     card._renderShell();
     card._wideViewPageController.startWideViewMode();
     await card._wideViewCompanionController._ensureDelegate();
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-
-    card._viewMode = "single";
-    card._activeStreamType = "mse";
-    card.shadowRoot.querySelector("#stream-fallback").hidden = true;
-    const media = new EventTarget();
-    media.videoWidth = 1024;
-    media.videoHeight = 768;
-    card._liveViewResizeController.bind();
-    card._liveViewResizeController.attachMedia(media);
+    card._applyCardStyle();
+    card.style.setProperty("--card-host-height", "650px");
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     const root = card.shadowRoot;
-    const wrap = root.querySelector("#eng-wrap");
+    const columns = root.querySelector(".wide-view-columns");
+    const left = root.querySelector(".col-left--wide-view");
     const panel = root.querySelector("#wide-companion-panel");
     const header = root.querySelector(".wide-companion-header");
-    const grip = root.querySelector("#live-resize-grip");
+    const grid = root.querySelector("#wide-companion-grid");
+    const panelRect = panel.getBoundingClientRect();
+    const gridRect = grid.getBoundingClientRect();
     return {
-      gripVisible: !grip.hidden,
-      gripMaximum: Number(grip.getAttribute("aria-valuemax")),
-      wrapHeight: wrap.getBoundingClientRect().height,
+      leftPct:
+        (left.getBoundingClientRect().width /
+          columns.getBoundingClientRect().width) *
+        100,
       companionSpace:
         panel.getBoundingClientRect().height -
         header.getBoundingClientRect().height,
-    };
-  });
-
-  expect(before.gripVisible).toBe(true);
-  expect(before.gripMaximum).toBeGreaterThan(75);
-  expect(before.companionSpace).toBeGreaterThan(20);
-
-  const grip = page.locator("frigate-view-card #live-resize-grip");
-  await grip.press("End");
-
-  const after = await page.evaluate(() => {
-    const card = document.querySelector("frigate-view-card");
-    const root = card.shadowRoot;
-    const wrap = root.querySelector("#eng-wrap");
-    const panel = root.querySelector("#wide-companion-panel");
-    const header = root.querySelector(".wide-companion-header");
-    const footer = root.querySelector('[data-fvc-region="footer"]');
-    return {
-      wrapHeight: wrap.getBoundingClientRect().height,
-      companionSpace:
-        panel.getBoundingClientRect().height -
-        header.getBoundingClientRect().height,
-      footerGap: Math.abs(
-        footer.getBoundingClientRect().bottom -
-          card.getBoundingClientRect().bottom,
+      visibleCompanionHeight: Math.max(
+        0,
+        Math.min(panelRect.bottom, gridRect.bottom) -
+          Math.max(panelRect.top, gridRect.top),
       ),
     };
   });
 
-  expect(after.wrapHeight - before.wrapHeight).toBeGreaterThan(50);
+  expect(before.visibleCompanionHeight).toBeGreaterThan(10);
+
+  const divider = page.locator("frigate-view-card #resize-handle");
+  const bounds = await divider.boundingBox();
+  expect(bounds).toBeTruthy();
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(1190, y, { steps: 10 });
+  await page.mouse.up();
+
+  const after = await page.evaluate(() => {
+    const card = document.querySelector("frigate-view-card");
+    const root = card.shadowRoot;
+    const columns = root.querySelector(".wide-view-columns");
+    const left = root.querySelector(".col-left--wide-view");
+    const panel = root.querySelector("#wide-companion-panel");
+    const header = root.querySelector(".wide-companion-header");
+    const grid = root.querySelector("#wide-companion-grid");
+    const panelRect = panel.getBoundingClientRect();
+    const gridRect = grid.getBoundingClientRect();
+    return {
+      leftPct:
+        (left.getBoundingClientRect().width /
+          columns.getBoundingClientRect().width) *
+        100,
+      companionSpace:
+        panel.getBoundingClientRect().height -
+        header.getBoundingClientRect().height,
+      visibleCompanionHeight: Math.max(
+        0,
+        Math.min(panelRect.bottom, gridRect.bottom) -
+          Math.max(panelRect.top, gridRect.top),
+      ),
+    };
+  });
+
+  expect(after.leftPct, JSON.stringify({ before, after })).toBeGreaterThan(75);
   expect(
-    after.companionSpace,
+    after.visibleCompanionHeight,
     JSON.stringify({ before, after }),
   ).toBeLessThanOrEqual(1);
-  expect(after.footerGap).toBeLessThanOrEqual(2);
 });
 
 test("Wide View Companion Cameras drag upward over controls without resizing live", async ({

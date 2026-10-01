@@ -11,6 +11,47 @@ import {
   normalizeWideLeftWidth,
 } from "./config.js";
 
+const WIDE_LEFT_RESIZE_MAX = 100;
+
+const positiveNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+};
+
+export function resolveWideLeftResizeMaxPct({
+  layoutWidth,
+  leftWidth,
+  leftStylePct,
+  companionHeight,
+  companionHeaderHeight,
+  liveWidth,
+  liveHeight,
+} = {}) {
+  const layout = positiveNumber(layoutWidth);
+  const left = positiveNumber(leftWidth);
+  const styledPct = positiveNumber(leftStylePct);
+  const panel = positiveNumber(companionHeight);
+  const header = positiveNumber(companionHeaderHeight);
+  const mediaWidth = positiveNumber(liveWidth);
+  const mediaHeight = positiveNumber(liveHeight);
+  if (!layout || !left) return WIDE_LEFT_WIDTH_MAX;
+
+  const currentPct = styledPct || (left / layout) * 100;
+  if (!panel || !header || !mediaWidth || !mediaHeight) {
+    return Math.max(currentPct, WIDE_LEFT_WIDTH_MAX);
+  }
+
+  const collapsibleHeight = Math.max(0, panel - header);
+  const liveHeightPerWidth = mediaHeight / mediaWidth;
+  const boundaryLeftWidth =
+    left + collapsibleHeight / liveHeightPerWidth;
+  const renderedPixelsPerPct = styledPct ? left / styledPct : layout / 100;
+  return Math.min(
+    WIDE_LEFT_RESIZE_MAX,
+    Math.max(currentPct, boundaryLeftWidth / renderedPixelsPerPct),
+  );
+}
+
 export class WideViewPageController {
   constructor(host, constants, options = {}) {
     this._host = host;
@@ -263,41 +304,6 @@ export class WideViewPageController {
     this.syncColHeight();
   }
 
-  resolveLiveResizeMaxHeightRatio({
-    wrap,
-    containerWidth,
-    currentHeightRatio,
-  } = {}) {
-    if (!this.isWideViewPageActive()) return null;
-    const panel = this._host._$?.("#wide-companion-panel");
-    const header = panel?.querySelector?.(".wide-companion-header");
-    const width = Number(containerWidth);
-    const panelHeight = Number(
-      panel?.getBoundingClientRect?.().height || panel?.clientHeight,
-    );
-    const headerHeight = Number(
-      header?.getBoundingClientRect?.().height || header?.offsetHeight,
-    );
-    const renderedLiveHeight = Number(
-      wrap?.getBoundingClientRect?.().height ||
-        width * Number(currentHeightRatio),
-    );
-    if (
-      !Number.isFinite(width) ||
-      width <= 0 ||
-      !Number.isFinite(panelHeight) ||
-      !Number.isFinite(headerHeight) ||
-      !Number.isFinite(renderedLiveHeight)
-    ) {
-      return null;
-    }
-    const collapsibleCompanionHeight = Math.max(
-      0,
-      panelHeight - headerHeight,
-    );
-    return (renderedLiveHeight + collapsibleCompanionHeight) / width;
-  }
-
   syncColHeight() {
     this.syncToolbarPanelPlacement();
     const l = this._host.shadowRoot?.querySelector(".col-left");
@@ -457,6 +463,24 @@ export class WideViewPageController {
     const startLeftWidth = Number(colL.getBoundingClientRect?.().width) || 0;
     if (layoutWidth <= 0) return;
 
+    const companionPanel = colL.querySelector?.("#wide-companion-panel");
+    const companionHeader = companionPanel?.querySelector?.(
+      ".wide-companion-header",
+    );
+    const liveWrap = colL.querySelector?.("#eng-wrap");
+    const companionRect = companionPanel?.getBoundingClientRect?.();
+    const companionHeaderRect = companionHeader?.getBoundingClientRect?.();
+    const liveRect = liveWrap?.getBoundingClientRect?.();
+    const maxPct = resolveWideLeftResizeMaxPct({
+      layoutWidth,
+      leftWidth: startLeftWidth,
+      leftStylePct: Number.parseFloat(colL.style?.width),
+      companionHeight: companionRect?.height,
+      companionHeaderHeight: companionHeaderRect?.height,
+      liveWidth: liveRect?.width,
+      liveHeight: liveRect?.height,
+    });
+
     const documentTarget = handle.ownerDocument || this._documentTarget;
     const windowTarget = documentTarget?.defaultView || this._windowTarget;
     const cleanup = new CleanupController();
@@ -465,6 +489,7 @@ export class WideViewPageController {
       startX: Number(event.clientX) || 0,
       startLeftWidth,
       layoutWidth,
+      maxPct,
       colL,
       colR,
       handle,
@@ -475,11 +500,10 @@ export class WideViewPageController {
       const state = this._resizeDragState;
       if (!state) return;
       const minPct = WIDE_LEFT_WIDTH_MIN;
-      const maxPct = WIDE_LEFT_WIDTH_MAX;
       const dx = (Number(moveEvent.clientX) || 0) - state.startX;
       const newLeftWidth = state.startLeftWidth + dx;
       let pct = (newLeftWidth / state.layoutWidth) * 100;
-      pct = Math.max(minPct, Math.min(maxPct, pct));
+      pct = Math.max(minPct, Math.min(state.maxPct, pct));
       state.colL.style.width = pct + "%";
       state.colR.style.width = 100 - pct + "%";
       this.syncColHeight();

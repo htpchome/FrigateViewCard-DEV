@@ -72,7 +72,6 @@ class FakeTarget {
 const createFixture = ({
   videoWidth = 1024,
   videoHeight = 768,
-  maximumHeightRatio = null,
   availableGrowth = null,
   resizeObserverCtor = null,
 } = {}) => {
@@ -108,7 +107,6 @@ const createFixture = ({
       interactionCount += 1;
     },
     onZoomScaleChange: (scale) => zoomScales.push(scale),
-    getMaximumHeightRatio: () => maximumHeightRatio,
     getAvailableGrowth: () => availableGrowth,
     resizeObserverCtor,
   });
@@ -306,21 +304,6 @@ test("live drag stops before flexible content can collapse the footer", () => {
   );
   assert.equal(fixture.attributes.get("aria-valuemax"), "76");
   assert.equal(fixture.attributes.get("aria-valuenow"), "76");
-});
-
-test("live drag honors a layout maximum beyond the media ratio cap", () => {
-  const fixture = createFixture({ maximumHeightRatio: 0.9 });
-
-  fixture.grip.dispatch("pointerdown", { clientY: 100 });
-  fixture.grip.dispatch("pointermove", { clientY: 900 });
-  fixture.grip.dispatch("pointerup", { clientY: 900 });
-
-  assert.equal(
-    fixture.wrap.style.getPropertyValue("--live-view-aspect-ratio"),
-    `${(1 / 0.9).toFixed(6)} / 1`,
-  );
-  assert.equal(fixture.attributes.get("aria-valuemax"), "90");
-  assert.equal(fixture.attributes.get("aria-valuenow"), "90");
 });
 
 test("resize grip hides outside an eligible live context", () => {
