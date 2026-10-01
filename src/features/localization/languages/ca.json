@@ -527,6 +527,7 @@
       "cardHeightLimit": "Límit d'alçada de la targeta",
       "cardHeightUnit": "Unitat d'alçada de la targeta",
       "autoHeightHelp": "Perquè funcioni correctament, cal configurar l'alçada automàtica de la targeta.",
+      "cardHeightLimitDisclaimer": "La ubicació de la targeta (per exemple, a Seccions o Tauler) i l’alçada de la finestra poden limitar-ne l’efecte.",
       "cardHeightRangeValidation": "Tria un nombre enter entre {min} i {max}.",
       "tightMargins": "Marges ajustats",
       "tightMarginsHelp": "Elimina l'espai interior en les vistes de seccions. A les finestres emergents de Bubble Card, conserva l'espai superior i elimina l'espai lateral i inferior.",

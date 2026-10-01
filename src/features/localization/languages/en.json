@@ -527,6 +527,7 @@
       "cardHeightLimit": "Card Height Limit",
       "cardHeightUnit": "Card height unit",
       "autoHeightHelp": "Card needs to be set to Auto Height for this to work properly.",
+      "cardHeightLimitDisclaimer": "Card placement (such as Sections or Panel) and viewport height may limit its effect.",
       "cardHeightRangeValidation": "Select a whole number from {min} to {max}.",
       "tightMargins": "Tight Margins",
       "tightMarginsHelp": "Removes padding in Sections views. In Bubble Card popups, keeps top padding and removes side and bottom spacing.",

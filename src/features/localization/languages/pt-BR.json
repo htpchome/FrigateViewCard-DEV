@@ -215,6 +215,7 @@
       "tightMarginsHelp": "Remove o espaçamento interno nas visualizações de seções. Nas janelas do Bubble Card, mantém o espaçamento superior e remove o lateral e o inferior.",
       "activeTabs": "Abas ativas",
       "autoHeightHelp": "Para funcionar corretamente, a altura do cartão precisa estar definida como Automática.",
+      "cardHeightLimitDisclaimer": "O local onde o cartão está inserido (como Seções ou Painel) e a altura da janela podem limitar o efeito.",
       "eventItemBorders": "Bordas dos eventos",
       "eventItemBordersHelp": "Adiciona bordas aos eventos. Útil quando as sombras internas estão desativadas."
     },

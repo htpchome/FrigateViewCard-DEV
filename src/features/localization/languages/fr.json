@@ -527,6 +527,7 @@
       "cardHeightLimit": "Hauteur maximale de la carte",
       "cardHeightUnit": "Unité de hauteur de la carte",
       "autoHeightHelp": "La carte doit être réglée sur une hauteur automatique pour que cela fonctionne correctement.",
+      "cardHeightLimitDisclaimer": "L’emplacement de la carte (par exemple, dans Sections ou Panneau) et la hauteur de la fenêtre peuvent limiter son effet.",
       "cardHeightRangeValidation": "Sélectionnez un nombre entier entre {min} et {max}.",
       "tightMargins": "Marges réduites",
       "tightMarginsHelp": "Supprime les espacements internes dans les vues Sections. Dans les fenêtres Bubble Card, conserve l'espacement supérieur et supprime les espaces latéraux et inférieur.",

@@ -527,6 +527,7 @@
       "cardHeightLimit": "Limite de altura do cartão",
       "cardHeightUnit": "Unidade de altura do cartão",
       "autoHeightHelp": "Para funcionar corretamente, a altura do cartão tem de estar definida como Automática.",
+      "cardHeightLimitDisclaimer": "A localização do cartão (por exemplo, em Secções ou Painel) e a altura da janela podem limitar o seu efeito.",
       "cardHeightRangeValidation": "Selecione um número inteiro entre {min} e {max}.",
       "tightMargins": "Margens reduzidas",
       "tightMarginsHelp": "Remove o espaçamento interno nas vistas de secções. Nas janelas Bubble Card, mantém o espaçamento superior e remove o lateral e inferior.",

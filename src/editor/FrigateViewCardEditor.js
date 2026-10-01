@@ -3855,6 +3855,7 @@ export class FrigateViewCardEditor extends HTMLElement {
           </div>
         </div>
         <div class="field-helper" data-fvc-i18n="editor.layout.autoHeightHelp">Card needs to be set to Auto Height for this to work properly.</div>
+        <div class="field-helper" data-fvc-i18n="editor.layout.cardHeightLimitDisclaimer">Card placement (such as Sections or Panel) and viewport height may limit its effect.</div>
         <div class="field-helper" id="stream_height-helper"></div>
       </div>
       <div class="section">

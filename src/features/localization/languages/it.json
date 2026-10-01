@@ -527,6 +527,7 @@
       "cardHeightLimit": "Limite altezza scheda",
       "cardHeightUnit": "Unità di altezza della scheda",
       "autoHeightHelp": "Per funzionare correttamente, l'altezza della scheda deve essere impostata su Automatica.",
+      "cardHeightLimitDisclaimer": "La posizione della scheda (ad esempio, in Sezioni o Pannello) e l’altezza della finestra possono limitarne l’effetto.",
       "cardHeightRangeValidation": "Seleziona un numero intero da {min} a {max}.",
       "tightMargins": "Margini ridotti",
       "tightMarginsHelp": "Rimuove la spaziatura interna nelle viste Sezioni. Nei popup Bubble Card mantiene la spaziatura superiore e rimuove quella laterale e inferiore.",

@@ -527,6 +527,7 @@
       "cardHeightLimit": "Límite de altura de la tarjeta",
       "cardHeightUnit": "Unidad de altura de la tarjeta",
       "autoHeightHelp": "La tarjeta debe tener activada la altura automática para que esto funcione correctamente.",
+      "cardHeightLimitDisclaimer": "La ubicación de la tarjeta (por ejemplo, en Secciones o Panel) y la altura de la ventana pueden limitar su efecto.",
       "cardHeightRangeValidation": "Selecciona un número entero entre {min} y {max}.",
       "tightMargins": "Márgenes estrechos",
       "tightMarginsHelp": "Elimina el relleno en las vistas de secciones. En las ventanas emergentes de Bubble Card conserva el relleno superior y elimina los espacios laterales e inferiores.",

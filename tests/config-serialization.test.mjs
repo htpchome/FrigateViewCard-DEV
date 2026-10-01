@@ -590,6 +590,10 @@ test("configuration helper copy is concise and action-oriented", () => {
   );
   assert.match(
     editorSource,
+    /Card placement \(such as Sections or Panel\) and viewport height may limit its effect\./,
+  );
+  assert.match(
+    editorSource,
     /Adds borders to event items\. Useful when inside shadows are off\./,
   );
   assert.match(
@@ -3067,6 +3071,10 @@ test("editor presents general, layout, and Mobile View controls in their request
   assert.match(
     layoutSource,
     /Card needs to be set to Auto Height for this to work properly\./,
+  );
+  assert.match(
+    layoutSource,
+    /Card placement \(such as Sections or Panel\) and viewport height may limit its effect\./,
   );
   assert.doesNotMatch(
     layoutSource,

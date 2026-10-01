@@ -527,6 +527,7 @@
       "cardHeightLimit": "Limit wysokości karty",
       "cardHeightUnit": "Jednostka wysokości karty",
       "autoHeightHelp": "Aby ta opcja działała poprawnie, ustaw automatyczną wysokość karty.",
+      "cardHeightLimitDisclaimer": "Położenie karty (np. w sekcji lub panelu) oraz wysokość obszaru wyświetlania mogą ograniczać działanie tego ustawienia.",
       "cardHeightRangeValidation": "Wybierz liczbę całkowitą od {min} do {max}.",
       "tightMargins": "Wąskie marginesy",
       "tightMarginsHelp": "Usuwa odstępy wewnętrzne w widoku sekcji. W oknach Bubble Card zachowuje odstęp u góry, a usuwa boczne i dolne odstępy.",

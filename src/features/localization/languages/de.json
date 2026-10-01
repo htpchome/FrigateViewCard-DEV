@@ -527,6 +527,7 @@
       "cardHeightLimit": "Maximale Kartenhöhe",
       "cardHeightUnit": "Einheit der Kartenhöhe",
       "autoHeightHelp": "Damit dies richtig funktioniert, muss die Karte auf automatische Höhe eingestellt sein.",
+      "cardHeightLimitDisclaimer": "Die Platzierung der Karte (z. B. in Abschnitten oder im Panel) und die Höhe des Ansichtsfensters können ihre Wirkung einschränken.",
       "cardHeightRangeValidation": "Wähle eine ganze Zahl zwischen {min} und {max}.",
       "tightMargins": "Schmale Abstände",
       "tightMarginsHelp": "Entfernt Innenabstände in Abschnittsansichten. In Bubble-Card-Popups bleibt der obere Abstand erhalten; seitliche und untere Abstände werden entfernt.",
