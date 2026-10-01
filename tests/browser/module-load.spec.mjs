@@ -7030,6 +7030,69 @@ test("Wide View width presets paint an equal split and preserve 250px on wider s
   expect(widths.max.left).toBeGreaterThanOrEqual(widths.threeQuarter.left - 1);
 });
 
+test("Wide View companion tiles stay large when two columns nearly fit", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1300, height: 1200 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const card = document.createElement("frigate-view-card");
+    card.style.width = "1000px";
+    document.body.append(card);
+    card.setConfig({
+      cameras: Array.from({ length: 7 }, (_, index) => ({
+        entity: `camera.camera_${index + 1}`,
+        name: `Camera ${index + 1}`,
+      })),
+      wide_view_page_enabled: true,
+      wide_view_width: 75,
+      stream_height: 100,
+      stream_height_unit: "dvh",
+    });
+    await card._wideViewPageController.prepare();
+    card._pageId = "wide-view";
+    card._renderShell();
+    card._wideViewPageController.startWideViewMode();
+    await card._wideViewCompanionController._ensureDelegate();
+    card._applyCardStyle();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const root = card.shadowRoot;
+    const grid = root.querySelector("#wide-companion-grid");
+    const cells = Array.from(
+      root.querySelectorAll(".wide-companion-cell"),
+    );
+    const firstCell = cells[0];
+    const firstTop = firstCell.getBoundingClientRect().top;
+    const statusRect = firstCell
+      .querySelector(".wide-companion-meta-status")
+      .getBoundingClientRect();
+    const nameRect = firstCell
+      .querySelector(".wide-companion-meta-name")
+      .getBoundingClientRect();
+    return {
+      gridWidth: grid.getBoundingClientRect().width,
+      gridHeight: grid.getBoundingClientRect().height,
+      firstRowCellCount: cells.filter(
+        (cell) =>
+          Math.abs(cell.getBoundingClientRect().top - firstTop) <= 1,
+      ).length,
+      cellWidth: firstCell.getBoundingClientRect().width,
+      statusBeforeName: statusRect.right <= nameRect.left,
+    };
+  });
+
+  expect(result.gridWidth, JSON.stringify(result)).toBeGreaterThan(470);
+  expect(result.gridHeight, JSON.stringify(result)).toBeGreaterThan(630);
+  expect(result.firstRowCellCount, JSON.stringify(result)).toBe(2);
+  expect(result.cellWidth, JSON.stringify(result)).toBeGreaterThan(225);
+  expect(result.statusBeforeName, JSON.stringify(result)).toBe(true);
+});
+
 test("Wide View divider expands past 75% until companions reach their header", async ({
   page,
 }) => {
@@ -7163,6 +7226,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     card._wideViewPageController.startWideViewMode();
     await card._wideViewCompanionController._ensureDelegate();
     await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
 
     const root = card.shadowRoot;
     const panel = root.querySelector("#wide-companion-panel");
@@ -7230,6 +7294,12 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
         (cell) =>
           Math.abs(cell.getBoundingClientRect().top - firstCellTop) <= 1,
       ).length,
+      cellWidth: firstCompanionCell.getBoundingClientRect().width,
+      resolvedCellWidth: Number.parseFloat(
+        getComputedStyle(companionGrid).getPropertyValue(
+          "--wide-companion-cell-width",
+        ),
+      ),
       cellDisplay: getComputedStyle(firstCompanionCell).display,
       cellDirection: getComputedStyle(firstCompanionCell).flexDirection,
       mediaPosition: getComputedStyle(firstCompanionMedia).position,
@@ -7238,9 +7308,9 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       metaBelowMedia:
         firstCompanionMetaRect.top >= firstCompanionMediaRect.bottom - 1,
       metaHeight: firstCompanionMetaRect.height,
-      nameBeforeStatus:
-        firstCompanionName.getBoundingClientRect().left <
-        firstCompanionStatus.getBoundingClientRect().left,
+      statusBeforeName:
+        firstCompanionStatus.getBoundingClientRect().right <=
+        firstCompanionName.getBoundingClientRect().left,
       renderedColumns: getComputedStyle(companionGrid).gridTemplateColumns.split(
         " ",
       ).length,
@@ -7444,6 +7514,11 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.gridDisplay).toBe("grid");
   expect(result.before.previewStylesLoaded).toBe(false);
   expect(result.before.firstRowCellCount).toBeGreaterThan(1);
+  expect(result.before.resolvedCellWidth).toBeGreaterThan(0);
+  expect(result.before.cellWidth).toBeCloseTo(
+    result.before.resolvedCellWidth,
+    0,
+  );
   expect(result.before.cellDisplay).toBe("flex");
   expect(result.before.cellDirection).toBe("column");
   expect(result.before.mediaPosition).toBe("relative");
@@ -7451,7 +7526,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.metaDisplay).toBe("grid");
   expect(result.before.metaBelowMedia).toBe(true);
   expect(result.before.metaHeight).toBeGreaterThanOrEqual(24);
-  expect(result.before.nameBeforeStatus).toBe(true);
+  expect(result.before.statusBeforeName).toBe(true);
   expect(result.before.renderedColumns).toBeGreaterThan(1);
   expect(result.filterOpen).toEqual({
     display: "block",
