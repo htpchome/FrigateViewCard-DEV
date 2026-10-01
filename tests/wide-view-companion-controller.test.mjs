@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { GridMediaController } from "../src/features/grid/media.ctrl.js";
 import {
   resolveWideCompanionExpansionMax,
+  resolveWideCompanionExpansionTarget,
   resolveWideCompanionGridLayout,
   WideViewCompanionController,
 } from "../src/features/wide-view/companion.ctrl.js";
@@ -94,14 +95,14 @@ test("Companion Cameras do not carry the prior transport into HA Direct", () => 
   assert.equal(controller.cameraLiveStreamHint("camera.driveway"), "webrtc");
 });
 
-test("Companion Cameras expansion covers controls and stops at live midpoint", () => {
+test("Companion Cameras expansion covers controls and stops at 70% of live", () => {
   assert.equal(
     resolveWideCompanionExpansionMax({
       panelTop: 520,
       liveBottom: 300,
       liveHeight: 400,
     }),
-    420,
+    500,
   );
   assert.equal(
     resolveWideCompanionExpansionMax({
@@ -109,7 +110,7 @@ test("Companion Cameras expansion covers controls and stops at live midpoint", (
       liveBottom: 300,
       liveHeight: 800,
     }),
-    620,
+    780,
   );
   assert.equal(
     resolveWideCompanionExpansionMax({
@@ -118,6 +119,44 @@ test("Companion Cameras expansion covers controls and stops at live midpoint", (
       liveHeight: 100,
     }),
     0,
+  );
+});
+
+test("Companion Cameras automatic expansion fits content within its limit", () => {
+  const twoCameraExpansion = resolveWideCompanionExpansionTarget({
+    cameraCount: 2,
+    width: 745,
+    collapsedHeight: 100,
+    maxExpansion: 500,
+  });
+  const twelveCameraExpansion = resolveWideCompanionExpansionTarget({
+    cameraCount: 12,
+    width: 745,
+    collapsedHeight: 100,
+    maxExpansion: 500,
+  });
+
+  assert.equal(twoCameraExpansion, 132);
+  assert.ok(twelveCameraExpansion > twoCameraExpansion);
+  assert.ok(twelveCameraExpansion <= 500);
+  assert.equal(
+    resolveWideCompanionExpansionTarget({
+      cameraCount: 2,
+      width: 745,
+      collapsedHeight: 250,
+      maxExpansion: 500,
+    }),
+    0,
+  );
+  assert.equal(
+    resolveWideCompanionExpansionTarget({
+      cameraCount: 12,
+      width: 300,
+      collapsedHeight: 20,
+      maxExpansion: 100,
+      metadataHeight: 200,
+    }),
+    100,
   );
 });
 
@@ -279,6 +318,14 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
       height: 740,
     }),
     { columns: 2, cellWidth: 146 },
+  );
+  assert.deepEqual(
+    resolveWideCompanionGridLayout({
+      cameraCount: 12,
+      width: 745,
+      height: 100,
+    }),
+    { columns: 4, cellWidth: 160 },
   );
   assert.deepEqual(
     resolveWideCompanionGridLayout({

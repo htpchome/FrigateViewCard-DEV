@@ -19,7 +19,8 @@ import { WIDE_VIEW_COMPANION_STYLES } from "./companion.styles.js";
 const LIVE_STREAM_HINTS = new Set(["webrtc", "mse", "hls"]);
 const COMPANION_GRID_GAP_PX = 8;
 const COMPANION_META_HEIGHT_PX = 24;
-const COMPANION_LIVE_OVERLAP_RATIO = 0.5;
+const COMPANION_MIN_CELL_WIDTH_PX = 160;
+const COMPANION_LIVE_OVERLAP_RATIO = 0.7;
 const COMPANION_EXPANSION_KEY_STEP_PX = 32;
 const WIDE_COMPANION_STYLE_ATTRIBUTE =
   "data-fvc-wide-companion-styles";
@@ -51,6 +52,7 @@ export function resolveWideCompanionGridLayout({
   width,
   height,
   metadataHeight = COMPANION_META_HEIGHT_PX,
+  minimumCellWidth = COMPANION_MIN_CELL_WIDTH_PX,
 } = {}) {
   const configuredCount = Math.max(
     0,
@@ -63,6 +65,10 @@ export function resolveWideCompanionGridLayout({
   const resolvedMetaHeight = Math.max(
     0,
     Number(metadataHeight) || COMPANION_META_HEIGHT_PX,
+  );
+  const resolvedMinimumCellWidth = Math.max(
+    1,
+    Number(minimumCellWidth) || COMPANION_MIN_CELL_WIDTH_PX,
   );
   if (availableWidth <= 0) return { columns: 1, cellWidth: 0 };
 
@@ -81,11 +87,18 @@ export function resolveWideCompanionGridLayout({
           (availableHeight - totalGapHeight) / rows - resolvedMetaHeight,
         ) * (16 / 9)
       : widthLimitedCellWidth;
+    const fittedCellWidth = Math.min(
+      widthLimitedCellWidth,
+      heightLimitedCellWidth,
+    );
     candidates.push({
       columns,
-      cellWidth: Math.min(
-        widthLimitedCellWidth,
-        heightLimitedCellWidth,
+      cellWidth: Math.max(
+        fittedCellWidth,
+        Math.min(
+          widthLimitedCellWidth,
+          resolvedMinimumCellWidth,
+        ),
       ),
     });
   }
@@ -107,6 +120,40 @@ export function resolveWideCompanionGridLayout({
     columns: bestLayout.columns,
     cellWidth: Math.floor(Math.max(1, bestLayout.cellWidth) * 10) / 10,
   };
+}
+
+export function resolveWideCompanionExpansionTarget({
+  cameraCount,
+  width,
+  collapsedHeight,
+  maxExpansion,
+  metadataHeight = COMPANION_META_HEIGHT_PX,
+} = {}) {
+  const count = Math.max(0, Math.floor(Number(cameraCount) || 0));
+  const availableWidth = Math.max(0, finiteNumber(width));
+  const baseHeight = Math.max(0, finiteNumber(collapsedHeight));
+  const expansionLimit = Math.max(0, finiteNumber(maxExpansion));
+  if (count === 0 || availableWidth <= 0 || expansionLimit <= 0) return 0;
+
+  const resolvedMetadataHeight = Math.max(
+    0,
+    Number(metadataHeight) || COMPANION_META_HEIGHT_PX,
+  );
+  const layout = resolveWideCompanionGridLayout({
+    cameraCount: count,
+    width: availableWidth,
+    height: baseHeight + expansionLimit,
+    metadataHeight: resolvedMetadataHeight,
+  });
+  const rows = Math.ceil(count / layout.columns);
+  const contentHeight =
+    rows * (layout.cellWidth * (9 / 16) + resolvedMetadataHeight) +
+    COMPANION_GRID_GAP_PX * Math.max(0, rows - 1);
+
+  return Math.min(
+    expansionLimit,
+    Math.max(0, Math.ceil(contentHeight - baseHeight)),
+  );
 }
 
 export class WideViewCompanionController {
@@ -243,10 +290,14 @@ export class WideViewCompanionController {
       finiteNumber(metadataHeight) ||
       grid.querySelector?.(".wide-companion-meta")?.offsetHeight ||
       COMPANION_META_HEIGHT_PX;
+    const currentHeight = finiteNumber(height) || grid.clientHeight;
+    const expansionMax = this._measurePanelExpansionMax();
+    const layoutHeight =
+      Math.max(0, currentHeight - this._panelExpansionPx) + expansionMax;
     const layout = resolveWideCompanionGridLayout({
       cameraCount,
       width: finiteNumber(width) || grid.clientWidth,
-      height: finiteNumber(height) || grid.clientHeight,
+      height: layoutHeight,
       metadataHeight: resolvedMetadataHeight,
     });
     if (
@@ -355,7 +406,9 @@ export class WideViewCompanionController {
     this._panelExpansionCleanup.addEventListener(button, "click", () => {
       this._panelExpansionMaxPx = this._measurePanelExpansionMax();
       this._setPanelExpansion(
-        this._panelExpansionPx > 0.5 ? 0 : this._panelExpansionMaxPx,
+        this._panelExpansionPx > 0.5
+          ? 0
+          : this._measurePanelExpansionTarget(),
       );
     });
 
@@ -377,7 +430,10 @@ export class WideViewCompanionController {
 
   _measurePanelExpansionMax() {
     const panelRect =
-      this._panelExpansionPanel?.getBoundingClientRect?.() || null;
+      (
+        this._panelExpansionPanel ||
+        this._host._$("#wide-companion-panel")
+      )?.getBoundingClientRect?.() || null;
     const liveRect =
       this._host._$("#live-stage")?.getBoundingClientRect?.() || null;
     if (!panelRect || !liveRect) return 0;
@@ -385,6 +441,28 @@ export class WideViewCompanionController {
       panelTop: panelRect.top,
       liveBottom: liveRect.bottom,
       liveHeight: liveRect.height,
+    });
+  }
+
+  _measurePanelExpansionTarget() {
+    const grid = this._host._$("#wide-companion-grid");
+    if (!grid) return 0;
+    const gridRect = grid.getBoundingClientRect?.() || null;
+    const metadataHeight =
+      grid.querySelector?.(".wide-companion-meta")?.offsetHeight ||
+      COMPANION_META_HEIGHT_PX;
+    const cameraCount = flattenCameraMembers(
+      this._host._config?.cameras,
+    ).length;
+    return resolveWideCompanionExpansionTarget({
+      cameraCount,
+      width: gridRect?.width || grid.clientWidth,
+      collapsedHeight: Math.max(
+        0,
+        (gridRect?.height || grid.clientHeight) - this._panelExpansionPx,
+      ),
+      maxExpansion: this._panelExpansionMaxPx,
+      metadataHeight,
     });
   }
 

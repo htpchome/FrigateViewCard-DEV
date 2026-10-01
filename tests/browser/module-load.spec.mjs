@@ -7212,7 +7212,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     card.style.width = "1000px";
     document.body.append(card);
     card.setConfig({
-      cameras: Array.from({ length: 6 }, (_, index) => ({
+      cameras: Array.from({ length: 12 }, (_, index) => ({
         entity: `camera.camera_${index + 1}`,
         name: `Camera ${index + 1}`,
       })),
@@ -7393,6 +7393,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       toolbarRaised: toolbarHolder.classList.contains(
         "has-open-toolbar-panel",
       ),
+      cellWidth: firstCompanionCell.getBoundingClientRect().width,
+      renderedColumns: getComputedStyle(
+        companionGrid,
+      ).gridTemplateColumns.split(" ").length,
     };
 
     const collapseStartY = handle.getBoundingClientRect().top + 10;
@@ -7429,6 +7433,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       liveHeight: liveStage.getBoundingClientRect().height,
       now: Number(handle.getAttribute("aria-valuenow")),
       panelExpanded: panel.classList.contains("is-expanded"),
+      cellWidth: firstCompanionCell.getBoundingClientRect().width,
+      renderedColumns: getComputedStyle(
+        companionGrid,
+      ).gridTemplateColumns.split(" ").length,
     };
     calendarPanel.style.height = "40px";
     calendarButton.click();
@@ -7466,6 +7474,14 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
       toolbarRaised: toolbarHolder.classList.contains(
         "has-open-toolbar-panel",
       ),
+      allCamerasVisible: companionCells.every((cell) => {
+        const cellRect = cell.getBoundingClientRect();
+        const gridRect = companionGrid.getBoundingClientRect();
+        return (
+          cellRect.top >= gridRect.top - 1 &&
+          cellRect.bottom <= gridRect.bottom + 1
+        );
+      }),
     };
     expandButton.click();
     await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -7502,7 +7518,7 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.before.surfacePaddingLeft).toBe("8px");
   expect(result.before.gridInsetLeft).toBeCloseTo(8, 0);
   expect(result.before.buttonInsetRight).toBeCloseTo(8, 0);
-  expect(result.before.cellCount).toBe(6);
+  expect(result.before.cellCount).toBe(12);
   expect(result.before.cellEntities).toEqual([
     "camera.camera_1",
     "camera.camera_2",
@@ -7510,6 +7526,12 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     "camera.camera_4",
     "camera.camera_5",
     "camera.camera_6",
+    "camera.camera_7",
+    "camera.camera_8",
+    "camera.camera_9",
+    "camera.camera_10",
+    "camera.camera_11",
+    "camera.camera_12",
   ]);
   expect(result.before.gridDisplay).toBe("grid");
   expect(result.before.previewStylesLoaded).toBe(false);
@@ -7552,13 +7574,17 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     result.expanded.liveBottom,
   );
   expect(result.expanded.surfaceTop).toBeGreaterThanOrEqual(
-    result.expanded.liveBottom - result.expanded.liveHeight / 2 - 1,
+    result.expanded.liveBottom - result.expanded.liveHeight * 0.7 - 1,
   );
   expect(result.expanded.surfaceTop).toBeLessThanOrEqual(
-    result.expanded.liveBottom - result.expanded.liveHeight / 2 + 1,
+    result.expanded.liveBottom - result.expanded.liveHeight * 0.7 + 1,
   );
   expect(result.expanded.panelTop).toBeCloseTo(result.before.panelTop, 0);
   expect(result.expanded.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
+  expect(result.expanded.cellWidth).toBeCloseTo(result.before.cellWidth, 0);
+  expect(result.expanded.renderedColumns).toBe(
+    result.before.renderedColumns,
+  );
   expect(result.expanded.active).toBe(false);
   expect(result.expanded.panelExpanded).toBe(true);
   expect(result.expanded.buttonExpanded).toBe("true");
@@ -7569,6 +7595,10 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
   expect(result.collapsed.surfaceTop).toBeCloseTo(result.before.surfaceTop, 0);
   expect(result.collapsed.liveHeight).toBeCloseTo(result.before.liveHeight, 0);
   expect(result.collapsed.panelExpanded).toBe(false);
+  expect(result.collapsed.cellWidth).toBeCloseTo(result.before.cellWidth, 0);
+  expect(result.collapsed.renderedColumns).toBe(
+    result.before.renderedColumns,
+  );
   expect(result.calendarOpen).toEqual({
     display: "block",
     raised: true,
@@ -7580,11 +7610,30 @@ test("Wide View Companion Cameras drag upward over controls without resizing liv
     clearsCompanion: true,
     insideCardTop: true,
   });
-  expect(result.buttonExpanded.now).toBe(result.buttonExpanded.max);
-  expect(result.buttonExpanded.expanded).toBe("true");
-  expect(result.buttonExpanded.label).toBe("Collapse Companion Cameras");
-  expect(result.buttonExpanded.calendarDisplay).toBe("none");
-  expect(result.buttonExpanded.toolbarRaised).toBe(false);
+  expect(result.buttonExpanded.now).toBeLessThan(
+    result.buttonExpanded.max,
+  );
+  expect(result.buttonExpanded.allCamerasVisible).toBe(true);
+  if (result.buttonExpanded.now === 0) {
+    expect(result.buttonExpanded).toMatchObject({
+      now: 0,
+      expanded: "false",
+      label: "Expand Companion Cameras",
+      calendarDisplay: "block",
+      toolbarRaised: true,
+    });
+  } else {
+    expect(
+      result.buttonExpanded.now,
+      JSON.stringify(result.buttonExpanded),
+    ).toBeGreaterThan(0);
+    expect(result.buttonExpanded).toMatchObject({
+      expanded: "true",
+      label: "Collapse Companion Cameras",
+      calendarDisplay: "none",
+      toolbarRaised: false,
+    });
+  }
   expect(result.buttonCollapsed).toEqual({
     now: 0,
     expanded: "false",
