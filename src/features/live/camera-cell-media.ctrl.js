@@ -5,6 +5,7 @@ import {
   resolveHaDirectCameraStreamType,
   watchHaPlaybackFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
+import { preloadFallbackImageSource } from "./fallbacks/fallback-refresh.js";
 import { appendCacheBustParam } from "./fallbacks/fallback-url.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import { adoptMountedAttemptSlot } from "./mount-result.js";
@@ -120,6 +121,36 @@ export class CameraCellMediaController {
     );
   }
 
+  async _replaceSnapshotImageAfterDecode(img, nextSrc, nextBlobUrl = "") {
+    const replacement = img?.cloneNode?.(false);
+    if (!replacement || !nextSrc) return false;
+    replacement.removeAttribute?.("src");
+    const ready = await preloadFallbackImageSource(nextSrc, {
+      createImage: () => replacement,
+    });
+    if (!ready || !img.isConnected) return false;
+
+    const previousBlobUrl = img.dataset?.fvcBlobUrl || "";
+    if (replacement.dataset) {
+      if (nextBlobUrl) {
+        replacement.dataset.fvcBlobUrl = nextBlobUrl;
+      } else {
+        delete replacement.dataset.fvcBlobUrl;
+      }
+    }
+    try {
+      img.replaceWith(replacement);
+    } catch (_) {
+      return false;
+    }
+    if (previousBlobUrl && previousBlobUrl !== nextBlobUrl) {
+      try {
+        URL.revokeObjectURL(previousBlobUrl);
+      } catch (_) {}
+    }
+    return true;
+  }
+
   async _refreshSnapshotImageElement(img, resolvedUrl, cacheBustValue) {
     if (!img || !img.isConnected || !resolvedUrl) return;
 
@@ -133,19 +164,24 @@ export class CameraCellMediaController {
         const blob = await response.blob();
         if (!img.isConnected) return;
         const nextBlobUrl = URL.createObjectURL(blob);
-        const previousBlobUrl = img.dataset.fvcBlobUrl || "";
-        img.src = nextBlobUrl;
-        img.dataset.fvcBlobUrl = nextBlobUrl;
-        if (previousBlobUrl && previousBlobUrl !== nextBlobUrl) {
+        const replaced = await this._replaceSnapshotImageAfterDecode(
+          img,
+          nextBlobUrl,
+          nextBlobUrl,
+        );
+        if (!replaced) {
           try {
-            URL.revokeObjectURL(previousBlobUrl);
+            URL.revokeObjectURL(nextBlobUrl);
           } catch (_) {}
         }
       } catch (_) {}
       return;
     }
 
-    img.src = appendCacheBustParam(resolvedUrl, cacheBustValue);
+    await this._replaceSnapshotImageAfterDecode(
+      img,
+      appendCacheBustParam(resolvedUrl, cacheBustValue),
+    );
   }
 
   async _resolveSnapshotImageUrl(entity, stateObj = null) {

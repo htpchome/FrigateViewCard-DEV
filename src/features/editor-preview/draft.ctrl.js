@@ -216,8 +216,13 @@ export class EditorPreviewDraftController {
       });
     }
 
+    const eventMediaDurationChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "event_pre_post_roll_enabled",
+    );
     this._host._singleViewPageController?.applyEditorPreviewDraftRefresh?.({
-      renderList: false,
+      renderList: eventMediaDurationChanged,
     });
     if (camerasChanged) {
       this._host._syncTwoWayTalkRuntimeState?.();

@@ -747,7 +747,23 @@ test("shared snapshot refresh includes snapshot-mode Companion Cameras", async (
   globalThis.window = { location: { origin: "https://example.test" } };
   try {
     let selector = "";
-    const img = { isConnected: true, dataset: {}, src: "" };
+    let refreshedImg = null;
+    const img = {
+      isConnected: true,
+      dataset: {},
+      src: "",
+      cloneNode: () => ({
+        dataset: {},
+        src: "",
+        setAttribute() {},
+        removeAttribute() {},
+        decode: async () => {},
+      }),
+      replaceWith: (next) => {
+        refreshedImg = next;
+        img.isConnected = false;
+      },
+    };
     const mediaHost = {
       dataset: { wideCompanionMediaEntity: "camera.driveway" },
       querySelector: () => img,
@@ -767,8 +783,9 @@ test("shared snapshot refresh includes snapshot-mode Companion Cameras", async (
     await controller.refreshSnapshotMedia({ cacheBustValue: 123 });
 
     assert.match(selector, /wide-companion-media-host/);
+    assert.equal(img.src, "");
     assert.equal(
-      img.src,
+      refreshedImg.src,
       "/api/camera_proxy/camera.driveway?fvc_snapshot=123",
     );
   } finally {

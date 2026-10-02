@@ -275,6 +275,32 @@ test("config drafts update preview chrome without rebuilding media or lists", ()
   assert.equal(calls.some(([name]) => name === "render-list"), false);
 });
 
+test("pre-roll drafts immediately refresh displayed event durations", () => {
+  const calls = [];
+  const host = {
+    _pageId: "single-view",
+    _pageNavigationController: { isPageRouteAvailable: () => true },
+    _singleViewPageController: {
+      applyEditorPreviewDraftRefresh: (options) =>
+        calls.push(["soft-preview", options]),
+    },
+    _syncToolbarButtons: () => calls.push(["toolbar"]),
+    _cleanupEngine: () => calls.push(["cleanup-engine"]),
+  };
+  const controller = new EditorPreviewDraftController(host);
+
+  controller.applyConfigDraft({
+    previousConfig: { event_pre_post_roll_enabled: false },
+    nextConfig: { event_pre_post_roll_enabled: true },
+  });
+
+  assert.deepEqual(calls, [
+    ["soft-preview", { renderList: true }],
+    ["toolbar"],
+  ]);
+  assert.equal(calls.some(([name]) => name === "cleanup-engine"), false);
+});
+
 test("camera suspension access drafts resync the live controls", () => {
   const calls = [];
   const host = {
