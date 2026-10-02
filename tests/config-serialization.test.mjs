@@ -2213,7 +2213,7 @@ test("Timeline time range editor uses radio inputs", () => {
 test("choice-chip config fields read their checked native radio values", () => {
   const selectedValues = new Map([
     ['[name="realtime_poll_seconds"]:checked', "15"],
-    ['[name="snapshot_update_seconds"]:checked', "300"],
+    ['[name="snapshot_update_seconds"]:checked', "2"],
     ['[name="slideshow_rotation_seconds"]:checked', "60"],
     ['[name="slideshow_alert_hold_seconds"]:checked', "120"],
     ['[name="grid_rotation_seconds"]:checked', "60"],
@@ -2245,7 +2245,7 @@ test("choice-chip config fields read their checked native radio values", () => {
   });
 
   assert.equal(result.realtime_poll_seconds, 15);
-  assert.equal(result.snapshot_update_seconds, 300);
+  assert.equal(result.snapshot_update_seconds, 2);
   assert.equal(result.slideshow_rotation_seconds, 60);
   assert.equal(result.slideshow_alert_hold_seconds, 120);
   assert.equal(result.grid_rotation_seconds, 60);
@@ -2297,25 +2297,25 @@ test("Custom Wide View width reads its slider and presets clear it", () => {
 });
 
 test("new duration chip choices normalize and remain compact YAML values", () => {
-  assert.deepEqual(SNAPSHOT_UPDATE_OPTIONS_SECONDS, [10, 20, 30, 60, 120, 300]);
+  assert.deepEqual(SNAPSHOT_UPDATE_OPTIONS_SECONDS, [2, 5, 10, 20, 30, 60, 120, 300]);
   assert.deepEqual(SLIDESHOW_ALERT_HOLD_OPTIONS_SECONDS, [10, 20, 30, 60, 120]);
   assert.deepEqual(GRID_ALERT_HOLD_OPTIONS_SECONDS, [10, 20, 30, 60]);
   assert.deepEqual(PREVIEW_ALERT_LIVE_DURATION_OPTIONS_SECONDS, [5, 10, 20, 30, 60, 120]);
 
   const normalized = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
-    snapshot_update_seconds: 300,
+    snapshot_update_seconds: 2,
     slideshow_alert_hold_seconds: 120,
     grid_alert_hold_seconds: 60,
     preview_page_alert_live_duration_seconds: 120,
   });
   const compact = compactEditorConfigForYaml(normalized);
 
-  assert.equal(normalized.snapshot_update_seconds, 300);
+  assert.equal(normalized.snapshot_update_seconds, 2);
   assert.equal(normalized.slideshow_alert_hold_seconds, 120);
   assert.equal(normalized.grid_alert_hold_seconds, 60);
   assert.equal(normalized.preview_page_alert_live_duration_seconds, 120);
-  assert.equal(compact.snapshot_update_seconds, 300);
+  assert.equal(compact.snapshot_update_seconds, 2);
   assert.equal(compact.slideshow_alert_hold_seconds, 120);
   assert.equal(compact.grid_alert_hold_seconds, 60);
   assert.equal(compact.preview_page_alert_live_duration_seconds, 120);

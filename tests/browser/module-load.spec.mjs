@@ -4672,6 +4672,73 @@ test("General Settings language changes preserve form state and localize status,
   });
 });
 
+test("Snapshot Refresh offers 2 and 5 seconds while keeping every bubble on one row", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 430, height: 900 });
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    editor.style.cssText = "display:block;width:380px";
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      snapshot_update_seconds: 5,
+    });
+    editor.hass = { locale: { language: "en" }, states: {}, themes: {} };
+    editor.querySelector('[data-panel-toggle="general"]').click();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const previewDrafts = [];
+    window.addEventListener(
+      "frigate-view-card-preview-draft",
+      (event) => previewDrafts.push(event.detail?.config),
+    );
+    const choices = Array.from(
+      editor.querySelectorAll('[name="snapshot_update_seconds"]'),
+    );
+    const initial = {
+      values: choices.map((input) => input.value),
+      selected: choices.find((input) => input.checked)?.value,
+      rowTops: choices.map((input) =>
+        Math.round(input.closest("label").getBoundingClientRect().top),
+      ),
+    };
+
+    editor
+      .querySelector('[name="snapshot_update_seconds"][value="2"]')
+      .click();
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+
+    return {
+      initial,
+      saved: editor._homeAssistantConfig({ readDom: false })
+        .snapshot_update_seconds,
+      preview: previewDrafts.at(-1)?.snapshot_update_seconds,
+      dirty: editor._hasConfigDraft,
+    };
+  });
+
+  expect(state.initial.values).toEqual([
+    "2",
+    "5",
+    "10",
+    "20",
+    "30",
+    "60",
+    "120",
+    "300",
+  ]);
+  expect(state.initial.selected).toBe("5");
+  expect(new Set(state.initial.rowTops).size).toBe(1);
+  expect(state.saved).toBe(2);
+  expect(state.preview).toBe(2);
+  expect(state.dirty).toBe(true);
+});
+
 test("Theme Settings language changes preserve custom colors and selected modes", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {

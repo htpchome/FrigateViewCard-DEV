@@ -2,7 +2,7 @@ import { CARD_NAME } from "./product-identity.mjs";
 
 export * from "./product-identity.mjs";
 
-export const VERSION = "1.1.8-dev.127";
+export const VERSION = "1.1.8-dev.128";
 
 export const RECOMMENDED_HOME_ASSISTANT_VERSION = "2026.9.0";
 
@@ -31,7 +31,7 @@ export const REALTIME_POLL_OPTIONS_SECONDS = Object.freeze([
 export const MOBILE_BATTERY_SAVER_POLL_SECONDS = 60;
 export const SNAPSHOT_UPDATE_SECONDS = 60;
 export const SNAPSHOT_UPDATE_OPTIONS_SECONDS = Object.freeze([
-  10, 20, 30, 60, 120, 300,
+  2, 5, 10, 20, 30, 60, 120, 300,
 ]);
 export const EVENT_PRE_POST_ROLL_SECONDS = 5;
 export const SLIDESHOW_ROTATION_OPTIONS_SECONDS = Object.freeze([
