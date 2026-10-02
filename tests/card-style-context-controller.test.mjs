@@ -1884,7 +1884,7 @@ test("minimum usable height overrides compact percent and dvh heights", () => {
   assert.equal(parentElement.style.height, "auto");
 });
 
-test("Panel Single and Mobile Views keep full height for an internal scroller", () => {
+test("Panel Single, Mobile, and Wide Views keep full constrained height", () => {
   let page = "single";
   const host = {
     _config: {
@@ -1951,7 +1951,7 @@ test("Panel Single and Mobile Views keep full height for an internal scroller", 
   );
 });
 
-test("Sidebar Single and Mobile Views keep full height for an internal scroller", () => {
+test("Sidebar Single, Mobile, and Wide Views keep full constrained height", () => {
   let page = "single";
   const host = {
     _config: {
@@ -1995,7 +1995,7 @@ test("Sidebar Single and Mobile Views keep full height for an internal scroller"
       card: {},
       resolvedHeightPx: 444,
     }),
-    { heightPx: 652, expanded: true },
+    { heightPx: 444, expanded: false },
   );
 
   page = "single";

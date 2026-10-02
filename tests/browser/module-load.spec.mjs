@@ -4251,7 +4251,7 @@ test("Single, Wide, and Card View settings localize in place with their choices 
       "editor.wideView.enable": "Activer Vue large",
       "editor.wideView.initialTimelineRange": "Plage initiale",
       "editor.wideView.leftColumnWidth": "Largeur gauche",
-      "editor.wideView.threeQuarterWidth": "Trois quarts",
+      "editor.wideView.inBetweenWidth": "Intermédiaire",
       "editor.wideView.widthDisclaimer": "La largeur dépend de l'espace disponible.",
       "editor.duration.hours": "{count} heures",
       "editor.cardView.enable": "Activer Vue carte",
@@ -4323,7 +4323,7 @@ test("Single, Wide, and Card View settings localize in place with their choices 
     wideWidthHeading: "Largeur gauche",
     wideWidthPreserved: true,
     wideWidthChecked: true,
-    wideWidthLabel: "Trois quarts",
+    wideWidthLabel: "Intermédiaire",
     wideWidthDisclaimer: "La largeur dépend de l'espace disponible.",
     cardEnable: "Activer Vue carte",
     cardStartAria: "Mode initial Vue carte",
@@ -7076,7 +7076,7 @@ test("Panel Wide View recomputes its columns when the viewport becomes shorter",
   expect(after.cardBottom).toBeLessThanOrEqual(after.viewportHeight + 1);
 });
 
-test("Wide View width presets paint an equal split and preserve 250px on wider starts", async ({
+test("Wide View Sections resolves In-Between halfway from Half to Max", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
@@ -7085,9 +7085,12 @@ test("Wide View width presets paint an equal split and preserve 250px on wider s
   const widths = await page.evaluate(async () => {
     await import("/frigate-view-card.js");
     document.body.style.margin = "0";
+    const sections = document.createElement("hui-sections-view");
+    sections.style.width = "1000px";
+    document.body.append(sections);
     const card = document.createElement("frigate-view-card");
     card.style.width = "1000px";
-    document.body.append(card);
+    sections.append(card);
     card.setConfig({
       cameras: Array.from({ length: 4 }, (_, index) => ({
         entity: `camera.camera_${index + 1}`,
@@ -7121,18 +7124,261 @@ test("Wide View width presets paint an equal split and preserve 250px on wider s
       };
     };
 
-    return {
+    const initial = {
       half: await measure(50),
-      threeQuarter: await measure(75),
+      inBetween: await measure(75),
       max: await measure(100),
+    };
+    card._config.wide_view_width = 75;
+    sections.style.width = "800px";
+    card.style.width = "800px";
+    card._wideViewPageController.reflowColumnsForResize();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const resizedInBetween = {
+      left: card.shadowRoot
+        .querySelector(".col-left--wide-view")
+        .getBoundingClientRect().width,
+      right: card.shadowRoot
+        .querySelector(".col-right--wide-view")
+        .getBoundingClientRect().width,
+    };
+    const resizedHalf = await measure(50);
+    const resizedMax = await measure(100);
+    return { initial, resizedInBetween, resizedHalf, resizedMax };
+  });
+
+  expect(
+    Math.abs(widths.initial.half.left - widths.initial.half.right),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      widths.initial.inBetween.left -
+        (widths.initial.half.left + widths.initial.max.left) / 2,
+    ),
+  ).toBeLessThanOrEqual(1);
+  expect(widths.initial.inBetween.right).toBeGreaterThan(
+    widths.initial.max.right + 100,
+  );
+  expect(widths.initial.max.right).toBeGreaterThanOrEqual(249);
+  expect(widths.initial.max.right).toBeLessThanOrEqual(251);
+  expect(
+    Math.abs(
+      widths.resizedInBetween.left -
+        (widths.resizedHalf.left + widths.resizedMax.left) / 2,
+    ),
+  ).toBeLessThanOrEqual(1);
+});
+
+test("Panel and Sidebar In-Between preserve one complete responsive companion row", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 2000, height: 1100 });
+  await page.goto(baseUrl);
+
+  const results = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const measure = async ({ tagName, width, height }) => {
+      const view = document.createElement(tagName);
+      view.style.cssText = `display:block;width:${width}px;height:${height}px`;
+      document.body.append(view);
+      const card = document.createElement("frigate-view-card");
+      view.append(card);
+      card.setConfig({
+        cameras: Array.from({ length: 7 }, (_, index) => ({
+          entity: `camera.camera_${index + 1}`,
+          name: `Camera ${index + 1}`,
+        })),
+        wide_view_page_enabled: true,
+        wide_view_width: 75,
+        stream_height: height,
+        stream_height_unit: "px",
+        tight_margins: true,
+      });
+      await card._wideViewPageController.prepare();
+      card._pageId = "wide-view";
+      card._renderShell();
+      card._wideViewPageController.startWideViewMode();
+      await card._wideViewCompanionController._ensureDelegate();
+      card._wideViewPageController.renderCompanionCameras();
+      card._applyCardStyle();
+      card.style.setProperty("--card-host-height", `${height}px`);
+      card.shadowRoot
+        .querySelector(".card")
+        .style.setProperty("--view-height", `${height}px`);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      card._wideViewPageController.applyLayoutModeForCard();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      card._wideViewCompanionController.updateLayout();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const root = card.shadowRoot;
+      const columns = root.querySelector(".wide-view-columns");
+      const left = root.querySelector(".col-left--wide-view");
+      const right = root.querySelector(".col-right--wide-view");
+      const panel = root.querySelector("#wide-companion-panel");
+      const cells = Array.from(
+        root.querySelectorAll(".wide-companion-cell"),
+      );
+      const firstCell = cells[0];
+      const firstTop = firstCell.getBoundingClientRect().top;
+      const firstRow = cells.filter(
+        (cell) =>
+          Math.abs(cell.getBoundingClientRect().top - firstTop) <= 1,
+      );
+      const firstMeta = firstCell.querySelector(".wide-companion-meta");
+      const measurement = {
+        leftPct:
+          (left.getBoundingClientRect().width /
+            (columns.getBoundingClientRect().width -
+              root
+                .querySelector("#resize-handle")
+                .getBoundingClientRect().width)) *
+          100,
+        rightWidth: right.getBoundingClientRect().width,
+        firstRowCount: firstRow.length,
+        firstCellWidth: firstCell.getBoundingClientRect().width,
+        firstMetaBottom: firstMeta.getBoundingClientRect().bottom,
+        panelBottom: panel.getBoundingClientRect().bottom,
+      };
+      view.remove();
+      return measurement;
+    };
+
+    return {
+      panelNarrow: await measure({
+        tagName: "hui-panel-view",
+        width: 1000,
+        height: 760,
+      }),
+      panelWide: await measure({
+        tagName: "hui-panel-view",
+        width: 1800,
+        height: 960,
+      }),
+      sidebarNarrow: await measure({
+        tagName: "hui-sidebar-view",
+        width: 1000,
+        height: 760,
+      }),
+      sidebarWide: await measure({
+        tagName: "hui-sidebar-view",
+        width: 1800,
+        height: 960,
+      }),
     };
   });
 
-  expect(Math.abs(widths.half.left - widths.half.right)).toBeLessThanOrEqual(1);
-  expect(widths.threeQuarter.right).toBeGreaterThanOrEqual(249);
-  expect(widths.threeQuarter.right).toBeLessThanOrEqual(251);
-  expect(widths.max.right).toBeGreaterThanOrEqual(249);
-  expect(widths.max.left).toBeGreaterThanOrEqual(widths.threeQuarter.left - 1);
+  for (const result of Object.values(results)) {
+    expect(result.rightWidth, JSON.stringify(results)).toBeGreaterThanOrEqual(
+      249,
+    );
+    expect(
+      result.firstMetaBottom,
+      JSON.stringify(results),
+    ).toBeLessThanOrEqual(result.panelBottom + 1);
+  }
+  expect(results.panelNarrow.firstRowCount, JSON.stringify(results)).toBe(3);
+  expect(results.sidebarNarrow.firstRowCount, JSON.stringify(results)).toBe(3);
+  expect(results.panelWide.firstRowCount, JSON.stringify(results)).toBe(4);
+  expect(results.sidebarWide.firstRowCount, JSON.stringify(results)).toBe(4);
+  expect(
+    Math.abs(results.panelNarrow.leftPct - results.sidebarNarrow.leftPct),
+  ).toBeLessThanOrEqual(0.2);
+  expect(
+    Math.abs(results.panelWide.leftPct - results.sidebarWide.leftPct),
+  ).toBeLessThanOrEqual(0.2);
+});
+
+test("Sidebar Wide View reapplies Max with the same responsive rules as Panel", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1900, height: 1000 });
+  await page.goto(baseUrl);
+
+  const results = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const measure = async (tagName) => {
+      const view = document.createElement(tagName);
+      view.style.cssText = "display:block;width:1200px";
+      document.body.append(view);
+      const card = document.createElement("frigate-view-card");
+      view.append(card);
+      card.setConfig({
+        cameras: Array.from({ length: 7 }, (_, index) => ({
+          entity: `camera.camera_${index + 1}`,
+          name: `Camera ${index + 1}`,
+        })),
+        wide_view_page_enabled: true,
+        wide_view_width: 100,
+        stream_height: 80,
+        stream_height_unit: "dvh",
+        tight_margins: true,
+      });
+      await card._wideViewPageController.prepare();
+      card._pageId = "wide-view";
+      card._renderShell();
+      card._wideViewPageController.startWideViewMode();
+      await card._wideViewCompanionController._ensureDelegate();
+      card._wideViewPageController.renderCompanionCameras();
+      card._setupResizeObserver();
+
+      const sample = () => {
+        const root = card.shadowRoot;
+        const columns = root
+          .querySelector(".wide-view-columns")
+          .getBoundingClientRect();
+        const handleWidth = root
+          .querySelector("#resize-handle")
+          .getBoundingClientRect().width;
+        const leftWidth = root
+          .querySelector(".col-left--wide-view")
+          .getBoundingClientRect().width;
+        const rightWidth = root
+          .querySelector(".col-right--wide-view")
+          .getBoundingClientRect().width;
+        return {
+          leftPct: (leftWidth / (columns.width - handleWidth)) * 100,
+          rightWidth,
+        };
+      };
+
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const initial = sample();
+      view.style.width = "1600px";
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const resized = sample();
+      card._ro?.disconnect();
+      view.remove();
+      return { initial, resized };
+    };
+
+    return {
+      panel: await measure("hui-panel-view"),
+      sidebar: await measure("hui-sidebar-view"),
+    };
+  });
+
+  for (const size of ["initial", "resized"]) {
+    expect(
+      Math.abs(
+        results.panel[size].leftPct - results.sidebar[size].leftPct,
+      ),
+      JSON.stringify(results),
+    ).toBeLessThanOrEqual(0.2);
+    expect(
+      Math.abs(
+        results.panel[size].rightWidth - results.sidebar[size].rightWidth,
+      ),
+      JSON.stringify(results),
+    ).toBeLessThanOrEqual(1);
+    expect(results.sidebar[size].rightWidth).toBeGreaterThanOrEqual(249);
+  }
+  expect(results.sidebar.initial.leftPct).toBeGreaterThan(60);
+  expect(results.sidebar.resized.leftPct).toBeGreaterThan(60);
 });
 
 test("Wide View companion tiles stay large when two columns nearly fit", async ({

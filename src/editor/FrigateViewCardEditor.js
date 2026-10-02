@@ -4136,13 +4136,13 @@ export class FrigateViewCardEditor extends HTMLElement {
                 value === 50
                   ? "Half Width"
                   : value === 75
-                    ? "Three Quarter Width"
+                    ? "In-Between"
                     : "Max Width",
               translationKey:
                 value === 50
                   ? "editor.wideView.halfWidth"
                   : value === 75
-                    ? "editor.wideView.threeQuarterWidth"
+                    ? "editor.wideView.inBetweenWidth"
                     : "editor.wideView.maxWidth",
             })),
             selectedValue: wideViewWidth,

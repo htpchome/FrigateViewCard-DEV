@@ -3458,7 +3458,7 @@ export class FrigateViewCard extends HTMLElement {
 
       this._syncBrowseHeadModeClass();
       this._applyCardStyle();
-      this._wideViewPageController?.reflowPanelColumnsForResize?.();
+      this._wideViewPageController?.reflowColumnsForResize?.();
       this._applyBrowse();
       this._popupLifecycleController?.syncShellGeometry?.();
       this._scheduleRotateOverlayUpdate();

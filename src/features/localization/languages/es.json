@@ -650,7 +650,7 @@
       "initialTimelineRangeHelp": "Establece el período inicial. Puedes cambiarlo después en la cabecera de la línea de tiempo.",
       "leftColumnWidth": "Ancho de la columna izquierda",
       "halfWidth": "Mitad del ancho",
-      "threeQuarterWidth": "Tres cuartos del ancho",
+      "inBetweenWidth": "Intermedio",
       "maxWidth": "Ancho máximo",
       "widthDisclaimer": "En ocasiones, los ajustes de ancho pueden no funcionar como se espera debido a factores como el elemento en el que se coloca la tarjeta (panel, sección, etc.) o el espacio máximo disponible para presentarla"
     },

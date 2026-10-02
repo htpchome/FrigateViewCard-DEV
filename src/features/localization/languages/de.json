@@ -650,7 +650,7 @@
       "initialTimelineRangeHelp": "Legt den anfänglichen Zeitraum fest. Er kann später im Kopfbereich der Zeitleiste geändert werden.",
       "leftColumnWidth": "Breite der linken Spalte",
       "halfWidth": "Halbe Breite",
-      "threeQuarterWidth": "Dreiviertelbreite",
+      "inBetweenWidth": "Dazwischen",
       "maxWidth": "Maximale Breite",
       "widthDisclaimer": "Die Breiteneinstellungen funktionieren aufgrund des Elements, in dem die Karte platziert ist (Panel, Abschnitt usw.), oder des maximal verfügbaren Platzes für die Kartendarstellung möglicherweise nicht immer wie erwartet"
     },

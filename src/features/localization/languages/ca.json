@@ -650,7 +650,7 @@
       "initialTimelineRangeHelp": "Estableix l'interval de temps inicial. Després el pots canviar des de la capçalera de la línia de temps.",
       "leftColumnWidth": "Amplada de la columna esquerra",
       "halfWidth": "Mitja amplada",
-      "threeQuarterWidth": "Tres quarts d'amplada",
+      "inBetweenWidth": "Intermedi",
       "maxWidth": "Amplada màxima",
       "widthDisclaimer": "És possible que els paràmetres d'amplada de vegades no funcionin com s'espera a causa de factors com l'element on es col·loca la targeta (panell, secció, etc.) o l'espai màxim disponible per presentar-la"
     },

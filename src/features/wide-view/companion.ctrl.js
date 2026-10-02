@@ -15,12 +15,20 @@ import { flattenCameraMembers } from "../camera-groups/model.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
 import { ensureShadowStyle } from "../../shared/shadow-styles.js";
 import { WIDE_VIEW_COMPANION_STYLES } from "./companion.styles.js";
+import {
+  resolveWideCompanionExpansionMax,
+  resolveWideCompanionExpansionTarget,
+  resolveWideCompanionGridLayout,
+  WIDE_COMPANION_META_HEIGHT_PX,
+} from "./config.js";
+
+export {
+  resolveWideCompanionExpansionMax,
+  resolveWideCompanionExpansionTarget,
+  resolveWideCompanionGridLayout,
+} from "./config.js";
 
 const LIVE_STREAM_HINTS = new Set(["webrtc", "mse", "hls"]);
-const COMPANION_GRID_GAP_PX = 8;
-const COMPANION_META_HEIGHT_PX = 24;
-const COMPANION_MIN_CELL_WIDTH_PX = 160;
-const COMPANION_LIVE_OVERLAP_RATIO = 0.7;
 const COMPANION_EXPANSION_KEY_STEP_PX = 32;
 const WIDE_COMPANION_STYLE_ATTRIBUTE =
   "data-fvc-wide-companion-styles";
@@ -29,123 +37,6 @@ const finiteNumber = (value) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
 };
-
-export function resolveWideCompanionExpansionMax({
-  panelTop,
-  liveBottom,
-  liveHeight,
-} = {}) {
-  const resolvedPanelTop = finiteNumber(panelTop);
-  const resolvedLiveBottom = finiteNumber(liveBottom);
-  const resolvedLiveHeight = Math.max(0, finiteNumber(liveHeight));
-  if (resolvedPanelTop <= 0 || resolvedLiveBottom <= 0) return 0;
-
-  const liveOverlap = resolvedLiveHeight * COMPANION_LIVE_OVERLAP_RATIO;
-  return Math.max(
-    0,
-    resolvedPanelTop - (resolvedLiveBottom - liveOverlap),
-  );
-}
-
-export function resolveWideCompanionGridLayout({
-  cameraCount,
-  width,
-  height,
-  metadataHeight = COMPANION_META_HEIGHT_PX,
-  minimumCellWidth = COMPANION_MIN_CELL_WIDTH_PX,
-} = {}) {
-  const configuredCount = Math.max(
-    0,
-    Math.floor(Number(cameraCount) || 0),
-  );
-  const count = configuredCount === 1 ? 2 : Math.max(1, configuredCount);
-  const minimumColumns = count > 1 ? 2 : 1;
-  const availableWidth = Math.max(0, Number(width) || 0);
-  const availableHeight = Math.max(0, Number(height) || 0);
-  const resolvedMetaHeight = Math.max(
-    0,
-    Number(metadataHeight) || COMPANION_META_HEIGHT_PX,
-  );
-  const resolvedMinimumCellWidth = Math.max(
-    1,
-    Number(minimumCellWidth) || COMPANION_MIN_CELL_WIDTH_PX,
-  );
-  if (availableWidth <= 0) return { columns: 1, cellWidth: 0 };
-
-  const candidates = [];
-  for (let columns = minimumColumns; columns <= count; columns += 1) {
-    const totalGapWidth = COMPANION_GRID_GAP_PX * (columns - 1);
-    const widthLimitedCellWidth = Math.max(
-      0,
-      (availableWidth - totalGapWidth) / columns,
-    );
-    const rows = Math.ceil(count / columns);
-    const totalGapHeight = COMPANION_GRID_GAP_PX * (rows - 1);
-    candidates.push({
-      columns,
-      cellWidth: widthLimitedCellWidth,
-      contentHeight:
-        rows * (widthLimitedCellWidth * (9 / 16) + resolvedMetaHeight) +
-        totalGapHeight,
-    });
-  }
-
-  const preferredCandidates = candidates.filter(
-    ({ cellWidth }) => cellWidth >= resolvedMinimumCellWidth,
-  );
-  const preferredFitting = preferredCandidates.filter(
-    ({ contentHeight }) =>
-      availableHeight <= 0 || contentHeight <= availableHeight + 0.5,
-  );
-  const fittingCandidates = candidates.filter(
-    ({ contentHeight }) =>
-      availableHeight <= 0 || contentHeight <= availableHeight + 0.5,
-  );
-  const bestLayout =
-    preferredFitting[0] ||
-    preferredCandidates.at(-1) ||
-    fittingCandidates[0] ||
-    candidates.at(-1);
-
-  return {
-    columns: bestLayout.columns,
-    cellWidth: Math.floor(Math.max(1, bestLayout.cellWidth) * 10) / 10,
-  };
-}
-
-export function resolveWideCompanionExpansionTarget({
-  cameraCount,
-  width,
-  collapsedHeight,
-  maxExpansion,
-  metadataHeight = COMPANION_META_HEIGHT_PX,
-} = {}) {
-  const count = Math.max(0, Math.floor(Number(cameraCount) || 0));
-  const availableWidth = Math.max(0, finiteNumber(width));
-  const baseHeight = Math.max(0, finiteNumber(collapsedHeight));
-  const expansionLimit = Math.max(0, finiteNumber(maxExpansion));
-  if (count === 0 || availableWidth <= 0 || expansionLimit <= 0) return 0;
-
-  const resolvedMetadataHeight = Math.max(
-    0,
-    Number(metadataHeight) || COMPANION_META_HEIGHT_PX,
-  );
-  const layout = resolveWideCompanionGridLayout({
-    cameraCount: count,
-    width: availableWidth,
-    height: baseHeight + expansionLimit,
-    metadataHeight: resolvedMetadataHeight,
-  });
-  const rows = Math.ceil(count / layout.columns);
-  const contentHeight =
-    rows * (layout.cellWidth * (9 / 16) + resolvedMetadataHeight) +
-    COMPANION_GRID_GAP_PX * Math.max(0, rows - 1);
-
-  return Math.min(
-    expansionLimit,
-    Math.max(0, Math.ceil(contentHeight - baseHeight)),
-  );
-}
 
 export class WideViewCompanionController {
   constructor(host, constants, { resizeObserverCtor = undefined } = {}) {
@@ -279,15 +170,27 @@ export class WideViewCompanionController {
     const resolvedMetadataHeight =
       finiteNumber(metadataHeight) ||
       grid.querySelector?.(".wide-companion-meta")?.offsetHeight ||
-      COMPANION_META_HEIGHT_PX;
+      WIDE_COMPANION_META_HEIGHT_PX;
     const currentHeight = finiteNumber(height) || grid.clientHeight;
     const expansionMax = this._measurePanelExpansionMax();
-    const layoutHeight =
-      Math.max(0, currentHeight - this._panelExpansionPx) + expansionMax;
+    const collapsedHeight = Math.max(
+      0,
+      currentHeight - this._panelExpansionPx,
+    );
+    const layoutHeight = collapsedHeight + expansionMax;
+    const preferredColumns = Math.max(
+      0,
+      Number.parseInt(
+        grid.dataset?.wideCompanionPreferredColumns || "",
+        10,
+      ) || 0,
+    );
     const layout = resolveWideCompanionGridLayout({
       cameraCount,
       width: finiteNumber(width) || grid.clientWidth,
       height: layoutHeight,
+      visibleHeight: preferredColumns ? collapsedHeight : 0,
+      preferredColumns,
       metadataHeight: resolvedMetadataHeight,
     });
     if (layout.columns === this._lastLayoutColumns) return;
@@ -314,7 +217,7 @@ export class WideViewCompanionController {
       this.updateLayout({
         width: entry.contentRect?.width,
         height: entry.contentRect?.height,
-        metadataHeight: COMPANION_META_HEIGHT_PX,
+        metadataHeight: WIDE_COMPANION_META_HEIGHT_PX,
       });
     });
     this._layoutResizeObserver.observe(grid);
@@ -429,7 +332,7 @@ export class WideViewCompanionController {
     const gridRect = grid.getBoundingClientRect?.() || null;
     const metadataHeight =
       grid.querySelector?.(".wide-companion-meta")?.offsetHeight ||
-      COMPANION_META_HEIGHT_PX;
+      WIDE_COMPANION_META_HEIGHT_PX;
     const cameraCount = flattenCameraMembers(
       this._host._config?.cameras,
     ).length;

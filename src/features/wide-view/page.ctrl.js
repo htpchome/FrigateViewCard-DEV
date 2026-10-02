@@ -4,11 +4,18 @@ import {
   PAGE_START_MODES,
   normalizePageStartMode,
 } from "../navigation/start-mode.js";
+import { flattenCameraMembers } from "../camera-groups/model.js";
 
 import {
+  resolveWideCompanionExpansionMax,
+  WIDE_COMPANION_GRID_GAP_PX,
+  WIDE_COMPANION_LIVE_OVERLAP_RATIO,
+  WIDE_COMPANION_META_HEIGHT_PX,
+  WIDE_COMPANION_MIN_CELL_WIDTH_PX,
   WIDE_LEFT_RESIZE_FALLBACK_MAX,
   WIDE_LEFT_RESIZE_MIN,
   WIDE_VIEW_RIGHT_COLUMN_MIN_PX,
+  WIDE_VIEW_WIDTH_IN_BETWEEN,
   normalizeWideViewWidth,
 } from "./config.js";
 
@@ -58,6 +65,7 @@ export function resolveWideInitialWidthPct({
   layoutWidth,
   handleWidth = 0,
   maximumWidthPct = WIDE_LEFT_RESIZE_FALLBACK_MAX,
+  inBetweenWidthPct = 0,
 } = {}) {
   const requestedPct = normalizeWideViewWidth(configuredWidth);
   if (requestedPct === WIDE_LEFT_RESIZE_MIN) return WIDE_LEFT_RESIZE_MIN;
@@ -76,7 +84,138 @@ export function resolveWideInitialWidthPct({
       rightColumnLimit,
     ),
   );
-  return Math.min(requestedPct, initialLimit);
+  if (requestedPct === WIDE_VIEW_WIDTH_IN_BETWEEN) {
+    const measuredInBetween = positiveNumber(inBetweenWidthPct);
+    const target =
+      measuredInBetween || (WIDE_LEFT_RESIZE_MIN + initialLimit) / 2;
+    return Math.max(
+      WIDE_LEFT_RESIZE_MIN,
+      Math.min(initialLimit, target),
+    );
+  }
+  return initialLimit;
+}
+
+export function resolveWideOneRowLayout({
+  cameraCount,
+  columnSpaceWidth,
+  columnHeight,
+  maximumWidthPct,
+  baseLeftWidth,
+  liveWidth,
+  liveHeight,
+  gridWidth,
+  gridHeight,
+  expansionMax,
+  metadataHeight = WIDE_COMPANION_META_HEIGHT_PX,
+} = {}) {
+  const count = Math.max(0, Math.floor(Number(cameraCount) || 0));
+  const slotCount = count === 1 ? 2 : count;
+  const columnSpace = positiveNumber(columnSpaceWidth);
+  const availableColumnHeight = positiveNumber(columnHeight);
+  const maximumPct = positiveNumber(maximumWidthPct);
+  const baseLeft = positiveNumber(baseLeftWidth);
+  const baseLiveWidth = positiveNumber(liveWidth);
+  const baseLiveHeight = positiveNumber(liveHeight);
+  const baseGridWidth = positiveNumber(gridWidth);
+  const baseGridHeight = positiveNumber(gridHeight);
+  const baseExpansionMax = Math.max(0, Number(expansionMax) || 0);
+  const resolvedMetadataHeight = Math.max(
+    0,
+    Number(metadataHeight) || WIDE_COMPANION_META_HEIGHT_PX,
+  );
+  if (
+    count === 0 ||
+    !columnSpace ||
+    !availableColumnHeight ||
+    !maximumPct ||
+    !baseLeft ||
+    !baseLiveWidth ||
+    !baseLiveHeight ||
+    !baseGridWidth ||
+    !baseGridHeight
+  ) {
+    return { widthPct: 0, columns: 0 };
+  }
+
+  const renderedPixelsPerPct = baseLeft / WIDE_LEFT_RESIZE_MIN;
+  const minimumLeftWidth = renderedPixelsPerPct * WIDE_LEFT_RESIZE_MIN;
+  const maximumLeftWidth = Math.min(
+    columnSpace,
+    renderedPixelsPerPct * maximumPct,
+  );
+  const liveWidthPerLeftWidth = baseLiveWidth / baseLeft;
+  const liveHeightPerWidth = baseLiveHeight / baseLiveWidth;
+  const gridHorizontalInset = Math.max(0, baseLeft - baseGridWidth);
+  const fixedExpansionHeight = Math.max(
+    0,
+    baseExpansionMax -
+      baseLiveHeight * WIDE_COMPANION_LIVE_OVERLAP_RATIO,
+  );
+
+  const preferredColumns = Math.min(
+    slotCount,
+    Math.max(
+      slotCount > 1 ? 2 : 1,
+      Math.ceil((columnSpace / availableColumnHeight) * 2),
+    ),
+  );
+
+  for (let columns = preferredColumns; columns <= slotCount; columns += 1) {
+    for (
+      let candidateLeftWidth = Math.floor(maximumLeftWidth);
+      candidateLeftWidth >= Math.ceil(minimumLeftWidth);
+      candidateLeftWidth -= 1
+    ) {
+      const candidateLiveWidth = candidateLeftWidth * liveWidthPerLeftWidth;
+      const candidateLiveHeight = candidateLiveWidth * liveHeightPerWidth;
+      const candidateGridWidth = Math.max(
+        1,
+        candidateLeftWidth - gridHorizontalInset,
+      );
+      const candidateGridHeight =
+        baseGridHeight - (candidateLiveHeight - baseLiveHeight);
+      if (candidateGridHeight <= 0) continue;
+
+      const candidateCellWidth =
+        (candidateGridWidth -
+          WIDE_COMPANION_GRID_GAP_PX * Math.max(0, columns - 1)) /
+        columns;
+      if (candidateCellWidth < WIDE_COMPANION_MIN_CELL_WIDTH_PX) continue;
+
+      const firstRowHeight =
+        candidateCellWidth * (9 / 16) + resolvedMetadataHeight;
+      if (firstRowHeight > candidateGridHeight + 0.5) continue;
+
+      const rows = Math.ceil(slotCount / columns);
+      const contentHeight =
+        rows * firstRowHeight +
+        WIDE_COMPANION_GRID_GAP_PX * Math.max(0, rows - 1);
+      const candidateExpansionMax =
+        fixedExpansionHeight +
+        candidateLiveHeight * WIDE_COMPANION_LIVE_OVERLAP_RATIO;
+      if (
+        contentHeight >
+        candidateGridHeight + candidateExpansionMax + 0.5
+      ) {
+        continue;
+      }
+
+      return {
+        widthPct: candidateLeftWidth / renderedPixelsPerPct,
+        columns,
+      };
+    }
+  }
+
+  return {
+    widthPct: WIDE_LEFT_RESIZE_MIN,
+    columns: preferredColumns,
+  };
+}
+
+export function resolveWideOneRowWidthPct(options = {}) {
+  return resolveWideOneRowLayout(options).widthPct;
 }
 
 export class WideViewPageController {
@@ -326,13 +465,8 @@ export class WideViewPageController {
     this.applyWideLayoutMode(layout, this._host._config?.wide_view_width);
   }
 
-  reflowPanelColumnsForResize() {
-    if (
-      !this.isWideViewPageActive() ||
-      this._host._cardStyleController?.isPanelView?.() !== true
-    ) {
-      return false;
-    }
+  reflowColumnsForResize() {
+    if (!this.isWideViewPageActive()) return false;
     this.applyLayoutModeForCard();
     return true;
   }
@@ -471,25 +605,52 @@ export class WideViewPageController {
     const layoutWidth = Number(columns.getBoundingClientRect?.().width) || 0;
     const handleWidth = Number(handle?.getBoundingClientRect?.().width) || 0;
     const columnSpaceWidth = Math.max(0, layoutWidth - handleWidth);
-    const leftWidth = Number(colL.getBoundingClientRect?.().width) || 0;
+    const leftRect = colL.getBoundingClientRect?.() || null;
+    const leftWidth = Number(leftRect?.width) || 0;
     const companionPanel = colL.querySelector?.("#wide-companion-panel");
     const companionHeader = companionPanel?.querySelector?.(
       ".wide-companion-header",
     );
+    const companionGrid = companionPanel?.querySelector?.(
+      "#wide-companion-grid",
+    );
+    const companionMeta = companionGrid?.querySelector?.(
+      ".wide-companion-meta",
+    );
     const liveWrap = colL.querySelector?.("#eng-wrap");
+    const companionPanelRect =
+      companionPanel?.getBoundingClientRect?.() || null;
+    const companionGridRect =
+      companionGrid?.getBoundingClientRect?.() || null;
+    const liveRect = liveWrap?.getBoundingClientRect?.() || null;
     return {
       layoutWidth,
       handleWidth,
       columnSpaceWidth,
+      leftWidth,
+      columnHeight: Number(leftRect?.height) || 0,
+      liveWidth: liveRect?.width || 0,
+      liveHeight: liveRect?.height || 0,
+      companionGridWidth: companionGridRect?.width || 0,
+      companionGridHeight: companionGridRect?.height || 0,
+      companionMetaHeight:
+        companionMeta?.getBoundingClientRect?.().height ||
+        companionMeta?.offsetHeight ||
+        WIDE_COMPANION_META_HEIGHT_PX,
+      companionExpansionMax: resolveWideCompanionExpansionMax({
+        panelTop: companionPanelRect?.top,
+        liveBottom: liveRect?.bottom,
+        liveHeight: liveRect?.height,
+      }),
       maximumWidthPct: resolveWideLeftResizeMaxPct({
         layoutWidth: columnSpaceWidth,
         leftWidth,
         leftStylePct,
-        companionHeight: companionPanel?.getBoundingClientRect?.().height,
+        companionHeight: companionPanelRect?.height,
         companionHeaderHeight:
           companionHeader?.getBoundingClientRect?.().height,
-        liveWidth: liveWrap?.getBoundingClientRect?.().width,
-        liveHeight: liveWrap?.getBoundingClientRect?.().height,
+        liveWidth: liveRect?.width,
+        liveHeight: liveRect?.height,
       }),
     };
   }
@@ -515,13 +676,53 @@ export class WideViewPageController {
           colL,
           WIDE_LEFT_RESIZE_MIN,
         );
+        const maximumInitialWidthPct = resolveWideInitialWidthPct({
+          configuredWidth: 100,
+          layoutWidth: measurements.layoutWidth,
+          handleWidth: measurements.handleWidth,
+          maximumWidthPct: measurements.maximumWidthPct,
+        });
+        const usesManagedWideLayout =
+          this._host._cardStyleController?.isPanelView?.() === true ||
+          this._host._cardStyleController?.isSidebarView?.() === true;
+        const companionGrid = colL.querySelector?.("#wide-companion-grid");
+        const oneRowLayout =
+          usesManagedWideLayout &&
+          configuredWidth === WIDE_VIEW_WIDTH_IN_BETWEEN
+            ? resolveWideOneRowLayout({
+                cameraCount: flattenCameraMembers(
+                  this._host._config?.cameras,
+                ).length,
+                columnSpaceWidth: measurements.columnSpaceWidth,
+                columnHeight: measurements.columnHeight,
+                maximumWidthPct: maximumInitialWidthPct,
+                baseLeftWidth: measurements.leftWidth,
+                liveWidth: measurements.liveWidth,
+                liveHeight: measurements.liveHeight,
+                gridWidth: measurements.companionGridWidth,
+                gridHeight: measurements.companionGridHeight,
+                expansionMax: measurements.companionExpansionMax,
+                metadataHeight: measurements.companionMetaHeight,
+              })
+            : { widthPct: 0, columns: 0 };
+        if (companionGrid?.dataset) {
+          if (oneRowLayout.columns > 0) {
+            companionGrid.dataset.wideCompanionPreferredColumns = String(
+              oneRowLayout.columns,
+            );
+          } else {
+            delete companionGrid.dataset.wideCompanionPreferredColumns;
+          }
+        }
         const initialWidthPct = resolveWideInitialWidthPct({
           configuredWidth,
           layoutWidth: measurements.layoutWidth,
           handleWidth: measurements.handleWidth,
           maximumWidthPct: measurements.maximumWidthPct,
+          inBetweenWidthPct: oneRowLayout.widthPct,
         });
         this._setColumnWidths(colL, colR, initialWidthPct);
+        this._companionController?.updateLayout?.();
       } else {
         colL.style.width = "";
         colR.style.width = "";

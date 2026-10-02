@@ -314,6 +314,16 @@ test("Companion Camera columns resize responsively within useful bounds", () => 
   assert.deepEqual(
     resolveWideCompanionGridLayout({
       cameraCount: 7,
+      width: 1125,
+      height: 700,
+      visibleHeight: 190,
+      preferredColumns: 4,
+    }),
+    { columns: 4, cellWidth: 275.2 },
+  );
+  assert.deepEqual(
+    resolveWideCompanionGridLayout({
+      cameraCount: 7,
       width: 300,
       height: 740,
     }),

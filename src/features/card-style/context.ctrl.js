@@ -1192,7 +1192,7 @@ export class CardStyleContextController {
       ["%", "vh", "dvh"].includes(configuredHeightUnit);
     const keepWideViewConstrained =
       this._host._wideViewPageController?.isWideViewPageActive?.() === true &&
-      this.isPanelView();
+      (this.isPanelView() || this.isSidebarView());
     const keepConstrainedViewHeight =
       keepWideViewConstrained ||
       (usesFullAvailableHeight &&

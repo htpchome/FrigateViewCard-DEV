@@ -146,7 +146,7 @@ test("supported Wide View loads once and replays startup activation", async () =
   ]);
 });
 
-test("Wide View page loader forwards Panel resize reflow", () => {
+test("Wide View page loader forwards resize reflow", () => {
   const host = {
     _config: { wide_view_page_enabled: true },
     _deviceRouteBucket: () => "desktop",
@@ -155,13 +155,13 @@ test("Wide View page loader forwards Panel resize reflow", () => {
   const controller = new LazyWideViewPageController(host, constants);
   let calls = 0;
   controller._delegate = {
-    reflowPanelColumnsForResize: () => {
+    reflowColumnsForResize: () => {
       calls += 1;
       return true;
     },
   };
 
-  assert.equal(controller.reflowPanelColumnsForResize(), true);
+  assert.equal(controller.reflowColumnsForResize(), true);
   assert.equal(calls, 1);
 });
 

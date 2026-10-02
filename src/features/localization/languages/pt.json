@@ -650,7 +650,7 @@
       "initialTimelineRangeHelp": "Define o período inicial. Pode alterá-lo mais tarde no cabeçalho da linha temporal.",
       "leftColumnWidth": "Largura da coluna esquerda",
       "halfWidth": "Meia largura",
-      "threeQuarterWidth": "Três quartos da largura",
+      "inBetweenWidth": "Intermédio",
       "maxWidth": "Largura máxima",
       "widthDisclaimer": "As definições de largura podem por vezes não funcionar como esperado devido a fatores como o elemento onde o cartão está colocado (painel, secção, etc.) ou o espaço máximo disponível para a sua apresentação"
     },

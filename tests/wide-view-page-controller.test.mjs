@@ -6,6 +6,7 @@ import {
   WideViewPageController,
   resolveWideInitialWidthPct,
   resolveWideLeftResizeMaxPct,
+  resolveWideOneRowWidthPct,
 } from "../src/features/wide-view/page.ctrl.js";
 
 const PAGE_IDS = { preview: "preview", wideView: "wide-view" };
@@ -294,18 +295,17 @@ test("syncColHeightIfWideView syncs only for wide route", () => {
   assert.deepEqual(single.calls, []);
 });
 
-test("Panel Wide View recalculates its columns after a container resize", () => {
+test("Wide View recalculates columns after a container resize", () => {
   const wide = createHost({ isWide: true });
-  wide.host._cardStyleController = { isPanelView: () => true };
   const controller = new WideViewPageController(wide.host, { PAGE_IDS });
   controller.applyLayoutModeForCard = () =>
     wide.calls.push(["applyLayoutMode"]);
 
-  assert.equal(controller.reflowPanelColumnsForResize(), true);
+  assert.equal(controller.reflowColumnsForResize(), true);
   assert.deepEqual(wide.calls, [["applyLayoutMode"]]);
 
-  wide.host._cardStyleController.isPanelView = () => false;
-  assert.equal(controller.reflowPanelColumnsForResize(), false);
+  wide.host._pageId = "single-view";
+  assert.equal(controller.reflowColumnsForResize(), false);
   assert.deepEqual(wide.calls, [["applyLayoutMode"]]);
 });
 
@@ -343,7 +343,7 @@ test("Wide View column resize maximum follows Companion Cameras space", () => {
   );
 });
 
-test("Wide View initial width respects presets, the right column, and companion boundary", () => {
+test("Wide View initial width resolves Half, In-Between, and Max presets", () => {
   assert.equal(
     resolveWideInitialWidthPct({
       configuredWidth: 50,
@@ -361,8 +361,18 @@ test("Wide View initial width respects presets, the right column, and companion 
         handleWidth: 10,
         maximumWidthPct: 90,
       }) -
-        (740 / 990) * 100,
+        (50 + (740 / 990) * 100) / 2,
     ) < 0.0001,
+  );
+  assert.equal(
+    resolveWideInitialWidthPct({
+      configuredWidth: 75,
+      layoutWidth: 1000,
+      handleWidth: 10,
+      maximumWidthPct: 90,
+      inBetweenWidthPct: 68,
+    }),
+    68,
   );
   assert.equal(
     resolveWideInitialWidthPct({
@@ -381,6 +391,40 @@ test("Wide View initial width respects presets, the right column, and companion 
       maximumWidthPct: 90,
     }),
     50,
+  );
+});
+
+test("Wide View managed In-Between width preserves one complete companion row", () => {
+  const target = resolveWideOneRowWidthPct({
+    cameraCount: 7,
+    columnSpaceWidth: 1190,
+    columnHeight: 760,
+    maximumWidthPct: 78,
+    baseLeftWidth: 595,
+    liveWidth: 595,
+    liveHeight: 334.6875,
+    gridWidth: 579,
+    gridHeight: 300,
+    expansionMax: 380,
+    metadataHeight: 24,
+  });
+
+  assert.ok(target > 50);
+  assert.ok(target < 78);
+  assert.equal(
+    resolveWideOneRowWidthPct({
+      cameraCount: 0,
+      columnSpaceWidth: 1190,
+      columnHeight: 760,
+      maximumWidthPct: 78,
+      baseLeftWidth: 595,
+      liveWidth: 595,
+      liveHeight: 334.6875,
+      gridWidth: 579,
+      gridHeight: 300,
+      expansionMax: 380,
+    }),
+    0,
   );
 });
 
@@ -470,8 +514,8 @@ test("applyWideLayoutMode applies a supported initial width", () => {
   controller.applyWideLayoutMode(layout, "75");
 
   assert.deepEqual(toggles, [["wide-view", true]]);
-  assert.equal(colL.style.width, "75%");
-  assert.equal(colR.style.width, "25%");
+  assert.equal(colL.style.width, "62.5%");
+  assert.equal(colR.style.width, "37.5%");
 });
 
 test("wideViewLayoutState defaults unsupported values to Max Width", () => {
