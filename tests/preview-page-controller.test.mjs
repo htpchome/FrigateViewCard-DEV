@@ -456,6 +456,20 @@ test("Preview does not carry an HA-direct HLS hint into go2rtc cameras", () => {
   );
 });
 
+test("Preview never carries an HLS hint into an active go2rtc camera", () => {
+  const { controller, host } = createHost({ activeStreamType: "hls" });
+  host._activeCam = { entity: "camera.driveway" };
+
+  assert.equal(
+    controller.previewCameraLiveStreamHint("camera.driveway"),
+    "mse",
+  );
+  assert.equal(
+    controller.previewStreamSourceLabel("camera.driveway", true),
+    "MSE Live",
+  );
+});
+
 test("Preview landing starts an unclassified HA-direct camera with HLS", () => {
   const { controller, host } = createHost({
     activeStreamType: "--",

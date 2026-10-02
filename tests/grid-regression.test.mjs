@@ -321,10 +321,14 @@ test("Grid cells own their border and rounded clipping directly", () => {
   assert.doesNotMatch(stylesSource, /@supports \(-moz-appearance:none\)/);
 });
 
-test("Frigate go2rtc Grid races WebRTC, MSE, and HLS while retaining takeover", () => {
+test("Frigate go2rtc Grid races only WebRTC and MSE while retaining takeover", () => {
   assert.match(
     gridMediaControllerSource,
-    /GRID_LIVE_ATTEMPT_TYPES = Object\.freeze\(\["webrtc", "mse", "hls"\]\)/,
+    /GRID_LIVE_ATTEMPT_TYPES = Object\.freeze\(\["webrtc", "mse"\]\)/,
+  );
+  assert.doesNotMatch(
+    gridMediaControllerSource,
+    /GRID_LIVE_ATTEMPT_TYPES = Object\.freeze\([^)]*"hls"/,
   );
   assert.match(
     gridMediaControllerSource,
@@ -375,7 +379,7 @@ test("Frigate go2rtc Grid races WebRTC, MSE, and HLS while retaining takeover", 
   );
 });
 
-test("Grid resolves HA-direct HLS without narrowing the go2rtc race", () => {
+test("Grid resolves HA-direct HLS without adding HLS to the go2rtc race", () => {
   const previousDocument = globalThis.document;
   const createElement = () => {
     const classes = new Set();

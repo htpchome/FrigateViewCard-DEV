@@ -12,7 +12,7 @@ import { adoptMountedAttemptSlot } from "./mount-result.js";
 import { createStrategyForType } from "./stream.strategies.js";
 import { StreamOrchestrator } from "./stream.orchestrator.js";
 
-const GRID_LIVE_ATTEMPT_TYPES = Object.freeze(["webrtc", "mse", "hls"]);
+const GRID_LIVE_ATTEMPT_TYPES = Object.freeze(["webrtc", "mse"]);
 const GRID_WEBRTC_PREFERRED_WAIT_MS = 500;
 
 const gridLiveAttemptStartup = (type) => {

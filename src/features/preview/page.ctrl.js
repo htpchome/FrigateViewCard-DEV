@@ -226,13 +226,6 @@ export class PreviewPageController {
     }
     const liveStreamHint = this.previewLiveStreamHint();
     if (liveStreamHint !== "hls") return liveStreamHint;
-    const activeEntity = String(this._host._activeCam?.entity || "").trim();
-    if (
-      !activeEntity ||
-      this._host._shouldUseGo2RtcForEntity?.(activeEntity) === true
-    ) {
-      return liveStreamHint;
-    }
     return DEVICE_PROFILE.isIOS ? "webrtc" : "mse";
   }
 
