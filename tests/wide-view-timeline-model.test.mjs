@@ -243,15 +243,15 @@ test("timeline tick and responsive models scale with available space", () => {
     remainingBrowseWidth: 356,
     mode: "push",
   });
-  assert.deepEqual(resolveWideTimelineResponsiveLayout(544), {
+  assert.deepEqual(resolveWideTimelineResponsiveLayout(524), {
     panelWidth: 264,
-    remainingBrowseWidth: 280,
+    remainingBrowseWidth: 260,
     mode: "push",
   });
-  assert.equal(resolveWideTimelineResponsiveLayout(543).mode, "overlay");
+  assert.equal(resolveWideTimelineResponsiveLayout(523).mode, "overlay");
   assert.deepEqual(resolveWideTimelineResponsiveLayout(1_000, 900), {
-    panelWidth: 720,
-    remainingBrowseWidth: 280,
+    panelWidth: 740,
+    remainingBrowseWidth: 260,
     mode: "push",
   });
 });

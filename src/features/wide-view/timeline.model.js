@@ -27,7 +27,7 @@ const TIMELINE_REVIEW_KINDS = new Set(["alert", "review"]);
 export const WIDE_TIMELINE_MIN_PANEL_WIDTH = 264;
 export const WIDE_TIMELINE_DEFAULT_PANEL_WIDTH =
   WIDE_TIMELINE_MIN_PANEL_WIDTH;
-export const WIDE_TIMELINE_MIN_BROWSE_WIDTH = 280;
+export const WIDE_TIMELINE_MIN_BROWSE_WIDTH = 260;
 
 const finiteNumber = (value, fallback = 0) => {
   const numeric = Number(value);

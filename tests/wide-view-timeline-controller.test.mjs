@@ -455,7 +455,7 @@ test("Timeline width drag leaves the minimum Alerts width visible", () => {
 
   assert.equal(
     colRight.style.values.get("--wide-timeline-panel-width"),
-    "720px",
+    "740px",
   );
 });
 
