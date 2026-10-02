@@ -193,7 +193,7 @@ test("Timeline waits for observed Wide layout before its initial paint", () => {
     assert.equal(colRight.classList.contains("wide-timeline-push"), true);
     assert.equal(
       colRight.style.values.get("--wide-timeline-panel-width"),
-      "408px",
+      "264px",
     );
     assert.equal(frameCallbacks.length, 1);
     frameCallbacks[0]();
@@ -587,7 +587,7 @@ test("Timeline close handle resizes on drag without collapsing the panel", () =>
 
   assert.equal(
     colRight.style.values.get("--wide-timeline-panel-width"),
-    "488px",
+    "344px",
   );
   assert.equal(controller.isOpen(), true);
   assert.equal(

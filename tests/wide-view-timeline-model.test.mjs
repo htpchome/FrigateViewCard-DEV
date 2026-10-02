@@ -234,13 +234,13 @@ test("timeline tick and responsive models scale with available space", () => {
 
   assert.ok(ticks.length >= 6);
   assert.deepEqual(resolveWideTimelineResponsiveLayout(1_000), {
-    panelWidth: 408,
-    remainingBrowseWidth: 592,
+    panelWidth: 264,
+    remainingBrowseWidth: 736,
     mode: "push",
   });
   assert.deepEqual(resolveWideTimelineResponsiveLayout(620), {
-    panelWidth: 340,
-    remainingBrowseWidth: 280,
+    panelWidth: 264,
+    remainingBrowseWidth: 356,
     mode: "push",
   });
   assert.deepEqual(resolveWideTimelineResponsiveLayout(544), {

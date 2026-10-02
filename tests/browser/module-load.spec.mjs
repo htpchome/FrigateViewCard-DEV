@@ -8439,7 +8439,9 @@ test("Wide View timeline push width remains stable across wide breakpoints", asy
     expect(new Set(samples.map(({ mode }) => mode))).toEqual(
       new Set(["push"]),
     );
-    expect(new Set(samples.map(({ panelWidth }) => panelWidth)).size).toBe(1);
+    expect(new Set(samples.map(({ panelWidth }) => panelWidth))).toEqual(
+      new Set([264]),
+    );
   }
 });
 

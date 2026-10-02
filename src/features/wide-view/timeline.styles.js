@@ -1,6 +1,6 @@
 export const WIDE_VIEW_TIMELINE_STYLES = `
   .card .col-right--wide-view.wide-timeline-enabled {
-    --wide-timeline-panel-width: 408px;
+    --wide-timeline-panel-width: 264px;
     box-sizing: border-box;
     transition: padding-left 180ms ease;
   }
