@@ -7381,6 +7381,92 @@ test("Sidebar Wide View reapplies Max with the same responsive rules as Panel", 
   expect(results.sidebar.resized.leftPct).toBeGreaterThan(60);
 });
 
+test("Sidebar Wide View reapplies configured widths after cold-start layout settles", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(baseUrl);
+
+  const widths = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const measure = async (wideViewWidth) => {
+      const sidebar = document.createElement("hui-sidebar-view");
+      sidebar.style.cssText = "display:block;width:500px;height:800px";
+      document.body.append(sidebar);
+      const card = document.createElement("frigate-view-card");
+      sidebar.append(card);
+      card.setConfig({
+        cameras: Array.from({ length: 2 }, (_, index) => ({
+          entity: `camera.camera_${index + 1}`,
+          name: `Camera ${index + 1}`,
+        })),
+        landing_page: "wide-view",
+        wide_view_page_enabled: true,
+        wide_view_width: wideViewWidth,
+        stream_height: 800,
+        stream_height_unit: "px",
+        tight_margins: true,
+      });
+      card._discoverAll = async () => {};
+      card._browseWindowLoaderController.loadWindow = async () => {};
+      card._browseWindowLoaderController.scheduleWarmOtherCamerasEvents =
+        () => {};
+      card._browseWindowLoaderController.warmVisibleCameraReviews =
+        async () => {};
+      card._mountEngine = () => {
+        sidebar.style.width = "1200px";
+      };
+      card._renderAll = () => {};
+      card._subscribe = () => {};
+      card._startEditModeWatchdog = () => {};
+      card._startEditorDialogCloseObserver = () => {};
+      card._restartRealtimeHeadPollTimer = () => {};
+      card._setupResizeObserver = () => {};
+
+      await card._start();
+      await card._wideViewCompanionController._ensureDelegate();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const root = card.shadowRoot;
+      const columnsWidth = root
+        .querySelector(".wide-view-columns")
+        .getBoundingClientRect().width;
+      const handleWidth = root
+        .querySelector("#resize-handle")
+        .getBoundingClientRect().width;
+      const leftWidth = root
+        .querySelector(".col-left--wide-view")
+        .getBoundingClientRect().width;
+      const rightWidth = root
+        .querySelector(".col-right--wide-view")
+        .getBoundingClientRect().width;
+      clearInterval(card._refresh);
+      card._refresh = null;
+      card.remove();
+      sidebar.remove();
+      return {
+        leftPct: (leftWidth / (columnsWidth - handleWidth)) * 100,
+        rightWidth,
+      };
+    };
+
+    return {
+      inBetween: await measure(75),
+      max: await measure(100),
+    };
+  });
+
+  expect(widths.inBetween.leftPct, JSON.stringify(widths)).toBeGreaterThan(55);
+  expect(widths.max.leftPct, JSON.stringify(widths)).toBeGreaterThan(70);
+  expect(widths.max.rightWidth, JSON.stringify(widths)).toBeGreaterThanOrEqual(
+    249,
+  );
+});
+
 test("Wide View companion tiles stay large when two columns nearly fit", async ({
   page,
 }) => {

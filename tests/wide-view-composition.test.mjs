@@ -17,8 +17,8 @@ test("Wide View composition creates companion, timeline, and page controllers wi
   const timelineController = { type: "timeline" };
   const pageController = { type: "page" };
   const factories = {
-    createCompanionController: (card, constants) => {
-      created.companion = { card, constants };
+    createCompanionController: (card, constants, options) => {
+      created.companion = { card, constants, options };
       return companionController;
     },
     createTimelineController: (card, options) => {
@@ -71,6 +71,15 @@ test("Wide View composition creates companion, timeline, and page controllers wi
   assert.equal(created.companion.card, card);
   assert.equal(created.companion.constants.PAGE_IDS, PAGE_IDS);
   assert.equal(typeof created.companion.constants.ICONS.live, "string");
+  assert.equal(typeof created.companion.options.onReady, "function");
+  let companionReadyNotifications = 0;
+  card._wideViewPageController = {
+    notifyCompanionLayoutReady: () => {
+      companionReadyNotifications += 1;
+    },
+  };
+  assert.equal(created.companion.options.onReady(), false);
+  assert.equal(companionReadyNotifications, 1);
 
   const result = createWideViewTimelineControllers(card, {
     companionController,

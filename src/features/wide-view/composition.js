@@ -22,8 +22,8 @@ import { resolveWideTimelineCameraContextKey } from "./timeline-context.js";
 import { LazyWideViewTimelineController } from "./timeline.loader.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
-  createCompanionController: (card, constants) =>
-    new LazyWideViewCompanionController(card, constants),
+  createCompanionController: (card, constants, options) =>
+    new LazyWideViewCompanionController(card, constants, options),
   createPageController: (card, constants, options) =>
     new LazyWideViewPageController(card, constants, options),
   createTimelineController: (card, options) =>
@@ -35,14 +35,23 @@ export const createWideViewCompanionController = (
   { factories = DEFAULT_FACTORIES } = {},
 ) => {
   const resolvedFactories = { ...DEFAULT_FACTORIES, ...factories };
-  return resolvedFactories.createCompanionController(card, {
-    DAY,
-    ICONS,
-    PAGE_IDS,
-    PREVIEW_ALERT_HOLD_MS,
-    PREVIEW_ALERT_END_GRACE_MS,
-    SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,
-  });
+  return resolvedFactories.createCompanionController(
+    card,
+    {
+      DAY,
+      ICONS,
+      PAGE_IDS,
+      PREVIEW_ALERT_HOLD_MS,
+      PREVIEW_ALERT_END_GRACE_MS,
+      SLIDESHOW_REVIEW_FRESHNESS_GRACE_SEC,
+    },
+    {
+      onReady: () => {
+        card._wideViewPageController?.notifyCompanionLayoutReady?.();
+        return false;
+      },
+    },
+  );
 };
 
 export const createWideViewTimelineControllers = (

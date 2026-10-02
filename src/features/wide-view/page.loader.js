@@ -308,6 +308,14 @@ export class LazyWideViewPageController {
     return this._delegate?.reflowColumnsForResize?.() === true;
   }
 
+  scheduleSettledLayoutReflow() {
+    return this._delegate?.scheduleSettledLayoutReflow?.() === true;
+  }
+
+  notifyCompanionLayoutReady() {
+    return this._delegate?.notifyCompanionLayoutReady?.() === true;
+  }
+
   syncColHeightIfWideView() {
     this._delegate?.syncColHeightIfWideView?.();
   }

@@ -549,6 +549,56 @@ test("applyLayoutModeForCard resolves layout and applies widths", () => {
   assert.equal(capturedPct, 75);
 });
 
+test("settled Wide View reflow waits for two layout frames", () => {
+  const { host, calls } = createHost({ isWide: true });
+  const frames = [];
+  const controller = new WideViewPageController(
+    host,
+    { PAGE_IDS },
+    {
+      requestFrame: (callback) => {
+        frames.push(callback);
+        return frames.length;
+      },
+    },
+  );
+  controller.applyStyleLayoutAndWideSyncForCard = () =>
+    calls.push(["settledLayout"]);
+
+  assert.equal(controller.scheduleSettledLayoutReflow(), true);
+  assert.equal(frames.length, 1);
+  assert.deepEqual(calls, []);
+
+  frames.shift()();
+  assert.equal(frames.length, 1);
+  assert.deepEqual(calls, []);
+
+  frames.shift()();
+  assert.deepEqual(calls, [["settledLayout"]]);
+});
+
+test("companion readiness reschedules only an activated Wide View layout", () => {
+  const { host } = createHost({ isWide: true });
+  const frames = [];
+  const controller = new WideViewPageController(
+    host,
+    { PAGE_IDS },
+    {
+      requestFrame: (callback) => {
+        frames.push(callback);
+        return frames.length;
+      },
+    },
+  );
+
+  assert.equal(controller.notifyCompanionLayoutReady(), false);
+  controller.activateWideViewPageRoute({ startup: true });
+  const framesAfterActivation = frames.length;
+  assert.equal(controller.notifyCompanionLayoutReady(), true);
+  assert.equal(frames.length, framesAfterActivation + 1);
+  assert.equal(controller.notifyCompanionLayoutReady(), false);
+});
+
 test("applyWideLayoutMode clears widths for non-wide route", () => {
   const { host } = createHost({ isWide: false });
   const controller = new WideViewPageController(host, { PAGE_IDS });

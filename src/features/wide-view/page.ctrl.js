@@ -235,6 +235,9 @@ export class WideViewPageController {
         }
         return globalThis.requestAnimationFrame(callback);
       });
+    this._supportsDeferredLayout =
+      typeof options.requestFrame === "function" ||
+      typeof globalThis.requestAnimationFrame === "function";
     this._cancelFrame =
       options.cancelFrame ||
       ((frameId) => globalThis.cancelAnimationFrame?.(frameId));
@@ -243,13 +246,16 @@ export class WideViewPageController {
     this._resizeDragCleanup = null;
     this._resizeDragState = null;
     this._syncColHeightFrame = null;
+    this._settledLayoutFrame = null;
     this._columnResizeObserver = null;
     this._columnResizeTarget = null;
     this._startModeApplied = false;
+    this._awaitingInitialCompanionLayout = false;
   }
 
   activateWideViewPageRoute(context = {}) {
     this._startModeApplied = false;
+    this._awaitingInitialCompanionLayout = true;
     const routeContext = {
       ...context,
       startInGrid:
@@ -270,6 +276,7 @@ export class WideViewPageController {
       gridAvailable: routeContext.startInGrid,
     });
     this.startWideViewMode();
+    this.scheduleSettledLayoutReflow();
   }
 
   applyConfiguredStartMode({
@@ -387,6 +394,8 @@ export class WideViewPageController {
   }
 
   stopWideViewMode() {
+    this._awaitingInitialCompanionLayout = false;
+    this._cancelSettledLayoutReflow();
     this._cancelResizeDrag();
     this._disconnectColumnResizeObserver();
     this.stopCompanionMode();
@@ -400,6 +409,7 @@ export class WideViewPageController {
 
   disconnectResizeHandle() {
     this._disposeResizeHandle();
+    this._cancelSettledLayoutReflow();
     this._cancelSyncColHeight();
     this._disconnectColumnResizeObserver();
   }
@@ -469,6 +479,46 @@ export class WideViewPageController {
     if (!this.isWideViewPageActive()) return false;
     this.applyLayoutModeForCard();
     return true;
+  }
+
+  scheduleSettledLayoutReflow() {
+    if (!this.isWideViewPageActive() || !this._supportsDeferredLayout) {
+      return false;
+    }
+    this._cancelSettledLayoutReflow();
+
+    const requestFrame = (callback) => {
+      this._settledLayoutFrame = true;
+      const frameId = this._requestFrame(() => {
+        this._settledLayoutFrame = null;
+        callback();
+      });
+      if (this._settledLayoutFrame !== null) {
+        this._settledLayoutFrame = frameId;
+      }
+    };
+
+    requestFrame(() => {
+      if (!this.isWideViewPageActive()) return;
+      requestFrame(() => {
+        if (!this.isWideViewPageActive()) return;
+        // HA can finish sizing Sidebar and Panel wrappers after the route
+        // first paints. Re-measure once that layout has settled.
+        this.applyStyleLayoutAndWideSyncForCard();
+      });
+    });
+    return true;
+  }
+
+  notifyCompanionLayoutReady() {
+    if (
+      !this._awaitingInitialCompanionLayout ||
+      !this.isWideViewPageActive()
+    ) {
+      return false;
+    }
+    this._awaitingInitialCompanionLayout = false;
+    return this.scheduleSettledLayoutReflow();
   }
 
   syncColHeightIfWideView() {
@@ -813,6 +863,13 @@ export class WideViewPageController {
   _cancelSyncColHeight() {
     const frameId = this._syncColHeightFrame;
     this._syncColHeightFrame = null;
+    if (frameId === null || frameId === true || frameId === undefined) return;
+    this._cancelFrame(frameId);
+  }
+
+  _cancelSettledLayoutReflow() {
+    const frameId = this._settledLayoutFrame;
+    this._settledLayoutFrame = null;
     if (frameId === null || frameId === true || frameId === undefined) return;
     this._cancelFrame(frameId);
   }
