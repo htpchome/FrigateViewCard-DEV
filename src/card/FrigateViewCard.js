@@ -1540,7 +1540,7 @@ export class FrigateViewCard extends HTMLElement {
         ? seconds
         : SNAPSHOT_UPDATE_SECONDS;
     return Math.max(
-      10000,
+      SNAPSHOT_UPDATE_OPTIONS_SECONDS[0] * 1000,
       Math.min(
         SNAPSHOT_UPDATE_OPTIONS_SECONDS[
           SNAPSHOT_UPDATE_OPTIONS_SECONDS.length - 1
