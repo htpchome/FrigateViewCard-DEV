@@ -8368,6 +8368,100 @@ test("Wide View timeline push width remains stable across wide breakpoints", asy
   }
 });
 
+test("Wide View timeline spaces its axis and thumbnails responsively", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_200, height: 700 });
+  await page.goto(baseUrl);
+  const result = await page.evaluate(async () => {
+    const { WideViewTimelineController } = await import(
+      "/frigate-view-card-wide-timeline.js"
+    );
+    const host = document.createElement("div");
+    host.attachShadow({ mode: "open" });
+    host._config = {
+      wide_view_timeline_enabled: true,
+      wide_view_timeline_default_open: true,
+    };
+    host._$ = (selector) => host.shadowRoot.querySelector(selector);
+    document.body.append(host);
+
+    const event = {
+      id: "timeline-spacing-event",
+      camera: "front",
+      label: "car",
+      start_time: 9_900,
+      end_time: 9_910,
+      has_snapshot: true,
+    };
+    const controller = new WideViewTimelineController(host, {
+      getAllEvents: () => [event],
+      getVisibleEvents: () => [event],
+      getWindowStart: () => 6_400,
+      getWindowEnd: () => 10_000,
+      now: () => 10_000,
+      formatTime: () => "10:00 pm",
+      setTimer: () => null,
+    });
+    const wrapper = document.createElement("div");
+    wrapper.className = "card";
+    wrapper.style.cssText = "position:relative;width:730px;height:500px";
+    wrapper.innerHTML = `<div id="col-right" class="col-right--wide-view" style="position:relative;width:730px;height:500px">${controller.buildRegionMarkup()}</div>`;
+    host.shadowRoot.append(wrapper);
+
+    const sample = (width) => {
+      controller._observedViewportWidth = width;
+      controller._observedViewportHeight = 500;
+      controller.render({ force: true });
+      const canvas = host._$(".wide-timeline-canvas");
+      canvas.style.width = `${width}px`;
+      const canvasBounds = canvas.getBoundingClientRect();
+      const axisBounds = host._$(".wide-timeline-axis").getBoundingClientRect();
+      const cardBounds = host._$(".wide-timeline-stack").getBoundingClientRect();
+      const timeBounds = host._$(".wide-timeline-tick-time")
+        .getBoundingClientRect();
+      const link = host._$(".wide-timeline-link");
+      const axisLeft = axisBounds.left + axisBounds.width / 2 -
+        canvasBounds.left;
+      const cardLeft = cardBounds.left - canvasBounds.left;
+      return {
+        axisLeft,
+        cardLeft,
+        cardWidth: cardBounds.width,
+        axisToCard: cardLeft - axisLeft,
+        rightSpace: width - cardLeft - cardBounds.width,
+        timeRight: timeBounds.right - canvasBounds.left,
+        connectorStart: Number(link.getAttribute("x1")),
+        connectorEnd: Number(link.getAttribute("x2")),
+      };
+    };
+
+    const narrow = sample(264);
+    const wide = sample(730);
+    controller.teardown();
+    host.remove();
+    return { narrow, wide };
+  });
+
+  expect(result.narrow.axisLeft).toBeCloseTo(43.56, 1);
+  expect(result.narrow.cardLeft).toBeCloseTo(84, 1);
+  expect(result.narrow.cardWidth).toBeCloseTo(156, 1);
+  expect(result.narrow.rightSpace).toBeCloseTo(24, 1);
+  expect(result.narrow.timeRight).toBeLessThan(result.narrow.axisLeft);
+  expect(result.narrow.connectorStart).toBeCloseTo(16.5, 1);
+  expect(result.narrow.connectorEnd).toBeCloseTo(31.82, 1);
+
+  expect(result.wide.axisLeft).toBeCloseTo(110, 1);
+  expect(result.wide.cardLeft).toBeCloseTo(317, 1);
+  expect(result.wide.cardWidth).toBeCloseTo(160, 1);
+  expect(result.wide.axisToCard).toBeGreaterThan(
+    result.narrow.axisToCard,
+  );
+  expect(result.wide.rightSpace).toBeCloseTo(253, 1);
+  expect(result.wide.connectorStart).toBeCloseTo(15.07, 1);
+  expect(result.wide.connectorEnd).toBeCloseTo(43.42, 1);
+});
+
 test("dispatches event-tab clicks from the page-shell tabs region", async ({
   page,
 }) => {

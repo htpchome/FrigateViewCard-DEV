@@ -6,6 +6,7 @@ import {
   resolveWideTimelineResponsiveLayout,
   stepWideTimelineScale,
   timelineRefreshMsForScale,
+  wideTimelineConnectorGeometry,
   wideTimelineStackVisualDepth,
   WIDE_TIMELINE_DEFAULT_SCALE,
   WIDE_TIMELINE_DEFAULT_PANEL_WIDTH,
@@ -470,9 +471,13 @@ export class WideViewTimelineController {
       const entryIndex = Number(line.dataset?.wideTimelineLinkIndex);
       if (!Number.isInteger(entryIndex)) continue;
       const depth = wideTimelineStackVisualDepth(group, entryIndex);
+      const { cardPercent } = wideTimelineConnectorGeometry(
+        this._lastLayout,
+        depth,
+      );
       line.setAttribute(
         "x2",
-        String(Math.round((38 + depth * 1.8) * 100) / 100),
+        String(Math.round(cardPercent * 100) / 100),
       );
       line.setAttribute(
         "y2",

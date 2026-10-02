@@ -1,4 +1,7 @@
-import { wideTimelineStackVisualDepth } from "./timeline.model.js";
+import {
+  wideTimelineConnectorGeometry,
+  wideTimelineStackVisualDepth,
+} from "./timeline.model.js";
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -45,9 +48,13 @@ const buildTimelineTickMarkup = (tick) => {
 const buildTimelineMarkerMarkup = (entry) =>
   `<span class="wide-timeline-marker is-${entry.kind}" style="--timeline-marker-y:${rounded(entry.markerY)}px" title="${escapeHtml(entry.label)}" aria-hidden="true"></span>`;
 
-const buildTimelineConnectorMarkup = (entry, group, entryIndex) => {
+const buildTimelineConnectorMarkup = (entry, group, entryIndex, layout) => {
   const relativeDepth = wideTimelineStackVisualDepth(group, entryIndex);
-  return `<line class="wide-timeline-link is-${entry.kind}" data-wide-timeline-link-stack="${escapeHtml(group.id)}" data-wide-timeline-link-index="${entryIndex}" x1="18" y1="${rounded(entry.markerY)}" x2="${rounded(38 + relativeDepth * 1.8)}" y2="${rounded(group.cardCenterY + relativeDepth * 8)}" vector-effect="non-scaling-stroke"></line>`;
+  const { axisPercent, cardPercent } = wideTimelineConnectorGeometry(
+    layout,
+    relativeDepth,
+  );
+  return `<line class="wide-timeline-link is-${entry.kind}" data-wide-timeline-link-stack="${escapeHtml(group.id)}" data-wide-timeline-link-index="${entryIndex}" x1="${rounded(axisPercent)}" y1="${rounded(entry.markerY)}" x2="${rounded(cardPercent)}" y2="${rounded(group.cardCenterY + relativeDepth * 8)}" vector-effect="non-scaling-stroke"></line>`;
 };
 
 export const buildWideTimelineCardMarkup = ({
@@ -128,7 +135,7 @@ export const buildWideTimelineContentMarkup = ({
   const links = layout.groups
     .flatMap((group) =>
       group.entries.map((entry, entryIndex) =>
-        buildTimelineConnectorMarkup(entry, group, entryIndex),
+        buildTimelineConnectorMarkup(entry, group, entryIndex, layout),
       ),
     )
     .join("");
@@ -148,7 +155,7 @@ export const buildWideTimelineContentMarkup = ({
     .join("");
   const contentHeight = Math.ceil(layout.contentHeight);
 
-  return `<div class="wide-timeline-canvas" style="height:${contentHeight}px;--timeline-base-height:${contentHeight}px;--timeline-card-width:${rounded(layout.cardWidth)}px;--timeline-card-height:${rounded(layout.cardHeight)}px">
+  return `<div class="wide-timeline-canvas" style="height:${contentHeight}px;--timeline-base-height:${contentHeight}px;--timeline-axis-x:${rounded(layout.axisX)}px;--timeline-card-left:${rounded(layout.cardLeft)}px;--timeline-card-width:${rounded(layout.cardWidth)}px;--timeline-card-height:${rounded(layout.cardHeight)}px">
       <span class="wide-timeline-axis" aria-hidden="true"></span>
       ${ticks.map(buildTimelineTickMarkup).join("")}
       <svg class="wide-timeline-links" viewBox="0 0 100 ${contentHeight}" preserveAspectRatio="none" aria-hidden="true">${links}</svg>

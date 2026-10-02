@@ -559,12 +559,13 @@ test("Timeline stack cycling replaces only the selected stack", () => {
       replacedMarkup = value;
     },
   };
+  const lineAttributes = new Map();
   const line = {
     dataset: {
       wideTimelineLinkStack: group.id,
       wideTimelineLinkIndex: "0",
     },
-    setAttribute: () => {},
+    setAttribute: (name, value) => lineAttributes.set(name, value),
   };
   const canvas = {
     querySelectorAll: (selector) =>
@@ -577,7 +578,12 @@ test("Timeline stack cycling replaces only the selected stack", () => {
   const controller = new WideViewTimelineController(host, {
     formatTime: (timestamp) => String(timestamp),
   });
-  controller._lastLayout = { groups: [group] };
+  controller._lastLayout = {
+    viewportWidth: 730,
+    axisX: 110,
+    cardLeft: 317,
+    groups: [group],
+  };
   controller._stackIndexes.set(group.id, 0);
   let fullRenders = 0;
   controller.render = () => {
@@ -589,12 +595,14 @@ test("Timeline stack cycling replaces only the selected stack", () => {
   assert.equal(group.activeIndex, 1);
   assert.match(replacedMarkup, /data-wide-timeline-entry="b"/);
   assert.match(replacedMarkup, /is-sliding-next/);
+  assert.equal(lineAttributes.get("x2"), "44.66");
 
   controller.cycleStack(group.id, -1);
   assert.equal(fullRenders, 0);
   assert.equal(group.activeIndex, 0);
   assert.match(replacedMarkup, /data-wide-timeline-entry="a"/);
   assert.match(replacedMarkup, /is-sliding-previous/);
+  assert.equal(lineAttributes.get("x2"), "43.42");
 });
 
 test("Timeline controller follows configured default-open state", () => {

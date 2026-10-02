@@ -135,6 +135,10 @@ test("dense timeline activity stacks newest first and preserves every marker", (
   assert.match(markup, /wide-timeline-card-underlay et depth-2[^>]*>[\s\S]*oldest\.jpg/);
   assert.match(markup, /--timeline-card-width:160px/);
   assert.match(markup, /--timeline-card-height:90px/);
+  assert.match(markup, /--timeline-axis-x:52\.8px/);
+  assert.match(markup, /--timeline-card-left:112px/);
+  assert.match(markup, /x1="16\.5"/);
+  assert.match(markup, /x2="35"/);
 });
 
 test("mixed-camera timeline stacks place reviews above ordinary events", () => {
@@ -239,12 +243,42 @@ test("timeline tick and responsive models scale with available space", () => {
     remainingBrowseWidth: 300,
     mode: "push",
   });
-  assert.equal(resolveWideTimelineResponsiveLayout(579).mode, "overlay");
+  assert.deepEqual(resolveWideTimelineResponsiveLayout(564), {
+    panelWidth: 264,
+    remainingBrowseWidth: 300,
+    mode: "push",
+  });
+  assert.equal(resolveWideTimelineResponsiveLayout(563).mode, "overlay");
   assert.deepEqual(resolveWideTimelineResponsiveLayout(1_000, 900), {
     panelWidth: 700,
     remainingBrowseWidth: 300,
     mode: "push",
   });
+});
+
+test("timeline geometry uses tighter narrow spacing and balanced wide spacing", () => {
+  const narrow = buildWideTimelineLayout({
+    viewportWidth: 264,
+    viewportHeight: 500,
+  });
+  const wide = buildWideTimelineLayout({
+    viewportWidth: 730,
+    viewportHeight: 500,
+  });
+
+  assert.equal(narrow.axisX, 43.56);
+  assert.equal(narrow.cardLeft, 84);
+  assert.equal(narrow.cardWidth, 156);
+  assert.equal(narrow.viewportWidth - narrow.cardLeft - narrow.cardWidth, 24);
+
+  assert.equal(wide.axisX, 110);
+  assert.equal(wide.cardLeft, 317);
+  assert.equal(wide.cardWidth, 160);
+  assert.ok(wide.cardLeft - wide.axisX > narrow.cardLeft - narrow.axisX);
+  assert.ok(
+    wide.viewportWidth - wide.cardLeft - wide.cardWidth <
+      wide.viewportWidth - wide.viewportWidth * 0.38 - wide.cardWidth,
+  );
 });
 
 test("six-hour timeline adds unlabeled half-hour marks", () => {

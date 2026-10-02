@@ -186,16 +186,16 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
     z-index:1;
     top:0;
     bottom:0;
-    left:18%;
+    left:var(--timeline-axis-x,16.5%);
     width:2px;
     transform:translateX(-50%);
     background:color-mix(in srgb,var(--c-primary) 70%,var(--c-border2));
   }
   .card .wide-timeline-tick {position:absolute;z-index:2;top:calc(var(--timeline-y) + var(--timeline-clock-offset,0px));left:0;width:100%;height:1px;pointer-events:none;}
-  .card .wide-timeline-tick-time {position:absolute;right:84%;top:0;width:15%;transform:translateY(-50%);color:var(--c-text2);font-size:.61rem;line-height:1;text-align:right;white-space:nowrap;}
-  .card .wide-timeline-tick-mark {position:absolute;left:18%;top:0;width:14px;height:2px;transform:translate(-50%,-50%);background:var(--c-text3);}
+  .card .wide-timeline-tick-time {position:absolute;left:2px;top:0;width:calc(var(--timeline-axis-x,16.5%) - 8px);transform:translateY(-50%);color:var(--c-text2);font-size:.61rem;line-height:1;text-align:right;white-space:nowrap;}
+  .card .wide-timeline-tick-mark {position:absolute;left:var(--timeline-axis-x,16.5%);top:0;width:14px;height:2px;transform:translate(-50%,-50%);background:var(--c-text3);}
   .card .wide-timeline-tick.is-minor .wide-timeline-tick-mark {width:9px;background:var(--c-text4);opacity:.9;}
-  .card .wide-timeline-day-divider {position:absolute;left:22%;right:4px;top:0;transform:translateY(-50%);overflow:hidden;color:var(--c-text3);font-size:.58rem;font-weight:700;text-overflow:ellipsis;white-space:nowrap;}
+  .card .wide-timeline-day-divider {position:absolute;left:calc(var(--timeline-axis-x,16.5%) + 14px);right:4px;top:0;transform:translateY(-50%);overflow:hidden;color:var(--c-text3);font-size:.58rem;font-weight:700;text-overflow:ellipsis;white-space:nowrap;}
   .card .wide-timeline-links {position:absolute;z-index:2;top:0;left:0;width:100%;height:var(--timeline-base-height,100%);overflow:visible;pointer-events:none;transform:translateY(var(--timeline-clock-offset,0px));transform-origin:top left;}
   .card .wide-timeline-link {fill:none;stroke:var(--c-border2);stroke-width:1;opacity:.8;}
   .card .wide-timeline-link.is-alert {stroke:var(--error-color,var(--c-bg-alert));opacity:.9;}
@@ -203,7 +203,7 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
     position:absolute;
     z-index:4;
     top:calc(var(--timeline-marker-y) + var(--timeline-clock-offset,0px));
-    left:18%;
+    left:var(--timeline-axis-x,16.5%);
     width:11px;
     height:11px;
     box-sizing:border-box;
@@ -218,7 +218,7 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
     position:absolute;
     z-index:6;
     top:calc(var(--timeline-card-y) + var(--timeline-clock-offset,0px));
-    left:38%;
+    left:var(--timeline-card-left,38%);
     width:var(--timeline-card-width,160px);
     height:var(--timeline-card-height,90px);
     min-width:0;

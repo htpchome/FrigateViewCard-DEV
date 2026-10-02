@@ -12,8 +12,12 @@ const TIMELINE_TOP_PADDING = 16;
 const TIMELINE_BOTTOM_PADDING = 16;
 // Match the standard browse-event thumbnail frame (160 × 90).
 const TIMELINE_CARD_MAX_WIDTH = 160;
-const TIMELINE_CARD_LEFT_RATIO = 0.38;
-const TIMELINE_CARD_RIGHT_GAP = 28;
+const TIMELINE_AXIS_LEFT_RATIO = 0.165;
+const TIMELINE_AXIS_MAX_LEFT = 110;
+const TIMELINE_CARD_LEFT_RATIO = 0.5;
+const TIMELINE_CARD_LEFT_OFFSET = 48;
+const TIMELINE_CARD_MIN_AXIS_GAP = 32;
+const TIMELINE_CARD_RIGHT_GAP = 24;
 const TIMELINE_CARD_ASPECT_WIDTH = 16;
 const TIMELINE_CARD_ASPECT_HEIGHT = 9;
 const TIMELINE_CARD_GAP = 26;
@@ -21,7 +25,7 @@ const TIMELINE_STACK_VISUAL_OVERHANG = 30;
 const TIMELINE_STACK_DISTANCE = 56;
 const TIMELINE_REVIEW_KINDS = new Set(["alert", "review"]);
 export const WIDE_TIMELINE_DEFAULT_PANEL_WIDTH = 408;
-export const WIDE_TIMELINE_MIN_PANEL_WIDTH = 280;
+export const WIDE_TIMELINE_MIN_PANEL_WIDTH = 264;
 export const WIDE_TIMELINE_MIN_BROWSE_WIDTH = 300;
 
 const finiteNumber = (value, fallback = 0) => {
@@ -218,6 +222,17 @@ export const wideTimelineStackVisualDepth = (group, entryIndex) => {
   return Math.min(2, (entryIndex - activeIndex + count) % count || 1);
 };
 
+export const wideTimelineConnectorGeometry = (layout, depth = 0) => {
+  const viewportWidth = Math.max(1, finiteNumber(layout?.viewportWidth, 1));
+  const visualDepth = Math.max(0, finiteNumber(depth));
+  return {
+    axisPercent: (finiteNumber(layout?.axisX) / viewportWidth) * 100,
+    cardPercent:
+      ((finiteNumber(layout?.cardLeft) + visualDepth * 9) / viewportWidth) *
+      100,
+  };
+};
+
 const positionTimelineGroups = ({
   groups,
   fallbackHeight,
@@ -248,12 +263,23 @@ export const buildWideTimelineLayout = ({
   const safeViewportWidth = Math.max(0, finiteNumber(viewportWidth, 320));
   const safeViewportHeight = Math.max(220, finiteNumber(viewportHeight, 480));
   const safeScaleHours = normalizeWideTimelineScale(scaleHours);
+  const axisX = Math.min(
+    TIMELINE_AXIS_MAX_LEFT,
+    safeViewportWidth * TIMELINE_AXIS_LEFT_RATIO,
+  );
+  const cardLeft = Math.min(
+    Math.max(0, safeViewportWidth - 1),
+    Math.max(
+      axisX + TIMELINE_CARD_MIN_AXIS_GAP,
+      safeViewportWidth * TIMELINE_CARD_LEFT_RATIO -
+        TIMELINE_CARD_LEFT_OFFSET,
+    ),
+  );
   const cardWidth = Math.max(
     1,
     Math.min(
       TIMELINE_CARD_MAX_WIDTH,
-      safeViewportWidth * (1 - TIMELINE_CARD_LEFT_RATIO) -
-        TIMELINE_CARD_RIGHT_GAP,
+      safeViewportWidth - cardLeft - TIMELINE_CARD_RIGHT_GAP,
     ),
   );
   const cardHeight =
@@ -324,6 +350,8 @@ export const buildWideTimelineLayout = ({
     scaleHours: safeScaleHours,
     viewportWidth: safeViewportWidth,
     viewportHeight: safeViewportHeight,
+    axisX,
+    cardLeft,
     cardWidth,
     cardHeight,
     pixelsPerSecond,
