@@ -47,6 +47,8 @@ import {
   normalizeThemeCustomConfig,
 } from "../features/card-style/config.js";
 import {
+  isWideCustomWidthConfigured,
+  normalizeWideCustomWidth,
   WIDE_VIEW_WIDTH_DEFAULT,
   normalizeWideViewWidth,
   normalizeWideTimelineScale,
@@ -755,13 +757,19 @@ export const compactEditorConfigForYaml = (
     source.outer_shadows !== false,
     true,
   );
-  const wideViewWidth = normalizeWideViewWidth(source.wide_view_width);
-  addIfNotDefault(
-    compact,
-    "wide_view_width",
-    wideViewWidth,
-    WIDE_VIEW_WIDTH_DEFAULT,
-  );
+  if (isWideCustomWidthConfigured(source.col_left_width_pct)) {
+    compact.col_left_width_pct = normalizeWideCustomWidth(
+      source.col_left_width_pct,
+    );
+  } else {
+    const wideViewWidth = normalizeWideViewWidth(source.wide_view_width);
+    addIfNotDefault(
+      compact,
+      "wide_view_width",
+      wideViewWidth,
+      WIDE_VIEW_WIDTH_DEFAULT,
+    );
+  }
 
   const videoDefaults = cloneObjectIfPresent(source.video_defaults);
   if (videoDefaults) compact.video_defaults = videoDefaults;

@@ -384,6 +384,33 @@ test("Single and Wide page drafts reach their lightweight mode updaters", () => 
   ]);
 });
 
+test("Wide View width drafts immediately reflow the existing layout", () => {
+  const calls = [];
+  const host = {
+    _pageId: "wide-view",
+    _pageNavigationController: { isPageRouteAvailable: () => true },
+    _wideViewPageController: {
+      applyLayoutAndWideSyncForCard: () => calls.push(["wide-layout"]),
+    },
+    _singleViewPageController: {
+      applyEditorPreviewDraftRefresh: () => calls.push(["soft-preview"]),
+    },
+    _syncToolbarButtons: () => calls.push(["toolbar"]),
+  };
+  const controller = new EditorPreviewDraftController(host);
+
+  controller.applyConfigDraft({
+    previousConfig: { wide_view_width: 75 },
+    nextConfig: { wide_view_width: 75, col_left_width_pct: 63 },
+  });
+
+  assert.deepEqual(calls, [
+    ["wide-layout"],
+    ["soft-preview"],
+    ["toolbar"],
+  ]);
+});
+
 test("camera drafts resync linked lights and two-way talk without rebuilding media", () => {
   const calls = [];
   const host = {

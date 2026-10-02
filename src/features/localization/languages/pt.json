@@ -652,6 +652,8 @@
       "halfWidth": "Meia largura",
       "inBetweenWidth": "Intermédio",
       "maxWidth": "Largura máxima",
+      "customWidth": "Personalizada",
+      "customWidthHelp": "Define uma largura fixa da coluna esquerda entre 25% e 75%.",
       "widthDisclaimer": "As definições de largura podem por vezes não funcionar como esperado devido a fatores como o elemento onde o cartão está colocado (painel, secção, etc.) ou o espaço máximo disponível para a sua apresentação"
     },
     "cardView": {

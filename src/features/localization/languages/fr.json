@@ -652,6 +652,8 @@
       "halfWidth": "Demi-largeur",
       "inBetweenWidth": "Intermédiaire",
       "maxWidth": "Largeur maximale",
+      "customWidth": "Personnalisé",
+      "customWidthHelp": "Définit une largeur fixe de la colonne gauche entre 25 % et 75 %.",
       "widthDisclaimer": "Les réglages de largeur peuvent parfois ne pas fonctionner comme prévu en raison de facteurs tels que l'élément dans lequel la carte est placée (panneau, section, etc.) ou l'espace maximal disponible pour sa présentation"
     },
     "cardView": {

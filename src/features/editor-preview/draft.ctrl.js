@@ -131,6 +131,16 @@ export class EditorPreviewDraftController {
       });
     }
 
+    const wideWidthChanged = previewKeysChanged(
+      previousConfig,
+      nextConfig,
+      "wide_view_width",
+      "col_left_width_pct",
+    );
+    if (wideWidthChanged) {
+      this._host._wideViewPageController?.applyLayoutAndWideSyncForCard?.();
+    }
+
     const timelineEnabledChanged = previewKeysChanged(
       previousConfig,
       nextConfig,

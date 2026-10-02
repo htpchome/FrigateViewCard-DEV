@@ -7,6 +7,9 @@ import {
 import { flattenCameraMembers } from "../camera-groups/model.js";
 
 import {
+  isWideCustomWidthConfigured,
+  normalizeWideCustomWidth,
+  WIDE_CUSTOM_WIDTH_MIN,
   resolveWideCompanionExpansionMax,
   WIDE_COMPANION_GRID_GAP_PX,
   WIDE_COMPANION_LIVE_OVERLAP_RATIO,
@@ -472,7 +475,11 @@ export class WideViewPageController {
   applyLayoutModeForCard() {
     const layout = this._host.shadowRoot?.querySelector("#layout");
     if (!layout) return;
-    this.applyWideLayoutMode(layout, this._host._config?.wide_view_width);
+    this.applyWideLayoutMode(
+      layout,
+      this._host._config?.wide_view_width,
+      this._host._config?.col_left_width_pct,
+    );
   }
 
   reflowColumnsForResize() {
@@ -631,12 +638,14 @@ export class WideViewPageController {
     return this._host._pageId === this._constants.PAGE_IDS.wideView;
   }
 
-  wideViewLayoutState(wideViewWidth) {
+  wideViewLayoutState(wideViewWidth, customWidth = null) {
     if (!this.isWideViewPageActive()) {
       return { isWide: false, leftWidth: "", rightWidth: "" };
     }
 
-    const pct = normalizeWideViewWidth(wideViewWidth);
+    const pct = isWideCustomWidthConfigured(customWidth)
+      ? normalizeWideCustomWidth(customWidth)
+      : normalizeWideViewWidth(wideViewWidth);
     return {
       isWide: true,
       leftWidth: `${pct}%`,
@@ -705,16 +714,33 @@ export class WideViewPageController {
     };
   }
 
-  applyWideLayoutMode(layout, wideViewWidth) {
+  applyWideLayoutMode(layout, wideViewWidth, customWidth = null) {
     if (!layout) return;
 
-    const wideLayout = this.wideViewLayoutState(wideViewWidth);
+    const customWidthConfigured = isWideCustomWidthConfigured(customWidth);
+    const wideLayout = this.wideViewLayoutState(
+      wideViewWidth,
+      customWidth,
+    );
     layout.classList.toggle("wide-view", wideLayout.isWide);
 
     const colL = layout.querySelector(".col-left");
     const colR = layout.querySelector(".col-right");
     if (colL && colR) {
       if (wideLayout.isWide) {
+        const companionGrid = colL.querySelector?.("#wide-companion-grid");
+        if (customWidthConfigured) {
+          if (companionGrid?.dataset) {
+            delete companionGrid.dataset.wideCompanionPreferredColumns;
+          }
+          this._setColumnWidths(
+            colL,
+            colR,
+            normalizeWideCustomWidth(customWidth),
+          );
+          this._companionController?.updateLayout?.();
+          return;
+        }
         const configuredWidth = normalizeWideViewWidth(wideViewWidth);
         this._setColumnWidths(
           colL,
@@ -735,7 +761,6 @@ export class WideViewPageController {
         const usesManagedWideLayout =
           this._host._cardStyleController?.isPanelView?.() === true ||
           this._host._cardStyleController?.isSidebarView?.() === true;
-        const companionGrid = colL.querySelector?.("#wide-companion-grid");
         const oneRowLayout =
           usesManagedWideLayout &&
           configuredWidth === WIDE_VIEW_WIDTH_IN_BETWEEN
@@ -829,7 +854,11 @@ export class WideViewPageController {
     cleanup.addEventListener(documentTarget, "mousemove", (moveEvent) => {
       const state = this._resizeDragState;
       if (!state) return;
-      const minPct = WIDE_LEFT_RESIZE_MIN;
+      const minPct = isWideCustomWidthConfigured(
+        this._host._config?.col_left_width_pct,
+      )
+        ? WIDE_CUSTOM_WIDTH_MIN
+        : WIDE_LEFT_RESIZE_MIN;
       const dx = (Number(moveEvent.clientX) || 0) - state.startX;
       const newLeftWidth = state.startLeftWidth + dx;
       let pct = (newLeftWidth / state.columnSpaceWidth) * 100;

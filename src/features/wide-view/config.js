@@ -1,10 +1,14 @@
 export const WIDE_VIEW_WIDTH_IN_BETWEEN = 75;
+export const WIDE_VIEW_WIDTH_CUSTOM = "custom";
 export const WIDE_VIEW_WIDTH_OPTIONS = Object.freeze([
   50,
   WIDE_VIEW_WIDTH_IN_BETWEEN,
   100,
 ]);
 export const WIDE_VIEW_WIDTH_DEFAULT = 100;
+export const WIDE_CUSTOM_WIDTH_MIN = 25;
+export const WIDE_CUSTOM_WIDTH_MAX = 75;
+export const WIDE_CUSTOM_WIDTH_DEFAULT = 60;
 export const WIDE_VIEW_RIGHT_COLUMN_MIN_PX = 250;
 export const WIDE_LEFT_RESIZE_MIN = 50;
 export const WIDE_LEFT_RESIZE_FALLBACK_MAX = 75;
@@ -25,6 +29,23 @@ export const normalizeWideViewWidth = (value) => {
   return WIDE_VIEW_WIDTH_OPTIONS.includes(numeric)
     ? numeric
     : WIDE_VIEW_WIDTH_DEFAULT;
+};
+
+export const isWideCustomWidthConfigured = (value) =>
+  value !== undefined &&
+  value !== null &&
+  String(value).trim() !== "";
+
+export const normalizeWideCustomWidth = (value) => {
+  if (!isWideCustomWidthConfigured(value)) {
+    return WIDE_CUSTOM_WIDTH_DEFAULT;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return WIDE_CUSTOM_WIDTH_DEFAULT;
+  return Math.min(
+    WIDE_CUSTOM_WIDTH_MAX,
+    Math.max(WIDE_CUSTOM_WIDTH_MIN, Math.round(numeric)),
+  );
 };
 
 export const normalizeWideTimelineScale = (value) => {

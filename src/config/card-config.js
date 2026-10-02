@@ -41,6 +41,8 @@ import {
   normalizeCardHeightUnit,
 } from "../features/card-style/config.js";
 import {
+  isWideCustomWidthConfigured,
+  normalizeWideCustomWidth,
   normalizeWideViewWidth,
   normalizeWideTimelineScale,
 } from "../features/wide-view/config.js";
@@ -141,7 +143,13 @@ export const normalizeCardConfig = (config) => {
   src.stream_height = normalizeCardHeight(src.stream_height);
   src.stream_height_unit = normalizeCardHeightUnit(src.stream_height_unit);
   src.wide_view_width = normalizeWideViewWidth(src.wide_view_width);
-  delete src.col_left_width_pct;
+  if (isWideCustomWidthConfigured(src.col_left_width_pct)) {
+    src.col_left_width_pct = normalizeWideCustomWidth(
+      src.col_left_width_pct,
+    );
+  } else {
+    delete src.col_left_width_pct;
+  }
 
   src.realtime_poll_seconds = REALTIME_POLL_OPTIONS_SECONDS.includes(
     Number(src.realtime_poll_seconds),
@@ -398,6 +406,7 @@ const RUNTIME_CARD_CONFIG_KEYS = Object.freeze([
   "rounded_corners",
   "outer_shadows",
   "wide_view_width",
+  "col_left_width_pct",
   "video_defaults",
   "video_live_defaults",
   "video_popup_defaults",

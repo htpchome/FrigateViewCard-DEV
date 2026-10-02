@@ -652,6 +652,8 @@
       "halfWidth": "Metà larghezza",
       "inBetweenWidth": "Intermedio",
       "maxWidth": "Larghezza massima",
+      "customWidth": "Personalizzata",
+      "customWidthHelp": "Imposta una larghezza fissa della colonna sinistra dal 25% al 75%.",
       "widthDisclaimer": "Le impostazioni della larghezza potrebbero talvolta non funzionare come previsto a causa di fattori quali l'elemento in cui è inserita la scheda (pannello, sezione, ecc.) o lo spazio massimo disponibile per la sua visualizzazione"
     },
     "cardView": {

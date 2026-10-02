@@ -33,6 +33,8 @@ import {
   normalizeCardHeightUnit,
 } from "../features/card-style/config.js";
 import {
+  isWideCustomWidthConfigured,
+  normalizeWideCustomWidth,
   normalizeWideViewWidth,
   normalizeWideTimelineScale,
 } from "../features/wide-view/config.js";
@@ -179,6 +181,11 @@ export const createEditorPreviewDraft = (config) => ({
   rounded_corners: config.rounded_corners,
   outer_shadows: config.outer_shadows,
   wide_view_width: config.wide_view_width,
+  col_left_width_pct: isWideCustomWidthConfigured(
+    config.col_left_width_pct,
+  )
+    ? normalizeWideCustomWidth(config.col_left_width_pct)
+    : undefined,
   video_defaults: config.video_defaults,
   video_live_defaults: config.video_live_defaults,
   video_popup_defaults: config.video_popup_defaults,
@@ -385,6 +392,11 @@ export const applyEditorPreviewDraftToCardConfig = ({
     landing_page: normalizePageRoute(previewConfig.landing_page),
     mobile_page: normalizeMobilePageMode(previewConfig.mobile_page),
     wide_view_width: normalizeWideViewWidth(previewConfig.wide_view_width),
+    col_left_width_pct: isWideCustomWidthConfigured(
+      previewConfig.col_left_width_pct,
+    )
+      ? normalizeWideCustomWidth(previewConfig.col_left_width_pct)
+      : undefined,
     video_defaults:
       previewConfig.video_defaults &&
       typeof previewConfig.video_defaults === "object" &&

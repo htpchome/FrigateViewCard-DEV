@@ -652,6 +652,8 @@
       "halfWidth": "Halbe Breite",
       "inBetweenWidth": "Dazwischen",
       "maxWidth": "Maximale Breite",
+      "customWidth": "Benutzerdefiniert",
+      "customWidthHelp": "Legt eine feste Breite der linken Spalte zwischen 25 % und 75 % fest.",
       "widthDisclaimer": "Die Breiteneinstellungen funktionieren aufgrund des Elements, in dem die Karte platziert ist (Panel, Abschnitt usw.), oder des maximal verfügbaren Platzes für die Kartendarstellung möglicherweise nicht immer wie erwartet"
     },
     "cardView": {

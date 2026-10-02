@@ -652,6 +652,8 @@
       "halfWidth": "Half Width",
       "inBetweenWidth": "In-Between",
       "maxWidth": "Max Width",
+      "customWidth": "Custom",
+      "customWidthHelp": "Sets a fixed left-column width from 25% to 75%.",
       "widthDisclaimer": "The width settings will sometimes not function as expected due to factors such as what element the card is placed in (panel, section, etc) or the max space available for the cards presentation"
     },
     "cardView": {

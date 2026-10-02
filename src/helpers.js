@@ -43,6 +43,9 @@ import {
   resolveThemeCustomEditorConfig,
 } from "./features/card-style/config.js";
 import {
+  isWideCustomWidthConfigured,
+  normalizeWideCustomWidth,
+  WIDE_VIEW_WIDTH_CUSTOM,
   normalizeWideViewWidth,
   normalizeWideTimelineScale,
 } from "./features/wide-view/config.js";
@@ -446,6 +449,7 @@ export const resolveSwitchChecked = (element) => {
   if (element.getAttribute?.("aria-checked") === "false") return false;
   const shadowInput = element.shadowRoot?.querySelector?.("input");
   if (typeof shadowInput?.checked === "boolean") return shadowInput.checked;
+  if (element.hasAttribute?.("checked")) return true;
   return false;
 };
 
@@ -1142,10 +1146,22 @@ export const buildEditorConfigFromDom = ({
       ha_dashboard_swipe_mobile_pages: selectedMobileSwipePages,
     });
 
-  nextConfig.wide_view_width = normalizeWideViewWidth(
+  const selectedWideViewWidth =
     root.querySelector('[name="wide_view_width"]:checked')?.value ||
-      baseConfig?.wide_view_width,
-  );
+    (isWideCustomWidthConfigured(baseConfig?.col_left_width_pct)
+      ? WIDE_VIEW_WIDTH_CUSTOM
+      : baseConfig?.wide_view_width);
+  if (selectedWideViewWidth === WIDE_VIEW_WIDTH_CUSTOM) {
+    nextConfig.col_left_width_pct = normalizeWideCustomWidth(
+      root.querySelector("#col_left_width_pct")?.value ??
+        baseConfig?.col_left_width_pct,
+    );
+  } else {
+    nextConfig.wide_view_width = normalizeWideViewWidth(
+      selectedWideViewWidth,
+    );
+    delete nextConfig.col_left_width_pct;
+  }
 
   return nextConfig;
 };

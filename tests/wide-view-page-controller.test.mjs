@@ -462,7 +462,7 @@ test("card visibility and reconnect hooks resume Companion Camera media", () => 
   );
 });
 
-test("wideViewLayoutState resolves the three supported width presets", () => {
+test("wideViewLayoutState resolves presets and an exact Custom width", () => {
   const wide = createHost({ isWide: true });
   const wideController = new WideViewPageController(wide.host, { PAGE_IDS });
 
@@ -480,6 +480,11 @@ test("wideViewLayoutState resolves the three supported width presets", () => {
     isWide: true,
     leftWidth: "75%",
     rightWidth: "25%",
+  });
+  assert.deepEqual(wideController.wideViewLayoutState("100", "63"), {
+    isWide: true,
+    leftWidth: "63%",
+    rightWidth: "37%",
   });
 
   const single = createHost({ isWide: false });
@@ -518,6 +523,37 @@ test("applyWideLayoutMode applies a supported initial width", () => {
   assert.equal(colR.style.width, "37.5%");
 });
 
+test("applyWideLayoutMode applies Custom as an exact fixed percentage", () => {
+  const { host } = createHost({ isWide: true });
+  const controller = new WideViewPageController(host, { PAGE_IDS });
+  const companionGrid = {
+    dataset: { wideCompanionPreferredColumns: "4" },
+  };
+  const colL = {
+    style: { width: "" },
+    querySelector: (selector) =>
+      selector === "#wide-companion-grid" ? companionGrid : null,
+  };
+  const colR = { style: { width: "" } };
+  const layout = {
+    classList: { toggle: () => {} },
+    querySelector: (selector) => {
+      if (selector === ".col-left") return colL;
+      if (selector === ".col-right") return colR;
+      return null;
+    },
+  };
+
+  controller.applyWideLayoutMode(layout, 100, 63);
+
+  assert.equal(colL.style.width, "63%");
+  assert.equal(colR.style.width, "37%");
+  assert.equal(
+    "wideCompanionPreferredColumns" in companionGrid.dataset,
+    false,
+  );
+});
+
 test("wideViewLayoutState defaults unsupported values to Max Width", () => {
   const { host } = createHost({ isWide: true });
   const controller = new WideViewPageController(host, { PAGE_IDS });
@@ -527,9 +563,9 @@ test("wideViewLayoutState defaults unsupported values to Max Width", () => {
   assert.equal(controller.wideViewLayoutState("50").leftWidth, "50%");
 });
 
-test("applyLayoutModeForCard resolves layout and applies widths", () => {
+test("applyLayoutModeForCard resolves layout and applies configured widths", () => {
   const { host } = createHost({ isWide: true });
-  host._config = { wide_view_width: 75 };
+  host._config = { wide_view_width: 75, col_left_width_pct: 64 };
   const controller = new WideViewPageController(host, { PAGE_IDS });
   const layout = { marker: "layout" };
   host.shadowRoot = {
@@ -538,15 +574,22 @@ test("applyLayoutModeForCard resolves layout and applies widths", () => {
 
   let capturedLayout = null;
   let capturedPct = null;
-  controller.applyWideLayoutMode = (nextLayout, leftWidthPct) => {
+  let capturedCustomPct = null;
+  controller.applyWideLayoutMode = (
+    nextLayout,
+    leftWidthPct,
+    customLeftWidthPct,
+  ) => {
     capturedLayout = nextLayout;
     capturedPct = leftWidthPct;
+    capturedCustomPct = customLeftWidthPct;
   };
 
   controller.applyLayoutModeForCard();
 
   assert.equal(capturedLayout, layout);
   assert.equal(capturedPct, 75);
+  assert.equal(capturedCustomPct, 64);
 });
 
 test("settled Wide View reflow waits for two layout frames", () => {

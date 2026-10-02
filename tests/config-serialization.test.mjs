@@ -33,7 +33,13 @@ import {
   normalizeCardViewViewMode,
   resolveCardViewMasonrySizeHint,
 } from "../src/features/card-view/config.js";
-import { normalizeWideViewWidth } from "../src/features/wide-view/config.js";
+import {
+  normalizeWideCustomWidth,
+  normalizeWideViewWidth,
+  WIDE_CUSTOM_WIDTH_DEFAULT,
+  WIDE_CUSTOM_WIDTH_MAX,
+  WIDE_CUSTOM_WIDTH_MIN,
+} from "../src/features/wide-view/config.js";
 import {
   DASHBOARD_SWIPE_NAVIGATION_MODES,
   MOBILE_PAGE_MODES,
@@ -397,7 +403,10 @@ test("requested editor settings use the shared choice-chip control", () => {
     editorSource,
     /<input id="(?:snapshot_update_seconds|preview_page_alert_live_duration_seconds|slideshow_alert_hold_seconds|grid_alert_hold_seconds)" type="range"/,
   );
-  assert.doesNotMatch(editorSource, /id="col_left_width_pct"/);
+  assert.match(
+    editorSource,
+    /id="col_left_width_pct" type="range" min="\$\{WIDE_CUSTOM_WIDTH_MIN\}" max="\$\{WIDE_CUSTOM_WIDTH_MAX\}"/,
+  );
   assert.match(
     editorSource,
     /editor-choice-field--single-row" id="grid_rotation_seconds"/,
@@ -1117,6 +1126,10 @@ test("card layout controls normalize to hardened ranges and defaults", () => {
   assert.equal(normalizeWideViewWidth(50), 50);
   assert.equal(normalizeWideViewWidth("75"), 75);
   assert.equal(normalizeWideViewWidth(90), 100);
+  assert.equal(normalizeWideCustomWidth(), WIDE_CUSTOM_WIDTH_DEFAULT);
+  assert.equal(normalizeWideCustomWidth(10), WIDE_CUSTOM_WIDTH_MIN);
+  assert.equal(normalizeWideCustomWidth("63"), 63);
+  assert.equal(normalizeWideCustomWidth(90), WIDE_CUSTOM_WIDTH_MAX);
 });
 
 test("compact YAML omits new layout defaults and preserves non-defaults", () => {
@@ -1141,16 +1154,16 @@ test("compact YAML omits new layout defaults and preserves non-defaults", () => 
   assert.equal(customized.wide_view_width, 75);
 });
 
-test("legacy left-column percentages migrate to Max Width and leave saved YAML", () => {
+test("custom left-column percentages normalize and remain in saved YAML", () => {
   const normalized = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],
-    col_left_width_pct: 50,
+    wide_view_width: 75,
+    col_left_width_pct: 63,
   });
   const saved = compactEditorConfigForYaml(normalized);
 
-  assert.equal(normalized.wide_view_width, 100);
-  assert.equal("col_left_width_pct" in normalized, false);
-  assert.equal("col_left_width_pct" in saved, false);
+  assert.equal(normalized.col_left_width_pct, 63);
+  assert.equal(saved.col_left_width_pct, 63);
   assert.equal("wide_view_width" in saved, false);
 });
 
@@ -2088,6 +2101,7 @@ test("editor previews apply content and styling from the same draft", () => {
       stream_height: 80,
       stream_height_unit: "px",
       wide_view_width: 75,
+      col_left_width_pct: 62,
     },
   });
 
@@ -2097,6 +2111,7 @@ test("editor previews apply content and styling from the same draft", () => {
   assert.equal(previewConfig.rounded_corners, false);
   assert.equal(previewConfig.stream_height, 80);
   assert.equal(previewConfig.wide_view_width, 75);
+  assert.equal(previewConfig.col_left_width_pct, 62);
 });
 
 test("compact YAML defaults duration values that are not chip choices", () => {
@@ -2240,6 +2255,45 @@ test("choice-chip config fields read their checked native radio values", () => {
   assert.equal(result.wide_view_width, 75);
   assert.equal(result.stream_height, 80);
   assert.equal(result.stream_height_unit, "dvh");
+});
+
+test("Custom Wide View width reads its slider and presets clear it", () => {
+  const build = ({ selectedWidth, sliderValue, baseConfig }) => {
+    const root = {
+      querySelector: (selector) => {
+        if (selector === '[name="wide_view_width"]:checked') {
+          return { value: selectedWidth };
+        }
+        if (selector === "#col_left_width_pct") {
+          return sliderValue === undefined ? null : { value: sliderValue };
+        }
+        return null;
+      },
+      querySelectorAll: () => [],
+    };
+    return buildEditorConfigFromDom({
+      root,
+      baseConfig,
+      cameras: [{ entity: "camera.front_door" }],
+      themeDraftCache: {},
+    });
+  };
+
+  const custom = build({
+    selectedWidth: "custom",
+    sliderValue: "67",
+    baseConfig: { wide_view_width: 75 },
+  });
+  const preset = build({
+    selectedWidth: "50",
+    baseConfig: { wide_view_width: 75, col_left_width_pct: 67 },
+  });
+
+  assert.equal(custom.col_left_width_pct, 67);
+  assert.equal(compactEditorConfigForYaml(custom).col_left_width_pct, 67);
+  assert.equal("wide_view_width" in compactEditorConfigForYaml(custom), false);
+  assert.equal(preset.wide_view_width, 50);
+  assert.equal("col_left_width_pct" in preset, false);
 });
 
 test("new duration chip choices normalize and remain compact YAML values", () => {

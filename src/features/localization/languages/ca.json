@@ -652,6 +652,8 @@
       "halfWidth": "Mitja amplada",
       "inBetweenWidth": "Intermedi",
       "maxWidth": "Amplada màxima",
+      "customWidth": "Personalitzada",
+      "customWidthHelp": "Defineix una amplada fixa de la columna esquerra entre el 25% i el 75%.",
       "widthDisclaimer": "És possible que els paràmetres d'amplada de vegades no funcionin com s'espera a causa de factors com l'element on es col·loca la targeta (panell, secció, etc.) o l'espai màxim disponible per presentar-la"
     },
     "cardView": {

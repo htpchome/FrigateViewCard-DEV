@@ -652,6 +652,8 @@
       "halfWidth": "Połowa szerokości",
       "inBetweenWidth": "Pośrednia",
       "maxWidth": "Maksymalna szerokość",
+      "customWidth": "Niestandardowa",
+      "customWidthHelp": "Ustawia stałą szerokość lewej kolumny od 25% do 75%.",
       "widthDisclaimer": "Ustawienia szerokości mogą czasami nie działać zgodnie z oczekiwaniami z powodu takich czynników, jak element, w którym umieszczono kartę (panel, sekcja itp.), lub maksymalna przestrzeń dostępna do jej wyświetlenia"
     },
     "cardView": {

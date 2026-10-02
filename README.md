@@ -331,11 +331,12 @@ grid_order:
 | `outer_shadows` | boolean | `true` | Displays the shadow around the card. Preview, Wide View, and Mobile View automatically omit it on phones. |
 | `borders` | boolean | `false` | Displays borders on event items. |
 | `rounded_corners` | boolean | `true` | Enables rounded card and content corners. |
-| `wide_view_width` | number | `100` | Initial Wide View left-column width preset. Values: `50` (Half Width), `75` (In-Between), and `100` (Max Width). In Sections, In-Between is halfway from Half to the available Max. In Panel and Sidebar views, it preserves one complete responsive row of Companion Cameras when space permits. In-Between and Max preserve a 250px right column; manual resizing can continue to the Companion Cameras header boundary. |
+| `wide_view_width` | number | `100` | Initial automatic Wide View left-column width preset. Values: `50` (Half Width), `75` (In-Between), and `100` (Max Width). In Sections, In-Between is halfway from Half to the available Max. In Panel and Sidebar views, it preserves one complete responsive row of Companion Cameras when space permits. In-Between and Max preserve a 250px right column; manual resizing can continue to the Companion Cameras header boundary. Ignored when `col_left_width_pct` is set. |
+| `col_left_width_pct` | number | unset | Selects Custom left-column width and fixes it to a value from `25` to `75` percent. The visual editor preserves this value while Custom is selected and removes it when another width preset is saved. |
 | `theme` | string | `default` | Uses the Home Assistant theme with `default`, or enables saved overrides with `custom`. |
 | `theme_custom` | list | `[]` | One custom theme entry containing its applicable `modes` and supported FrigateViewCard color-token `overrides`. |
 
-The legacy `col_left_width_pct` option is ignored and is removed the next time the visual editor saves the card. Existing cards use the `wide_view_width: 100` behavior by default.
+Existing cards without either width option use the `wide_view_width: 100` behavior by default.
 
 ### Camera options
 

@@ -652,6 +652,8 @@
       "halfWidth": "Mitad del ancho",
       "inBetweenWidth": "Intermedio",
       "maxWidth": "Ancho máximo",
+      "customWidth": "Personalizado",
+      "customWidthHelp": "Establece un ancho fijo para la columna izquierda entre el 25 % y el 75 %.",
       "widthDisclaimer": "En ocasiones, los ajustes de ancho pueden no funcionar como se espera debido a factores como el elemento en el que se coloca la tarjeta (panel, sección, etc.) o el espacio máximo disponible para presentarla"
     },
     "cardView": {

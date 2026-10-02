@@ -103,6 +103,11 @@ import {
 import { resolveHomeAssistantThemeContext } from "../features/card-style/context.ctrl.js";
 import { resolveDashboardNavbarCardOwnership } from "../integrations/home-assistant/navbar-policy.js";
 import {
+  isWideCustomWidthConfigured,
+  normalizeWideCustomWidth,
+  WIDE_CUSTOM_WIDTH_MAX,
+  WIDE_CUSTOM_WIDTH_MIN,
+  WIDE_VIEW_WIDTH_CUSTOM,
   WIDE_VIEW_WIDTH_OPTIONS,
   normalizeWideViewWidth,
   normalizeWideTimelineScale,
@@ -3094,6 +3099,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#stream_height",
       "#stream_height_unit",
       '[name="wide_view_width"]',
+      "#col_left_width_pct",
       "#tight_margins",
       "#shadows",
       "#borders",
@@ -3433,8 +3439,14 @@ export class FrigateViewCardEditor extends HTMLElement {
     const streamHeightUnit = normalizeCardHeightUnit(
       this._config?.stream_height_unit,
     );
-    const wideViewWidth = normalizeWideViewWidth(
-      this._config?.wide_view_width,
+    const customWideViewWidth = isWideCustomWidthConfigured(
+      this._config?.col_left_width_pct,
+    );
+    const wideViewWidth = customWideViewWidth
+      ? WIDE_VIEW_WIDTH_CUSTOM
+      : normalizeWideViewWidth(this._config?.wide_view_width);
+    const customLeftWidth = normalizeWideCustomWidth(
+      this._config?.col_left_width_pct,
     );
     const timelineDefaultScale = normalizeWideTimelineScale(
       this._config?.wide_view_timeline_default_scale,
@@ -4130,23 +4142,35 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div class="field-label" data-fvc-i18n="editor.wideView.leftColumnWidth">Left Column Width</div>
           ${buildEditorBubbleSelectorMarkup({
             name: "wide_view_width",
-            options: WIDE_VIEW_WIDTH_OPTIONS.map((value) => ({
+            options: [
+              ...WIDE_VIEW_WIDTH_OPTIONS,
+              WIDE_VIEW_WIDTH_CUSTOM,
+            ].map((value) => ({
               value,
               label:
                 value === 50
                   ? "Half Width"
                   : value === 75
                     ? "In-Between"
-                    : "Max Width",
+                    : value === 100
+                      ? "Max Width"
+                      : "Custom",
               translationKey:
                 value === 50
                   ? "editor.wideView.halfWidth"
                   : value === 75
                     ? "editor.wideView.inBetweenWidth"
-                    : "editor.wideView.maxWidth",
+                    : value === 100
+                      ? "editor.wideView.maxWidth"
+                      : "editor.wideView.customWidth",
             })),
             selectedValue: wideViewWidth,
           })}
+        </div>
+        <div id="col-left-custom-row" style="${customWideViewWidth ? "" : "display:none"}">
+          <input id="col_left_width_pct" type="range" min="${WIDE_CUSTOM_WIDTH_MIN}" max="${WIDE_CUSTOM_WIDTH_MAX}" step="1" value="${customLeftWidth}" style="width:100%">
+          <div class="field-helper" id="col_left_width_pct-output">${customLeftWidth}%</div>
+          <div class="field-helper" data-fvc-i18n="editor.wideView.customWidthHelp">Sets a fixed left-column width from 25% to 75%.</div>
         </div>
         <div class="field-helper" data-fvc-i18n="editor.wideView.widthDisclaimer">The width settings will sometimes not function as expected due to factors such as what element the card is placed in (panel, section, etc) or the max space available for the cards presentation</div>
       </div>
@@ -5067,6 +5091,16 @@ export class FrigateViewCardEditor extends HTMLElement {
       "change",
       () => this._syncStreamHeightOutput(),
     );
+    this.querySelector("#col_left_width_pct")?.addEventListener(
+      "input",
+      (event) => {
+        this._setRangeValueOutput(
+          "#col_left_width_pct",
+          event.currentTarget?.value,
+          "%",
+        );
+      },
+    );
     this._wireCameraDragAndDrop();
     this._wireGridOrderControls();
     this._wireSettingsPanels();
@@ -5151,7 +5185,7 @@ export class FrigateViewCardEditor extends HTMLElement {
 
     bindEventsForIds({
       root: this,
-      ids: ["stream_height"],
+      ids: ["stream_height", "col_left_width_pct"],
       events: ["change"],
       handler: () => update(),
     });
@@ -5329,6 +5363,10 @@ export class FrigateViewCardEditor extends HTMLElement {
     const wideCb = this.querySelector("#wide_view_page_enabled");
     const widePageOptions = this.querySelector("#wide-view-page-options");
     const colWidthRow = this.querySelector("#col-width-row");
+    const customColWidthRow = this.querySelector("#col-left-custom-row");
+    const wideWidthInputs = Array.from(
+      this.querySelectorAll('[name="wide_view_width"]'),
+    );
     const timelineEnabled = this.querySelector(
       "#wide_view_timeline_enabled",
     );
@@ -5343,20 +5381,30 @@ export class FrigateViewCardEditor extends HTMLElement {
     );
     if (wideCb && colWidthRow) {
       const syncWideRow = () => {
+        const wideEnabled = resolveSwitchChecked(wideCb);
+        const timelineIsEnabled = resolveSwitchChecked(timelineEnabled);
         if (widePageOptions) {
-          widePageOptions.style.display = wideCb.checked ? "contents" : "none";
+          widePageOptions.style.display = wideEnabled ? "contents" : "none";
         }
-        colWidthRow.style.display = wideCb.checked ? "" : "none";
+        colWidthRow.style.display = wideEnabled ? "" : "none";
+        if (customColWidthRow) {
+          customColWidthRow.style.display =
+            wideEnabled &&
+            this.querySelector('[name="wide_view_width"]:checked')?.value ===
+              WIDE_VIEW_WIDTH_CUSTOM
+              ? ""
+              : "none";
+        }
         if (timelineEnabledRow) {
-          timelineEnabledRow.style.display = wideCb.checked ? "" : "none";
+          timelineEnabledRow.style.display = wideEnabled ? "" : "none";
         }
         if (timelineDefaultOpenRow) {
           timelineDefaultOpenRow.style.display =
-            wideCb.checked && timelineEnabled?.checked ? "" : "none";
+            wideEnabled && timelineIsEnabled ? "" : "none";
         }
         if (timelineDefaultScaleRow) {
           timelineDefaultScaleRow.style.display =
-            wideCb.checked && timelineEnabled?.checked ? "" : "none";
+            wideEnabled && timelineIsEnabled ? "" : "none";
         }
         this._validateEditorFields();
       };
@@ -5364,6 +5412,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       wideCb.addEventListener("value-changed", syncWideRow);
       timelineEnabled?.addEventListener("change", syncWideRow);
       timelineEnabled?.addEventListener("value-changed", syncWideRow);
+      wideWidthInputs.forEach((input) => {
+        input.addEventListener("change", syncWideRow);
+      });
       syncWideRow();
     }
 

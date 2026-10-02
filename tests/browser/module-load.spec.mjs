@@ -4336,6 +4336,95 @@ test("Single, Wide, and Card View settings localize in place with their choices 
   });
 });
 
+test("Wide View Custom width persists its slider value and presets clear it", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      wide_view_page_enabled: true,
+      wide_view_width: 75,
+      col_left_width_pct: 63,
+    });
+    editor.hass = { locale: { language: "en" }, states: {}, themes: {} };
+
+    const previewDrafts = [];
+    window.addEventListener(
+      "frigate-view-card-preview-draft",
+      (event) => previewDrafts.push(event.detail?.config),
+    );
+    const slider = editor.querySelector("#col_left_width_pct");
+    const custom = editor.querySelector(
+      '[name="wide_view_width"][value="custom"]',
+    );
+    const preset = editor.querySelector(
+      '[name="wide_view_width"][value="50"]',
+    );
+    const row = editor.querySelector("#col-left-custom-row");
+    const initial = {
+      optionValues: Array.from(
+        editor.querySelectorAll('[name="wide_view_width"]'),
+        (input) => input.value,
+      ),
+      customChecked: custom.checked,
+      rowDisplay: row.style.display,
+      min: slider.min,
+      max: slider.max,
+      value: slider.value,
+      output: editor.querySelector("#col_left_width_pct-output").textContent,
+      yaml: editor._homeAssistantConfig(),
+    };
+
+    preset.click();
+    const presetState = {
+      rowDisplay: row.style.display,
+      yaml: editor._homeAssistantConfig(),
+    };
+
+    custom.click();
+    slider.value = "67";
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+    slider.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    const restoredCustom = {
+      rowDisplay: row.style.display,
+      output: editor.querySelector("#col_left_width_pct-output").textContent,
+      yaml: editor._homeAssistantConfig(),
+      preview: previewDrafts.at(-1),
+      dirty: editor._hasConfigDraft,
+    };
+
+    return { initial, presetState, restoredCustom };
+  });
+
+  expect(state.initial).toMatchObject({
+    optionValues: ["50", "75", "100", "custom"],
+    customChecked: true,
+    rowDisplay: "",
+    min: "25",
+    max: "75",
+    value: "63",
+    output: "63%",
+  });
+  expect(state.initial.yaml.col_left_width_pct).toBe(63);
+  expect(state.initial.yaml.wide_view_width).toBeUndefined();
+  expect(state.presetState.rowDisplay).toBe("none");
+  expect(state.presetState.yaml.wide_view_width).toBe(50);
+  expect(state.presetState.yaml.col_left_width_pct).toBeUndefined();
+  expect(state.restoredCustom.rowDisplay).toBe("");
+  expect(state.restoredCustom.output).toBe("67%");
+  expect(state.restoredCustom.yaml.col_left_width_pct).toBe(67);
+  expect(state.restoredCustom.yaml.wide_view_width).toBeUndefined();
+  expect(state.restoredCustom.preview.col_left_width_pct).toBe(67);
+  expect(state.restoredCustom.dirty).toBe(true);
+});
+
 test("Mobile, Swipe, and Landing settings localize in place without resetting selectors or ownership notices", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
@@ -7167,6 +7256,68 @@ test("Wide View Sections resolves In-Between halfway from Half to Max", async ({
         (widths.resizedHalf.left + widths.resizedMax.left) / 2,
     ),
   ).toBeLessThanOrEqual(1);
+});
+
+test("Wide View Custom width remains an exact percentage after reflow", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(baseUrl);
+
+  const widths = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const sections = document.createElement("hui-sections-view");
+    sections.style.width = "1100px";
+    document.body.append(sections);
+    const card = document.createElement("frigate-view-card");
+    card.style.width = "1100px";
+    sections.append(card);
+    card.setConfig({
+      cameras: Array.from({ length: 4 }, (_, index) => ({
+        entity: `camera.camera_${index + 1}`,
+        name: `Camera ${index + 1}`,
+      })),
+      wide_view_page_enabled: true,
+      wide_view_width: 100,
+      col_left_width_pct: 63,
+      stream_height: 600,
+      stream_height_unit: "px",
+    });
+    await card._wideViewPageController.prepare();
+    card._pageId = "wide-view";
+    card._renderShell();
+    card._wideViewPageController.startWideViewMode();
+    await card._wideViewCompanionController._ensureDelegate();
+    card._applyCardStyle();
+
+    const measure = async () => {
+      card._wideViewPageController.applyLayoutModeForCard();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const left = card.shadowRoot.querySelector(".col-left--wide-view");
+      const right = card.shadowRoot.querySelector(".col-right--wide-view");
+      const leftRect = left.getBoundingClientRect();
+      const rightRect = right.getBoundingClientRect();
+      return {
+        leftStyle: left.style.width,
+        rightStyle: right.style.width,
+        measuredPct: (leftRect.width / (leftRect.width + rightRect.width)) * 100,
+      };
+    };
+
+    const initial = await measure();
+    sections.style.width = "900px";
+    card.style.width = "900px";
+    card._wideViewPageController.reflowColumnsForResize();
+    const resized = await measure();
+    return { initial, resized };
+  });
+
+  for (const state of [widths.initial, widths.resized]) {
+    expect(state.leftStyle).toBe("63%");
+    expect(state.rightStyle).toBe("37%");
+    expect(state.measuredPct).toBeCloseTo(63, 0);
+  }
 });
 
 test("Panel and Sidebar In-Between preserve one complete responsive companion row", async ({
