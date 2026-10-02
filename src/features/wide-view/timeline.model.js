@@ -441,16 +441,10 @@ export const resolveWideTimelineResponsiveLayout = (
       WIDE_TIMELINE_DEFAULT_PANEL_WIDTH,
     ),
   );
-  const canPush =
-    width >=
-    WIDE_TIMELINE_MIN_PANEL_WIDTH + WIDE_TIMELINE_MIN_BROWSE_WIDTH;
-  const panelWidth = canPush
-    ? Math.min(
-        preferredWidth,
-        width - WIDE_TIMELINE_MIN_BROWSE_WIDTH,
-      )
-    : Math.min(preferredWidth, maximumPanelWidth);
+  const panelWidth = Math.min(preferredWidth, maximumPanelWidth);
   const remainingBrowseWidth = Math.max(0, width - panelWidth);
+  const canPush =
+    remainingBrowseWidth >= WIDE_TIMELINE_MIN_BROWSE_WIDTH;
   return {
     panelWidth,
     remainingBrowseWidth,

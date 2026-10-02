@@ -412,7 +412,7 @@ test("Timeline mouse drag leaves the native scrollbar gutter untouched", () => {
   assert.equal(viewport.classList.contains("is-dragging"), true);
 });
 
-test("Timeline width drag leaves the minimum Alerts width visible", () => {
+test("Timeline width drag overlays Alerts after reaching its minimum width", () => {
   const colRight = fakeElement({
     clientWidth: 1_000,
     getBoundingClientRect: () => ({ width: 1_000, height: 480 }),
@@ -448,7 +448,7 @@ test("Timeline width drag leaves the minimum Alerts width visible", () => {
   });
   controller._handleWidthPointerMove({
     pointerId: 4,
-    clientX: 1_000,
+    clientX: 876,
     preventDefault() {},
     stopPropagation() {},
   });
@@ -457,6 +457,20 @@ test("Timeline width drag leaves the minimum Alerts width visible", () => {
     colRight.style.values.get("--wide-timeline-panel-width"),
     "740px",
   );
+  assert.equal(colRight.classList.contains("wide-timeline-push"), true);
+
+  controller._handleWidthPointerMove({
+    pointerId: 4,
+    clientX: 877,
+    preventDefault() {},
+    stopPropagation() {},
+  });
+
+  assert.equal(
+    colRight.style.values.get("--wide-timeline-panel-width"),
+    "741px",
+  );
+  assert.equal(colRight.classList.contains("wide-timeline-overlay"), true);
 });
 
 test("Timeline opens at minimum width and remains resizable in overlay mode", () => {

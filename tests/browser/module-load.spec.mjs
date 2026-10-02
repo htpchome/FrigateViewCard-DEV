@@ -8445,10 +8445,10 @@ test("Wide View timeline push width remains stable across wide breakpoints", asy
   }
 });
 
-test("Wide View timeline opens at minimum width and resizes in overlay mode", async ({
+test("Wide View timeline drag crosses the browse minimum into overlay mode", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 900, height: 700 });
+  await page.setViewportSize({ width: 1_200, height: 700 });
   await page.goto(baseUrl);
   const result = await page.evaluate(async () => {
     const { WideViewTimelineController } = await import(
@@ -8468,8 +8468,8 @@ test("Wide View timeline opens at minimum width and resizes in overlay mode", as
     });
     const wrapper = document.createElement("div");
     wrapper.className = "card";
-    wrapper.style.cssText = "position:relative;width:520px;height:500px";
-    wrapper.innerHTML = `<div id="col-right" class="col-right--wide-view" style="position:relative;width:520px;height:500px">${controller.buildRegionMarkup()}</div>`;
+    wrapper.style.cssText = "position:relative;width:1000px;height:500px";
+    wrapper.innerHTML = `<div id="col-right" class="col-right--wide-view" style="position:relative;width:1000px;height:500px">${controller.buildRegionMarkup()}</div>`;
     host.shadowRoot.append(wrapper);
     const colRight = host._$("#col-right");
     const panel = host._$("#wide-timeline-panel");
@@ -8484,9 +8484,9 @@ test("Wide View timeline opens at minimum width and resizes in overlay mode", as
     controller.toggle();
 
     const opened = {
-      mode: colRight.classList.contains("wide-timeline-overlay")
-        ? "overlay"
-        : "push",
+      mode: colRight.classList.contains("wide-timeline-push")
+        ? "push"
+        : "overlay",
       width: Math.round(panel.getBoundingClientRect().width),
     };
 
@@ -8499,11 +8499,28 @@ test("Wide View timeline opens at minimum width and resizes in overlay mode", as
     });
     controller._handleWidthPointerMove({
       pointerId: 20,
-      clientX: 408,
+      clientX: 740,
       preventDefault() {},
       stopPropagation() {},
     });
-    const widened = Math.round(panel.getBoundingClientRect().width);
+    const boundary = {
+      mode: colRight.classList.contains("wide-timeline-push")
+        ? "push"
+        : "overlay",
+      width: Math.round(panel.getBoundingClientRect().width),
+    };
+    controller._handleWidthPointerMove({
+      pointerId: 20,
+      clientX: 764,
+      preventDefault() {},
+      stopPropagation() {},
+    });
+    const overlaid = {
+      mode: colRight.classList.contains("wide-timeline-overlay")
+        ? "overlay"
+        : "push",
+      width: Math.round(panel.getBoundingClientRect().width),
+    };
     controller._handleWidthPointerUp({
       pointerId: 20,
       preventDefault() {},
@@ -8514,7 +8531,7 @@ test("Wide View timeline opens at minimum width and resizes in overlay mode", as
       currentTarget: surface,
       pointerId: 21,
       button: 0,
-      clientX: 408,
+      clientX: 764,
       stopPropagation() {},
     });
     controller._handleWidthPointerMove({
@@ -8527,12 +8544,13 @@ test("Wide View timeline opens at minimum width and resizes in overlay mode", as
 
     controller.teardown();
     host.remove();
-    return { opened, widened, narrowed };
+    return { opened, boundary, overlaid, narrowed };
   });
 
   expect(result).toEqual({
-    opened: { mode: "overlay", width: 264 },
-    widened: 408,
+    opened: { mode: "push", width: 264 },
+    boundary: { mode: "push", width: 740 },
+    overlaid: { mode: "overlay", width: 764 },
     narrowed: 264,
   });
 });
