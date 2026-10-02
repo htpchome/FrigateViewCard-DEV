@@ -24,6 +24,7 @@ export function buildMobileCamSwitcherMarkup({
     getCameraName,
     isCameraAvailable,
     streamType: resolveMobileViewStreamTypeText(streamType),
+    streamIcon: icons.webrtc || "",
     online,
     pickerOpen,
   });

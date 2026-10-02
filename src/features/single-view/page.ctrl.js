@@ -173,8 +173,11 @@ export class SingleViewPageController {
       title.textContent = this.titleText();
     }
 
-    const state =
-      this._host._hass?.states?.[this._host._activeCam?.entity] || null;
+    const activeEntity =
+      this._host._activeGroupMemberOverride ||
+      this._host._activeCam?.entity ||
+      "";
+    const state = this._host._hass?.states?.[activeEntity] || null;
     if (!state) return;
 
     const statusDot = this._host._pageShellRegionElement(
@@ -187,9 +190,12 @@ export class SingleViewPageController {
     );
     const suspended =
       this._host._frigateCameraRuntimeController?.isSuspended?.(
-        this._host._activeCam?.entity,
+        activeEntity,
       ) === true;
-    const online = state.state !== "unavailable" && !suspended;
+    const online =
+      this._host._frigateCameraRuntimeController?.isAvailable?.(
+        activeEntity,
+      ) ?? (state?.state !== "unavailable" && !suspended);
     const liveBadge = this._host.shadowRoot?.querySelector?.(
       "[data-single-view-live-badge]",
     );

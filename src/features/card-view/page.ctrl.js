@@ -643,7 +643,9 @@ export class CardViewPageController {
   }
 
   camSwitcherMarkup({ includeStatus = true } = {}) {
-    const activeEntity = this._host._activeCam?.entity;
+    const activeEntity =
+      this._host._activeGroupMemberOverride ||
+      this._host._activeCam?.entity;
     const activeState = activeEntity
       ? this._host._hass?.states?.[activeEntity]
       : null;
@@ -704,10 +706,14 @@ export class CardViewPageController {
   }
 
   syncStatus() {
-    const state = this._host._hass?.states?.[this._host._activeCam?.entity];
+    const activeEntity =
+      this._host._activeGroupMemberOverride ||
+      this._host._activeCam?.entity ||
+      "";
+    const state = this._host._hass?.states?.[activeEntity];
     const available =
       this._host._frigateCameraRuntimeController?.isAvailable?.(
-        this._host._activeCam?.entity,
+        activeEntity,
       ) ?? state?.state !== "unavailable";
     const statusDot = this._host._pageShellRegionElement?.(
       "cameraSwitcher",

@@ -901,6 +901,36 @@ test("single-view render helpers update status and title through the controller"
   assert.equal(liveBadge.hidden, true);
 });
 
+test("single-view status and camera button use committed live availability", () => {
+  const nodes = {
+    "#on-dot": createNode(),
+    "#on-lbl": createNode(),
+    "#info-title": createNode(),
+  };
+  const { host } = createHost({ domNodes: nodes });
+  host._hass.states["camera.front_door"].state = "unavailable";
+  host._hass.states["camera.driveway"].state = "unavailable";
+  host._frigateCameraRuntimeController = {
+    isAvailable: (entity) => entity === "camera.front_door",
+    isSuspended: () => false,
+  };
+  const controller = new SingleViewPageController(host, { PAGE_IDS });
+
+  controller.syncStatus();
+  const markup = controller.camSwitcherMarkup({ includeStatus: true });
+
+  assert.equal(nodes["#on-dot"].style.color, "#4ade80");
+  assert.equal(nodes["#on-lbl"].textContent, "Online");
+  assert.match(
+    markup,
+    /color:#4ade80[^>]*>●<\/span> Front Door/,
+  );
+  assert.match(
+    markup,
+    /color:#ef4444[^>]*>●<\/span> Driveway/,
+  );
+});
+
 test("single-view camera tokens resolve both fields to Grid in grid mode", () => {
   const nodes = {
     "#info-title": createNode(),

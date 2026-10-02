@@ -61,6 +61,8 @@ export class LiveStreamStatusController {
       card: host,
       type,
     });
+    host._renderCamSwitcher?.();
+    host._syncStatus?.();
     host._syncTwoWayTalkRuntimeState();
     host._syncTwoWayTalkButton();
     host._liveViewResizeController?.sync();

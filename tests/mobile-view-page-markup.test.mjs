@@ -139,7 +139,13 @@ test("mobile view cam switcher markup renders trigger and picker options", () =>
     streamType: "webrtc",
     online: false,
     isSingleView: true,
-    icons: { left: "<", chevron: "v", volOn: "", volOff: "" },
+    icons: {
+      left: "<",
+      chevron: "v",
+      volOn: "",
+      volOff: "",
+      webrtc: '<svg data-icon="webrtc"></svg>',
+    },
     getCameraName: (camera) =>
       camera.entity === "camera.driveway" ? "Driveway" : "Front Door",
     isCameraAvailable: (camera) => camera.entity !== "camera.front_door",
@@ -153,6 +159,23 @@ test("mobile view cam switcher markup renders trigger and picker options", () =>
   assert.equal(markup.includes('id="on-dot"'), true);
   assert.equal(markup.includes('id="on-lbl"'), false);
   assert.equal(markup.includes("Driveway"), true);
+  assert.match(markup, /mobile-cam-picker__stream is-icon-source/);
+  assert.match(markup, /data-icon="webrtc"/);
+});
+
+test("mobile overlay source styling is independent and keeps text sources white", () => {
+  assert.match(
+    MOBILE_VIEW_PAGE_STYLES,
+    /mobile-view-header-overlay \.mobile-cam-picker__stream \.sv \{color:var\(--fvc-media-overlay-text\)/,
+  );
+  assert.match(
+    MOBILE_VIEW_PAGE_STYLES,
+    /mobile-view-header-overlay \.mobile-cam-picker__stream\.is-icon-source #stream-type \{display:none;/,
+  );
+  assert.match(
+    MOBILE_VIEW_PAGE_STYLES,
+    /mobile-view-header-overlay \.mobile-cam-picker__stream\.is-icon-source \.mobile-cam-picker__stream-icon \{display:inline-grid;/,
+  );
 });
 
 test("mobile view back button targets Preview or Single View", () => {

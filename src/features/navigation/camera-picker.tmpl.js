@@ -33,6 +33,7 @@ export function buildCameraPickerMarkup({
   getCameraName,
   isCameraAvailable,
   streamType = "--",
+  streamIcon = "",
   online = true,
   pickerOpen = false,
   activeCameraName: suppliedActiveCameraName = "",
@@ -51,6 +52,9 @@ export function buildCameraPickerMarkup({
     String(suppliedActiveCameraName || "").trim() ||
     (activeCamera ? getCameraName(activeCamera) : "Camera");
   const labelKey = activeCameraLabelKey || (activeCamera ? "" : "runtime.live.camera");
+  const iconSource =
+    String(streamType || "").trim().toLowerCase() === "webrtc" &&
+    Boolean(streamIcon);
   const localizedLabelAttribute = labelKey
     ? ` data-fvc-i18n="${escapeHtmlAttribute(labelKey)}"`
     : "";
@@ -85,7 +89,8 @@ export function buildCameraPickerMarkup({
       </div>
     </div>
     ${showStatus ? `<div class="mobile-cam-picker__status" aria-label="Live status" data-fvc-i18n-aria-label="runtime.live.liveStatus">
-      <div class="mobile-cam-picker__stream">
+      <div class="mobile-cam-picker__stream${iconSource ? " is-icon-source" : ""}" title="${iconSource ? "WebRTC" : escapeHtmlAttribute(streamType || "")}" aria-label="${iconSource ? "WebRTC live source" : "Live source"}">
+        ${streamIcon ? `<span class="mobile-cam-picker__stream-icon" aria-hidden="true">${streamIcon}</span>` : ""}
         <div class="sv stream-type" id="stream-type">${escapeHtml(streamType || "--")}</div>
         <div class="sl" data-fvc-i18n="runtime.stream">Stream</div>
       </div>

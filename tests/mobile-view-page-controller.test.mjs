@@ -286,6 +286,70 @@ test("mobile-view camera switcher markup includes picker trigger and options", (
   assert.equal(markup.includes("Front Door"), true);
 });
 
+test("mobile-view picker uses committed live availability for camera dots", () => {
+  const nodes = {
+    "#on-dot": createNode(),
+    "#info-title": createNode(),
+  };
+  const { host } = createHost({ domNodes: nodes });
+  host._hass.states["camera.front_door"].state = "unavailable";
+  host._hass.states["camera.driveway"].state = "unavailable";
+  host._frigateCameraRuntimeController = {
+    isAvailable: (entity) => entity === "camera.front_door",
+    isSuspended: () => false,
+  };
+  const controller = new MobileViewPageController(host, { PAGE_IDS });
+
+  controller.syncStatus();
+  const markup = controller.camSwitcherMarkup({ includeStatus: true });
+
+  assert.equal(nodes["#on-dot"].style.color, "#4ade80");
+  assert.match(
+    markup,
+    /color:var\(--c-on\)[^>]*>●<\/span>[\s\S]*Front Door/,
+  );
+  assert.match(
+    markup,
+    /color:var\(--c-off\)[^>]*>●<\/span>[\s\S]*Driveway/,
+  );
+});
+
+test("mobile-view source switches between the WebRTC icon and text", () => {
+  const classes = new Set();
+  const attributes = {};
+  const streamSource = {
+    classList: {
+      toggle: (name, enabled) => {
+        if (enabled) classes.add(name);
+        else classes.delete(name);
+      },
+    },
+    setAttribute: (name, value) => {
+      attributes[name] = value;
+    },
+    title: "",
+  };
+  const nodes = {
+    "#alert-count": createNode(),
+    "#stream-type": createNode(),
+    ".mobile-cam-picker__stream": streamSource,
+  };
+  const { host } = createHost({ domNodes: nodes });
+  const controller = new MobileViewPageController(host, { PAGE_IDS });
+
+  controller.renderStats();
+  assert.equal(classes.has("is-icon-source"), true);
+  assert.equal(streamSource.title, "WebRTC");
+  assert.equal(attributes["aria-label"], "WebRTC live source");
+
+  host._activeStreamType = "mse";
+  controller.renderStats();
+  assert.equal(classes.has("is-icon-source"), false);
+  assert.equal(nodes["#stream-type"].textContent, "mse");
+  assert.equal(streamSource.title, "MSE");
+  assert.equal(attributes["aria-label"], "MSE live source");
+});
+
 test("mobile-view renderLegend populates deterministic legend markup", () => {
   const nodes = {
     "#legend": createNode(),

@@ -186,8 +186,11 @@ export const MOBILE_VIEW_PAGE_STYLES = `
     transition:opacity .16s ease,visibility 0s linear .16s;
   }
 
-  .card.mobile-view-active.mobile-view-header-overlay .mobile-cam-picker__stream .sv {font-size:.64rem;font-weight:750;line-height:1;}
+  .card.mobile-view-active.mobile-view-header-overlay .mobile-cam-picker__stream .sv {color:var(--fvc-media-overlay-text);font-size:.64rem;font-weight:750;line-height:1;}
   .card.mobile-view-active.mobile-view-header-overlay .mobile-cam-picker__stream .sl {display:none;}
+  .card.mobile-view-active.mobile-view-header-overlay .mobile-cam-picker__stream.is-icon-source #stream-type {display:none;}
+  .card.mobile-view-active.mobile-view-header-overlay .mobile-cam-picker__stream.is-icon-source .mobile-cam-picker__stream-icon {display:inline-grid;place-items:center;width:14px;height:14px;}
+  .card.mobile-view-active.mobile-view-header-overlay .mobile-cam-picker__stream-icon svg {width:14px;height:14px;color:currentColor;fill:currentColor;}
   .card.mobile-view-active.mobile-view-header-overlay .mobile-cam-picker__live-tile {
     display:inline-flex;
     align-items:center;

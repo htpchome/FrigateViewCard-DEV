@@ -2,6 +2,7 @@ import { activateStandardPageRouteLifecycle } from "../navigation/route-lifecycl
 import { BrowseRenderController } from "../browse/render.ctrl.js";
 import { cap, camDisplayName } from "../../helpers.js";
 import { ICONS } from "../../icons.js";
+import { resolveLiveSourceIndicatorState } from "../../shared/media/source-indicator.js";
 import { applyLocalizedText, setLocalizedText } from "../localization/localized-dom.js";
 import {
   applyMobileViewPageMarkup,
@@ -84,7 +85,9 @@ export class MobileViewPageController {
   }
 
   camSwitcherMarkup({ includeStatus = true } = {}) {
-    const activeEntity = this._host._activeCam?.entity;
+    const activeEntity =
+      this._host._activeGroupMemberOverride ||
+      this._host._activeCam?.entity;
     const activeState = activeEntity
       ? this._host._hass?.states?.[activeEntity]
       : null;
@@ -132,8 +135,11 @@ export class MobileViewPageController {
       title.textContent = this.titleText();
     }
 
-    const state =
-      this._host._hass?.states?.[this._host._activeCam?.entity] || null;
+    const activeEntity =
+      this._host._activeGroupMemberOverride ||
+      this._host._activeCam?.entity ||
+      "";
+    const state = this._host._hass?.states?.[activeEntity] || null;
     if (!state) return;
 
     const statusDot = this._host._pageShellRegionElement(
@@ -146,9 +152,12 @@ export class MobileViewPageController {
     );
     const suspended =
       this._host._frigateCameraRuntimeController?.isSuspended?.(
-        this._host._activeCam?.entity,
+        activeEntity,
       ) === true;
-    const online = state.state !== "unavailable" && !suspended;
+    const online =
+      this._host._frigateCameraRuntimeController?.isAvailable?.(
+        activeEntity,
+      ) ?? (state?.state !== "unavailable" && !suspended);
     if (statusDot) {
       statusDot.style.color = resolveMobileViewStatusColor(online);
     }
@@ -185,6 +194,26 @@ export class MobileViewPageController {
     if (streamType) {
       streamType.textContent = resolveMobileViewStreamTypeText(
         this._host._activeStreamType,
+      );
+    }
+    const sourceState = resolveLiveSourceIndicatorState(
+      this._host._activeStreamType,
+    );
+    const streamSource = this._host._pageShellRegionElement(
+      "cameraSwitcher",
+      ".mobile-cam-picker__stream",
+    );
+    streamSource?.classList?.toggle?.(
+      "is-icon-source",
+      sourceState.showIcon,
+    );
+    if (streamSource) {
+      streamSource.title = sourceState.label;
+      streamSource.setAttribute?.(
+        "aria-label",
+        sourceState.visible
+          ? `${sourceState.label} live source`
+          : "Live source",
       );
     }
   }

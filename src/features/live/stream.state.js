@@ -104,6 +104,14 @@ export const applyActiveStreamTypeForCard = ({ card, type }) => {
   });
   card._activeStreamType = nextState.activeStreamType;
   card._lastLiveStreamHint = nextState.lastLiveStreamHint;
+  const liveEntity = String(
+    card._activeGroupMemberOverride || card._activeCam?.entity || "",
+  ).trim();
+  const committedEngine = isLiveTransportType(nextState.activeStreamType)
+    ? card._engine || null
+    : null;
+  card._committedLiveAvailabilityEntity = committedEngine ? liveEntity : "";
+  card._committedLiveAvailabilityEngine = committedEngine;
   card._renderStats?.();
 };
 

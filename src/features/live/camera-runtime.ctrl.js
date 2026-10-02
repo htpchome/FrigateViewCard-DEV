@@ -4,6 +4,7 @@ import {
 } from "../../integrations/home-assistant/frigate-camera-runtime.js";
 import { CARD_DISPLAY_NAME } from "../../product-identity.mjs";
 import { applyLocalizedText } from "../localization/localized-dom.js";
+import { isLiveTransportType } from "./stream.state.js";
 import { buildLiveCameraPowerControlMarkup } from "./view.tmpl.js";
 import { canUserManageCameraSuspension } from "./camera-suspension-policy.js";
 
@@ -87,7 +88,16 @@ export class FrigateCameraRuntimeController {
     const state = this._host._hass?.states?.[normalizedEntity] || null;
     if (!state) return true;
     const runtime = this.resolve(normalizedEntity);
-    return !runtime.unavailable && !runtime.suspended;
+    if (runtime.suspended) return false;
+    if (!runtime.unavailable) return true;
+    return (
+      normalizedEntity === this.activeEntity() &&
+      normalizedEntity ===
+        this._host._committedLiveAvailabilityEntity &&
+      Boolean(this._host._engine) &&
+      this._host._committedLiveAvailabilityEngine === this._host._engine &&
+      isLiveTransportType(this._host._activeStreamType)
+    );
   }
 
   canManageCameraSuspension() {

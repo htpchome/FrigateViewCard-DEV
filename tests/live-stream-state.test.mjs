@@ -77,6 +77,8 @@ test("applyActiveStreamTypeForCard updates active type, hint, and stats render",
   let renderCalls = 0;
   const card = {
     _activeStreamType: "--",
+    _activeCam: { entity: "camera.front" },
+    _engine: { video: {} },
     _lastLiveStreamHint: "webrtc",
     _renderStats: () => {
       renderCalls += 1;
@@ -90,6 +92,8 @@ test("applyActiveStreamTypeForCard updates active type, hint, and stats render",
 
   assert.equal(card._activeStreamType, "MSE");
   assert.equal(card._lastLiveStreamHint, "mse");
+  assert.equal(card._committedLiveAvailabilityEntity, "camera.front");
+  assert.equal(card._committedLiveAvailabilityEngine, card._engine);
   assert.equal(renderCalls, 1);
 
   applyActiveStreamTypeForCard({
@@ -99,6 +103,8 @@ test("applyActiveStreamTypeForCard updates active type, hint, and stats render",
 
   assert.equal(card._activeStreamType, "snapshot");
   assert.equal(card._lastLiveStreamHint, "mse");
+  assert.equal(card._committedLiveAvailabilityEntity, "");
+  assert.equal(card._committedLiveAvailabilityEngine, null);
   assert.equal(renderCalls, 2);
 
   applyActiveStreamTypeForCard({

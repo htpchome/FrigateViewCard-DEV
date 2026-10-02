@@ -57,6 +57,10 @@ export const CAMERA_PICKER_STYLES = `
     font-size:.65rem;
   }
 
+  :is(.card.mobile-view-active,.card.card-view-active) .mobile-cam-picker__stream-icon {
+    display:none;
+  }
+
   :is(.card.mobile-view-active,.card.card-view-active) .mobile-cam-picker__dot {
     font-size:.75rem;
     line-height:1;

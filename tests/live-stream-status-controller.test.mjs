@@ -41,11 +41,13 @@ const createHost = () => {
     _preferredStreamType: () => "webrtc",
     _shouldUseGo2RtcForEntity: () => true,
     _refreshStreamFallbackImage: () => calls.push(["refresh-fallback"]),
+    _renderCamSwitcher: () => calls.push(["render-camera-switcher"]),
     _renderStats: () => calls.push(["render-stats"]),
     _setLiveNativeControls: (enabled) =>
       calls.push(["native-controls", enabled]),
     _syncTwoWayTalkButton: () => calls.push(["sync-talk-button"]),
     _syncTwoWayTalkRuntimeState: () => calls.push(["sync-talk-state"]),
+    _syncStatus: () => calls.push(["sync-status"]),
     _$: (selector) =>
       selector === "#stream-loading .label" ? label : null,
     shadowRoot: {
@@ -112,6 +114,8 @@ test("stream status applies active transport state and dependent UI updates", ()
   assert.equal(host._lastLiveStreamHint, "mse");
   assert.deepEqual(calls, [
     ["render-stats"],
+    ["render-camera-switcher"],
+    ["sync-status"],
     ["sync-talk-state"],
     ["sync-talk-button"],
     ["resize"],
@@ -120,7 +124,7 @@ test("stream status applies active transport state and dependent UI updates", ()
   host._gridPageController.captureBackgroundLiveStreamType = () => true;
   controller.setActiveType("webrtc");
   assert.equal(host._activeStreamType, "MSE");
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 6);
 });
 
 test("stream status applies fallback and resolved transport presentation", () => {
