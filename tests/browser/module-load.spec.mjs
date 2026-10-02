@@ -6804,6 +6804,69 @@ test("Panel and Sidebar 50% heights preserve the minimum browse region", async (
   }
 });
 
+test("Sections and Masonry preserve two browse rows when the footer is hidden", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 700 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const measure = async (viewTagName, pageId) => {
+      const view = document.createElement(viewTagName);
+      view.style.cssText = "display:block;width:1000px";
+      document.body.append(view);
+      const card = document.createElement("frigate-view-card");
+      view.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        stream_height: 100,
+        stream_height_unit: "dvh",
+        mobile_view_page_enabled: true,
+        display_footer: false,
+      });
+      card._pageId = pageId;
+      card._renderShell();
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const root = card.shadowRoot;
+      const browse = root.querySelector('[data-fvc-region="browse"]');
+      const footer = root.querySelector('[data-fvc-region="footer"]');
+      const measurement = {
+        browseHeight: Math.round(browse.getBoundingClientRect().height),
+        browseOverflowY: getComputedStyle(browse).overflowY,
+        footerDisplay: getComputedStyle(footer).display,
+        hostHeight: Math.round(card.getBoundingClientRect().height),
+        pageScrollable:
+          document.documentElement.scrollHeight > window.innerHeight,
+      };
+      view.remove();
+      return measurement;
+    };
+
+    const measurements = [];
+    for (const viewTagName of ["hui-sections-view", "hui-masonry-view"]) {
+      for (const pageId of ["single-view", "mobile-view"]) {
+        measurements.push(await measure(viewTagName, pageId));
+      }
+    }
+    return measurements;
+  });
+
+  for (const view of result) {
+    expect(view.footerDisplay).toBe("none");
+    expect(view.browseHeight, JSON.stringify(view)).toBeGreaterThanOrEqual(244);
+    expect(view.browseOverflowY).toBe("auto");
+    expect(view.hostHeight).toBeGreaterThan(700);
+    expect(view.pageScrollable).toBe(true);
+  }
+});
+
 test("single-camera Preview keeps the same tile width as a two-camera Preview", async ({
   page,
 }) => {
@@ -7200,6 +7263,66 @@ test("Wide View footer remains singular across landing and route swaps", async (
     afterLeaving: { footerCount: 1, wideFooterCount: 0 },
     afterReturning: expectedWide,
   });
+});
+
+test("Wide View honors hidden and compact footer display settings", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const sample = async ({ displayFooter = true, displayLogo = true }) => {
+      const card = document.createElement("frigate-view-card");
+      card.style.cssText = "display:block;width:1000px;height:800px";
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        wide_view_page_enabled: true,
+        display_footer: displayFooter,
+        display_logo: displayLogo,
+        display_version: true,
+      });
+      await card._wideViewPageController.prepare();
+      card._pageId = "wide-view";
+      card._renderShell();
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const footer = card.shadowRoot.querySelector(
+        '[data-fvc-region="footer"]',
+      );
+      const state = {
+        compact: footer.classList.contains("footer--logo-hidden"),
+        display: getComputedStyle(footer).display,
+        hasLogo: Boolean(footer.querySelector(".fvc-brand-logo svg")),
+        height: footer.getBoundingClientRect().height,
+        versionVisible: !footer.querySelector(".footer-version").hidden,
+      };
+      card.remove();
+      return state;
+    };
+
+    return {
+      visible: await sample({}),
+      compact: await sample({ displayLogo: false }),
+      hidden: await sample({ displayFooter: false }),
+    };
+  });
+
+  expect(result.visible.display).toBe("grid");
+  expect(result.visible.hasLogo).toBe(true);
+  expect(result.visible.compact).toBe(false);
+  expect(result.compact.display).toBe("grid");
+  expect(result.compact.hasLogo).toBe(false);
+  expect(result.compact.compact).toBe(true);
+  expect(result.compact.versionVisible).toBe(true);
+  expect(result.compact.height).toBeLessThan(result.visible.height);
+  expect(result.hidden.display).toBe("none");
+  expect(result.hidden.height).toBe(0);
 });
 
 test("Panel Wide View height lock converts a 4:3 resize drag into zoom", async ({

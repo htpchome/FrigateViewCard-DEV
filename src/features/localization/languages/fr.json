@@ -563,7 +563,7 @@
       "logo": "Afficher le logo {cardName}",
       "version": "Afficher le numéro de version",
       "footer": "Afficher le pied de page",
-      "footerHelp": "Affiche le pied de page dans la Vue unique et la Vue mobile. Le désactiver masque aussi le logo et la version dans ces pieds de page.",
+      "footerHelp": "Affiche le pied de page dans la Vue unique, la Vue mobile et la Vue large. Le désactiver masque aussi le logo et la version dans ces pieds de page.",
       "alertCount": "Afficher le nombre d'alertes",
       "alertCountHelp": "Affiche les informations sur le nombre d'alertes.",
       "alertDetectionChip": "Afficher la pastille Alerte/Détection (bulle)",

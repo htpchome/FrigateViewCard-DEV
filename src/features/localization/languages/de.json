@@ -563,7 +563,7 @@
       "logo": "{cardName}-Logo anzeigen",
       "version": "Versionsnummer anzeigen",
       "footer": "Fußzeile anzeigen",
-      "footerHelp": "Zeigt die Fußzeile in Einzelansicht und mobiler Ansicht an. Beim Deaktivieren werden dort auch Logo und Version ausgeblendet.",
+      "footerHelp": "Zeigt die Fußzeile in Einzelansicht, mobiler Ansicht und Breiter Ansicht an. Beim Deaktivieren werden dort auch Logo und Version ausgeblendet.",
       "alertCount": "Alarmanzahl anzeigen",
       "alertCountHelp": "Zeigt Informationen zur Anzahl der Alarme an.",
       "alertDetectionChip": "Alarm-/Erkennungskennzeichnung anzeigen (Blase)",

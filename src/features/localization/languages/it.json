@@ -563,7 +563,7 @@
       "logo": "Mostra logo {cardName}",
       "version": "Mostra numero di versione",
       "footer": "Mostra piè di pagina",
-      "footerHelp": "Mostra il piè di pagina in Vista singola e Vista mobile. Disattivandolo si nascondono anche il logo e la versione in quei piè di pagina.",
+      "footerHelp": "Mostra il piè di pagina in Vista singola, Vista mobile e Vista ampia. Disattivandolo si nascondono anche il logo e la versione in quei piè di pagina.",
       "alertCount": "Mostra conteggio avvisi",
       "alertCountHelp": "Mostra le informazioni sul conteggio degli avvisi.",
       "alertDetectionChip": "Mostra etichetta Avviso/Rilevamento (bolla)",

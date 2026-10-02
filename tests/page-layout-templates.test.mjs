@@ -133,11 +133,11 @@ test("wide view keeps one branded footer inside its atomic page root", () => {
 
   assert.match(
     markup,
-    /id="layout">\s*<div class="wide-view-columns">[\s\S]*?<\/div>\s*<div class="wide-footer" data-fvc-region="footer">[\s\S]*?<\/div>\s*<\/div>$/,
+    /id="layout">\s*<div class="wide-view-columns">[\s\S]*?<\/div>\s*<div class="wide-footer footer" data-fvc-region="footer">[\s\S]*?<\/div>\s*<\/div>$/,
   );
   assert.match(
     markup,
-    /<div class="wide-footer" data-fvc-region="footer">\s*<div class="fvc-brand-logo"><svg data-wide-footer-fvc-brand-logo><\/svg><\/div>/,
+    /<div class="wide-footer footer" data-fvc-region="footer">\s*<div class="fvc-brand-logo"><svg data-wide-footer-fvc-brand-logo><\/svg><\/div>/,
   );
   assert.equal(markup.match(/data-fvc-region="footer"/g)?.length, 1);
   assert.match(markup, /class="footer-version"[^>]*>v1\.0\.0<\/div>/);
@@ -235,6 +235,24 @@ test("shared footer marks its no-logo state for compact layout", () => {
   assert.match(
     STYLES,
     /\.footer\.footer--logo-hidden > :first-child\{display:none;\}/,
+  );
+});
+
+test("wide footer shares hidden and compact footer states", () => {
+  const markup = buildWideViewMainLayoutShellMarkup({
+    regions: {
+      ...regions,
+      wideFooterFvcBrandLogo: "",
+    },
+  });
+
+  assert.match(
+    markup,
+    /class="wide-footer footer footer--logo-hidden" data-fvc-region="footer"/,
+  );
+  assert.match(
+    STYLES,
+    /\.card\.display-footer-off \.layout--wide-view > \[data-fvc-region="footer"\] \{\s*display:none !important;/,
   );
 });
 

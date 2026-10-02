@@ -1156,21 +1156,35 @@ export class CardStyleContextController {
 
     const mobileLayout = card.querySelector(".layout--mobile-view");
     if (mobileLayout) {
-      return this.sumRenderedHeights([
-        mobileLayout.querySelector("#mobile-top"),
+      const top = mobileLayout.querySelector("#mobile-top");
+      if (this.measureRenderedHeight(top) <= 0) return null;
+      const elements = [
+        top,
         mobileLayout.querySelector(".mobile-video-controls-container"),
         mobileLayout.querySelector(".mobile-tab-container"),
-        mobileLayout.querySelector('[data-fvc-region="footer"]'),
-      ]);
+      ];
+      if (this._host._config?.display_footer !== false) {
+        elements.push(
+          mobileLayout.querySelector('[data-fvc-region="footer"]'),
+        );
+      }
+      return this.sumRenderedHeights(elements, { allowZeroHeights: true });
     }
 
     const singleLayout = card.querySelector(".layout--single-view");
     if (singleLayout) {
-      return this.sumRenderedHeights([
-        singleLayout.querySelector(".view-top"),
+      const top = singleLayout.querySelector(".view-top");
+      if (this.measureRenderedHeight(top) <= 0) return null;
+      const elements = [
+        top,
         singleLayout.querySelector(".tabs-holder"),
-        singleLayout.querySelector('[data-fvc-region="footer"]'),
-      ]);
+      ];
+      if (this._host._config?.display_footer !== false) {
+        elements.push(
+          singleLayout.querySelector('[data-fvc-region="footer"]'),
+        );
+      }
+      return this.sumRenderedHeights(elements, { allowZeroHeights: true });
     }
 
     const wideLayout = card.querySelector(".layout--wide-view");
@@ -1190,10 +1204,14 @@ export class CardStyleContextController {
     const rightHeight = this.sumRenderedHeights([
       rightColumn?.querySelector(".tabs-holder"),
     ]);
-    const footerHeight = this.measureRenderedHeight(
-      wideLayout.querySelector('[data-fvc-region="footer"]'),
-    );
-    if (leftHeight == null || rightHeight == null || footerHeight <= 0) {
+    const footer = wideLayout.querySelector('[data-fvc-region="footer"]');
+    const footerHeight = this.measureRenderedHeight(footer);
+    const footerHidden = this._host._config?.display_footer === false;
+    if (
+      leftHeight == null ||
+      rightHeight == null ||
+      (!footerHidden && footerHeight <= 0)
+    ) {
       return null;
     }
     return Math.ceil(
@@ -1316,11 +1334,15 @@ export class CardStyleContextController {
     };
   }
 
-  sumRenderedHeights(elements, { includeBrowseViewport = true } = {}) {
+  sumRenderedHeights(
+    elements,
+    { includeBrowseViewport = true, allowZeroHeights = false } = {},
+  ) {
     const heights = elements.map((element) =>
       this.measureRenderedHeight(element),
     );
-    if (heights.some((height) => height <= 0)) return null;
+    if (!allowZeroHeights && heights.some((height) => height <= 0)) return null;
+    if (allowZeroHeights && heights.every((height) => height <= 0)) return null;
     return Math.ceil(
       heights.reduce((total, height) => total + height, 0) +
         (includeBrowseViewport ? MINIMUM_BROWSE_REGION_HEIGHT_PX : 0) +

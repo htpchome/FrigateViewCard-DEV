@@ -563,7 +563,7 @@
       "logo": "Mostrar logótipo do {cardName}",
       "version": "Mostrar número da versão",
       "footer": "Mostrar rodapé",
-      "footerHelp": "Mostra o rodapé na Vista individual e na Vista móvel. Desativá-lo também oculta o logótipo e a versão nesses rodapés.",
+      "footerHelp": "Mostra o rodapé na Vista individual, na Vista móvel e na Vista ampla. Desativá-lo também oculta o logótipo e a versão nesses rodapés.",
       "alertCount": "Mostrar contagem de alertas",
       "alertCountHelp": "Mostra informações sobre a contagem de alertas.",
       "alertDetectionChip": "Mostrar etiqueta Alerta/Deteção (balão)",

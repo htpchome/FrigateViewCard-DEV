@@ -563,7 +563,7 @@
       "logo": "Wyświetl logo {cardName}",
       "version": "Wyświetl numer wersji",
       "footer": "Wyświetl stopkę",
-      "footerHelp": "Wyświetla stopkę w Widoku pojedynczym i Widoku mobilnym. Wyłączenie tej opcji ukrywa również logo i wersję w tych stopkach.",
+      "footerHelp": "Wyświetla stopkę w Widoku pojedynczym, Widoku mobilnym i Widoku szerokim. Wyłączenie tej opcji ukrywa również logo i wersję w tych stopkach.",
       "alertCount": "Wyświetl liczbę alertów",
       "alertCountHelp": "Wyświetla informacje o liczbie alertów.",
       "alertDetectionChip": "Wyświetl znacznik Alert/Wykrycie (dymek)",

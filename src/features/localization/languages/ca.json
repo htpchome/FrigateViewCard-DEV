@@ -563,7 +563,7 @@
       "logo": "Mostra el logotip de {cardName}",
       "version": "Mostra el número de versió",
       "footer": "Mostra el peu de pàgina",
-      "footerHelp": "Mostra el peu de pàgina a la Vista individual i la Vista mòbil. Desactivar-lo també amaga el logotip i la versió en aquests peus.",
+      "footerHelp": "Mostra el peu de pàgina a la Vista individual, la Vista mòbil i la Vista ampla. Desactivar-lo també amaga el logotip i la versió en aquests peus.",
       "alertCount": "Mostra el recompte d'alertes",
       "alertCountHelp": "Mostra la informació del recompte d'alertes.",
       "alertDetectionChip": "Mostra l'etiqueta Alerta/Detecció (bombolla)",

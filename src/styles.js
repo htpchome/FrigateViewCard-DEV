@@ -87,6 +87,9 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .card.display-footer-off :is(.layout--single-view,.layout--mobile-view) > * [data-fvc-region="footer"] {
     display:none !important;
   }
+  .card.display-footer-off .layout--wide-view > [data-fvc-region="footer"] {
+    display:none !important;
+  }
   .card.display-alert-detection-outline-off .list-item :is(.et.alert,.et.detection,.rev-sev.alert,.rev-sev.detection) {
     outline:none !important;
   }

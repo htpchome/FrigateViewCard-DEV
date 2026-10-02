@@ -3956,7 +3956,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         </div>
         <div class="display-option-block">
           <div class="layout-row"><span class="field-label" data-fvc-i18n="editor.displayOptions.footer">Display Footer</span><ha-switch id="display_footer" ${this._config?.display_footer !== false ? "checked" : ""}></ha-switch></div>
-          <div class="field-helper" data-fvc-i18n="editor.displayOptions.footerHelp">Shows the footer in Single View and Mobile View. Turning it off also hides the logo and version in those footers.</div>
+          <div class="field-helper" data-fvc-i18n="editor.displayOptions.footerHelp">Shows the footer in Single View, Mobile View, and Wide View. Turning it off also hides the logo and version in those footers.</div>
         </div>
         <div class="display-option-block">
           <div class="layout-row"><span class="field-label" data-fvc-i18n="editor.displayOptions.logo" data-fvc-i18n-values="${escapeHtmlAttribute(JSON.stringify({ cardName: CARD_NAME }))}">Display ${CARD_NAME} Logo</span><ha-switch id="display_logo" ${this._config?.display_logo !== false ? "checked" : ""}></ha-switch></div>

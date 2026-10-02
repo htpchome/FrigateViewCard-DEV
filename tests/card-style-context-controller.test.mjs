@@ -2060,6 +2060,38 @@ test("minimum usable height follows the rendered Single and Wide View chrome", (
   };
   assert.equal(controller.resolveMinimumUsableHostHeightPx(singleCard), 708);
 
+  const hiddenFooterController = new CardStyleContextController({
+    _config: { display_footer: false },
+  });
+  const hiddenSingleLayout = makeLayout([
+    [".view-top", measuredElement(360)],
+    [".tabs-holder", measuredElement(50)],
+    ['[data-fvc-region="footer"]', measuredElement(0)],
+  ]);
+  const hiddenSingleCard = {
+    querySelector: (selector) =>
+      selector === ".layout--single-view" ? hiddenSingleLayout : null,
+  };
+  assert.equal(
+    hiddenFooterController.resolveMinimumUsableHostHeightPx(hiddenSingleCard),
+    662,
+  );
+
+  const hiddenMobileLayout = makeLayout([
+    ["#mobile-top", measuredElement(360)],
+    [".mobile-video-controls-container", measuredElement(0)],
+    [".mobile-tab-container", measuredElement(50)],
+    ['[data-fvc-region="footer"]', measuredElement(0)],
+  ]);
+  const hiddenMobileCard = {
+    querySelector: (selector) =>
+      selector === ".layout--mobile-view" ? hiddenMobileLayout : null,
+  };
+  assert.equal(
+    hiddenFooterController.resolveMinimumUsableHostHeightPx(hiddenMobileCard),
+    662,
+  );
+
   const leftColumn = makeLayout([
     [".live-stage", measuredElement(330)],
     [".info-row", measuredElement(42)],
@@ -2080,6 +2112,20 @@ test("minimum usable height follows the rendered Single and Wide View chrome", (
       selector === ".layout--wide-view" ? wideLayout : null,
   };
   assert.equal(controller.resolveMinimumUsableHostHeightPx(wideCard), 548);
+
+  const hiddenFooterLayout = makeLayout([
+    [".col-left--wide-view", leftColumn],
+    [".col-right--wide-view", rightColumn],
+    ['[data-fvc-region="footer"]', measuredElement(0)],
+  ]);
+  const hiddenFooterCard = {
+    querySelector: (selector) =>
+      selector === ".layout--wide-view" ? hiddenFooterLayout : null,
+  };
+  assert.equal(
+    hiddenFooterController.resolveMinimumUsableHostHeightPx(hiddenFooterCard),
+    502,
+  );
 });
 
 test("constrained Single View width reserves the minimum browse height", () => {

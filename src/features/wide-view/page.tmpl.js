@@ -60,6 +60,11 @@ export function buildWideViewMainLayoutShellMarkup({
   );
   const normalizedFooterVersion = String(regions.footerVersion || "").trim();
   const footerVersion = `<div class="footer-version" ${normalizedFooterVersion ? `aria-label="${CARD_NAME} version ${escapeHtmlAttribute(normalizedFooterVersion)}"` : "hidden"}>${normalizedFooterVersion ? `v${escapeHtml(normalizedFooterVersion)}` : ""}</div>`;
+  const footerClassName = mergeClassNames(
+    "wide-footer",
+    "footer",
+    regions.wideFooterFvcBrandLogo ? "" : "footer--logo-hidden",
+  );
 
   return `<div class="${layoutClassName}" id="layout">
           <div class="wide-view-columns">
@@ -98,7 +103,7 @@ export function buildWideViewMainLayoutShellMarkup({
               ${regions.browse}
             </div>
           </div>
-          <div class="wide-footer" data-fvc-region="footer">
+          <div class="${footerClassName}" data-fvc-region="footer">
             <div class="fvc-brand-logo">${regions.wideFooterFvcBrandLogo}</div>
             ${footerVersion}
           </div>

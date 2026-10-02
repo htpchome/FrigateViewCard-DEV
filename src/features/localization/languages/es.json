@@ -563,7 +563,7 @@
       "logo": "Mostrar logotipo de {cardName}",
       "version": "Mostrar número de versión",
       "footer": "Mostrar pie de página",
-      "footerHelp": "Muestra el pie de página en la Vista individual y la Vista móvil. Al desactivarlo también se ocultan el logotipo y la versión en esos pies.",
+      "footerHelp": "Muestra el pie de página en la Vista individual, la Vista móvil y la Vista amplia. Al desactivarlo también se ocultan el logotipo y la versión en esos pies.",
       "alertCount": "Mostrar número de alertas",
       "alertCountHelp": "Muestra la información del número de alertas.",
       "alertDetectionChip": "Mostrar etiqueta Alerta/Detección (burbuja)",

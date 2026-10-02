@@ -563,7 +563,7 @@
       "logo": "Display {cardName} Logo",
       "version": "Display Version Number",
       "footer": "Display Footer",
-      "footerHelp": "Shows the footer in Single View and Mobile View. Turning it off also hides the logo and version in those footers.",
+      "footerHelp": "Shows the footer in Single View, Mobile View, and Wide View. Turning it off also hides the logo and version in those footers.",
       "alertCount": "Display Alert Count",
       "alertCountHelp": "Shows alert-count information.",
       "alertDetectionChip": "Display Alert/Detection Chip (Bubble)",
