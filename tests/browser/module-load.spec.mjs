@@ -6971,6 +6971,111 @@ test("Wide View footer remains singular across landing and route swaps", async (
   });
 });
 
+test("Panel Wide View recomputes its columns when the viewport becomes shorter", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1900, height: 1080 });
+  await page.goto(baseUrl);
+
+  const before = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const panel = document.createElement("hui-panel-view");
+    panel.style.cssText = "display:block;width:1800px;margin-top:34px";
+    document.body.append(panel);
+    const card = document.createElement("frigate-view-card");
+    card.style.width = "1800px";
+    panel.append(card);
+    card.setConfig({
+      cameras: Array.from({ length: 12 }, (_, index) => ({
+        entity: `camera.camera_${index + 1}`,
+        name: `Camera ${index + 1}`,
+      })),
+      wide_view_page_enabled: true,
+      wide_view_width: 75,
+      stream_height: 100,
+      stream_height_unit: "dvh",
+      tight_margins: true,
+    });
+    await card._wideViewPageController.prepare();
+    card._pageId = "wide-view";
+    card._renderShell();
+    card._wideViewPageController.startWideViewMode();
+    await card._wideViewCompanionController._ensureDelegate();
+    card._applyCardStyle();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    card._wideViewPageController.applyLayoutModeForCard();
+    card._wideViewPageController.syncColHeight();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const root = card.shadowRoot;
+    return {
+      cardWidth: card.getBoundingClientRect().width,
+      configuredWideWidth: card._config.wide_view_width,
+      leftWidth: root
+        .querySelector(".col-left--wide-view")
+        .getBoundingClientRect().width,
+      cardHeight: card.getBoundingClientRect().height,
+      liveWidth: root.querySelector("#eng-wrap").getBoundingClientRect().width,
+      liveHeight: root.querySelector("#eng-wrap").getBoundingClientRect().height,
+    };
+  });
+
+  await page.setViewportSize({ width: 1900, height: 860 });
+  await page.waitForTimeout(50);
+
+  const after = await page.evaluate(() => {
+    const card = document.querySelector("frigate-view-card");
+    const root = card.shadowRoot;
+    const cardRect = card.getBoundingClientRect();
+    const columnsRect = root
+      .querySelector(".wide-view-columns")
+      .getBoundingClientRect();
+    const liveStageRect = root
+      .querySelector("#live-stage")
+      .getBoundingClientRect();
+    const liveRect = root.querySelector("#eng-wrap").getBoundingClientRect();
+    const companionHeaderRect = root
+      .querySelector(".wide-companion-header")
+      .getBoundingClientRect();
+    const footerRect = root
+      .querySelector('[data-fvc-region="footer"]')
+      .getBoundingClientRect();
+    return {
+      cardBottom: cardRect.bottom,
+      cardHeight: cardRect.height,
+      columnsBottom: columnsRect.bottom,
+      companionHeaderBottom: companionHeaderRect.bottom,
+      footerBottom: footerRect.bottom,
+      footerTop: footerRect.top,
+      leftWidth: root
+        .querySelector(".col-left--wide-view")
+        .getBoundingClientRect().width,
+      liveWidth: liveRect.width,
+      liveHeight: liveRect.height,
+      liveStageHeight: liveStageRect.height,
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  expect(after.cardHeight).toBeLessThan(before.cardHeight - 150);
+  expect(
+    after.leftWidth,
+    JSON.stringify({ before, after }),
+  ).toBeLessThan(before.leftWidth - 100);
+  expect(after.liveWidth).toBeLessThan(before.liveWidth - 100);
+  expect(after.liveWidth / after.liveHeight).toBeCloseTo(16 / 9, 2);
+  expect(after.companionHeaderBottom).toBeLessThanOrEqual(
+    after.columnsBottom + 1,
+  );
+  expect(after.columnsBottom).toBeCloseTo(after.footerTop, 0);
+  expect(Math.abs(after.footerBottom - after.cardBottom)).toBeLessThanOrEqual(
+    1.1,
+  );
+  expect(after.cardBottom).toBeLessThanOrEqual(after.viewportHeight + 1);
+});
+
 test("Wide View width presets paint an equal split and preserve 250px on wider starts", async ({
   page,
 }) => {

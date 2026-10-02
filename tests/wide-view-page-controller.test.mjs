@@ -294,6 +294,21 @@ test("syncColHeightIfWideView syncs only for wide route", () => {
   assert.deepEqual(single.calls, []);
 });
 
+test("Panel Wide View recalculates its columns after a container resize", () => {
+  const wide = createHost({ isWide: true });
+  wide.host._cardStyleController = { isPanelView: () => true };
+  const controller = new WideViewPageController(wide.host, { PAGE_IDS });
+  controller.applyLayoutModeForCard = () =>
+    wide.calls.push(["applyLayoutMode"]);
+
+  assert.equal(controller.reflowPanelColumnsForResize(), true);
+  assert.deepEqual(wide.calls, [["applyLayoutMode"]]);
+
+  wide.host._cardStyleController.isPanelView = () => false;
+  assert.equal(controller.reflowPanelColumnsForResize(), false);
+  assert.deepEqual(wide.calls, [["applyLayoutMode"]]);
+});
+
 test("Wide View column resize maximum follows Companion Cameras space", () => {
   assert.equal(
     resolveWideLeftResizeMaxPct({

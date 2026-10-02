@@ -304,6 +304,10 @@ export class LazyWideViewPageController {
     this._delegate?.applyLayoutModeForCard?.();
   }
 
+  reflowPanelColumnsForResize() {
+    return this._delegate?.reflowPanelColumnsForResize?.() === true;
+  }
+
   syncColHeightIfWideView() {
     this._delegate?.syncColHeightIfWideView?.();
   }

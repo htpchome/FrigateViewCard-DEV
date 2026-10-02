@@ -1190,12 +1190,16 @@ export class CardStyleContextController {
     const usesFullAvailableHeight =
       configuredHeight === 100 &&
       ["%", "vh", "dvh"].includes(configuredHeightUnit);
+    const keepWideViewConstrained =
+      this._host._wideViewPageController?.isWideViewPageActive?.() === true &&
+      this.isPanelView();
     const keepConstrainedViewHeight =
-      usesFullAvailableHeight &&
-      this._host._isLikelyMobileClient?.() !== true &&
-      (this.isPanelView() || this.isSidebarView()) &&
-      (this._host._isMobileViewPageActive?.() === true ||
-        this._host._singleViewPageController?.isActive?.() === true);
+      keepWideViewConstrained ||
+      (usesFullAvailableHeight &&
+        this._host._isLikelyMobileClient?.() !== true &&
+        (this.isPanelView() || this.isSidebarView()) &&
+        (this._host._isMobileViewPageActive?.() === true ||
+          this._host._singleViewPageController?.isActive?.() === true));
     if (keepConstrainedViewHeight) {
       return {
         heightPx: resolvedHeightPx,

@@ -1895,6 +1895,9 @@ test("Panel Single and Mobile Views keep full height for an internal scroller", 
     _singleViewPageController: {
       isActive: () => page === "single",
     },
+    _wideViewPageController: {
+      isWideViewPageActive: () => page === "wide",
+    },
     _isLikelyMobileClient: () => false,
   };
   const controller = new CardStyleContextController(host);
@@ -1924,7 +1927,7 @@ test("Panel Single and Mobile Views keep full height for an internal scroller", 
       card: {},
       resolvedHeightPx: 444,
     }),
-    { heightPx: 652, expanded: true },
+    { heightPx: 444, expanded: false },
   );
 
   page = "single";
@@ -1958,6 +1961,9 @@ test("Sidebar Single and Mobile Views keep full height for an internal scroller"
     _isMobileViewPageActive: () => page === "mobile",
     _singleViewPageController: {
       isActive: () => page === "single",
+    },
+    _wideViewPageController: {
+      isWideViewPageActive: () => page === "wide",
     },
     _isLikelyMobileClient: () => false,
   };

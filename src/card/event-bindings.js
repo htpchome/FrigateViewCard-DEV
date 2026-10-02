@@ -148,6 +148,11 @@ export const bindCardGlobalEvents = (
       card._lastViewportHeight = viewportHeight;
       card._syncBrowseHeadModeClass();
       card._applyCardStyle();
+      if (
+        card._wideViewPageController?.reflowPanelColumnsForResize?.() === true
+      ) {
+        card._wideViewPageController.syncColHeightIfWideView();
+      }
     }
 
     card._scheduleRotateOverlayUpdate();

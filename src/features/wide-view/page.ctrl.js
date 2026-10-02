@@ -326,6 +326,17 @@ export class WideViewPageController {
     this.applyWideLayoutMode(layout, this._host._config?.wide_view_width);
   }
 
+  reflowPanelColumnsForResize() {
+    if (
+      !this.isWideViewPageActive() ||
+      this._host._cardStyleController?.isPanelView?.() !== true
+    ) {
+      return false;
+    }
+    this.applyLayoutModeForCard();
+    return true;
+  }
+
   syncColHeightIfWideView() {
     if (!this.isWideViewPageActive()) return;
     this.syncColHeight();
