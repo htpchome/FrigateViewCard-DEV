@@ -4672,6 +4672,90 @@ test("General Settings language changes preserve form state and localize status,
   });
 });
 
+test("settings panel titles use accent only for pending unsaved changes", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card-editor.js");
+    const editor = document.createElement("frigate-view-card-editor");
+    editor.style.cssText = [
+      "--primary-text-color:#111111",
+      "--secondary-text-color:#555555",
+      "--primary-color:#006699",
+      "--accent-color:#ff6600",
+      "--c-text:#111111",
+      "--c-text2:#555555",
+      "--c-accent:#ff6600",
+      "--card-background-color:#ffffff",
+      "--secondary-background-color:#eeeeee",
+      "--state-inactive-color:#cccccc",
+      "--divider-color:#dddddd",
+    ].join(";");
+    document.body.append(editor);
+    editor.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      snapshot_update_seconds: 5,
+    });
+    editor.hass = { locale: { language: "en" }, states: {}, themes: {} };
+
+    const panel = editor.querySelector('[data-panel="general"]');
+    const toggle = panel.querySelector(".setting-title");
+    const icon = toggle.querySelector("ha-icon");
+    toggle.style.transition = "none";
+    const readState = () => ({
+      active: panel.classList.contains("active"),
+      dirty: panel.dataset.configDirty,
+      titleColor: getComputedStyle(toggle).color,
+      iconColor: getComputedStyle(icon).color,
+    });
+    const settle = () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+
+    const closed = readState();
+    toggle.click();
+    await settle();
+    const opened = readState();
+
+    editor
+      .querySelector('[name="snapshot_update_seconds"][value="2"]')
+      .click();
+    await settle();
+    const changed = readState();
+
+    toggle.click();
+    await settle();
+    const closedDirty = readState();
+
+    toggle.click();
+    editor
+      .querySelector('[name="snapshot_update_seconds"][value="5"]')
+      .click();
+    await settle();
+    const reverted = readState();
+
+    return { closed, opened, changed, closedDirty, reverted };
+  });
+
+  expect(state.closed).toEqual({
+    active: false,
+    dirty: "false",
+    titleColor: "rgb(17, 17, 17)",
+    iconColor: "rgb(85, 85, 85)",
+  });
+  expect(state.opened).toEqual({ ...state.closed, active: true });
+  expect(state.changed).toEqual({
+    active: true,
+    dirty: "true",
+    titleColor: "rgb(255, 102, 0)",
+    iconColor: "rgb(255, 102, 0)",
+  });
+  expect(state.closedDirty).toEqual({ ...state.changed, active: false });
+  expect(state.reverted).toEqual({ ...state.opened, active: true });
+});
+
 test("Snapshot Refresh offers 2 and 5 seconds while keeping every bubble on one row", async ({
   page,
 }) => {
@@ -6922,6 +7006,77 @@ test("single-camera Preview keeps the same tile width as a two-camera Preview", 
   expect(result.single.cameraWidth).toBe(result.pair.cameraWidth);
   expect(result.single.emptySlotWidth).toBe(result.single.cameraWidth);
   expect(result.single.cameraWidth).toBeLessThan(result.single.gridWidth * 0.6);
+});
+
+test("Preview metadata centers linked lights without increasing tile metadata height", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_200, height: 900 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const wrapper = document.createElement("div");
+    wrapper.style.width = "1000px";
+    const card = document.createElement("frigate-view-card");
+    wrapper.append(card);
+    document.body.append(wrapper);
+    card.setConfig({
+      cameras: [
+        {
+          entity: "camera.front",
+          name: "Doorbell",
+          linked_entities: [{ entity: "light.porch", position: "left" }],
+        },
+        { entity: "camera.garage", name: "Garage" },
+      ],
+      preview_page_enabled: true,
+      preview_page_show_title_bars: true,
+    });
+    card._pageId = "preview";
+    card._hass = {
+      states: {
+        "camera.front": { state: "idle", attributes: {} },
+        "camera.garage": { state: "idle", attributes: {} },
+        "light.porch": {
+          state: "on",
+          attributes: { brightness: 180 },
+        },
+      },
+    };
+    card._frigateCameraRuntimeController.isAvailable = () => true;
+    card._gridMediaController.mountCameraCellMedia = (host) => {
+      host.textContent = "Camera";
+    };
+
+    await card._previewPageController.prepare();
+    await card._linkedLightController._ensureDelegate();
+    card._renderShell();
+    card._previewPageController.renderPreviewPage();
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+
+    const cells = card.shadowRoot.querySelectorAll("[data-preview-camidx]");
+    const linkedMeta = cells[0].querySelector(".preview-meta");
+    const plainMeta = cells[1].querySelector(".preview-meta");
+    const button = linkedMeta.querySelector("[data-linked-light-toggle]");
+    const linkedRect = linkedMeta.getBoundingClientRect();
+    const plainRect = plainMeta.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    return {
+      heightDelta: Math.abs(linkedRect.height - plainRect.height),
+      centerDelta: Math.abs(
+        buttonRect.left + buttonRect.width / 2 -
+          (linkedRect.left + linkedRect.width / 2),
+      ),
+    };
+  });
+
+  expect(result.heightDelta).toBeLessThanOrEqual(1);
+  expect(result.centerDelta).toBeLessThanOrEqual(1);
 });
 
 test("cached browse rows expand in append-only batches across sticky days", async ({

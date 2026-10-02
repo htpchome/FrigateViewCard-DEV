@@ -144,6 +144,7 @@ export class BrowseCalendarActivityController {
   }
 
   async prefetchCalendarActivityForActiveCamera() {
+    if (this._host._config?.display_calendar_control === false) return;
     if (isCameraGroup(this._host._activeCam)) {
       const primaryEntity = this._host._activeCam?.entity || "";
       await Promise.all(

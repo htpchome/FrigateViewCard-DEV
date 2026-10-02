@@ -102,3 +102,9 @@ Use the narrowest validation that matches the change.
 - Validate immediately after each meaningful structural edit.
 - Do not move risky orchestration code into page modules just to satisfy file-splitting goals.
 - If a new helper or file is introduced, keep its ownership boundary obvious from the name and exported API.
+
+## Handoff Guidance
+
+- For every committable turn, include a suggested commit message in the final
+  response using `v<VERSION> - <concise description>`, where `<VERSION>` is the
+  current value from `src/constants.js`.

@@ -1130,6 +1130,53 @@ test("Home Assistant dirty context tracks drafts without config-changed", () => 
   });
 });
 
+test("settings panel dirty titles follow pending config changes, not expansion", () => {
+  const editor = new FrigateViewCardEditor();
+  const panel = (panelId) => ({
+    dataset: { panel: panelId, configDirty: "false" },
+    setAttribute(name, value) {
+      if (name === "data-config-dirty") this.dataset.configDirty = value;
+    },
+  });
+  const panels = [panel("general"), panel("displayOptions"), panel("layout")];
+  editor.querySelector = () => null;
+  editor.querySelectorAll = (selector) =>
+    selector === ".settings-panel[data-panel]" ? panels : [];
+  editor._haDirtyBaselineConfig = {
+    title: "Original",
+    display_filter_control: true,
+    tight_margins: false,
+  };
+  editor._haDirtyBaselineSig = JSON.stringify(editor._haDirtyBaselineConfig);
+  editor._haDirtyStateContext = { setState() {} };
+
+  editor._markHomeAssistantDirty({
+    title: "Changed",
+    display_filter_control: true,
+    tight_margins: false,
+  });
+
+  assert.equal(panels[0].dataset.configDirty, "true");
+  assert.equal(panels[1].dataset.configDirty, "false");
+  assert.equal(panels[2].dataset.configDirty, "false");
+
+  editor._markHomeAssistantDirty({
+    title: "Original",
+    display_filter_control: false,
+    tight_margins: false,
+  });
+
+  assert.equal(panels[0].dataset.configDirty, "false");
+  assert.equal(panels[1].dataset.configDirty, "true");
+  assert.equal(panels[2].dataset.configDirty, "false");
+
+  editor._markHomeAssistantDirty(editor._haDirtyBaselineConfig);
+  assert.deepEqual(
+    panels.map(({ dataset }) => dataset.configDirty),
+    ["false", "false", "false"],
+  );
+});
+
 test("save-state reminder reserves normal-flow space in clean and dirty states", () => {
   const editor = new FrigateViewCardEditor();
   const reminderText = { textContent: "" };
@@ -1941,6 +1988,18 @@ test("editor accordion panels share one compact settings container", () => {
   assert.match(
     editorStylesSource,
     /\.setting-title:hover,\.settings-panel\.active \.setting-title\{background:var\(--c-bg-mobile\);border-bottom-color:var\(--c-border2, var\(--editor-border\)\);\}/,
+  );
+  assert.doesNotMatch(
+    editorStylesSource,
+    /\.settings-panel\.active \.setting-title\{color:/,
+  );
+  assert.match(
+    editorStylesSource,
+    /\.settings-panel\[data-config-dirty="true"\] \.setting-title\{color:var\(--c-accent, var\(--editor-primary\)\);\}/,
+  );
+  assert.match(
+    editorStylesSource,
+    /\.settings-panel\[data-config-dirty="true"\] \.setting-title :is\(ha-icon,\.setting-title-icon\)\{color:var\(--c-accent, var\(--editor-primary\)\);\}/,
   );
   assert.match(
     editorStylesSource,

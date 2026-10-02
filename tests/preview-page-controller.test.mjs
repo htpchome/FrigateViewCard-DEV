@@ -315,7 +315,15 @@ test("Preview linked lights render in metadata or over media when metadata is hi
   );
   assert.match(
     PREVIEW_STYLES,
-    /\.preview-meta-light \.linked-light-position-slot\[data-linked-light-position-slot="left"\]\{justify-self:start;/,
+    /\.preview-meta-light\{position:absolute;left:50%;top:50%;[^}]*justify-content:center;[^}]*transform:translate\(-50%,-50%\);\}/,
+  );
+  assert.match(
+    PREVIEW_STYLES,
+    /\.preview-meta--with-light\{grid-template-columns:minmax\(0,1fr\) clamp\(40px,14%,72px\) minmax\(0,1fr\);grid-template-areas:"name \. status" "source \. alerts";/,
+  );
+  assert.match(
+    PREVIEW_STYLES,
+    /\.preview-meta--with-light \.preview-meta-light\{position:static;grid-area:light;transform:none;\}/,
   );
 });
 

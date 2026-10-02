@@ -178,6 +178,108 @@ const CAMERA_MODAL_SELECTOR_IDS = Object.freeze(
 const HOME_ASSISTANT_DIRTY_STATE_CONTEXT = "dirtyState";
 const EDITOR_TEXT_PREVIEW_DELAY_MS = 200;
 const EDITOR_GO2RTC_METADATA_CACHE_TTL_MS = 30_000;
+const SETTINGS_PANEL_CONFIG_KEYS = Object.freeze({
+  camera: ["cameras", "camera_suspend_access"],
+  general: [
+    "title",
+    "subtitle",
+    "display_title",
+    "display_subtitle",
+    "event_days",
+    "alerts_reviews_days",
+    "event_pre_post_roll_enabled",
+    "favorites_mixed_cameras",
+    "realtime_poll_seconds",
+    "snapshot_update_seconds",
+    "preview_page_alert_live_duration_seconds",
+  ],
+  layout: [
+    "stream_height",
+    "stream_height_unit",
+    "tight_margins",
+    "shadows",
+    "outer_shadows",
+    "borders",
+    "rounded_corners",
+  ],
+  displayOptions: [
+    "hidden_tabs",
+    "display_filter_control",
+    "display_calendar_control",
+    "display_back_button",
+    "display_source_indicator",
+    "display_online_indicator",
+    "display_alert_count",
+    "display_footer",
+    "display_logo",
+    "display_version",
+    "display_alert_detection_chip",
+    "display_alert_detection_outline",
+    "display_object_chips",
+    "display_location_area_zone",
+  ],
+  theme: ["theme", "theme_custom", "theme_custom_defaults"],
+  slideshow: [
+    "slideshow_rotation_enabled",
+    "slideshow_rotation_seconds",
+    "slideshow_alert_hold_seconds",
+  ],
+  gridview: [
+    "grid_mode_enabled",
+    "grid_order",
+    "grid_live_view_enabled",
+    "grid_rotation_seconds",
+    "grid_alert_hold_seconds",
+  ],
+  preview: [
+    "preview_page_enabled",
+    "preview_page_live_cameras",
+    "preview_page_live_cameras_mobile",
+    "preview_page_show_title_bars",
+  ],
+  singleview: ["single_view_alert_takeover", "single_view_start_mode"],
+  wideview: [
+    "wide_view_page_enabled",
+    "wide_view_live_cameras",
+    "wide_view_alert_takeover",
+    "wide_view_start_mode",
+    "wide_view_timeline_enabled",
+    "wide_view_timeline_default_open",
+    "wide_view_timeline_default_scale",
+    "wide_view_width",
+    "col_left_width_pct",
+  ],
+  cardview: [
+    "card_view_page_enabled",
+    "card_view_start_mode",
+    "card_view_standalone",
+    "card_view_alert_takeover",
+    "card_view_view_mode",
+    "card_view_media_drawer_enabled",
+    "card_view_hide_camera_name",
+  ],
+  mobileview: [
+    "mobile_view_page_enabled",
+    "mobile_view_rotate_to_fullscreen",
+    "mobile_poll_battery_saver",
+    "mobile_view_ha_navbar_bottom",
+    "mobile_view_ha_navbar_stack_tabs",
+    "mobile_view_ha_navbar_dashboard",
+    "mobile_view_dashboard_background",
+    "mobile_view_header_overlay",
+    "mobile_view_outer_border",
+  ],
+  swipenavigation: [
+    "ha_dashboard_swipe_navigation_owner",
+    "ha_dashboard_swipe_navigation",
+    "ha_dashboard_swipe_pages",
+    "ha_dashboard_swipe_mobile_pages",
+    "ha_dashboard_swipe_include_other_cards",
+    "ha_dashboard_swipe_include_subviews",
+    "ha_dashboard_swipe_mouse_enabled",
+  ],
+  landing: ["landing_page", "mobile_page"],
+});
 
 const escapeEditorChoiceMarkup = escapeHtml;
 
@@ -1265,23 +1367,61 @@ export class FrigateViewCardEditor extends HTMLElement {
     }
   }
 
-  _syncConfigSaveReminder() {
+  _settingsPanelHasPendingChanges(panelId, config) {
+    if (
+      this._hasConfigDraft !== true ||
+      this._haDirtyBaselineConfig === undefined
+    ) {
+      return false;
+    }
+    const keys = SETTINGS_PANEL_CONFIG_KEYS[panelId] || [];
+    return keys.some(
+      (key) =>
+        this._configSignature({ value: this._haDirtyBaselineConfig?.[key] }) !==
+        this._configSignature({ value: config?.[key] }),
+    );
+  }
+
+  _syncSettingsPanelDirtyState(config = null) {
+    const panels = this.querySelectorAll?.(".settings-panel[data-panel]") || [];
+    const nextConfig =
+      config ||
+      (this._hasConfigDraft === true &&
+      this._haDirtyBaselineConfig !== undefined
+        ? this._homeAssistantConfig({ readDom: false })
+        : null);
+    panels.forEach((panel) => {
+      const dirty = this._settingsPanelHasPendingChanges(
+        panel.dataset?.panel,
+        nextConfig,
+      );
+      if (panel.dataset) panel.dataset.configDirty = dirty ? "true" : "false";
+      panel.setAttribute?.("data-config-dirty", dirty ? "true" : "false");
+    });
+  }
+
+  _syncConfigSaveReminder(config = null) {
     const reminder = this.querySelector?.("#config-save-reminder");
-    if (!reminder) return;
     const dirty = this._hasConfigDraft === true;
-    reminder.hidden = false;
-    if (reminder.dataset) {
-      reminder.dataset.configSaveState = dirty ? "dirty" : "clean";
+    if (reminder) {
+      reminder.hidden = false;
+      if (reminder.dataset) {
+        reminder.dataset.configSaveState = dirty ? "dirty" : "clean";
+      }
+      reminder.setAttribute?.(
+        "data-config-save-state",
+        dirty ? "dirty" : "clean",
+      );
+      const text = reminder.querySelector?.("[data-config-save-reminder-text]");
+      if (text) {
+        const key = dirty
+          ? "editor.status.unsavedChanges"
+          : "editor.status.noPendingChanges";
+        text.setAttribute?.("data-fvc-i18n", key);
+        text.textContent = this._t(key);
+      }
     }
-    reminder.setAttribute?.("data-config-save-state", dirty ? "dirty" : "clean");
-    const text = reminder.querySelector?.("[data-config-save-reminder-text]");
-    if (text) {
-      const key = dirty
-        ? "editor.status.unsavedChanges"
-        : "editor.status.noPendingChanges";
-      text.setAttribute?.("data-fvc-i18n", key);
-      text.textContent = this._t(key);
-    }
+    this._syncSettingsPanelDirtyState(config);
   }
 
   _syncCardVersionStatus() {
@@ -1424,6 +1564,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       );
       this._hasConfigDraft = false;
       this._seedHomeAssistantDirtyState();
+      this._syncConfigSaveReminder(this._haDirtyBaselineConfig);
     }
     this._scheduleEditorPreviewLayoutSync();
   }
@@ -2708,7 +2849,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     const iconMarkup = iconValue.startsWith("<svg")
       ? `<span class="setting-title-icon" aria-hidden="true">${iconValue}</span>`
       : `<ha-icon icon="${escapeHtmlAttribute(iconValue)}"></ha-icon>`;
-    return `<section class="settings-panel ${active ? "active" : ""}" data-panel="${escapeHtmlAttribute(id)}">
+    return `<section class="settings-panel ${active ? "active" : ""}" data-panel="${escapeHtmlAttribute(id)}" data-config-dirty="false">
       <button type="button" class="setting-title" data-panel-toggle="${escapeHtmlAttribute(id)}" aria-expanded="${active ? "true" : "false"}">
         ${iconMarkup}
         <h3 data-fvc-i18n="editor.panels.${escapeHtmlAttribute(id)}">${escapeHtml(title)}</h3>
@@ -5469,6 +5610,9 @@ export class FrigateViewCardEditor extends HTMLElement {
     }
 
     this._validateEditorFields();
+    this._syncConfigSaveReminder(
+      this._homeAssistantConfig({ readDom: false }),
+    );
   }
 
   _getCams() {
@@ -5627,7 +5771,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     if (this._haDirtyBaselineConfig === undefined) return;
     const nextSignature = this._configSignature(nextConfig);
     this._hasConfigDraft = nextSignature !== this._haDirtyBaselineSig;
-    this._syncConfigSaveReminder();
+    this._syncConfigSaveReminder(nextConfig);
     this._pendingHaDirtyConfig = nextConfig;
     this._seedHomeAssistantDirtyState();
 

@@ -112,8 +112,8 @@ export const EDITOR_STYLES = `
               .setting-title-icon{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;}
               .setting-title-icon svg{width:24px;height:24px;}
               .setting-title:hover,.settings-panel.active .setting-title{background:var(--c-bg-mobile);border-bottom-color:var(--c-border2, var(--editor-border));}
-              .settings-panel.active .setting-title{color:var(--c-accent, var(--editor-primary));}
-              .settings-panel.active .setting-title :is(ha-icon,.setting-title-icon){color:var(--c-accent, var(--editor-primary));}
+              .settings-panel[data-config-dirty="true"] .setting-title{color:var(--c-accent, var(--editor-primary));}
+              .settings-panel[data-config-dirty="true"] .setting-title :is(ha-icon,.setting-title-icon){color:var(--c-accent, var(--editor-primary));}
               .setting-content{
                 position:relative;
                 max-height:0;

@@ -3,6 +3,31 @@ import assert from "node:assert/strict";
 
 import { BrowseCalendarActivityController } from "../src/features/browse/calendar-activity.ctrl.js";
 
+test("disabled calendar control skips activity-summary loading", async () => {
+  let discoverCalls = 0;
+  let requestCalls = 0;
+  const host = {
+    _config: { display_calendar_control: false },
+    _activeCam: {
+      entity: "camera.front",
+      group: { secondary_entity: "camera.back" },
+    },
+    _discoverOne: async () => {
+      discoverCalls += 1;
+    },
+    _ws: async () => {
+      requestCalls += 1;
+      return [];
+    },
+  };
+  const controller = new BrowseCalendarActivityController(host);
+
+  await controller.prefetchCalendarActivityForActiveCamera();
+
+  assert.equal(discoverCalls, 0);
+  assert.equal(requestCalls, 0);
+});
+
 test("prefetchCalendarActivityForActiveCamera caches filtered days and updates active calendar state", async () => {
   const calls = [];
   const host = {
