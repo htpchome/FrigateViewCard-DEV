@@ -83,6 +83,32 @@ export class FrigateCameraRuntimeController {
     return this.resolve(entity).suspended;
   }
 
+  _hasCommittedLiveEvidence() {
+    const activeEntity = this.activeEntity();
+    return Boolean(
+      activeEntity &&
+        activeEntity === this._host._committedLiveAvailabilityEntity &&
+        this._host._engine &&
+        this._host._committedLiveAvailabilityEngine === this._host._engine &&
+        isLiveTransportType(this._host._activeStreamType),
+    );
+  }
+
+  _sharesActiveFrigateClient(entity) {
+    const activeState = this._host._hass?.states?.[this.activeEntity()];
+    const candidateState = this._host._hass?.states?.[entity];
+    const clientId = (state) =>
+      String(
+        state?.attributes?.client_id ||
+          state?.attributes?.mqtt_client_id ||
+          "",
+      ).trim();
+    const activeClientId = clientId(activeState);
+    return Boolean(
+      activeClientId && activeClientId === clientId(candidateState),
+    );
+  }
+
   isAvailable(entity = this.activeEntity()) {
     const normalizedEntity = String(entity || "").trim();
     const state = this._host._hass?.states?.[normalizedEntity] || null;
@@ -90,13 +116,15 @@ export class FrigateCameraRuntimeController {
     const runtime = this.resolve(normalizedEntity);
     if (runtime.suspended) return false;
     if (!runtime.unavailable) return true;
+    if (!this._hasCommittedLiveEvidence()) return false;
+    if (normalizedEntity === this.activeEntity()) return true;
+
+    // A playing stream disproves the active entity's stale unavailable state.
+    // Treat sibling entities from the same Frigate client consistently until
+    // Home Assistant finishes publishing their recovered states.
     return (
-      normalizedEntity === this.activeEntity() &&
-      normalizedEntity ===
-        this._host._committedLiveAvailabilityEntity &&
-      Boolean(this._host._engine) &&
-      this._host._committedLiveAvailabilityEngine === this._host._engine &&
-      isLiveTransportType(this._host._activeStreamType)
+      this._resolveReportedState(this.activeEntity()).unavailable &&
+      this._sharesActiveFrigateClient(normalizedEntity)
     );
   }
 

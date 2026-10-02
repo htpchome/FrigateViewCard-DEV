@@ -198,10 +198,17 @@ test("a confirmed resume stays online through an ambiguous idle update", async (
   controller.dispose();
 });
 
-test("committed live playback immediately overrides a stale unavailable state", () => {
+test("committed live playback overrides stale states from the same Frigate client", () => {
   const { host } = createHost();
   host._hass.states["camera.front"] = cameraState("unavailable", 1);
   host._hass.states["camera.back"] = cameraState("unavailable", 1);
+  host._hass.states["camera.remote"] = {
+    ...cameraState("unavailable", 1),
+    attributes: {
+      ...cameraState("unavailable", 1).attributes,
+      client_id: "frigate-remote",
+    },
+  };
   const controller = new FrigateCameraRuntimeController(host);
 
   assert.equal(controller.isAvailable("camera.front"), false);
@@ -211,8 +218,13 @@ test("committed live playback immediately overrides a stale unavailable state", 
   host._committedLiveAvailabilityEntity = "camera.front";
   host._committedLiveAvailabilityEngine = host._engine;
   assert.equal(controller.isAvailable("camera.front"), true);
+  assert.equal(controller.isAvailable("camera.back"), true);
+  assert.equal(controller.isAvailable("camera.remote"), false);
+
+  host._hass.states["camera.front"] = cameraState("recording", 1);
   assert.equal(controller.isAvailable("camera.back"), false);
 
+  host._hass.states["camera.front"] = cameraState("unavailable", 1);
   host._activeStreamType = "snapshot";
   assert.equal(controller.isAvailable("camera.front"), false);
 
