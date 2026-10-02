@@ -31,6 +31,7 @@ const HA_MASONRY_VIEW_TAGS = new Set(["HUI-MASONRY-VIEW"]);
 // Includes the heading and approximately two standard event rows.
 const MINIMUM_BROWSE_REGION_HEIGHT_PX = 244;
 const MINIMUM_CARD_HEIGHT_BUFFER_PX = 8;
+const MINIMUM_CONSTRAINED_CARD_WIDTH_PX = 320;
 const bubblePopupPaddingStates = new WeakMap();
 const bubbleFullscreenStyleStates = new WeakMap();
 const BUBBLE_POPUP_EXTRA_BOTTOM_SPACE = "--bubble-pop-up-extra-bottom-space";
@@ -825,7 +826,18 @@ export class CardStyleContextController {
       return;
     }
 
-    const maxWidthPx = Math.max(1, referenceHeightPx * ratio);
+    const minimumBrowseMaxWidthPx =
+      this.resolveMinimumBrowseConstrainedMaxWidthPx(
+        card,
+        referenceHeightPx,
+      );
+    const maxWidthPx = Math.max(
+      1,
+      Math.min(
+        referenceHeightPx * ratio,
+        minimumBrowseMaxWidthPx ?? Number.POSITIVE_INFINITY,
+      ),
+    );
     const availableWidthPx =
       this.measureRenderedWidth(this._host.parentElement) ||
       Math.max(
@@ -923,6 +935,15 @@ export class CardStyleContextController {
     } else if (constrainToHaGrid) {
       this._host.style.setProperty("--card-host-height", "100%");
       card.style.setProperty("--view-height", "100%");
+      if (this.isSidebarView()) {
+        const measuredGridHeightPx = Math.max(
+          this.measureRenderedHeight(this._host),
+          this.measureRenderedHeight(card),
+        );
+        requestedHeightPx = measuredGridHeightPx > 0
+          ? measuredGridHeightPx
+          : null;
+      }
     } else if (naturalCardView) {
       this._host.style.removeProperty("--card-host-height");
       card.style.removeProperty("--view-height");
@@ -1180,7 +1201,79 @@ export class CardStyleContextController {
     );
   }
 
-  resolveUsableHostHeight({ card, resolvedHeightPx }) {
+  resolveMinimumBrowseConstrainedMaxWidthPx(card, availableHeightPx) {
+    if (
+      !card?.querySelector ||
+      !Number.isFinite(availableHeightPx) ||
+      availableHeightPx <= 0 ||
+      !this.shouldConstrainMinimumBrowseWithinHost()
+    ) {
+      return null;
+    }
+
+    const singleLayout = card.querySelector(".layout--single-view");
+    const mobileLayout = card.querySelector(".layout--mobile-view");
+    if (!singleLayout && !mobileLayout) return null;
+
+    const layout = singleLayout || mobileLayout;
+    const liveStage = layout.querySelector(".live-stage");
+    const liveHeightPx = this.measureRenderedHeight(liveStage);
+    const top = singleLayout
+      ? singleLayout.querySelector(".view-top")
+      : mobileLayout.querySelector("#mobile-top");
+    const topHeightPx = this.measureRenderedHeight(top);
+    if (liveHeightPx <= 0 || topHeightPx <= 0) return null;
+
+    const fixedElements = singleLayout
+      ? [
+          singleLayout.querySelector(".tabs-holder"),
+          singleLayout.querySelector('[data-fvc-region="footer"]'),
+        ]
+      : [
+          mobileLayout.querySelector(".mobile-video-controls-container"),
+          mobileLayout.querySelector(".mobile-tab-container"),
+          mobileLayout.querySelector('[data-fvc-region="footer"]'),
+        ];
+    const fixedHeightPx = fixedElements.reduce(
+      (total, element) => total + this.measureRenderedHeight(element),
+      Math.max(0, topHeightPx - liveHeightPx),
+    );
+    const availableLiveHeightPx = Math.max(
+      1,
+      availableHeightPx -
+        fixedHeightPx -
+        MINIMUM_BROWSE_REGION_HEIGHT_PX -
+        MINIMUM_CARD_HEIGHT_BUFFER_PX,
+    );
+    const liveWrap = liveStage.querySelector?.("#eng-wrap");
+    const configuredAspectRatio = liveWrap?.style?.getPropertyValue?.(
+      "--live-view-aspect-ratio",
+    );
+    const measuredLiveWidthPx = this.measureRenderedWidth(liveStage);
+    const measuredAspectRatio = measuredLiveWidthPx / liveHeightPx;
+    const aspectRatio =
+      this.parseAspectRatio(configuredAspectRatio) ??
+      (Number.isFinite(measuredAspectRatio) && measuredAspectRatio > 0
+        ? measuredAspectRatio
+        : 16 / 9);
+    return Math.max(
+      MINIMUM_CONSTRAINED_CARD_WIDTH_PX,
+      availableLiveHeightPx * aspectRatio,
+    );
+  }
+
+  shouldConstrainMinimumBrowseWithinHost() {
+    if (this._host._isLikelyMobileClient?.() === true) return false;
+    if (
+      this._host._isMobileViewPageActive?.() !== true &&
+      this._host._singleViewPageController?.isActive?.() !== true
+    ) {
+      return false;
+    }
+    if (!this.isPanelView() && !this.isSidebarView()) {
+      return false;
+    }
+
     const configuredHeight = Number(this._host._config?.stream_height);
     const configuredHeightUnit = String(
       this._host._config?.stream_height_unit || "%",
@@ -1190,16 +1283,20 @@ export class CardStyleContextController {
     const usesFullAvailableHeight =
       configuredHeight === 100 &&
       ["%", "vh", "dvh"].includes(configuredHeightUnit);
+    return (
+      usesFullAvailableHeight ||
+      this.resolveHomeAssistantGridHeightMode() === "fixed"
+    );
+  }
+
+  resolveUsableHostHeight({ card, resolvedHeightPx }) {
     const keepWideViewConstrained =
       this._host._wideViewPageController?.isWideViewPageActive?.() === true &&
       (this.isPanelView() || this.isSidebarView());
+    const keepStandardViewConstrained =
+      this.shouldConstrainMinimumBrowseWithinHost();
     const keepConstrainedViewHeight =
-      keepWideViewConstrained ||
-      (usesFullAvailableHeight &&
-        this._host._isLikelyMobileClient?.() !== true &&
-        (this.isPanelView() || this.isSidebarView()) &&
-        (this._host._isMobileViewPageActive?.() === true ||
-          this._host._singleViewPageController?.isActive?.() === true));
+      keepWideViewConstrained || keepStandardViewConstrained;
     if (keepConstrainedViewHeight) {
       return {
         heightPx: resolvedHeightPx,

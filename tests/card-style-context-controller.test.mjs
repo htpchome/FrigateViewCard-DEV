@@ -822,6 +822,26 @@ test("Sidebar View applies the Panel page-specific width-to-height ratios", () =
   assert.equal(controller.resolvePanelViewAspectRatio(), null);
 });
 
+test("Sections and Masonry do not use the Panel browse width constraint", () => {
+  for (const tagName of ["HUI-SECTIONS-VIEW", "HUI-MASONRY-VIEW"]) {
+    const view = { tagName, parentNode: null };
+    const host = {
+      parentNode: view,
+      _config: { stream_height: 100, stream_height_unit: "%" },
+      _isPreviewPageActive: () => false,
+      _isMobileViewPageActive: () => false,
+      _isCardViewPageActive: () => false,
+      _isLikelyMobileClient: () => false,
+      _singleViewPageController: { isActive: () => true },
+      _wideViewPageController: { isWideViewPageActive: () => false },
+    };
+    const controller = new CardStyleContextController(host);
+
+    assert.equal(controller.resolvePanelViewAspectRatio(), null);
+    assert.equal(controller.shouldConstrainMinimumBrowseWithinHost(), false);
+  }
+});
+
 test("Panel View ratio caps and centers the card from its applied height", () => {
   const styleValues = new Map([["--card-host-height", "600px"]]);
   const styleCalls = [];
@@ -2060,6 +2080,47 @@ test("minimum usable height follows the rendered Single and Wide View chrome", (
       selector === ".layout--wide-view" ? wideLayout : null,
   };
   assert.equal(controller.resolveMinimumUsableHostHeightPx(wideCard), 548);
+});
+
+test("constrained Single View width reserves the minimum browse height", () => {
+  const measuredElement = (height, width = 0) => ({
+    getBoundingClientRect: () => ({ height, width }),
+  });
+  const liveWrap = {
+    style: {
+      getPropertyValue: () => "16 / 9",
+    },
+  };
+  const liveStage = {
+    ...measuredElement(300, 533),
+    querySelector: (selector) => selector === "#eng-wrap" ? liveWrap : null,
+  };
+  const elements = new Map([
+    [".live-stage", liveStage],
+    [".view-top", measuredElement(400)],
+    [".tabs-holder", measuredElement(50)],
+    ['[data-fvc-region="footer"]', measuredElement(46)],
+  ]);
+  const singleLayout = {
+    querySelector: (selector) => elements.get(selector) || null,
+  };
+  const card = {
+    querySelector: (selector) =>
+      selector === ".layout--single-view" ? singleLayout : null,
+  };
+  const controller = new CardStyleContextController({
+    _config: { stream_height: 100, stream_height_unit: "%" },
+    _isLikelyMobileClient: () => false,
+    _isMobileViewPageActive: () => false,
+    _singleViewPageController: { isActive: () => true },
+  });
+  controller.isPanelView = () => true;
+  controller.isSidebarView = () => false;
+
+  assert.equal(
+    controller.resolveMinimumBrowseConstrainedMaxWidthPx(card, 700),
+    448,
+  );
 });
 
 test("applyCardStyle resolves vh and dvh units to the available viewport", () => {

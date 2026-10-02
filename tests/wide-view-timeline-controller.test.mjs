@@ -455,7 +455,86 @@ test("Timeline width drag leaves the minimum Alerts width visible", () => {
 
   assert.equal(
     colRight.style.values.get("--wide-timeline-panel-width"),
-    "700px",
+    "720px",
+  );
+});
+
+test("Timeline opens at minimum width and remains resizable in overlay mode", () => {
+  const colRight = fakeElement({
+    clientWidth: 520,
+    getBoundingClientRect: () => ({ width: 520, height: 480 }),
+  });
+  const panel = fakeElement({ inert: true });
+  const toggle = fakeElement({
+    setPointerCapture: () => {},
+    releasePointerCapture: () => {},
+  });
+  const host = {
+    _config: {
+      wide_view_timeline_enabled: true,
+      wide_view_timeline_default_open: false,
+    },
+    _$: (selector) =>
+      selector === "#col-right"
+        ? colRight
+        : selector === "#wide-timeline-panel"
+          ? panel
+          : selector === "#wide-timeline-toggle"
+            ? toggle
+            : null,
+  };
+  const controller = new WideViewTimelineController(host);
+  controller._boundWidthToggle = toggle;
+  controller._scheduleRender = () => {};
+
+  controller.toggle();
+
+  assert.equal(controller.isOpen(), true);
+  assert.equal(colRight.classList.contains("wide-timeline-overlay"), true);
+  assert.equal(
+    colRight.style.values.get("--wide-timeline-panel-width"),
+    "264px",
+  );
+
+  controller._handleWidthPointerDown({
+    currentTarget: toggle,
+    pointerId: 10,
+    button: 0,
+    clientX: 264,
+    stopPropagation() {},
+  });
+  controller._handleWidthPointerMove({
+    pointerId: 10,
+    clientX: 408,
+    preventDefault() {},
+    stopPropagation() {},
+  });
+  assert.equal(
+    colRight.style.values.get("--wide-timeline-panel-width"),
+    "408px",
+  );
+  controller._handleWidthPointerUp({
+    pointerId: 10,
+    preventDefault() {},
+    stopPropagation() {},
+  });
+
+  controller._handleWidthPointerDown({
+    currentTarget: toggle,
+    pointerId: 11,
+    button: 0,
+    clientX: 408,
+    stopPropagation() {},
+  });
+  controller._handleWidthPointerMove({
+    pointerId: 11,
+    clientX: 100,
+    preventDefault() {},
+    stopPropagation() {},
+  });
+  assert.equal(
+    colRight.style.values.get("--wide-timeline-panel-width"),
+    "264px",
   );
 });
 

@@ -10,6 +10,7 @@ import {
   wideTimelineStackVisualDepth,
   WIDE_TIMELINE_DEFAULT_SCALE,
   WIDE_TIMELINE_DEFAULT_PANEL_WIDTH,
+  WIDE_TIMELINE_MIN_PANEL_WIDTH,
   WIDE_TIMELINE_SCALES,
 } from "./timeline.model.js";
 import {
@@ -113,7 +114,9 @@ export class WideViewTimelineController {
     this._boundViewport = null;
     this._waitingForInitialLayout = false;
     this._boundWidthToggle = null;
-    this._panelWidth = WIDE_TIMELINE_DEFAULT_PANEL_WIDTH;
+    this._panelWidth = this.defaultOpen()
+      ? WIDE_TIMELINE_DEFAULT_PANEL_WIDTH
+      : WIDE_TIMELINE_MIN_PANEL_WIDTH;
     this._responsiveLayout = null;
     this._widthDrag = null;
     this._suppressToggleClickUntil = 0;
@@ -342,6 +345,9 @@ export class WideViewTimelineController {
     if (enabledChanged) {
       this.teardown({ preserveScroll: false });
       this._open = this.enabled() ? this.defaultOpen() : false;
+      this._panelWidth = this._open
+        ? WIDE_TIMELINE_DEFAULT_PANEL_WIDTH
+        : WIDE_TIMELINE_MIN_PANEL_WIDTH;
       this._scaleHours = this.defaultScale();
       this._savedScrollTop = 0;
       this._lastRenderSignature = "";
@@ -353,7 +359,11 @@ export class WideViewTimelineController {
     }
     if (defaultOpenChanged) {
       this._open = this.defaultOpen();
+      this._panelWidth = this._open
+        ? WIDE_TIMELINE_DEFAULT_PANEL_WIDTH
+        : WIDE_TIMELINE_MIN_PANEL_WIDTH;
       this._syncPanelState();
+      this._updateResponsiveMode();
     }
     if (!defaultOpenChanged && !defaultScaleChanged) return;
     if (this._open) this._scheduleRender({ force: true, resetToNow: true });
@@ -706,18 +716,20 @@ export class WideViewTimelineController {
   _handleWidthPointerDown(event) {
     if (
       (event?.button != null && event.button !== 0) ||
-      !this.isOpen() ||
-      this._responsiveLayout?.mode !== "push"
+      !this.isOpen()
     ) {
       return;
     }
     const handle = event?.currentTarget || this._boundWidthToggle;
     const colRight = this._host._$("#col-right");
     if (!handle || !colRight) return;
+    if (!this._responsiveLayout) this._updateResponsiveMode();
+    const startWidth = Number(this._responsiveLayout?.panelWidth);
+    if (!(startWidth > 0)) return;
     this._widthDrag = {
       pointerId: event.pointerId,
       startX: Number(event.clientX) || 0,
-      startWidth: this._responsiveLayout.panelWidth,
+      startWidth,
       captureTarget: handle,
       moved: false,
     };
@@ -767,7 +779,7 @@ export class WideViewTimelineController {
   }
 
   _handleWidthKeyDown(event) {
-    if (!this.isOpen() || this._responsiveLayout?.mode !== "push") return;
+    if (!this.isOpen()) return;
     const direction =
       event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (!direction) return;

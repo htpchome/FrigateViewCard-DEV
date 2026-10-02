@@ -5507,7 +5507,7 @@ test("runtime cards report page-specific Masonry sizes despite the compact picke
   });
 });
 
-test("Panel view centers page-specific aspect width caps", async ({ page }) => {
+test("Panel view centers page-specific responsive width caps", async ({ page }) => {
   await page.setViewportSize({ width: 1_900, height: 1_000 });
   await page.goto(baseUrl);
 
@@ -5570,8 +5570,10 @@ test("Panel view centers page-specific aspect width caps", async ({ page }) => {
     expect(result[key].left).toBe(result[key].right);
     expect(result[key].maxWidth).toBe(`${result[key].width}px`);
   }
-  expect(result.single.width).toBe(1_133);
-  expect(result.mobile.width).toBe(1_133);
+  for (const key of ["single", "mobile"]) {
+    expect(result[key].width).toBeGreaterThanOrEqual(320);
+    expect(result[key].width).toBeLessThan(1_133);
+  }
   expect(result.card.width).toBe(1_400);
   expect(result.cardVideoOnly.width).toBe(1_750);
 
@@ -6591,7 +6593,7 @@ test("Card View controls stay below an external dialog while its popup stays abo
   expect(layers.aboveOwnControls).toEqual([true, true]);
 });
 
-test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport", async ({
+test("Sidebar Single and Mobile Views reserve two browse rows within a short viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1_500, height: 876 });
@@ -6651,14 +6653,87 @@ test("Sidebar Single and Mobile Views stay ratio-capped within a short viewport"
 
   for (const view of [result.single, result.mobile]) {
     expect(view.configuredHeight).toBe("820px");
-    expect(view.maxWidth).toBe("984px");
-    expect(view.hostWidth).toBe(984);
+    const maxWidth = Number.parseInt(view.maxWidth, 10);
+    expect(maxWidth).toBeGreaterThanOrEqual(320);
+    expect(maxWidth).toBeLessThan(984);
+    expect(Math.abs(view.hostWidth - maxWidth)).toBeLessThanOrEqual(1);
     expect(view.hostBottom).toBeLessThanOrEqual(820);
     expect(view.footerBottom).toBeLessThanOrEqual(view.hostBottom);
     expect(view.footerVisible).toBe(true);
-    expect(view.browseHeight).toBeGreaterThan(0);
+    expect(view.browseHeight).toBeGreaterThanOrEqual(244);
     expect(view.browseOverflowY).toBe("auto");
     expect(view.wrapperHeight).toBe("auto");
+  }
+});
+
+test("Panel Single and Mobile Views reserve two browse rows without page scrolling", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1_500, height: 876 });
+  await page.goto(baseUrl);
+
+  const result = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+
+    const measure = async (pageId) => {
+      const view = document.createElement("hui-panel-view");
+      view.style.cssText = "display:block;width:100vw;height:820px";
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "width:100%;height:100%";
+      view.append(wrapper);
+      document.body.append(view);
+
+      const card = document.createElement("frigate-view-card");
+      wrapper.append(card);
+      card.setConfig({
+        cameras: [{ entity: "camera.front", name: "Front" }],
+        stream_height: 100,
+        stream_height_unit: "%",
+        mobile_view_page_enabled: true,
+      });
+      card._pageId = pageId;
+      card._renderShell();
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      card._applyCardStyle();
+
+      const hostRect = card.getBoundingClientRect();
+      const browseRect = card.shadowRoot
+        .querySelector('[data-fvc-region="browse"]')
+        .getBoundingClientRect();
+      const footerRect = card.shadowRoot
+        .querySelector('[data-fvc-region="footer"]')
+        .getBoundingClientRect();
+      const measurement = {
+        maxWidth: card.style.getPropertyValue("--fvc-panel-view-max-width"),
+        hostHeight: Math.round(hostRect.height),
+        hostWidth: Math.round(hostRect.width),
+        browseHeight: Math.round(browseRect.height),
+        footerInsideHost: footerRect.bottom <= hostRect.bottom,
+        pageScrollable:
+          document.documentElement.scrollHeight > window.innerHeight,
+      };
+      view.remove();
+      return measurement;
+    };
+
+    const measurements = [];
+    for (const pageId of ["single-view", "mobile-view"]) {
+      measurements.push(await measure(pageId));
+    }
+    return measurements;
+  });
+
+  for (const view of result) {
+    const maxWidth = Number.parseInt(view.maxWidth, 10);
+    expect(maxWidth).toBeGreaterThanOrEqual(320);
+    expect(maxWidth).toBeLessThan(984);
+    expect(Math.abs(view.hostWidth - maxWidth)).toBeLessThanOrEqual(1);
+    expect(view.hostHeight).toBe(820);
+    expect(view.browseHeight).toBeGreaterThanOrEqual(244);
+    expect(view.footerInsideHost).toBe(true);
+    expect(view.pageScrollable).toBe(false);
   }
 });
 
@@ -8366,6 +8441,98 @@ test("Wide View timeline push width remains stable across wide breakpoints", asy
     );
     expect(new Set(samples.map(({ panelWidth }) => panelWidth)).size).toBe(1);
   }
+});
+
+test("Wide View timeline opens at minimum width and resizes in overlay mode", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await page.goto(baseUrl);
+  const result = await page.evaluate(async () => {
+    const { WideViewTimelineController } = await import(
+      "/frigate-view-card-wide-timeline.js"
+    );
+    const host = document.createElement("div");
+    host.attachShadow({ mode: "open" });
+    host._config = {
+      wide_view_timeline_enabled: true,
+      wide_view_timeline_default_open: false,
+    };
+    host._$ = (selector) => host.shadowRoot.querySelector(selector);
+    document.body.append(host);
+
+    const controller = new WideViewTimelineController(host, {
+      setTimer: () => null,
+    });
+    const wrapper = document.createElement("div");
+    wrapper.className = "card";
+    wrapper.style.cssText = "position:relative;width:520px;height:500px";
+    wrapper.innerHTML = `<div id="col-right" class="col-right--wide-view" style="position:relative;width:520px;height:500px">${controller.buildRegionMarkup()}</div>`;
+    host.shadowRoot.append(wrapper);
+    const colRight = host._$("#col-right");
+    const panel = host._$("#wide-timeline-panel");
+    const surface = {
+      addEventListener() {},
+      removeEventListener() {},
+      setPointerCapture() {},
+      releasePointerCapture() {},
+    };
+    controller._boundWidthToggle = surface;
+    controller._scheduleRender = () => {};
+    controller.toggle();
+
+    const opened = {
+      mode: colRight.classList.contains("wide-timeline-overlay")
+        ? "overlay"
+        : "push",
+      width: Math.round(panel.getBoundingClientRect().width),
+    };
+
+    controller._handleWidthPointerDown({
+      currentTarget: surface,
+      pointerId: 20,
+      button: 0,
+      clientX: 264,
+      stopPropagation() {},
+    });
+    controller._handleWidthPointerMove({
+      pointerId: 20,
+      clientX: 408,
+      preventDefault() {},
+      stopPropagation() {},
+    });
+    const widened = Math.round(panel.getBoundingClientRect().width);
+    controller._handleWidthPointerUp({
+      pointerId: 20,
+      preventDefault() {},
+      stopPropagation() {},
+    });
+
+    controller._handleWidthPointerDown({
+      currentTarget: surface,
+      pointerId: 21,
+      button: 0,
+      clientX: 408,
+      stopPropagation() {},
+    });
+    controller._handleWidthPointerMove({
+      pointerId: 21,
+      clientX: 100,
+      preventDefault() {},
+      stopPropagation() {},
+    });
+    const narrowed = Math.round(panel.getBoundingClientRect().width);
+
+    controller.teardown();
+    host.remove();
+    return { opened, widened, narrowed };
+  });
+
+  expect(result).toEqual({
+    opened: { mode: "overlay", width: 264 },
+    widened: 408,
+    narrowed: 264,
+  });
 });
 
 test("Wide View timeline spaces its axis and thumbnails responsively", async ({
