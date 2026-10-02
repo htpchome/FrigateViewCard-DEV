@@ -23,12 +23,15 @@ export const resolveLiveViewResizeZoomScale = ({
   heightRatio,
   naturalHeightRatio,
   maxHeightRatio = LIVE_VIEW_WIDE_MAX_HEIGHT_RATIO,
+  renderedHeightRatio = 0,
 }) => {
   const ratio = positiveNumber(heightRatio);
   const natural = positiveNumber(naturalHeightRatio);
   if (!ratio || !natural) return 1;
+  const rendered = positiveNumber(renderedHeightRatio);
+  const constrainedScale = rendered > 0 ? ratio / rendered : 1;
   if (natural >= LIVE_VIEW_MIN_HEIGHT_RATIO) {
-    return Math.max(1, ratio / natural);
+    return Math.max(1, ratio / natural, constrainedScale);
   }
 
   const maxRatio = Math.max(
@@ -39,7 +42,9 @@ export const resolveLiveViewResizeZoomScale = ({
     (ratio - LIVE_VIEW_MIN_HEIGHT_RATIO) /
     (maxRatio - LIVE_VIEW_MIN_HEIGHT_RATIO || 1);
   const maxZoomScale = maxRatio / natural;
-  return 1 + Math.min(1, Math.max(0, progress)) * (maxZoomScale - 1);
+  const naturalScale =
+    1 + Math.min(1, Math.max(0, progress)) * (maxZoomScale - 1);
+  return Math.max(naturalScale, constrainedScale);
 };
 
 export function resolveLiveViewResizeBounds({
@@ -310,8 +315,13 @@ export class LiveViewResizeController {
       this._heightRatio,
       this._bounds.maxHeightRatio,
     );
-    const nextRatio = clampLiveViewHeightRatio(
+    const requestedRatio = clampLiveViewHeightRatio(
       heightRatio,
+      this._bounds.minHeightRatio,
+      this._bounds.maxHeightRatio,
+    );
+    const nextRatio = clampLiveViewHeightRatio(
+      requestedRatio,
       this._bounds.minHeightRatio,
       interactionMaxHeightRatio,
     );
@@ -320,7 +330,31 @@ export class LiveViewResizeController {
       "--live-view-aspect-ratio",
       heightRatioToAspectRatio(nextRatio),
     );
-    const value = Math.round(nextRatio * 100);
+    let renderedHeightRatio = nextRatio;
+    if (syncZoom) {
+      const rect = this._wrap.getBoundingClientRect?.();
+      const renderedWidth = positiveNumber(
+        rect?.width || this._wrap.clientWidth,
+      );
+      const renderedHeight = positiveNumber(
+        rect?.height || this._wrap.clientHeight,
+      );
+      if (renderedWidth > 0 && renderedHeight > 0) {
+        renderedHeightRatio = renderedHeight / renderedWidth;
+      }
+      if (renderedHeightRatio + ELIGIBILITY_EPSILON < nextRatio) {
+        this._heightRatio = clampLiveViewHeightRatio(
+          renderedHeightRatio,
+          this._bounds.minHeightRatio,
+          nextRatio,
+        );
+        this._wrap.style?.setProperty(
+          "--live-view-aspect-ratio",
+          heightRatioToAspectRatio(this._heightRatio),
+        );
+      }
+    }
+    const value = Math.round(this._heightRatio * 100);
     this._grip.setAttribute?.(
       "aria-valuemin",
       String(Math.round(this._bounds.minHeightRatio * 100)),
@@ -337,9 +371,10 @@ export class LiveViewResizeController {
     if (syncZoom) {
       this._onZoomScaleChange?.(
         resolveLiveViewResizeZoomScale({
-          heightRatio: nextRatio,
+          heightRatio: requestedRatio,
           naturalHeightRatio: this._bounds.naturalHeightRatio,
           maxHeightRatio: interactionMaxHeightRatio,
+          renderedHeightRatio,
         }),
       );
     }

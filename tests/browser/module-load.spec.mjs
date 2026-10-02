@@ -7202,6 +7202,81 @@ test("Wide View footer remains singular across landing and route swaps", async (
   });
 });
 
+test("Panel Wide View height lock converts a 4:3 resize drag into zoom", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await page.goto(baseUrl);
+
+  const before = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    const panel = document.createElement("hui-panel-view");
+    panel.style.cssText = "display:block;width:1300px";
+    document.body.append(panel);
+    const card = document.createElement("frigate-view-card");
+    panel.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      wide_view_page_enabled: true,
+      stream_height: 100,
+      stream_height_unit: "dvh",
+    });
+    await card._wideViewPageController.prepare();
+    card._pageId = "wide-view";
+    card._renderShell();
+    card._viewMode = "single";
+    card._activeStreamType = "mse";
+    card.shadowRoot.querySelector("#stream-fallback").hidden = true;
+    card._resizeZoomScales = [];
+    card._liveVideoZoomController = {
+      zoomToCenter: (scale) => card._resizeZoomScales.push(scale),
+    };
+    card._liveViewResizeController._getAvailableGrowth = () => 0;
+    const media = new EventTarget();
+    media.videoWidth = 640;
+    media.videoHeight = 480;
+    card._liveViewResizeController.attachMedia(media);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const wrap = card.shadowRoot.querySelector("#eng-wrap");
+    const grip = card.shadowRoot.querySelector("#live-resize-grip");
+    return {
+      aspectRatio: wrap.style.getPropertyValue("--live-view-aspect-ratio"),
+      gripVisible: !grip.hidden,
+      height: wrap.getBoundingClientRect().height,
+    };
+  });
+
+  expect(before.gripVisible).toBe(true);
+  const grip = page.locator("frigate-view-card #live-resize-grip");
+  const bounds = await grip.boundingBox();
+  expect(bounds).toBeTruthy();
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 400, { steps: 8 });
+  await page.mouse.up();
+
+  const after = await page.evaluate(() => {
+    const card = document.querySelector("frigate-view-card");
+    const wrap = card.shadowRoot.querySelector("#eng-wrap");
+    const grip = card.shadowRoot.querySelector("#live-resize-grip");
+    return {
+      aspectRatio: wrap.style.getPropertyValue("--live-view-aspect-ratio"),
+      currentValue: grip.getAttribute("aria-valuenow"),
+      height: wrap.getBoundingClientRect().height,
+      zoomScale: card._resizeZoomScales.at(-1),
+    };
+  });
+
+  expect(after.height).toBeCloseTo(before.height, 1);
+  expect(after.aspectRatio).toBe(before.aspectRatio);
+  expect(after.currentValue).toBe("56");
+  expect(after.zoomScale).toBeCloseTo(4 / 3, 3);
+});
+
 test("Panel Wide View recomputes its columns when the viewport becomes shorter", async ({
   page,
 }) => {

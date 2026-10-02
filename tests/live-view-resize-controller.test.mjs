@@ -73,6 +73,7 @@ const createFixture = ({
   videoWidth = 1024,
   videoHeight = 768,
   availableGrowth = null,
+  maxRenderedHeightRatio = null,
   resizeObserverCtor = null,
 } = {}) => {
   const classes = new Set();
@@ -83,14 +84,26 @@ const createFixture = ({
   grip.releasePointerCapture = () => {};
   grip.setAttribute = (name, value) => attributes.set(name, String(value));
 
+  const wrapStyle = new FakeStyle();
   const wrap = {
     clientWidth: 400,
-    style: new FakeStyle(),
+    style: wrapStyle,
     classList: {
       add: (...tokens) => tokens.forEach((token) => classes.add(token)),
       remove: (...tokens) => tokens.forEach((token) => classes.delete(token)),
     },
-    getBoundingClientRect: () => ({ width: 400, height: 225 }),
+    getBoundingClientRect: () => {
+      const aspectRatio = Number.parseFloat(
+        wrapStyle.getPropertyValue("--live-view-aspect-ratio"),
+      );
+      const requestedHeightRatio = aspectRatio > 0
+        ? 1 / aspectRatio
+        : LIVE_VIEW_MIN_HEIGHT_RATIO;
+      const renderedHeightRatio = Number.isFinite(maxRenderedHeightRatio)
+        ? Math.min(requestedHeightRatio, maxRenderedHeightRatio)
+        : requestedHeightRatio;
+      return { width: 400, height: 400 * renderedHeightRatio };
+    },
     querySelector: (selector) =>
       selector === "#live-resize-grip" ? grip : null,
   };
@@ -233,6 +246,46 @@ test("16:9 live view exposes the handle and turns downward drag into zoom", () =
     }),
     1,
   );
+});
+
+test("constrained 4:3 growth becomes zoom without retaining hidden height", () => {
+  const fixture = createFixture({
+    videoWidth: 640,
+    videoHeight: 480,
+    maxRenderedHeightRatio: LIVE_VIEW_MIN_HEIGHT_RATIO,
+  });
+
+  fixture.grip.dispatch("pointerdown", { clientY: 100 });
+  fixture.grip.dispatch("pointermove", { clientY: 500 });
+  fixture.grip.dispatch("pointerup", { clientY: 500 });
+
+  assert.equal(
+    fixture.wrap.style.getPropertyValue("--live-view-aspect-ratio"),
+    "1.777778 / 1",
+  );
+  assert.equal(fixture.attributes.get("aria-valuenow"), "56");
+  assert.ok(Math.abs(fixture.zoomScales.at(-1) - 4 / 3) < 0.00001);
+});
+
+test("height-locked 4:3 drag becomes zoom without moving the resize grip", () => {
+  const fixture = createFixture({
+    videoWidth: 640,
+    videoHeight: 480,
+    availableGrowth: 0,
+    maxRenderedHeightRatio: LIVE_VIEW_MIN_HEIGHT_RATIO,
+  });
+
+  fixture.grip.dispatch("pointerdown", { clientY: 100 });
+  fixture.grip.dispatch("pointermove", { clientY: 500 });
+  fixture.grip.dispatch("pointerup", { clientY: 500 });
+
+  assert.equal(
+    fixture.wrap.style.getPropertyValue("--live-view-aspect-ratio"),
+    "1.777778 / 1",
+  );
+  assert.equal(fixture.attributes.get("aria-valuemax"), "56");
+  assert.equal(fixture.attributes.get("aria-valuenow"), "56");
+  assert.ok(Math.abs(fixture.zoomScales.at(-1) - 4 / 3) < 0.00001);
 });
 
 test("wider-than-16:9 live zoom grows smoothly and fills at its range limit", () => {
