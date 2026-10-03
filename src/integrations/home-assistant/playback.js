@@ -147,6 +147,7 @@ export function createHaHlsPlayerElement({
 export function createHaNativeHlsVideoElement({
   hass,
   entity,
+  streamFormat,
   muted = false,
   controls = false,
   defaultMuted,
@@ -166,12 +167,13 @@ export function createHaNativeHlsVideoElement({
   if (defaultMuted !== undefined) video.defaultMuted = defaultMuted;
   if (styleText) video.style.cssText = styleText;
   if (fitMode !== undefined) video.style.objectFit = fitMode;
-  video.hlsUrlReady = Promise.resolve(
-    hass.callWS({
-      type: "camera/stream",
-      entity_id: entityId,
-    }),
-  )
+  const streamRequest = {
+    type: "camera/stream",
+    entity_id: entityId,
+  };
+  const requestedFormat = String(streamFormat || "").trim();
+  if (requestedFormat) streamRequest.format = requestedFormat;
+  video.hlsUrlReady = Promise.resolve(hass.callWS(streamRequest))
     .then((response) => {
       const path = String(response?.url || "").trim();
       if (destroyed || !path) return false;

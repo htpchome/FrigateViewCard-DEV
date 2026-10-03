@@ -808,11 +808,15 @@ test("live transport ownership is pulled out of the card shell", () => {
     false,
   );
   assert.equal(
-    catalystHlsMounterSource.includes("createHaLowLatencyHlsVideoElement"),
-    true,
+    catalystHlsMounterSource.includes("createHaHlsPlayerElement"),
+    false,
   );
   assert.equal(
     catalystHlsMounterSource.includes("createHaNativeHlsVideoElement"),
+    true,
+  );
+  assert.equal(
+    catalystHlsMounterSource.includes("createHaLowLatencyHlsVideoElement"),
     false,
   );
   assert.equal(

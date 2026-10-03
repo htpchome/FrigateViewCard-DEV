@@ -57,6 +57,12 @@ uses the authenticated Home Assistant `camera/stream` URL with the card's lazy
 HLS.js asset. Low-latency mode is explicitly enabled for this Catalyst-only
 experiment; other HA Direct clients and all Frigate go2rtc paths are unchanged.
 
+`v1.1.8-dev.148` removes that LL-HLS/HLS.js experiment after physical testing
+still showed smooth playback with the ordinary HLS delay. Catalyst keeps its
+isolated HA Direct side path and explicit authenticated HLS request, but assigns
+the resulting URL directly to a native video element. It still does not create
+or race a WebRTC player.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

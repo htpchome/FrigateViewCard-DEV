@@ -1,10 +1,7 @@
 import {
+  createHaNativeHlsVideoElement,
   findActiveHaCameraStreamVideo,
 } from "../../integrations/home-assistant/playback.js";
-import {
-  createHaLowLatencyHlsVideoElement,
-  ensureHaLowLatencyHlsPlayback,
-} from "../../integrations/home-assistant/low-latency-hls.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 import {
   resolveHaDirectFailedState,
@@ -29,8 +26,8 @@ export function createCatalystHlsMounter({
   startLoadingFallbackRefresh,
   stopLoadingFallbackRefresh,
   setLiveNativeControls,
-  prepareHlsPlayback = ensureHaLowLatencyHlsPlayback,
-  createHlsVideo = createHaLowLatencyHlsVideoElement,
+  prepareHlsPlayback = () => true,
+  createHlsVideo = createHaNativeHlsVideoElement,
 }) {
   const bindings = new WeakMap();
 
@@ -124,6 +121,7 @@ export function createCatalystHlsMounter({
       engine = createHlsVideo({
         hass,
         entity,
+        streamFormat: "hls",
         controls: false,
         muted: options.muted ?? getStreamMuted(),
         defaultMuted: options.defaultMuted,

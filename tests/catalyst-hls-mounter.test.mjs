@@ -88,6 +88,7 @@ test("Catalyst HLS mounter owns a low-latency HLS-only startup", async () => {
   assert.equal(video.catalystHls, true);
   assert.equal(slot.child, video);
   assert.equal(videoOptions.entity, "camera.front");
+  assert.equal(videoOptions.streamFormat, "hls");
   assert.equal(videoOptions.muted, true);
   assert.equal(await result.startupReady, true);
   assert.equal(waitOptions.requireReadyState, 2);

@@ -76,6 +76,42 @@ test("HA native HLS video uses the authenticated camera stream URL", async () =>
   }
 });
 
+test("HA native HLS video can explicitly request the HLS format", async () => {
+  const previousDocument = globalThis.document;
+  const calls = [];
+  const video = {
+    style: {},
+    pause() {},
+    removeAttribute() {},
+    load() {},
+  };
+  globalThis.document = { createElement: () => video };
+
+  try {
+    const result = createHaNativeHlsVideoElement({
+      hass: {
+        callWS: async (message) => {
+          calls.push(message);
+          return { url: "/api/hls/test/master_playlist.m3u8" };
+        },
+      },
+      entity: "camera.front",
+      streamFormat: "hls",
+    });
+
+    assert.equal(await result.hlsUrlReady, true);
+    assert.deepEqual(calls, [
+      {
+        type: "camera/stream",
+        entity_id: "camera.front",
+        format: "hls",
+      },
+    ]);
+  } finally {
+    globalThis.document = previousDocument;
+  }
+});
+
 test("HA native HLS video ignores a stream URL after release", async () => {
   const previousDocument = globalThis.document;
   let resolveStream;
