@@ -1130,7 +1130,6 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._setSectionsRowGap(false);
     this._cleanupEngine();
-    this._liveGraceController?.pruneEmptyHaDirectDeckHost?.();
     this._clearLiveEngineSlot();
   }
   // ── init ─────────────────────────────────────────────────

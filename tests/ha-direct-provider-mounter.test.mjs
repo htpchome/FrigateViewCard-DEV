@@ -120,7 +120,6 @@ test("HA Direct delegates selected playback to one stable HA camera-stream", asy
   await withFakeDocument(async () => {
     const deck = createFakeElement();
     const liveSlot = createFakeElement();
-    const presentation = createFakeElement();
     liveSlot.innerHTML = "occupied";
     const provider = createFakeProvider({ streamType: "webrtc" });
     const hass = {
@@ -157,7 +156,6 @@ test("HA Direct delegates selected playback to one stable HA camera-stream", asy
         return provider;
       },
       getPreloadHost: () => deck,
-      getPresentationHost: () => presentation,
       getSelectedEntity: () => "camera.front",
       shouldPreload: () => false,
     });
@@ -174,8 +172,7 @@ test("HA Direct delegates selected playback to one stable HA camera-stream", asy
     assert.equal(deck.children.length, 1);
     assert.strictEqual(deck.children[0].children[0], provider);
     assert.equal(liveSlot.children.length, 0);
-    assert.strictEqual(provider.video.parentElement, presentation);
-    assert.strictEqual(provider.haDirectPresentationVideo, provider.video);
+    assert.strictEqual(provider.video.parentElement, provider.videoParent);
     assert.equal(providerOptions.stateObj.attributes.frontend_stream_type, "web_rtc");
     assert.deepEqual(committedTypes, ["webrtc"]);
   });
@@ -185,7 +182,6 @@ test("HA Direct retains a native provider in its original camera deck slot", asy
   await withFakeDocument(async () => {
     const deck = createFakeElement();
     const liveSlot = createFakeElement();
-    const presentation = createFakeElement();
     liveSlot.innerHTML = "";
     const provider = createFakeProvider({ streamType: "hls" });
     let assignedEngine = null;
@@ -204,7 +200,6 @@ test("HA Direct retains a native provider in its original camera deck slot", asy
       preparePlaybackElements: () => true,
       createCameraStream: () => provider,
       getPreloadHost: () => deck,
-      getPresentationHost: () => presentation,
       getSelectedEntity: () => "camera.front",
       shouldPreload: () => false,
     });
@@ -221,11 +216,12 @@ test("HA Direct retains a native provider in its original camera deck slot", asy
     assert.equal(mounter.suspendRetainedHlsEngine(provider), true);
     assert.strictEqual(provider.parentElement, originalParent);
     assert.strictEqual(provider.video.parentElement, provider.videoParent);
-    assert.equal(presentation.attributes.get("aria-hidden"), "true");
+    assert.equal(originalParent.style.opacity, "0");
 
     assert.equal(mounter.adoptRetainedHlsEngine(liveSlot, provider), true);
     assert.strictEqual(provider.parentElement, originalParent);
-    assert.strictEqual(provider.video.parentElement, presentation);
+    assert.strictEqual(provider.video.parentElement, provider.videoParent);
+    assert.equal(originalParent.style.opacity, "1");
   });
 });
 
@@ -292,14 +288,15 @@ test("HA Direct warms native providers sequentially", async () => {
 test("HA Direct lends only its video surface for editor handoff", async () => {
   await withFakeDocument(async () => {
     const donorDeck = createFakeElement();
-    const receiverDeck = createFakeElement();
+    const preEditorDeck = createFakeElement();
+    const editorDeck = createFakeElement();
     const donorSlot = createFakeElement();
-    const receiverSlot = createFakeElement();
-    const donorPresentation = createFakeElement();
-    const receiverPresentation = createFakeElement();
+    const preEditorSlot = createFakeElement();
+    const editorSlot = createFakeElement();
     const provider = createFakeProvider({ streamType: "webrtc" });
     let donorEngine = null;
-    let receiverEngine = null;
+    let preEditorEngine = null;
+    let editorEngine = null;
     const sharedOptions = {
       getHass: () => ({ states: { "camera.front": { attributes: {} } } }),
       getPreferredStreamType: () => "webrtc",
@@ -320,16 +317,22 @@ test("HA Direct lends only its video surface for editor handoff", async () => {
       },
       createCameraStream: () => provider,
       getPreloadHost: () => donorDeck,
-      getPresentationHost: () => donorPresentation,
     });
-    const receiver = createHaDirectProviderMounter({
+    const preEditor = createHaDirectProviderMounter({
       ...sharedOptions,
-      isCurrentEngine: (engine) => engine === receiverEngine,
+      isCurrentEngine: (engine) => engine === preEditorEngine,
       assignCommittedEngine: (engine) => {
-        receiverEngine = engine;
+        preEditorEngine = engine;
       },
-      getPreloadHost: () => receiverDeck,
-      getPresentationHost: () => receiverPresentation,
+      getPreloadHost: () => preEditorDeck,
+    });
+    const editor = createHaDirectProviderMounter({
+      ...sharedOptions,
+      isCurrentEngine: (engine) => engine === editorEngine,
+      assignCommittedEngine: (engine) => {
+        editorEngine = engine;
+      },
+      getPreloadHost: () => editorDeck,
     });
 
     const mounted = await donor.tryMount(
@@ -339,19 +342,27 @@ test("HA Direct lends only its video surface for editor handoff", async () => {
     );
     await mounted.startupReady;
     const stableSlot = provider.parentElement;
-    assert.strictEqual(provider.video.parentElement, donorPresentation);
+    assert.strictEqual(provider.video.parentElement, provider.videoParent);
 
     assert.equal(donor.detachProviderForHandoff(provider), true);
-    assert.equal(receiver.adoptRetainedHlsEngine(receiverSlot, provider), true);
+    assert.equal(
+      preEditor.adoptRetainedHlsEngine(preEditorSlot, provider),
+      true,
+    );
     assert.strictEqual(provider.parentElement, stableSlot);
     assert.strictEqual(stableSlot.parentElement, donorDeck);
-    assert.strictEqual(provider.video.parentElement, receiverPresentation);
-    assert.strictEqual(receiverEngine, provider);
+    assert.strictEqual(provider.video.parentElement, preEditorSlot);
+    assert.strictEqual(preEditorEngine, provider);
 
-    assert.equal(receiver.detachProviderForHandoff(provider), true);
+    assert.equal(preEditor.detachProviderForHandoff(provider), true);
+    assert.equal(editor.adoptRetainedHlsEngine(editorSlot, provider), true);
+    assert.strictEqual(provider.video.parentElement, editorSlot);
+    assert.strictEqual(editorEngine, provider);
+
+    assert.equal(editor.detachProviderForHandoff(provider), true);
     assert.equal(donor.adoptTransferredProvider(provider), true);
     assert.equal(donor.adoptRetainedHlsEngine(donorSlot, provider), true);
-    assert.strictEqual(provider.video.parentElement, donorPresentation);
+    assert.strictEqual(provider.video.parentElement, provider.videoParent);
     assert.strictEqual(stableSlot.parentElement, donorDeck);
     assert.strictEqual(donorEngine, provider);
   });

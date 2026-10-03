@@ -180,11 +180,6 @@ test("card fullscreen controller delegates discovery and document exit", () => {
     root: "root",
     maxDepth: 4,
   });
-  const presentedVideo = { name: "ha-direct-presentation" };
-  assert.strictEqual(
-    controller.findVideoDeep({ haDirectPresentationVideo: presentedVideo }),
-    presentedVideo,
-  );
   assert.equal(controller.exit(), true);
   assert.deepEqual(calls, [["exit", ownerDocument]]);
 });

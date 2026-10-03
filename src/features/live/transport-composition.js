@@ -150,8 +150,6 @@ export const createLiveTransportControllers = (
       card._liveGraceController?.getHaDirectDeckHost?.() ||
       card._liveGraceController?.getHaDirectWebRtcDeckHost?.() ||
       null,
-    getPresentationHost: () =>
-      card._liveGraceController?.getHaDirectPresentationHost?.() || null,
     shouldPreload: () =>
       deviceProfile.isCatalyst !== true &&
       card.isConnected === true &&

@@ -126,7 +126,6 @@ export function createLiveGraceController({
       : isHaDirectWebRtcEngineReusable(engine);
   let mseGraceHost = null;
   let haDirectDeckHost = null;
-  let haDirectPresentationHost = null;
   let catalystHlsDeckHost = null;
 
   const evictGraceMseEntry = (entity) => {
@@ -245,32 +244,6 @@ export function createLiveGraceController({
     const host = document.createElement("div");
     host.setAttribute("aria-hidden", "true");
     host.setAttribute("data-fvc-ha-direct-deck", "");
-    host.style.cssText =
-      "position:fixed;inset:0;width:100vw;height:100vh;overflow:hidden;opacity:0;pointer-events:none;z-index:-2147483647";
-    const shadowRoot = getShadowRoot?.();
-    const cardHost = shadowRoot?.host || null;
-    const ownerDocument = cardHost?.ownerDocument || globalThis.document;
-    if (ownerDocument?.body?.appendChild) {
-      ownerDocument.body.appendChild(host);
-    } else if (cardHost?.appendChild) {
-      cardHost.appendChild(host);
-    } else {
-      shadowRoot?.appendChild?.(host);
-    }
-    haDirectDeckHost = host;
-    return host;
-  };
-  const ensureHaDirectPresentationHost = () => {
-    if (
-      haDirectPresentationHost?.isConnected ||
-      haDirectPresentationHost?.parentElement ||
-      haDirectPresentationHost?.parentNode
-    ) {
-      return haDirectPresentationHost;
-    }
-    const host = document.createElement("div");
-    host.setAttribute("aria-hidden", "true");
-    host.setAttribute("data-fvc-ha-direct-presentation", "");
     host.setAttribute("slot", "fvc-ha-direct-provider-deck");
     host.style.cssText =
       "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:2";
@@ -279,9 +252,15 @@ export function createLiveGraceController({
     if (cardHost?.appendChild) {
       cardHost.appendChild(host);
     } else {
-      shadowRoot?.appendChild?.(host);
+      const engine = shadowRoot?.querySelector?.("#engine") || null;
+      const parent = engine?.parentElement || shadowRoot;
+      if (engine && parent?.insertBefore) {
+        parent.insertBefore(host, engine);
+      } else {
+        parent?.appendChild?.(host);
+      }
     }
-    haDirectPresentationHost = host;
+    haDirectDeckHost = host;
     return host;
   };
   const ensureCatalystHlsDeckHost = () => {
@@ -856,31 +835,14 @@ export function createLiveGraceController({
       mseGraceHost?.remove?.();
     } catch (_) {}
     mseGraceHost = null;
-    if (!haDirectDeckHost?.children?.length) {
-      try {
-        haDirectDeckHost?.remove?.();
-      } catch (_) {}
-      haDirectDeckHost = null;
-    }
     try {
-      haDirectPresentationHost?.remove?.();
+      haDirectDeckHost?.remove?.();
     } catch (_) {}
-    haDirectPresentationHost = null;
+    haDirectDeckHost = null;
     try {
       catalystHlsDeckHost?.remove?.();
     } catch (_) {}
     catalystHlsDeckHost = null;
-  };
-
-  const pruneEmptyHaDirectDeckHost = () => {
-    if (!haDirectDeckHost || haDirectDeckHost.children?.length) return false;
-    try {
-      haDirectDeckHost.remove?.();
-    } catch (_) {
-      return false;
-    }
-    haDirectDeckHost = null;
-    return true;
   };
 
   const evictEntity = (entity) => {
@@ -893,7 +855,6 @@ export function createLiveGraceController({
   return {
     cleanupEngine,
     clearGracePool,
-    pruneEmptyHaDirectDeckHost,
     evictEntity,
     takeGraceMseEntry,
     adoptGraceMseEngine,
@@ -912,7 +873,6 @@ export function createLiveGraceController({
     retainHaDirectEngine,
     syncRetainedHaDirectEntities,
     getHaDirectDeckHost: ensureHaDirectDeckHost,
-    getHaDirectPresentationHost: ensureHaDirectPresentationHost,
     getHaDirectWebRtcDeckHost: ensureHaDirectDeckHost,
     takeGraceCatalystHlsEntry,
     hasRetainedCatalystHlsEngine,

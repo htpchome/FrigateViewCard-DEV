@@ -36,7 +36,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   let committedEditorTransfer = 0;
   const engineHost = { id: "engine" };
   const haDirectDeckHost = { id: "ha-direct-deck" };
-  const haDirectPresentationHost = { id: "ha-direct-presentation" };
   const catalystHlsDeckHost = { id: "catalyst-hls-deck" };
   const shadowRoot = {
     appendChild: (node) => calls.push(["append-audio", node]),
@@ -87,7 +86,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     },
     _liveGraceController: {
       getHaDirectDeckHost: () => haDirectDeckHost,
-      getHaDirectPresentationHost: () => haDirectPresentationHost,
       hasRetainedHaDirectEngine: (entity) => entity === "camera.ha",
       retainHaDirectEngine: (entity, engine, options) => {
         calls.push(["retain-ha", entity, engine, options]);
@@ -171,10 +169,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.strictEqual(
     optionsByFactory.haDirectMounter.getPreloadHost(),
     haDirectDeckHost,
-  );
-  assert.strictEqual(
-    optionsByFactory.haDirectMounter.getPresentationHost(),
-    haDirectPresentationHost,
   );
   assert.equal(
     optionsByFactory.haDirectMounter.hasRetainedEngine("camera.ha"),

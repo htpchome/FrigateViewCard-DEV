@@ -43,21 +43,21 @@ Meaning of `ha_direct`:
 - on non-Catalyst clients, each loaded camera owns one stable
   `ha-camera-stream` provider; Home Assistant selects and manages its HLS or
   WebRTC child player without a parallel card-owned transport race
-- providers are created in permanent, camera-scoped HA Direct deck slots in a
-  document-stable card-owned host, so page-shell replacement and temporary
-  dashboard-card detachment cannot disconnect the Home Assistant provider
-  subtree; the selected provider's plain video surface is projected through a
-  stable light-DOM presentation host owned by the visible card
+- providers are created in permanent, camera-scoped HA Direct deck slots and
+  are shown or hidden in place across camera and page changes; the deck is a
+  stable light-DOM child projected into each page's live stage so replacing a
+  page shell never disconnects the Home Assistant provider subtree
 - after the selected provider renders usable video, remaining configured HA
   Direct cameras may warm sequentially; camera N+1 must not start until camera
   N has usable media or has failed
 - the card owns provider creation, deck visibility, retention and release,
   snapshot fallback presentation, and editor/layout ownership transfer; it
   does not own the provider's signaling or internal media-player lifecycle
-- editor preview handoff must leave the native provider in its permanent,
-  document-stable deck; only the provider's plain video presentation surface
-  may cross between dashboard, pre-editor, and editor card instances, then
-  return to the dashboard presentation owner on editor exit
+- editor preview handoff must leave the native provider in its permanent deck
+  inside the Home Assistant-scoped owner card; only its plain video surface may
+  cross from dashboard to pre-editor to editor and then return to the original
+  player. Native providers must never be mounted under `document.body` or
+  another host outside the card's scoped custom-element context
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

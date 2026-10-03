@@ -2,20 +2,20 @@
 
 ## Current Baseline
 
-`v1.1.8-dev.171` is a normal-HA-Direct provider-deck experiment based on the
+`v1.1.8-dev.172` is a normal-HA-Direct provider-deck experiment based on the
 `v1.1.8-dev.168` rollback point. Non-Catalyst HA Direct playback now creates one
 stable `ha-camera-stream` provider per loaded camera and delegates HLS/WebRTC
 selection, signaling, fallback, and child-player lifecycle to Home Assistant.
 The card retains ownership only of creation order, permanent camera slots,
 visibility, retention/release, snapshot presentation, and editor/layout
-handoff. The provider deck now lives in a document-stable card-owned host,
-while a light-DOM presentation slot carries only the selected plain video
-surface. Home Assistant can therefore temporarily detach or replace dashboard,
-pre-editor, and editor card shells without disconnecting the native provider.
-Only the selected camera is lent to editor instances; background providers
-remain with the dashboard owner. Mac Catalyst remains on its separate native
-HLS-only path. Physical validation is required before this experiment replaces
-`v1.1.8-dev.168` as a known-good rollback point.
+handoff. The provider deck remains in the card's Home Assistant-scoped light
+DOM and is projected into page-specific live stages. The selected provider's
+plain video surface can pass from dashboard to pre-editor to editor without
+transferring the provider or the background camera pool. `v1.1.8-dev.171`'s
+document-body deck was rejected because Home Assistant's scoped
+`ha-camera-stream` lost its `hass` context before startup. Mac Catalyst remains
+on its separate native HLS-only path. Physical validation is required before
+this experiment replaces `v1.1.8-dev.168` as a known-good rollback point.
 
 `v1.1.8-dev.70` restores the `v1.1.8-dev.68` HA Direct pipeline after physical
 testing rejected the native `ha-camera-stream` provider-deck experiment in
@@ -261,9 +261,9 @@ Preserve all of these behaviors together:
    video.
 4. Do not create a parallel card-owned HLS player, RTCPeerConnection, signaling
    subscription, race, or takeover for normal HA Direct playback.
-5. Create each provider inside a permanent, full-sized camera deck slot in a
-   document-stable host and retain it there across card, camera, page, and
-   editor-shell changes.
+5. Create each provider inside a permanent, full-sized camera deck slot in the
+   owning card's Home Assistant-scoped light DOM and retain it there across
+   camera and page changes. Never move that custom element to `document.body`.
 6. Hide and mute dormant providers without disconnecting their custom element.
 7. Start background providers sequentially only after the selected provider is
    usable; wait for each background provider before starting the next one.

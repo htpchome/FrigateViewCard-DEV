@@ -38,9 +38,6 @@ export class CardFullscreenController {
   }
 
   findVideoDeep(root, maxDepth = 7) {
-    if (root?.haDirectPresentationVideo) {
-      return root.haDirectPresentationVideo;
-    }
     return this._findNestedVideo(root, maxDepth);
   }
 
