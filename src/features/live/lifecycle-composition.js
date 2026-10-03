@@ -105,14 +105,18 @@ export const createLiveLifecycleControllers = (
         card._editorPreviewController.requestLiveHandoff(request),
       isEngineReusable: (engine, streamType, connectionType) =>
         connectionType === "ha_direct"
-          ? liveGraceController.isHaDirectEngineReusable(engine)
+          ? streamType === "hls"
+            ? card._catalystHlsMounter?.isRetainableEngine?.(engine) === true
+            : liveGraceController.isHaDirectEngineReusable(engine)
           : streamType === "mse"
             ? liveGraceController.isMseEngineReusable(engine)
             : liveGraceController.isWebRtcEngineReusable(engine),
-      detachEngine: (engine, _streamType, connectionType) => {
+      detachEngine: (engine, streamType, connectionType) => {
         if (
           connectionType === "ha_direct" &&
-          card._haDirectMounter?.detachWebRtcForHandoff?.(engine) !== true
+          (streamType === "hls"
+            ? card._catalystHlsMounter?.detachForHandoff?.(engine)
+            : card._haDirectMounter?.detachWebRtcForHandoff?.(engine)) !== true
         ) {
           return false;
         }
@@ -128,7 +132,9 @@ export const createLiveLifecycleControllers = (
         if (!slot) return false;
         const adopted =
           connectionType === "ha_direct"
-            ? liveGraceController.adoptGraceHaDirectEngine(slot, engine)
+            ? streamType === "hls"
+              ? card._catalystHlsMounter?.adoptRetainedEngine?.(slot, engine)
+              : liveGraceController.adoptGraceHaDirectEngine(slot, engine)
             : streamType === "mse"
               ? liveGraceController.adoptGraceMseEngine(slot, engine)
               : liveGraceController.adoptGraceWebRtcEngine(slot, engine);

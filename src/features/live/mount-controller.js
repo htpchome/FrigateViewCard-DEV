@@ -21,18 +21,26 @@ import { resolveSnapshotFallbackState } from "./stream.state.js";
 
 const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
 const EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE = "ha-direct-webrtc-live";
+const EDITOR_HA_DIRECT_CATALYST_HLS_HANDOFF_TYPE =
+  "ha-direct-catalyst-hls-live";
 const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
 
 const resolveEditorHandoffConnectionType = (requestType) => {
   if (requestType === EDITOR_LIVE_HANDOFF_TYPE) return "frigate_go2rtc";
-  if (requestType === EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE) return "ha_direct";
+  if (
+    requestType === EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE ||
+    requestType === EDITOR_HA_DIRECT_CATALYST_HLS_HANDOFF_TYPE
+  ) {
+    return "ha_direct";
+  }
   return "";
 };
 
 const isEditorLiveHandoffSupported = (connectionType, streamType) =>
   connectionType === "frigate_go2rtc"
     ? EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType)
-    : connectionType === "ha_direct" && streamType === "webrtc";
+    : connectionType === "ha_direct" &&
+      (streamType === "webrtc" || streamType === "hls");
 
 export function createEditorLiveHandoffController({
   getState,
@@ -151,7 +159,9 @@ export function createEditorLiveHandoffController({
       streamType: requestedStreamType,
       type:
         requestedConnectionType === "ha_direct"
-          ? EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE
+          ? requestedStreamType === "hls"
+            ? EDITOR_HA_DIRECT_CATALYST_HLS_HANDOFF_TYPE
+            : EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE
           : EDITOR_LIVE_HANDOFF_TYPE,
     });
     const engine = offer?.claim?.() || null;
@@ -580,6 +590,30 @@ export function createLiveMountController({
       if (editorHandoff?.engine) {
         if (
           liveGraceController.adoptGraceMseEngine?.(
+            slot,
+            editorHandoff.engine,
+          )
+        ) {
+          editorHandoff.commit?.();
+          return true;
+        }
+        editorHandoff.reject?.();
+      }
+    }
+
+    if (
+      useCatalystHls &&
+      (!forcedType || forcedType === "webrtc" || forcedType === "hls")
+    ) {
+      const editorHandoff =
+        takeEditorLiveHandoff?.({
+          connectionType: "ha_direct",
+          entity: targetEntity,
+          streamType: "hls",
+        }) || null;
+      if (editorHandoff?.engine) {
+        if (
+          catalystHlsMounter?.adoptRetainedEngine?.(
             slot,
             editorHandoff.engine,
           )

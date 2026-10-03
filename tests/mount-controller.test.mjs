@@ -217,6 +217,83 @@ test("editor HA-direct WebRTC handoff transfers and returns one established engi
   assert.equal(donorState.engine, engine);
 });
 
+test("editor Catalyst HLS handoff transfers and returns one native engine", () => {
+  const engine = {
+    type: "ha_direct",
+    streamType: "hls",
+    catalystHls: true,
+  };
+  const donorState = {
+    activeStreamType: "hls",
+    engine,
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: false,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: false,
+    viewMode: "single",
+  };
+  const receiverState = { ...donorState, engine: null };
+  let requestedType = "";
+  let donor;
+  donor = createEditorLiveHandoffController({
+    getState: () => donorState,
+    getContext: () => "preconfig",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    requestHandoff: () => null,
+    isEngineReusable: (candidate, streamType, connectionType) =>
+      candidate === engine &&
+      streamType === "hls" &&
+      connectionType === "ha_direct",
+    detachEngine: () => {
+      donorState.engine = null;
+      return true;
+    },
+    adoptEngine: (candidate) => {
+      donorState.engine = candidate;
+      return true;
+    },
+  });
+  const receiver = createEditorLiveHandoffController({
+    getState: () => receiverState,
+    getContext: () => "config",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => true,
+    requestHandoff: (request) => {
+      requestedType = request.type;
+      return donor.createOffer(request);
+    },
+    isEngineReusable: (candidate, streamType, connectionType) =>
+      candidate === engine &&
+      streamType === "hls" &&
+      connectionType === "ha_direct",
+    detachEngine: () => {
+      receiverState.engine = null;
+      return true;
+    },
+    adoptEngine: (candidate) => {
+      receiverState.engine = candidate;
+      return true;
+    },
+  });
+
+  const transfer = receiver.take("camera.front", "hls", "ha_direct");
+  assert.equal(requestedType, "ha-direct-catalyst-hls-live");
+  assert.equal(transfer?.engine, engine);
+  assert.equal(donorState.engine, null);
+  receiverState.engine = transfer.engine;
+  transfer.commit();
+  donorState.hostConnected = true;
+
+  assert.equal(receiver.returnIfPossible(), true);
+  assert.equal(receiverState.engine, null);
+  assert.equal(donorState.engine, engine);
+});
+
 test("editor MSE handoff transfers and returns one established engine", () => {
   const engine = {
     type: "frigate_go2rtc",
@@ -459,8 +536,9 @@ test("Catalyst mounts through the dedicated HLS side path", async () => {
     scheduleResumeLive: () => {},
     resolveUseGo2Rtc: () => false,
     shouldUseCatalystHls: () => true,
-    takeEditorLiveHandoff: () => {
-      throw new Error("Catalyst must not enter WebRTC editor handoff");
+    takeEditorLiveHandoff: (request) => {
+      calls.push(["take-handoff", request]);
+      return null;
     },
   });
 
@@ -471,12 +549,88 @@ test("Catalyst mounts through the dedicated HLS side path", async () => {
     }),
     true,
   );
-  assert.equal(calls[0][0], "cleanup");
-  assert.deepEqual(calls[1], [
+  assert.deepEqual(calls[0], [
+    "take-handoff",
+    {
+      connectionType: "ha_direct",
+      entity: "camera.front",
+      streamType: "hls",
+    },
+  ]);
+  assert.equal(calls[1][0], "cleanup");
+  assert.deepEqual(calls[2], [
     "catalyst",
     slot,
     { streamType: "hls" },
     { entity: "camera.front", commit: true },
+  ]);
+});
+
+test("Catalyst adopts an editor native HLS handoff before reconnecting", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  const handedOffEngine = {
+    type: "ha_direct",
+    streamType: "hls",
+    catalystHls: true,
+  };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => ({
+      mountSeq: 1,
+      mountInProgress: false,
+      mountStartedAt: 0,
+      mountTargetEntity: "",
+    }),
+    applyMountTrackingState: () => {},
+    cleanupEngine: () => calls.push(["cleanup"]),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    liveGraceController: {},
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    catalystHlsMounter: {
+      adoptRetainedEngine: (targetSlot, engine) => {
+        calls.push(["adopt", targetSlot, engine]);
+        return true;
+      },
+      tryMount: async () => {
+        throw new Error("Catalyst must not reconnect after editor handoff");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+    shouldUseCatalystHls: () => true,
+    takeEditorLiveHandoff: (request) => {
+      calls.push(["take", request]);
+      return {
+        engine: handedOffEngine,
+        commit: () => calls.push(["commit"]),
+      };
+    },
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    [
+      "take",
+      {
+        connectionType: "ha_direct",
+        entity: "camera.front",
+        streamType: "hls",
+      },
+    ],
+    ["adopt", slot, handedOffEngine],
+    ["commit"],
   ]);
 });
 

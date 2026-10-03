@@ -44,17 +44,21 @@ export function createCatalystHlsMounter({
     if (binding) binding.stopLoadingFallbackRefresh = () => {};
   };
 
+  const disposeBinding = (engine) => {
+    const binding = bindings.get(engine);
+    if (!binding) return false;
+    binding.disposed = true;
+    binding.abortController.abort();
+    stopFallbackRefresh(binding);
+    binding.cleanupRecovery?.();
+    engine.removeEventListener?.("error", binding.onError);
+    bindings.delete(engine);
+    return true;
+  };
+
   const release = (engine) => {
     if (!engine?.catalystHls) return;
-    const binding = bindings.get(engine);
-    if (binding) {
-      binding.disposed = true;
-      binding.abortController.abort();
-      stopFallbackRefresh(binding);
-      binding.cleanupRecovery?.();
-      engine.removeEventListener?.("error", binding.onError);
-      bindings.delete(engine);
-    }
+    disposeBinding(engine);
     engine.destroy?.();
   };
 
@@ -98,6 +102,47 @@ export function createCatalystHlsMounter({
       applyResolvedStreamUiState?.(resolveHaDirectFailedState());
     }
     watchLateRecovery(engine, binding);
+  };
+
+  const bindEngine = (engine) => {
+    const binding = {
+      abortController: new AbortController(),
+      cleanupRecovery: () => {},
+      disposed: false,
+      failed: false,
+      onError: () => applyFailed(engine),
+      stopLoadingFallbackRefresh: () => {},
+    };
+    bindings.set(engine, binding);
+    engine.addEventListener?.("error", binding.onError);
+    return binding;
+  };
+
+  const isRetainableEngine = (engine) =>
+    engine?.type === "ha_direct" &&
+    engine?.streamType === "hls" &&
+    engine?.catalystHls === true &&
+    engine?.ended !== true &&
+    Number(engine?.readyState) >= 2;
+
+  const detachForHandoff = (engine) => {
+    if (!isRetainableEngine(engine)) return false;
+    return disposeBinding(engine);
+  };
+
+  const adoptRetainedEngine = (slot, engine) => {
+    if (!slot || !isRetainableEngine(engine)) return false;
+    engine.controls = false;
+    engine.muted = Boolean(getStreamMuted());
+    engine.style.cssText = CATALYST_HLS_VISIBLE_STYLE;
+    slot.innerHTML = "";
+    slot.appendChild(engine);
+    assignCommittedEngine?.(engine);
+    bindEngine(engine);
+    if (getRotateOverlayActive()) setLiveNativeControls?.(true);
+    applyReady(engine, engine);
+    void engine.play?.().catch?.(() => {});
+    return true;
   };
 
   const tryMount = async (slot, _startup = null, options = {}) => {
@@ -145,16 +190,7 @@ export function createCatalystHlsMounter({
     slot.appendChild(engine);
     if (!commit) return { ok: true, type: "hls", engine, slot };
 
-    const binding = {
-      abortController: new AbortController(),
-      cleanupRecovery: () => {},
-      disposed: false,
-      failed: false,
-      onError: () => applyFailed(engine),
-      stopLoadingFallbackRefresh: () => {},
-    };
-    bindings.set(engine, binding);
-    engine.addEventListener?.("error", binding.onError);
+    const binding = bindEngine(engine);
     assignCommittedEngine?.(engine);
     binding.stopLoadingFallbackRefresh =
       startLoadingFallbackRefresh?.() || (() => {});
@@ -182,5 +218,12 @@ export function createCatalystHlsMounter({
     return { ok: true, type: "hls", engine, slot, startupReady };
   };
 
-  return { prepare, release, tryMount };
+  return {
+    adoptRetainedEngine,
+    detachForHandoff,
+    isRetainableEngine,
+    prepare,
+    release,
+    tryMount,
+  };
 }

@@ -59,7 +59,7 @@ test("camera switches preserve the physical grouped-camera transport", () => {
   );
 });
 
-test("editor reparenting retains established WebRTC for both live connection modes", () => {
+test("editor reparenting retains established WebRTC and Catalyst native HLS", () => {
   const eligible = {
     sameDashboard: true,
     editorLifecycleActive: true,
@@ -108,6 +108,16 @@ test("editor reparenting retains established WebRTC for both live connection mod
       ...eligible,
       useGo2Rtc: false,
       activeStreamType: "hls",
+      catalystHls: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRetainMountedLiveForEditorTransition({
+      ...eligible,
+      useGo2Rtc: false,
+      activeStreamType: "hls",
+      catalystHls: false,
     }),
     false,
   );

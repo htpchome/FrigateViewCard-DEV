@@ -60,6 +60,12 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   };
   const catalystHlsMounter = {
     release: (engine) => calls.push(["release-catalyst", engine]),
+    isRetainableEngine: (engine) => engine === "catalyst-engine",
+    detachForHandoff: (engine) => engine !== "blocked-catalyst-engine",
+    adoptRetainedEngine: (slot, engine) => {
+      calls.push(["adopt-catalyst", slot, engine]);
+      return true;
+    },
   };
   const card = {
     shadowRoot: {
@@ -194,6 +200,14 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   );
   assert.equal(
     optionsByFactory.editorHandoff.isEngineReusable(
+      "catalyst-engine",
+      "hls",
+      "ha_direct",
+    ),
+    true,
+  );
+  assert.equal(
+    optionsByFactory.editorHandoff.isEngineReusable(
       "mse-engine",
       "mse",
       "frigate_go2rtc",
@@ -229,6 +243,19 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     null,
     { retainPrevious: true },
   ]);
+  assert.equal(
+    optionsByFactory.editorHandoff.detachEngine(
+      "catalyst-engine",
+      "hls",
+      "ha_direct",
+    ),
+    true,
+  );
+  assert.deepEqual(calls.at(-1), [
+    "assign-engine",
+    null,
+    { retainPrevious: true },
+  ]);
 
   assert.equal(
     optionsByFactory.editorHandoff.adoptEngine(
@@ -240,6 +267,19 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   );
   assert.equal(card._dashboardLiveGraceActive, false);
   assert.deepEqual(calls.at(-1), ["adopt-ha", engineSlot, "ha-engine"]);
+  assert.equal(
+    optionsByFactory.editorHandoff.adoptEngine(
+      "catalyst-engine",
+      "hls",
+      "ha_direct",
+    ),
+    true,
+  );
+  assert.deepEqual(calls.at(-1), [
+    "adopt-catalyst",
+    engineSlot,
+    "catalyst-engine",
+  ]);
 
   assert.equal(
     optionsByFactory.liveMount.takeEditorLiveHandoff({

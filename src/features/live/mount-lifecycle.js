@@ -205,6 +205,7 @@ export const shouldRetainMountedLiveForEditorTransition = ({
   viewMode = "",
   twoWayTalkActive = false,
   useGo2Rtc = false,
+  catalystHls = false,
   activeStreamType = "",
 } = {}) =>
   sameDashboard === true &&
@@ -215,7 +216,9 @@ export const shouldRetainMountedLiveForEditorTransition = ({
   previewPageActive !== true &&
   String(viewMode || "").trim().toLowerCase() !== "grid" &&
   twoWayTalkActive !== true &&
-  String(activeStreamType || "").trim().toLowerCase() === "webrtc";
+  (String(activeStreamType || "").trim().toLowerCase() === "webrtc" ||
+    (catalystHls === true &&
+      String(activeStreamType || "").trim().toLowerCase() === "hls"));
 
 export const shouldForceLiveRemountForReason = (
   reason,

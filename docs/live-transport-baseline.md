@@ -63,6 +63,12 @@ isolated HA Direct side path and explicit authenticated HLS request, but assigns
 the resulting URL directly to a native video element. It still does not create
 or race a WebRTC player.
 
+`v1.1.8-dev.149` allows that native Catalyst HLS element to participate in the
+existing editor live-handoff lifecycle. The established connection transfers
+from the dashboard card into the config preview and between replacement preview
+instances, while ownership of error and recovery handling follows the element.
+Other HLS implementations remain ineligible for editor retention.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
