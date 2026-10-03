@@ -470,6 +470,7 @@ test("live mount controller delegates ha-direct mounts outside the card shell", 
     {
       entity: "camera.front",
       commit: true,
+      mountToken: 7,
     },
   ]);
   assert.deepEqual(calls[6], ["setEngineMountedMuted", true]);

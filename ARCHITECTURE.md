@@ -40,9 +40,12 @@ Meaning of `ha_direct`:
 - Home Assistant owns stream playback behavior
 - the card delegates live playback to Home Assistant stream components and Home Assistant-selected transport behavior
 - the card must not run its own go2rtc race in this mode
-- on non-Catalyst clients, the card may sequentially warm Home Assistant HLS
-  players after first paint; WebRTC remains the preferred selected-camera
-  transport, and successful WebRTC players remain retained
+- on non-Catalyst clients, the card may sequentially warm camera-scoped Home
+  Assistant HLS/WebRTC races after first paint; rendered WebRTC is preferred,
+  while HLS remains the retained fallback when WebRTC cannot complete
+- browser-based `ha-hls-player` instances use standard HLS rather than the
+  connection-limited LL-HLS blocking-playlist mode; Catalyst keeps its separate
+  native HLS pipeline
 - a retained Home Assistant HLS custom element must be created inside the
   stable HA Direct deck and shown or hidden in place; it must never be
   reparented after connection

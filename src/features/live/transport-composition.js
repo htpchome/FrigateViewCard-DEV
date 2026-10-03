@@ -140,6 +140,12 @@ export const createLiveTransportControllers = (
       card._engine?.type === "ha_direct"
         ? card._activeGroupMemberOverride || card._activeCam?.entity || ""
         : "",
+    getSelectedEntity: () =>
+      card._activeGroupMemberOverride || card._activeCam?.entity || "",
+    isMountAttemptCurrent: (mountToken, entity) =>
+      card._mountSeq === mountToken &&
+      (card._activeGroupMemberOverride || card._activeCam?.entity || "") ===
+        entity,
     getPreloadHost: () =>
       card._liveGraceController?.getHaDirectDeckHost?.() ||
       card._liveGraceController?.getHaDirectWebRtcDeckHost?.() ||

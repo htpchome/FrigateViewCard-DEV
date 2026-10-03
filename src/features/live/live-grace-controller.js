@@ -311,6 +311,9 @@ export function createLiveGraceController({
     const key = normalizeGraceEntityKey(entity);
     if (!key) return false;
     engine?.cancelPendingTakeover?.();
+    const engineEntity = normalizeGraceEntityKey(engine?.haDirectEntity);
+    if (engineEntity && engineEntity !== key) return false;
+    if (engine && !engineEntity) engine.haDirectEntity = key;
     if (!isHaDirectEngineReusable(engine)) return false;
     if (
       engine.streamType === "hls" &&
@@ -425,6 +428,10 @@ export function createLiveGraceController({
     if (!key) return null;
     const entry = haDirectRetainedPool.get(key);
     if (!entry) return null;
+    if (normalizeGraceEntityKey(entry.engine?.haDirectEntity) !== key) {
+      evictGraceHaDirectEntry(key);
+      return null;
+    }
     const expectedType = String(streamType || "")
       .trim()
       .toLowerCase();

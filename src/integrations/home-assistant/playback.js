@@ -121,6 +121,7 @@ export function createHaHlsPlayerElement({
   controls = false,
   defaultMuted,
   fitMode,
+  lowLatencyMode = false,
   styleText = "",
 } = {}) {
   const entityId = String(entity || "").trim();
@@ -140,6 +141,48 @@ export function createHaHlsPlayerElement({
   }
   if (styleText) {
     player.style.cssText = styleText;
+  }
+  if (lowLatencyMode !== true) {
+    configureHaHlsPlayerStandardLatency(player);
+  }
+  return player;
+}
+
+const disableHlsLowLatencyMode = (hls) => {
+  if (!hls) return;
+  try {
+    hls.lowLatencyMode = false;
+  } catch (_) {}
+  try {
+    if (hls.config) hls.config.lowLatencyMode = false;
+  } catch (_) {}
+};
+
+export function configureHaHlsPlayerStandardLatency(player) {
+  if (!player || player.fvcStandardLatencyHls === true) return player;
+  player.fvcStandardLatencyHls = true;
+
+  // HA creates its Hls.js instance asynchronously after requesting the
+  // authenticated stream URL. Intercept that assignment so blocking LL-HLS
+  // reloads are disabled before the first playlist has finished loading.
+  try {
+    const ownDescriptor = Object.getOwnPropertyDescriptor(player, "_hls");
+    let assignedHls = ownDescriptor?.value;
+    Object.defineProperty(player, "_hls", {
+      configurable: true,
+      enumerable: ownDescriptor?.enumerable ?? false,
+      get: ownDescriptor?.get
+        ? () => ownDescriptor.get.call(player)
+        : () => assignedHls,
+      set: (nextHls) => {
+        if (ownDescriptor?.set) ownDescriptor.set.call(player, nextHls);
+        else assignedHls = nextHls;
+        disableHlsLowLatencyMode(nextHls);
+      },
+    });
+    disableHlsLowLatencyMode(assignedHls);
+  } catch (_) {
+    disableHlsLowLatencyMode(player._hls);
   }
   return player;
 }
@@ -200,21 +243,28 @@ export function findActiveHaCameraStreamPlayer(stream) {
       : null;
   }
   if (tagName === "ha-web-rtc-player" || tagName === "ha-hls-player") {
-    return !stream?.hidden && !stream?.classList?.contains?.("hidden")
+    const player = !stream?.hidden && !stream?.classList?.contains?.("hidden")
       ? stream
       : null;
+    if (tagName === "ha-hls-player") {
+      configureHaHlsPlayerStandardLatency(player);
+    }
+    return player;
   }
   const players = Array.from(
     stream?.shadowRoot?.querySelectorAll?.(
       "ha-web-rtc-player,ha-hls-player",
     ) || [],
   );
-  return (
+  const player =
     players.find(
       (player) =>
         !player?.hidden && !player?.classList?.contains?.("hidden"),
-    ) || null
-  );
+    ) || null;
+  if (player?.tagName?.toLowerCase?.() === "ha-hls-player") {
+    configureHaHlsPlayerStandardLatency(player);
+  }
+  return player;
 }
 
 export function findActiveHaCameraStreamVideo(stream) {

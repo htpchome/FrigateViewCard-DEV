@@ -681,7 +681,7 @@ export function createLiveMountController({
           {
             entity: targetEntity,
             commit: true,
-            ...(hasTwoWayTalkOptions ? twoWayTalkOptions : {}),
+            ...(hasTwoWayTalkOptions ? twoWayTalkOptions : { mountToken }),
           },
         );
         if (!haDirectResult?.ok) {

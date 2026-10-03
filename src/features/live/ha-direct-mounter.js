@@ -30,6 +30,8 @@ const HA_DIRECT_HLS_DECK_LAYER_STYLE =
   "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;opacity:0;z-index:0";
 const HA_DIRECT_TIME_RECOVERY_MIN_ADVANCES = 2;
 const HA_DIRECT_TIME_RECOVERY_MIN_PROGRESS_SECONDS = 0.05;
+const HA_DIRECT_HLS_HEALTH_CHECK_MS = 3000;
+const HA_DIRECT_HLS_STALL_TIMEOUT_MS = 12000;
 
 export function createHaDirectMounter({
   getHass,
@@ -53,6 +55,8 @@ export function createHaDirectMounter({
   createWebRtcPlayback = createHaDirectWebRtcPlayback,
   getPreloadEntities = () => [],
   getActiveEntity = () => "",
+  getSelectedEntity = null,
+  isMountAttemptCurrent = () => true,
   getPreloadHost = () => null,
   shouldPreload = () => false,
   hasRetainedEngine = () => false,
@@ -60,9 +64,15 @@ export function createHaDirectMounter({
   syncRetainedEntities = () => {},
   requestFrame = (callback) => globalThis.requestAnimationFrame?.(callback),
   cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
+  now = () => Date.now(),
+  setHealthInterval = (callback, delay) =>
+    globalThis.setInterval?.(callback, delay),
+  clearHealthInterval = (interval) =>
+    globalThis.clearInterval?.(interval),
 }) {
   const mediaBindings = new WeakMap();
   const hlsDeckSlots = new WeakMap();
+  const hlsHealthStates = new WeakMap();
   let releaseBarrier = Promise.resolve();
   let activeDeckHlsEngine = null;
   let preloadGeneration = 0;
@@ -71,6 +81,19 @@ export function createHaDirectMounter({
   let preloadFrame = null;
   let preloadPaintFrame = null;
   let pendingPreload = null;
+
+  const normalizeEntity = (value) => String(value || "").trim();
+  const isSelectedEntity = (entity) => {
+    const targetEntity = normalizeEntity(entity);
+    if (!targetEntity) return false;
+    if (typeof getSelectedEntity !== "function") return true;
+    return normalizeEntity(getSelectedEntity()) === targetEntity;
+  };
+  const isOwnedMountAttempt = (entity, mountToken) =>
+    isSelectedEntity(entity) &&
+    isMountAttemptCurrent?.(mountToken, normalizeEntity(entity)) !== false;
+  const isCurrentOwnedEngine = (engine) =>
+    isCurrentEngine(engine) && isSelectedEntity(engine?.haDirectEntity);
 
   const prepare = () => {
     try {
@@ -132,12 +155,95 @@ export function createHaDirectMounter({
     return true;
   };
 
+  const stopHlsHealthTracking = (engine) => {
+    const state = hlsHealthStates.get(engine);
+    if (!state) return;
+    if (state.interval != null) clearHealthInterval?.(state.interval);
+    state.video?.removeEventListener?.("timeupdate", state.onTimeUpdate);
+    state.video?.removeEventListener?.("playing", state.onPlaying);
+    hlsHealthStates.delete(engine);
+  };
+
+  const sampleHlsHealth = (engine) => {
+    const state = hlsHealthStates.get(engine);
+    if (!state) return null;
+    const video = findActiveHaCameraStreamVideo(engine);
+    if (state.video !== video) {
+      state.video?.removeEventListener?.("timeupdate", state.onTimeUpdate);
+      state.video?.removeEventListener?.("playing", state.onPlaying);
+      state.video = video;
+      state.lastCurrentTime = Number(video?.currentTime);
+      state.lastProgressAt = now();
+      video?.addEventListener?.("timeupdate", state.onTimeUpdate);
+      video?.addEventListener?.("playing", state.onPlaying);
+      return state;
+    }
+    const currentTime = Number(video?.currentTime);
+    if (
+      Number.isFinite(currentTime) &&
+      (!Number.isFinite(state.lastCurrentTime) ||
+        Math.abs(currentTime - state.lastCurrentTime) > 0.001)
+    ) {
+      state.lastCurrentTime = currentTime;
+      state.lastProgressAt = now();
+    }
+    return state;
+  };
+
+  const beginHlsHealthTracking = (engine) => {
+    if (!engine || hlsHealthStates.has(engine)) return;
+    const state = {
+      interval: null,
+      lastCurrentTime: Number.NaN,
+      lastProgressAt: now(),
+      onPlaying: null,
+      onTimeUpdate: null,
+      video: null,
+    };
+    state.onPlaying = () => {
+      state.lastProgressAt = now();
+      state.lastCurrentTime = Number(state.video?.currentTime);
+    };
+    state.onTimeUpdate = () => sampleHlsHealth(engine);
+    hlsHealthStates.set(engine, state);
+    sampleHlsHealth(engine);
+    state.interval = setHealthInterval?.(() => {
+      if (globalThis.document?.visibilityState === "hidden") {
+        state.lastProgressAt = now();
+        return;
+      }
+      const sampled = sampleHlsHealth(engine);
+      if (
+        !sampled ||
+        now() - sampled.lastProgressAt < HA_DIRECT_HLS_STALL_TIMEOUT_MS
+      ) {
+        return;
+      }
+      const wasCurrent = isCurrentOwnedEngine(engine);
+      release(engine);
+      if (wasCurrent) {
+        scheduleResumeLive?.("hls-stalled");
+      } else {
+        schedulePreloadDeckAfterPaint();
+      }
+    }, HA_DIRECT_HLS_HEALTH_CHECK_MS);
+    state.interval?.unref?.();
+  };
+
+  const isHlsHealthFresh = (engine) => {
+    const state = sampleHlsHealth(engine);
+    return Boolean(
+      state && now() - state.lastProgressAt < HA_DIRECT_HLS_STALL_TIMEOUT_MS,
+    );
+  };
+
   const release = (engine) => {
     const binding = mediaBindings.get(engine);
     if (!binding) {
       if (engine?.type === "ha_direct" && engine?.streamType === "webrtc") {
         rememberRelease(engine.destroy?.());
       } else if (engine?.type === "ha_direct" && engine?.streamType === "hls") {
+        stopHlsHealthTracking(engine);
         rememberRelease(engine.destroy?.());
         if (!removeHlsDeckSlot(engine)) engine.remove?.();
       }
@@ -166,6 +272,7 @@ export function createHaDirectMounter({
     }
     rememberRelease(engine?.destroy?.());
     if (engine?.streamType === "hls") {
+      stopHlsHealthTracking(engine);
       if (!removeHlsDeckSlot(engine)) engine.remove?.();
     }
   };
@@ -177,7 +284,7 @@ export function createHaDirectMounter({
   };
 
   const applyReady = (engine, streamType) => {
-    if (!isCurrentEngine(engine)) return;
+    if (!isCurrentOwnedEngine(engine)) return;
     mediaBindings.get(engine)?.stopLoadingFallbackRefresh?.();
     engine.markStarted?.();
     onCommittedStream?.(streamType);
@@ -191,7 +298,7 @@ export function createHaDirectMounter({
   };
 
   const applyFailed = (engine) => {
-    if (!isCurrentEngine(engine)) return;
+    if (!isCurrentOwnedEngine(engine)) return;
     mediaBindings.get(engine)?.stopLoadingFallbackRefresh?.();
     stopLoadingFallbackRefresh?.();
     onCommittedStream?.("snapshot");
@@ -228,7 +335,7 @@ export function createHaDirectMounter({
       let progressStartTime = null;
       const isActive = () =>
         active && !binding.disposed && binding.failed &&
-        isCurrentEngine(engine) &&
+        isCurrentOwnedEngine(engine) &&
         findActiveHaCameraStreamVideo(engine) === video;
       const hasUsablePlaybackState = () => {
         const playbackRate = Number(video.playbackRate);
@@ -338,7 +445,7 @@ export function createHaDirectMounter({
       armFrameRecovery();
     };
     binding.fail = () => {
-      if (binding.disposed || !isCurrentEngine(engine)) return;
+      if (binding.disposed || !isCurrentOwnedEngine(engine)) return;
       if (!binding.failed) {
         binding.failed = true;
         binding.failureRevision += 1;
@@ -353,11 +460,12 @@ export function createHaDirectMounter({
         if (
           binding.disposed ||
           revision !== binding.revision ||
-          !isCurrentEngine(engine)
+          !isCurrentOwnedEngine(engine)
         ) {
           return;
         }
         const video = findActiveHaCameraStreamVideo(engine);
+        sampleHlsHealth(engine);
         if (video) onCommittedMediaReady?.(engine, video);
         if (binding.failed) watchRecovery(video);
       })();
@@ -418,7 +526,8 @@ export function createHaDirectMounter({
       engine?.type !== "ha_direct" ||
       engine?.streamType !== "webrtc" ||
       !engine?.video ||
-      !engine?.pc
+      !engine?.pc ||
+      !isSelectedEntity(engine?.haDirectEntity)
     ) {
       return false;
     }
@@ -446,7 +555,8 @@ export function createHaDirectMounter({
         video.ended !== true &&
         !video.error &&
         Number(video.readyState) >= 2 &&
-        Number(video.videoWidth) > 0,
+        Number(video.videoWidth) > 0 &&
+        isHlsHealthFresh(engine),
     );
   };
 
@@ -492,8 +602,17 @@ export function createHaDirectMounter({
     if (!pending) return null;
     pendingPreload = null;
     pending.promoted = preservePlayback;
-    pending.abortController.abort();
-    if (!preservePlayback) release(pending.engine);
+    if (!preservePlayback) {
+      pending.cancelled = true;
+      pending.abortController.abort();
+      release(pending.engine);
+      if (
+        pending.playback?.engine &&
+        pending.playback.engine !== pending.engine
+      ) {
+        release(pending.playback.engine);
+      }
+    }
     try {
       pending.slot?.remove?.();
     } catch (_) {}
@@ -508,19 +627,21 @@ export function createHaDirectMounter({
   };
 
   const createWebRtc = (entity, muted) => {
+    const targetEntity = normalizeEntity(entity);
     let playback = null;
     playback = createWebRtcPlayback({
       hass: getHass(),
-      entity,
+      entity: targetEntity,
       muted,
       controls: false,
       scopeKey,
       onConnectionLost: (reason) => {
-        if (isCurrentEngine(playback?.engine)) {
+        if (isCurrentOwnedEngine(playback?.engine)) {
           scheduleResumeLive?.(reason);
         }
       },
     });
+    if (playback?.engine) playback.engine.haDirectEntity = targetEntity;
     return playback;
   };
 
@@ -553,14 +674,24 @@ export function createHaDirectMounter({
     if (!engine) return null;
     engine.type = "ha_direct";
     engine.streamType = "hls";
+    engine.haDirectEntity = normalizeEntity(entity);
     if (useDeck) mountHlsEngineInDeck(engine, entity);
+    beginHlsHealthTracking(engine);
     return engine;
   };
 
   const startWebRtcTakeoverForRetainedHls = (hlsEngine, slot) => {
     const hlsBinding = mediaBindings.get(hlsEngine);
     const entity = String(hlsEngine?.haDirectEntity || "").trim();
-    if (!hlsBinding || hlsBinding.disposed || !entity || !slot) return false;
+    if (
+      !hlsBinding ||
+      hlsBinding.disposed ||
+      !entity ||
+      !slot ||
+      !isSelectedEntity(entity)
+    ) {
+      return false;
+    }
     const playback = createWebRtc(entity, getStreamMuted());
     if (!playback?.engine) return false;
 
@@ -588,7 +719,8 @@ export function createHaDirectMounter({
         if (
           hlsBinding.disposed ||
           hlsBinding.takeoverEngine !== engine ||
-          !isCurrentEngine(hlsEngine)
+          !isCurrentOwnedEngine(hlsEngine) ||
+          !isSelectedEntity(engine.haDirectEntity)
         ) {
           release(engine);
           return;
@@ -622,7 +754,8 @@ export function createHaDirectMounter({
         ready !== true ||
         hlsBinding.disposed ||
         hlsBinding.takeoverEngine !== engine ||
-        !isCurrentEngine(hlsEngine)
+        !isCurrentOwnedEngine(hlsEngine) ||
+        !isSelectedEntity(engine.haDirectEntity)
       ) {
         if (hlsBinding.takeoverEngine === engine) {
           hlsBinding.takeoverEngine = null;
@@ -645,7 +778,13 @@ export function createHaDirectMounter({
   };
 
   const adoptRetainedHlsEngine = (slot, engine) => {
-    if (!slot || !isRetainableHlsEngine(engine)) return false;
+    if (
+      !slot ||
+      !isRetainableHlsEngine(engine) ||
+      !isSelectedEntity(engine?.haDirectEntity)
+    ) {
+      return false;
+    }
     slot.innerHTML = "";
     if (!setDeckHlsActive(engine, true)) return false;
     assignCommittedEngine(engine);
@@ -658,7 +797,7 @@ export function createHaDirectMounter({
     return binding.disposed !== true;
   };
 
-  const preloadHlsEntity = async (entity, generation) => {
+  const preloadHaDirectEntity = async (entity, generation) => {
     if (
       generation !== preloadGeneration ||
       shouldPreload?.() !== true ||
@@ -673,12 +812,24 @@ export function createHaDirectMounter({
       useDeck: true,
     });
     if (!engine) return false;
+    if (
+      generation !== preloadGeneration ||
+      shouldPreload?.() !== true ||
+      hasRetainedEngine?.(entity) === true
+    ) {
+      release(engine);
+      return false;
+    }
+    const playback = createWebRtc(entity, true);
+    const webRtcEngine = playback?.engine || null;
+    if (webRtcEngine) createWebRtcBinding(webRtcEngine);
     const abortController = new AbortController();
     const pending = {
       abortController,
+      cancelled: false,
       engine,
       entity,
-      playback: null,
+      playback,
       promoted: false,
       slot: null,
       startPromise: null,
@@ -692,31 +843,114 @@ export function createHaDirectMounter({
       startup: { streamType: "hls" },
       preferredStreamType: "webrtc",
     });
-    let ready = false;
-    try {
-      ready = await waitForStreamStart(engine, hlsPlan.waitMs, {
-        ...hlsPlan.waitOptions,
-        abortSignal: abortController.signal,
-        resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+    const webRtcPlan = buildHaDirectMountPlan({
+      startup: { streamType: "webrtc" },
+      preferredStreamType: "webrtc",
+    });
+    const hlsReady = (async () => {
+      try {
+        return (
+          (await waitForStreamStart(engine, hlsPlan.waitMs, {
+            ...hlsPlan.waitOptions,
+            abortSignal: abortController.signal,
+            resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+          })) === true
+        );
+      } catch (_) {
+        return false;
+      }
+    })();
+    pending.startPromise = webRtcEngine
+      ? (async () => {
+          await releaseBarrier;
+          if (abortController.signal.aborted) return false;
+          try {
+            return (await playback.start()) === true;
+          } catch (_) {
+            return false;
+          }
+        })()
+      : Promise.resolve(false);
+    const webRtcReady = webRtcEngine
+      ? (async () => {
+          if (!(await pending.startPromise) || abortController.signal.aborted) {
+            return false;
+          }
+          try {
+            const ready = await Promise.race([
+              waitForStreamStart(webRtcEngine, webRtcPlan.waitMs, {
+                ...webRtcPlan.waitOptions,
+                strict: true,
+                minCurrentTime: Math.max(
+                  0.05,
+                  Number(webRtcPlan.waitOptions.minCurrentTime) || 0,
+                ),
+                minDecodedFrames: Math.max(
+                  1,
+                  Number(webRtcPlan.waitOptions.minDecodedFrames) || 0,
+                ),
+                requirePresentedFrame: true,
+                abortSignal: abortController.signal,
+                resolveVideo: () => webRtcEngine.video,
+              }),
+              webRtcEngine.failure,
+            ]);
+            return ready === true;
+          } catch (_) {
+            return false;
+          }
+        })()
+      : Promise.resolve(false);
+    const readyCandidate = (type, promise) =>
+      promise.then((ready) => {
+        if (!ready) throw new Error(`${type} did not render`);
+        return type;
       });
-    } catch (_) {
-      ready = false;
-    }
+    const firstReady = await Promise.any([
+      readyCandidate("hls", hlsReady),
+      readyCandidate("webrtc", webRtcReady),
+    ]).catch(() => "");
+    const useWebRtc =
+      firstReady === "webrtc" ||
+      (firstReady === "hls" && (await webRtcReady) === true);
+    let hlsSucceeded =
+      firstReady === "hls" ||
+      (!useWebRtc && (await hlsReady) === true);
     if (pendingPreload === pending) pendingPreload = null;
     if (pending.promoted) return true;
+    if (pending.cancelled) return false;
     const stillConfigured = (getPreloadEntities?.() || []).includes(entity);
     if (
-      ready !== true ||
+      (!useWebRtc && !hlsSucceeded) ||
       generation !== preloadGeneration ||
       shouldPreload?.() !== true ||
-      !stillConfigured ||
-      !isRetainableHlsEngine(engine) ||
-      retainPreloadedEngine?.(entity, engine) !== true
+      !stillConfigured
     ) {
       release(engine);
+      if (webRtcEngine) release(webRtcEngine);
       return false;
     }
-    return true;
+    if (useWebRtc && webRtcEngine) {
+      webRtcEngine.markStarted?.();
+      if (retainPreloadedEngine?.(entity, webRtcEngine) === true) {
+        abortController.abort();
+        release(engine);
+        return true;
+      }
+      release(webRtcEngine);
+      hlsSucceeded = hlsSucceeded || (await hlsReady) === true;
+    } else if (webRtcEngine) {
+      release(webRtcEngine);
+    }
+    if (
+      hlsSucceeded &&
+      isRetainableHlsEngine(engine) &&
+      retainPreloadedEngine?.(entity, engine) === true
+    ) {
+      return true;
+    }
+    release(engine);
+    return false;
   };
 
   const preloadEntity = async (entity, generation) => {
@@ -729,7 +963,7 @@ export function createHaDirectMounter({
     ) {
       return false;
     }
-    return preloadHlsEntity(targetEntity, generation);
+    return preloadHaDirectEntity(targetEntity, generation);
   };
 
   const runPreloadDeck = async (generation) => {
@@ -782,10 +1016,14 @@ export function createHaDirectMounter({
 
   const tryMount = async (slot, startup = null, options = {}) => {
     const entity = String(options.entity || "").trim();
+    const mountToken = options.mountToken;
     const useNativeHls = shouldUseNativeHls?.() === true;
     if (!useNativeHls) {
       const playbackPreparation = prepare();
       if (playbackPreparation?.then) await playbackPreparation;
+    }
+    if (options.commit !== false && !isOwnedMountAttempt(entity, mountToken)) {
+      return false;
     }
     const preferredStreamType = getPreferredStreamType();
     const haDirectPlan = buildHaDirectMountPlan({
@@ -834,6 +1072,10 @@ export function createHaDirectMounter({
               useDeck: commit,
             });
       if (!engine) return false;
+      if (commit && !isOwnedMountAttempt(entity, mountToken)) {
+        release(engine);
+        return false;
+      }
       if (hlsDeckSlots.has(engine)) {
         slot.innerHTML = "";
         setDeckHlsActive(engine, true);
@@ -856,7 +1098,13 @@ export function createHaDirectMounter({
           abortSignal: binding.abortController.signal,
           resolveVideo: () => findActiveHaCameraStreamVideo(engine),
         });
-        if (binding.disposed || !isCurrentEngine(engine)) return false;
+        if (
+          binding.disposed ||
+          !isCurrentOwnedEngine(engine) ||
+          !isOwnedMountAttempt(entity, mountToken)
+        ) {
+          return false;
+        }
         // A stream error transfers readiness ownership to the recovery watcher.
         // The older startup result must not undo its newer failure or recovery.
         if (failureRevision !== binding.failureRevision) return false;
@@ -886,6 +1134,7 @@ export function createHaDirectMounter({
     };
 
     const commitReadyHls = (engine, { retainPrevious = false } = {}) => {
+      if (!isOwnedMountAttempt(entity, mountToken)) return false;
       engine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
       const inDeck = hlsDeckSlots.has(engine);
       if (!retainPrevious) removeSlotChildrenExcept(inDeck ? null : engine);
@@ -906,15 +1155,28 @@ export function createHaDirectMounter({
     };
 
     const showReadyWebRtc = (ownerEngine, hlsEngine) => {
+      if (
+        !isOwnedMountAttempt(entity, mountToken) ||
+        !isSelectedEntity(ownerEngine?.haDirectEntity) ||
+        (!isCurrentEngine(ownerEngine) && !isCurrentEngine(hlsEngine))
+      ) {
+        release(ownerEngine);
+        return false;
+      }
       ownerEngine.video.style.cssText =
         options.styleText || HA_DIRECT_VISIBLE_STYLE;
       removeSlotChildrenExcept(ownerEngine.video);
       if (ownerEngine.video.parentElement !== slot) {
         slot.appendChild(ownerEngine.video);
       }
-      releaseHlsEngine(hlsEngine);
+      if (!isCurrentEngine(ownerEngine)) {
+        assignCommittedEngine(ownerEngine);
+      } else {
+        releaseHlsEngine(hlsEngine);
+      }
       onCommittedMediaReady?.(ownerEngine, ownerEngine.video);
       applyReady(ownerEngine, "webrtc");
+      return true;
     };
 
     if (initialStreamType === "hls") return mountHls();
@@ -925,6 +1187,10 @@ export function createHaDirectMounter({
     if (!playback) return mountHls();
 
     const { engine } = playback;
+    if (!isOwnedMountAttempt(entity, mountToken)) {
+      release(engine);
+      return false;
+    }
     replaceSlotContent(engine.video);
     if (!commit) {
       void playback.start();
@@ -932,7 +1198,7 @@ export function createHaDirectMounter({
     }
 
     assignCommittedEngine(engine);
-    const binding = createWebRtcBinding(engine);
+    const binding = mediaBindings.get(engine) || createWebRtcBinding(engine);
     binding.stopLoadingFallbackRefresh =
       startLoadingFallbackRefresh?.() || (() => {});
     onCommittedMediaReady?.(engine, engine.video);
@@ -950,6 +1216,12 @@ export function createHaDirectMounter({
             useDeck: true,
           });
     const fallbackAbortController = new AbortController();
+    if (!isOwnedMountAttempt(entity, mountToken)) {
+      fallbackAbortController.abort();
+      release(fallbackEngine);
+      release(engine);
+      return false;
+    }
     if (fallbackEngine) {
       binding.fallbackEngine = fallbackEngine;
       binding.fallbackAbortController = fallbackAbortController;
@@ -960,7 +1232,9 @@ export function createHaDirectMounter({
       }
     }
     const isWebRtcAttemptActive = () => {
-      if (binding.disposed) return false;
+      if (binding.disposed || !isOwnedMountAttempt(entity, mountToken)) {
+        return false;
+      }
       if (isCurrentEngine(engine)) return true;
       const hlsBinding = fallbackEngine
         ? mediaBindings.get(fallbackEngine)
@@ -968,7 +1242,7 @@ export function createHaDirectMounter({
       return Boolean(
         hlsBinding?.takeoverEngine === engine &&
           !hlsBinding.disposed &&
-          isCurrentEngine(fallbackEngine),
+          isCurrentOwnedEngine(fallbackEngine),
       );
     };
     const startupReady = (async () => {
@@ -1027,9 +1301,12 @@ export function createHaDirectMounter({
         binding.fallbackEngine = null;
         fallbackAbortController.abort();
         engine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
-        commitReadyHls(fallbackEngine, { retainPrevious: true });
+        if (!commitReadyHls(fallbackEngine, { retainPrevious: true })) {
+          release(engine);
+          return false;
+        }
         const hlsBinding = mediaBindings.get(fallbackEngine);
-        if (!hlsBinding || !isCurrentEngine(fallbackEngine)) {
+        if (!hlsBinding || !isCurrentOwnedEngine(fallbackEngine)) {
           release(engine);
           return false;
         }
@@ -1046,14 +1323,20 @@ export function createHaDirectMounter({
         // visibility/lifecycle callbacks to restart this mount in the gap.
         void (async () => {
           const webRtcStarted = await webRtcReady;
-          if (hlsBinding.disposed || !isCurrentEngine(fallbackEngine)) return;
+          if (
+            hlsBinding.disposed ||
+            !isCurrentOwnedEngine(fallbackEngine) ||
+            !isOwnedMountAttempt(entity, mountToken)
+          ) {
+            release(engine);
+            return;
+          }
           hlsBinding.takeoverEngine = null;
           fallbackEngine.cancelPendingTakeover = null;
           if (!webRtcStarted) {
             release(engine);
             return;
           }
-          assignCommittedEngine(engine);
           showReadyWebRtc(engine, fallbackEngine);
         })();
         return true;
@@ -1063,8 +1346,7 @@ export function createHaDirectMounter({
         binding.fallbackAbortController = null;
         binding.fallbackEngine = null;
         fallbackAbortController.abort();
-        showReadyWebRtc(engine, fallbackEngine);
-        return true;
+        return showReadyWebRtc(engine, fallbackEngine);
       }
       applyFailed(engine);
       release(engine);

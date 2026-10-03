@@ -2,12 +2,46 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createHaHlsPlayerElement,
   createHaNativeHlsVideoElement,
   ensureHaCameraPlaybackElements,
   findActiveHaCameraStreamVideo,
   resolveHaDirectCameraStreamType,
   watchHaPlaybackFirstFrame,
 } from "../src/integrations/home-assistant/playback.js";
+
+test("HA HLS player disables blocking low-latency playlist reloads", () => {
+  const previousDocument = globalThis.document;
+  const player = {
+    _hls: undefined,
+    style: { cssText: "" },
+  };
+  globalThis.document = {
+    createElement: (tagName) => {
+      assert.equal(tagName, "ha-hls-player");
+      return player;
+    },
+  };
+
+  try {
+    const result = createHaHlsPlayerElement({
+      hass: {},
+      entity: "camera.front",
+    });
+    const hls = {
+      lowLatencyMode: true,
+      config: { lowLatencyMode: true },
+    };
+    result._hls = hls;
+
+    assert.equal(result.fvcStandardLatencyHls, true);
+    assert.equal(result._hls, hls);
+    assert.equal(hls.lowLatencyMode, false);
+    assert.equal(hls.config.lowLatencyMode, false);
+  } finally {
+    globalThis.document = previousDocument;
+  }
+});
 
 test("HA native HLS video uses the authenticated camera stream URL", async () => {
   const previousDocument = globalThis.document;
@@ -311,6 +345,7 @@ test("HA camera-stream readiness follows the active player after HA switches to 
     shadowRoot: { querySelector: () => webRtcVideo },
   };
   const hlsPlayer = {
+    tagName: "HA-HLS-PLAYER",
     hidden: true,
     classList: { contains: () => false },
     shadowRoot: { querySelector: () => hlsVideo },
@@ -343,6 +378,12 @@ test("HA camera-stream readiness follows the active player after HA switches to 
 
   assert.deepEqual(webRtcVideo.canceled, [1]);
   assert.equal(hlsVideo.callbacks.size, 1);
+  const nestedHls = {
+    lowLatencyMode: true,
+    config: { lowLatencyMode: true },
+  };
+  hlsPlayer._hls = nestedHls;
+  assert.equal(nestedHls.lowLatencyMode, false);
   hlsVideo.callbacks.values().next().value();
   assert.equal(readyCount, 1);
   assert.equal(stream.listenerCount("load"), 0);

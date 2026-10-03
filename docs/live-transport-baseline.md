@@ -177,6 +177,21 @@ retained players remain reusable across camera and page changes. Cameras
 configured for `frigate_go2rtc` are excluded from this deck even when the same
 card contains both transport modes.
 
+`v1.1.8-dev.165` makes each normal HA Direct background warm-up a sequential,
+camera-scoped HLS/WebRTC race. A rendered WebRTC connection is the retained
+winner; otherwise the already-ready HLS player remains retained. Selecting the
+camera while its race is pending promotes that same pair into the visible mount.
+Every candidate is bound to both its camera entity and mount generation, so a
+late result cannot replace a newer camera selection. Retained HLS players are
+also checked for advancing media time; a playlist session that stops advancing
+is released and remounted instead of remaining stuck in Home Assistant's
+playlist retry loop. On browsers that use Home Assistant's `ha-hls-player`, the
+card disables Hls.js low-latency mode before the player loads its first
+playlist. Standard HLS avoids the blocking `_HLS_msn`/`_HLS_part` request path
+and its practical low concurrent-session limit while retaining Home Assistant
+authentication and player ownership. Catalyst remains on its separate native
+HLS path.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
@@ -299,6 +314,12 @@ one of those policies is the cause.
   retention are created in a permanent full-sized deck slot, stay mounted
   there, and are shown or hidden in place. Background warm-up starts HLS rather
   than opening unnecessary receive-only WebRTC sessions for every camera.
+- `v1.1.8-dev.165` extends normal HA Direct background warm-up to an owned
+  HLS/WebRTC race and retains its best rendered connection. Visible takeover is
+  permitted only while the candidate's camera entity and mount token still own
+  the selected live view, retained engines are validated against that same
+  entity identity, browser `ha-hls-player` instances use standard HLS rather
+  than LL-HLS, and stalled retained HLS sessions are recycled.
 
 ## Validation Expectations
 

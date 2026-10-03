@@ -1521,6 +1521,87 @@ test("ha direct mounter warms configured HA Direct HLS cameras sequentially", as
   });
 });
 
+test("ha direct background warm-up retains rendered WebRTC over HLS", async () => {
+  await withFakeDocument(async ({ hlsPlayers }) => {
+    const frameCallbacks = [];
+    const retained = new Map();
+    const startedEntities = [];
+    let markStartedCalls = 0;
+    const preloadHost = {
+      appendChild(node) {
+        node.isConnected = true;
+        node.parentElement = this;
+      },
+    };
+    const mounter = createHaDirectMounter({
+      getHass: () => ({ states: { "camera.front": {} } }),
+      getPreferredStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: () => false,
+      waitForStreamStart: async (engine) => {
+        if (engine.streamType === "webrtc") return true;
+        engine.firstVideo.paused = false;
+        engine.firstVideo.readyState = 4;
+        engine.firstVideo.videoWidth = 1920;
+        return true;
+      },
+      assignCommittedEngine: () => {},
+      applyResolvedStreamUiState: () => {},
+      setLiveNativeControls: () => {},
+      createWebRtcPlayback: ({ entity }) => {
+        const engine = {
+          type: "ha_direct",
+          streamType: "webrtc",
+          video: createFakeVideo(`webrtc-${entity}`),
+          pc: {},
+          failure: new Promise(() => {}),
+          markStarted() {
+            markStartedCalls += 1;
+          },
+          destroy() {},
+        };
+        return {
+          engine,
+          start: async () => {
+            startedEntities.push(entity);
+            return true;
+          },
+        };
+      },
+      getPreloadEntities: () => ["camera.front"],
+      getActiveEntity: () => "",
+      getPreloadHost: () => preloadHost,
+      shouldPreload: () => true,
+      hasRetainedEngine: (entity) => retained.has(entity),
+      retainPreloadedEngine: (entity, engine) => {
+        retained.set(entity, engine);
+        return true;
+      },
+      requestFrame: (callback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      },
+      cancelFrame: () => {},
+    });
+
+    mounter.schedulePreloadDeckAfterPaint();
+    frameCallbacks.shift()?.();
+    frameCallbacks.shift()?.();
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    const retainedEngine = retained.get("camera.front");
+    assert.equal(retainedEngine?.streamType, "webrtc");
+    assert.equal(retainedEngine?.haDirectEntity, "camera.front");
+    assert.deepEqual(startedEntities, ["camera.front"]);
+    assert.equal(markStartedCalls, 1);
+    assert.equal(hlsPlayers.length, 1);
+    assert.equal(hlsPlayers[0].parentElement.isConnected, false);
+    mounter.cancelPreloads();
+  });
+});
+
 test("ha direct mounter retains deck-born HLS without reparenting the player", async () => {
   await withFakeDocument(async ({ hlsPlayers }) => {
     const deckHost = {
@@ -1590,6 +1671,207 @@ test("ha direct mounter retains deck-born HLS without reparenting the player", a
     assert.equal(originalParent.style.opacity, "1");
     assert.equal(player.removeCalled, false);
   });
+});
+
+test("ha direct mounter recycles a retained HLS session that stops advancing", async () => {
+  await withFakeDocument(async ({ hlsPlayers }) => {
+    const deckHost = {
+      appendChild(node) {
+        node.isConnected = true;
+        node.parentElement = this;
+      },
+    };
+    const slot = {
+      innerHTML: "",
+      appendChild(node) {
+        node.parentElement = this;
+      },
+    };
+    let assignedEngine = null;
+    let clock = 0;
+    let healthCheck = null;
+    const resumeReasons = [];
+    const mounter = createHaDirectMounter({
+      getHass: () => ({ states: { "camera.front": {} } }),
+      getPreferredStreamType: () => "hls",
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: (engine) => engine === assignedEngine,
+      waitForStreamStart: async (engine) => {
+        engine.firstVideo.paused = false;
+        engine.firstVideo.readyState = 4;
+        engine.firstVideo.videoWidth = 1920;
+        return true;
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      applyResolvedStreamUiState: () => {},
+      setLiveNativeControls: () => {},
+      scheduleResumeLive: (reason) => resumeReasons.push(reason),
+      getPreloadHost: () => deckHost,
+      now: () => clock,
+      setHealthInterval: (callback) => {
+        healthCheck = callback;
+        return 1;
+      },
+      clearHealthInterval: () => {},
+    });
+
+    const result = await mounter.tryMount(
+      slot,
+      { streamType: "hls" },
+      { entity: "camera.front", commit: true },
+    );
+    assert.equal(await result.startupReady, true);
+    assert.equal(hlsPlayers[0].removeCalled, false);
+
+    clock = 12001;
+    healthCheck();
+
+    assert.equal(hlsPlayers[0].parentElement.isConnected, false);
+    assert.deepEqual(resumeReasons, ["hls-stalled"]);
+  });
+});
+
+test("ha direct WebRTC takeover cannot replace a newly selected camera", async () => {
+  await withFakeDocument(async () => {
+    const deckHost = {
+      appendChild(node) {
+        node.isConnected = true;
+        node.parentElement = this;
+        return node;
+      },
+    };
+    const slot = {
+      children: [],
+      innerHTML: "",
+      appendChild(node) {
+        this.children.push(node);
+        node.parentElement = this;
+        return node;
+      },
+    };
+    let selectedEntity = "camera.front";
+    let assignedEngine = null;
+    let resolveWebRtcReady = null;
+    let webRtcDestroyCalls = 0;
+    const webRtcReady = new Promise((resolve) => {
+      resolveWebRtcReady = resolve;
+    });
+    const committedTypes = [];
+    const mounter = createHaDirectMounter({
+      getHass: () => ({
+        states: {
+          "camera.front": {},
+          "camera.back": {},
+        },
+      }),
+      getPreferredStreamType: () => "hls",
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      getSelectedEntity: () => selectedEntity,
+      isCurrentEngine: (engine) => engine === assignedEngine,
+      waitForStreamStart: async (engine) => {
+        if (engine.streamType === "webrtc") return webRtcReady;
+        engine.firstVideo.paused = false;
+        engine.firstVideo.readyState = 4;
+        engine.firstVideo.videoWidth = 1920;
+        return true;
+      },
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      onCommittedMediaReady: () => {},
+      onCommittedStream: (type) => committedTypes.push(type),
+      applyResolvedStreamUiState: () => {},
+      setLiveNativeControls: () => {},
+      getPreloadHost: () => deckHost,
+      createWebRtcPlayback: ({ entity }) => {
+        const video = createFakeVideo(`webrtc-${entity}`);
+        const engine = {
+          type: "ha_direct",
+          streamType: "webrtc",
+          video,
+          pc: {},
+          failure: new Promise(() => {}),
+          destroy() {
+            webRtcDestroyCalls += 1;
+          },
+        };
+        return { engine, start: async () => true };
+      },
+    });
+
+    const initial = await mounter.tryMount(
+      slot,
+      { streamType: "hls" },
+      { entity: "camera.front", commit: true },
+    );
+    assert.equal(await initial.startupReady, true);
+    assert.equal(mounter.suspendRetainedHlsEngine(initial.engine), true);
+    assert.equal(mounter.adoptRetainedHlsEngine(slot, initial.engine), true);
+    await flushAsyncWork();
+
+    selectedEntity = "camera.back";
+    const backEngine = {
+      type: "ha_direct",
+      streamType: "hls",
+      haDirectEntity: "camera.back",
+    };
+    assignedEngine = backEngine;
+    resolveWebRtcReady(true);
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    assert.strictEqual(assignedEngine, backEngine);
+    assert.deepEqual(committedTypes, ["hls", "hls"]);
+    assert.equal(webRtcDestroyCalls, 1);
+  });
+});
+
+test("ha direct mount token prevents an older camera start from committing", async () => {
+  let selectedEntity = "camera.front";
+  let currentMountToken = 1;
+  let resolvePreparation = null;
+  let assignedEngine = null;
+  const preparation = new Promise((resolve) => {
+    resolvePreparation = resolve;
+  });
+  const mounter = createHaDirectMounter({
+    getHass: () => ({
+      states: {
+        "camera.front": {},
+        "camera.back": {},
+      },
+    }),
+    getPreferredStreamType: () => "hls",
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    getSelectedEntity: () => selectedEntity,
+    isMountAttemptCurrent: (mountToken, entity) =>
+      mountToken === currentMountToken && entity === selectedEntity,
+    isCurrentEngine: (engine) => engine === assignedEngine,
+    waitForStreamStart: async () => true,
+    assignCommittedEngine: (engine) => {
+      assignedEngine = engine;
+    },
+    applyResolvedStreamUiState: () => {},
+    setLiveNativeControls: () => {},
+    preparePlaybackElements: () => preparation,
+  });
+  const staleMount = mounter.tryMount(
+    { innerHTML: "", appendChild() {} },
+    { streamType: "hls" },
+    { entity: "camera.front", commit: true, mountToken: 1 },
+  );
+
+  selectedEntity = "camera.back";
+  currentMountToken = 2;
+  resolvePreparation(true);
+
+  assert.equal(await staleMount, false);
+  assert.equal(assignedEngine, null);
 });
 
 test("ha direct selection promotes an in-progress HLS warm-up", async () => {
