@@ -26,6 +26,8 @@ const HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE =
   "position:absolute;inset:0;z-index:1;width:100%;height:100%;display:block;pointer-events:none;background:var(--c-bg-deep)";
 const HA_DIRECT_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
+const HA_DIRECT_HLS_DECK_LAYER_STYLE =
+  "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;opacity:0;z-index:0";
 const HA_DIRECT_TIME_RECOVERY_MIN_ADVANCES = 2;
 const HA_DIRECT_TIME_RECOVERY_MIN_PROGRESS_SECONDS = 0.05;
 
@@ -48,9 +50,27 @@ export function createHaDirectMounter({
   shouldUseNativeHls = () => false,
   preparePlaybackElements = ensureHaCameraPlaybackElements,
   createNativeHlsVideo = createHaNativeHlsVideoElement,
+  createWebRtcPlayback = createHaDirectWebRtcPlayback,
+  getPreloadEntities = () => [],
+  getActiveEntity = () => "",
+  getPreloadHost = () => null,
+  shouldPreload = () => false,
+  hasRetainedEngine = () => false,
+  retainPreloadedEngine = () => false,
+  syncRetainedEntities = () => {},
+  requestFrame = (callback) => globalThis.requestAnimationFrame?.(callback),
+  cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
 }) {
   const mediaBindings = new WeakMap();
+  const hlsDeckSlots = new WeakMap();
   let releaseBarrier = Promise.resolve();
+  let activeDeckHlsEngine = null;
+  let preloadGeneration = 0;
+  let preloadRunning = false;
+  let preloadRescheduleRequested = false;
+  let preloadFrame = null;
+  let preloadPaintFrame = null;
+  let pendingPreload = null;
 
   const prepare = () => {
     try {
@@ -68,11 +88,58 @@ export function createHaDirectMounter({
     );
   };
 
+  const mountHlsEngineInDeck = (engine, entity) => {
+    const host = getPreloadHost?.();
+    if (!host?.appendChild || !globalThis.document?.createElement) return false;
+    const deckSlot = document.createElement("div");
+    deckSlot.setAttribute?.("aria-hidden", "true");
+    deckSlot.setAttribute?.("data-fvc-ha-direct-hls", entity);
+    deckSlot.style.cssText = HA_DIRECT_HLS_DECK_LAYER_STYLE;
+    deckSlot.appendChild(engine);
+    host.appendChild(deckSlot);
+    hlsDeckSlots.set(engine, deckSlot);
+    engine.haDirectHlsDeck = true;
+    engine.haDirectEntity = entity;
+    return true;
+  };
+
+  const setDeckHlsActive = (engine, active) => {
+    const deckSlot = hlsDeckSlots.get(engine);
+    if (!deckSlot) return false;
+    if (active && activeDeckHlsEngine && activeDeckHlsEngine !== engine) {
+      setDeckHlsActive(activeDeckHlsEngine, false);
+    }
+    deckSlot.style.opacity = active ? "1" : "0";
+    deckSlot.style.zIndex = active ? "2" : "0";
+    engine.muted = active ? Boolean(getStreamMuted()) : true;
+    if (active) {
+      activeDeckHlsEngine = engine;
+      void engine.play?.().catch?.(() => {});
+    } else if (activeDeckHlsEngine === engine) {
+      activeDeckHlsEngine = null;
+    }
+    return true;
+  };
+
+  const removeHlsDeckSlot = (engine) => {
+    const deckSlot = hlsDeckSlots.get(engine);
+    if (!deckSlot) return false;
+    if (activeDeckHlsEngine === engine) activeDeckHlsEngine = null;
+    hlsDeckSlots.delete(engine);
+    try {
+      deckSlot.remove?.();
+    } catch (_) {}
+    return true;
+  };
+
   const release = (engine) => {
     const binding = mediaBindings.get(engine);
     if (!binding) {
       if (engine?.type === "ha_direct" && engine?.streamType === "webrtc") {
         rememberRelease(engine.destroy?.());
+      } else if (engine?.type === "ha_direct" && engine?.streamType === "hls") {
+        rememberRelease(engine.destroy?.());
+        if (!removeHlsDeckSlot(engine)) engine.remove?.();
       }
       return;
     }
@@ -82,8 +149,7 @@ export function createHaDirectMounter({
     binding.cleanupRecovery?.();
     binding.abortController.abort();
     binding.fallbackAbortController?.abort?.();
-    binding.fallbackEngine?.destroy?.();
-    binding.fallbackEngine?.remove?.();
+    const fallbackEngine = binding.fallbackEngine || null;
     const takeoverEngine = binding.takeoverEngine || null;
     binding.fallbackAbortController = null;
     binding.fallbackEngine = null;
@@ -92,10 +158,16 @@ export function createHaDirectMounter({
     engine.removeEventListener?.("load", binding.reconcile, true);
     engine.removeEventListener?.("streams", binding.onStreams, true);
     mediaBindings.delete(engine);
+    if (fallbackEngine && fallbackEngine !== engine) {
+      release(fallbackEngine);
+    }
     if (takeoverEngine && takeoverEngine !== engine) {
       release(takeoverEngine);
     }
     rememberRelease(engine?.destroy?.());
+    if (engine?.streamType === "hls") {
+      if (!removeHlsDeckSlot(engine)) engine.remove?.();
+    }
   };
 
   const awaitUpdate = async (element) => {
@@ -115,6 +187,7 @@ export function createHaDirectMounter({
       waitSucceeded: true,
     });
     applyResolvedStreamUiState(readyState);
+    schedulePreloadDeckAfterPaint();
   };
 
   const applyFailed = (engine) => {
@@ -358,6 +431,355 @@ export function createHaDirectMounter({
     return true;
   };
 
+  const isRetainableHlsEngine = (engine) => {
+    if (
+      engine?.type !== "ha_direct" ||
+      engine?.streamType !== "hls" ||
+      engine?.haDirectHlsDeck !== true ||
+      !hlsDeckSlots.has(engine)
+    ) {
+      return false;
+    }
+    const video = findActiveHaCameraStreamVideo(engine);
+    return Boolean(
+      video &&
+        video.ended !== true &&
+        !video.error &&
+        Number(video.readyState) >= 2 &&
+        Number(video.videoWidth) > 0,
+    );
+  };
+
+  const suspendRetainedHlsEngine = (engine) => {
+    if (!isRetainableHlsEngine(engine)) return false;
+    const binding = mediaBindings.get(engine);
+    if (binding) {
+      binding.disposed = true;
+      binding.revision += 1;
+      binding.stopLoadingFallbackRefresh?.();
+      binding.cleanupRecovery?.();
+      binding.abortController.abort();
+      binding.fallbackAbortController?.abort?.();
+      const fallbackEngine = binding.fallbackEngine || null;
+      const takeoverEngine = binding.takeoverEngine || null;
+      binding.fallbackEngine = null;
+      binding.fallbackAbortController = null;
+      binding.takeoverEngine = null;
+      engine.cancelPendingTakeover = null;
+      engine.removeEventListener?.("load", binding.reconcile, true);
+      engine.removeEventListener?.("streams", binding.onStreams, true);
+      mediaBindings.delete(engine);
+      if (fallbackEngine && fallbackEngine !== engine) release(fallbackEngine);
+      if (takeoverEngine && takeoverEngine !== engine) release(takeoverEngine);
+    }
+    setDeckHlsActive(engine, false);
+    engine.muted = true;
+    try {
+      void engine.play?.().catch?.(() => {});
+    } catch (_) {}
+    return true;
+  };
+
+  const cancelScheduledPreload = () => {
+    if (preloadFrame != null) cancelFrame?.(preloadFrame);
+    if (preloadPaintFrame != null) cancelFrame?.(preloadPaintFrame);
+    preloadFrame = null;
+    preloadPaintFrame = null;
+  };
+
+  const cancelPendingPreload = ({ preservePlayback = false } = {}) => {
+    const pending = pendingPreload;
+    if (!pending) return null;
+    pendingPreload = null;
+    pending.promoted = preservePlayback;
+    pending.abortController.abort();
+    if (!preservePlayback) release(pending.engine);
+    try {
+      pending.slot?.remove?.();
+    } catch (_) {}
+    return preservePlayback ? pending : null;
+  };
+
+  const cancelPreloads = () => {
+    preloadGeneration += 1;
+    preloadRescheduleRequested = false;
+    cancelScheduledPreload();
+    cancelPendingPreload();
+  };
+
+  const createWebRtc = (entity, muted) => {
+    let playback = null;
+    playback = createWebRtcPlayback({
+      hass: getHass(),
+      entity,
+      muted,
+      controls: false,
+      scopeKey,
+      onConnectionLost: (reason) => {
+        if (isCurrentEngine(playback?.engine)) {
+          scheduleResumeLive?.(reason);
+        }
+      },
+    });
+    return playback;
+  };
+
+  const createHlsEngine = async ({
+    entity,
+    muted,
+    defaultMuted,
+    styleText = HA_DIRECT_VISIBLE_STYLE,
+    useDeck = true,
+  } = {}) => {
+    const hass = getHass();
+    if (!hass?.states?.[entity]) return null;
+    const hlsOptions = {
+      hass,
+      entity,
+      controls: false,
+      muted: muted ?? getStreamMuted(),
+      defaultMuted,
+      fitMode: "contain",
+      styleText,
+    };
+    let engine = null;
+    try {
+      engine = shouldUseNativeHls?.() === true
+        ? await createNativeHlsVideo(hlsOptions)
+        : createHaHlsPlayerElement(hlsOptions);
+    } catch (_) {
+      engine = null;
+    }
+    if (!engine) return null;
+    engine.type = "ha_direct";
+    engine.streamType = "hls";
+    if (useDeck) mountHlsEngineInDeck(engine, entity);
+    return engine;
+  };
+
+  const startWebRtcTakeoverForRetainedHls = (hlsEngine, slot) => {
+    const hlsBinding = mediaBindings.get(hlsEngine);
+    const entity = String(hlsEngine?.haDirectEntity || "").trim();
+    if (!hlsBinding || hlsBinding.disposed || !entity || !slot) return false;
+    const playback = createWebRtc(entity, getStreamMuted());
+    if (!playback?.engine) return false;
+
+    const { engine } = playback;
+    engine.video.style.cssText = HA_DIRECT_HIDDEN_ATTEMPT_STYLE;
+    slot.appendChild(engine.video);
+    const webRtcBinding = createWebRtcBinding(engine);
+    hlsBinding.takeoverEngine = engine;
+    hlsEngine.cancelPendingTakeover = () => {
+      const activeBinding = mediaBindings.get(hlsEngine);
+      const pendingEngine = activeBinding?.takeoverEngine || null;
+      if (activeBinding) activeBinding.takeoverEngine = null;
+      hlsEngine.cancelPendingTakeover = null;
+      if (pendingEngine) release(pendingEngine);
+    };
+
+    const plan = buildHaDirectMountPlan({
+      startup: { streamType: "webrtc" },
+      preferredStreamType: "webrtc",
+    });
+    void (async () => {
+      let ready = false;
+      try {
+        await releaseBarrier;
+        if (
+          hlsBinding.disposed ||
+          hlsBinding.takeoverEngine !== engine ||
+          !isCurrentEngine(hlsEngine)
+        ) {
+          release(engine);
+          return;
+        }
+        const signalingStarted = await playback.start();
+        if (signalingStarted) {
+          ready = await Promise.race([
+            waitForStreamStart(engine, plan.waitMs, {
+              ...plan.waitOptions,
+              strict: true,
+              minCurrentTime: Math.max(
+                0.05,
+                Number(plan.waitOptions.minCurrentTime) || 0,
+              ),
+              minDecodedFrames: Math.max(
+                1,
+                Number(plan.waitOptions.minDecodedFrames) || 0,
+              ),
+              requirePresentedFrame: true,
+              abortSignal: webRtcBinding.abortController.signal,
+              resolveVideo: () => engine.video,
+            }),
+            engine.failure,
+          ]);
+        }
+      } catch (_) {
+        ready = false;
+      }
+
+      if (
+        ready !== true ||
+        hlsBinding.disposed ||
+        hlsBinding.takeoverEngine !== engine ||
+        !isCurrentEngine(hlsEngine)
+      ) {
+        if (hlsBinding.takeoverEngine === engine) {
+          hlsBinding.takeoverEngine = null;
+          hlsEngine.cancelPendingTakeover = null;
+        }
+        release(engine);
+        return;
+      }
+
+      hlsBinding.takeoverEngine = null;
+      hlsEngine.cancelPendingTakeover = null;
+      engine.video.style.cssText = HA_DIRECT_VISIBLE_STYLE;
+      slot.innerHTML = "";
+      slot.appendChild(engine.video);
+      assignCommittedEngine(engine);
+      onCommittedMediaReady?.(engine, engine.video);
+      applyReady(engine, "webrtc");
+    })();
+    return true;
+  };
+
+  const adoptRetainedHlsEngine = (slot, engine) => {
+    if (!slot || !isRetainableHlsEngine(engine)) return false;
+    slot.innerHTML = "";
+    if (!setDeckHlsActive(engine, true)) return false;
+    assignCommittedEngine(engine);
+    const binding = bindHlsMedia(engine);
+    const video = findActiveHaCameraStreamVideo(engine);
+    if (video) onCommittedMediaReady?.(engine, video);
+    if (getRotateOverlayActive()) setLiveNativeControls(true);
+    applyReady(engine, "hls");
+    startWebRtcTakeoverForRetainedHls(engine, slot);
+    return binding.disposed !== true;
+  };
+
+  const preloadHlsEntity = async (entity, generation) => {
+    if (
+      generation !== preloadGeneration ||
+      shouldPreload?.() !== true ||
+      hasRetainedEngine?.(entity) === true
+    ) {
+      return false;
+    }
+    const engine = await createHlsEngine({
+      entity,
+      muted: true,
+      styleText: HA_DIRECT_VISIBLE_STYLE,
+      useDeck: true,
+    });
+    if (!engine) return false;
+    const abortController = new AbortController();
+    const pending = {
+      abortController,
+      engine,
+      entity,
+      playback: null,
+      promoted: false,
+      slot: null,
+      startPromise: null,
+    };
+    pendingPreload = pending;
+    try {
+      await engine.play?.();
+    } catch (_) {}
+
+    const hlsPlan = buildHaDirectMountPlan({
+      startup: { streamType: "hls" },
+      preferredStreamType: "webrtc",
+    });
+    let ready = false;
+    try {
+      ready = await waitForStreamStart(engine, hlsPlan.waitMs, {
+        ...hlsPlan.waitOptions,
+        abortSignal: abortController.signal,
+        resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+      });
+    } catch (_) {
+      ready = false;
+    }
+    if (pendingPreload === pending) pendingPreload = null;
+    if (pending.promoted) return true;
+    const stillConfigured = (getPreloadEntities?.() || []).includes(entity);
+    if (
+      ready !== true ||
+      generation !== preloadGeneration ||
+      shouldPreload?.() !== true ||
+      !stillConfigured ||
+      !isRetainableHlsEngine(engine) ||
+      retainPreloadedEngine?.(entity, engine) !== true
+    ) {
+      release(engine);
+      return false;
+    }
+    return true;
+  };
+
+  const preloadEntity = async (entity, generation) => {
+    const targetEntity = String(entity || "").trim();
+    if (
+      !targetEntity ||
+      generation !== preloadGeneration ||
+      shouldPreload?.() !== true ||
+      hasRetainedEngine?.(targetEntity) === true
+    ) {
+      return false;
+    }
+    return preloadHlsEntity(targetEntity, generation);
+  };
+
+  const runPreloadDeck = async (generation) => {
+    if (preloadRunning || generation !== preloadGeneration) return;
+    preloadRunning = true;
+    try {
+      const entities = [...new Set(getPreloadEntities?.() || [])];
+      syncRetainedEntities?.(entities);
+      for (const entity of entities) {
+        if (generation !== preloadGeneration || shouldPreload?.() !== true) {
+          break;
+        }
+        if (
+          entity === String(getActiveEntity?.() || "").trim() ||
+          hasRetainedEngine?.(entity) === true
+        ) {
+          continue;
+        }
+        await preloadEntity(entity, generation);
+      }
+    } finally {
+      preloadRunning = false;
+      if (preloadRescheduleRequested) {
+        preloadRescheduleRequested = false;
+        schedulePreloadDeckAfterPaint();
+      }
+    }
+  };
+
+  function schedulePreloadDeckAfterPaint() {
+    if (shouldPreload?.() !== true) return;
+    if (preloadRunning) {
+      preloadRescheduleRequested = true;
+      return;
+    }
+    if (preloadFrame != null || preloadPaintFrame != null) return;
+    const generation = preloadGeneration;
+    if (typeof requestFrame !== "function") {
+      void runPreloadDeck(generation);
+      return;
+    }
+    preloadFrame = requestFrame(() => {
+      preloadFrame = null;
+      preloadPaintFrame = requestFrame(() => {
+        preloadPaintFrame = null;
+        void runPreloadDeck(generation);
+      });
+    });
+  }
+
   const tryMount = async (slot, startup = null, options = {}) => {
     const entity = String(options.entity || "").trim();
     const useNativeHls = shouldUseNativeHls?.() === true;
@@ -383,39 +805,41 @@ export function createHaDirectMounter({
       return false;
     }
 
+    let promotedPreload = null;
+    if (commit) {
+      const pendingForEntity = pendingPreload?.entity === entity;
+      preloadGeneration += 1;
+      cancelScheduledPreload();
+      if (pendingForEntity) {
+        promotedPreload = cancelPendingPreload({ preservePlayback: true });
+      } else {
+        cancelPendingPreload();
+      }
+    }
+
     const replaceSlotContent = (node) => {
       slot.innerHTML = "";
       slot.appendChild(node);
     };
 
-    const createHlsEngine = async (styleText = "") => {
-      const hlsOptions = {
-        hass,
-        entity,
-        controls: false,
-        muted: options?.muted ?? getStreamMuted(),
-        defaultMuted: options.defaultMuted,
-        fitMode: "contain",
-        styleText: styleText || options.styleText || HA_DIRECT_VISIBLE_STYLE,
-      };
-      let engine = null;
-      try {
-        engine = useNativeHls
-          ? await createNativeHlsVideo(hlsOptions)
-          : createHaHlsPlayerElement(hlsOptions);
-      } catch (_) {
-        engine = null;
-      }
-      if (!engine) return false;
-      engine.type = "ha_direct";
-      engine.streamType = "hls";
-      return engine;
-    };
-
     const mountHls = async () => {
-      const engine = await createHlsEngine();
+      const engine =
+        promotedPreload?.engine?.streamType === "hls"
+          ? promotedPreload.engine
+          : await createHlsEngine({
+              entity,
+              muted: options?.muted ?? getStreamMuted(),
+              defaultMuted: options.defaultMuted,
+              styleText: options.styleText || HA_DIRECT_VISIBLE_STYLE,
+              useDeck: commit,
+            });
       if (!engine) return false;
-      replaceSlotContent(engine);
+      if (hlsDeckSlots.has(engine)) {
+        slot.innerHTML = "";
+        setDeckHlsActive(engine, true);
+      } else {
+        replaceSlotContent(engine);
+      }
       if (!commit) {
         return { ok: true, type: "hls", engine, slot };
       }
@@ -463,8 +887,13 @@ export function createHaDirectMounter({
 
     const commitReadyHls = (engine, { retainPrevious = false } = {}) => {
       engine.style.cssText = options.styleText || HA_DIRECT_VISIBLE_STYLE;
-      if (!retainPrevious) removeSlotChildrenExcept(engine);
-      if (engine.parentElement !== slot) slot.appendChild(engine);
+      const inDeck = hlsDeckSlots.has(engine);
+      if (!retainPrevious) removeSlotChildrenExcept(inDeck ? null : engine);
+      if (inDeck) {
+        setDeckHlsActive(engine, true);
+      } else if (engine.parentElement !== slot) {
+        slot.appendChild(engine);
+      }
       assignCommittedEngine(engine, { retainPrevious });
       bindHlsMedia(engine);
       if (getRotateOverlayActive()) setLiveNativeControls(true);
@@ -473,8 +902,7 @@ export function createHaDirectMounter({
     };
 
     const releaseHlsEngine = (hlsEngine) => {
-      hlsEngine?.destroy?.();
-      hlsEngine?.remove?.();
+      release(hlsEngine);
     };
 
     const showReadyWebRtc = (ownerEngine, hlsEngine) => {
@@ -491,16 +919,9 @@ export function createHaDirectMounter({
 
     if (initialStreamType === "hls") return mountHls();
 
-    const playback = createHaDirectWebRtcPlayback({
-      hass,
-      entity,
-      muted: options?.muted ?? getStreamMuted(),
-      controls: false,
-      scopeKey,
-      onConnectionLost: (reason) => {
-        if (isCurrentEngine(playback?.engine)) scheduleResumeLive?.(reason);
-      },
-    });
+    const playback =
+      promotedPreload?.playback ||
+      createWebRtc(entity, options?.muted ?? getStreamMuted());
     if (!playback) return mountHls();
 
     const { engine } = playback;
@@ -516,17 +937,27 @@ export function createHaDirectMounter({
       startLoadingFallbackRefresh?.() || (() => {});
     onCommittedMediaReady?.(engine, engine.video);
     if (getRotateOverlayActive()) setLiveNativeControls(true);
-    // HLS is the first-picture path. Keep it visibly layered over the pending
-    // WebRTC attempt so WebKit/Catalyst will render it instead of throttling an
-    // offscreen 1px player. WebRTC remains owned and may take over when ready.
-    const fallbackEngine = await createHlsEngine(
-      HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE,
-    );
+    // HLS is the first-picture path. A retained player stays in the stable
+    // full-sized deck while WebRTC remains owned and may take over when ready.
+    const fallbackEngine =
+      promotedPreload?.engine?.streamType === "hls"
+        ? promotedPreload.engine
+        : await createHlsEngine({
+            entity,
+            muted: options?.muted ?? getStreamMuted(),
+            defaultMuted: options.defaultMuted,
+            styleText: HA_DIRECT_VISIBLE_HLS_ATTEMPT_STYLE,
+            useDeck: true,
+          });
     const fallbackAbortController = new AbortController();
     if (fallbackEngine) {
       binding.fallbackEngine = fallbackEngine;
       binding.fallbackAbortController = fallbackAbortController;
-      slot.appendChild(fallbackEngine);
+      if (hlsDeckSlots.has(fallbackEngine)) {
+        setDeckHlsActive(fallbackEngine, true);
+      } else {
+        slot.appendChild(fallbackEngine);
+      }
     }
     const isWebRtcAttemptActive = () => {
       if (binding.disposed) return false;
@@ -545,7 +976,9 @@ export function createHaDirectMounter({
       const webRtcReady = (async () => {
         await priorRelease;
         if (!isWebRtcAttemptActive()) return false;
-        const signalingStarted = await playback.start();
+        const signalingStarted = await (
+          promotedPreload?.startPromise || playback.start()
+        );
         if (!signalingStarted || !isWebRtcAttemptActive()) {
           return false;
         }
@@ -644,10 +1077,15 @@ export function createHaDirectMounter({
   };
 
   return {
+    adoptRetainedHlsEngine,
     adoptRetainedWebRtcEngine,
+    cancelPreloads,
     detachWebRtcForHandoff,
+    isRetainableHlsEngine,
     prepare,
     release,
+    schedulePreloadDeckAfterPaint,
+    suspendRetainedHlsEngine,
     tryMount,
   };
 }

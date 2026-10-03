@@ -40,6 +40,16 @@ Meaning of `ha_direct`:
 - Home Assistant owns stream playback behavior
 - the card delegates live playback to Home Assistant stream components and Home Assistant-selected transport behavior
 - the card must not run its own go2rtc race in this mode
+- on non-Catalyst clients, the card may sequentially warm Home Assistant HLS
+  players after first paint; WebRTC remains the preferred selected-camera
+  transport, and successful WebRTC players remain retained
+- a retained Home Assistant HLS custom element must be created inside the
+  stable HA Direct deck and shown or hidden in place; it must never be
+  reparented after connection
+- the normal HA Direct deck contains only cameras whose effective configured
+  mode is `ha_direct`
+- cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm
+  deck, so mixed-transport camera lists preserve independent lifecycle owners
 
 Mac Catalyst exception:
 

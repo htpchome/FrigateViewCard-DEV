@@ -79,6 +79,7 @@ export const createLiveTransportControllers = (
       card._setActiveStreamType(type);
       card._setStreamLoading(false);
       card._setStreamFallbackVisible(false);
+      card._haDirectMounter?.schedulePreloadDeckAfterPaint?.();
     },
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     isFirefox: () => card._isFirefox(),
@@ -125,6 +126,34 @@ export const createLiveTransportControllers = (
     shouldUseNativeHls: () =>
       deviceProfile.isIOS === true ||
       card._isSafari(),
+    getPreloadEntities: () =>
+      flattenCameraMembers(card._config?.cameras)
+        .map((camera) => String(camera?.entity || "").trim())
+        .filter(
+          (entity) =>
+            entity &&
+            card._hass?.states?.[entity] &&
+            !card._shouldUseGo2RtcForEntity(entity) &&
+            card._frigateCameraRuntimeController?.isSuspended?.(entity) !== true,
+        ),
+    getActiveEntity: () =>
+      card._engine?.type === "ha_direct"
+        ? card._activeGroupMemberOverride || card._activeCam?.entity || ""
+        : "",
+    getPreloadHost: () =>
+      card._liveGraceController?.getHaDirectDeckHost?.() ||
+      card._liveGraceController?.getHaDirectWebRtcDeckHost?.() ||
+      null,
+    shouldPreload: () =>
+      deviceProfile.isCatalyst !== true &&
+      card.isConnected === true &&
+      card._started === true,
+    hasRetainedEngine: (entity) =>
+      card._liveGraceController?.hasRetainedHaDirectEngine?.(entity) === true,
+    retainPreloadedEngine: (entity, engine) =>
+      card._liveGraceController?.retainHaDirectEngine?.(entity, engine) === true,
+    syncRetainedEntities: (entities) =>
+      card._liveGraceController?.syncRetainedHaDirectEntities?.(entities),
     scopeKey: card,
   });
   const catalystHlsMounter = resolvedFactories.createCatalystHlsMounter({

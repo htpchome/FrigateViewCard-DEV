@@ -161,6 +161,22 @@ resume after the new layout paints. A player that still cannot resume follows
 the established failure/reconnect path. The authenticated HLS URLs and player
 instances remain owned by the Catalyst deck throughout the handoff.
 
+`v1.1.8-dev.164` extends the sequential warm-deck model to normal HA Direct
+playback without merging transport modes. After the card shell gets its first
+paint, cameras whose effective non-Catalyst mode is `ha_direct` establish Home
+Assistant HLS sessions one at a time. Selecting a warmed camera displays its
+already-live HLS player immediately while starting a WebRTC takeover attempt.
+WebRTC remains preferred for the selected camera, and successful WebRTC
+players stay retained when that camera is left.
+
+Retained HLS custom elements are born inside the full-sized HA Direct deck and
+are only shown or hidden there. They are never reparented after connection;
+ordinary HLS players that were not created in that deck remain ineligible for
+retention. A selected camera can promote an in-progress HLS warm-up, and
+retained players remain reusable across camera and page changes. Cameras
+configured for `frigate_go2rtc` are excluded from this deck even when the same
+card contains both transport modes.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
@@ -204,18 +220,18 @@ Preserve all of these behaviors together:
 6. If WebRTC fails, keep the already-playing HLS connection.
 7. When the camera changes, cancel the pending takeover before retaining or
    releasing the current HLS engine so no WebRTC session is orphaned.
-8. Preserve card-owned HA Direct WebRTC retention and reuse across camera
-   switches. Do not retain or reparent Home Assistant's `ha-hls-player` custom
-   element; release it on departure and create a fresh player on return.
+8. Preserve HA Direct WebRTC retention and reuse across camera switches. An
+   HLS player may also be retained only when it was created inside the stable
+   HA Direct deck and can remain mounted there for its entire lifetime.
 9. On browsers where WebRTC is unavailable or cannot complete, use HA HLS and
    do not force the stream down to snapshots while HLS is viable.
 
 Home Assistant owns the HA Direct HLS player lifecycle. Removing or reparenting
 `ha-hls-player` invokes its disconnect cleanup, which destroys browser-side HLS
-playback. The card must therefore keep the snapshot visible while a fresh HLS
-player starts and hide it only after rendered-media readiness. Home Assistant
-may independently keep its backend camera stream warm; that backend reuse must
-not be simulated by caching the browser custom element.
+playback. A retained player must therefore be created in its permanent deck
+slot and switched only through visibility. A player that was mounted elsewhere
+must be released rather than moved. For a fresh HLS player, keep the snapshot
+visible until rendered-media readiness.
 
 Do not add a short WebRTC selection cutoff. A prior three-second first-track
 cutoff rejected connections that would have succeeded and caused the wrong
@@ -278,6 +294,11 @@ one of those policies is the cause.
   `loadeddata` handoff and keeps the fallback camera image updating during
   negotiation. It does not retain or reparent HA HLS elements and does not
   weaken WebRTC takeover or failed-HLS recovery readiness.
+- `v1.1.8-dev.164` revisits the earlier retention conclusion without restoring
+  custom-element reparenting. Normal HA Direct HLS players that participate in
+  retention are created in a permanent full-sized deck slot, stay mounted
+  there, and are shown or hidden in place. Background warm-up starts HLS rather
+  than opening unnecessary receive-only WebRTC sessions for every camera.
 
 ## Validation Expectations
 
@@ -287,8 +308,8 @@ and must include physical checks for:
 - first-picture time on WebRTC-capable and non-WebRTC clients;
 - eventual WebRTC takeover on a capable client;
 - stable HLS playback when WebRTC cannot complete;
-- retained WebRTC/MSE connection counts during fast camera switching and fresh
-  HA Direct HLS player creation on return;
+- retained WebRTC/MSE connection counts during fast camera switching, plus HA
+  Direct HLS deck reuse without custom-element disconnect/reconnect callbacks;
 - complete teardown without increasing connection or subscription counts;
 - HA Direct two-way-talk incoming and outgoing audio;
 - unchanged non-Catalyst `frigate_go2rtc` startup, fallback, switching, and talk

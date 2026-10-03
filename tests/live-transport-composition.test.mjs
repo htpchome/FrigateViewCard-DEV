@@ -32,6 +32,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   };
   const calls = [];
   const engineHost = { id: "engine" };
+  const haDirectDeckHost = { id: "ha-direct-deck" };
   const catalystHlsDeckHost = { id: "catalyst-hls-deck" };
   const shadowRoot = {
     appendChild: (node) => calls.push(["append-audio", node]),
@@ -67,6 +68,12 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
       isSuspended: () => false,
     },
     _liveGraceController: {
+      getHaDirectDeckHost: () => haDirectDeckHost,
+      hasRetainedHaDirectEngine: (entity) => entity === "camera.ha",
+      retainHaDirectEngine: (entity, engine) =>
+        entity === "camera.ha" && engine === "ha-webrtc-engine",
+      syncRetainedHaDirectEntities: (entities) =>
+        calls.push(["sync-ha-retained", entities]),
       getCatalystHlsDeckHost: () => catalystHlsDeckHost,
       hasRetainedCatalystHlsEngine: (entity) => entity === "camera.ha",
       retainCatalystHlsEngine: (entity, engine) =>
@@ -127,12 +134,34 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
+  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
+  assert.deepEqual(optionsByFactory.haDirectMounter.getPreloadEntities(), [
+    "camera.ha",
+  ]);
+  assert.strictEqual(
+    optionsByFactory.haDirectMounter.getPreloadHost(),
+    haDirectDeckHost,
+  );
+  assert.equal(
+    optionsByFactory.haDirectMounter.hasRetainedEngine("camera.ha"),
+    true,
+  );
+  assert.equal(
+    optionsByFactory.haDirectMounter.retainPreloadedEngine(
+      "camera.ha",
+      "ha-webrtc-engine",
+    ),
+    true,
+  );
+  optionsByFactory.haDirectMounter.syncRetainedEntities(["camera.ha"]);
+  assert.deepEqual(calls.at(-1), ["sync-ha-retained", ["camera.ha"]]);
   assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), false);
   deviceProfile.isIOS = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
   deviceProfile.isIOS = false;
   deviceProfile.isCatalyst = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
+  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
   assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), true);
   assert.deepEqual(optionsByFactory.catalystHlsMounter.getPreloadEntities(), [
     "camera.front",

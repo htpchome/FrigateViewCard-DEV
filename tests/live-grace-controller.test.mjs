@@ -872,3 +872,148 @@ test("live grace controller releases HA-direct HLS instead of reparenting it", a
     );
   });
 });
+
+test("live grace controller keeps HA Direct WebRTC live beyond switch grace", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+    const releasedEngines = [];
+    const video = {
+      paused: false,
+      ended: false,
+      seeking: false,
+      readyState: 4,
+      videoWidth: 1920,
+      playbackRate: 1,
+      style: { cssText: "" },
+      play: () => Promise.resolve(),
+    };
+    const retainedEngine = {
+      type: "ha_direct",
+      streamType: "webrtc",
+      video,
+      pc: {
+        connectionState: "connected",
+        iceConnectionState: "connected",
+      },
+      hasLiveVideoTrack: () => true,
+      hasRecentMediaActivity: () => true,
+      deactivateRecovery() {},
+    };
+    let engine = retainedEngine;
+    const controller = createLiveGraceController({
+      graceMs: 5,
+      graceMax: 1,
+      haDirectRetainedMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: (released) => releasedEngines.push(released),
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(controller.hasRetainedHaDirectEngine("camera.front"), true);
+    assert.equal(releasedEngines.length, 0);
+    assert.equal(hostChildren.length, 1);
+    assert.equal(hostChildren[0].style.cssText.includes("width:100%"), true);
+    assert.equal(hostChildren[0].style.cssText.includes("height:100%"), true);
+    assert.equal(hostChildren[0].style.cssText.includes("opacity:0"), false);
+    assert.equal(video.style.cssText.includes("left:-9999px"), false);
+    assert.strictEqual(
+      controller.getHaDirectWebRtcDeckHost(),
+      hostChildren[0],
+    );
+    assert.equal(
+      controller.takeGraceHaDirectEntry("camera.front", "webrtc")?.engine,
+      retainedEngine,
+    );
+  });
+});
+
+test("live grace controller retains stable-deck HA Direct HLS without moving it", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+    const parent = { id: "stable-ha-direct-deck-slot" };
+    let engine = {
+      type: "ha_direct",
+      streamType: "hls",
+      parentElement: parent,
+      removeCalls: 0,
+      remove() {
+        this.removeCalls += 1;
+      },
+    };
+    const retainedEngine = engine;
+    const calls = [];
+    const controller = createLiveGraceController({
+      graceMs: 5,
+      graceMax: 1,
+      haDirectRetainedMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "hls",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: (released) => calls.push(["release", released]),
+      isHaDirectHlsEngineReusable: (candidate) =>
+        candidate === retainedEngine,
+      suspendHaDirectHlsEngine: (candidate) => {
+        calls.push(["suspend", candidate]);
+        return true;
+      },
+      adoptHaDirectHlsEngine: (slot, candidate) => {
+        calls.push(["adopt", slot, candidate]);
+        return true;
+      },
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+    assert.equal(engine, null);
+    assert.equal(controller.hasRetainedHaDirectEngine("camera.front"), true);
+    assert.strictEqual(retainedEngine.parentElement, parent);
+    assert.equal(retainedEngine.removeCalls, 0);
+    assert.equal(hostChildren.length, 0);
+    assert.deepEqual(calls, [["suspend", retainedEngine]]);
+
+    const entry = controller.takeGraceHaDirectEntry("camera.front", "hls");
+    const slot = { id: "engine" };
+    assert.strictEqual(entry?.engine, retainedEngine);
+    assert.equal(controller.adoptGraceHaDirectEngine(slot, retainedEngine), true);
+    assert.deepEqual(calls.at(-1), ["adopt", slot, retainedEngine]);
+    assert.strictEqual(retainedEngine.parentElement, parent);
+    assert.equal(retainedEngine.removeCalls, 0);
+  });
+});

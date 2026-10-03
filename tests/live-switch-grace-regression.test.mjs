@@ -96,7 +96,9 @@ test("camera switching preserves recent live engines for short switch-back reuse
     true,
   );
   assert.equal(
-    liveGraceControllerSource.includes("const haDirectGracePool = new Map()"),
+    liveGraceControllerSource.includes(
+      "const haDirectRetainedPool = new Map()",
+    ),
     true,
   );
   assert.equal(
@@ -113,7 +115,7 @@ test("camera switching preserves recent live engines for short switch-back reuse
   );
   assert.equal(
     liveGraceControllerSource.includes("isHaDirectHlsEngineReusable"),
-    false,
+    true,
   );
   assert.equal(
     liveGraceControllerSource.includes("ensureHaDirectGraceHost"),

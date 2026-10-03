@@ -658,6 +658,7 @@ export class FrigateViewCard extends HTMLElement {
       cardViewViewModeChanged,
       cardViewHideCameraNameChanged,
       previewModeConfigChanged,
+      camerasChanged,
       singleViewTakeoverDefaultChanged,
       singleViewStartModeChanged,
       wideViewStartModeChanged,
@@ -668,6 +669,10 @@ export class FrigateViewCard extends HTMLElement {
     } = resolveRuntimeCardConfigChangePlan(prevConfig, nextConfig);
     this._committedConfig = this._cloneCardConfig(nextConfig);
     this._config = nextConfig;
+    if (camerasChanged) {
+      this._haDirectMounter?.cancelPreloads?.();
+      this._haDirectMounter?.schedulePreloadDeckAfterPaint?.();
+    }
     if (cameraSuspendAccessChanged) {
       this._frigateCameraRuntimeController.sync();
     }
@@ -1089,6 +1094,7 @@ export class FrigateViewCard extends HTMLElement {
       );
     }
     getLiveRotateOverlayController(this).dispose();
+    this._haDirectMounter?.cancelPreloads?.();
     this._catalystHlsMounter?.cancelPreloads?.();
     this._liveGraceController.clearGracePool();
     this._frigateCameraRuntimeController?.dispose?.();
@@ -1192,6 +1198,7 @@ export class FrigateViewCard extends HTMLElement {
       startup: true,
       hasPendingDeepLinkTarget,
     });
+    this._haDirectMounter?.schedulePreloadDeckAfterPaint?.();
     await initialLoad;
     this._subscribe();
     this._startEditModeWatchdog();
