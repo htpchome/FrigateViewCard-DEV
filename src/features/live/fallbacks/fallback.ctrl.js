@@ -51,6 +51,7 @@ export class LiveFallbackController {
   async refreshImage({
     cacheBustValue = null,
     preferAlternate = false,
+    preserveRenderedFrame = false,
   } = {}) {
     const host = this._host;
     return await runFallbackRefreshCycleForCard({
@@ -63,14 +64,20 @@ export class LiveFallbackController {
       applySource: setFallbackImageSourceIfChanged,
       cacheBustValue,
       preferAlternate,
+      preserveRenderedFrame,
     });
   }
 
-  startLoadingRefresh(
-    intervalMs = HA_DIRECT_LOADING_SNAPSHOT_REFRESH_MS,
-  ) {
+  startLoadingRefresh(options = {}) {
     this.stopLoadingRefresh();
     const generation = this._loadingRefreshGeneration;
+    const intervalMs =
+      typeof options === "number"
+        ? options
+        : options?.intervalMs ?? HA_DIRECT_LOADING_SNAPSHOT_REFRESH_MS;
+    const preserveRenderedFrame =
+      typeof options === "object" &&
+      options?.preserveRenderedFrame === true;
     const delayMs = Math.max(250, Number(intervalMs) || 1000);
     let active = true;
 
@@ -81,6 +88,7 @@ export class LiveFallbackController {
         void this.refreshImage({
           cacheBustValue: Date.now(),
           preferAlternate: true,
+          preserveRenderedFrame,
         }).finally(schedule);
       }, delayMs);
       this._loadingRefreshTimer?.unref?.();

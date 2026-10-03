@@ -293,6 +293,104 @@ test("fallback refresh swaps only after the replacement snapshot is decoded", as
   assert.equal(writes[0].src, "https://ha.local/secondary.jpg");
 });
 
+test("loading fallback atomically replaces the decoded image", async () => {
+  let replacement = null;
+  let replacedWith = null;
+  const imgEl = {
+    dataset: { fallbackEntity: "camera.front" },
+    hidden: false,
+    isConnected: true,
+    src: "https://ha.local/previous.jpg",
+    cloneNode() {
+      replacement = {
+        dataset: { ...this.dataset },
+        hidden: this.hidden,
+        src: this.src,
+        removeAttribute(name) {
+          if (name === "src") this.src = "";
+        },
+      };
+      return replacement;
+    },
+    replaceWith(nextImage) {
+      replacedWith = nextImage;
+    },
+  };
+  const handledImages = [];
+  const directWrites = [];
+
+  const result = await runFallbackRefreshCycle({
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "#stream-fallback-img" ? imgEl : null,
+    },
+    currentRequestId: 0,
+    activeCam: { entity: "camera.front" },
+    setActiveRequestId: () => {},
+    readActiveRequestId: () => 1,
+    loadPrimary: async () => "https://ha.local/next.jpg",
+    loadAlt: () => "",
+    preloadSource: async (src, options) => {
+      const candidate = options.createImage();
+      candidate.src = src;
+      return true;
+    },
+    applyHandlers: ({ img }) => handledImages.push(img),
+    applySource: (entry) => directWrites.push(entry),
+    preserveRenderedFrame: true,
+  });
+
+  assert.deepEqual(result, { shouldAbort: false, didWrite: true });
+  assert.equal(imgEl.src, "https://ha.local/previous.jpg");
+  assert.equal(replacedWith, replacement);
+  assert.equal(replacement.src, "https://ha.local/next.jpg");
+  assert.equal(replacement.dataset.fallbackEntity, "camera.front");
+  assert.equal(replacement.hidden, false);
+  assert.deepEqual(handledImages, [replacement]);
+  assert.deepEqual(directWrites, []);
+});
+
+test("loading fallback retains the displayed image when decoding fails", async () => {
+  let replaceCalls = 0;
+  const imgEl = {
+    dataset: { fallbackEntity: "camera.front" },
+    hidden: false,
+    isConnected: true,
+    src: "https://ha.local/previous.jpg",
+    cloneNode() {
+      return {
+        dataset: { ...this.dataset },
+        hidden: this.hidden,
+        removeAttribute() {},
+      };
+    },
+    replaceWith() {
+      replaceCalls += 1;
+    },
+  };
+
+  const result = await runFallbackRefreshCycle({
+    shadowRoot: {
+      querySelector: (selector) =>
+        selector === "#stream-fallback-img" ? imgEl : null,
+    },
+    currentRequestId: 0,
+    activeCam: { entity: "camera.front" },
+    setActiveRequestId: () => {},
+    readActiveRequestId: () => 1,
+    loadPrimary: async () => "https://ha.local/next.jpg",
+    loadAlt: () => "",
+    preloadSource: async () => false,
+    applyHandlers: () => {},
+    applySource: () => {},
+    preserveRenderedFrame: true,
+  });
+
+  assert.deepEqual(result, { shouldAbort: false, didWrite: false });
+  assert.equal(imgEl.src, "https://ha.local/previous.jpg");
+  assert.equal(replaceCalls, 0);
+});
+
 test("snapshot preloader resolves after decode without mutating the displayed image", async () => {
   const preloadImage = {
     src: "",

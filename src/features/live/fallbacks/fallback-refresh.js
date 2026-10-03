@@ -94,6 +94,58 @@ export const getFallbackRefreshElements = (shadowRoot) => ({
 
 export const canRefreshFallbackImage = ({ imgEl }) => !!imgEl;
 
+export const prepareFallbackImageWriteTarget = ({
+  imgEl,
+  preserveRenderedFrame = false,
+}) => {
+  if (
+    !preserveRenderedFrame ||
+    typeof imgEl?.cloneNode !== "function" ||
+    typeof imgEl?.replaceWith !== "function"
+  ) {
+    return {
+      imgEl,
+      previousImgEl: null,
+      shouldReplace: false,
+    };
+  }
+  let replacement = null;
+  try {
+    replacement = imgEl.cloneNode(false);
+    replacement?.removeAttribute?.("src");
+  } catch (_) {
+    replacement = null;
+  }
+  return replacement
+    ? {
+        imgEl: replacement,
+        previousImgEl: imgEl,
+        shouldReplace: true,
+      }
+    : {
+        imgEl,
+        previousImgEl: null,
+        shouldReplace: false,
+      };
+};
+
+export const commitFallbackImageWriteTarget = ({
+  imgEl,
+  previousImgEl,
+  shouldReplace = false,
+}) => {
+  if (!shouldReplace) return true;
+  if (!imgEl || !previousImgEl || previousImgEl.isConnected === false) {
+    return false;
+  }
+  try {
+    previousImgEl.replaceWith(imgEl);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
 export const beginFallbackRefresh = ({ imgEl, currentRequestId }) => {
   if (!canRefreshFallbackImage({ imgEl })) {
     return {
@@ -325,6 +377,7 @@ export const runFallbackRefreshCycle = async ({
   devicePixelRatio,
   cacheBustValue = null,
   preferAlternate = false,
+  preserveRenderedFrame = false,
 }) => {
   const { imgEl, statusEl } = getFallbackRefreshElements(shadowRoot);
   const begin = beginFallbackRefresh({
@@ -379,16 +432,23 @@ export const runFallbackRefreshCycle = async ({
     };
   }
 
+  const writeTarget = prepareFallbackImageWriteTarget({
+    imgEl,
+    preserveRenderedFrame,
+  });
   const alternateSource = writePlan.context?.sources?.altSrc || "";
   let readySource = writePlan.writeInput.src;
-  let sourceReady = await preloadSource?.(readySource);
+  const preloadOptions = writeTarget.shouldReplace
+    ? { createImage: () => writeTarget.imgEl }
+    : undefined;
+  let sourceReady = await preloadSource?.(readySource, preloadOptions);
   if (
     !sourceReady &&
     alternateSource &&
     alternateSource !== readySource
   ) {
     readySource = alternateSource;
-    sourceReady = await preloadSource?.(readySource);
+    sourceReady = await preloadSource?.(readySource, preloadOptions);
   }
   if (
     shouldAbortStaleFallbackRefresh({
@@ -401,11 +461,18 @@ export const runFallbackRefreshCycle = async ({
       didWrite: false,
     };
   }
+  if (writeTarget.shouldReplace && !sourceReady) {
+    return {
+      shouldAbort: false,
+      didWrite: false,
+    };
+  }
   const writeInput = {
     ...writePlan.writeInput,
     src: readySource,
     applyPayload: {
       ...writePlan.writeInput.applyPayload,
+      img: writeTarget.imgEl,
       src: readySource,
     },
   };
@@ -413,8 +480,14 @@ export const runFallbackRefreshCycle = async ({
   executeFallbackRefreshWrite({
     writeInput,
     applyHandlers,
-    applySource,
+    applySource: writeTarget.shouldReplace ? () => {} : applySource,
   });
+  if (!commitFallbackImageWriteTarget(writeTarget)) {
+    return {
+      shouldAbort: false,
+      didWrite: false,
+    };
+  }
 
   return {
     shouldAbort: false,
@@ -428,6 +501,7 @@ export const runFallbackRefreshCycleForCard = async ({
   applySource,
   cacheBustValue = null,
   preferAlternate = false,
+  preserveRenderedFrame = false,
 }) => {
   if (!card) {
     return {
@@ -454,6 +528,7 @@ export const runFallbackRefreshCycleForCard = async ({
     applySource,
     cacheBustValue,
     preferAlternate,
+    preserveRenderedFrame,
   });
 };
 

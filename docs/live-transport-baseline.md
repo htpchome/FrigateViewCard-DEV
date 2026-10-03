@@ -69,6 +69,11 @@ from the dashboard card into the config preview and between replacement preview
 instances, while ownership of error and recovery handling follows the element.
 Other HLS implementations remain ineligible for editor retention.
 
+`v1.1.8-dev.150` keeps the one-second Catalyst loading snapshot refresh, but
+decodes each replacement in a cloned image before atomically replacing the
+displayed fallback. This keeps the previous snapshot painted during Chromium's
+image update instead of exposing the cache-busted source change as a flash.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

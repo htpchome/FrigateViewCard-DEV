@@ -115,8 +115,8 @@ export const createLiveTransportControllers = (
     },
     applyResolvedStreamUiState: (streamState) =>
       card._applyResolvedStreamUiState(streamState),
-    startLoadingFallbackRefresh: () =>
-      card._startStreamFallbackLoadingRefresh(),
+    startLoadingFallbackRefresh: (options) =>
+      card._startStreamFallbackLoadingRefresh(options),
     stopLoadingFallbackRefresh: () =>
       card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
@@ -148,8 +148,8 @@ export const createLiveTransportControllers = (
     },
     applyResolvedStreamUiState: (streamState) =>
       card._applyResolvedStreamUiState(streamState),
-    startLoadingFallbackRefresh: () =>
-      card._startStreamFallbackLoadingRefresh(),
+    startLoadingFallbackRefresh: (options) =>
+      card._startStreamFallbackLoadingRefresh(options),
     stopLoadingFallbackRefresh: () =>
       card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),

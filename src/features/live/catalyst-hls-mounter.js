@@ -193,7 +193,8 @@ export function createCatalystHlsMounter({
     const binding = bindEngine(engine);
     assignCommittedEngine?.(engine);
     binding.stopLoadingFallbackRefresh =
-      startLoadingFallbackRefresh?.() || (() => {});
+      startLoadingFallbackRefresh?.({ preserveRenderedFrame: true }) ||
+      (() => {});
     if (getRotateOverlayActive()) setLiveNativeControls?.(true);
 
     const startupReady = (async () => {

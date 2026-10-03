@@ -128,7 +128,7 @@ test("live fallback controller refreshes the active snapshot surface", async () 
   );
 });
 
-test("live fallback controller refreshes once per second only while loading", async () => {
+test("live fallback controller preserves frames only when the caller requests it", async () => {
   const host = createHost();
   const controller = new LiveFallbackController(host);
   const previousSetTimeout = globalThis.setTimeout;
@@ -150,7 +150,9 @@ test("live fallback controller refreshes once per second only while loading", as
   };
 
   try {
-    const stop = controller.startLoadingRefresh();
+    const stop = controller.startLoadingRefresh({
+      preserveRenderedFrame: true,
+    });
     assert.equal(timers.length, 1);
     assert.equal(timers[0].delay, 1000);
 
@@ -160,11 +162,22 @@ test("live fallback controller refreshes once per second only while loading", as
 
     assert.equal(refreshes.length, 1);
     assert.equal(refreshes[0].preferAlternate, true);
+    assert.equal(refreshes[0].preserveRenderedFrame, true);
     assert.equal(Number.isFinite(refreshes[0].cacheBustValue), true);
     assert.equal(timers.length, 2);
 
     stop();
     assert.equal(cleared.includes(timers[1]), true);
+
+    const stopDefault = controller.startLoadingRefresh();
+    const defaultTimer = timers.at(-1);
+    defaultTimer.callback();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.equal(refreshes.length, 2);
+    assert.equal(refreshes[1].preserveRenderedFrame, false);
+    stopDefault();
   } finally {
     controller.stopLoadingRefresh();
     globalThis.setTimeout = previousSetTimeout;

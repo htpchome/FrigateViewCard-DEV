@@ -64,8 +64,8 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
     onCommittedMediaReady: (...args) => calls.push(["media", ...args]),
     onCommittedStream: (type) => calls.push(["stream", type]),
     applyResolvedStreamUiState: (state) => calls.push(["ui", state]),
-    startLoadingFallbackRefresh: () => {
-      calls.push(["start-fallback-refresh"]);
+    startLoadingFallbackRefresh: (options) => {
+      calls.push(["start-fallback-refresh", options]);
       return () => calls.push(["stop-binding-refresh"]);
     },
     stopLoadingFallbackRefresh: () =>
@@ -100,6 +100,10 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
   assert.equal(await result.startupReady, true);
   assert.equal(waitOptions.requireReadyState, 2);
   assert.equal(waitOptions.resolveVideo(), video);
+  assert.deepEqual(
+    calls.find(([name]) => name === "start-fallback-refresh"),
+    ["start-fallback-refresh", { preserveRenderedFrame: true }],
+  );
   assert.equal(calls.some(([name]) => name === "stream"), true);
   assert.deepEqual(
     calls.find(([name]) => name === "media"),

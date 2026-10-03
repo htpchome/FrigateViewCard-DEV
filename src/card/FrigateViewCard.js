@@ -1413,8 +1413,8 @@ export class FrigateViewCard extends HTMLElement {
     return await getLiveFallbackController(this).refreshImage();
   }
 
-  _startStreamFallbackLoadingRefresh() {
-    return getLiveFallbackController(this).startLoadingRefresh();
+  _startStreamFallbackLoadingRefresh(options = {}) {
+    return getLiveFallbackController(this).startLoadingRefresh(options);
   }
 
   _stopStreamFallbackLoadingRefresh() {
