@@ -79,6 +79,12 @@ image update instead of exposing the cache-busted source change as a flash.
 snapshot fallback without resolving the startup flash. Catalyst again uses the
 `v1.1.8-dev.150` readiness and late-recovery behavior.
 
+`v1.1.8-dev.153` gives Catalyst native HLS its own connection-grace pool. Up to
+three ready native video connections remain eligible for reuse for 20 seconds
+across camera switches and same-dashboard navigation. Catalyst stays outside
+the normal HA Direct WebRTC retention pool, and expired or evicted entries are
+released through the Catalyst-only owner.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

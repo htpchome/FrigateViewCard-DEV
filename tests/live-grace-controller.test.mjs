@@ -532,6 +532,146 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
   });
 });
 
+test("live grace controller retains Catalyst HLS in its dedicated pool", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const calls = [];
+    const catalystEngine = {
+      type: "ha_direct",
+      streamType: "hls",
+      catalystHls: true,
+      ended: false,
+      readyState: 4,
+      style: { cssText: "" },
+      play: () => Promise.resolve(),
+      remove: () => calls.push(["remove"]),
+    };
+    let engine = catalystEngine;
+    let assignOptions = null;
+    const controller = createLiveGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next, options) => {
+        engine = next;
+        assignOptions = options;
+      },
+      getActiveStreamType: () => "hls",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: () => {
+        throw new Error("Catalyst must remain outside normal HA Direct grace");
+      },
+      isCatalystHlsEngineReusable: (candidate) =>
+        candidate === catalystEngine,
+      detachCatalystHlsEngine: (candidate) => {
+        calls.push(["detach", candidate]);
+        return true;
+      },
+      adoptCatalystHlsEngine: (slot, candidate) => {
+        calls.push(["adopt", slot, candidate]);
+        engine = candidate;
+        return true;
+      },
+      releaseCatalystHlsEngine: (candidate) =>
+        calls.push(["release", candidate]),
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+
+    assert.equal(engine, null);
+    assert.deepEqual(assignOptions, { retainPrevious: true });
+    assert.equal(
+      controller.takeGraceHaDirectEntry("camera.front", "hls"),
+      null,
+    );
+    const entry = controller.takeGraceCatalystHlsEntry("camera.front");
+    assert.equal(entry?.engine, catalystEngine);
+    assert.deepEqual(calls, [["detach", catalystEngine]]);
+
+    const slot = { id: "engine" };
+    assert.equal(
+      controller.adoptGraceCatalystHlsEngine(slot, catalystEngine),
+      true,
+    );
+    assert.equal(engine, catalystEngine);
+    assert.deepEqual(calls.at(-1), ["adopt", slot, catalystEngine]);
+  });
+});
+
+test("Catalyst HLS grace pool evicts its oldest connection at the configured limit", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const released = [];
+    let engine = null;
+    const createEngine = (id) => ({
+      id,
+      type: "ha_direct",
+      streamType: "hls",
+      catalystHls: true,
+      ended: false,
+      readyState: 4,
+      style: { cssText: "" },
+      play: () => Promise.resolve(),
+      remove() {},
+    });
+    const controller = createLiveGraceController({
+      graceMs: 1000,
+      graceMax: 1,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "hls",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      isCatalystHlsEngineReusable: () => true,
+      detachCatalystHlsEngine: () => true,
+      adoptCatalystHlsEngine: () => true,
+      releaseCatalystHlsEngine: (candidate) =>
+        released.push(candidate.id),
+    });
+
+    engine = createEngine("front");
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+    engine = createEngine("driveway");
+    controller.cleanupEngine({ preserveLiveEntity: "camera.driveway" });
+
+    assert.deepEqual(released, ["front"]);
+    assert.equal(controller.takeGraceCatalystHlsEntry("camera.front"), null);
+    assert.equal(
+      controller.takeGraceCatalystHlsEntry("camera.driveway")?.engine?.id,
+      "driveway",
+    );
+  });
+});
+
 test("live grace controller rejects HA-direct WebRTC that is not immediately reusable", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {
     const releasedEngines = [];

@@ -218,6 +218,10 @@ test("same-dashboard departure uses the complete camera-switch grace policy", ()
     /preserveForNavigation\(\)[\s\S]*?streamType !== "webrtc" && streamType !== "mse"[\s\S]*?resolveCameraSwitchCleanupOptions\(\{[\s\S]*?host\._cancelPendingMount\("same-dashboard-navigation", cleanupOptions\)/,
   );
   assert.match(
+    liveDashboardRetentionSource,
+    /isCatalystHls[\s\S]*?host\._engine\?\.catalystHls === true[\s\S]*?streamType === "hls"/,
+  );
+  assert.match(
     cardSource,
     /disconnectedCallback\(\)[\s\S]*?isCurrentDashboardScope\?\.\(\)[\s\S]*?_preserveLiveForDashboardNavigation\(\)[\s\S]*?preserveDashboardLive \? LIVE_SWITCH_GRACE_MS : 2500/,
   );

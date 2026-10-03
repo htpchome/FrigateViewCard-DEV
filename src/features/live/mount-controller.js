@@ -605,6 +605,18 @@ export function createLiveMountController({
       useCatalystHls &&
       (!forcedType || forcedType === "webrtc" || forcedType === "hls")
     ) {
+      const graceCatalystEntry =
+        liveGraceController.takeGraceCatalystHlsEntry?.(targetEntity) || null;
+      if (
+        graceCatalystEntry?.engine &&
+        liveGraceController.adoptGraceCatalystHlsEngine?.(
+          slot,
+          graceCatalystEntry.engine,
+        )
+      ) {
+        return true;
+      }
+
       const editorHandoff =
         takeEditorLiveHandoff?.({
           connectionType: "ha_direct",

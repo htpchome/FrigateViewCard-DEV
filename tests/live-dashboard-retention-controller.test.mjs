@@ -56,6 +56,25 @@ test("dashboard retention preserves eligible card-owned WebRTC and MSE", () => {
   }
 });
 
+test("dashboard retention preserves Catalyst HLS for same-dashboard navigation", () => {
+  const { calls, host } = createHost();
+  host._engine.catalystHls = true;
+  host._currentLiveStreamHint = () => "hls";
+  host._shouldUseGo2RtcForEntity = () => false;
+  const controller = new LiveDashboardRetentionController(host);
+
+  assert.equal(controller.preserveForNavigation(), true);
+  assert.equal(host._dashboardLiveGraceActive, true);
+  assert.deepEqual(calls, [
+    [
+      "cancel",
+      "same-dashboard-navigation",
+      { preserveLiveEntity: "camera.front" },
+    ],
+    ["clear-slot"],
+  ]);
+});
+
 test("dashboard retention rejects unsupported or busy live sessions", () => {
   const { calls, host } = createHost();
   const controller = new LiveDashboardRetentionController(host);

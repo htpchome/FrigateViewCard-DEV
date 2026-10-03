@@ -509,6 +509,10 @@ test("Catalyst mounts through the dedicated HLS side path", async () => {
       takeGraceHaDirectEntry: () => {
         throw new Error("Catalyst must not enter HA Direct grace reuse");
       },
+      takeGraceCatalystHlsEntry: (entity) => {
+        calls.push(["take-catalyst-grace", entity]);
+        return null;
+      },
       takeGraceMseEntry: () => null,
     },
     getPendingMountDestroyers: () => [],
@@ -549,7 +553,8 @@ test("Catalyst mounts through the dedicated HLS side path", async () => {
     }),
     true,
   );
-  assert.deepEqual(calls[0], [
+  assert.deepEqual(calls[0], ["take-catalyst-grace", "camera.front"]);
+  assert.deepEqual(calls[1], [
     "take-handoff",
     {
       connectionType: "ha_direct",
@@ -557,12 +562,76 @@ test("Catalyst mounts through the dedicated HLS side path", async () => {
       streamType: "hls",
     },
   ]);
-  assert.equal(calls[1][0], "cleanup");
-  assert.deepEqual(calls[2], [
+  assert.equal(calls[2][0], "cleanup");
+  assert.deepEqual(calls[3], [
     "catalyst",
     slot,
     { streamType: "hls" },
     { entity: "camera.front", commit: true },
+  ]);
+});
+
+test("Catalyst reclaims its grace-pooled native HLS engine before reconnecting", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  const cachedEngine = {
+    type: "ha_direct",
+    streamType: "hls",
+    catalystHls: true,
+  };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => false,
+    getMountTargetEntity: () => "",
+    getMountState: () => ({
+      mountSeq: 1,
+      mountInProgress: false,
+      mountStartedAt: 0,
+      mountTargetEntity: "",
+    }),
+    applyMountTrackingState: () => {},
+    cleanupEngine: () => calls.push(["cleanup"]),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    liveGraceController: {
+      takeGraceCatalystHlsEntry: (entity) => {
+        calls.push(["take", entity]);
+        return { engine: cachedEngine };
+      },
+      adoptGraceCatalystHlsEngine: (targetSlot, engine) => {
+        calls.push(["adopt", targetSlot, engine]);
+        return true;
+      },
+      takeGraceHaDirectEntry: () => {
+        throw new Error("Catalyst must not use normal HA Direct grace");
+      },
+    },
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    catalystHlsMounter: {
+      tryMount: async () => {
+        throw new Error("Catalyst must not reconnect after grace reuse");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+    shouldUseCatalystHls: () => true,
+    takeEditorLiveHandoff: () => {
+      throw new Error("Editor handoff must not run after grace reuse");
+    },
+  });
+
+  assert.equal(await controller.mount({ entity: "camera.front" }), true);
+  assert.deepEqual(calls, [
+    ["take", "camera.front"],
+    ["adopt", slot, cachedEngine],
   ]);
 });
 

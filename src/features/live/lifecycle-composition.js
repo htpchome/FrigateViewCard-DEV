@@ -60,6 +60,14 @@ export const createLiveLifecycleControllers = (
         : card._haDirectMounter?.release?.(engine),
     adoptHaDirectWebRtcEngine: (engine) =>
       card._haDirectMounter?.adoptRetainedWebRtcEngine?.(engine),
+    isCatalystHlsEngineReusable: (engine) =>
+      card._catalystHlsMounter?.isRetainableEngine?.(engine) === true,
+    detachCatalystHlsEngine: (engine) =>
+      card._catalystHlsMounter?.detachForHandoff?.(engine) === true,
+    adoptCatalystHlsEngine: (slot, engine) =>
+      card._catalystHlsMounter?.adoptRetainedEngine?.(slot, engine) === true,
+    releaseCatalystHlsEngine: (engine) =>
+      card._catalystHlsMounter?.release?.(engine),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     resetMseDiagnostics: (connectedAt) => {
       card._mseConnectAt = connectedAt;

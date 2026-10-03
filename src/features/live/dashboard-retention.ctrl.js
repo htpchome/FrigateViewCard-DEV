@@ -40,10 +40,13 @@ export class LiveDashboardRetentionController {
       memberOverride: host._activeGroupMemberOverride,
     });
     const streamType = host._currentLiveStreamHint();
+    const useGo2Rtc = host._shouldUseGo2RtcForEntity(entity);
+    const isCatalystHls =
+      host._engine?.catalystHls === true && streamType === "hls";
     if (
       !entity ||
-      !host._shouldUseGo2RtcForEntity(entity) ||
-      (streamType !== "webrtc" && streamType !== "mse")
+      (!isCatalystHls &&
+        (!useGo2Rtc || (streamType !== "webrtc" && streamType !== "mse")))
     ) {
       return false;
     }

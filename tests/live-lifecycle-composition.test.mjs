@@ -315,4 +315,26 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     ["release-catalyst", catalystEngine],
     ["adopt-retained-ha", "ha-engine"],
   ]);
+  assert.equal(
+    optionsByFactory.liveGrace.isCatalystHlsEngineReusable(
+      "catalyst-engine",
+    ),
+    true,
+  );
+  assert.equal(
+    optionsByFactory.liveGrace.detachCatalystHlsEngine("catalyst-engine"),
+    true,
+  );
+  assert.equal(
+    optionsByFactory.liveGrace.adoptCatalystHlsEngine(
+      engineSlot,
+      "catalyst-engine",
+    ),
+    true,
+  );
+  optionsByFactory.liveGrace.releaseCatalystHlsEngine("catalyst-engine");
+  assert.deepEqual(calls.slice(-2), [
+    ["adopt-catalyst", engineSlot, "catalyst-engine"],
+    ["release-catalyst", "catalyst-engine"],
+  ]);
 });
