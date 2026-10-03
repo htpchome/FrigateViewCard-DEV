@@ -52,6 +52,11 @@ the direct native video wrapper with Home Assistant's `ha-hls-player`, matching
 the Frigate Modern Hass Card approach. The Catalyst connection remains HLS-only
 and does not create or race a receive-only WebRTC player.
 
+`v1.1.8-dev.147` keeps Catalyst isolated from normal HA Direct orchestration and
+uses the authenticated Home Assistant `camera/stream` URL with the card's lazy
+HLS.js asset. Low-latency mode is explicitly enabled for this Catalyst-only
+experiment; other HA Direct clients and all Frigate go2rtc paths are unchanged.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

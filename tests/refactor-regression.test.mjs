@@ -808,7 +808,7 @@ test("live transport ownership is pulled out of the card shell", () => {
     false,
   );
   assert.equal(
-    catalystHlsMounterSource.includes("createHaHlsPlayerElement"),
+    catalystHlsMounterSource.includes("createHaLowLatencyHlsVideoElement"),
     true,
   );
   assert.equal(

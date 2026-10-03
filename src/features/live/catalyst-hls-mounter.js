@@ -1,8 +1,10 @@
 import {
-  createHaHlsPlayerElement,
-  ensureHaCameraPlaybackElements,
   findActiveHaCameraStreamVideo,
 } from "../../integrations/home-assistant/playback.js";
+import {
+  createHaLowLatencyHlsVideoElement,
+  ensureHaLowLatencyHlsPlayback,
+} from "../../integrations/home-assistant/low-latency-hls.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 import {
   resolveHaDirectFailedState,
@@ -27,14 +29,14 @@ export function createCatalystHlsMounter({
   startLoadingFallbackRefresh,
   stopLoadingFallbackRefresh,
   setLiveNativeControls,
-  preparePlaybackElements = ensureHaCameraPlaybackElements,
-  createHlsPlayer = createHaHlsPlayerElement,
+  prepareHlsPlayback = ensureHaLowLatencyHlsPlayback,
+  createHlsVideo = createHaLowLatencyHlsVideoElement,
 }) {
   const bindings = new WeakMap();
 
   const prepare = () => {
     try {
-      return preparePlaybackElements?.() ?? false;
+      return prepareHlsPlayback?.() ?? false;
     } catch (_) {
       return false;
     }
@@ -119,7 +121,7 @@ export function createCatalystHlsMounter({
 
     let engine = null;
     try {
-      engine = createHlsPlayer({
+      engine = createHlsVideo({
         hass,
         entity,
         controls: false,
