@@ -25,7 +25,10 @@ export async function captureCameraGroupDisplayedFrame(
   const paneSpecs = [
     {
       member: "A",
-      engine: host._$("#engine"),
+      engine:
+        host._engine?.haDirectProvider === true
+          ? host._engine
+          : host._$("#engine"),
       zoom: host._liveVideoZoomController,
     },
     {

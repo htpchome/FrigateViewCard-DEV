@@ -40,15 +40,17 @@ Meaning of `ha_direct`:
 - Home Assistant owns stream playback behavior
 - the card delegates live playback to Home Assistant stream components and Home Assistant-selected transport behavior
 - the card must not run its own go2rtc race in this mode
-- on non-Catalyst clients, the card may sequentially warm camera-scoped Home
-  Assistant HLS/WebRTC races after first paint; rendered WebRTC is preferred,
-  while HLS remains the retained fallback when WebRTC cannot complete
-- browser-based `ha-hls-player` instances use standard HLS rather than the
-  connection-limited LL-HLS blocking-playlist mode; Catalyst keeps its separate
-  native HLS pipeline
-- a retained Home Assistant HLS custom element must be created inside the
-  stable HA Direct deck and shown or hidden in place; it must never be
-  reparented after connection
+- on non-Catalyst clients, each loaded camera owns one stable
+  `ha-camera-stream` provider; Home Assistant selects and manages its HLS or
+  WebRTC child player without a parallel card-owned transport race
+- providers are created in permanent, camera-scoped HA Direct deck slots and
+  are shown or hidden in place across camera and page changes
+- after the selected provider renders usable video, remaining configured HA
+  Direct cameras may warm sequentially; camera N+1 must not start until camera
+  N has usable media or has failed
+- the card owns provider creation, deck visibility, retention and release,
+  snapshot fallback presentation, and editor/layout ownership transfer; it
+  does not own the provider's signaling or internal media-player lifecycle
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

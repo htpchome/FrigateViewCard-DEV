@@ -139,7 +139,8 @@ export function createEditorLiveHandoffController({
         ? current.engine
         : null;
     const retainedEngine =
-      connectionType === "ha_direct" && streamType === "webrtc"
+      connectionType === "ha_direct" &&
+      (streamType === "webrtc" || streamType === "hls")
         ? getRetainedEngine?.(entity, streamType, connectionType) || null
         : null;
     const retained = !activeEngine && Boolean(retainedEngine);
@@ -521,12 +522,14 @@ export function createLiveMountController({
         return true;
       }
 
-      if (!forcedType || forcedType === "webrtc") {
-        const editorHandoff =
-          takeEditorLiveHandoff?.({
+      const editorStreamTypes = forcedType
+        ? [forcedType]
+        : ["webrtc", "hls"];
+      for (const streamType of editorStreamTypes) {
+        const editorHandoff = takeEditorLiveHandoff?.({
             connectionType: "ha_direct",
             entity: targetEntity,
-            streamType: "webrtc",
+            streamType,
           }) || null;
         if (editorHandoff?.engine) {
           if (

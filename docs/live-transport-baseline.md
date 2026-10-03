@@ -2,6 +2,16 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.169` is a normal-HA-Direct provider-deck experiment based on the
+`v1.1.8-dev.168` rollback point. Non-Catalyst HA Direct playback now creates one
+stable `ha-camera-stream` provider per loaded camera and delegates HLS/WebRTC
+selection, signaling, fallback, and child-player lifecycle to Home Assistant.
+The card retains ownership only of creation order, permanent camera slots,
+visibility, retention/release, snapshot presentation, and editor/layout
+handoff. Mac Catalyst remains on its separate native HLS-only path. Physical
+validation is required before this experiment replaces `v1.1.8-dev.168` as a
+known-good rollback point.
+
 `v1.1.8-dev.70` restores the `v1.1.8-dev.68` HA Direct pipeline after physical
 testing rejected the native `ha-camera-stream` provider-deck experiment in
 `v1.1.8-dev.69`. The experiment was no faster in browsers and left Mac Catalyst
@@ -225,14 +235,12 @@ required.
   and two-way-talk behavior exactly unless a request explicitly targets this
   mode. Catalyst must resolve to its HA Direct HLS exception before any
   Frigate race is created.
-- `ha_direct` HLS supplies the first picture nearly
-  immediately, a capable WebRTC connection may take over when ready, retained
-  WebRTC connections are reused, and browsers that cannot complete WebRTC
-  remain on HLS.
-- HA Direct WebRTC takeover and HA Direct two-way-talk negotiation work, but
-  remain slower than desired. This is accepted for this baseline. Treat faster
-  negotiation as deferred optimization, not an active defect requiring a
-  speculative change.
+- normal `ha_direct` playback is a stable Home Assistant `ha-camera-stream`
+  provider. The active nested HLS or WebRTC player determines the displayed
+  source label, and the card does not start a competing player or perform a
+  later card-owned takeover.
+- HA Direct two-way talk keeps its separate, explicit backchannel because the
+  native receive-only provider does not own microphone publishing.
 
 Do not change unrelated popup, fullscreen, iOS, aspect-ratio, resize, zoom, or
 layout behavior while optimizing either transport.
@@ -241,36 +249,32 @@ layout behavior while optimizing either transport.
 
 Preserve all of these behaviors together:
 
-1. Start HLS and WebRTC asynchronously for a WebRTC-capable HA Direct camera.
-2. Commit ready HLS immediately; do not delay the first picture while waiting
-   for WebRTC.
-3. Keep the pending WebRTC attempt explicitly owned after HLS is committed.
-4. Replace HLS only after WebRTC has rendered usable media.
-5. Release HLS after a successful WebRTC takeover.
-6. If WebRTC fails, keep the already-playing HLS connection.
-7. When the camera changes, cancel the pending takeover before retaining or
-   releasing the current HLS engine so no WebRTC session is orphaned.
-8. Preserve HA Direct WebRTC retention and reuse across camera switches. An
-   HLS player may also be retained only when it was created inside the stable
-   HA Direct deck and can remain mounted there for its entire lifetime.
-9. On browsers where WebRTC is unavailable or cannot complete, use HA HLS and
-   do not force the stream down to snapshots while HLS is viable.
+1. Create one `ha-camera-stream` provider for the selected HA Direct camera.
+2. Set the camera state and preferred frontend stream type, then let Home
+   Assistant create and manage the active HLS or WebRTC child player.
+3. Keep the snapshot visible until the active Home Assistant player has usable
+   video.
+4. Do not create a parallel card-owned HLS player, RTCPeerConnection, signaling
+   subscription, race, or takeover for normal HA Direct playback.
+5. Create each provider inside a permanent, full-sized camera deck slot and
+   retain it there across camera and page changes.
+6. Hide and mute dormant providers without disconnecting their custom element.
+7. Start background providers sequentially only after the selected provider is
+   usable; wait for each background provider before starting the next one.
+8. A newly selected camera preempts background work and promotes its existing
+   provider when one is already loading or retained.
+9. Preserve the explicit Catalyst native-HLS exception and the separate
+   two-way-talk backchannel.
 
-Home Assistant owns the HA Direct HLS player lifecycle. Removing or reparenting
-`ha-hls-player` invokes its disconnect cleanup, which destroys browser-side HLS
-playback. A retained player must therefore be created in its permanent deck
-slot and switched only through visibility. A player that was mounted elsewhere
-must be released rather than moved. For a fresh HLS player, keep the snapshot
-visible until rendered-media readiness.
+The card may observe the active nested player for readiness, source labels,
+zoom, fullscreen, and recovery presentation, but Home Assistant remains the
+owner of provider signaling and internal fallback behavior.
 
-Do not add a short WebRTC selection cutoff. A prior three-second first-track
-cutoff rejected connections that would have succeeded and caused the wrong
-transport to win.
+## HA Direct Two-Way-Talk Signaling
 
-## HA Direct WebRTC Signaling
-
-The `v1.1.5-dev.63` signaling path deliberately follows Home Assistant's
-frontend behavior:
+The former card-owned receive-only signaling path remains rollback history and
+is not used by the normal `ha-camera-stream` provider. HA Direct two-way talk
+still deliberately follows Home Assistant's frontend signaling behavior:
 
 - receive transceivers are added in audio-then-video order;
 - local ICE candidates already gathered by `setLocalDescription()` are
@@ -348,6 +352,11 @@ one of those policies is the cause.
   new HLS/WebRTC race, preserves the selected camera's return target while the
   background cameras transfer, and keeps both pools available through the
   normal 20-second dashboard grace window for the reverse handoff on exit.
+- `v1.1.8-dev.169` replaces that normal HA Direct card-owned HLS/WebRTC race
+  with stable per-camera `ha-camera-stream` providers. Home Assistant owns the
+  provider's transport selection and child-player lifecycle; the card owns the
+  permanent provider deck, sequential warm-up, visibility, retention, snapshot
+  presentation, and editor/layout ownership. Catalyst remains native HLS-only.
 
 ## Validation Expectations
 
@@ -355,8 +364,9 @@ Any future live-transport change must test the two connection modes separately
 and must include physical checks for:
 
 - first-picture time on WebRTC-capable and non-WebRTC clients;
-- eventual WebRTC takeover on a capable client;
-- stable HLS playback when WebRTC cannot complete;
+- Home Assistant's selected WebRTC or HLS provider on the corresponding camera
+  capability path;
+- stable native-provider fallback when Home Assistant cannot complete WebRTC;
 - retained WebRTC/MSE connection counts during fast camera switching, plus HA
   Direct HLS deck reuse without custom-element disconnect/reconnect callbacks;
 - complete teardown without increasing connection or subscription counts;

@@ -14,7 +14,7 @@ import { createGo2RtcTwoWayTalkBackchannel } from "../two-way-talk/go2rtc-backch
 import { createCatalystHlsMounter } from "./catalyst-hls-mounter.js";
 import { createGo2RtcMounter } from "./go2rtc-mounter.js";
 import { createGo2RtcRaceMounter } from "./go2rtc-race-mounter.js";
-import { createHaDirectMounter } from "./ha-direct-mounter.js";
+import { createHaDirectProviderMounter } from "./ha-direct-provider-mounter.js";
 import {
   adoptMountedAttemptResult,
   isMountTokenCurrent,
@@ -25,7 +25,7 @@ const DEFAULT_FACTORIES = Object.freeze({
   createGo2RtcTwoWayTalkBackchannel,
   createCatalystHlsMounter,
   createGo2RtcMounter,
-  createHaDirectMounter,
+  createHaDirectMounter: createHaDirectProviderMounter,
   createHaDirectTwoWayTalkMounter,
   createHaDirectTwoWayTalkBackchannel,
   createGo2RtcRaceMounter,
@@ -159,22 +159,33 @@ export const createLiveTransportControllers = (
     retainPreloadedEngine: (entity, engine) =>
       card._liveGraceController?.retainHaDirectEngine?.(entity, engine) === true,
     adoptEditorPreloadedEngine: (entity) => {
-      const transfer = card._editorLiveHandoffController?.take?.(
-        entity,
-        "webrtc",
-        "ha_direct",
-      );
-      if (!transfer?.engine) return false;
-      const retained = card._liveGraceController?.retainHaDirectEngine?.(
-        entity,
-        transfer.engine,
-        { allowPlaybackResume: true },
-      );
-      if (retained === true) {
-        transfer.commit?.();
-        return true;
+      for (const streamType of ["webrtc", "hls"]) {
+        const transfer = card._editorLiveHandoffController?.take?.(
+          entity,
+          streamType,
+          "ha_direct",
+        );
+        if (!transfer?.engine) continue;
+        if (
+          transfer.engine?.haDirectProvider === true &&
+          card._haDirectMounter?.adoptTransferredProvider?.(
+            transfer.engine,
+          ) !== true
+        ) {
+          transfer.reject?.();
+          continue;
+        }
+        const retained = card._liveGraceController?.retainHaDirectEngine?.(
+          entity,
+          transfer.engine,
+          { allowPlaybackResume: true },
+        );
+        if (retained === true) {
+          transfer.commit?.();
+          return true;
+        }
+        transfer.reject?.();
       }
-      transfer.reject?.();
       return false;
     },
     syncRetainedEntities: (entities) =>

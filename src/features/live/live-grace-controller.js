@@ -121,7 +121,7 @@ export function createLiveGraceController({
     return hasUsableFrame && hasRecentMediaActivity;
   };
   const isHaDirectEngineReusable = (engine) =>
-    engine?.streamType === "hls"
+    engine?.haDirectProvider === true || engine?.streamType === "hls"
       ? isHaDirectHlsEngineReusable?.(engine) === true
       : isHaDirectWebRtcEngineReusable(engine);
   let mseGraceHost = null;
@@ -317,20 +317,28 @@ export function createLiveGraceController({
     if (engineEntity && engineEntity !== key) return false;
     if (engine && !engineEntity) engine.haDirectEntity = key;
     const reusableEngine =
-      options.allowPlaybackResume === true && engine?.streamType === "webrtc"
+      options.allowPlaybackResume === true &&
+      engine?.streamType === "webrtc" &&
+      engine?.haDirectProvider !== true
         ? isHaDirectWebRtcEngineTransferable(engine)
         : isHaDirectEngineReusable(engine);
     if (!reusableEngine) return false;
     if (
-      engine.streamType === "hls" &&
+      (engine.haDirectProvider === true || engine.streamType === "hls") &&
       suspendHaDirectHlsEngine?.(engine) !== true
     ) {
       return false;
     }
     const mediaNode = engine.video || null;
-    if (engine.streamType !== "hls" && !mediaNode) return false;
+    if (
+      engine.haDirectProvider !== true &&
+      engine.streamType !== "hls" &&
+      !mediaNode
+    ) {
+      return false;
+    }
     evictGraceHaDirectEntry(key);
-    if (engine.streamType !== "hls") {
+    if (engine.haDirectProvider !== true && engine.streamType !== "hls") {
       engine.deactivateRecovery?.();
       ensureHaDirectDeckHost().appendChild(mediaNode);
       prepareEngineVideoForLiveDeck(mediaNode);
@@ -451,7 +459,13 @@ export function createLiveGraceController({
     const expectedType = String(streamType || "")
       .trim()
       .toLowerCase();
-    if (expectedType && entry.engine?.streamType !== expectedType) return null;
+    if (
+      expectedType &&
+      entry.engine?.haDirectProvider !== true &&
+      entry.engine?.streamType !== expectedType
+    ) {
+      return null;
+    }
     if (!isHaDirectEngineReusable(entry.engine)) {
       evictGraceHaDirectEntry(key);
       return null;
@@ -476,8 +490,10 @@ export function createLiveGraceController({
       !engine ||
       normalizeGraceEntityKey(engine.haDirectEntity) !== key ||
       (expectedType && engine.streamType !== expectedType) ||
-      engine.streamType !== "webrtc" ||
-      !isHaDirectWebRtcEngineTransferable(engine)
+      (engine.haDirectProvider === true
+        ? !isHaDirectEngineReusable(engine)
+        : engine.streamType !== "webrtc" ||
+          !isHaDirectWebRtcEngineTransferable(engine))
     ) {
       return null;
     }
@@ -510,7 +526,9 @@ export function createLiveGraceController({
 
   const hasRetainedHaDirectHandoffEngines = () =>
     [...haDirectRetainedPool.values()].some(({ engine } = {}) =>
-      isHaDirectWebRtcEngineTransferable(engine),
+      engine?.haDirectProvider === true
+        ? isHaDirectEngineReusable(engine)
+        : isHaDirectWebRtcEngineTransferable(engine),
     );
 
   const retainHaDirectEngine = (entity, engine, options = {}) =>
@@ -616,7 +634,7 @@ export function createLiveGraceController({
     return true;
   };
   const adoptGraceHaDirectEngine = (slot, engine, options = {}) => {
-    if (engine?.streamType === "hls") {
+    if (engine?.haDirectProvider === true || engine?.streamType === "hls") {
       if (
         !slot ||
         isHaDirectHlsEngineReusable?.(engine) !== true ||
@@ -745,7 +763,8 @@ export function createLiveGraceController({
     if (
       preserveLiveEntity &&
       engine?.type === "ha_direct" &&
-      engine?.streamType === activeStreamType &&
+      (engine?.haDirectProvider === true ||
+        engine?.streamType === activeStreamType) &&
       stashHaDirectEngineForGrace(preserveLiveEntity, engine)
     ) {
       setEngine?.(null, { retainPrevious: true });

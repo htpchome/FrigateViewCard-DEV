@@ -1246,3 +1246,78 @@ test("live grace controller retains stable-deck HA Direct HLS without moving it"
     assert.equal(retainedEngine.removeCalls, 0);
   });
 });
+
+test("live grace controller retains an HA camera-stream provider independent of its active child type", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+    const parent = { id: "stable-ha-provider-slot" };
+    let engine = {
+      type: "ha_direct",
+      streamType: "hls",
+      haDirectEntity: "camera.front",
+      haDirectProvider: true,
+      parentElement: parent,
+    };
+    const provider = engine;
+    const calls = [];
+    const controller = createLiveGraceController({
+      graceMs: 5,
+      graceMax: 1,
+      haDirectRetainedMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "hls",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: () => {},
+      isHaDirectHlsEngineReusable: (candidate) => candidate === provider,
+      suspendHaDirectHlsEngine: (candidate) => {
+        calls.push(["suspend", candidate]);
+        return true;
+      },
+      adoptHaDirectHlsEngine: (slot, candidate) => {
+        calls.push(["adopt", slot, candidate]);
+        return true;
+      },
+    });
+
+    controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
+
+    assert.equal(engine, null);
+    assert.equal(hostChildren.length, 0);
+    assert.strictEqual(provider.parentElement, parent);
+    assert.strictEqual(
+      controller.peekRetainedHaDirectEngineForHandoff(
+        "camera.front",
+        "hls",
+      ),
+      provider,
+    );
+    const entry = controller.takeGraceHaDirectEntry(
+      "camera.front",
+      "webrtc",
+    );
+    assert.strictEqual(entry?.engine, provider);
+    const slot = { id: "engine" };
+    assert.equal(controller.adoptGraceHaDirectEngine(slot, provider), true);
+    assert.deepEqual(calls, [
+      ["suspend", provider],
+      ["adopt", slot, provider],
+    ]);
+  });
+});

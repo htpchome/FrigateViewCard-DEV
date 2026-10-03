@@ -153,7 +153,10 @@ export class CameraGroupLiveController {
       '.camera-group-live-pane[data-camera-group-member="B"]',
     );
     const primaryVideo =
-      this._host._findVideoDeep?.(this._host._$("#engine")) || null;
+      this._host._findVideoDeep?.(this._host._$("#engine")) ||
+      this._host._findVideoDeep?.(this._host._engine) ||
+      this._host._engine?.video ||
+      null;
     const secondaryVideo =
       this._host._findVideoDeep?.(
         this._host._$("#camera-group-secondary-engine"),
