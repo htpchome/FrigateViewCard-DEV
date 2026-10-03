@@ -42,6 +42,9 @@ export function createCatalystHlsMounter({
   cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
 }) {
   const bindings = new WeakMap();
+  const ownedEngines = new Set();
+  let layoutTransfer = null;
+  let layoutTransferGeneration = 0;
   let preloadGeneration = 0;
   let preloadRunning = false;
   let preloadRescheduleRequested = false;
@@ -77,6 +80,7 @@ export function createCatalystHlsMounter({
 
   const release = (engine) => {
     if (!engine?.catalystHls) return;
+    ownedEngines.delete(engine);
     disposeBinding(engine);
     engine.destroy?.();
   };
@@ -108,6 +112,7 @@ export function createCatalystHlsMounter({
     engine.streamType = "hls";
     engine.catalystHls = true;
     engine.catalystEntity = targetEntity;
+    ownedEngines.add(engine);
     return engine;
   };
 
@@ -144,6 +149,13 @@ export function createCatalystHlsMounter({
   const applyFailed = (engine) => {
     const binding = bindings.get(engine);
     if (binding?.disposed || !isCurrentEngine(engine)) return;
+    if (
+      layoutTransfer?.active === true &&
+      layoutTransfer.engines.includes(engine)
+    ) {
+      binding.layoutFailurePending = true;
+      return;
+    }
     if (!binding.failed) {
       binding.failed = true;
       stopFallbackRefresh(binding);
@@ -166,6 +178,7 @@ export function createCatalystHlsMounter({
       failed: false,
       onError: () => applyFailed(engine),
       onEnded: () => applyFailed(engine),
+      layoutFailurePending: false,
       resumeOnFailure,
       stopLoadingFallbackRefresh: () => {},
     };
@@ -340,7 +353,9 @@ export function createCatalystHlsMounter({
 
   const detachForHandoff = (engine) => {
     if (!isRetainableEngine(engine)) return false;
-    return disposeBinding(engine);
+    const detached = disposeBinding(engine);
+    if (detached) ownedEngines.delete(engine);
+    return detached;
   };
 
   const suspendRetainedEngine = (engine) => {
@@ -358,6 +373,7 @@ export function createCatalystHlsMounter({
 
   const adoptRetainedEngine = (slot, engine) => {
     if (!slot || !isRetainableEngine(engine)) return false;
+    ownedEngines.add(engine);
     engine.catalystDormant = false;
     engine.autoplay = true;
     engine.preload = "auto";
@@ -390,6 +406,87 @@ export function createCatalystHlsMounter({
       }
       applyReady(engine, findActiveHaCameraStreamVideo(engine) || engine);
     })();
+    return true;
+  };
+
+  const beginLayoutTransfer = () => {
+    if (layoutTransfer) layoutTransfer.active = false;
+    const engines = [...ownedEngines].filter(
+      (engine) => engine?.catalystHls === true,
+    );
+    if (!engines.length) {
+      layoutTransfer = null;
+      return null;
+    }
+    const transfer = {
+      active: true,
+      engines,
+      generation: ++layoutTransferGeneration,
+    };
+    layoutTransfer = transfer;
+    return transfer;
+  };
+
+  const resumeAfterLayoutTransfer = (transfer) => {
+    if (!transfer || transfer !== layoutTransfer || transfer.active !== true) {
+      return false;
+    }
+
+    const resume = () => {
+      if (
+        transfer !== layoutTransfer ||
+        transfer.active !== true ||
+        transfer.generation !== layoutTransferGeneration
+      ) {
+        return;
+      }
+
+      const activeEngine = transfer.engines.find((engine) =>
+        isCurrentEngine(engine),
+      );
+      let activeResumeScheduled = false;
+      for (const engine of transfer.engines) {
+        if (!ownedEngines.has(engine)) continue;
+        if (engine === activeEngine) activeResumeScheduled = true;
+        engine.autoplay = true;
+        engine.preload = "auto";
+        engine.controls = false;
+        engine.muted =
+          engine === activeEngine ? Boolean(getStreamMuted()) : true;
+        void Promise.resolve()
+          .then(() => engine.play?.())
+          .then(() => {
+            if (engine !== activeEngine || transfer !== layoutTransfer) return;
+            transfer.active = false;
+            layoutTransfer = null;
+            const binding = bindings.get(engine);
+            if (binding?.disposed) return;
+            binding.layoutFailurePending = false;
+            if (isRetainableEngine(engine)) {
+              applyReady(engine);
+              return;
+            }
+            applyFailed(engine);
+          })
+          .catch(() => {
+            if (engine !== activeEngine || transfer !== layoutTransfer) return;
+            transfer.active = false;
+            layoutTransfer = null;
+            applyFailed(engine);
+          });
+      }
+
+      if (!activeResumeScheduled) {
+        transfer.active = false;
+        layoutTransfer = null;
+      }
+    };
+
+    if (typeof requestFrame !== "function") {
+      resume();
+      return true;
+    }
+    requestFrame(() => requestFrame(resume));
     return true;
   };
 
@@ -467,11 +564,13 @@ export function createCatalystHlsMounter({
 
   return {
     adoptRetainedEngine,
+    beginLayoutTransfer,
     cancelPreloads,
     detachForHandoff,
     isRetainableEngine,
     prepare,
     release,
+    resumeAfterLayoutTransfer,
     suspendRetainedEngine,
     tryMount,
   };

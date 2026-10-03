@@ -148,12 +148,18 @@ WebRTC/MSE attempts, while the saved camera configuration remains unchanged.
 Non-Catalyst clients still follow the selected connection mode without this
 override.
 
-`v1.1.8-dev.162` gives the initially selected Catalyst HLS player the same
+`v1.1.8-dev.162` gave the initially selected Catalyst HLS player the same
 media-failure recovery contract as players promoted from the background deck.
-If Catalyst invalidates the native video presentation while the preserved live
-shell moves between page layouts, camera 1 now remounts instead of remaining on
-a black frame. The retained deck, authenticated HLS URL path, and non-Catalyst
-transports are unchanged.
+Physical testing found that this did not address the underlying page-layout
+handoff: a moved native player could remain paused or fall back to a snapshot
+until an unmute action called `play()`.
+
+`v1.1.8-dev.163` coordinates Catalyst HLS with preserved page-layout changes.
+Transient media errors are held while the live shell moves, then the selected
+native player and every retained background player receive an explicit playback
+resume after the new layout paints. A player that still cannot resume follows
+the established failure/reconnect path. The authenticated HLS URLs and player
+instances remain owned by the Catalyst deck throughout the handoff.
 
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the

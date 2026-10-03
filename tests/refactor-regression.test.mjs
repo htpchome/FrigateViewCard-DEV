@@ -4230,6 +4230,18 @@ test("page route shell replacement preserves the outer shell and live wrapper", 
   assert.ok(buildIndex >= 0);
   assert.ok(restoreIndex > buildIndex);
   assert.ok(layoutCommitIndex > restoreIndex);
+  assert.equal(
+    preserveSource.includes(
+      "this._catalystHlsMounter?.beginLayoutTransfer?.()",
+    ),
+    true,
+  );
+  assert.equal(
+    preserveSource.includes(
+      "this._catalystHlsMounter?.resumeAfterLayoutTransfer?.(",
+    ),
+    true,
+  );
   assert.equal(preserveSource.includes("this._renderShell();"), true);
   assert.equal(
     preserveSource.includes("this.shadowRoot.innerHTML"),

@@ -133,6 +133,117 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
   assert.equal(video.destroyCalls, 1);
 });
 
+test("Catalyst layout handoff resumes the initial player without falling back", async () => {
+  const frames = [];
+  const resumeReasons = [];
+  const streamTypes = [];
+  const uiStates = [];
+  const video = createVideo();
+  let currentEngine = null;
+  const mounter = createCatalystHlsMounter({
+    getHass: () => ({ states: { "camera.front": {} } }),
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => engine === currentEngine,
+    waitForStreamStart: async (_engine, _waitMs, options) => {
+      options.onVideoReady?.(video);
+      return true;
+    },
+    assignCommittedEngine: (engine) => {
+      currentEngine = engine;
+    },
+    onCommittedMediaReady: () => {},
+    onCommittedStream: (type) => streamTypes.push(type),
+    applyResolvedStreamUiState: (state) => uiStates.push(state),
+    scheduleResumeLive: (reason) => resumeReasons.push(reason),
+    createHlsVideo: () => video,
+    requestFrame: (callback) => {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelFrame: () => {},
+  });
+  const mounted = await mounter.tryMount(
+    { innerHTML: "", appendChild() {} },
+    null,
+    { entity: "camera.front", commit: true },
+  );
+  assert.equal(await mounted.startupReady, true);
+  streamTypes.length = 0;
+  uiStates.length = 0;
+
+  const transfer = mounter.beginLayoutTransfer();
+  video.paused = true;
+  video.emit("error");
+  assert.deepEqual(resumeReasons, []);
+  assert.deepEqual(streamTypes, []);
+
+  assert.equal(mounter.resumeAfterLayoutTransfer(transfer), true);
+  frames.shift()();
+  frames.shift()();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(video.playCalls, 1);
+  assert.equal(video.paused, false);
+  assert.deepEqual(resumeReasons, []);
+  assert.deepEqual(streamTypes, ["hls"]);
+  assert.equal(uiStates.at(-1)?.loading, false);
+  assert.equal(uiStates.at(-1)?.fallbackVisible, false);
+  assert.equal(uiStates.at(-1)?.refreshFallbackImage, false);
+});
+
+test("Catalyst layout handoff reconnects when playback cannot resume", async () => {
+  const frames = [];
+  const resumeReasons = [];
+  const streamTypes = [];
+  const video = createVideo();
+  let currentEngine = null;
+  const mounter = createCatalystHlsMounter({
+    getHass: () => ({ states: { "camera.front": {} } }),
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => engine === currentEngine,
+    waitForStreamStart: async (_engine, _waitMs, options) => {
+      options.onVideoReady?.(video);
+      return true;
+    },
+    assignCommittedEngine: (engine) => {
+      currentEngine = engine;
+    },
+    onCommittedMediaReady: () => {},
+    onCommittedStream: (type) => streamTypes.push(type),
+    applyResolvedStreamUiState: () => {},
+    scheduleResumeLive: (reason) => resumeReasons.push(reason),
+    createHlsVideo: () => video,
+    requestFrame: (callback) => {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelFrame: () => {},
+  });
+  const mounted = await mounter.tryMount(
+    { innerHTML: "", appendChild() {} },
+    null,
+    { entity: "camera.front", commit: true },
+  );
+  assert.equal(await mounted.startupReady, true);
+  streamTypes.length = 0;
+
+  const transfer = mounter.beginLayoutTransfer();
+  video.error = { code: 2 };
+  video.play = () => Promise.reject(new Error("native playback failed"));
+  video.emit("error");
+  assert.deepEqual(resumeReasons, []);
+
+  assert.equal(mounter.resumeAfterLayoutTransfer(transfer), true);
+  frames.shift()();
+  frames.shift()();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(streamTypes, ["snapshot"]);
+  assert.deepEqual(resumeReasons, ["hls-error"]);
+});
+
 test("Catalyst native HLS transfers ownership without restarting playback", async () => {
   const hass = {
     states: { "camera.front": { entity_id: "camera.front" } },
@@ -356,6 +467,7 @@ test("Catalyst warms remaining HA Direct cameras sequentially after two paint fr
   const originalDocument = globalThis.document;
   const frames = [];
   const createdEntities = [];
+  const createdVideos = new Map();
   const retainedEntities = new Set();
   const waitResolvers = new Map();
   const preloadHost = {
@@ -409,7 +521,10 @@ test("Catalyst warms remaining HA Direct cameras sequentially after two paint fr
       applyResolvedStreamUiState: () => {},
       createHlsVideo: ({ entity }) => {
         createdEntities.push(entity);
-        return entity === "camera.front" ? activeVideo : createVideo();
+        const video =
+          entity === "camera.front" ? activeVideo : createVideo();
+        createdVideos.set(entity, video);
+        return video;
       },
       getPreloadEntities: () => [
         "camera.front",
@@ -470,6 +585,19 @@ test("Catalyst warms remaining HA Direct cameras sequentially after two paint fr
     waitResolvers.get("camera.porch")(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(retainedEntities.has("camera.porch"), true);
+
+    const playCallsBeforeTransfer = new Map(
+      [...createdVideos].map(([entity, video]) => [entity, video.playCalls]),
+    );
+    const transfer = mounter.beginLayoutTransfer();
+    assert.equal(mounter.resumeAfterLayoutTransfer(transfer), true);
+    frames.shift()();
+    frames.shift()();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    for (const [entity, video] of createdVideos) {
+      assert.equal(video.playCalls, playCallsBeforeTransfer.get(entity) + 1);
+    }
+    mounter.cancelPreloads();
   } finally {
     globalThis.document = originalDocument;
   }

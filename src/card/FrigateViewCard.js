@@ -3021,6 +3021,8 @@ export class FrigateViewCard extends HTMLElement {
       return;
     }
 
+    const catalystLayoutTransfer =
+      this._catalystHlsMounter?.beginLayoutTransfer?.();
     this._preservingLiveShell = true;
     try {
       this._preparePageLayoutReplacement({ preserveLive: true });
@@ -3039,37 +3041,48 @@ export class FrigateViewCard extends HTMLElement {
       });
     } finally {
       this._preservingLiveShell = false;
+      this._catalystHlsMounter?.resumeAfterLayoutTransfer?.(
+        catalystLayoutTransfer,
+      );
     }
   }
 
   _renderFullShellPreserveLive(preservedEngWrap) {
-    preservedEngWrap.remove();
-
-    this._preservingLiveShell = true;
+    const catalystLayoutTransfer =
+      this._catalystHlsMounter?.beginLayoutTransfer?.();
     try {
-      this._renderShell();
+      preservedEngWrap.remove();
+
+      this._preservingLiveShell = true;
+      try {
+        this._renderShell();
+      } finally {
+        this._preservingLiveShell = false;
+      }
+
+      const nextEngWrap = this._$("#eng-wrap");
+      if (!nextEngWrap) return;
+
+      nextEngWrap.replaceWith(preservedEngWrap);
+      this._domCache["#eng-wrap"] = preservedEngWrap;
+
+      const preservedEngine = preservedEngWrap.querySelector("#engine");
+      if (preservedEngine) {
+        this._domCache["#engine"] = preservedEngine;
+      }
+
+      this._liveViewResizeController?.bind();
+      this._cameraGroupLiveController?.sync?.();
+      this._initLiveOverlayControls();
+      this._renderMuteButton();
+      this._syncFullscreenButtonsVisibility();
+      this._syncPictureInPictureButtons();
+      this._linkedLightController?.sync?.();
     } finally {
-      this._preservingLiveShell = false;
+      this._catalystHlsMounter?.resumeAfterLayoutTransfer?.(
+        catalystLayoutTransfer,
+      );
     }
-
-    const nextEngWrap = this._$("#eng-wrap");
-    if (!nextEngWrap) return;
-
-    nextEngWrap.replaceWith(preservedEngWrap);
-    this._domCache["#eng-wrap"] = preservedEngWrap;
-
-    const preservedEngine = preservedEngWrap.querySelector("#engine");
-    if (preservedEngine) {
-      this._domCache["#engine"] = preservedEngine;
-    }
-
-    this._liveViewResizeController?.bind();
-    this._cameraGroupLiveController?.sync?.();
-    this._initLiveOverlayControls();
-    this._renderMuteButton();
-    this._syncFullscreenButtonsVisibility();
-    this._syncPictureInPictureButtons();
-    this._linkedLightController?.sync?.();
   }
 
   _syncFooterVersion() {
