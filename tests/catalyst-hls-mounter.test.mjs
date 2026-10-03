@@ -225,12 +225,11 @@ test("Catalyst native HLS transfers ownership without restarting playback", asyn
   assert.equal(receiver.adoptRetainedEngine(receiverSlot, video), true);
 });
 
-test("Catalyst native HLS pauses dormant retention and resumes on adoption", async () => {
+test("Catalyst native HLS stays live while retained and reuses without a progress watchdog", async () => {
   const video = createVideo();
   let currentEngine = video;
   const resumeReasons = [];
   const uiStates = [];
-  const waitOptions = [];
   const fallbackRefreshOptions = [];
   const pendingStreams = [];
   const mounter = createCatalystHlsMounter({
@@ -240,10 +239,8 @@ test("Catalyst native HLS pauses dormant retention and resumes on adoption", asy
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => engine === currentEngine,
-    waitForStreamStart: async (_engine, _waitMs, options) => {
-      waitOptions.push(options);
-      options.onVideoReady(video);
-      return true;
+    waitForStreamStart: async () => {
+      throw new Error("retained live HLS must not run a progress watchdog");
     },
     assignCommittedEngine: (engine) => {
       currentEngine = engine;
@@ -264,9 +261,10 @@ test("Catalyst native HLS pauses dormant retention and resumes on adoption", asy
   video.catalystHls = true;
   assert.equal(mounter.suspendRetainedEngine(video), true);
   assert.equal(video.catalystDormant, true);
-  assert.equal(video.autoplay, false);
-  assert.equal(video.preload, "metadata");
-  assert.equal(video.pauseCalls, 1);
+  assert.equal(video.autoplay, true);
+  assert.equal(video.preload, "auto");
+  assert.equal(video.pauseCalls, 0);
+  assert.equal(video.playCalls, 1);
 
   const slot = {
     innerHTML: "occupied",
@@ -278,16 +276,11 @@ test("Catalyst native HLS pauses dormant retention and resumes on adoption", asy
   assert.equal(video.catalystDormant, false);
   assert.equal(video.autoplay, true);
   assert.equal(video.preload, "auto");
-  assert.equal(video.playCalls, 1);
+  assert.equal(video.playCalls, 2);
   await Promise.resolve();
   await Promise.resolve();
   assert.deepEqual(resumeReasons, []);
   assert.deepEqual(pendingStreams, ["pending"]);
-  assert.equal(waitOptions[0].minCurrentTime, 12.05);
-  assert.equal(waitOptions[0].minDecodedFrames, 25);
-  assert.equal(waitOptions[0].requireReadyState, 2);
-  assert.equal(waitOptions[0].strict, true);
-  assert.equal(waitOptions[0].requirePresentedFrame, undefined);
   assert.deepEqual(fallbackRefreshOptions, [
     { preserveRenderedFrame: true },
   ]);
@@ -301,13 +294,12 @@ test("Catalyst native HLS pauses dormant retention and resumes on adoption", asy
   assert.deepEqual(resumeReasons, ["hls-error"]);
 });
 
-test("Catalyst replaces a retained HLS player that no longer advances", async () => {
+test("Catalyst only replaces a retained live player after a real media failure", async () => {
   const video = createVideo();
   let currentEngine = video;
   const resumeReasons = [];
   const streamTypes = [];
   const uiStates = [];
-  let waitMs = 0;
   const mounter = createCatalystHlsMounter({
     getHass: () => ({
       states: { "camera.front": { entity_id: "camera.front" } },
@@ -315,9 +307,8 @@ test("Catalyst replaces a retained HLS player that no longer advances", async ()
     getStreamMuted: () => true,
     getRotateOverlayActive: () => false,
     isCurrentEngine: (engine) => engine === currentEngine,
-    waitForStreamStart: async (_engine, timeoutMs) => {
-      waitMs = timeoutMs;
-      return false;
+    waitForStreamStart: async () => {
+      throw new Error("retained live HLS must not run a progress watchdog");
     },
     assignCommittedEngine: (engine) => {
       currentEngine = engine;
@@ -344,14 +335,236 @@ test("Catalyst replaces a retained HLS player that no longer advances", async ()
   await Promise.resolve();
   await Promise.resolve();
 
-  assert.equal(waitMs, 3500);
-  assert.deepEqual(streamTypes, ["snapshot"]);
+  assert.deepEqual(streamTypes, ["hls"]);
+  assert.deepEqual(resumeReasons, []);
+  video.emit("error");
+  assert.deepEqual(streamTypes, ["hls", "snapshot"]);
   assert.deepEqual(resumeReasons, ["hls-error"]);
   assert.deepEqual(uiStates.at(-1), {
     loading: false,
     fallbackVisible: true,
     refreshFallbackImage: true,
   });
+});
+
+test("Catalyst warms remaining HA Direct cameras sequentially after two paint frames", async () => {
+  const originalDocument = globalThis.document;
+  const frames = [];
+  const createdEntities = [];
+  const retainedEntities = new Set();
+  const waitResolvers = new Map();
+  const preloadHost = {
+    appendChild(node) {
+      node.parentElement = this;
+    },
+  };
+  globalThis.document = {
+    createElement() {
+      return {
+        style: { cssText: "" },
+        setAttribute() {},
+        appendChild(node) {
+          this.child = node;
+          node.parentElement = this;
+        },
+        remove() {},
+      };
+    },
+  };
+
+  try {
+    let currentEngine = null;
+    const activeVideo = createVideo();
+    const mounter = createCatalystHlsMounter({
+      getHass: () => ({
+        states: {
+          "camera.front": {},
+          "camera.driveway": {},
+          "camera.porch": {},
+        },
+      }),
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: (engine) => engine === currentEngine,
+      waitForStreamStart: async (engine, _waitMs, options) => {
+        if (engine === activeVideo) {
+          options.onVideoReady?.(engine);
+          return true;
+        }
+        return await new Promise((resolve) => {
+          waitResolvers.set(engine.catalystEntity, resolve);
+        });
+      },
+      assignCommittedEngine: (engine) => {
+        currentEngine = engine;
+      },
+      onCommittedMediaReady: () => {},
+      onCommittedStream: () => {},
+      applyResolvedStreamUiState: () => {},
+      createHlsVideo: ({ entity }) => {
+        createdEntities.push(entity);
+        return entity === "camera.front" ? activeVideo : createVideo();
+      },
+      getPreloadEntities: () => [
+        "camera.front",
+        "camera.driveway",
+        "camera.porch",
+      ],
+      getActiveEntity: () => "camera.front",
+      getPreloadHost: () => preloadHost,
+      shouldPreload: () => true,
+      hasRetainedEngine: (entity) => retainedEntities.has(entity),
+      retainPreloadedEngine: (entity) => {
+        retainedEntities.add(entity);
+        return true;
+      },
+      requestFrame: (callback) => {
+        frames.push(callback);
+        return frames.length;
+      },
+      cancelFrame: () => {},
+    });
+    const slot = {
+      innerHTML: "",
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+    const mounted = await mounter.tryMount(slot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    assert.equal(await mounted.startupReady, true);
+    assert.deepEqual(createdEntities, ["camera.front"]);
+    assert.equal(frames.length, 1);
+
+    frames.shift()();
+    assert.equal(frames.length, 1);
+    frames.shift()();
+    await Promise.resolve();
+    assert.deepEqual(createdEntities, ["camera.front", "camera.driveway"]);
+    assert.equal(createdEntities.includes("camera.porch"), false);
+
+    waitResolvers.get("camera.driveway")(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(retainedEntities.has("camera.driveway"), true);
+    assert.deepEqual(createdEntities, [
+      "camera.front",
+      "camera.driveway",
+      "camera.porch",
+    ]);
+
+    waitResolvers.get("camera.porch")(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(retainedEntities.has("camera.porch"), true);
+  } finally {
+    globalThis.document = originalDocument;
+  }
+});
+
+test("Catalyst promotes a selected camera that is still warming without opening a duplicate HLS stream", async () => {
+  const originalDocument = globalThis.document;
+  const frames = [];
+  const videos = new Map();
+  const waitCounts = new Map();
+  globalThis.document = {
+    createElement() {
+      return {
+        style: { cssText: "" },
+        setAttribute() {},
+        appendChild(node) {
+          this.child = node;
+          node.parentElement = this;
+        },
+        remove() {},
+      };
+    },
+  };
+
+  try {
+    let currentEngine = null;
+    let activeEntity = "camera.front";
+    const mounter = createCatalystHlsMounter({
+      getHass: () => ({
+        states: { "camera.front": {}, "camera.driveway": {} },
+      }),
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: (engine) => engine === currentEngine,
+      waitForStreamStart: async (engine, _waitMs, options) => {
+        const count = (waitCounts.get(engine) || 0) + 1;
+        waitCounts.set(engine, count);
+        if (engine.catalystEntity === "camera.driveway" && count === 1) {
+          return await new Promise((resolve) => {
+            options.abortSignal?.addEventListener?.("abort", () =>
+              resolve(false),
+            );
+          });
+        }
+        options.onVideoReady?.(engine);
+        return true;
+      },
+      assignCommittedEngine: (engine) => {
+        currentEngine = engine;
+      },
+      onCommittedMediaReady: () => {},
+      onCommittedStream: () => {},
+      applyResolvedStreamUiState: () => {},
+      createHlsVideo: ({ entity }) => {
+        const video = createVideo();
+        videos.set(entity, [...(videos.get(entity) || []), video]);
+        return video;
+      },
+      getPreloadEntities: () => ["camera.front", "camera.driveway"],
+      getActiveEntity: () => activeEntity,
+      getPreloadHost: () => ({ appendChild() {} }),
+      shouldPreload: () => true,
+      hasRetainedEngine: () => false,
+      retainPreloadedEngine: () => true,
+      requestFrame: (callback) => {
+        frames.push(callback);
+        return frames.length;
+      },
+      cancelFrame: () => {},
+    });
+    const frontSlot = {
+      innerHTML: "",
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+    const frontMount = await mounter.tryMount(frontSlot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    assert.equal(await frontMount.startupReady, true);
+    frames.shift()();
+    frames.shift()();
+    await Promise.resolve();
+    assert.equal(videos.get("camera.driveway")?.length, 1);
+
+    activeEntity = "camera.driveway";
+    const drivewaySlot = {
+      innerHTML: "",
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+    const drivewayMount = await mounter.tryMount(drivewaySlot, null, {
+      entity: "camera.driveway",
+      commit: true,
+    });
+    assert.equal(await drivewayMount.startupReady, true);
+    assert.equal(videos.get("camera.driveway")?.length, 1);
+    assert.equal(
+      drivewaySlot.child,
+      videos.get("camera.driveway")[0],
+    );
+    assert.equal(videos.get("camera.driveway")[0].destroyCalls, 0);
+    mounter.cancelPreloads();
+  } finally {
+    globalThis.document = originalDocument;
+  }
 });
 
 test("Catalyst HLS mounter does not mount unavailable camera entities", async () => {

@@ -11,32 +11,9 @@ import {
 
 const CATALYST_HLS_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
+const CATALYST_HLS_PRELOAD_HOST_STYLE =
+  "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px";
 const CATALYST_HLS_WAIT_MS = 8000;
-const CATALYST_HLS_RESUME_WAIT_MS = 3500;
-
-const readDecodedFrames = (video) => {
-  try {
-    return (
-      Number(video?.webkitDecodedFrameCount) ||
-      Number(video?.getVideoPlaybackQuality?.()?.totalVideoFrames) ||
-      0
-    );
-  } catch (_) {
-    return 0;
-  }
-};
-
-const buildRetainedResumeReadiness = (video) => {
-  const currentTime = Number(video?.currentTime);
-  const decodedFrames = readDecodedFrames(video);
-  return {
-    minCurrentTime:
-      (Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0) + 0.05,
-    minDecodedFrames: Math.max(0, decodedFrames) + 1,
-    requireReadyState: 2,
-    strict: true,
-  };
-};
 
 export function createCatalystHlsMounter({
   getHass,
@@ -55,8 +32,22 @@ export function createCatalystHlsMounter({
   scheduleResumeLive,
   prepareHlsPlayback = () => true,
   createHlsVideo = createHaNativeHlsVideoElement,
+  getPreloadEntities = () => [],
+  getActiveEntity = () => "",
+  getPreloadHost = () => null,
+  shouldPreload = () => false,
+  hasRetainedEngine = () => false,
+  retainPreloadedEngine = () => false,
+  requestFrame = (callback) => globalThis.requestAnimationFrame?.(callback),
+  cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
 }) {
   const bindings = new WeakMap();
+  let preloadGeneration = 0;
+  let preloadRunning = false;
+  let preloadRescheduleRequested = false;
+  let preloadFrame = null;
+  let preloadPaintFrame = null;
+  let pendingPreload = null;
 
   const prepare = () => {
     try {
@@ -90,6 +81,36 @@ export function createCatalystHlsMounter({
     engine.destroy?.();
   };
 
+  const createEngine = ({ entity, muted, defaultMuted, styleText } = {}) => {
+    const hass = getHass();
+    const targetEntity = String(entity || "").trim();
+    if (!targetEntity || !hass?.states?.[targetEntity]) return null;
+    let engine = null;
+    try {
+      engine = createHlsVideo({
+        hass,
+        entity: targetEntity,
+        streamFormat: "hls",
+        controls: false,
+        muted: muted ?? getStreamMuted(),
+        defaultMuted,
+        fitMode: "contain",
+        styleText: styleText || CATALYST_HLS_VISIBLE_STYLE,
+      });
+    } catch (_) {
+      engine = null;
+    }
+    if (!engine) return null;
+
+    // Keep the configured connection mode visible while identifying the
+    // Catalyst-only owner for teardown. This engine never owns WebRTC state.
+    engine.type = "ha_direct";
+    engine.streamType = "hls";
+    engine.catalystHls = true;
+    engine.catalystEntity = targetEntity;
+    return engine;
+  };
+
   const applyReady = (engine, video = null) => {
     const binding = bindings.get(engine);
     if (binding?.disposed || !isCurrentEngine(engine)) return;
@@ -106,6 +127,7 @@ export function createCatalystHlsMounter({
         waitSucceeded: true,
       }),
     );
+    schedulePreloadDeckAfterPaint();
   };
 
   const watchLateRecovery = (engine, binding) => {
@@ -161,6 +183,161 @@ export function createCatalystHlsMounter({
     !engine?.error &&
     Number(engine?.readyState) >= 2;
 
+  const cancelScheduledPreload = () => {
+    if (preloadFrame != null) cancelFrame?.(preloadFrame);
+    if (preloadPaintFrame != null) cancelFrame?.(preloadPaintFrame);
+    preloadFrame = null;
+    preloadPaintFrame = null;
+  };
+
+  const cancelPendingPreload = ({ preserveEngine = false } = {}) => {
+    const pending = pendingPreload;
+    if (!pending) return null;
+    pendingPreload = null;
+    pending.promoted = preserveEngine;
+    pending.abortController.abort();
+    if (!preserveEngine) release(pending.engine);
+    try {
+      pending.slot?.remove?.();
+    } catch (_) {}
+    return preserveEngine ? pending.engine : null;
+  };
+
+  const cancelPreloads = () => {
+    preloadGeneration += 1;
+    preloadRescheduleRequested = false;
+    cancelScheduledPreload();
+    cancelPendingPreload();
+  };
+
+  const createPreloadSlot = () => {
+    const host = getPreloadHost?.();
+    if (!host?.appendChild || !globalThis.document?.createElement) return null;
+    const slot = document.createElement("div");
+    slot.setAttribute?.("aria-hidden", "true");
+    slot.style.cssText = CATALYST_HLS_PRELOAD_HOST_STYLE;
+    host.appendChild(slot);
+    return slot;
+  };
+
+  const preloadEntity = async (entity, generation) => {
+    const targetEntity = String(entity || "").trim();
+    if (
+      !targetEntity ||
+      generation !== preloadGeneration ||
+      shouldPreload?.() !== true ||
+      hasRetainedEngine?.(targetEntity) === true
+    ) {
+      return false;
+    }
+
+    const slot = createPreloadSlot();
+    if (!slot) return false;
+    const engine = createEngine({
+      entity: targetEntity,
+      muted: true,
+      styleText: CATALYST_HLS_VISIBLE_STYLE,
+    });
+    if (!engine) {
+      slot.remove?.();
+      return false;
+    }
+    slot.appendChild(engine);
+    const abortController = new AbortController();
+    const pending = {
+      abortController,
+      engine,
+      entity: targetEntity,
+      promoted: false,
+      slot,
+    };
+    pendingPreload = pending;
+    try {
+      await engine.play?.();
+    } catch (_) {}
+
+    let ready = false;
+    try {
+      ready = await waitForStreamStart(engine, CATALYST_HLS_WAIT_MS, {
+        requireReadyState: 2,
+        abortSignal: abortController.signal,
+        resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+      });
+    } catch (_) {
+      ready = false;
+    }
+
+    if (pendingPreload === pending) pendingPreload = null;
+    if (pending.promoted) return true;
+    const stillConfigured = (getPreloadEntities?.() || []).includes(
+      targetEntity,
+    );
+    if (
+      !ready ||
+      generation !== preloadGeneration ||
+      shouldPreload?.() !== true ||
+      !stillConfigured ||
+      !isRetainableEngine(engine) ||
+      retainPreloadedEngine?.(targetEntity, engine) !== true
+    ) {
+      release(engine);
+      slot.remove?.();
+      return false;
+    }
+    slot.remove?.();
+    return true;
+  };
+
+  const runPreloadDeck = async (generation) => {
+    if (preloadRunning || generation !== preloadGeneration) return;
+    preloadRunning = true;
+    try {
+      const entities = [...new Set(getPreloadEntities?.() || [])];
+      for (const entity of entities) {
+        if (
+          generation !== preloadGeneration ||
+          shouldPreload?.() !== true
+        ) {
+          break;
+        }
+        if (
+          entity === String(getActiveEntity?.() || "").trim() ||
+          hasRetainedEngine?.(entity) === true
+        ) {
+          continue;
+        }
+        await preloadEntity(entity, generation);
+      }
+    } finally {
+      preloadRunning = false;
+      if (preloadRescheduleRequested) {
+        preloadRescheduleRequested = false;
+        schedulePreloadDeckAfterPaint();
+      }
+    }
+  };
+
+  function schedulePreloadDeckAfterPaint() {
+    if (shouldPreload?.() !== true) return;
+    if (preloadRunning) {
+      preloadRescheduleRequested = true;
+      return;
+    }
+    if (preloadFrame != null || preloadPaintFrame != null) return;
+    const generation = preloadGeneration;
+    if (typeof requestFrame !== "function") {
+      void runPreloadDeck(generation);
+      return;
+    }
+    preloadFrame = requestFrame(() => {
+      preloadFrame = null;
+      preloadPaintFrame = requestFrame(() => {
+        preloadPaintFrame = null;
+        void runPreloadDeck(generation);
+      });
+    });
+  }
+
   const detachForHandoff = (engine) => {
     if (!isRetainableEngine(engine)) return false;
     return disposeBinding(engine);
@@ -170,10 +347,11 @@ export function createCatalystHlsMounter({
     if (!isRetainableEngine(engine)) return false;
     disposeBinding(engine);
     engine.catalystDormant = true;
-    engine.autoplay = false;
-    engine.preload = "metadata";
+    engine.autoplay = true;
+    engine.preload = "auto";
+    engine.muted = true;
     try {
-      engine.pause?.();
+      void engine.play?.().catch?.(() => {});
     } catch (_) {}
     return true;
   };
@@ -210,33 +388,7 @@ export function createCatalystHlsMounter({
       if (binding.disposed || binding.failed || !isCurrentEngine(engine)) {
         return;
       }
-
-      let readyVideo = null;
-      let resumed = false;
-      try {
-        resumed = await waitForStreamStart(
-          engine,
-          CATALYST_HLS_RESUME_WAIT_MS,
-          {
-            ...buildRetainedResumeReadiness(engine),
-            abortSignal: binding.abortController.signal,
-            resolveVideo: () => findActiveHaCameraStreamVideo(engine),
-            onVideoReady: (video) => {
-              readyVideo = video;
-            },
-          },
-        );
-      } catch (_) {
-        resumed = false;
-      }
-      if (binding.disposed || binding.failed || !isCurrentEngine(engine)) {
-        return;
-      }
-      if (!resumed) {
-        applyFailed(engine);
-        return;
-      }
-      applyReady(engine, readyVideo || engine);
+      applyReady(engine, findActiveHaCameraStreamVideo(engine) || engine);
     })();
     return true;
   };
@@ -257,31 +409,27 @@ export function createCatalystHlsMounter({
     const playbackPreparation = prepare();
     if (playbackPreparation?.then) await playbackPreparation;
 
+    const pendingForEntity = pendingPreload?.entity === entity;
+    preloadGeneration += 1;
+    cancelScheduledPreload();
     let engine = null;
-    try {
-      engine = createHlsVideo({
-        hass,
+    if (pendingForEntity) {
+      engine = cancelPendingPreload({ preserveEngine: true });
+    } else {
+      cancelPendingPreload();
+      engine = createEngine({
         entity,
-        streamFormat: "hls",
-        controls: false,
         muted: options.muted ?? getStreamMuted(),
         defaultMuted: options.defaultMuted,
-        fitMode: "contain",
         styleText: options.styleText || CATALYST_HLS_VISIBLE_STYLE,
       });
-    } catch (_) {
-      engine = null;
     }
     if (!engine) {
       if (commit) applyResolvedStreamUiState?.(resolveHaDirectFailedState());
       return false;
     }
-
-    // Keep the configured connection mode visible while identifying the
-    // Catalyst-only owner for teardown. This engine never owns WebRTC state.
-    engine.type = "ha_direct";
-    engine.streamType = "hls";
-    engine.catalystHls = true;
+    engine.muted = options.muted ?? getStreamMuted();
+    engine.style.cssText = options.styleText || CATALYST_HLS_VISIBLE_STYLE;
     slot.innerHTML = "";
     slot.appendChild(engine);
     if (!commit) return { ok: true, type: "hls", engine, slot };
@@ -317,6 +465,7 @@ export function createCatalystHlsMounter({
 
   return {
     adoptRetainedEngine,
+    cancelPreloads,
     detachForHandoff,
     isRetainableEngine,
     prepare,

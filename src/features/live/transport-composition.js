@@ -5,6 +5,7 @@ import {
   normalizeCameraConnectionType,
 } from "../../helpers.js";
 import { createGo2RtcResolver } from "../../integrations/frigate/go2rtc-resolver.js";
+import { flattenCameraMembers } from "../camera-groups/model.js";
 import { createHaDirectTwoWayTalkBackchannel } from "../../integrations/home-assistant/two-way-talk-backchannel.js";
 import { createHaDirectTwoWayTalkMounter } from "../../integrations/home-assistant/two-way-talk-mounter.js";
 import { waitForMediaStart } from "../../shared/media/first-frame.js";
@@ -155,6 +156,28 @@ export const createLiveTransportControllers = (
       card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
+    getPreloadEntities: () =>
+      flattenCameraMembers(card._config?.cameras)
+        .map((camera) => String(camera?.entity || "").trim())
+        .filter(
+          (entity) =>
+            entity &&
+            card._hass?.states?.[entity] &&
+            !card._shouldUseGo2RtcForEntity(entity) &&
+            card._frigateCameraRuntimeController?.isSuspended?.(entity) !== true,
+        ),
+    getActiveEntity: () =>
+      card._activeGroupMemberOverride || card._activeCam?.entity || "",
+    getPreloadHost: () => card.shadowRoot,
+    shouldPreload: () =>
+      deviceProfile.isCatalyst === true &&
+      card.isConnected === true &&
+      card._started === true,
+    hasRetainedEngine: (entity) =>
+      card._liveGraceController?.hasRetainedCatalystHlsEngine?.(entity) === true,
+    retainPreloadedEngine: (entity, engine) =>
+      card._liveGraceController?.retainCatalystHlsEngine?.(entity, engine) ===
+      true,
   });
   const haDirectTwoWayTalkMounter =
     resolvedFactories.createHaDirectTwoWayTalkMounter({

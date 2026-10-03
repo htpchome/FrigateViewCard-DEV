@@ -41,9 +41,18 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     isCatalyst: false,
   };
   const card = {
+    isConnected: true,
     shadowRoot,
-    _hass: { language: "en" },
-    _config: { cameras: [] },
+    _hass: {
+      language: "en",
+      states: { "camera.front": {}, "camera.ha": {} },
+    },
+    _config: {
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.ha" },
+      ],
+    },
     _activeCam: { entity: "camera.front" },
     _camCache: {},
     _streamMuted: true,
@@ -52,6 +61,15 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     _pendingMountDestroyers: [],
     _pendingWebRTCTakeoverTimer: null,
     _mseChunkCount: 0,
+    _started: true,
+    _frigateCameraRuntimeController: {
+      isSuspended: () => false,
+    },
+    _liveGraceController: {
+      hasRetainedCatalystHlsEngine: (entity) => entity === "camera.ha",
+      retainCatalystHlsEngine: (entity, engine) =>
+        entity === "camera.ha" && engine === "catalyst-engine",
+    },
     _$: (selector) => (selector === "#engine" ? engineHost : null),
     _discoverOne: async (entity) => calls.push(["discover", entity]),
     _supportsNativeHlsPlayback: () => true,
@@ -71,6 +89,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
       calls.push(["native-controls", enabled]),
     _cameraConnectionType: (entity) =>
       entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
+    _shouldUseGo2RtcForEntity: (entity) => entity !== "camera.ha",
   };
 
   const controllers = createLiveTransportControllers(card, {
@@ -105,11 +124,27 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
+  assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), false);
   deviceProfile.isIOS = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
   deviceProfile.isIOS = false;
   deviceProfile.isCatalyst = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
+  assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), true);
+  assert.deepEqual(optionsByFactory.catalystHlsMounter.getPreloadEntities(), [
+    "camera.ha",
+  ]);
+  assert.equal(
+    optionsByFactory.catalystHlsMounter.hasRetainedEngine("camera.ha"),
+    true,
+  );
+  assert.equal(
+    optionsByFactory.catalystHlsMounter.retainPreloadedEngine(
+      "camera.ha",
+      "catalyst-engine",
+    ),
+    true,
+  );
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMobile, true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(7), true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(6), false);

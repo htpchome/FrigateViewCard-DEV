@@ -532,7 +532,7 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
   });
 });
 
-test("live grace controller retains Catalyst HA state but refreshes an aged HLS URL", async () => {
+test("live grace controller keeps retained Catalyst HLS live without expiry", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {
     const calls = [];
     const catalystEngine = {
@@ -542,7 +542,10 @@ test("live grace controller retains Catalyst HA state but refreshes an aged HLS 
       ended: false,
       readyState: 4,
       style: { cssText: "" },
-      play: () => Promise.resolve(),
+      play: () => {
+        calls.push(["play"]);
+        return Promise.resolve();
+      },
       pause: () => calls.push(["pause"]),
       remove: () => calls.push(["remove"]),
     };
@@ -600,9 +603,7 @@ test("live grace controller retains Catalyst HA state but refreshes an aged HLS 
       controller.takeGraceHaDirectEntry("camera.front", "hls"),
       null,
     );
-    assert.deepEqual(calls, [["suspend", catalystEngine], ["pause"]]);
-    assert.equal(catalystEngine.autoplay, false);
-    assert.equal(catalystEngine.preload, "metadata");
+    assert.deepEqual(calls, [["suspend", catalystEngine], ["play"]]);
 
     const slot = { id: "engine" };
     const entry = controller.takeGraceCatalystHlsEntry("camera.front");
@@ -621,13 +622,14 @@ test("live grace controller retains Catalyst HA state but refreshes an aged HLS 
       false,
     );
     assert.equal(
-      controller.takeGraceCatalystHlsEntry("camera.front"),
-      null,
+      controller.hasRetainedCatalystHlsEngine("camera.front"),
+      true,
     );
-    assert.deepEqual(calls.slice(-2), [
-      ["release", catalystEngine],
-      ["remove"],
-    ]);
+    assert.equal(
+      controller.takeGraceCatalystHlsEntry("camera.front")?.engine,
+      catalystEngine,
+    );
+    assert.equal(calls.some(([name]) => name === "release"), false);
   });
 });
 

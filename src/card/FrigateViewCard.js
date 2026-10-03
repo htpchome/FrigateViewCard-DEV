@@ -1088,6 +1088,7 @@ export class FrigateViewCard extends HTMLElement {
       );
     }
     getLiveRotateOverlayController(this).dispose();
+    this._catalystHlsMounter?.cancelPreloads?.();
     this._liveGraceController.clearGracePool();
     this._frigateCameraRuntimeController?.dispose?.();
     disposeRecordingsDayCache(this);

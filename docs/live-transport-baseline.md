@@ -103,6 +103,15 @@ only exposes old buffered readiness is replaced through the same fresh mount.
 During either check the selected camera's snapshot remains visible and refreshes
 instead of declaring the stale element to be live HLS.
 
+`v1.1.8-dev.156` replaces that dormant Catalyst experiment with an intentionally
+live Catalyst HLS deck. After the selected camera reaches its first usable paint,
+the remaining configured HA Direct cameras warm sequentially in configuration
+order. Selecting an unwarmed camera promotes or interrupts the current background
+warm-up so the selection is never queued behind it. Successfully warmed native
+HLS players remain mounted, muted, and playing until the card is torn down; this
+trades ongoing bandwidth and decoder use for immediate return to visited or
+prewarmed cameras. Other HA Direct clients and Frigate go2rtc remain unchanged.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

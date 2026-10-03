@@ -2,7 +2,6 @@ import {
   createGraceEngineEntry,
   createGracePendingEntry,
   normalizeGraceEntityKey,
-  prepareEngineVideoForDormantHost,
   prepareEngineVideoForGraceHost,
 } from "./grace-pool.js";
 import { splitPendingDestroyersByGraceMse } from "./pending-destroyers.js";
@@ -297,11 +296,10 @@ export function createLiveGraceController({
     }
     evictRetainedCatalystHlsEntry(key);
     ensureMseGraceHost().appendChild(engine);
-    prepareEngineVideoForDormantHost(engine);
+    prepareEngineVideoForGraceHost(engine);
     const entry = {
       engine,
       cancelled: false,
-      retainedAt: Date.now(),
       timer: null,
     };
     entry.graceOrder = ++graceEntrySequence;
@@ -389,13 +387,7 @@ export function createLiveGraceController({
     if (!key) return null;
     const entry = catalystHlsRetainedPool.get(key);
     if (!entry) return null;
-    const reuseMs = Math.max(0, Number(graceMs) || 0);
-    const retainedAt = Number(entry.retainedAt) || 0;
-    if (
-      reuseMs === 0 ||
-      retainedAt === 0 ||
-      Date.now() - retainedAt >= reuseMs
-    ) {
+    if (isCatalystHlsEngineReusable?.(entry.engine) !== true) {
       evictRetainedCatalystHlsEntry(key);
       return null;
     }
@@ -403,6 +395,19 @@ export function createLiveGraceController({
     catalystHlsRetainedPool.delete(key);
     return entry;
   };
+
+  const hasRetainedCatalystHlsEngine = (entity) => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key) return false;
+    const entry = catalystHlsRetainedPool.get(key);
+    if (!entry) return false;
+    if (isCatalystHlsEngineReusable?.(entry.engine) === true) return true;
+    evictRetainedCatalystHlsEntry(key);
+    return false;
+  };
+
+  const retainCatalystHlsEngine = (entity, engine) =>
+    stashCatalystHlsEngineForRetention(entity, engine);
 
   const adoptGraceMseEngine = (slot, engine) => {
     if (!slot || !isMseEngineReusable(engine)) {
@@ -661,6 +666,8 @@ export function createLiveGraceController({
     adoptGraceHaDirectEngine,
     isHaDirectEngineReusable,
     takeGraceCatalystHlsEntry,
+    hasRetainedCatalystHlsEngine,
+    retainCatalystHlsEngine,
     adoptGraceCatalystHlsEngine,
   };
 }
