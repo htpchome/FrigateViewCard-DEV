@@ -118,6 +118,10 @@ export const createLiveLifecycleControllers = (
           entity,
           pathname: windowTarget.location?.pathname || "",
         }),
+      getConnectionType: (entity) =>
+        card._shouldUseGo2RtcForEntity(entity)
+          ? "frigate_go2rtc"
+          : "ha_direct",
       isEditorLifecycleActive: () =>
         card._editorPreviewController.isEditorLifecycleActive(),
       requestHandoff: (request) =>
@@ -143,6 +147,57 @@ export const createLiveLifecycleControllers = (
         }
         card._assignLiveEngine(null, { retainPrevious: true });
         return true;
+      },
+      getRetainedEngine: (entity, streamType, connectionType) =>
+        connectionType === "ha_direct" && streamType === "webrtc"
+          ? liveGraceController.peekRetainedHaDirectEngineForHandoff?.(
+              entity,
+              streamType,
+            ) || null
+          : null,
+      detachRetainedEngine: (
+        entity,
+        engine,
+        streamType,
+        connectionType,
+      ) => {
+        if (connectionType !== "ha_direct" || streamType !== "webrtc") {
+          return false;
+        }
+        const taken =
+          liveGraceController.takeRetainedHaDirectEngineForHandoff?.(
+            entity,
+            engine,
+            streamType,
+          ) || null;
+        if (taken !== engine) return false;
+        if (card._haDirectMounter?.detachWebRtcForHandoff?.(engine) === true) {
+          return true;
+        }
+        const restored = liveGraceController.retainHaDirectEngine?.(
+          entity,
+          engine,
+          { allowPlaybackResume: true },
+        );
+        if (restored !== true) card._haDirectMounter?.release?.(engine);
+        return false;
+      },
+      restoreRetainedEngine: (
+        entity,
+        engine,
+        streamType,
+        connectionType,
+      ) => {
+        if (connectionType !== "ha_direct" || streamType !== "webrtc") {
+          return false;
+        }
+        const restored = liveGraceController.retainHaDirectEngine?.(
+          entity,
+          engine,
+          { allowPlaybackResume: true },
+        );
+        if (restored !== true) card._haDirectMounter?.release?.(engine);
+        return restored === true;
       },
       setStreamLoading: (loading) => card._setStreamLoading(loading),
       setStreamFallbackVisible: (visible, refreshImage = false) =>

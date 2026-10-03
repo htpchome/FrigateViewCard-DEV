@@ -158,6 +158,25 @@ export const createLiveTransportControllers = (
       card._liveGraceController?.hasRetainedHaDirectEngine?.(entity) === true,
     retainPreloadedEngine: (entity, engine) =>
       card._liveGraceController?.retainHaDirectEngine?.(entity, engine) === true,
+    adoptEditorPreloadedEngine: (entity) => {
+      const transfer = card._editorLiveHandoffController?.take?.(
+        entity,
+        "webrtc",
+        "ha_direct",
+      );
+      if (!transfer?.engine) return false;
+      const retained = card._liveGraceController?.retainHaDirectEngine?.(
+        entity,
+        transfer.engine,
+        { allowPlaybackResume: true },
+      );
+      if (retained === true) {
+        transfer.commit?.();
+        return true;
+      }
+      transfer.reject?.();
+      return false;
+    },
     syncRetainedEntities: (entities) =>
       card._liveGraceController?.syncRetainedHaDirectEntities?.(entities),
     scopeKey: card,

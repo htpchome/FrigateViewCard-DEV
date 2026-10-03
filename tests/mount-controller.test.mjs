@@ -274,6 +274,111 @@ test("editor HA-direct WebRTC handoff transfers and returns one established engi
   assert.equal(donorState.engine, engine);
 });
 
+test("editor HA-direct handoff also transfers retained background WebRTC engines", () => {
+  const createEngine = (entity) => ({
+    type: "ha_direct",
+    streamType: "webrtc",
+    haDirectEntity: entity,
+    video: {},
+    pc: {},
+    deactivateRecovery() {},
+    activateRecovery() {},
+  });
+  const activeEngine = createEngine("camera.front");
+  const retainedEngine = createEngine("camera.back");
+  const rejectedEngine = createEngine("camera.side");
+  const retained = new Map([
+    ["camera.back", retainedEngine],
+    ["camera.side", rejectedEngine],
+  ]);
+  const donorState = {
+    activeStreamType: "webrtc",
+    engine: activeEngine,
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: false,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: false,
+    viewMode: "single",
+  };
+  const receiverState = { ...donorState, engine: null };
+  let donor;
+  donor = createEditorLiveHandoffController({
+    getState: () => donorState,
+    getContext: () => "preconfig",
+    getIdentityKey: (entity) => `matching-card:${entity}`,
+    getConnectionType: () => "ha_direct",
+    isEditorLifecycleActive: () => true,
+    isEngineReusable: (engine) => Boolean(engine),
+    detachEngine: () => {
+      donorState.engine = null;
+      return true;
+    },
+    getRetainedEngine: (entity) => retained.get(entity) || null,
+    detachRetainedEngine: (entity, engine) =>
+      retained.get(entity) === engine && retained.delete(entity),
+    restoreRetainedEngine: (entity, engine) => {
+      retained.set(entity, engine);
+      return true;
+    },
+    adoptEngine: (engine) => {
+      donorState.engine = engine;
+      return true;
+    },
+  });
+  const receiver = createEditorLiveHandoffController({
+    getState: () => receiverState,
+    getContext: () => "config",
+    getIdentityKey: (entity) => `matching-card:${entity}`,
+    getConnectionType: () => "ha_direct",
+    isEditorLifecycleActive: () => true,
+    requestHandoff: (request) => donor.createOffer(request),
+    isEngineReusable: (engine) => Boolean(engine),
+    detachEngine: () => {
+      receiverState.engine = null;
+      return true;
+    },
+    adoptEngine: (engine) => {
+      receiverState.engine = engine;
+      return true;
+    },
+  });
+
+  const activeTransfer = receiver.take(
+    "camera.front",
+    "webrtc",
+    "ha_direct",
+  );
+  receiverState.engine = activeTransfer.engine;
+  activeTransfer.commit();
+  assert.equal(donor.isSuspended(), true);
+
+  const retainedTransfer = receiver.take(
+    "camera.back",
+    "webrtc",
+    "ha_direct",
+  );
+  assert.strictEqual(retainedTransfer?.engine, retainedEngine);
+  retainedTransfer.commit();
+  assert.equal(retained.has("camera.back"), false);
+
+  const rejectedTransfer = receiver.take(
+    "camera.side",
+    "webrtc",
+    "ha_direct",
+  );
+  assert.strictEqual(rejectedTransfer?.engine, rejectedEngine);
+  rejectedTransfer.reject();
+  assert.strictEqual(retained.get("camera.side"), rejectedEngine);
+
+  donorState.hostConnected = true;
+  assert.equal(receiver.returnIfPossible(), true);
+  assert.strictEqual(donorState.engine, activeEngine);
+});
+
 test("editor Catalyst HLS handoff transfers and returns one native engine", () => {
   const engine = {
     type: "ha_direct",

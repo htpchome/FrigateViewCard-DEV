@@ -228,6 +228,10 @@ test("same-dashboard departure uses the complete camera-switch grace policy", ()
     /disconnectedCallback\(\)[\s\S]*?isCurrentDashboardScope\?\.\(\)[\s\S]*?_preserveLiveForDashboardNavigation\(\)[\s\S]*?preserveDashboardLive \? LIVE_SWITCH_GRACE_MS : 2500/,
   );
   assert.match(
+    cardSource,
+    /retainEditorHandoffLive[\s\S]*?hasRetainedHaDirectHandoffEngines\?\.\(\)[\s\S]*?retainMountedEditorLive \|\| retainEditorHandoffLive/,
+  );
+  assert.match(
     haDashboardCompositionSource,
     /onDashboardScopeExited:\s*\(\)\s*=>\s*card\._handleDashboardScopeExited\(\)/,
   );

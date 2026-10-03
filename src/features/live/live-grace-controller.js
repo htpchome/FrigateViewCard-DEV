@@ -309,14 +309,18 @@ export function createLiveGraceController({
     trimGracePool();
     return true;
   };
-  const stashHaDirectEngineForGrace = (entity, engine) => {
+  const stashHaDirectEngineForGrace = (entity, engine, options = {}) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key) return false;
     engine?.cancelPendingTakeover?.();
     const engineEntity = normalizeGraceEntityKey(engine?.haDirectEntity);
     if (engineEntity && engineEntity !== key) return false;
     if (engine && !engineEntity) engine.haDirectEntity = key;
-    if (!isHaDirectEngineReusable(engine)) return false;
+    const reusableEngine =
+      options.allowPlaybackResume === true && engine?.streamType === "webrtc"
+        ? isHaDirectWebRtcEngineTransferable(engine)
+        : isHaDirectEngineReusable(engine);
+    if (!reusableEngine) return false;
     if (
       engine.streamType === "hls" &&
       suspendHaDirectHlsEngine?.(engine) !== true
@@ -337,6 +341,9 @@ export function createLiveGraceController({
       mediaNode.style.opacity = "0";
       mediaNode.style.zIndex = "0";
       mediaNode.setAttribute?.("aria-hidden", "true");
+      if (options.allowPlaybackResume === true) {
+        void mediaNode.play?.().catch?.(() => {});
+      }
     }
     const entry = {
       engine,
@@ -454,6 +461,43 @@ export function createLiveGraceController({
     return entry;
   };
 
+  const peekRetainedHaDirectEngineForHandoff = (
+    entity,
+    streamType = "webrtc",
+  ) => {
+    const key = normalizeGraceEntityKey(entity);
+    if (!key) return null;
+    const entry = haDirectRetainedPool.get(key);
+    const engine = entry?.engine || null;
+    const expectedType = String(streamType || "")
+      .trim()
+      .toLowerCase();
+    if (
+      !engine ||
+      normalizeGraceEntityKey(engine.haDirectEntity) !== key ||
+      (expectedType && engine.streamType !== expectedType) ||
+      engine.streamType !== "webrtc" ||
+      !isHaDirectWebRtcEngineTransferable(engine)
+    ) {
+      return null;
+    }
+    return engine;
+  };
+
+  const takeRetainedHaDirectEngineForHandoff = (
+    entity,
+    expectedEngine,
+    streamType = "webrtc",
+  ) => {
+    const key = normalizeGraceEntityKey(entity);
+    const engine = peekRetainedHaDirectEngineForHandoff(entity, streamType);
+    if (!key || !engine || engine !== expectedEngine) return null;
+    const entry = haDirectRetainedPool.get(key);
+    if (entry?.timer) clearTimeout(entry.timer);
+    haDirectRetainedPool.delete(key);
+    return engine;
+  };
+
   const hasRetainedHaDirectEngine = (entity) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key) return false;
@@ -464,8 +508,13 @@ export function createLiveGraceController({
     return false;
   };
 
-  const retainHaDirectEngine = (entity, engine) =>
-    stashHaDirectEngineForGrace(entity, engine);
+  const hasRetainedHaDirectHandoffEngines = () =>
+    [...haDirectRetainedPool.values()].some(({ engine } = {}) =>
+      isHaDirectWebRtcEngineTransferable(engine),
+    );
+
+  const retainHaDirectEngine = (entity, engine, options = {}) =>
+    stashHaDirectEngineForGrace(entity, engine, options);
 
   const syncRetainedHaDirectEntities = (entities = []) => {
     const retainedEntities = new Set(
@@ -783,10 +832,13 @@ export function createLiveGraceController({
     adoptGraceWebRtcEngine,
     isWebRtcEngineReusable,
     takeGraceHaDirectEntry,
+    peekRetainedHaDirectEngineForHandoff,
+    takeRetainedHaDirectEngineForHandoff,
     adoptGraceHaDirectEngine,
     isHaDirectEngineReusable,
     isHaDirectWebRtcEngineTransferable,
     hasRetainedHaDirectEngine,
+    hasRetainedHaDirectHandoffEngines,
     retainHaDirectEngine,
     syncRetainedHaDirectEntities,
     getHaDirectDeckHost: ensureHaDirectDeckHost,

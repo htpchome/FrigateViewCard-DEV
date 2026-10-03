@@ -61,6 +61,7 @@ export function createHaDirectMounter({
   shouldPreload = () => false,
   hasRetainedEngine = () => false,
   retainPreloadedEngine = () => false,
+  adoptEditorPreloadedEngine = () => false,
   syncRetainedEntities = () => {},
   requestFrame = (callback) => globalThis.requestAnimationFrame?.(callback),
   cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
@@ -503,8 +504,15 @@ export function createHaDirectMounter({
       engine?.type !== "ha_direct" ||
       engine?.streamType !== "webrtc" ||
       !engine?.video ||
-      !engine?.pc ||
-      !binding ||
+      !engine?.pc
+    ) {
+      return false;
+    }
+    if (!binding) {
+      engine.deactivateRecovery?.();
+      return true;
+    }
+    if (
       binding.disposed ||
       binding.fallbackEngine ||
       binding.fallbackAbortController ||
@@ -805,6 +813,7 @@ export function createHaDirectMounter({
     ) {
       return false;
     }
+    if (adoptEditorPreloadedEngine?.(entity) === true) return true;
     const engine = await createHlsEngine({
       entity,
       muted: true,

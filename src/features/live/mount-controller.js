@@ -46,10 +46,14 @@ export function createEditorLiveHandoffController({
   getState,
   getContext,
   getIdentityKey,
+  getConnectionType,
   isEditorLifecycleActive,
   requestHandoff,
   isEngineReusable,
   detachEngine,
+  getRetainedEngine,
+  detachRetainedEngine,
+  restoreRetainedEngine,
   setStreamLoading,
   setStreamFallbackVisible,
   scheduleResumeLive,
@@ -63,7 +67,7 @@ export function createEditorLiveHandoffController({
   const state = () => getState?.() || {};
   const identityKey = (entity) => getIdentityKey?.(entity) || "";
 
-  const claim = (engine, streamType, connectionType) => {
+  const claimActive = (engine, streamType, connectionType) => {
     const current = state();
     if (
       current.engine !== engine ||
@@ -82,6 +86,33 @@ export function createEditorLiveHandoffController({
     return engine;
   };
 
+  const claimRetained = (
+    entity,
+    engine,
+    streamType,
+    connectionType,
+  ) => {
+    if (
+      getRetainedEngine?.(entity, streamType, connectionType) !== engine ||
+      isEngineReusable?.(engine, streamType, connectionType) !== true
+    ) {
+      return null;
+    }
+    engine.deactivateRecovery?.();
+    if (
+      detachRetainedEngine?.(
+        entity,
+        engine,
+        streamType,
+        connectionType,
+      ) !== true
+    ) {
+      engine.activateRecovery?.();
+      return null;
+    }
+    return engine;
+  };
+
   const reject = () => {
     suspended = false;
     if (state().hostConnected) {
@@ -91,30 +122,39 @@ export function createEditorLiveHandoffController({
 
   const createOffer = (request = {}) => {
     const current = state();
-    const entity = String(current.entity || "");
+    const currentEntity = String(current.entity || "");
+    const entity = String(request.entity || "");
     const requestContext = String(request.context || "");
     const requestFromConfigPreview = requestContext === "config";
     const streamType = String(request.streamType || "").toLowerCase();
     const connectionType = resolveEditorHandoffConnectionType(request.type);
-    const currentConnectionType = current.useGo2Rtc
-      ? "frigate_go2rtc"
-      : "ha_direct";
-    const engine = current.engine;
+    const requestConnectionType =
+      getConnectionType?.(entity) ||
+      (current.useGo2Rtc ? "frigate_go2rtc" : "ha_direct");
+    const activeEngine =
+      entity === currentEntity &&
+      !suspended &&
+      current.hasSlot === true &&
+      current.activeStreamType === streamType
+        ? current.engine
+        : null;
+    const retainedEngine =
+      connectionType === "ha_direct" && streamType === "webrtc"
+        ? getRetainedEngine?.(entity, streamType, connectionType) || null
+        : null;
+    const retained = !activeEngine && Boolean(retainedEngine);
+    const engine = activeEngine || retainedEngine;
     if (
       !isEditorLiveHandoffSupported(connectionType, streamType) ||
-      connectionType !== currentConnectionType ||
+      connectionType !== requestConnectionType ||
       !entity ||
-      request.entity !== entity ||
       request.key !== identityKey(entity) ||
-      suspended ||
       (!requestFromConfigPreview && isEditorLifecycleActive?.() !== true) ||
       current.started !== true ||
       current.mountInProgress ||
       current.previewPageActive ||
-      current.hasSlot !== true ||
       current.viewMode === "grid" ||
       current.twoWayTalkActive ||
-      current.activeStreamType !== streamType ||
       engine?.type !== connectionType ||
       engine?.streamType !== streamType ||
       isEngineReusable?.(engine, streamType, connectionType) !== true
@@ -123,17 +163,42 @@ export function createEditorLiveHandoffController({
     }
 
     const nextReturnTarget =
-      requestContext === "config" ? returnTarget || controller : null;
+      !retained && requestContext === "config"
+        ? returnTarget || controller
+        : null;
+    let claimed = false;
     return {
       provider: controller,
       returnTarget: nextReturnTarget,
+      retained,
       connectionType,
       streamType,
-      claim: () => claim(engine, streamType, connectionType),
-      complete: () => {
-        returnTarget = null;
+      claim: () => {
+        const claimedEngine = retained
+          ? claimRetained(entity, engine, streamType, connectionType)
+          : claimActive(engine, streamType, connectionType);
+        claimed = claimedEngine === engine;
+        return claimedEngine;
       },
-      reject,
+      complete: () => {
+        claimed = false;
+        if (!retained) returnTarget = null;
+      },
+      reject: () => {
+        if (retained) {
+          if (claimed) {
+            claimed = false;
+            restoreRetainedEngine?.(
+              entity,
+              engine,
+              streamType,
+              connectionType,
+            );
+          }
+          return;
+        }
+        reject();
+      },
     };
   };
 
@@ -174,7 +239,9 @@ export function createEditorLiveHandoffController({
       streamType: requestedStreamType,
       commit: () => {
         suspended = false;
-        returnTarget = offer.returnTarget || null;
+        if (offer.retained !== true) {
+          returnTarget = offer.returnTarget || null;
+        }
         offer.complete?.();
       },
       reject: () => offer.reject?.(),

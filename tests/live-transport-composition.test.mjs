@@ -31,6 +31,8 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     createGo2RtcRaceMounter: createFactory("go2rtcRaceMounter"),
   };
   const calls = [];
+  const transferredEditorEngine = { id: "editor-retained-webrtc" };
+  let committedEditorTransfer = 0;
   const engineHost = { id: "engine" };
   const haDirectDeckHost = { id: "ha-direct-deck" };
   const catalystHlsDeckHost = { id: "catalyst-hls-deck" };
@@ -67,11 +69,28 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     _frigateCameraRuntimeController: {
       isSuspended: () => false,
     },
+    _editorLiveHandoffController: {
+      take: (...args) => {
+        calls.push(["take-editor-handoff", ...args]);
+        return {
+          engine: transferredEditorEngine,
+          commit: () => {
+            committedEditorTransfer += 1;
+          },
+        };
+      },
+    },
     _liveGraceController: {
       getHaDirectDeckHost: () => haDirectDeckHost,
       hasRetainedHaDirectEngine: (entity) => entity === "camera.ha",
-      retainHaDirectEngine: (entity, engine) =>
-        entity === "camera.ha" && engine === "ha-webrtc-engine",
+      retainHaDirectEngine: (entity, engine, options) => {
+        calls.push(["retain-ha", entity, engine, options]);
+        return (
+          entity === "camera.ha" &&
+          (engine === "ha-webrtc-engine" ||
+            engine === transferredEditorEngine)
+        );
+      },
       syncRetainedHaDirectEntities: (entities) =>
         calls.push(["sync-ha-retained", entities]),
       getCatalystHlsDeckHost: () => catalystHlsDeckHost,
@@ -153,6 +172,22 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     ),
     true,
   );
+  assert.equal(
+    optionsByFactory.haDirectMounter.adoptEditorPreloadedEngine(
+      "camera.ha",
+    ),
+    true,
+  );
+  assert.deepEqual(calls.slice(-2), [
+    ["take-editor-handoff", "camera.ha", "webrtc", "ha_direct"],
+    [
+      "retain-ha",
+      "camera.ha",
+      transferredEditorEngine,
+      { allowPlaybackResume: true },
+    ],
+  ]);
+  assert.equal(committedEditorTransfer, 1);
   optionsByFactory.haDirectMounter.syncRetainedEntities(["camera.ha"]);
   assert.deepEqual(calls.at(-1), ["sync-ha-retained", ["camera.ha"]]);
   assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), false);

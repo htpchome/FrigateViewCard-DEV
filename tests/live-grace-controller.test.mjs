@@ -1127,6 +1127,34 @@ test("HA Direct retained WebRTC cameras stay hidden until their own adoption", a
     assert.equal(controller.retainHaDirectEngine("camera.back", back), true);
     assert.equal(front.video.style.opacity, "0");
     assert.equal(back.video.style.opacity, "0");
+    assert.strictEqual(
+      controller.peekRetainedHaDirectEngineForHandoff("camera.back"),
+      back,
+    );
+    assert.equal(
+      controller.takeRetainedHaDirectEngineForHandoff(
+        "camera.back",
+        front,
+      ),
+      null,
+    );
+    assert.strictEqual(
+      controller.takeRetainedHaDirectEngineForHandoff(
+        "camera.back",
+        back,
+      ),
+      back,
+    );
+    assert.equal(
+      controller.peekRetainedHaDirectEngineForHandoff("camera.back"),
+      null,
+    );
+    assert.equal(
+      controller.retainHaDirectEngine("camera.back", back, {
+        allowPlaybackResume: true,
+      }),
+      true,
+    );
 
     const entry = controller.takeGraceHaDirectEntry(
       "camera.front",

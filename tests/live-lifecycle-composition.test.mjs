@@ -15,6 +15,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   const calls = [];
   const engineSlot = { id: "engine" };
   const gridSlot = { id: "grid-engine" };
+  const retainedHaEngine = { id: "retained-ha-engine" };
   const liveGraceController = {
     isHaDirectEngineReusable: (engine) => engine === "ha-engine",
     isHaDirectWebRtcEngineTransferable: (engine) =>
@@ -31,6 +32,16 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     },
     adoptGraceWebRtcEngine: (slot, engine) => {
       calls.push(["adopt-webrtc", slot, engine]);
+      return true;
+    },
+    peekRetainedHaDirectEngineForHandoff: (entity) =>
+      entity === "camera.ha" ? retainedHaEngine : null,
+    takeRetainedHaDirectEngineForHandoff: (entity, engine) =>
+      entity === "camera.ha" && engine === retainedHaEngine
+        ? retainedHaEngine
+        : null,
+    retainHaDirectEngine: (entity, engine, options) => {
+      calls.push(["retain-ha", entity, engine, options]);
       return true;
     },
   };
@@ -141,7 +152,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _scheduleResumeLive: (reason) => calls.push(["resume", reason]),
     _currentLiveStreamHint: () => "mse",
     _isPreviewPageActive: () => false,
-    _shouldUseGo2RtcForEntity: () => true,
+    _shouldUseGo2RtcForEntity: (entity) => entity !== "camera.ha",
     _cameraConnectionType: (entity) =>
       entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
     _livePlaybackConnectionType: () => "ha_direct",
@@ -217,6 +228,14 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     }),
   );
   assert.equal(
+    optionsByFactory.editorHandoff.getConnectionType("camera.front"),
+    "frigate_go2rtc",
+  );
+  assert.equal(
+    optionsByFactory.editorHandoff.getConnectionType("camera.ha"),
+    "ha_direct",
+  );
+  assert.equal(
     optionsByFactory.editorHandoff.isEngineReusable(
       "ha-engine",
       "webrtc",
@@ -276,6 +295,38 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     "assign-engine",
     null,
     { retainPrevious: true },
+  ]);
+  assert.strictEqual(
+    optionsByFactory.editorHandoff.getRetainedEngine(
+      "camera.ha",
+      "webrtc",
+      "ha_direct",
+    ),
+    retainedHaEngine,
+  );
+  assert.equal(
+    optionsByFactory.editorHandoff.detachRetainedEngine(
+      "camera.ha",
+      retainedHaEngine,
+      "webrtc",
+      "ha_direct",
+    ),
+    true,
+  );
+  assert.equal(
+    optionsByFactory.editorHandoff.restoreRetainedEngine(
+      "camera.ha",
+      retainedHaEngine,
+      "webrtc",
+      "ha_direct",
+    ),
+    true,
+  );
+  assert.deepEqual(calls.at(-1), [
+    "retain-ha",
+    "camera.ha",
+    retainedHaEngine,
+    { allowPlaybackResume: true },
   ]);
   assert.equal(
     optionsByFactory.editorHandoff.detachEngine(

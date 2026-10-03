@@ -924,13 +924,19 @@ export class FrigateViewCard extends HTMLElement {
     const sameDashboard =
       this._haDashboardSwipeNavigationController?.isCurrentDashboardScope?.() ===
       true;
+    const editorLifecycleActive =
+      this._editorPreviewController?.isEditorLifecycleActive?.() === true;
+    const retainEditorHandoffLive =
+      this._editorLiveHandoffController?.isSuspended?.() === true ||
+      (editorLifecycleActive &&
+        this._liveGraceController?.hasRetainedHaDirectHandoffEngines?.() ===
+          true);
     const activeLiveEntity =
       this._activeGroupMemberOverride || this._activeCam?.entity || "";
     const retainMountedEditorLive =
       shouldRetainMountedLiveForEditorTransition({
         sameDashboard,
-        editorLifecycleActive:
-          this._editorPreviewController?.isEditorLifecycleActive?.() === true,
+        editorLifecycleActive,
         started: this._started,
         hasEngine: Boolean(this._engine),
         mountInProgress: this._mountInProgress,
@@ -945,8 +951,12 @@ export class FrigateViewCard extends HTMLElement {
       });
     const preserveDashboardLive =
       sameDashboard &&
-      (retainMountedEditorLive || this._preserveLiveForDashboardNavigation());
-    if (retainMountedEditorLive) this._dashboardLiveGraceActive = true;
+      (retainMountedEditorLive ||
+        retainEditorHandoffLive ||
+        this._preserveLiveForDashboardNavigation());
+    if (retainMountedEditorLive || retainEditorHandoffLive) {
+      this._dashboardLiveGraceActive = true;
+    }
     this._haNavbarController?.disconnect?.();
     this._haDashboardSwipeNavigationController?.disconnect?.();
     this._haPageBackgroundController?.disconnect?.();

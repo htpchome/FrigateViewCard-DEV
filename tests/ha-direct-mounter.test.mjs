@@ -1521,6 +1521,84 @@ test("ha direct mounter warms configured HA Direct HLS cameras sequentially", as
   });
 });
 
+test("ha direct mounter detaches an adopted background WebRTC engine for handoff", () => {
+  let deactivateRecoveryCalls = 0;
+  const engine = {
+    type: "ha_direct",
+    streamType: "webrtc",
+    video: createFakeVideo("editor-background-webrtc"),
+    pc: {},
+    deactivateRecovery() {
+      deactivateRecoveryCalls += 1;
+    },
+  };
+  const mounter = createHaDirectMounter({
+    getHass: () => ({ states: {} }),
+    getPreferredStreamType: () => "webrtc",
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: () => false,
+    waitForStreamStart: async () => true,
+    assignCommittedEngine: () => {},
+    applyResolvedStreamUiState: () => {},
+    setLiveNativeControls: () => {},
+  });
+
+  assert.equal(mounter.detachWebRtcForHandoff(engine), true);
+  assert.equal(deactivateRecoveryCalls, 1);
+});
+
+test("ha direct background warm-up adopts editor handoffs before starting HLS", async () => {
+  await withFakeDocument(async ({ hlsPlayers }) => {
+    const frameCallbacks = [];
+    const adopted = [];
+    let waitCalls = 0;
+    const mounter = createHaDirectMounter({
+      getHass: () => ({
+        states: {
+          "camera.ha_one": {},
+          "camera.ha_two": {},
+        },
+      }),
+      getPreferredStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      getRotateOverlayActive: () => false,
+      isCurrentEngine: () => false,
+      waitForStreamStart: async () => {
+        waitCalls += 1;
+        return true;
+      },
+      assignCommittedEngine: () => {},
+      applyResolvedStreamUiState: () => {},
+      setLiveNativeControls: () => {},
+      getPreloadEntities: () => ["camera.ha_one", "camera.ha_two"],
+      getActiveEntity: () => "",
+      shouldPreload: () => true,
+      hasRetainedEngine: () => false,
+      adoptEditorPreloadedEngine: (entity) => {
+        adopted.push(entity);
+        return true;
+      },
+      requestFrame: (callback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      },
+      cancelFrame: () => {},
+    });
+
+    mounter.schedulePreloadDeckAfterPaint();
+    frameCallbacks.shift()?.();
+    frameCallbacks.shift()?.();
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    assert.deepEqual(adopted, ["camera.ha_one", "camera.ha_two"]);
+    assert.equal(hlsPlayers.length, 0);
+    assert.equal(waitCalls, 0);
+    mounter.cancelPreloads();
+  });
+});
+
 test("ha direct background warm-up retains rendered WebRTC over HLS", async () => {
   await withFakeDocument(async ({ hlsPlayers }) => {
     const frameCallbacks = [];

@@ -342,6 +342,12 @@ one of those policies is the cause.
   reusable WebRTC engine even if the dashboard donor has not yet observed the
   editor-open lifecycle transition, and permits the receiver to resume a
   transferred live WebRTC element after a transient editor reparent pause.
+- `v1.1.8-dev.168` extends editor handoff from only the selected HA Direct
+  camera to the donor card's retained per-camera WebRTC pool. Editor preview
+  warm-up claims those established background connections before starting a
+  new HLS/WebRTC race, preserves the selected camera's return target while the
+  background cameras transfer, and keeps both pools available through the
+  normal 20-second dashboard grace window for the reverse handoff on exit.
 
 ## Validation Expectations
 
