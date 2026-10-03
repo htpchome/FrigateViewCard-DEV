@@ -168,7 +168,8 @@ export const createLiveTransportControllers = (
         ),
     getActiveEntity: () =>
       card._activeGroupMemberOverride || card._activeCam?.entity || "",
-    getPreloadHost: () => card.shadowRoot,
+    getPreloadHost: () =>
+      card._liveGraceController?.getCatalystHlsDeckHost?.() || null,
     shouldPreload: () =>
       deviceProfile.isCatalyst === true &&
       card.isConnected === true &&

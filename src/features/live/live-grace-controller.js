@@ -3,6 +3,7 @@ import {
   createGracePendingEntry,
   normalizeGraceEntityKey,
   prepareEngineVideoForGraceHost,
+  prepareEngineVideoForLiveDeck,
 } from "./grace-pool.js";
 import { splitPendingDestroyersByGraceMse } from "./pending-destroyers.js";
 import {
@@ -115,6 +116,7 @@ export function createLiveGraceController({
   };
   const isHaDirectEngineReusable = isHaDirectWebRtcEngineReusable;
   let mseGraceHost = null;
+  let catalystHlsDeckHost = null;
 
   const evictGraceMseEntry = (entity) => {
     const key = normalizeGraceEntityKey(entity);
@@ -221,6 +223,24 @@ export function createLiveGraceController({
     mseGraceHost = host;
     return host;
   };
+  const ensureCatalystHlsDeckHost = () => {
+    if (catalystHlsDeckHost?.isConnected) return catalystHlsDeckHost;
+    const host = document.createElement("div");
+    host.setAttribute("aria-hidden", "true");
+    host.setAttribute("data-fvc-catalyst-hls-deck", "");
+    host.style.cssText =
+      "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:0;background:var(--c-bg-deep)";
+    const shadowRoot = getShadowRoot?.();
+    const engine = shadowRoot?.querySelector?.("#engine") || null;
+    const parent = engine?.parentElement || shadowRoot;
+    if (engine && parent?.insertBefore) {
+      parent.insertBefore(host, engine);
+    } else {
+      parent?.appendChild?.(host);
+    }
+    catalystHlsDeckHost = host;
+    return host;
+  };
   const stashMseEngineForGrace = (entity, engine) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key || !engine?.video || !engine?.ws) return false;
@@ -295,8 +315,8 @@ export function createLiveGraceController({
       return false;
     }
     evictRetainedCatalystHlsEntry(key);
-    ensureMseGraceHost().appendChild(engine);
-    prepareEngineVideoForGraceHost(engine);
+    ensureCatalystHlsDeckHost().appendChild(engine);
+    prepareEngineVideoForLiveDeck(engine);
     const entry = {
       engine,
       cancelled: false,
@@ -643,6 +663,10 @@ export function createLiveGraceController({
       mseGraceHost?.remove?.();
     } catch (_) {}
     mseGraceHost = null;
+    try {
+      catalystHlsDeckHost?.remove?.();
+    } catch (_) {}
+    catalystHlsDeckHost = null;
   };
 
   const evictEntity = (entity) => {
@@ -669,5 +693,6 @@ export function createLiveGraceController({
     hasRetainedCatalystHlsEngine,
     retainCatalystHlsEngine,
     adoptGraceCatalystHlsEngine,
+    getCatalystHlsDeckHost: ensureCatalystHlsDeckHost,
   };
 }

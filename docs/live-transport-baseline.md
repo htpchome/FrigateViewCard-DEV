@@ -112,6 +112,13 @@ HLS players remain mounted, muted, and playing until the card is torn down; this
 trades ongoing bandwidth and decoder use for immediate return to visited or
 prewarmed cameras. Other HA Direct clients and Frigate go2rtc remain unchanged.
 
+`v1.1.8-dev.157` keeps the sequential Catalyst warm-up players in a full-sized
+stack beneath the visible live player. The earlier offscreen one-pixel host could
+be classified as non-visible media by WebKit, preventing Catalyst from starting
+the background HLS requests until a camera was selected. The deck has no hidden,
+transparent, or offscreen styling; the selected player and snapshot layers keep
+it visually covered. Other clients and transports remain unchanged.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

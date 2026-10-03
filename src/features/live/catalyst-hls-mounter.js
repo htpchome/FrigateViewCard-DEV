@@ -12,7 +12,7 @@ import {
 const CATALYST_HLS_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
 const CATALYST_HLS_PRELOAD_HOST_STYLE =
-  "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px";
+  "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none";
 const CATALYST_HLS_WAIT_MS = 8000;
 
 export function createCatalystHlsMounter({

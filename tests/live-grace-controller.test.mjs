@@ -532,8 +532,8 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
   });
 });
 
-test("live grace controller keeps retained Catalyst HLS live without expiry", async () => {
-  await withFakeDocument(async ({ shadowRoot }) => {
+test("live grace controller keeps retained Catalyst HLS live in its full-size deck", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
     const calls = [];
     const catalystEngine = {
       type: "ha_direct",
@@ -604,6 +604,24 @@ test("live grace controller keeps retained Catalyst HLS live without expiry", as
       null,
     );
     assert.deepEqual(calls, [["suspend", catalystEngine], ["play"]]);
+    assert.equal(hostChildren.length, 1);
+    assert.equal(
+      hostChildren[0].style.cssText.includes("width:100%"),
+      true,
+    );
+    assert.equal(
+      hostChildren[0].style.cssText.includes("height:100%"),
+      true,
+    );
+    assert.equal(hostChildren[0].style.cssText.includes("opacity:0"), false);
+    assert.equal(
+      catalystEngine.style.cssText.includes("left:-9999px"),
+      false,
+    );
+    assert.strictEqual(
+      controller.getCatalystHlsDeckHost(),
+      hostChildren[0],
+    );
 
     const slot = { id: "engine" };
     const entry = controller.takeGraceCatalystHlsEntry("camera.front");

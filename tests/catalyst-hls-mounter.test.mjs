@@ -355,6 +355,7 @@ test("Catalyst warms remaining HA Direct cameras sequentially after two paint fr
   const waitResolvers = new Map();
   const preloadHost = {
     appendChild(node) {
+      this.child = node;
       node.parentElement = this;
     },
   };
@@ -443,6 +444,13 @@ test("Catalyst warms remaining HA Direct cameras sequentially after two paint fr
     frames.shift()();
     await Promise.resolve();
     assert.deepEqual(createdEntities, ["camera.front", "camera.driveway"]);
+    assert.equal(preloadHost.child.style.cssText.includes("width:100%"), true);
+    assert.equal(preloadHost.child.style.cssText.includes("height:100%"), true);
+    assert.equal(preloadHost.child.style.cssText.includes("opacity:0"), false);
+    assert.equal(
+      preloadHost.child.style.cssText.includes("left:-9999px"),
+      false,
+    );
     assert.equal(createdEntities.includes("camera.porch"), false);
 
     waitResolvers.get("camera.driveway")(true);
