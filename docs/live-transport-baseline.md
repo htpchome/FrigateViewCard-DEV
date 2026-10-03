@@ -47,6 +47,11 @@ mount with no receive-only WebRTC creation, startup race, retained WebRTC
 handoff, or later WebRTC takeover. Non-Catalyst HA Direct behavior retains the
 established HLS/WebRTC race and takeover contract below.
 
+`v1.1.8-dev.146` keeps that Catalyst-only orchestration boundary but replaces
+the direct native video wrapper with Home Assistant's `ha-hls-player`, matching
+the Frigate Modern Hass Card approach. The Catalyst connection remains HLS-only
+and does not create or race a receive-only WebRTC player.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

@@ -808,6 +808,14 @@ test("live transport ownership is pulled out of the card shell", () => {
     false,
   );
   assert.equal(
+    catalystHlsMounterSource.includes("createHaHlsPlayerElement"),
+    true,
+  );
+  assert.equal(
+    catalystHlsMounterSource.includes("createHaNativeHlsVideoElement"),
+    false,
+  );
+  assert.equal(
     haDirectTwoWayTalkMounterSource.includes(
       "export function createHaDirectTwoWayTalkMounter",
     ),

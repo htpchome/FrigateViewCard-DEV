@@ -1,5 +1,6 @@
 import {
-  createHaNativeHlsVideoElement,
+  createHaHlsPlayerElement,
+  ensureHaCameraPlaybackElements,
   findActiveHaCameraStreamVideo,
 } from "../../integrations/home-assistant/playback.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
@@ -26,11 +27,18 @@ export function createCatalystHlsMounter({
   startLoadingFallbackRefresh,
   stopLoadingFallbackRefresh,
   setLiveNativeControls,
-  createNativeHlsVideo = createHaNativeHlsVideoElement,
+  preparePlaybackElements = ensureHaCameraPlaybackElements,
+  createHlsPlayer = createHaHlsPlayerElement,
 }) {
   const bindings = new WeakMap();
 
-  const prepare = () => false;
+  const prepare = () => {
+    try {
+      return preparePlaybackElements?.() ?? false;
+    } catch (_) {
+      return false;
+    }
+  };
 
   const stopFallbackRefresh = (binding) => {
     binding?.stopLoadingFallbackRefresh?.();
@@ -51,13 +59,14 @@ export function createCatalystHlsMounter({
     engine.destroy?.();
   };
 
-  const applyReady = (engine) => {
+  const applyReady = (engine, video = null) => {
     const binding = bindings.get(engine);
     if (binding?.disposed || !isCurrentEngine(engine)) return;
     binding.failed = false;
     stopFallbackRefresh(binding);
     binding.cleanupRecovery?.();
     binding.cleanupRecovery = () => {};
+    if (video) onCommittedMediaReady?.(engine, video);
     onCommittedStream?.("hls");
     applyResolvedStreamUiState?.(
       resolveHaDirectReadyState({
@@ -74,7 +83,8 @@ export function createCatalystHlsMounter({
       mediaRoot: engine,
       findVideo: findActiveHaCameraStreamVideo,
       isDestroyed: () => binding.disposed || !isCurrentEngine(engine),
-      onReady: () => applyReady(engine),
+      onReady: () =>
+        applyReady(engine, findActiveHaCameraStreamVideo(engine)),
     });
   };
 
@@ -104,10 +114,12 @@ export function createCatalystHlsMounter({
       }
       return false;
     }
+    const playbackPreparation = prepare();
+    if (playbackPreparation?.then) await playbackPreparation;
 
     let engine = null;
     try {
-      engine = await createNativeHlsVideo({
+      engine = createHlsPlayer({
         hass,
         entity,
         controls: false,
@@ -144,23 +156,26 @@ export function createCatalystHlsMounter({
     bindings.set(engine, binding);
     engine.addEventListener?.("error", binding.onError);
     assignCommittedEngine?.(engine);
-    onCommittedMediaReady?.(engine, engine);
     binding.stopLoadingFallbackRefresh =
       startLoadingFallbackRefresh?.() || (() => {});
     if (getRotateOverlayActive()) setLiveNativeControls?.(true);
 
     const startupReady = (async () => {
+      let readyVideo = null;
       const ready = await waitForStreamStart(engine, CATALYST_HLS_WAIT_MS, {
         requireReadyState: 2,
         abortSignal: binding.abortController.signal,
         resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+        onVideoReady: (video) => {
+          readyVideo = video;
+        },
       });
       if (binding.disposed || !isCurrentEngine(engine)) return false;
       if (!ready) {
         applyFailed(engine);
         return false;
       }
-      applyReady(engine);
+      applyReady(engine, readyVideo);
       return true;
     })();
 
