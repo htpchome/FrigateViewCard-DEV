@@ -6,36 +6,16 @@ import { createHaDirectProviderMounter } from "../src/features/live/ha-direct-pr
 const flushAsyncWork = () => new Promise((resolve) => setImmediate(resolve));
 
 const createFakeVideo = () => ({
-  currentTime: 1,
-  defaultMuted: true,
   ended: false,
   error: null,
   muted: true,
-  paused: false,
   readyState: 4,
   videoWidth: 1920,
-  play: async () => {},
 });
 
 const createFakeProvider = ({ streamType = "webrtc" } = {}) => {
   const listeners = new Map();
   const video = createFakeVideo();
-  const videoParent = {
-    children: [video],
-    insertBefore(child, reference = null) {
-      const existingIndex = this.children.indexOf(child);
-      if (existingIndex >= 0) this.children.splice(existingIndex, 1);
-      const referenceIndex = reference ? this.children.indexOf(reference) : -1;
-      if (referenceIndex >= 0) this.children.splice(referenceIndex, 0, child);
-      else this.children.push(child);
-      child.parentElement = this;
-      child.parentNode = this;
-      return child;
-    },
-  };
-  video.parentElement = videoParent;
-  video.parentNode = videoParent;
-  video.nextSibling = null;
   const player = {
     tagName:
       streamType === "hls" ? "HA-HLS-PLAYER" : "HA-WEB-RTC-PLAYER",
@@ -46,9 +26,7 @@ const createFakeProvider = ({ streamType = "webrtc" } = {}) => {
   return {
     tagName: "HA-CAMERA-STREAM",
     style: { cssText: "" },
-    shadowRoot: {
-      querySelectorAll: () => [player],
-    },
+    shadowRoot: { querySelectorAll: () => [player] },
     addEventListener(type, listener) {
       const entries = listeners.get(type) || new Set();
       entries.add(listener);
@@ -57,8 +35,12 @@ const createFakeProvider = ({ streamType = "webrtc" } = {}) => {
     removeEventListener(type, listener) {
       listeners.get(type)?.delete(listener);
     },
+    dispatch(type, detail = {}) {
+      for (const listener of listeners.get(type) || []) {
+        listener({ type, detail });
+      }
+    },
     video,
-    videoParent,
   };
 };
 
@@ -77,7 +59,7 @@ const createFakeElement = () => ({
     child.isConnected = true;
     return child;
   },
-  insertBefore(child, reference = null) {
+  moveBefore(child, reference = null) {
     const previousChildren = child.parentElement?.children;
     const previousIndex = previousChildren?.indexOf?.(child) ?? -1;
     if (previousIndex >= 0) previousChildren.splice(previousIndex, 1);
@@ -96,6 +78,9 @@ const createFakeElement = () => ({
     this.attributes.delete(name);
   },
   remove() {
+    const parentChildren = this.parentElement?.children;
+    const index = parentChildren?.indexOf?.(this) ?? -1;
+    if (index >= 0) parentChildren.splice(index, 1);
     this.isConnected = false;
     this.removed = true;
   },
@@ -116,34 +101,40 @@ const withFakeDocument = async (run) => {
   }
 };
 
-test("HA Direct delegates selected playback to one stable HA camera-stream", async () => {
+const baseOptions = ({ deck, provider, assignedEngine }) => ({
+  getHass: () => ({
+    states: {
+      "camera.front": { entity_id: "camera.front", attributes: {} },
+    },
+  }),
+  getStreamMuted: () => true,
+  getRotateOverlayActive: () => false,
+  isCurrentEngine: (engine) => engine === assignedEngine(),
+  assignCommittedEngine: () => {},
+  applyResolvedStreamUiState: () => {},
+  setLiveNativeControls: () => {},
+  preparePlaybackElements: () => true,
+  createCameraStream: () => provider,
+  getPreloadHost: () => deck,
+  getSelectedEntity: () => "camera.front",
+  shouldPreload: () => false,
+});
+
+test("HA Direct passes the real HA state to one stable camera-stream", async () => {
   await withFakeDocument(async () => {
     const deck = createFakeElement();
     const liveSlot = createFakeElement();
-    liveSlot.innerHTML = "occupied";
     const provider = createFakeProvider({ streamType: "webrtc" });
-    const hass = {
-      states: {
-        "camera.front": {
-          entity_id: "camera.front",
-          attributes: {},
-        },
-      },
-    };
+    const stateObj = { entity_id: "camera.front", attributes: {} };
+    const hass = { states: { "camera.front": stateObj } };
     let assignedEngine = null;
     let providerOptions = null;
     const committedTypes = [];
     const mounter = createHaDirectProviderMounter({
       getHass: () => hass,
-      getPreferredStreamType: () => "webrtc",
       getStreamMuted: () => true,
       getRotateOverlayActive: () => false,
       isCurrentEngine: (engine) => engine === assignedEngine,
-      waitForStreamStart: async (engine, _waitMs, options) => {
-        assert.strictEqual(engine, provider);
-        assert.strictEqual(options.resolveVideo(), provider.video);
-        return true;
-      },
       assignCommittedEngine: (engine) => {
         assignedEngine = engine;
       },
@@ -156,108 +147,110 @@ test("HA Direct delegates selected playback to one stable HA camera-stream", asy
         return provider;
       },
       getPreloadHost: () => deck,
+      getActiveEntity: () => "camera.front",
       getSelectedEntity: () => "camera.front",
       shouldPreload: () => false,
     });
 
-    const result = await mounter.tryMount(
-      liveSlot,
-      { streamType: "webrtc" },
-      { entity: "camera.front", commit: true, mountToken: 1 },
-    );
+    const result = await mounter.tryMount(liveSlot, null, {
+      entity: "camera.front",
+      commit: true,
+      mountToken: 1,
+    });
 
     assert.equal(await result.startupReady, true);
     assert.strictEqual(result.engine, provider);
-    assert.strictEqual(assignedEngine, provider);
+    assert.strictEqual(providerOptions.stateObj, stateObj);
+    assert.equal(
+      Object.hasOwn(providerOptions.stateObj.attributes, "frontend_stream_type"),
+      false,
+    );
     assert.equal(deck.children.length, 1);
     assert.strictEqual(deck.children[0].children[0], provider);
     assert.equal(liveSlot.children.length, 0);
-    assert.strictEqual(provider.video.parentElement, provider.videoParent);
-    assert.equal(providerOptions.stateObj.attributes.frontend_stream_type, "web_rtc");
+    assert.deepEqual(committedTypes, []);
+
+    provider.dispatch("load");
     assert.deepEqual(committedTypes, ["webrtc"]);
+
+    const nextStateObj = { entity_id: "camera.front", attributes: {} };
+    hass.states["camera.front"] = nextStateObj;
+    mounter.syncProviderStates();
+    assert.strictEqual(provider.stateObj, nextStateObj);
   });
 });
 
-test("HA Direct retains a native provider in its original camera deck slot", async () => {
+test("HA Direct retains the whole provider in its camera deck slot", async () => {
   await withFakeDocument(async () => {
     const deck = createFakeElement();
     const liveSlot = createFakeElement();
-    liveSlot.innerHTML = "";
     const provider = createFakeProvider({ streamType: "hls" });
     let assignedEngine = null;
     const mounter = createHaDirectProviderMounter({
-      getHass: () => ({ states: { "camera.front": { attributes: {} } } }),
-      getPreferredStreamType: () => "hls",
+      ...baseOptions({
+        deck,
+        provider,
+        assignedEngine: () => assignedEngine,
+      }),
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+    });
+
+    await mounter.tryMount(liveSlot, null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    const providerSlot = provider.parentElement;
+
+    assert.equal(mounter.isRetainableProvider(provider), true);
+    assert.equal(mounter.suspendRetainedProvider(provider), true);
+    assert.strictEqual(provider.parentElement, providerSlot);
+    assert.equal(providerSlot.style.opacity, "0");
+
+    assert.equal(mounter.adoptRetainedProvider(liveSlot, provider), true);
+    assert.strictEqual(provider.parentElement, providerSlot);
+    assert.equal(providerSlot.style.opacity, "1");
+  });
+});
+
+test("HA Direct starts background providers only after the selected provider settles", async () => {
+  await withFakeDocument(async () => {
+    const deck = createFakeElement();
+    const frameCallbacks = [];
+    const retained = [];
+    const providers = [];
+    let assignedEngine = null;
+    const hass = {
+      states: {
+        "camera.one": { attributes: {} },
+        "camera.two": { attributes: {} },
+        "camera.three": { attributes: {} },
+      },
+    };
+    const mounter = createHaDirectProviderMounter({
+      getHass: () => hass,
       getStreamMuted: () => true,
       getRotateOverlayActive: () => false,
       isCurrentEngine: (engine) => engine === assignedEngine,
-      waitForStreamStart: async () => true,
       assignCommittedEngine: (engine) => {
         assignedEngine = engine;
       },
       applyResolvedStreamUiState: () => {},
       setLiveNativeControls: () => {},
       preparePlaybackElements: () => true,
-      createCameraStream: () => provider,
-      getPreloadHost: () => deck,
-      getSelectedEntity: () => "camera.front",
-      shouldPreload: () => false,
-    });
-
-    const result = await mounter.tryMount(
-      liveSlot,
-      { streamType: "hls" },
-      { entity: "camera.front", commit: true },
-    );
-    await result.startupReady;
-    const originalParent = provider.parentElement;
-
-    assert.equal(mounter.isRetainableHlsEngine(provider), true);
-    assert.equal(mounter.suspendRetainedHlsEngine(provider), true);
-    assert.strictEqual(provider.parentElement, originalParent);
-    assert.strictEqual(provider.video.parentElement, provider.videoParent);
-    assert.equal(originalParent.style.opacity, "0");
-
-    assert.equal(mounter.adoptRetainedHlsEngine(liveSlot, provider), true);
-    assert.strictEqual(provider.parentElement, originalParent);
-    assert.strictEqual(provider.video.parentElement, provider.videoParent);
-    assert.equal(originalParent.style.opacity, "1");
-  });
-});
-
-test("HA Direct warms native providers sequentially", async () => {
-  await withFakeDocument(async () => {
-    const deck = createFakeElement();
-    const frameCallbacks = [];
-    const waits = [];
-    const retained = [];
-    const providers = [];
-    const mounter = createHaDirectProviderMounter({
-      getHass: () => ({
-        states: {
-          "camera.one": { attributes: {} },
-          "camera.two": { attributes: {} },
-        },
-      }),
-      getPreferredStreamType: () => "webrtc",
-      getStreamMuted: () => true,
-      getRotateOverlayActive: () => false,
-      isCurrentEngine: () => false,
-      waitForStreamStart: async (provider) => {
-        waits.push(provider.haDirectEntity);
-        return true;
-      },
-      assignCommittedEngine: () => {},
-      applyResolvedStreamUiState: () => {},
-      setLiveNativeControls: () => {},
-      preparePlaybackElements: () => true,
       createCameraStream: () => {
-        const provider = createFakeProvider({ streamType: "webrtc" });
+        const provider = createFakeProvider();
         providers.push(provider);
         return provider;
       },
-      getPreloadEntities: () => ["camera.one", "camera.two"],
-      getActiveEntity: () => "",
+      getPreloadEntities: () => [
+        "camera.one",
+        "camera.two",
+        "camera.three",
+      ],
+      getActiveEntity: () => "camera.one",
+      getSelectedEntity: () => "camera.one",
       getPreloadHost: () => deck,
       shouldPreload: () => true,
       hasRetainedEngine: (entity) => retained.includes(entity),
@@ -272,40 +265,48 @@ test("HA Direct warms native providers sequentially", async () => {
       cancelFrame: () => {},
     });
 
+    await mounter.tryMount(createFakeElement(), null, {
+      entity: "camera.one",
+      commit: true,
+    });
     mounter.schedulePreloadDeckAfterPaint();
-    frameCallbacks.shift()?.();
-    frameCallbacks.shift()?.();
-    await flushAsyncWork();
-    await flushAsyncWork();
+    assert.equal(frameCallbacks.length, 0);
 
-    assert.deepEqual(waits, ["camera.one", "camera.two"]);
-    assert.deepEqual(retained, ["camera.one", "camera.two"]);
+    providers[0].dispatch("load");
+    frameCallbacks.shift()?.();
+    frameCallbacks.shift()?.();
+    await flushAsyncWork();
     assert.equal(providers.length, 2);
-    assert.equal(deck.children.length, 2);
+    assert.deepEqual(retained, []);
+
+    providers[1].dispatch("load");
+    await flushAsyncWork();
+    assert.equal(providers.length, 3);
+    assert.deepEqual(retained, ["camera.two"]);
+
+    providers[2].dispatch("load");
+    await flushAsyncWork();
+    assert.deepEqual(retained, ["camera.two", "camera.three"]);
   });
 });
 
-test("HA Direct lends only its video surface for editor handoff", async () => {
+test("HA Direct editor handoff moves the whole provider slot state-preservingly", async () => {
   await withFakeDocument(async () => {
     const donorDeck = createFakeElement();
-    const preEditorDeck = createFakeElement();
     const editorDeck = createFakeElement();
-    const donorSlot = createFakeElement();
-    const preEditorSlot = createFakeElement();
-    const editorSlot = createFakeElement();
-    const provider = createFakeProvider({ streamType: "webrtc" });
+    const provider = createFakeProvider();
     let donorEngine = null;
-    let preEditorEngine = null;
     let editorEngine = null;
     const sharedOptions = {
-      getHass: () => ({ states: { "camera.front": { attributes: {} } } }),
-      getPreferredStreamType: () => "webrtc",
+      getHass: () => ({
+        states: { "camera.front": { attributes: {} } },
+      }),
       getStreamMuted: () => true,
       getRotateOverlayActive: () => false,
-      waitForStreamStart: async () => true,
       applyResolvedStreamUiState: () => {},
       setLiveNativeControls: () => {},
       preparePlaybackElements: () => true,
+      getActiveEntity: () => "camera.front",
       getSelectedEntity: () => "camera.front",
       shouldPreload: () => false,
     };
@@ -318,14 +319,6 @@ test("HA Direct lends only its video surface for editor handoff", async () => {
       createCameraStream: () => provider,
       getPreloadHost: () => donorDeck,
     });
-    const preEditor = createHaDirectProviderMounter({
-      ...sharedOptions,
-      isCurrentEngine: (engine) => engine === preEditorEngine,
-      assignCommittedEngine: (engine) => {
-        preEditorEngine = engine;
-      },
-      getPreloadHost: () => preEditorDeck,
-    });
     const editor = createHaDirectProviderMounter({
       ...sharedOptions,
       isCurrentEngine: (engine) => engine === editorEngine,
@@ -335,35 +328,30 @@ test("HA Direct lends only its video surface for editor handoff", async () => {
       getPreloadHost: () => editorDeck,
     });
 
-    const mounted = await donor.tryMount(
-      donorSlot,
-      { streamType: "webrtc" },
-      { entity: "camera.front", commit: true },
-    );
-    await mounted.startupReady;
-    const stableSlot = provider.parentElement;
-    assert.strictEqual(provider.video.parentElement, provider.videoParent);
+    await donor.tryMount(createFakeElement(), null, {
+      entity: "camera.front",
+      commit: true,
+    });
+    const providerSlot = provider.parentElement;
+    assert.strictEqual(providerSlot.parentElement, donorDeck);
 
     assert.equal(donor.detachProviderForHandoff(provider), true);
     assert.equal(
-      preEditor.adoptRetainedHlsEngine(preEditorSlot, provider),
+      editor.adoptRetainedProvider(createFakeElement(), provider),
       true,
     );
-    assert.strictEqual(provider.parentElement, stableSlot);
-    assert.strictEqual(stableSlot.parentElement, donorDeck);
-    assert.strictEqual(provider.video.parentElement, preEditorSlot);
-    assert.strictEqual(preEditorEngine, provider);
-
-    assert.equal(preEditor.detachProviderForHandoff(provider), true);
-    assert.equal(editor.adoptRetainedHlsEngine(editorSlot, provider), true);
-    assert.strictEqual(provider.video.parentElement, editorSlot);
+    assert.strictEqual(provider.parentElement, providerSlot);
+    assert.strictEqual(providerSlot.parentElement, editorDeck);
     assert.strictEqual(editorEngine, provider);
 
     assert.equal(editor.detachProviderForHandoff(provider), true);
     assert.equal(donor.adoptTransferredProvider(provider), true);
-    assert.equal(donor.adoptRetainedHlsEngine(donorSlot, provider), true);
-    assert.strictEqual(provider.video.parentElement, provider.videoParent);
-    assert.strictEqual(stableSlot.parentElement, donorDeck);
+    assert.equal(
+      donor.adoptRetainedProvider(createFakeElement(), provider),
+      true,
+    );
+    assert.strictEqual(provider.parentElement, providerSlot);
+    assert.strictEqual(providerSlot.parentElement, donorDeck);
     assert.strictEqual(donorEngine, provider);
   });
 });

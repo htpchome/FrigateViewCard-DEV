@@ -15,15 +15,21 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   const calls = [];
   const engineSlot = { id: "engine" };
   const gridSlot = { id: "grid-engine" };
-  const retainedHaEngine = { id: "retained-ha-engine" };
+  const retainedHaEngine = {
+    haDirectProvider: true,
+    id: "retained-ha-provider",
+  };
+  const haProviderEngine = { haDirectProvider: true, id: "ha-provider" };
+  const blockedHaProvider = {
+    haDirectProvider: true,
+    id: "blocked-ha-provider",
+  };
   const liveGraceController = {
     isHaDirectEngineReusable: (engine) => engine === "ha-engine",
-    isHaDirectWebRtcEngineTransferable: (engine) =>
-      engine === "ha-engine",
     isMseEngineReusable: (engine) => engine === "mse-engine",
     isWebRtcEngineReusable: (engine) => engine === "webrtc-engine",
-    adoptGraceHaDirectEngine: (slot, engine, options) => {
-      calls.push(["adopt-ha", slot, engine, options]);
+    adoptGraceHaDirectEngine: (slot, engine) => {
+      calls.push(["adopt-ha", slot, engine]);
       return true;
     },
     adoptGraceMseEngine: (slot, engine) => {
@@ -40,8 +46,8 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
       entity === "camera.ha" && engine === retainedHaEngine
         ? retainedHaEngine
         : null,
-    retainHaDirectEngine: (entity, engine, options) => {
-      calls.push(["retain-ha", entity, engine, options]);
+    retainHaDirectEngine: (entity, engine) => {
+      calls.push(["retain-ha", entity, engine]);
       return true;
     },
   };
@@ -68,15 +74,15 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   };
   const haDirectMounter = {
     release: (engine) => calls.push(["release-ha", engine]),
-    adoptRetainedWebRtcEngine: (engine) =>
-      calls.push(["adopt-retained-ha", engine]),
-    isRetainableHlsEngine: (engine) => engine === "ha-hls-engine",
-    suspendRetainedHlsEngine: (engine) => engine !== "blocked-ha-hls",
-    adoptRetainedHlsEngine: (slot, engine) => {
-      calls.push(["adopt-ha-hls", slot, engine]);
+    isRetainableProvider: (engine) =>
+      engine === haProviderEngine || engine === "ha-provider",
+    suspendRetainedProvider: (engine) => engine !== "blocked-ha-provider",
+    adoptRetainedProvider: (slot, engine) => {
+      calls.push(["adopt-ha-provider", slot, engine]);
       return true;
     },
-    detachWebRtcForHandoff: (engine) => engine !== "blocked-engine",
+    detachProviderForHandoff: (engine) => engine !== blockedHaProvider,
+    adoptTransferredProvider: () => true,
   };
   const editorCatalystEngine = {
     catalystHls: true,
@@ -237,8 +243,8 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   );
   assert.equal(
     optionsByFactory.editorHandoff.isEngineReusable(
-      "ha-engine",
-      "webrtc",
+      haProviderEngine,
+      "provider",
       "ha_direct",
     ),
     true,
@@ -277,16 +283,16 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   );
   assert.equal(
     optionsByFactory.editorHandoff.detachEngine(
-      "blocked-engine",
-      "webrtc",
+      blockedHaProvider,
+      "provider",
       "ha_direct",
     ),
     false,
   );
   assert.equal(
     optionsByFactory.editorHandoff.detachEngine(
-      "ha-engine",
-      "webrtc",
+      haProviderEngine,
+      "provider",
       "ha_direct",
     ),
     true,
@@ -299,7 +305,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.strictEqual(
     optionsByFactory.editorHandoff.getRetainedEngine(
       "camera.ha",
-      "webrtc",
+      "provider",
       "ha_direct",
     ),
     retainedHaEngine,
@@ -308,7 +314,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     optionsByFactory.editorHandoff.detachRetainedEngine(
       "camera.ha",
       retainedHaEngine,
-      "webrtc",
+      "provider",
       "ha_direct",
     ),
     true,
@@ -317,7 +323,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     optionsByFactory.editorHandoff.restoreRetainedEngine(
       "camera.ha",
       retainedHaEngine,
-      "webrtc",
+      "provider",
       "ha_direct",
     ),
     true,
@@ -326,7 +332,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     "retain-ha",
     "camera.ha",
     retainedHaEngine,
-    { allowPlaybackResume: true },
   ]);
   assert.equal(
     optionsByFactory.editorHandoff.detachEngine(
@@ -344,8 +349,8 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
 
   assert.equal(
     optionsByFactory.editorHandoff.adoptEngine(
-      "ha-engine",
-      "webrtc",
+      haProviderEngine,
+      "provider",
       "ha_direct",
     ),
     true,
@@ -354,8 +359,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.deepEqual(calls.at(-1), [
     "adopt-ha",
     engineSlot,
-    "ha-engine",
-    { allowPlaybackResume: true },
+    haProviderEngine,
   ]);
   assert.equal(
     optionsByFactory.editorHandoff.adoptEngine(
@@ -393,37 +397,35 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.equal(card._mseChunkCount, 1);
   optionsByFactory.liveGrace.setStreamFallbackVisible(true, true);
   assert.deepEqual(calls.at(-1), ["fallback", true, true]);
-  optionsByFactory.liveGrace.releaseHaDirectEngine("ha-engine");
+  optionsByFactory.liveGrace.releaseHaDirectEngine(haProviderEngine);
   const catalystEngine = {
     catalystHls: true,
     id: "catalyst-engine",
   };
   optionsByFactory.liveGrace.releaseHaDirectEngine(catalystEngine);
-  optionsByFactory.liveGrace.adoptHaDirectWebRtcEngine("ha-engine");
-  assert.deepEqual(calls.slice(-3), [
-    ["release-ha", "ha-engine"],
+  assert.deepEqual(calls.slice(-2), [
+    ["release-ha", haProviderEngine],
     ["release-catalyst", catalystEngine],
-    ["adopt-retained-ha", "ha-engine"],
   ]);
   assert.equal(
-    optionsByFactory.liveGrace.isHaDirectHlsEngineReusable("ha-hls-engine"),
+    optionsByFactory.liveGrace.isHaDirectProviderReusable("ha-provider"),
     true,
   );
   assert.equal(
-    optionsByFactory.liveGrace.suspendHaDirectHlsEngine("ha-hls-engine"),
+    optionsByFactory.liveGrace.suspendHaDirectProvider("ha-provider"),
     true,
   );
   assert.equal(
-    optionsByFactory.liveGrace.adoptHaDirectHlsEngine(
+    optionsByFactory.liveGrace.adoptHaDirectProvider(
       engineSlot,
-      "ha-hls-engine",
+      "ha-provider",
     ),
     true,
   );
   assert.deepEqual(calls.at(-1), [
-    "adopt-ha-hls",
+    "adopt-ha-provider",
     engineSlot,
-    "ha-hls-engine",
+    "ha-provider",
   ]);
   assert.equal(
     optionsByFactory.liveGrace.isCatalystHlsEngineReusable(

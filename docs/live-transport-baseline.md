@@ -2,20 +2,22 @@
 
 ## Current Baseline
 
-`v1.1.8-dev.172` is a normal-HA-Direct provider-deck experiment based on the
-`v1.1.8-dev.168` rollback point. Non-Catalyst HA Direct playback now creates one
+`v1.1.8-dev.173` replaces the layered `v1.1.8-dev.172` HA Direct experiment
+with a clean native-provider path. Non-Catalyst HA Direct playback creates one
 stable `ha-camera-stream` provider per loaded camera and delegates HLS/WebRTC
 selection, signaling, fallback, and child-player lifecycle to Home Assistant.
 The card retains ownership only of creation order, permanent camera slots,
 visibility, retention/release, snapshot presentation, and editor/layout
 handoff. The provider deck remains in the card's Home Assistant-scoped light
-DOM and is projected into page-specific live stages. The selected provider's
-plain video surface can pass from dashboard to pre-editor to editor without
-transferring the provider or the background camera pool. `v1.1.8-dev.171`'s
-document-body deck was rejected because Home Assistant's scoped
-`ha-camera-stream` lost its `hass` context before startup. Mac Catalyst remains
-on its separate native HLS-only path. Physical validation is required before
-this experiment replaces `v1.1.8-dev.168` as a known-good rollback point.
+DOM and is projected into page-specific live stages. Page changes leave the
+provider slots connected; editor ownership transfer moves the complete
+camera-specific slot with `Element.moveBefore()` and never extracts HA's inner
+video. The provider receives the real HA state object without a fabricated
+`frontend_stream_type`. The card no longer patches HA HLS internals, waits on an
+eight-second transport gate, or remounts a provider after a card-owned startup
+timeout. `v1.1.8-dev.172`'s inner-video lending is rejected. Mac Catalyst
+remains on its separate native HLS-only path. Physical validation is required
+before this experiment replaces `v1.1.8-dev.168` as a known-good rollback point.
 
 `v1.1.8-dev.70` restores the `v1.1.8-dev.68` HA Direct pipeline after physical
 testing rejected the native `ha-camera-stream` provider-deck experiment in
@@ -97,8 +99,8 @@ snapshot fallback without resolving the startup flash. Catalyst again uses the
 `v1.1.8-dev.153` gives Catalyst native HLS its own connection-grace pool. Up to
 three ready native video connections remain eligible for reuse for 20 seconds
 across camera switches and same-dashboard navigation. Catalyst stays outside
-the normal HA Direct WebRTC retention pool, and expired or evicted entries are
-released through the Catalyst-only owner.
+the normal HA Direct provider retention pool, and expired or evicted entries
+are released through the Catalyst-only owner.
 
 `v1.1.8-dev.154` changes Catalyst camera-switch retention to match the retained
 HA-player lifecycle used by Advanced Camera Card. A visited camera's native HLS
@@ -255,10 +257,12 @@ layout behavior while optimizing either transport.
 Preserve all of these behaviors together:
 
 1. Create one `ha-camera-stream` provider for the selected HA Direct camera.
-2. Set the camera state and preferred frontend stream type, then let Home
-   Assistant create and manage the active HLS or WebRTC child player.
-3. Keep the snapshot visible until the active Home Assistant player has usable
-   video.
+2. Pass the unmodified Home Assistant camera state to the provider, then let
+   Home Assistant query capabilities and create and manage its HLS/WebRTC child
+   players.
+3. Keep the snapshot visible until the provider emits Home Assistant's `load`
+   signal. An explicit no-video `streams` result may show the snapshot fallback,
+   but it must not replace or remount the provider.
 4. Do not create a parallel card-owned HLS player, RTCPeerConnection, signaling
    subscription, race, or takeover for normal HA Direct playback.
 5. Create each provider inside a permanent, full-sized camera deck slot in the
@@ -271,6 +275,8 @@ Preserve all of these behaviors together:
    provider when one is already loading or retained.
 9. Preserve the explicit Catalyst native-HLS exception and the separate
    two-way-talk backchannel.
+10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
+    objects, extract the nested video, or run timeout-based provider recovery.
 
 The card may observe the active nested player for readiness, source labels,
 zoom, fullscreen, and recovery presentation, but Home Assistant remains the
@@ -371,6 +377,11 @@ one of those policies is the cause.
   HA connection in the permanent dashboard deck and lends only its plain video
   surface to the preview card, restoring that surface to the HA player when
   the editor returns it.
+- `v1.1.8-dev.173` rejects that inner-video handoff and removes the obsolete
+  card-owned HA Direct HLS/WebRTC implementation. The clean path passes the raw
+  HA camera state into one `ha-camera-stream`, observes only HA's public load and
+  streams events for presentation, and moves only the complete provider slot
+  during cross-card editor ownership transfer.
 
 ## Validation Expectations
 

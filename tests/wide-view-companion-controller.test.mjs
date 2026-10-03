@@ -85,13 +85,13 @@ const createHost = ({ live = false, takeover = false } = {}) => {
   return { host, calls, grid };
 };
 
-test("Companion Cameras do not carry the prior transport into HA Direct", () => {
+test("Companion Cameras leave HA Direct transport selection to HA", () => {
   const { host } = createHost();
   host._activeStreamType = "grid";
   host._lastLiveStreamHint = "webrtc";
   const controller = new WideViewCompanionController(host, constants);
 
-  assert.equal(controller.cameraLiveStreamHint("camera.front_door"), "hls");
+  assert.equal(controller.cameraLiveStreamHint("camera.front_door"), "ha");
   assert.equal(controller.cameraLiveStreamHint("camera.driveway"), "webrtc");
 });
 
@@ -720,7 +720,10 @@ test("camera tile live mounts keep HA Direct and Frigate/go2rtc distinct", async
     );
     assert.equal(go2rtcCalls[0].abortSignal instanceof AbortSignal, true);
 
-    const hass = { states: {} };
+    const hass = {
+      states: {},
+      callWS: async () => ({ url: "/api/hls/front/master_playlist.m3u8" }),
+    };
     const haHost = {
       _hass: hass,
       _shouldUseGo2RtcForEntity: () => false,
@@ -741,10 +744,13 @@ test("camera tile live mounts keep HA Direct and Frigate/go2rtc distinct", async
       gridState: { destroyed: false, cleanup: [] },
     });
     assert.equal(haCell.children[0].tagName, "ha-camera-stream");
-    assert.equal(haCell.children[0].hass, hass);
+    assert.equal(Object.hasOwn(haCell.children[0], "hass"), false);
     assert.equal(
-      haCell.children[0].stateObj.attributes.frontend_stream_type,
-      "web_rtc",
+      Object.hasOwn(
+        haCell.children[0].stateObj.attributes,
+        "frontend_stream_type",
+      ),
+      false,
     );
 
     haHost._isCatalyst = () => true;
@@ -756,8 +762,7 @@ test("camera tile live mounts keep HA Direct and Frigate/go2rtc distinct", async
       liveStreamHint: "webrtc",
       gridState: { destroyed: false, cleanup: [] },
     });
-    assert.equal(catalystCell.children[0].tagName, "ha-hls-player");
-    assert.equal(catalystCell.children[0].entityid, "camera.front_door");
+    assert.equal(catalystCell.children[0].tagName, "video");
   } finally {
     globalThis.document = previousDocument;
   }

@@ -796,6 +796,7 @@ export class FrigateViewCard extends HTMLElement {
     const previousTimeFormat = this._hass?.locale?.time_format;
     const previousTimeZone = this._hass?.config?.time_zone;
     this._hass = hass;
+    this._haDirectMounter?.syncProviderStates?.();
     const languageChanged = this._localization.updateHass(hass);
     const dateSettingsChanged =
       previousTimeFormat !== hass?.locale?.time_format ||

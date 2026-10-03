@@ -2,64 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildHaDirectMountPlan,
   resolveHaDirectMountUnavailableState,
   resolveHaDirectFailedState,
   resolveHaDirectReadyState,
-  resolveHaDirectStartup,
   resolveHlsStartup,
   resolveMseStartup,
   resolveWebRtcStartup,
 } from "../src/features/live/startup-policy.js";
-
-test("resolveHaDirectStartup applies defaults and keeps stream type", () => {
-  const policy = resolveHaDirectStartup({ streamType: "webrtc" });
-
-  assert.equal(policy.waitMs, 8000);
-  assert.equal(policy.minCurrentTime, 0);
-  assert.equal(policy.minDecodedFrames, 0);
-  assert.equal(policy.requireReadyState, 2);
-  assert.equal(policy.strict, false);
-  assert.equal(policy.requirePresentedFrame, false);
-  assert.equal(policy.streamType, "webrtc");
-});
-
-test("buildHaDirectMountPlan resolves stream type and wait options from startup policy", () => {
-  assert.deepEqual(
-    buildHaDirectMountPlan({
-      startup: { streamType: "hls", strict: true, waitMs: 12 },
-      preferredStreamType: "webrtc",
-    }),
-    {
-      streamType: "hls",
-      waitOptions: {
-        minCurrentTime: 0,
-        minDecodedFrames: 0,
-        requireReadyState: 2,
-        strict: true,
-        requirePresentedFrame: false,
-      },
-      waitMs: 500,
-    },
-  );
-  assert.deepEqual(
-    buildHaDirectMountPlan({
-      startup: {},
-      preferredStreamType: "mse",
-    }),
-    {
-      streamType: "mse",
-      waitOptions: {
-        minCurrentTime: 0,
-        minDecodedFrames: 0,
-        requireReadyState: 2,
-        strict: false,
-        requirePresentedFrame: false,
-      },
-      waitMs: 8000,
-    },
-  );
-});
 
 test("resolveMseStartup enforces wait floor and strict default", () => {
   const policy = resolveMseStartup({ waitMs: 10, strict: false });

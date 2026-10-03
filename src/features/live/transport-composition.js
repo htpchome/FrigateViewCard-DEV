@@ -96,11 +96,9 @@ export const createLiveTransportControllers = (
   });
   const haDirectMounter = resolvedFactories.createHaDirectMounter({
     getHass: () => card._hass,
-    getPreferredStreamType: () => card._preferredStreamType(),
     getStreamMuted: () => card._streamMuted,
     getRotateOverlayActive: () => card._rotateOverlayActive,
     isCurrentEngine: (streamEl) => card._engine === streamEl,
-    waitForStreamStart,
     assignCommittedEngine: (engine, options) =>
       card._assignLiveEngine(engine, options),
     onCommittedMediaReady: (engine, video) => {
@@ -122,10 +120,6 @@ export const createLiveTransportControllers = (
     stopLoadingFallbackRefresh: () =>
       card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
-    scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
-    shouldUseNativeHls: () =>
-      deviceProfile.isIOS === true ||
-      card._isSafari(),
     getPreloadEntities: () =>
       flattenCameraMembers(card._config?.cameras)
         .map((camera) => String(camera?.entity || "").trim())
@@ -147,9 +141,7 @@ export const createLiveTransportControllers = (
       (card._activeGroupMemberOverride || card._activeCam?.entity || "") ===
         entity,
     getPreloadHost: () =>
-      card._liveGraceController?.getHaDirectDeckHost?.() ||
-      card._liveGraceController?.getHaDirectWebRtcDeckHost?.() ||
-      null,
+      card._liveGraceController?.getHaDirectDeckHost?.() || null,
     shouldPreload: () =>
       deviceProfile.isCatalyst !== true &&
       card.isConnected === true &&
@@ -161,7 +153,7 @@ export const createLiveTransportControllers = (
     retainPreloadedEngine: (entity, engine) =>
       card._liveGraceController?.retainHaDirectEngine?.(entity, engine) === true,
     adoptEditorPreloadedEngine: (entity) => {
-      for (const streamType of ["webrtc", "hls"]) {
+      for (const streamType of ["provider"]) {
         const transfer = card._editorLiveHandoffController?.take?.(
           entity,
           streamType,
@@ -180,7 +172,6 @@ export const createLiveTransportControllers = (
         const retained = card._liveGraceController?.retainHaDirectEngine?.(
           entity,
           transfer.engine,
-          { allowPlaybackResume: true },
         );
         if (retained === true) {
           transfer.commit?.();

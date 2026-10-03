@@ -17,10 +17,7 @@ import { DEFAULT_TITLE, VERSION } from "../../constants.js";
 import { cap, camDisplayName, DEVICE_PROFILE } from "../../helpers.js";
 import { escapeHtml } from "../../shared/html.js";
 import { resolveCameraAwareText } from "../../shared/page-text.js";
-import {
-  buildHaCameraStreamState,
-  resolveHaDirectCameraStreamType,
-} from "../../integrations/home-assistant/playback.js";
+import { buildHaCameraStreamState } from "../../integrations/home-assistant/playback.js";
 import {
   cameraGroupSecondaryEntity,
   cameraMemberEntities,
@@ -216,14 +213,7 @@ export class PreviewPageController {
   previewCameraLiveStreamHint(entity) {
     if (this._host._shouldUseGo2RtcForEntity?.(entity) !== true) {
       if (this._host._isCatalyst?.() === true) return "hls";
-      return resolveHaDirectCameraStreamType({
-        entity,
-        activeEntity: this._host._activeCam?.entity,
-        activeStreamType: this._host._activeStreamType,
-        advertisedStreamType:
-          this._host._hass?.states?.[entity]?.attributes
-            ?.frontend_stream_type,
-      });
+      return "ha";
     }
     const liveStreamHint = this.previewLiveStreamHint();
     if (liveStreamHint !== "hls") return liveStreamHint;
@@ -514,12 +504,7 @@ export class PreviewPageController {
       const useLive = host.dataset.previewUseLive === "1";
       const liveStreamHint = this.previewCameraLiveStreamHint(entity);
       const stateObj = entity
-        ? buildHaCameraStreamState(
-            this._host._hass,
-            entity,
-            liveStreamHint,
-            this._host._preferredStreamType(),
-          ) ||
+        ? buildHaCameraStreamState(this._host._hass, entity) ||
           this._host._hass?.states?.[entity] ||
           null
         : null;

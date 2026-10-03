@@ -139,6 +139,7 @@ test("config preview request can claim live before donor observes editor lifecyc
   const engine = {
     type: "ha_direct",
     streamType: "webrtc",
+    haDirectProvider: true,
     video: {},
     pc: {},
     deactivateRecovery() {},
@@ -171,8 +172,8 @@ test("config preview request can claim live before donor observes editor lifecyc
     context: "config",
     entity: "camera.front",
     key: "matching-card",
-    streamType: "webrtc",
-    type: "ha-direct-webrtc-live",
+    streamType: "provider",
+    type: "ha-direct-provider-live",
   };
 
   assert.equal(
@@ -192,10 +193,11 @@ test("config preview request can claim live before donor observes editor lifecyc
   assert.equal(current.engine, null);
 });
 
-test("editor HA-direct WebRTC handoff transfers and returns one established engine", () => {
+test("editor HA-direct provider handoff transfers and returns one established engine", () => {
   const engine = {
     type: "ha_direct",
     streamType: "webrtc",
+    haDirectProvider: true,
     video: {},
     pc: {},
     deactivateRecovery() {},
@@ -223,14 +225,14 @@ test("editor HA-direct WebRTC handoff transfers and returns one established engi
     isEditorLifecycleActive: () => true,
     isEngineReusable: (candidate, streamType, connectionType) =>
       candidate === engine &&
-      streamType === "webrtc" &&
+      streamType === "provider" &&
       connectionType === "ha_direct",
     detachEngine: () => {
       donorState.engine = null;
       return true;
     },
     adoptEngine: (candidate, streamType, connectionType) => {
-      assert.equal(streamType, "webrtc");
+      assert.equal(streamType, "provider");
       assert.equal(connectionType, "ha_direct");
       donorState.engine = candidate;
       return true;
@@ -247,22 +249,22 @@ test("editor HA-direct WebRTC handoff transfers and returns one established engi
     },
     isEngineReusable: (candidate, streamType, connectionType) =>
       candidate === engine &&
-      streamType === "webrtc" &&
+      streamType === "provider" &&
       connectionType === "ha_direct",
     detachEngine: () => {
       receiverState.engine = null;
       return true;
     },
     adoptEngine: (candidate, streamType, connectionType) => {
-      assert.equal(streamType, "webrtc");
+      assert.equal(streamType, "provider");
       assert.equal(connectionType, "ha_direct");
       receiverState.engine = candidate;
       return true;
     },
   });
 
-  const transfer = receiver.take("camera.front", "webrtc", "ha_direct");
-  assert.equal(requestedType, "ha-direct-webrtc-live");
+  const transfer = receiver.take("camera.front", "provider", "ha_direct");
+  assert.equal(requestedType, "ha-direct-provider-live");
   assert.equal(transfer?.engine, engine);
   assert.equal(donorState.engine, null);
   receiverState.engine = transfer.engine;
@@ -327,7 +329,7 @@ test("pre-editor handoff returns directly to the original dashboard owner", () =
 
   const preEditorTransfer = preEditor.take(
     "camera.front",
-    "webrtc",
+    "provider",
     "ha_direct",
   );
   preEditorState.engine = preEditorTransfer.engine;
@@ -337,7 +339,7 @@ test("pre-editor handoff returns directly to the original dashboard owner", () =
 
   const editorTransfer = editor.take(
     "camera.front",
-    "webrtc",
+    "provider",
     "ha_direct",
   );
   editorState.engine = editorTransfer.engine;
@@ -350,10 +352,11 @@ test("pre-editor handoff returns directly to the original dashboard owner", () =
   assert.equal(preEditorState.engine, null);
 });
 
-test("editor HA-direct handoff also transfers retained background WebRTC engines", () => {
+test("editor HA-direct handoff also transfers retained background providers", () => {
   const createEngine = (entity) => ({
     type: "ha_direct",
     streamType: "webrtc",
+    haDirectProvider: true,
     haDirectEntity: entity,
     video: {},
     pc: {},
@@ -425,7 +428,7 @@ test("editor HA-direct handoff also transfers retained background WebRTC engines
 
   const activeTransfer = receiver.take(
     "camera.front",
-    "webrtc",
+    "provider",
     "ha_direct",
   );
   receiverState.engine = activeTransfer.engine;
@@ -434,7 +437,7 @@ test("editor HA-direct handoff also transfers retained background WebRTC engines
 
   const retainedTransfer = receiver.take(
     "camera.back",
-    "webrtc",
+    "provider",
     "ha_direct",
   );
   assert.strictEqual(retainedTransfer?.engine, retainedEngine);
@@ -443,7 +446,7 @@ test("editor HA-direct handoff also transfers retained background WebRTC engines
 
   const rejectedTransfer = receiver.take(
     "camera.side",
-    "webrtc",
+    "provider",
     "ha_direct",
   );
   assert.strictEqual(rejectedTransfer?.engine, rejectedEngine);
@@ -1362,12 +1365,13 @@ test("live mount controller reuses only the HA-direct retained engine for HA-dir
   ]);
 });
 
-test("live mount controller adopts an editor HA-direct WebRTC handoff before restarting HLS", async () => {
+test("live mount controller adopts an editor HA-direct provider before restarting", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };
   const handedOffEngine = {
     type: "ha_direct",
     streamType: "webrtc",
+    haDirectProvider: true,
     video: {},
     pc: {},
   };
@@ -1394,13 +1398,8 @@ test("live mount controller adopts an editor HA-direct WebRTC handoff before res
         calls.push(["take-ha-direct", entity, streamType]);
         return null;
       },
-      adoptGraceHaDirectEngine: (targetSlot, engine, options) => {
-        calls.push([
-          "adopt-ha-webrtc-handoff",
-          targetSlot,
-          engine,
-          options,
-        ]);
+      adoptGraceHaDirectEngine: (targetSlot, engine) => {
+        calls.push(["adopt-ha-provider-handoff", targetSlot, engine]);
         return true;
       },
     },
@@ -1427,12 +1426,11 @@ test("live mount controller adopts an editor HA-direct WebRTC handoff before res
   assert.equal(await controller.mount({ entity: "camera.front" }), true);
   assert.deepEqual(calls, [
     ["take-ha-direct", "camera.front", ""],
-    ["take-handoff", "ha_direct", "camera.front", "webrtc"],
+    ["take-handoff", "ha_direct", "camera.front", "provider"],
     [
-      "adopt-ha-webrtc-handoff",
+      "adopt-ha-provider-handoff",
       slot,
       handedOffEngine,
-      { allowPlaybackResume: true },
     ],
     "commit-handoff",
   ]);

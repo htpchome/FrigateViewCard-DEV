@@ -80,6 +80,7 @@ export class LiveRecoveryController {
   ) {
     const host = this._host;
     if (host._editorLiveHandoffController?.isSuspended?.()) return;
+    if (host._engine?.haDirectProvider === true) return;
     const nowMs = this._now();
     const engineHost = host._$("#engine");
     const currentEngineTag = host._engine?.tagName?.toLowerCase?.() || "";
@@ -128,6 +129,11 @@ export class LiveRecoveryController {
   resumeIfNeeded(reason = "") {
     const host = this._host;
     if (host._editorLiveHandoffController?.isSuspended?.()) return;
+    if (host._engine?.haDirectProvider === true) {
+      const engineWrap = host._$("#eng-wrap");
+      if (engineWrap) engineWrap.style.display = "";
+      return;
+    }
     const liveStreamHint = host._currentLiveStreamHint();
     const forceRemount = shouldForceLiveRemountForReason(reason, {
       activeStreamType: liveStreamHint,

@@ -45,50 +45,11 @@ export function ensureHaCameraPlaybackElements({
   return trackedPreparation;
 }
 
-const normalizeHaStreamType = (value) => {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replaceAll("-", "_");
-  if (normalized === "hls") return "hls";
-  if (normalized === "webrtc" || normalized === "web_rtc") return "webrtc";
-  return "";
-};
-
-export function resolveHaDirectCameraStreamType({
-  entity,
-  activeEntity,
-  activeStreamType,
-  advertisedStreamType,
-  requestedStreamType,
-  fallbackStreamType = "hls",
-} = {}) {
-  const targetEntity = String(entity || "").trim();
-  const currentEntity = String(activeEntity || "").trim();
-  const active = normalizeHaStreamType(activeStreamType);
-  if (targetEntity && targetEntity === currentEntity && active) return active;
-
-  const advertised = normalizeHaStreamType(advertisedStreamType);
-  const requested = normalizeHaStreamType(requestedStreamType);
-  const fallback = normalizeHaStreamType(fallbackStreamType);
-  return advertised || requested || fallback || "hls";
-}
-
-export function buildHaCameraStreamState(
-  hass,
-  entity,
-  streamType = null,
-  fallbackStreamType = "webrtc",
-) {
-  const raw = hass?.states?.[entity];
-  if (!raw) return null;
-  const attrs = { ...raw.attributes };
-  attrs.frontend_stream_type = streamType || fallbackStreamType;
-  return { ...raw, attributes: attrs };
+export function buildHaCameraStreamState(hass, entity) {
+  return hass?.states?.[entity] || null;
 }
 
 export function createHaCameraStreamElement({
-  hass,
   stateObj,
   muted = false,
   controls = false,
@@ -96,9 +57,8 @@ export function createHaCameraStreamElement({
   fitMode,
   styleText = "",
 } = {}) {
-  if (!hass || !stateObj) return null;
+  if (!stateObj) return null;
   const stream = document.createElement("ha-camera-stream");
-  stream.hass = hass;
   stream.stateObj = stateObj;
   stream.controls = controls;
   stream.muted = muted;
@@ -112,79 +72,6 @@ export function createHaCameraStreamElement({
     stream.style.cssText = styleText;
   }
   return stream;
-}
-
-export function createHaHlsPlayerElement({
-  hass,
-  entity,
-  muted = false,
-  controls = false,
-  defaultMuted,
-  fitMode,
-  lowLatencyMode = false,
-  styleText = "",
-} = {}) {
-  const entityId = String(entity || "").trim();
-  if (!hass || !entityId) return null;
-  const player = document.createElement("ha-hls-player");
-  player.hass = hass;
-  player.entityid = entityId;
-  player.autoPlay = true;
-  player.playsInline = true;
-  player.controls = controls;
-  player.muted = muted;
-  if (fitMode !== undefined) {
-    player.fitMode = fitMode;
-  }
-  if (defaultMuted !== undefined) {
-    player.defaultMuted = defaultMuted;
-  }
-  if (styleText) {
-    player.style.cssText = styleText;
-  }
-  if (lowLatencyMode !== true) {
-    configureHaHlsPlayerStandardLatency(player);
-  }
-  return player;
-}
-
-const disableHlsLowLatencyMode = (hls) => {
-  if (!hls) return;
-  try {
-    hls.lowLatencyMode = false;
-  } catch (_) {}
-  try {
-    if (hls.config) hls.config.lowLatencyMode = false;
-  } catch (_) {}
-};
-
-export function configureHaHlsPlayerStandardLatency(player) {
-  if (!player || player.fvcStandardLatencyHls === true) return player;
-  player.fvcStandardLatencyHls = true;
-
-  // HA creates its Hls.js instance asynchronously after requesting the
-  // authenticated stream URL. Intercept that assignment so blocking LL-HLS
-  // reloads are disabled before the first playlist has finished loading.
-  try {
-    const ownDescriptor = Object.getOwnPropertyDescriptor(player, "_hls");
-    let assignedHls = ownDescriptor?.value;
-    Object.defineProperty(player, "_hls", {
-      configurable: true,
-      enumerable: ownDescriptor?.enumerable ?? false,
-      get: ownDescriptor?.get
-        ? () => ownDescriptor.get.call(player)
-        : () => assignedHls,
-      set: (nextHls) => {
-        if (ownDescriptor?.set) ownDescriptor.set.call(player, nextHls);
-        else assignedHls = nextHls;
-        disableHlsLowLatencyMode(nextHls);
-      },
-    });
-    disableHlsLowLatencyMode(assignedHls);
-  } catch (_) {
-    disableHlsLowLatencyMode(player._hls);
-  }
-  return player;
 }
 
 export function createHaNativeHlsVideoElement({
@@ -243,28 +130,21 @@ export function findActiveHaCameraStreamPlayer(stream) {
       : null;
   }
   if (tagName === "ha-web-rtc-player" || tagName === "ha-hls-player") {
-    const player = !stream?.hidden && !stream?.classList?.contains?.("hidden")
+    return !stream?.hidden && !stream?.classList?.contains?.("hidden")
       ? stream
       : null;
-    if (tagName === "ha-hls-player") {
-      configureHaHlsPlayerStandardLatency(player);
-    }
-    return player;
   }
   const players = Array.from(
     stream?.shadowRoot?.querySelectorAll?.(
       "ha-web-rtc-player,ha-hls-player",
     ) || [],
   );
-  const player =
+  return (
     players.find(
       (player) =>
         !player?.hidden && !player?.classList?.contains?.("hidden"),
-    ) || null;
-  if (player?.tagName?.toLowerCase?.() === "ha-hls-player") {
-    configureHaHlsPlayerStandardLatency(player);
-  }
-  return player;
+    ) || null
+  );
 }
 
 export function findActiveHaCameraStreamVideo(stream) {

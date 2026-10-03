@@ -466,13 +466,13 @@ test("Grid resolves HA-direct HLS without adding HLS to the go2rtc race", () => 
       [
         {
           entity: "camera.ha_direct",
-          liveStreamHint: "hls",
-          frontendStreamType: "hls",
+          liveStreamHint: "ha",
+          frontendStreamType: undefined,
         },
         {
           entity: "camera.frigate_go2rtc",
           liveStreamHint: "webrtc",
-          frontendStreamType: "webrtc",
+          frontendStreamType: undefined,
         },
       ],
     );
@@ -525,7 +525,7 @@ test("entering live Grid releases only duplicate go2rtc main-camera connections"
   );
 });
 
-test("Grid does not reuse the prior HA-direct camera transport after entering Grid", () => {
+test("Grid leaves HA Direct transport selection to Home Assistant", () => {
   const controller = new GridMediaController({
     _activeCam: { entity: "camera.ha_direct" },
     _activeStreamType: "grid",
@@ -540,7 +540,7 @@ test("Grid does not reuse the prior HA-direct camera transport after entering Gr
 
   assert.equal(
     controller._resolveGridCellLiveStreamHint("camera.ha_direct"),
-    "hls",
+    "ha",
   );
 });
 

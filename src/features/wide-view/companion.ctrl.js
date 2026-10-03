@@ -1,9 +1,6 @@
 import { cap, camDisplayName, DEVICE_PROFILE } from "../../helpers.js";
 import { CleanupController } from "../../shared/cleanup.js";
-import {
-  buildHaCameraStreamState,
-  resolveHaDirectCameraStreamType,
-} from "../../integrations/home-assistant/playback.js";
+import { buildHaCameraStreamState } from "../../integrations/home-assistant/playback.js";
 import { WideViewCompanionAlertController } from "./companion-alert.ctrl.js";
 import {
   buildWideCompanionCellMarkup,
@@ -151,14 +148,7 @@ export class WideViewCompanionController {
       return this.liveStreamHint();
     }
     if (this._host._isCatalyst?.() === true) return "hls";
-    return resolveHaDirectCameraStreamType({
-      entity,
-      activeEntity: this._host._activeCam?.entity,
-      activeStreamType: this._host._activeStreamType,
-      advertisedStreamType:
-        this._host._hass?.states?.[entity]?.attributes?.frontend_stream_type,
-      fallbackStreamType: "hls",
-    });
+    return "ha";
   }
 
   updateLayout({ width = null, height = null, metadataHeight = null } = {}) {
@@ -644,12 +634,7 @@ export class WideViewCompanionController {
       const useLive = mediaHost.dataset.wideCompanionUseLive === "1";
       const liveStreamHint = this.cameraLiveStreamHint(entity);
       const stateObj = entity
-        ? buildHaCameraStreamState(
-            this._host._hass,
-            entity,
-            liveStreamHint,
-            this._host._preferredStreamType(),
-          ) ||
+        ? buildHaCameraStreamState(this._host._hass, entity) ||
           this._host._hass?.states?.[entity] ||
           null
         : null;

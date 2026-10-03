@@ -291,12 +291,9 @@ export class CameraGroupLiveController {
     if (!target || !pane) return;
     pane.classList.remove("is-ready");
     const stateObj =
-      buildHaCameraStreamState(
-        this._host._hass,
-        entity,
-        this._host._currentLiveStreamHint?.(),
-        this._host._preferredStreamType?.(),
-      ) || this._host._hass?.states?.[entity] || null;
+      buildHaCameraStreamState(this._host._hass, entity) ||
+      this._host._hass?.states?.[entity] ||
+      null;
     const mediaState = { destroyed: false, cleanup: [] };
     this._mediaState = mediaState;
     this._signature = signature;

@@ -20,7 +20,7 @@ import {
 import { resolveSnapshotFallbackState } from "./stream.state.js";
 
 const EDITOR_LIVE_HANDOFF_TYPE = "frigate-go2rtc-live";
-const EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE = "ha-direct-webrtc-live";
+const EDITOR_HA_DIRECT_PROVIDER_HANDOFF_TYPE = "ha-direct-provider-live";
 const EDITOR_HA_DIRECT_CATALYST_HLS_HANDOFF_TYPE =
   "ha-direct-catalyst-hls-live";
 const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
@@ -28,7 +28,7 @@ const EDITOR_LIVE_HANDOFF_STREAM_TYPES = new Set(["mse", "webrtc"]);
 const resolveEditorHandoffConnectionType = (requestType) => {
   if (requestType === EDITOR_LIVE_HANDOFF_TYPE) return "frigate_go2rtc";
   if (
-    requestType === EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE ||
+    requestType === EDITOR_HA_DIRECT_PROVIDER_HANDOFF_TYPE ||
     requestType === EDITOR_HA_DIRECT_CATALYST_HLS_HANDOFF_TYPE
   ) {
     return "ha_direct";
@@ -40,7 +40,8 @@ const isEditorLiveHandoffSupported = (connectionType, streamType) =>
   connectionType === "frigate_go2rtc"
     ? EDITOR_LIVE_HANDOFF_STREAM_TYPES.has(streamType)
     : connectionType === "ha_direct" &&
-      (streamType === "webrtc" || streamType === "hls");
+      (streamType === "provider" ||
+        streamType === "hls");
 
 export function createEditorLiveHandoffController({
   getState,
@@ -131,16 +132,20 @@ export function createEditorLiveHandoffController({
     const requestConnectionType =
       getConnectionType?.(entity) ||
       (current.useGo2Rtc ? "frigate_go2rtc" : "ha_direct");
+    const providerRequest =
+      connectionType === "ha_direct" && streamType === "provider";
     const activeEngine =
       entity === currentEntity &&
       !suspended &&
       current.hasSlot === true &&
-      current.activeStreamType === streamType
+      (providerRequest
+        ? current.engine?.haDirectProvider === true
+        : current.activeStreamType === streamType)
         ? current.engine
         : null;
     const retainedEngine =
       connectionType === "ha_direct" &&
-      (streamType === "webrtc" || streamType === "hls")
+      (providerRequest || streamType === "hls")
         ? getRetainedEngine?.(entity, streamType, connectionType) || null
         : null;
     const retained = !activeEngine && Boolean(retainedEngine);
@@ -157,7 +162,9 @@ export function createEditorLiveHandoffController({
       current.viewMode === "grid" ||
       current.twoWayTalkActive ||
       engine?.type !== connectionType ||
-      engine?.streamType !== streamType ||
+      (providerRequest
+        ? engine?.haDirectProvider !== true
+        : engine?.streamType !== streamType) ||
       isEngineReusable?.(engine, streamType, connectionType) !== true
     ) {
       return null;
@@ -228,9 +235,9 @@ export function createEditorLiveHandoffController({
       streamType: requestedStreamType,
       type:
         requestedConnectionType === "ha_direct"
-          ? requestedStreamType === "hls"
-            ? EDITOR_HA_DIRECT_CATALYST_HLS_HANDOFF_TYPE
-            : EDITOR_HA_DIRECT_WEBRTC_HANDOFF_TYPE
+          ? requestedStreamType === "provider"
+            ? EDITOR_HA_DIRECT_PROVIDER_HANDOFF_TYPE
+            : EDITOR_HA_DIRECT_CATALYST_HLS_HANDOFF_TYPE
           : EDITOR_LIVE_HANDOFF_TYPE,
     });
     const engine = offer?.claim?.() || null;
@@ -272,7 +279,9 @@ export function createEditorLiveHandoffController({
       connectionType === currentConnectionType &&
       isEditorLiveHandoffSupported(connectionType, streamType) &&
       engine?.type === connectionType &&
-      engine?.streamType === streamType &&
+      (streamType === "provider"
+        ? engine?.haDirectProvider === true
+        : engine?.streamType === streamType) &&
       isEngineReusable?.(engine, streamType, connectionType) === true
     );
   };
@@ -304,7 +313,10 @@ export function createEditorLiveHandoffController({
     const entity = String(current.entity || "");
     const key = identityKey(entity);
     const engine = current.engine;
-    const streamType = String(current.activeStreamType || "").toLowerCase();
+    const streamType =
+      current.engine?.haDirectProvider === true
+        ? "provider"
+        : String(current.activeStreamType || "").toLowerCase();
     const connectionType = current.useGo2Rtc
       ? "frigate_go2rtc"
       : "ha_direct";
@@ -523,9 +535,7 @@ export function createLiveMountController({
         return true;
       }
 
-      const editorStreamTypes = forcedType
-        ? [forcedType]
-        : ["webrtc", "hls"];
+      const editorStreamTypes = ["provider"];
       for (const streamType of editorStreamTypes) {
         const editorHandoff = takeEditorLiveHandoff?.({
             connectionType: "ha_direct",
@@ -537,7 +547,6 @@ export function createLiveMountController({
             liveGraceController.adoptGraceHaDirectEngine?.(
               slot,
               editorHandoff.engine,
-              { allowPlaybackResume: true },
             )
           ) {
             editorHandoff.commit?.();

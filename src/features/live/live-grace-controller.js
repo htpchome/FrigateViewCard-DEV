@@ -37,10 +37,9 @@ export function createLiveGraceController({
   setStreamFallbackVisible,
   setLiveNativeControls,
   releaseHaDirectEngine,
-  adoptHaDirectWebRtcEngine,
-  isHaDirectHlsEngineReusable,
-  suspendHaDirectHlsEngine,
-  adoptHaDirectHlsEngine,
+  isHaDirectProviderReusable,
+  suspendHaDirectProvider,
+  adoptHaDirectProvider,
   isCatalystHlsEngineReusable,
   suspendCatalystHlsEngine,
   adoptCatalystHlsEngine,
@@ -78,52 +77,9 @@ export function createLiveGraceController({
       (!Number.isFinite(wsState) || wsState <= 1 || signalingClosedAfterConnect)
     );
   };
-  const isHaDirectWebRtcEngineTransferable = (engine) => {
-    if (
-      engine?.type !== "ha_direct" ||
-      engine?.streamType !== "webrtc" ||
-      !engine?.video ||
-      !engine?.pc
-    ) {
-      return false;
-    }
-    const connectionState = String(engine.pc.connectionState || "")
-      .trim()
-      .toLowerCase();
-    const iceState = String(engine.pc.iceConnectionState || "")
-      .trim()
-      .toLowerCase();
-    const peerConnected =
-      connectionState === "connected" ||
-      (!connectionState && ["connected", "completed"].includes(iceState));
-    const iceConnected =
-      !iceState || ["connected", "completed"].includes(iceState);
-    return (
-      peerConnected &&
-      iceConnected &&
-      engine.video.ended !== true &&
-      engine.hasLiveVideoTrack?.() === true
-    );
-  };
-  const isHaDirectWebRtcEngineReusable = (engine) => {
-    if (!isHaDirectWebRtcEngineTransferable(engine)) return false;
-    const video = engine.video;
-    const playbackRate = Number(video.playbackRate);
-    const hasUsableFrame =
-      !video.paused &&
-      !video.ended &&
-      !video.seeking &&
-      Number(video.readyState) >= 2 &&
-      Number(video.videoWidth) > 0 &&
-      (!Number.isFinite(playbackRate) || playbackRate > 0);
-    const hasRecentMediaActivity =
-      engine.hasRecentMediaActivity?.() === true;
-    return hasUsableFrame && hasRecentMediaActivity;
-  };
   const isHaDirectEngineReusable = (engine) =>
-    engine?.haDirectProvider === true || engine?.streamType === "hls"
-      ? isHaDirectHlsEngineReusable?.(engine) === true
-      : isHaDirectWebRtcEngineReusable(engine);
+    engine?.haDirectProvider === true &&
+    isHaDirectProviderReusable?.(engine) === true;
   let mseGraceHost = null;
   let haDirectDeckHost = null;
   let catalystHlsDeckHost = null;
@@ -321,50 +277,15 @@ export function createLiveGraceController({
     trimGracePool();
     return true;
   };
-  const stashHaDirectEngineForGrace = (entity, engine, options = {}) => {
+  const stashHaDirectEngineForGrace = (entity, engine) => {
     const key = normalizeGraceEntityKey(entity);
-    if (!key) return false;
-    engine?.cancelPendingTakeover?.();
+    if (!key || engine?.haDirectProvider !== true) return false;
     const engineEntity = normalizeGraceEntityKey(engine?.haDirectEntity);
     if (engineEntity && engineEntity !== key) return false;
     if (engine && !engineEntity) engine.haDirectEntity = key;
-    const reusableEngine =
-      options.allowPlaybackResume === true &&
-      engine?.streamType === "webrtc" &&
-      engine?.haDirectProvider !== true
-        ? isHaDirectWebRtcEngineTransferable(engine)
-        : isHaDirectEngineReusable(engine);
-    if (!reusableEngine) return false;
-    if (
-      (engine.haDirectProvider === true || engine.streamType === "hls") &&
-      suspendHaDirectHlsEngine?.(engine) !== true
-    ) {
-      return false;
-    }
-    const mediaNode = engine.video || null;
-    if (
-      engine.haDirectProvider !== true &&
-      engine.streamType !== "hls" &&
-      !mediaNode
-    ) {
-      return false;
-    }
+    if (!isHaDirectEngineReusable(engine)) return false;
+    if (suspendHaDirectProvider?.(engine) !== true) return false;
     evictGraceHaDirectEntry(key);
-    if (engine.haDirectProvider !== true && engine.streamType !== "hls") {
-      engine.deactivateRecovery?.();
-      ensureHaDirectDeckHost().appendChild(mediaNode);
-      prepareEngineVideoForLiveDeck(mediaNode);
-      // The HA Direct deck sits above the visible live slot so its HLS layers
-      // can be revealed in place. Dormant WebRTC videos share that host, but
-      // must not paint there or a later camera connection can cover the
-      // selected camera.
-      mediaNode.style.opacity = "0";
-      mediaNode.style.zIndex = "0";
-      mediaNode.setAttribute?.("aria-hidden", "true");
-      if (options.allowPlaybackResume === true) {
-        void mediaNode.play?.().catch?.(() => {});
-      }
-    }
     const entry = {
       engine,
       cancelled: false,
@@ -495,17 +416,11 @@ export function createLiveGraceController({
     if (!key) return null;
     const entry = haDirectRetainedPool.get(key);
     const engine = entry?.engine || null;
-    const expectedType = String(streamType || "")
-      .trim()
-      .toLowerCase();
     if (
       !engine ||
       normalizeGraceEntityKey(engine.haDirectEntity) !== key ||
-      (expectedType && engine.streamType !== expectedType) ||
-      (engine.haDirectProvider === true
-        ? !isHaDirectEngineReusable(engine)
-        : engine.streamType !== "webrtc" ||
-          !isHaDirectWebRtcEngineTransferable(engine))
+      engine.haDirectProvider !== true ||
+      !isHaDirectEngineReusable(engine)
     ) {
       return null;
     }
@@ -538,13 +453,11 @@ export function createLiveGraceController({
 
   const hasRetainedHaDirectHandoffEngines = () =>
     [...haDirectRetainedPool.values()].some(({ engine } = {}) =>
-      engine?.haDirectProvider === true
-        ? isHaDirectEngineReusable(engine)
-        : isHaDirectWebRtcEngineTransferable(engine),
+      isHaDirectEngineReusable(engine),
     );
 
-  const retainHaDirectEngine = (entity, engine, options = {}) =>
-    stashHaDirectEngineForGrace(entity, engine, options);
+  const retainHaDirectEngine = (entity, engine) =>
+    stashHaDirectEngineForGrace(entity, engine);
 
   const syncRetainedHaDirectEntities = (entities = []) => {
     const retainedEntities = new Set(
@@ -645,71 +558,18 @@ export function createLiveGraceController({
     void engine.video.play?.().catch?.(() => {});
     return true;
   };
-  const adoptGraceHaDirectEngine = (slot, engine, options = {}) => {
-    if (engine?.haDirectProvider === true || engine?.streamType === "hls") {
-      if (
-        !slot ||
-        isHaDirectHlsEngineReusable?.(engine) !== true ||
-        adoptHaDirectHlsEngine?.(slot, engine) !== true
-      ) {
-        try {
-          releaseHaDirectEngine?.(engine);
-        } catch (_) {}
-        return false;
-      }
-      return true;
-    }
-    const reusableWebRtc = options.allowPlaybackResume === true
-      ? isHaDirectWebRtcEngineTransferable(engine)
-      : isHaDirectEngineReusable(engine);
-    if (!slot || !reusableWebRtc) {
+  const adoptGraceHaDirectEngine = (slot, engine) => {
+    if (
+      !slot ||
+      engine?.haDirectProvider !== true ||
+      isHaDirectProviderReusable?.(engine) !== true ||
+      adoptHaDirectProvider?.(slot, engine) !== true
+    ) {
       try {
         releaseHaDirectEngine?.(engine);
       } catch (_) {}
-      const mediaNode = engine?.video || engine;
-      try {
-        mediaNode?.remove?.();
-      } catch (_) {}
       return false;
     }
-    const mediaNode = engine.video || null;
-    const video = engine.video || null;
-    if (!mediaNode) return false;
-    configureVideoElement(
-      video,
-      buildVideoOptionsForView(
-        "live",
-        {
-          muted: getStreamMuted?.(),
-          controls: false,
-        },
-        { scopeKey: getScopeKey?.() },
-      ),
-    );
-    video.style.opacity = "";
-    video.style.zIndex = "";
-    video.removeAttribute?.("aria-hidden");
-    mountNodeIntoSlot(slot, mediaNode);
-    attachVideoFit?.(video);
-    setEngine?.(engine);
-    const ownershipAdopted = adoptHaDirectWebRtcEngine?.(engine);
-    if (ownershipAdopted === false) {
-      setEngine?.(null, { retainPrevious: true });
-      try {
-        releaseHaDirectEngine?.(engine);
-      } catch (_) {}
-      try {
-        mediaNode.remove?.();
-      } catch (_) {}
-      return false;
-    }
-    if (ownershipAdopted !== true) engine.activateRecovery?.();
-    setEngineMountedMuted?.(getStreamMuted?.());
-    setActiveStreamType?.("webrtc");
-    setStreamLoading?.(false);
-    setStreamFallbackVisible?.(false);
-    if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
-    void video?.play?.().catch?.(() => {});
     return true;
   };
   const adoptGraceCatalystHlsEngine = (slot, engine) => {
@@ -867,13 +727,11 @@ export function createLiveGraceController({
     takeRetainedHaDirectEngineForHandoff,
     adoptGraceHaDirectEngine,
     isHaDirectEngineReusable,
-    isHaDirectWebRtcEngineTransferable,
     hasRetainedHaDirectEngine,
     hasRetainedHaDirectHandoffEngines,
     retainHaDirectEngine,
     syncRetainedHaDirectEntities,
     getHaDirectDeckHost: ensureHaDirectDeckHost,
-    getHaDirectWebRtcDeckHost: ensureHaDirectDeckHost,
     takeGraceCatalystHlsEntry,
     hasRetainedCatalystHlsEngine,
     retainCatalystHlsEngine,

@@ -32,7 +32,10 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   };
   const calls = [];
   let editorHandoffContext = "dashboard";
-  const transferredEditorEngine = { id: "editor-retained-webrtc" };
+  const transferredEditorEngine = {
+    id: "editor-retained-provider",
+    haDirectProvider: true,
+  };
   let committedEditorTransfer = 0;
   const engineHost = { id: "engine" };
   const haDirectDeckHost = { id: "ha-direct-deck" };
@@ -81,17 +84,20 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
         };
       },
     },
+    _haDirectMounter: {
+      adoptTransferredProvider: () => true,
+    },
     _editorPreviewController: {
       liveHandoffContext: () => editorHandoffContext,
     },
     _liveGraceController: {
       getHaDirectDeckHost: () => haDirectDeckHost,
       hasRetainedHaDirectEngine: (entity) => entity === "camera.ha",
-      retainHaDirectEngine: (entity, engine, options) => {
-        calls.push(["retain-ha", entity, engine, options]);
+      retainHaDirectEngine: (entity, engine) => {
+        calls.push(["retain-ha", entity, engine]);
         return (
           entity === "camera.ha" &&
-          (engine === "ha-webrtc-engine" ||
+          (engine === "ha-provider-engine" ||
             engine === transferredEditorEngine)
         );
       },
@@ -156,7 +162,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     attachContainedVideoFit,
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
-  assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
   editorHandoffContext = "preconfig";
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
@@ -177,7 +182,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.equal(
     optionsByFactory.haDirectMounter.retainPreloadedEngine(
       "camera.ha",
-      "ha-webrtc-engine",
+      "ha-provider-engine",
     ),
     true,
   );
@@ -188,12 +193,11 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     true,
   );
   assert.deepEqual(calls.slice(-2), [
-    ["take-editor-handoff", "camera.ha", "webrtc", "ha_direct"],
+    ["take-editor-handoff", "camera.ha", "provider", "ha_direct"],
     [
       "retain-ha",
       "camera.ha",
       transferredEditorEngine,
-      { allowPlaybackResume: true },
     ],
   ]);
   assert.equal(committedEditorTransfer, 1);
@@ -201,10 +205,8 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.deepEqual(calls.at(-1), ["sync-ha-retained", ["camera.ha"]]);
   assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), false);
   deviceProfile.isIOS = true;
-  assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
   deviceProfile.isIOS = false;
   deviceProfile.isCatalyst = true;
-  assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
   assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), true);
   assert.deepEqual(optionsByFactory.catalystHlsMounter.getPreloadEntities(), [

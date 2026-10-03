@@ -69,9 +69,7 @@ export class GridMediaController {
 
   _resolveGridCellLiveStreamHint(entity) {
     if (this._host._shouldUseGo2RtcForEntity(entity)) return "webrtc";
-    return this._cameraCellMediaController.resolveHaDirectLiveStreamHint(
-      entity,
-    );
+    return this._host._isCatalyst?.() === true ? "hls" : "ha";
   }
 
   _mountGridCameraCellMedia(cell, options = {}) {
@@ -352,12 +350,7 @@ export class GridMediaController {
           ? "webrtc"
           : this._resolveGridCellLiveStreamHint(entity);
         const stateObj = entity
-          ? buildHaCameraStreamState(
-              this._host._hass,
-              entity,
-              cameraStreamHint,
-              this._host._preferredStreamType(),
-            ) ||
+          ? buildHaCameraStreamState(this._host._hass, entity) ||
             this._host._hass?.states?.[entity] ||
             null
           : null;

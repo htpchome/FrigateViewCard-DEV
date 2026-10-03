@@ -444,7 +444,7 @@ test("Preview does not carry an HA-direct HLS hint into go2rtc cameras", () => {
 
   assert.equal(
     controller.previewCameraLiveStreamHint("camera.front_door"),
-    "hls",
+    "ha",
   );
   assert.equal(
     controller.previewCameraLiveStreamHint("camera.driveway"),
@@ -470,7 +470,7 @@ test("Preview never carries an HLS hint into an active go2rtc camera", () => {
   );
 });
 
-test("Preview landing starts an unclassified HA-direct camera with HLS", () => {
+test("Preview leaves an unclassified HA-direct camera transport to HA", () => {
   const { controller, host } = createHost({
     activeStreamType: "--",
     pageId: "preview",
@@ -484,7 +484,7 @@ test("Preview landing starts an unclassified HA-direct camera with HLS", () => {
 
   assert.equal(
     controller.previewCameraLiveStreamHint("camera.front_door"),
-    "hls",
+    "ha",
   );
 });
 
@@ -609,7 +609,13 @@ test("mountPreviewMedia delegates preview cells through grid media ownership", (
   assert.equal(calls[0][1].entity, "camera.front_door");
   assert.equal(calls[0][1].fallbackOnLiveError, true);
   assert.equal(calls[0][1].snapshotPlaceholderWhileLive, true);
-  assert.equal(calls[0][1].stateObj?.attributes?.frontend_stream_type, "hls");
+  assert.equal(
+    Object.hasOwn(
+      calls[0][1].stateObj?.attributes || {},
+      "frontend_stream_type",
+    ),
+    false,
+  );
   assert.equal(host._previewMediaState?.destroyed, false);
 });
 
@@ -918,10 +924,17 @@ test("Preview HA Direct HLS reveals only after the active HA player renders", as
   globalThis.document = {
     createElement: (tagName) => {
       const element = createPreviewMediaElement(tagName);
-      if (tagName === "ha-hls-player") {
+      if (tagName === "ha-camera-stream") {
         stream = element;
         element.updateComplete = Promise.resolve();
+        const hlsPlayer = {
+          tagName: "HA-HLS-PLAYER",
+          hidden: false,
+          classList: { contains: () => false },
+          shadowRoot: { querySelector: () => hlsVideo },
+        };
         element.shadowRoot = {
+          querySelectorAll: () => [hlsPlayer],
           querySelector: () => hlsVideo,
         };
       }
@@ -960,8 +973,8 @@ test("Preview HA Direct HLS reveals only after the active HA player renders", as
     const liveLayer = cell.children[1];
     assert.equal(liveLayer.classList.contains("is-ready"), false);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(stream.tagName, "ha-hls-player");
-    assert.equal(stream.entityid, "camera.front");
+    assert.equal(stream.tagName, "ha-camera-stream");
+    assert.equal(stream.stateObj.attributes.frontend_stream_type, "mse");
     assert.equal(stream.fitMode, "contain");
     assert.equal(typeof hlsFrameCallback, "function");
     hlsFrameCallback();

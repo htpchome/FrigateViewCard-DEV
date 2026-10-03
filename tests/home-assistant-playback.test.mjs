@@ -2,42 +2,36 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  createHaHlsPlayerElement,
+  buildHaCameraStreamState,
+  createHaCameraStreamElement,
   createHaNativeHlsVideoElement,
   ensureHaCameraPlaybackElements,
   findActiveHaCameraStreamVideo,
-  resolveHaDirectCameraStreamType,
   watchHaPlaybackFirstFrame,
 } from "../src/integrations/home-assistant/playback.js";
 
-test("HA HLS player disables blocking low-latency playlist reloads", () => {
+test("HA camera-stream receives the real state without a forced transport", () => {
   const previousDocument = globalThis.document;
-  const player = {
-    _hls: undefined,
-    style: { cssText: "" },
-  };
+  const stream = { style: { cssText: "" } };
   globalThis.document = {
     createElement: (tagName) => {
-      assert.equal(tagName, "ha-hls-player");
-      return player;
+      assert.equal(tagName, "ha-camera-stream");
+      return stream;
     },
   };
 
   try {
-    const result = createHaHlsPlayerElement({
-      hass: {},
-      entity: "camera.front",
+    const stateObj = { entity_id: "camera.front", attributes: {} };
+    const hass = { states: { "camera.front": stateObj } };
+    const result = createHaCameraStreamElement({
+      stateObj: buildHaCameraStreamState(hass, "camera.front"),
+      muted: true,
     });
-    const hls = {
-      lowLatencyMode: true,
-      config: { lowLatencyMode: true },
-    };
-    result._hls = hls;
 
-    assert.equal(result.fvcStandardLatencyHls, true);
-    assert.equal(result._hls, hls);
-    assert.equal(hls.lowLatencyMode, false);
-    assert.equal(hls.config.lowLatencyMode, false);
+    assert.strictEqual(result.stateObj, stateObj);
+    assert.equal(result.muted, true);
+    assert.equal(Object.hasOwn(stateObj.attributes, "frontend_stream_type"), false);
+    assert.equal(Object.hasOwn(result, "hass"), false);
   } finally {
     globalThis.document = previousDocument;
   }
@@ -289,52 +283,6 @@ const createPendingVideo = () => {
   };
 };
 
-test("HA Direct multi-view startup uses only camera-specific stream evidence", () => {
-  assert.equal(
-    resolveHaDirectCameraStreamType({
-      entity: "camera.front",
-      activeEntity: "camera.front",
-      activeStreamType: "webrtc",
-    }),
-    "webrtc",
-  );
-  assert.equal(
-    resolveHaDirectCameraStreamType({
-      entity: "camera.front",
-      activeEntity: "camera.driveway",
-      activeStreamType: "webrtc",
-    }),
-    "hls",
-  );
-  assert.equal(
-    resolveHaDirectCameraStreamType({
-      entity: "camera.front",
-      activeEntity: "camera.front",
-      activeStreamType: "--",
-    }),
-    "hls",
-  );
-  assert.equal(
-    resolveHaDirectCameraStreamType({
-      entity: "camera.front",
-      activeEntity: "camera.driveway",
-      activeStreamType: "mse",
-      advertisedStreamType: "web_rtc",
-    }),
-    "webrtc",
-  );
-  assert.equal(
-    resolveHaDirectCameraStreamType({
-      entity: "camera.front",
-      activeEntity: "camera.driveway",
-      activeStreamType: "mse",
-      requestedStreamType: "mse",
-      fallbackStreamType: "webrtc",
-    }),
-    "webrtc",
-  );
-});
-
 test("HA camera-stream readiness follows the active player after HA switches to HLS", async () => {
   const events = createEventTarget();
   const webRtcVideo = createPendingVideo();
@@ -378,12 +326,6 @@ test("HA camera-stream readiness follows the active player after HA switches to 
 
   assert.deepEqual(webRtcVideo.canceled, [1]);
   assert.equal(hlsVideo.callbacks.size, 1);
-  const nestedHls = {
-    lowLatencyMode: true,
-    config: { lowLatencyMode: true },
-  };
-  hlsPlayer._hls = nestedHls;
-  assert.equal(nestedHls.lowLatencyMode, false);
   hlsVideo.callbacks.values().next().value();
   assert.equal(readyCount, 1);
   assert.equal(stream.listenerCount("load"), 0);

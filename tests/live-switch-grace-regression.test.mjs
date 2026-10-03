@@ -114,7 +114,7 @@ test("camera switching preserves recent live engines for short switch-back reuse
     true,
   );
   assert.equal(
-    liveGraceControllerSource.includes("isHaDirectHlsEngineReusable"),
+    liveGraceControllerSource.includes("isHaDirectProviderReusable"),
     true,
   );
   assert.equal(

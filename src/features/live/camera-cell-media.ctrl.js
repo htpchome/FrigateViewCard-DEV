@@ -1,8 +1,7 @@
 import {
   createHaCameraStreamElement,
-  createHaHlsPlayerElement,
-  findActiveHaCameraStreamVideo,
-  resolveHaDirectCameraStreamType,
+  createHaNativeHlsVideoElement,
+  findActiveHaCameraStreamPlayer,
   watchHaPlaybackFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
 import { preloadFallbackImageSource } from "./fallbacks/fallback-refresh.js";
@@ -349,28 +348,6 @@ export class CameraCellMediaController {
     })();
   }
 
-  resolveHaDirectLiveStreamHint(
-    entity,
-    requestedStreamType = "",
-    fallbackStreamType = "hls",
-  ) {
-    if (this._host._isCatalyst?.() === true) return "hls";
-    const activeStreamType =
-      String(this._host._activeStreamType || "").trim().toLowerCase() ===
-      "grid"
-        ? ""
-        : this._host._activeStreamType;
-    return resolveHaDirectCameraStreamType({
-      entity,
-      activeEntity: this._host._activeCam?.entity,
-      activeStreamType,
-      advertisedStreamType:
-        this._host._hass?.states?.[entity]?.attributes?.frontend_stream_type,
-      requestedStreamType,
-      fallbackStreamType,
-    });
-  }
-
   _createGridLiveAttemptSlot(host) {
     const slot = document.createElement("div");
     slot.style.cssText =
@@ -524,41 +501,27 @@ export class CameraCellMediaController {
           onFailure: liveStage?.retainPlaceholder,
         });
       } else if (stateObj) {
-        const haDirectStreamHint = this.resolveHaDirectLiveStreamHint(
-          entity,
-          liveStreamHint,
-          "webrtc",
-        );
-        const haDirectStateObj = {
-          ...stateObj,
-          attributes: {
-            ...stateObj.attributes,
-            frontend_stream_type:
-              haDirectStreamHint === "webrtc" ? "web_rtc" : "hls",
-          },
-        };
         const styleText =
           "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
-        const stream =
-          haDirectStreamHint === "hls"
-            ? createHaHlsPlayerElement({
-                hass: this._host._hass,
-                entity,
-                controls: false,
-                muted: true,
-                defaultMuted: true,
-                fitMode: "contain",
-                styleText,
-              })
-            : createHaCameraStreamElement({
-                hass: this._host._hass,
-                stateObj: haDirectStateObj,
-                controls: false,
-                muted: true,
-                defaultMuted: true,
-                fitMode: "contain",
-                styleText,
-              });
+        const stream = this._host._isCatalyst?.() === true
+          ? createHaNativeHlsVideoElement({
+              hass: this._host._hass,
+              entity,
+              streamFormat: "hls",
+              controls: false,
+              muted: true,
+              defaultMuted: true,
+              fitMode: "contain",
+              styleText,
+            })
+          : createHaCameraStreamElement({
+              stateObj,
+              controls: false,
+              muted: true,
+              defaultMuted: true,
+              fitMode: "contain",
+              styleText,
+            });
         if (!stream) {
           liveStage?.retainPlaceholder?.();
           return Boolean(liveStage);
@@ -566,15 +529,18 @@ export class CameraCellMediaController {
         liveTarget.appendChild(stream);
         attachContainedVideoFit(stream);
         let released = false;
-        const handoffType = haDirectStreamHint;
+        const handoffType = () =>
+          findActiveHaCameraStreamPlayer(stream)?.tagName?.toLowerCase?.() ===
+          "ha-web-rtc-player"
+            ? "webrtc"
+            : "hls";
         const handoff = {
-          type: handoffType,
           take: () => {
             if (released || !stream) return null;
             released = true;
             return {
               ok: true,
-              type: handoffType,
+              type: handoffType(),
               engine: stream,
               slot: stream,
             };
@@ -597,12 +563,7 @@ export class CameraCellMediaController {
         gridState.cleanup.push(() => {
           if (released) return;
           try {
-            const video = findActiveHaCameraStreamVideo(stream);
-            if (video) {
-              video.pause?.();
-              video.removeAttribute?.("src");
-              video.load?.();
-            }
+            stream.destroy?.();
           } catch (_) {}
           try {
             stream.remove();

@@ -53,11 +53,16 @@ Meaning of `ha_direct`:
 - the card owns provider creation, deck visibility, retention and release,
   snapshot fallback presentation, and editor/layout ownership transfer; it
   does not own the provider's signaling or internal media-player lifecycle
-- editor preview handoff must leave the native provider in its permanent deck
-  inside the Home Assistant-scoped owner card; only its plain video surface may
-  cross from dashboard to pre-editor to editor and then return to the original
-  player. Native providers must never be mounted under `document.body` or
-  another host outside the card's scoped custom-element context
+- page and layout changes keep each native provider in its permanent slot.
+  A dashboard/editor ownership handoff may move the whole camera-specific slot
+  with the platform's state-preserving DOM move operation; it must never detach,
+  clone, or lend the provider's internal video or child player. Native providers
+  must never be mounted under `document.body` or another host outside the
+  card's scoped custom-element context
+- normal HA Direct must pass the real Home Assistant camera state to
+  `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
+  player internals, use a card-owned readiness timeout to replace the provider,
+  or schedule a card-owned transport remount after HA startup
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

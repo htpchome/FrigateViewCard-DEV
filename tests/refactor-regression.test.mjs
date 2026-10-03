@@ -194,7 +194,10 @@ const go2rtcMounterSource = fs.readFileSync(
   "utf8",
 );
 const haDirectMounterSource = fs.readFileSync(
-  new URL("../src/features/live/ha-direct-mounter.js", import.meta.url),
+  new URL(
+    "../src/features/live/ha-direct-provider-mounter.js",
+    import.meta.url,
+  ),
   "utf8",
 );
 const catalystHlsMounterSource = fs.readFileSync(
@@ -785,17 +788,30 @@ test("live transport ownership is pulled out of the card shell", () => {
     true,
   );
   assert.equal(
-    haDirectMounterSource.includes("export function createHaDirectMounter"),
+    haDirectMounterSource.includes(
+      "export function createHaDirectProviderMounter",
+    ),
     true,
   );
-  assert.equal(haDirectMounterSource.includes("buildHaDirectMountPlan"), true);
   assert.equal(
     haDirectMounterSource.includes("createHaDirectWebRtcPlayback"),
-    true,
+    false,
   );
   assert.equal(
     haDirectMounterSource.includes("createHaHlsPlayerElement"),
-    true,
+    false,
+  );
+  assert.equal(
+    haDirectMounterSource.includes("frontend_stream_type"),
+    false,
+  );
+  assert.equal(
+    haDirectMounterSource.includes("scheduleResumeLive"),
+    false,
+  );
+  assert.equal(
+    haDirectMounterSource.includes("haDirectProviderHandoff"),
+    false,
   );
   assert.equal(
     catalystHlsMounterSource.includes(
