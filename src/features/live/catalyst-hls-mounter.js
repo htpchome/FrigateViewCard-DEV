@@ -434,7 +434,9 @@ export function createCatalystHlsMounter({
     slot.appendChild(engine);
     if (!commit) return { ok: true, type: "hls", engine, slot };
 
-    const binding = bindEngine(engine);
+    // The initial player must recover like a promoted preload. Catalyst can
+    // emit a media failure when the preserved live shell moves between views.
+    const binding = bindEngine(engine, { resumeOnFailure: true });
     assignCommittedEngine?.(engine);
     binding.stopLoadingFallbackRefresh =
       startLoadingFallbackRefresh?.({ preserveRenderedFrame: true }) ||

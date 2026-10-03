@@ -60,6 +60,7 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
   let currentEngine = null;
   let videoOptions = null;
   let waitOptions = null;
+  const resumeReasons = [];
   const mounter = createCatalystHlsMounter({
     getHass: () => hass,
     getStreamMuted: () => true,
@@ -85,6 +86,7 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
     stopLoadingFallbackRefresh: () =>
       calls.push(["stop-global-refresh"]),
     setLiveNativeControls: () => {},
+    scheduleResumeLive: (reason) => resumeReasons.push(reason),
     prepareHlsPlayback: () => {
       calls.push(["prepare"]);
       return true;
@@ -123,6 +125,9 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
     calls.find(([name]) => name === "media"),
     ["media", video, video],
   );
+
+  video.emit("error");
+  assert.deepEqual(resumeReasons, ["hls-error"]);
 
   mounter.release(video);
   assert.equal(video.destroyCalls, 1);

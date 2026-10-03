@@ -148,6 +148,13 @@ WebRTC/MSE attempts, while the saved camera configuration remains unchanged.
 Non-Catalyst clients still follow the selected connection mode without this
 override.
 
+`v1.1.8-dev.162` gives the initially selected Catalyst HLS player the same
+media-failure recovery contract as players promoted from the background deck.
+If Catalyst invalidates the native video presentation while the preserved live
+shell moves between page layouts, camera 1 now remounts instead of remaining on
+a black frame. The retained deck, authenticated HLS URL path, and non-Catalyst
+transports are unchanged.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
