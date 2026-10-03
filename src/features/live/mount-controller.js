@@ -93,6 +93,7 @@ export function createEditorLiveHandoffController({
     const current = state();
     const entity = String(current.entity || "");
     const requestContext = String(request.context || "");
+    const requestFromConfigPreview = requestContext === "config";
     const streamType = String(request.streamType || "").toLowerCase();
     const connectionType = resolveEditorHandoffConnectionType(request.type);
     const currentConnectionType = current.useGo2Rtc
@@ -106,11 +107,12 @@ export function createEditorLiveHandoffController({
       request.entity !== entity ||
       request.key !== identityKey(entity) ||
       suspended ||
-      isEditorLifecycleActive?.() !== true ||
+      (!requestFromConfigPreview && isEditorLifecycleActive?.() !== true) ||
       current.started !== true ||
       current.mountInProgress ||
       current.previewPageActive ||
-      current.viewMode !== "single" ||
+      current.hasSlot !== true ||
+      current.viewMode === "grid" ||
       current.twoWayTalkActive ||
       current.activeStreamType !== streamType ||
       engine?.type !== connectionType ||
@@ -464,6 +466,7 @@ export function createLiveMountController({
             liveGraceController.adoptGraceHaDirectEngine?.(
               slot,
               editorHandoff.engine,
+              { allowPlaybackResume: true },
             )
           ) {
             editorHandoff.commit?.();

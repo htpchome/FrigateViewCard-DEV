@@ -78,7 +78,7 @@ export function createLiveGraceController({
       (!Number.isFinite(wsState) || wsState <= 1 || signalingClosedAfterConnect)
     );
   };
-  const isHaDirectWebRtcEngineReusable = (engine) => {
+  const isHaDirectWebRtcEngineTransferable = (engine) => {
     if (
       engine?.type !== "ha_direct" ||
       engine?.streamType !== "webrtc" ||
@@ -98,6 +98,15 @@ export function createLiveGraceController({
       (!connectionState && ["connected", "completed"].includes(iceState));
     const iceConnected =
       !iceState || ["connected", "completed"].includes(iceState);
+    return (
+      peerConnected &&
+      iceConnected &&
+      engine.video.ended !== true &&
+      engine.hasLiveVideoTrack?.() === true
+    );
+  };
+  const isHaDirectWebRtcEngineReusable = (engine) => {
+    if (!isHaDirectWebRtcEngineTransferable(engine)) return false;
     const video = engine.video;
     const playbackRate = Number(video.playbackRate);
     const hasUsableFrame =
@@ -107,16 +116,9 @@ export function createLiveGraceController({
       Number(video.readyState) >= 2 &&
       Number(video.videoWidth) > 0 &&
       (!Number.isFinite(playbackRate) || playbackRate > 0);
-    const hasLiveVideoTrack = engine.hasLiveVideoTrack?.() === true;
     const hasRecentMediaActivity =
       engine.hasRecentMediaActivity?.() === true;
-    return (
-      peerConnected &&
-      iceConnected &&
-      hasUsableFrame &&
-      hasLiveVideoTrack &&
-      hasRecentMediaActivity
-    );
+    return hasUsableFrame && hasRecentMediaActivity;
   };
   const isHaDirectEngineReusable = (engine) =>
     engine?.streamType === "hls"
@@ -564,7 +566,7 @@ export function createLiveGraceController({
     void engine.video.play?.().catch?.(() => {});
     return true;
   };
-  const adoptGraceHaDirectEngine = (slot, engine) => {
+  const adoptGraceHaDirectEngine = (slot, engine, options = {}) => {
     if (engine?.streamType === "hls") {
       if (
         !slot ||
@@ -578,7 +580,10 @@ export function createLiveGraceController({
       }
       return true;
     }
-    if (!slot || !isHaDirectEngineReusable(engine)) {
+    const reusableWebRtc = options.allowPlaybackResume === true
+      ? isHaDirectWebRtcEngineTransferable(engine)
+      : isHaDirectEngineReusable(engine);
+    if (!slot || !reusableWebRtc) {
       try {
         releaseHaDirectEngine?.(engine);
       } catch (_) {}
@@ -780,6 +785,7 @@ export function createLiveGraceController({
     takeGraceHaDirectEntry,
     adoptGraceHaDirectEngine,
     isHaDirectEngineReusable,
+    isHaDirectWebRtcEngineTransferable,
     hasRetainedHaDirectEngine,
     retainHaDirectEngine,
     syncRetainedHaDirectEntities,

@@ -135,6 +135,63 @@ test("editor live handoff rejects mismatched transports and active talk sessions
   assert.equal(controller.createOffer(request), null);
 });
 
+test("config preview request can claim live before donor observes editor lifecycle", () => {
+  const engine = {
+    type: "ha_direct",
+    streamType: "webrtc",
+    video: {},
+    pc: {},
+    deactivateRecovery() {},
+  };
+  const current = {
+    activeStreamType: "webrtc",
+    engine,
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: true,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: false,
+    viewMode: "single",
+  };
+  const controller = createEditorLiveHandoffController({
+    getState: () => current,
+    getContext: () => "dashboard",
+    getIdentityKey: () => "matching-card",
+    isEditorLifecycleActive: () => false,
+    isEngineReusable: (candidate) => candidate === engine,
+    detachEngine: () => {
+      current.engine = null;
+      return true;
+    },
+  });
+  const request = {
+    context: "config",
+    entity: "camera.front",
+    key: "matching-card",
+    streamType: "webrtc",
+    type: "ha-direct-webrtc-live",
+  };
+
+  assert.equal(
+    controller.createOffer({ ...request, context: "dashboard" }),
+    null,
+  );
+  current.hasSlot = false;
+  assert.equal(controller.createOffer(request), null);
+  current.hasSlot = true;
+  current.viewMode = "grid";
+  assert.equal(controller.createOffer(request), null);
+  current.viewMode = "single";
+
+  const offer = controller.createOffer(request);
+  assert.ok(offer);
+  assert.strictEqual(offer.claim(), engine);
+  assert.equal(current.engine, null);
+});
+
 test("editor HA-direct WebRTC handoff transfers and returns one established engine", () => {
   const engine = {
     type: "ha_direct",
@@ -1156,8 +1213,13 @@ test("live mount controller adopts an editor HA-direct WebRTC handoff before res
         calls.push(["take-ha-direct", entity, streamType]);
         return null;
       },
-      adoptGraceHaDirectEngine: (targetSlot, engine) => {
-        calls.push(["adopt-ha-webrtc-handoff", targetSlot, engine]);
+      adoptGraceHaDirectEngine: (targetSlot, engine, options) => {
+        calls.push([
+          "adopt-ha-webrtc-handoff",
+          targetSlot,
+          engine,
+          options,
+        ]);
         return true;
       },
     },
@@ -1185,7 +1247,12 @@ test("live mount controller adopts an editor HA-direct WebRTC handoff before res
   assert.deepEqual(calls, [
     ["take-ha-direct", "camera.front", ""],
     ["take-handoff", "ha_direct", "camera.front", "webrtc"],
-    ["adopt-ha-webrtc-handoff", slot, handedOffEngine],
+    [
+      "adopt-ha-webrtc-handoff",
+      slot,
+      handedOffEngine,
+      { allowPlaybackResume: true },
+    ],
     "commit-handoff",
   ]);
 });

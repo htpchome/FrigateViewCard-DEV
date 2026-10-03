@@ -17,10 +17,12 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   const gridSlot = { id: "grid-engine" };
   const liveGraceController = {
     isHaDirectEngineReusable: (engine) => engine === "ha-engine",
+    isHaDirectWebRtcEngineTransferable: (engine) =>
+      engine === "ha-engine",
     isMseEngineReusable: (engine) => engine === "mse-engine",
     isWebRtcEngineReusable: (engine) => engine === "webrtc-engine",
-    adoptGraceHaDirectEngine: (slot, engine) => {
-      calls.push(["adopt-ha", slot, engine]);
+    adoptGraceHaDirectEngine: (slot, engine, options) => {
+      calls.push(["adopt-ha", slot, engine, options]);
       return true;
     },
     adoptGraceMseEngine: (slot, engine) => {
@@ -298,7 +300,12 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     true,
   );
   assert.equal(card._dashboardLiveGraceActive, false);
-  assert.deepEqual(calls.at(-1), ["adopt-ha", engineSlot, "ha-engine"]);
+  assert.deepEqual(calls.at(-1), [
+    "adopt-ha",
+    engineSlot,
+    "ha-engine",
+    { allowPlaybackResume: true },
+  ]);
   assert.equal(
     optionsByFactory.editorHandoff.adoptEngine(
       editorCatalystEngine,

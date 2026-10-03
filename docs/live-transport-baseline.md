@@ -198,6 +198,15 @@ that dormant presentation before moving the selected camera into the live
 slot. A background camera completing its connection therefore cannot paint
 over the selected camera.
 
+`v1.1.8-dev.167` treats a matching request from an actual config-preview card
+as sufficient editor-entry evidence. It also distinguishes an established HA
+Direct WebRTC connection that is safe to transfer from one that is healthy
+enough for unattended grace-pool retention. Editor reparenting may briefly
+pause the video element while its peer connection and live track remain valid;
+that transient presentation pause no longer rejects the transfer and starts a
+new HLS-first race. Camera, transport, slot, Grid, Preview, and two-way-talk
+eligibility checks remain in place.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
@@ -329,6 +338,10 @@ one of those policies is the cause.
 - `v1.1.8-dev.166` makes dormant HA Direct WebRTC deck videos transparent and
   restores their visible presentation only when their entity is selected and
   adopted into the live slot.
+- `v1.1.8-dev.167` lets a confirmed config-preview request claim a matching
+  reusable WebRTC engine even if the dashboard donor has not yet observed the
+  editor-open lifecycle transition, and permits the receiver to resume a
+  transferred live WebRTC element after a transient editor reparent pause.
 
 ## Validation Expectations
 

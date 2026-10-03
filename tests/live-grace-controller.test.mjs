@@ -770,17 +770,33 @@ test("live grace controller rejects HA-direct WebRTC that is not immediately reu
     });
 
     assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    assert.equal(
+      controller.isHaDirectWebRtcEngineTransferable(cachedEngine),
+      false,
+    );
     cachedEngine.pc.connectionState = "connected";
     video.readyState = 1;
     video.videoWidth = 0;
     assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    assert.equal(
+      controller.isHaDirectWebRtcEngineTransferable(cachedEngine),
+      true,
+    );
     video.readyState = 4;
     video.videoWidth = 1920;
     hasRecentMediaActivity = false;
     assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    assert.equal(
+      controller.isHaDirectWebRtcEngineTransferable(cachedEngine),
+      true,
+    );
     hasRecentMediaActivity = true;
     hasLiveVideoTrack = false;
     assert.equal(controller.isHaDirectEngineReusable(cachedEngine), false);
+    assert.equal(
+      controller.isHaDirectWebRtcEngineTransferable(cachedEngine),
+      false,
+    );
     controller.cleanupEngine({ preserveLiveEntity: "camera.front" });
 
     assert.equal(engine, null);
@@ -789,6 +805,103 @@ test("live grace controller rejects HA-direct WebRTC that is not immediately reu
       null,
     );
     assert.deepEqual(releasedEngines, [cachedEngine]);
+  });
+});
+
+test("editor handoff resumes a connected HA-direct WebRTC element after a transient pause", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    let engine = null;
+    let playCalls = 0;
+    let ownershipAdoptions = 0;
+    const attributes = new Map();
+    const video = {
+      style: { cssText: "" },
+      paused: true,
+      ended: false,
+      seeking: false,
+      readyState: 1,
+      videoWidth: 0,
+      playbackRate: 1,
+      setAttribute(name, value) {
+        attributes.set(name, value);
+      },
+      removeAttribute(name) {
+        attributes.delete(name);
+      },
+      play() {
+        playCalls += 1;
+        return Promise.resolve();
+      },
+      remove() {},
+    };
+    const transferredEngine = {
+      type: "ha_direct",
+      streamType: "webrtc",
+      video,
+      pc: {
+        connectionState: "connected",
+        iceConnectionState: "connected",
+      },
+      hasLiveVideoTrack: () => true,
+      hasRecentMediaActivity: () => false,
+      activateRecovery() {},
+      setRecoveryHandler() {},
+    };
+    const controller = createLiveGraceController({
+      graceMs: 100,
+      graceMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => engine,
+      setEngine: (next) => {
+        engine = next;
+      },
+      getActiveStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: () => {
+        throw new Error("transferable WebRTC must not be released");
+      },
+      adoptHaDirectWebRtcEngine: (candidate) => {
+        assert.strictEqual(candidate, transferredEngine);
+        ownershipAdoptions += 1;
+        return true;
+      },
+    });
+    const slot = {
+      innerHTML: "occupied",
+      appendChild(node) {
+        this.child = node;
+      },
+    };
+
+    assert.equal(controller.isHaDirectEngineReusable(transferredEngine), false);
+    assert.equal(
+      controller.isHaDirectWebRtcEngineTransferable(transferredEngine),
+      true,
+    );
+    assert.equal(
+      controller.adoptGraceHaDirectEngine(slot, transferredEngine, {
+        allowPlaybackResume: true,
+      }),
+      true,
+    );
+    assert.strictEqual(engine, transferredEngine);
+    assert.strictEqual(slot.child, video);
+    assert.equal(ownershipAdoptions, 1);
+    assert.equal(playCalls, 1);
   });
 });
 

@@ -127,7 +127,7 @@ export const createLiveLifecycleControllers = (
           ? streamType === "hls"
             ? engine?.catalystHls === true &&
               card._catalystHlsMounter?.isRetainableEngine?.(engine) === true
-            : liveGraceController.isHaDirectEngineReusable(engine)
+            : liveGraceController.isHaDirectWebRtcEngineTransferable(engine)
           : streamType === "mse"
             ? liveGraceController.isMseEngineReusable(engine)
             : liveGraceController.isWebRtcEngineReusable(engine),
@@ -156,7 +156,9 @@ export const createLiveLifecycleControllers = (
             ? streamType === "hls"
               ? engine?.catalystHls === true &&
                 card._catalystHlsMounter?.adoptRetainedEngine?.(slot, engine)
-              : liveGraceController.adoptGraceHaDirectEngine(slot, engine)
+              : liveGraceController.adoptGraceHaDirectEngine(slot, engine, {
+                  allowPlaybackResume: true,
+                })
             : streamType === "mse"
               ? liveGraceController.adoptGraceMseEngine(slot, engine)
               : liveGraceController.adoptGraceWebRtcEngine(slot, engine);
