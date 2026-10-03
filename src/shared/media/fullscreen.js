@@ -50,6 +50,7 @@ export function requestMediaFullscreen({
   element = null,
   video = null,
   preferElementFullscreen = false,
+  preferNativeVideoFullscreen = false,
   navigatorObj = globalThis.navigator,
   onBeginNativeVideoFullscreen = () => {},
   onBeginDocumentFullscreen = () => {},
@@ -61,18 +62,25 @@ export function requestMediaFullscreen({
     element.requestFullscreen || element.webkitRequestFullscreen;
   const useElementFullscreen =
     preferElementFullscreen === true && typeof elementRequest === "function";
+  const useNativeVideoFullscreen =
+    preferNativeVideoFullscreen === true ||
+    (isIosFullscreenPlatform(navigatorObj) && !useElementFullscreen);
 
-  if (
-    isIosFullscreenPlatform(navigatorObj) &&
-    video &&
-    !useElementFullscreen
-  ) {
+  if (useNativeVideoFullscreen && video) {
     const enterVideoFullscreen =
       video.webkitEnterFullscreen || video.webkitEnterFullScreen;
-    if (typeof enterVideoFullscreen === "function") {
+    const setVideoPresentationMode = video.webkitSetPresentationMode;
+    if (
+      typeof enterVideoFullscreen === "function" ||
+      typeof setVideoPresentationMode === "function"
+    ) {
       onBeginNativeVideoFullscreen(video);
       try {
-        enterVideoFullscreen.call(video);
+        if (typeof enterVideoFullscreen === "function") {
+          enterVideoFullscreen.call(video);
+        } else {
+          setVideoPresentationMode.call(video, "fullscreen");
+        }
         return true;
       } catch (_) {
         onRequestFailure?.();

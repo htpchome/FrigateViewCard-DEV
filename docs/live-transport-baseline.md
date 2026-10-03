@@ -119,6 +119,13 @@ the background HLS requests until a camera was selected. The deck has no hidden,
 transparent, or offscreen styling; the selected player and snapshot layers keep
 it visually covered. Other clients and transports remain unchanged.
 
+`v1.1.8-dev.158` routes live and popup fullscreen requests through Catalyst's
+native video fullscreen API because its WKWebView does not reliably implement
+element/document fullscreen. Live fullscreen resolves the selected engine video
+before inspecting the surrounding stage, so a warmed player in the Catalyst deck
+cannot become the fullscreen target. Safari and other clients retain their
+existing fullscreen path.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

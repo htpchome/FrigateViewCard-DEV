@@ -96,6 +96,57 @@ test("preferred element fullscreen bypasses the iOS native video API", () => {
   ]);
 });
 
+test("native video fullscreen preference supports Catalyst desktop", () => {
+  const calls = [];
+  const element = {
+    requestFullscreen() {
+      calls.push(["element-request"]);
+    },
+  };
+  const video = {
+    webkitEnterFullscreen() {
+      calls.push(["video-request", this]);
+    },
+  };
+
+  const requested = requestMediaFullscreen({
+    element,
+    video,
+    preferElementFullscreen: true,
+    preferNativeVideoFullscreen: true,
+    navigatorObj: { userAgent: "Macintosh", platform: "MacIntel" },
+    onBeginNativeVideoFullscreen: (target) => calls.push(["begin", target]),
+  });
+
+  assert.equal(requested, true);
+  assert.deepEqual(calls, [
+    ["begin", video],
+    ["video-request", video],
+  ]);
+});
+
+test("native video fullscreen falls back to WebKit presentation mode", () => {
+  const calls = [];
+  const video = {
+    webkitSetPresentationMode(mode) {
+      calls.push(["presentation", mode, this]);
+    },
+  };
+
+  const requested = requestMediaFullscreen({
+    element: {},
+    video,
+    preferNativeVideoFullscreen: true,
+    onBeginNativeVideoFullscreen: (target) => calls.push(["begin", target]),
+  });
+
+  assert.equal(requested, true);
+  assert.deepEqual(calls, [
+    ["begin", video],
+    ["presentation", "fullscreen", video],
+  ]);
+});
+
 test("fullscreen falls back to the video request and reports rejection", async () => {
   const calls = [];
   const video = {

@@ -20,6 +20,7 @@ export class CardFullscreenController {
       requestFullscreen = requestMediaFullscreen,
       resolveButtonVisibility = resolveFullscreenButtonVisibility,
       getDocument = () => globalThis.document,
+      preferNativeVideoFullscreen = () => host._isCatalyst?.() === true,
     } = {},
   ) {
     this._host = host;
@@ -29,6 +30,7 @@ export class CardFullscreenController {
     this._requestFullscreen = requestFullscreen;
     this._resolveButtonVisibility = resolveButtonVisibility;
     this._getDocument = getDocument;
+    this._preferNativeVideoFullscreen = preferNativeVideoFullscreen;
   }
 
   findFullscreenVideo(element) {
@@ -52,18 +54,19 @@ export class CardFullscreenController {
 
   request(element, options = {}) {
     if (!element) return false;
-    let video = this.findFullscreenVideo(element);
+    let video = options.preferLive
+      ? this.findVideoDeep(this._host._$("#engine")) ||
+        this.findVideoDeep(this._host._engine)
+      : null;
+    if (!video) video = this.findFullscreenVideo(element);
     if (!video) video = this.findVideoDeep(element);
-    if (!video && options.preferLive) {
-      video =
-        this.findVideoDeep(this._host._$("#engine")) ||
-        this.findVideoDeep(this._host._engine);
-    }
     return this._requestFullscreen({
       element,
       video,
       preferElementFullscreen:
         options.preferElementFullscreen === true,
+      preferNativeVideoFullscreen:
+        this._preferNativeVideoFullscreen?.() === true,
       onBeginNativeVideoFullscreen: (fullscreenVideo) => {
         if (!options.preferLive) return;
         this._host._liveFullscreenLifecycleController?.beginNativeVideoFullscreen(

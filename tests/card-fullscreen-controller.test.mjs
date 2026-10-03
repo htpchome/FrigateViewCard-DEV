@@ -59,6 +59,47 @@ test("card fullscreen controller resolves the live target and preserves lifecycl
   assert.equal(calls.length, 3);
 });
 
+test("Catalyst fullscreen targets selected live and popup videos through native fullscreen", () => {
+  const liveStage = { name: "live-stage" };
+  const engineHost = { name: "engine-host" };
+  const popupBody = { name: "popup-body" };
+  const popupVideo = { name: "popup-video" };
+  const selectedVideo = { name: "selected-video" };
+  const warmedVideo = { name: "warmed-video" };
+  let requestOptions = null;
+  const host = {
+    _engine: null,
+    _isCatalyst: () => true,
+    _cardViewPageController: {
+      liveFullscreenTarget: () => liveStage,
+    },
+    _$: (selector) =>
+      selector === "#live-stage" ? liveStage : engineHost,
+  };
+  const controller = new CardFullscreenController(host, {
+    findFullscreenMedia: (root) =>
+      root === liveStage
+        ? warmedVideo
+        : root === popupBody
+          ? popupVideo
+          : null,
+    findNestedVideo: (root) =>
+      root === engineHost ? selectedVideo : null,
+    requestFullscreen: (options) => {
+      requestOptions = options;
+      return true;
+    },
+  });
+
+  assert.equal(controller.requestLive(), true);
+  assert.equal(requestOptions.video, selectedVideo);
+  assert.equal(requestOptions.preferNativeVideoFullscreen, true);
+
+  assert.equal(controller.request(popupBody), true);
+  assert.equal(requestOptions.video, popupVideo);
+  assert.equal(requestOptions.preferNativeVideoFullscreen, true);
+});
+
 test("card fullscreen controller synchronizes live and popup controls", () => {
   const liveButton = {};
   const popupControlsButton = {};

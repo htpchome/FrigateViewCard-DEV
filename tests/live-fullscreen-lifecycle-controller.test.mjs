@@ -88,3 +88,24 @@ test("native fullscreen recovery falls back to its session video", () => {
   assert.equal(fixture.initialVideo.playCalls, 1);
   assert.deepEqual(fixture.resumeReasons, ["live-fullscreen-exit"]);
 });
+
+test("native presentation-mode exit resumes live once", () => {
+  const fixture = createFixture();
+  fixture.initialVideo.webkitPresentationMode = "fullscreen";
+  fixture.controller.beginNativeVideoFullscreen(fixture.initialVideo);
+
+  fixture.initialVideo.dispatchEvent(
+    new Event("webkitpresentationmodechanged"),
+  );
+  assert.equal(fixture.controller.active, true);
+
+  fixture.initialVideo.webkitPresentationMode = "inline";
+  fixture.initialVideo.dispatchEvent(
+    new Event("webkitpresentationmodechanged"),
+  );
+  fixture.initialVideo.dispatchEvent(new Event("webkitendfullscreen"));
+
+  assert.equal(fixture.controller.active, false);
+  assert.equal(fixture.initialVideo.playCalls, 1);
+  assert.deepEqual(fixture.resumeReasons, ["live-fullscreen-exit"]);
+});

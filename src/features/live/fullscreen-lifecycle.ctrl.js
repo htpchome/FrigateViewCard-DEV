@@ -38,6 +38,11 @@ export class LiveFullscreenLifecycleController {
       this._onNativeVideoFullscreenEnd,
       { once: true },
     );
+    this._nativeCleanup.addEventListener(
+      video,
+      "webkitpresentationmodechanged",
+      this._onNativeVideoPresentationModeChange,
+    );
   }
 
   handleDocumentFullscreenChange(fullscreenElement = null) {
@@ -63,6 +68,11 @@ export class LiveFullscreenLifecycleController {
   }
 
   _onNativeVideoFullscreenEnd = () => {
+    this._recoverAfterExit();
+  };
+
+  _onNativeVideoPresentationModeChange = () => {
+    if (this._sessionVideo?.webkitPresentationMode === "fullscreen") return;
     this._recoverAfterExit();
   };
 
