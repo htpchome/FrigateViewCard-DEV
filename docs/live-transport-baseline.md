@@ -2,8 +2,9 @@
 
 ## Current Baseline
 
-`v1.1.8-dev.173` replaces the layered `v1.1.8-dev.172` HA Direct experiment
-with a clean native-provider path. Non-Catalyst HA Direct playback creates one
+`v1.1.8-dev.174` corrects the physically rejected readiness and handoff behavior
+in `v1.1.8-dev.173` without restoring a card-owned transport race. Non-Catalyst
+HA Direct playback creates one
 stable `ha-camera-stream` provider per loaded camera and delegates HLS/WebRTC
 selection, signaling, fallback, and child-player lifecycle to Home Assistant.
 The card retains ownership only of creation order, permanent camera slots,
@@ -13,11 +14,19 @@ DOM and is projected into page-specific live stages. Page changes leave the
 provider slots connected; editor ownership transfer moves the complete
 camera-specific slot with `Element.moveBefore()` and never extracts HA's inner
 video. The provider receives the real HA state object without a fabricated
-`frontend_stream_type`. The card no longer patches HA HLS internals, waits on an
-eight-second transport gate, or remounts a provider after a card-owned startup
-timeout. `v1.1.8-dev.172`'s inner-video lending is rejected. Mac Catalyst
-remains on its separate native HLS-only path. Physical validation is required
-before this experiment replaces `v1.1.8-dev.168` as a known-good rollback point.
+`frontend_stream_type`. Provider readiness now requires a presented frame from
+the player Home Assistant made visible. A `streams: false` event from HA's
+hidden WebRTC or HLS candidate is not treated as failure of the complete
+provider, and readiness observation yields through HA's child-event render
+before resolving the visible player. HA therefore remains free to select the
+other player. When editor handoff
+discovery finds one active provider alongside retained offers, the active
+provider wins instead of the broker rejecting the transfer as ambiguous. The
+card no longer patches HA HLS internals, waits on an eight-second transport
+gate, or remounts a provider after a card-owned startup timeout.
+`v1.1.8-dev.172`'s inner-video lending is rejected. Mac Catalyst remains on its
+separate native HLS-only path. Physical validation is required before this
+experiment replaces `v1.1.8-dev.168` as a known-good rollback point.
 
 `v1.1.8-dev.70` restores the `v1.1.8-dev.68` HA Direct pipeline after physical
 testing rejected the native `ha-camera-stream` provider-deck experiment in
@@ -379,9 +388,15 @@ one of those policies is the cause.
   the editor returns it.
 - `v1.1.8-dev.173` rejects that inner-video handoff and removes the obsolete
   card-owned HA Direct HLS/WebRTC implementation. The clean path passes the raw
-  HA camera state into one `ha-camera-stream`, observes only HA's public load and
-  streams events for presentation, and moves only the complete provider slot
-  during cross-card editor ownership transfer.
+  HA camera state into one `ha-camera-stream` and moves only the complete
+  provider slot during cross-card editor ownership transfer. Physical testing
+  rejected its interpretation of a hidden child player's `streams: false`
+  event as failure of the complete provider and exposed ambiguous editor offers.
+- `v1.1.8-dev.174` observes the frame presented by HA's currently visible child
+  player after HA processes the child event and completes its provider render,
+  rather than arbitrating child transport events. It therefore leaves HLS
+  fallback under `ha-camera-stream` ownership when WebRTC is unavailable.
+  Editor handoff also prefers the sole active provider over retained offers.
 
 ## Validation Expectations
 

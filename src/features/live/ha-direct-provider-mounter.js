@@ -4,6 +4,7 @@ import {
   ensureHaCameraPlaybackElements,
   findActiveHaCameraStreamPlayer,
   findActiveHaCameraStreamVideo,
+  watchHaPlaybackFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
 import {
   resolveHaDirectFailedState,
@@ -52,10 +53,12 @@ export function createHaDirectProviderMounter({
   syncRetainedEntities = () => {},
   requestFrame = (callback) => globalThis.requestAnimationFrame?.(callback),
   cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
+  watchProviderReady = watchHaPlaybackFirstFrame,
 }) {
   const ownerToken = {};
   const bindings = new WeakMap();
   const providerSlots = new WeakMap();
+  const providerReadyWaiters = new WeakMap();
   const ownedProviders = new Set();
   const settledEntities = new Set();
   let preloadGeneration = 0;
@@ -84,6 +87,32 @@ export function createHaDirectProviderMounter({
     if (binding) binding.stopLoadingFallbackRefresh = () => {};
   };
 
+  const markProviderReady = (provider) => {
+    if (!provider || provider.haDirectProviderReady === true) return;
+    provider.haDirectProviderReady = true;
+    const waiters = providerReadyWaiters.get(provider);
+    providerReadyWaiters.delete(provider);
+    for (const waiter of waiters || []) waiter();
+  };
+
+  const subscribeProviderReady = (provider, callback) => {
+    if (!provider || typeof callback !== "function") return () => {};
+    if (provider.haDirectProviderReady === true) {
+      callback();
+      return () => {};
+    }
+    let waiters = providerReadyWaiters.get(provider);
+    if (!waiters) {
+      waiters = new Set();
+      providerReadyWaiters.set(provider, waiters);
+    }
+    waiters.add(callback);
+    return () => {
+      waiters.delete(callback);
+      if (!waiters.size) providerReadyWaiters.delete(provider);
+    };
+  };
+
   const setProviderVisible = (provider, visible) => {
     const providerSlot = providerSlots.get(provider);
     if (!providerSlot) return false;
@@ -101,8 +130,7 @@ export function createHaDirectProviderMounter({
     if (!binding) return false;
     binding.disposed = true;
     stopFallbackRefresh(binding);
-    provider.removeEventListener?.("load", binding.onLoad, true);
-    provider.removeEventListener?.("streams", binding.onStreams, true);
+    binding.stopReadySubscription?.();
     bindings.delete(provider);
     return true;
   };
@@ -164,21 +192,16 @@ export function createHaDirectProviderMounter({
     provider.haDirectProvider = true;
     provider.haDirectProviderOwner = ownerToken;
     provider.haDirectProviderSlot = providerSlot;
-    const onProviderLoad = () => {
-      provider.haDirectProviderReady = true;
-    };
-    const onProviderStreams = (event) => {
-      if (event?.detail?.hasVideo === false) {
-        provider.haDirectProviderReady = false;
-      }
-    };
-    provider.addEventListener?.("load", onProviderLoad, true);
-    provider.addEventListener?.("streams", onProviderStreams, true);
-    provider.haDirectProviderMetadataCleanup = () => {
-      provider.removeEventListener?.("load", onProviderLoad, true);
-      provider.removeEventListener?.("streams", onProviderStreams, true);
-    };
     providerSlot.appendChild(provider);
+    const stopReadyWatch = watchProviderReady?.({
+      stream: provider,
+      isDestroyed: () => !provider.haDirectProviderOwner,
+      onReady: () => markProviderReady(provider),
+    });
+    provider.haDirectProviderMetadataCleanup = () => {
+      stopReadyWatch?.();
+      providerReadyWaiters.delete(provider);
+    };
     providerSlots.set(provider, providerSlot);
     ownedProviders.add(provider);
     return provider;
@@ -218,39 +241,18 @@ export function createHaDirectProviderMounter({
     return true;
   };
 
-  const applyFailed = (provider) => {
-    const binding = bindings.get(provider);
-    if (
-      binding?.disposed ||
-      !isCurrentEngine?.(provider) ||
-      !isSelectedEntity(provider?.haDirectEntity)
-    ) {
-      return false;
-    }
-    stopFallbackRefresh(binding);
-    stopLoadingFallbackRefresh?.();
-    markSettled(provider);
-    provider.haDirectProviderReady = false;
-    onCommittedStream?.("snapshot");
-    applyResolvedStreamUiState?.(resolveHaDirectFailedState());
-    schedulePreloadDeckAfterPaint();
-    return true;
-  };
-
   const bindProvider = (provider) => {
     const existing = bindings.get(provider);
     if (existing && !existing.disposed) return existing;
     const binding = {
       disposed: false,
       stopLoadingFallbackRefresh: () => {},
-      onLoad: () => applyReady(provider),
-      onStreams: (event) => {
-        if (event?.detail?.hasVideo === false) applyFailed(provider);
-      },
+      stopReadySubscription: () => {},
     };
     bindings.set(provider, binding);
-    provider.addEventListener?.("load", binding.onLoad, true);
-    provider.addEventListener?.("streams", binding.onStreams, true);
+    binding.stopReadySubscription = subscribeProviderReady(provider, () =>
+      applyReady(provider),
+    );
     return binding;
   };
 
@@ -310,7 +312,6 @@ export function createHaDirectProviderMounter({
       startLoadingFallbackRefresh?.() || (() => {});
     if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
     if (provider.haDirectProviderReady === true) applyReady(provider);
-    else if (provider.haDirectProviderReady === false) applyFailed(provider);
     return true;
   };
 
@@ -320,21 +321,17 @@ export function createHaDirectProviderMounter({
       const finish = (value) => {
         if (settled) return;
         settled = true;
-        provider.removeEventListener?.("load", onLoad, true);
-        provider.removeEventListener?.("streams", onStreams, true);
+        stopReadySubscription();
         abortSignal?.removeEventListener?.("abort", onAbort);
         resolve(value);
       };
-      const onLoad = () => finish(true);
-      const onStreams = (event) => {
-        if (event?.detail?.hasVideo === false) finish(false);
-      };
       const onAbort = () => finish(null);
-      provider.addEventListener?.("load", onLoad, true);
-      provider.addEventListener?.("streams", onStreams, true);
+      let stopReadySubscription = () => {};
+      stopReadySubscription = subscribeProviderReady(provider, () =>
+        finish(true),
+      );
       abortSignal?.addEventListener?.("abort", onAbort, { once: true });
       if (provider.haDirectProviderReady === true) finish(true);
-      else if (provider.haDirectProviderReady === false) finish(false);
       else if (abortSignal?.aborted) finish(null);
     });
 
@@ -410,7 +407,7 @@ export function createHaDirectProviderMounter({
       return false;
     }
     markSettled(provider);
-    provider.haDirectProviderReady = outcome === true;
+    provider.haDirectProviderReady = true;
     provider.streamType = resolveProviderStreamType(provider);
     if (retainPreloadedEngine?.(targetEntity, provider) === true) return true;
     release(provider);

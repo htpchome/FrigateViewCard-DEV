@@ -44,6 +44,12 @@ const createFakeProvider = ({ streamType = "webrtc" } = {}) => {
   };
 };
 
+const watchFakeProviderReady = ({ stream, onReady }) => {
+  const onLoad = () => onReady();
+  stream.addEventListener("load", onLoad, true);
+  return () => stream.removeEventListener("load", onLoad, true);
+};
+
 const createFakeElement = () => ({
   children: [],
   isConnected: false,
@@ -115,6 +121,7 @@ const baseOptions = ({ deck, provider, assignedEngine }) => ({
   setLiveNativeControls: () => {},
   preparePlaybackElements: () => true,
   createCameraStream: () => provider,
+  watchProviderReady: watchFakeProviderReady,
   getPreloadHost: () => deck,
   getSelectedEntity: () => "camera.front",
   shouldPreload: () => false,
@@ -146,6 +153,7 @@ test("HA Direct passes the real HA state to one stable camera-stream", async () 
         providerOptions = options;
         return provider;
       },
+      watchProviderReady: watchFakeProviderReady,
       getPreloadHost: () => deck,
       getActiveEntity: () => "camera.front",
       getSelectedEntity: () => "camera.front",
@@ -177,6 +185,39 @@ test("HA Direct passes the real HA state to one stable camera-stream", async () 
     hass.states["camera.front"] = nextStateObj;
     mounter.syncProviderStates();
     assert.strictEqual(provider.stateObj, nextStateObj);
+  });
+});
+
+test("HA Direct lets Home Assistant fall back to HLS after a WebRTC child fails", async () => {
+  await withFakeDocument(async () => {
+    const deck = createFakeElement();
+    const provider = createFakeProvider({ streamType: "hls" });
+    const committedTypes = [];
+    let assignedEngine = null;
+    const mounter = createHaDirectProviderMounter({
+      ...baseOptions({
+        deck,
+        provider,
+        assignedEngine: () => assignedEngine,
+      }),
+      assignCommittedEngine: (engine) => {
+        assignedEngine = engine;
+      },
+      onCommittedStream: (streamType) => committedTypes.push(streamType),
+    });
+
+    await mounter.tryMount(createFakeElement(), null, {
+      entity: "camera.front",
+      commit: true,
+    });
+
+    provider.dispatch("streams", { hasVideo: false });
+    assert.deepEqual(committedTypes, []);
+    assert.notEqual(provider.haDirectProviderReady, false);
+
+    provider.dispatch("load");
+    assert.deepEqual(committedTypes, ["hls"]);
+    assert.equal(provider.haDirectProviderReady, true);
   });
 });
 
@@ -244,6 +285,7 @@ test("HA Direct starts background providers only after the selected provider set
         providers.push(provider);
         return provider;
       },
+      watchProviderReady: watchFakeProviderReady,
       getPreloadEntities: () => [
         "camera.one",
         "camera.two",
@@ -306,6 +348,7 @@ test("HA Direct editor handoff moves the whole provider slot state-preservingly"
       applyResolvedStreamUiState: () => {},
       setLiveNativeControls: () => {},
       preparePlaybackElements: () => true,
+      watchProviderReady: watchFakeProviderReady,
       getActiveEntity: () => "camera.front",
       getSelectedEntity: () => "camera.front",
       shouldPreload: () => false,

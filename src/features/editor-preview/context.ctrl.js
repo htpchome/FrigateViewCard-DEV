@@ -176,7 +176,11 @@ export class EditorPreviewContextController {
       },
     });
     windowRef.dispatchEvent(event);
-    return candidates.length === 1 ? candidates[0] : null;
+    if (candidates.length === 1) return candidates[0];
+    const activeCandidates = candidates.filter(
+      (candidate) => candidate?.retained !== true,
+    );
+    return activeCandidates.length === 1 ? activeCandidates[0] : null;
   }
 
   liveHandoffContext() {

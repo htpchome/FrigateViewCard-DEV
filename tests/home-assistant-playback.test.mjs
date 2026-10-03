@@ -319,8 +319,11 @@ test("HA camera-stream readiness follows the active player after HA switches to 
   assert.equal(webRtcVideo.callbacks.size, 1);
   assert.equal(hlsVideo.callbacks.size, 0);
 
-  webRtcPlayer.hidden = true;
-  hlsPlayer.hidden = false;
+  stream.addEventListener("streams", () => {
+    webRtcPlayer.hidden = true;
+    hlsPlayer.hidden = false;
+    stream.updateComplete = Promise.resolve();
+  });
   stream.emit("streams");
   await new Promise((resolve) => setImmediate(resolve));
 
@@ -329,7 +332,7 @@ test("HA camera-stream readiness follows the active player after HA switches to 
   hlsVideo.callbacks.values().next().value();
   assert.equal(readyCount, 1);
   assert.equal(stream.listenerCount("load"), 0);
-  assert.equal(stream.listenerCount("streams"), 0);
+  assert.equal(stream.listenerCount("streams"), 1);
 
   cleanup();
   assert.equal(readyCount, 1);

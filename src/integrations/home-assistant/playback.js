@@ -190,6 +190,10 @@ export function watchHaPlaybackFirstFrame({
     cleanupFrameWatch = () => {};
     void (async () => {
       try {
+        // The provider observes child events during capture. Yield once so
+        // ha-camera-stream can process that event and schedule its own update
+        // before we read the current updateComplete promise.
+        await Promise.resolve();
         await stream.updateComplete;
       } catch (_) {}
       if (

@@ -143,6 +143,39 @@ test("editor live handoff refuses ambiguous matching providers", () => {
   requester.dispose();
 });
 
+test("editor live handoff prefers one active provider over retained offers", () => {
+  const windowRef = createListenerTarget({
+    CustomEvent: FakeCustomEvent,
+    location: { pathname: "/lovelace/cameras" },
+  });
+  const requester = new EditorPreviewContextController({}, { windowRef });
+  const activeProvider = new EditorPreviewContextController({}, { windowRef });
+  const retainedProvider = new EditorPreviewContextController(
+    {},
+    { windowRef },
+  );
+  const activeCandidate = {
+    provider: activeProvider,
+    id: "active",
+    retained: false,
+  };
+  activeProvider.startLiveHandoffProvider(() => activeCandidate);
+  retainedProvider.startLiveHandoffProvider(() => ({
+    provider: retainedProvider,
+    id: "retained",
+    retained: true,
+  }));
+
+  assert.equal(
+    requester.requestLiveHandoff({ entity: "camera.front" }),
+    activeCandidate,
+  );
+
+  activeProvider.dispose();
+  retainedProvider.dispose();
+  requester.dispose();
+});
+
 const createMutationObserverHarness = () => {
   const observers = [];
   class FakeMutationObserver {
