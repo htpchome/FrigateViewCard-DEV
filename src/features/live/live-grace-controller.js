@@ -328,6 +328,13 @@ export function createLiveGraceController({
       engine.deactivateRecovery?.();
       ensureHaDirectDeckHost().appendChild(mediaNode);
       prepareEngineVideoForLiveDeck(mediaNode);
+      // The HA Direct deck sits above the visible live slot so its HLS layers
+      // can be revealed in place. Dormant WebRTC videos share that host, but
+      // must not paint there or a later camera connection can cover the
+      // selected camera.
+      mediaNode.style.opacity = "0";
+      mediaNode.style.zIndex = "0";
+      mediaNode.setAttribute?.("aria-hidden", "true");
     }
     const entry = {
       engine,
@@ -595,6 +602,9 @@ export function createLiveGraceController({
         { scopeKey: getScopeKey?.() },
       ),
     );
+    video.style.opacity = "";
+    video.style.zIndex = "";
+    video.removeAttribute?.("aria-hidden");
     mountNodeIntoSlot(slot, mediaNode);
     attachVideoFit?.(video);
     setEngine?.(engine);

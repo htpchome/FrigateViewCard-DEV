@@ -936,6 +936,8 @@ test("live grace controller keeps HA Direct WebRTC live beyond switch grace", as
     assert.equal(hostChildren[0].style.cssText.includes("width:100%"), true);
     assert.equal(hostChildren[0].style.cssText.includes("height:100%"), true);
     assert.equal(hostChildren[0].style.cssText.includes("opacity:0"), false);
+    assert.equal(video.style.opacity, "0");
+    assert.equal(video.style.zIndex, "0");
     assert.equal(video.style.cssText.includes("left:-9999px"), false);
     assert.strictEqual(
       controller.getHaDirectWebRtcDeckHost(),
@@ -945,6 +947,92 @@ test("live grace controller keeps HA Direct WebRTC live beyond switch grace", as
       controller.takeGraceHaDirectEntry("camera.front", "webrtc")?.engine,
       retainedEngine,
     );
+  });
+});
+
+test("HA Direct retained WebRTC cameras stay hidden until their own adoption", async () => {
+  await withFakeDocument(async ({ shadowRoot }) => {
+    const createVideo = () => ({
+      paused: false,
+      ended: false,
+      seeking: false,
+      readyState: 4,
+      videoWidth: 1920,
+      playbackRate: 1,
+      style: { cssText: "" },
+      play: () => Promise.resolve(),
+      setAttribute() {},
+      removeAttribute() {},
+    });
+    const createEngine = (entity) => ({
+      type: "ha_direct",
+      streamType: "webrtc",
+      haDirectEntity: entity,
+      video: createVideo(),
+      pc: {
+        connectionState: "connected",
+        iceConnectionState: "connected",
+      },
+      hasLiveVideoTrack: () => true,
+      hasRecentMediaActivity: () => true,
+      deactivateRecovery() {},
+      activateRecovery() {},
+    });
+    const front = createEngine("camera.front");
+    const back = createEngine("camera.back");
+    let activeEngine = null;
+    const controller = createLiveGraceController({
+      graceMs: 5,
+      graceMax: 1,
+      haDirectRetainedMax: 2,
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => activeEngine,
+      setEngine: (engine) => {
+        activeEngine = engine;
+      },
+      getActiveStreamType: () => "webrtc",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+      releaseHaDirectEngine: () => {},
+      adoptHaDirectWebRtcEngine: () => true,
+    });
+
+    assert.equal(controller.retainHaDirectEngine("camera.front", front), true);
+    assert.equal(controller.retainHaDirectEngine("camera.back", back), true);
+    assert.equal(front.video.style.opacity, "0");
+    assert.equal(back.video.style.opacity, "0");
+
+    const entry = controller.takeGraceHaDirectEntry(
+      "camera.front",
+      "webrtc",
+    );
+    const visibleSlot = {
+      children: [],
+      appendChild(node) {
+        this.children.push(node);
+        node.parentElement = this;
+      },
+    };
+    assert.equal(
+      controller.adoptGraceHaDirectEngine(visibleSlot, entry.engine),
+      true,
+    );
+    assert.equal(front.video.style.opacity, "");
+    assert.equal(back.video.style.opacity, "0");
+    assert.strictEqual(activeEngine, front);
   });
 });
 

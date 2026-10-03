@@ -192,6 +192,12 @@ and its practical low concurrent-session limit while retaining Home Assistant
 authentication and player ownership. Catalyst remains on its separate native
 HLS path.
 
+`v1.1.8-dev.166` keeps every retained HA Direct WebRTC video mounted and
+playing at full size, but explicitly transparent while dormant. Adoption clears
+that dormant presentation before moving the selected camera into the live
+slot. A background camera completing its connection therefore cannot paint
+over the selected camera.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
@@ -320,6 +326,9 @@ one of those policies is the cause.
   the selected live view, retained engines are validated against that same
   entity identity, browser `ha-hls-player` instances use standard HLS rather
   than LL-HLS, and stalled retained HLS sessions are recycled.
+- `v1.1.8-dev.166` makes dormant HA Direct WebRTC deck videos transparent and
+  restores their visible presentation only when their entity is selected and
+  adopted into the live slot.
 
 ## Validation Expectations
 
