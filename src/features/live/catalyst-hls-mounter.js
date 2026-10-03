@@ -2,7 +2,6 @@ import {
   createHaNativeHlsVideoElement,
   findActiveHaCameraStreamVideo,
 } from "../../integrations/home-assistant/playback.js";
-import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 import {
   resolveHaDirectFailedState,
   resolveHaDirectMountUnavailableState,
@@ -12,6 +11,14 @@ import {
 const CATALYST_HLS_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
 const CATALYST_HLS_WAIT_MS = 8000;
+const CATALYST_HLS_RECOVERY_RETRY_MS = 250;
+const CATALYST_HLS_READINESS = Object.freeze({
+  minCurrentTime: 0.05,
+  minDecodedFrames: 2,
+  requirePresentedFrame: true,
+  requireReadyState: 2,
+  strict: true,
+});
 
 export function createCatalystHlsMounter({
   getHass,
@@ -65,6 +72,7 @@ export function createCatalystHlsMounter({
   const applyReady = (engine, video = null) => {
     const binding = bindings.get(engine);
     if (binding?.disposed || !isCurrentEngine(engine)) return;
+    binding.startupPending = false;
     binding.failed = false;
     stopFallbackRefresh(binding);
     binding.cleanupRecovery?.();
@@ -82,18 +90,49 @@ export function createCatalystHlsMounter({
 
   const watchLateRecovery = (engine, binding) => {
     binding.cleanupRecovery?.();
-    binding.cleanupRecovery = watchMediaFirstFrame({
-      mediaRoot: engine,
-      findVideo: findActiveHaCameraStreamVideo,
-      isDestroyed: () => binding.disposed || !isCurrentEngine(engine),
-      onReady: () =>
-        applyReady(engine, findActiveHaCameraStreamVideo(engine)),
-    });
+    const abortController = new AbortController();
+    let disposed = false;
+    let retryTimer = null;
+    binding.cleanupRecovery = () => {
+      if (disposed) return;
+      disposed = true;
+      abortController.abort();
+      if (retryTimer != null) clearTimeout(retryTimer);
+      retryTimer = null;
+    };
+
+    const probe = async () => {
+      if (disposed || binding.disposed || !isCurrentEngine(engine)) return;
+      let readyVideo = null;
+      let ready = false;
+      try {
+        ready = await waitForStreamStart(engine, CATALYST_HLS_WAIT_MS, {
+          ...CATALYST_HLS_READINESS,
+          abortSignal: abortController.signal,
+          resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+          onVideoReady: (video) => {
+            readyVideo = video;
+          },
+        });
+      } catch (_) {
+        ready = false;
+      }
+      if (disposed || binding.disposed || !isCurrentEngine(engine)) return;
+      if (ready) {
+        applyReady(engine, readyVideo);
+        return;
+      }
+      retryTimer = setTimeout(probe, CATALYST_HLS_RECOVERY_RETRY_MS);
+      retryTimer?.unref?.();
+    };
+
+    void probe();
   };
 
   const applyFailed = (engine) => {
     const binding = bindings.get(engine);
     if (binding?.disposed || !isCurrentEngine(engine)) return;
+    if (binding.startupPending) return;
     if (!binding.failed) {
       binding.failed = true;
       stopFallbackRefresh(binding);
@@ -110,6 +149,7 @@ export function createCatalystHlsMounter({
       cleanupRecovery: () => {},
       disposed: false,
       failed: false,
+      startupPending: true,
       onError: () => applyFailed(engine),
       stopLoadingFallbackRefresh: () => {},
     };
@@ -199,15 +239,21 @@ export function createCatalystHlsMounter({
 
     const startupReady = (async () => {
       let readyVideo = null;
-      const ready = await waitForStreamStart(engine, CATALYST_HLS_WAIT_MS, {
-        requireReadyState: 2,
-        abortSignal: binding.abortController.signal,
-        resolveVideo: () => findActiveHaCameraStreamVideo(engine),
-        onVideoReady: (video) => {
-          readyVideo = video;
-        },
-      });
+      let ready = false;
+      try {
+        ready = await waitForStreamStart(engine, CATALYST_HLS_WAIT_MS, {
+          ...CATALYST_HLS_READINESS,
+          abortSignal: binding.abortController.signal,
+          resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+          onVideoReady: (video) => {
+            readyVideo = video;
+          },
+        });
+      } catch (_) {
+        ready = false;
+      }
       if (binding.disposed || !isCurrentEngine(engine)) return false;
+      binding.startupPending = false;
       if (!ready) {
         applyFailed(engine);
         return false;
