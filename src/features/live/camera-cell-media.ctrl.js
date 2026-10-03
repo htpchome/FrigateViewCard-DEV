@@ -354,6 +354,7 @@ export class CameraCellMediaController {
     requestedStreamType = "",
     fallbackStreamType = "hls",
   ) {
+    if (this._host._isCatalyst?.() === true) return "hls";
     const activeStreamType =
       String(this._host._activeStreamType || "").trim().toLowerCase() ===
       "grid"

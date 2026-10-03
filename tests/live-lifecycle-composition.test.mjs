@@ -131,6 +131,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _shouldUseGo2RtcForEntity: () => true,
     _cameraConnectionType: (entity) =>
       entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
+    _livePlaybackConnectionType: () => "ha_direct",
     _isGridModeAvailable: () => true,
     _applyMountTrackingState: (state) =>
       calls.push(["mount-tracking", state]),
@@ -190,6 +191,14 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     buildEditorLiveHandoffKey({
       connectionType: "ha_direct",
       entity: "camera.ha",
+      pathname: "/lovelace/cameras",
+    }),
+  );
+  assert.equal(
+    optionsByFactory.editorHandoff.getIdentityKey("camera.front"),
+    buildEditorLiveHandoffKey({
+      connectionType: "ha_direct",
+      entity: "camera.front",
       pathname: "/lovelace/cameras",
     }),
   );

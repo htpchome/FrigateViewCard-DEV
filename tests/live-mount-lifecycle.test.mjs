@@ -15,6 +15,7 @@ import {
   resolveLiveKickProbeState,
   resolveLiveKickIfStaleAction,
   resolveLiveMountEntryAction,
+  resolveLivePlaybackConnectionType,
   resolveLiveMountTransportPlan,
   resolveLiveMountUiState,
   resolveLiveResumeAction,
@@ -56,6 +57,37 @@ test("camera switches preserve the physical grouped-camera transport", () => {
       memberOverride: "",
     }),
     "camera.main",
+  );
+});
+
+test("Catalyst explicitly routes every configured live mode through HA Direct", () => {
+  assert.equal(
+    resolveLivePlaybackConnectionType({
+      configuredConnectionType: "frigate_go2rtc",
+      isCatalyst: true,
+    }),
+    "ha_direct",
+  );
+  assert.equal(
+    resolveLivePlaybackConnectionType({
+      configuredConnectionType: "ha_direct",
+      isCatalyst: true,
+    }),
+    "ha_direct",
+  );
+  assert.equal(
+    resolveLivePlaybackConnectionType({
+      configuredConnectionType: "frigate_go2rtc",
+      isCatalyst: false,
+    }),
+    "frigate_go2rtc",
+  );
+  assert.equal(
+    resolveLivePlaybackConnectionType({
+      configuredConnectionType: "ha_direct",
+      isCatalyst: false,
+    }),
+    "ha_direct",
   );
 });
 

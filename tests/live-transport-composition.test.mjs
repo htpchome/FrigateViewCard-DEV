@@ -91,7 +91,8 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
       calls.push(["native-controls", enabled]),
     _cameraConnectionType: (entity) =>
       entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
-    _shouldUseGo2RtcForEntity: (entity) => entity !== "camera.ha",
+    _shouldUseGo2RtcForEntity: (entity) =>
+      deviceProfile.isCatalyst !== true && entity !== "camera.ha",
   };
 
   const controllers = createLiveTransportControllers(card, {
@@ -134,6 +135,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
   assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), true);
   assert.deepEqual(optionsByFactory.catalystHlsMounter.getPreloadEntities(), [
+    "camera.front",
     "camera.ha",
   ]);
   assert.strictEqual(

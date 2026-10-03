@@ -489,7 +489,7 @@ test("Preview landing starts an unclassified HA-direct camera with HLS", () => {
 });
 
 test("preview stream source label derives from connection type and live hint", () => {
-  const { controller } = createHost({ activeStreamType: "mse" });
+  const { controller, host } = createHost({ activeStreamType: "mse" });
 
   assert.equal(
     controller.previewStreamSourceLabel("camera.front_door", true),
@@ -502,6 +502,23 @@ test("preview stream source label derives from connection type and live hint", (
   assert.equal(
     controller.previewStreamSourceLabel("camera.driveway", false),
     "Snapshot",
+  );
+
+  host._livePlaybackConnectionType = () => "ha_direct";
+  assert.equal(
+    controller.previewStreamSourceLabel("camera.driveway", true),
+    "HA Live",
+  );
+});
+
+test("Catalyst Preview forces HA HLS for configured go2rtc cameras", () => {
+  const { controller, host } = createHost({ activeStreamType: "webrtc" });
+  host._isCatalyst = () => true;
+  host._shouldUseGo2RtcForEntity = () => false;
+
+  assert.equal(
+    controller.previewCameraLiveStreamHint("camera.driveway"),
+    "hls",
   );
 });
 

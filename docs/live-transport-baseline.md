@@ -139,6 +139,15 @@ through that one-second transition window because Catalyst can initialize its
 native presentation after the synchronous fullscreen request. Once entry is
 settled, native mute changes are accepted and still carried back on exit.
 
+`v1.1.8-dev.161` makes Mac Catalyst the single documented exception to the
+configured transport boundary. On Catalyst, cameras configured for either
+`frigate_go2rtc` or `ha_direct` resolve to the dedicated Home
+Assistant-authenticated HLS path before startup; the selected primary player
+uses native HLS. Catalyst therefore does not create or race the Frigate
+WebRTC/MSE attempts, while the saved camera configuration remains unchanged.
+Non-Catalyst clients still follow the selected connection mode without this
+override.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
@@ -152,9 +161,11 @@ presented a painted video frame and avoids applying the generic compositor
 refresh transform to HA Direct HLS. Physical Catalyst validation remains
 required.
 
-- `frigate_go2rtc` connections are good. Preserve its established WebRTC/MSE
-  startup, connection retention, camera-switch behavior, fallbacks, and
-  two-way-talk behavior exactly unless a request explicitly targets this mode.
+- Non-Catalyst `frigate_go2rtc` connections are good. Preserve their established
+  WebRTC/MSE startup, connection retention, camera-switch behavior, fallbacks,
+  and two-way-talk behavior exactly unless a request explicitly targets this
+  mode. Catalyst must resolve to its HA Direct HLS exception before any
+  Frigate race is created.
 - `ha_direct` HLS supplies the first picture nearly
   immediately, a capable WebRTC connection may take over when ready, retained
   WebRTC connections are reused, and browsers that cannot complete WebRTC
@@ -267,4 +278,7 @@ and must include physical checks for:
   HA Direct HLS player creation on return;
 - complete teardown without increasing connection or subscription counts;
 - HA Direct two-way-talk incoming and outgoing audio;
-- unchanged `frigate_go2rtc` startup, fallback, switching, and talk behavior.
+- unchanged non-Catalyst `frigate_go2rtc` startup, fallback, switching, and talk
+  behavior;
+- Catalyst cameras configured for `frigate_go2rtc` use HA-authenticated HLS
+  without starting Frigate WebRTC or MSE attempts.

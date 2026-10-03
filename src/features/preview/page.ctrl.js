@@ -215,6 +215,7 @@ export class PreviewPageController {
 
   previewCameraLiveStreamHint(entity) {
     if (this._host._shouldUseGo2RtcForEntity?.(entity) !== true) {
+      if (this._host._isCatalyst?.() === true) return "hls";
       return resolveHaDirectCameraStreamType({
         entity,
         activeEntity: this._host._activeCam?.entity,
@@ -232,7 +233,9 @@ export class PreviewPageController {
   previewStreamSourceLabel(entity, useLive) {
     return resolvePreviewStreamSourceLabel({
       useLive,
-      connectionType: this._host._cameraConnectionType(entity),
+      connectionType:
+        this._host._livePlaybackConnectionType?.(entity) ||
+        this._host._cameraConnectionType(entity),
       liveStreamHint: this.previewCameraLiveStreamHint(entity),
       t: this._host._localization?.t,
     });

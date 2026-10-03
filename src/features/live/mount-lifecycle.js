@@ -76,6 +76,16 @@ export const resolveCameraSwitchTransportEntity = ({
   memberOverride,
 } = {}) => String(memberOverride || cameraEntity || "").trim();
 
+export const resolveLivePlaybackConnectionType = ({
+  configuredConnectionType,
+  isCatalyst = false,
+} = {}) => {
+  if (isCatalyst === true) return "ha_direct";
+  return configuredConnectionType === "ha_direct"
+    ? "ha_direct"
+    : "frigate_go2rtc";
+};
+
 export const shouldRunMountWatchdog = ({
   mountInProgress,
   mountSeq,

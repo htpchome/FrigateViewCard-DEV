@@ -105,7 +105,9 @@ export const createLiveLifecycleControllers = (
       getContext: () => card._editorPreviewController.liveHandoffContext(),
       getIdentityKey: (entity) =>
         buildEditorLiveHandoffKey({
-          connectionType: card._cameraConnectionType(entity),
+          connectionType:
+            card._livePlaybackConnectionType?.(entity) ||
+            card._cameraConnectionType(entity),
           entity,
           pathname: windowTarget.location?.pathname || "",
         }),

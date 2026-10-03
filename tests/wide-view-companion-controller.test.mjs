@@ -95,6 +95,15 @@ test("Companion Cameras do not carry the prior transport into HA Direct", () => 
   assert.equal(controller.cameraLiveStreamHint("camera.driveway"), "webrtc");
 });
 
+test("Catalyst Companion Cameras use HLS for configured go2rtc cameras", () => {
+  const { host } = createHost();
+  host._isCatalyst = () => true;
+  host._shouldUseGo2RtcForEntity = () => false;
+  const controller = new WideViewCompanionController(host, constants);
+
+  assert.equal(controller.cameraLiveStreamHint("camera.driveway"), "hls");
+});
+
 test("Companion Cameras expansion covers controls and stops at 70% of live", () => {
   assert.equal(
     resolveWideCompanionExpansionMax({
@@ -737,6 +746,18 @@ test("camera tile live mounts keep HA Direct and Frigate/go2rtc distinct", async
       haCell.children[0].stateObj.attributes.frontend_stream_type,
       "web_rtc",
     );
+
+    haHost._isCatalyst = () => true;
+    const catalystCell = createElement("cell");
+    haController.mountCameraCellMedia(catalystCell, {
+      entity: "camera.front_door",
+      stateObj: { state: "recording", attributes: {} },
+      useLive: true,
+      liveStreamHint: "webrtc",
+      gridState: { destroyed: false, cleanup: [] },
+    });
+    assert.equal(catalystCell.children[0].tagName, "ha-hls-player");
+    assert.equal(catalystCell.children[0].entityid, "camera.front_door");
   } finally {
     globalThis.document = previousDocument;
   }

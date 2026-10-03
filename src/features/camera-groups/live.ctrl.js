@@ -236,7 +236,9 @@ export class CameraGroupLiveController {
       this._host._activeCam?.entity || "",
       secondaryEntity,
       layout,
-      this._host._cameraConnectionType?.(secondaryEntity) || "",
+      this._host._livePlaybackConnectionType?.(secondaryEntity) ||
+        this._host._cameraConnectionType?.(secondaryEntity) ||
+        "",
       this._host._currentLiveStreamHint?.() || "",
     ].join("|");
     if (this._signature && this._signature !== signature) {

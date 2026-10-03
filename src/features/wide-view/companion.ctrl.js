@@ -150,6 +150,7 @@ export class WideViewCompanionController {
     if (useGo2Rtc !== false && connectionType !== "ha_direct") {
       return this.liveStreamHint();
     }
+    if (this._host._isCatalyst?.() === true) return "hls";
     return resolveHaDirectCameraStreamType({
       entity,
       activeEntity: this._host._activeCam?.entity,

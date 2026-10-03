@@ -17,7 +17,9 @@ This app exists to do four things well:
 - No mixed-responsibility modules.
 - No feature work is allowed to create new architectural ambiguity.
 - If a requirement is impossible in the chosen transport model, the code must say so plainly instead of simulating it with hacks.
-- `frigate_go2rtc` and `ha_direct` are separate modes and must stay separate in both code paths and tests.
+- `frigate_go2rtc` and `ha_direct` are separate configured modes and must stay
+  separate in code paths and tests, except for the explicit Mac Catalyst
+  playback override defined below.
 
 ## 3. Transport Decision
 
@@ -31,6 +33,7 @@ Meaning of `frigate_go2rtc`:
 - the card owns transport selection, startup policy, race behavior, fallback behavior, and live-mode orchestration
 - the card may use Home Assistant-exposed Frigate/go2rtc surfaces to implement that behavior
 - the mode must not silently collapse into the Home Assistant camera-stream path
+  on ordinary browser clients
 
 Meaning of `ha_direct`:
 
@@ -38,11 +41,27 @@ Meaning of `ha_direct`:
 - the card delegates live playback to Home Assistant stream components and Home Assistant-selected transport behavior
 - the card must not run its own go2rtc race in this mode
 
+Mac Catalyst exception:
+
+- the saved camera `connection_type` remains unchanged
+- when the client is the Home Assistant Mac Catalyst app, effective live
+  playback is always `ha_direct`, including cameras configured as
+  `frigate_go2rtc`
+- Catalyst uses the dedicated Home Assistant-authenticated HLS path (native HLS
+  for the selected primary live player) and must not create or race Frigate
+  WebRTC/MSE attempts
+- the override must be explicit in the live-playback resolver, runtime source
+  labels, lifecycle identity, tests, and user documentation
+- non-Catalyst clients continue to follow the configured connection mode
+
 Why:
 
 - this preserves the two-mode product behavior already exposed in config
 - it avoids pretending that `frigate_go2rtc` is a truly browser-direct Frigate path when it is not
 - it keeps card-managed live behavior and Home Assistant-managed live behavior distinct instead of blending them
+- it gives Catalyst one documented compatibility exception after the Frigate
+  integration proved unable to expose an authenticated HLS playlist suitable
+  for the card-managed Frigate path
 
 Browser is allowed to talk to:
 
@@ -55,7 +74,8 @@ Browser must not assume:
 - that the Home Assistant Frigate integration is a generic direct Frigate tunnel
 - that HA proxy routes are equivalent to true browser-direct Frigate access
 - that HA-exposed PTZ/live/media endpoints exactly match upstream Frigate capabilities
-- that `frigate_go2rtc` and `ha_direct` may share one blended startup path
+- that `frigate_go2rtc` and `ha_direct` may share one blended startup path;
+  Catalyst instead makes an explicit effective-mode decision before startup
 
 ## 4. Top-Level Shell
 
@@ -173,7 +193,8 @@ Version 1 is done when all of these are true:
 - camera switching works without corrupting browse/live state
 - alerts/reviews browsing works with coherent filtering and windowing
 - config saves, reloads, and matches runtime behavior
-- `frigate_go2rtc` and `ha_direct` are visibly distinct modes with distinct startup paths
+- `frigate_go2rtc` and `ha_direct` are visibly distinct modes with distinct
+  startup paths outside the documented Catalyst override
 
 ## 8. Out Of Scope For MVP
 
@@ -193,7 +214,9 @@ Every change must satisfy all of these:
 - one narrow validation before broader validation
 - no while-I-am-here edits
 - no workaround that hides an architectural contradiction
-- tests must assert which mode is active when the behavior depends on `frigate_go2rtc` versus `ha_direct`
+- tests must assert which mode is active when the behavior depends on
+  `frigate_go2rtc` versus `ha_direct`, including Catalyst's effective
+  `ha_direct` override
 - every config option that changes visible card output must be normalized,
   persisted, included in the editor preview draft, applied immediately to the
   live editor preview, and protected by focused regression coverage
@@ -206,6 +229,7 @@ Every change must satisfy all of these:
 - If the requested behavior conflicts with this contract, say so immediately.
 - Do not describe `frigate_go2rtc` as truly browser-direct Frigate unless the runtime actually becomes that.
 - Do not blend `frigate_go2rtc` and `ha_direct` into one hidden control flow.
+  Resolve the documented Catalyst override before transport startup.
 - Do not add new modules unless their folder ownership is already defined here without asking first.
 
 
@@ -218,5 +242,6 @@ A change must be rejected if it does any of the following:
 - puts feature logic into `shared`
 - puts generic media code into a feature folder
 - mixes Frigate-specific assumptions into generic runtime code
-- hides whether behavior is coming from `frigate_go2rtc` or `ha_direct`
+- hides whether behavior is coming from `frigate_go2rtc`, configured
+  `ha_direct`, or the explicit Catalyst effective-`ha_direct` override
 - solves a symptom by hiding the transport or ownership problem instead of fixing it

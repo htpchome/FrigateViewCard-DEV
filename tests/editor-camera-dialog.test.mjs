@@ -1007,7 +1007,7 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
   );
   assert.match(
     connectionSection,
-    /Mac App Store app currently requires Home Assistant mode/,
+    /Mac App Store app automatically uses this card's HA HLS path[\s\S]*?configured as Frigate go2rtc/,
   );
   assert.match(
     editorStylesSource,

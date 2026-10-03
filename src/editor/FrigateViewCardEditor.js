@@ -4660,7 +4660,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                       </tbody>
                     </table>
                   </div>
-                  <p class="camera-connection-note" data-fvc-i18n="editor.cameraModal.connectionGuideMacNote">The Home Assistant Mac App Store app currently requires Home Assistant mode. Its Catalyst webview cannot use this card's Frigate WebRTC/MSE path, and the Frigate integration does not expose a compatible HLS path to the card.</p>
+                  <p class="camera-connection-note" data-fvc-i18n="editor.cameraModal.connectionGuideMacNote">The Home Assistant Mac App Store app automatically uses this card's HA HLS path, including for cameras configured as Frigate go2rtc. Other clients continue to use the selected connection mode.</p>
                   <p class="camera-connection-note" data-fvc-i18n="editor.cameraModal.connectionGuideFootnote">Actual availability depends on browser support, camera codecs, Home Assistant, and Frigate/go2rtc configuration. PTZ uses the Frigate integration in either mode; PTZ and two-way talk must also be enabled and supported by the camera.</p>
                 </div>
               </details>

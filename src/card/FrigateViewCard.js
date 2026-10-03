@@ -88,6 +88,7 @@ import {
 import {
   resolveCameraSwitchCleanupOptions,
   resolveCameraSwitchTransportEntity,
+  resolveLivePlaybackConnectionType,
   shouldRetainMountedLiveForEditorTransition,
   shouldResetMseOnQuickReconnect,
 } from "../features/live/mount-lifecycle.js";
@@ -1317,10 +1318,18 @@ export class FrigateViewCard extends HTMLElement {
     });
   }
 
+  _livePlaybackConnectionType(entity) {
+    const key = entity || this._activeCam?.entity || "";
+    return resolveLivePlaybackConnectionType({
+      configuredConnectionType: this._cameraConnectionType(key),
+      isCatalyst: this._isCatalyst(),
+    });
+  }
+
   _shouldUseGo2RtcForEntity(entity) {
     const key = entity || this._activeCam?.entity || "";
     if (!key) return true;
-    return this._cameraConnectionType(key) !== "ha_direct";
+    return this._livePlaybackConnectionType(key) !== "ha_direct";
   }
 
   _isEditorPreviewContext() {

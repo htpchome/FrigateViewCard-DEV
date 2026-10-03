@@ -346,10 +346,10 @@ Each item in `cameras` supports:
 | --- | --- | --- | --- |
 | `entity` | string | required | Home Assistant camera entity, such as `camera.front_door`. |
 | `name` | string | entity-derived | Camera display name. |
-| `connection_type` | string | `frigate_go2rtc` | Live playback owner. Values: `frigate_go2rtc`, `ha_direct`. The visual editor labels these “Frigate go2rtc (default)” and “Home Assistant.” |
+| `connection_type` | string | `frigate_go2rtc` | Live playback owner. Values: `frigate_go2rtc`, `ha_direct`. The visual editor labels these “Frigate go2rtc (default)” and “Home Assistant.” In the Home Assistant Mac Catalyst app, both settings use the dedicated HA Direct HLS path. |
 | `alerts_content` | string | `alerts_only` | Qualifying review content. Values: `alerts_only`, `all_reviews`. |
 | `ptz` | boolean or map | disabled | Enables PTZ pan/tilt controls after Frigate reports compatible PTZ support. A map may include `enabled` and `rotation` (`0`, `90`, `180`, or `270`) to remap directional controls for a rotated image. |
-| `two_way_talk` | boolean | `false` | Enables the microphone control. Frigate mode requires a detected backchannel; Home Assistant mode requires WebRTC playback and remains an experimental talkback path. |
+| `two_way_talk` | boolean | `false` | Enables the microphone control. Frigate mode requires a detected backchannel; Home Assistant mode requires WebRTC playback and remains an experimental talkback path. On Catalyst, either connection setting follows the Home Assistant requirement. |
 | `group` | map | disabled | Groups this main camera with one `secondary_entity`. `layout` is `side_by_side` or `stacked`. |
 | `linked_entities` | list | disabled | Linked Home Assistant controls. Currently supports one `light.*` entity with an optional `icon`; the same light may be linked to multiple cameras. |
 
@@ -372,7 +372,7 @@ mobile_view_page_enabled: true
 mobile_page: preview-mobile-view
 ```
 
-Camera order is preserved by camera switchers, Preview, and Wide View Companion Cameras. Grid follows that order in its Default mode or its independent `grid_order` in Custom mode. The selected `connection_type` is also respected by the live tiles on those pages.
+Camera order is preserved by camera switchers, Preview, and Wide View Companion Cameras. Grid follows that order in its Default mode or its independent `grid_order` in Custom mode. The selected `connection_type` is also respected by the live tiles on those pages, except that Mac Catalyst always uses the HA Direct HLS compatibility path.
 
 ### Two-camera groups
 
@@ -410,12 +410,18 @@ cameras:
 
 ## Live playback and controls
 
-The two connection modes are intentionally separate:
+The two connection modes are intentionally separate on ordinary browser clients:
 
 - `frigate_go2rtc` lets the card manage live startup, transport choice, and fallback using Home Assistant-exposed Frigate/go2rtc surfaces. Automatic primary live startup races WebRTC with an MSE hedge before falling back to refreshed snapshots; it does not start HLS automatically.
 - `ha_direct` delegates playback to Home Assistant's camera stream components and transport decisions.
 
-HLS remains available for explicit compatibility paths and HLS-backed media, but it is not part of the automatic `frigate_go2rtc` primary live race. A healthy WebRTC connection remains preferred.
+The Home Assistant Mac Catalyst app is the explicit exception. It resolves both
+configured modes to the card's dedicated HA-authenticated HLS path before
+live startup, so a camera saved as `frigate_go2rtc` does not start the Frigate
+WebRTC/MSE race on Catalyst. The saved camera setting is not modified, and other
+clients continue to use it normally.
+
+HLS remains available for explicit compatibility paths and HLS-backed media, but it is not part of the automatic `frigate_go2rtc` primary live race on non-Catalyst clients. A healthy WebRTC connection remains preferred there.
 
 Live controls vary by view and device and can include mute, fullscreen, Take Snapshot, and Picture-in-Picture. Picture-in-Picture is intentionally hidden on mobile devices. On phones and tablets, video controls appear after tapping the unzoomed media. Physical device rotation remains the source of the mobile rotation-fullscreen behavior.
 

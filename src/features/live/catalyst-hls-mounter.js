@@ -102,8 +102,8 @@ export function createCatalystHlsMounter({
     }
     if (!engine) return null;
 
-    // Keep the configured connection mode visible while identifying the
-    // Catalyst-only owner for teardown. This engine never owns WebRTC state.
+    // Mark the effective HA Direct owner without changing saved camera config.
+    // This Catalyst-only engine never owns WebRTC state.
     engine.type = "ha_direct";
     engine.streamType = "hls";
     engine.catalystHls = true;

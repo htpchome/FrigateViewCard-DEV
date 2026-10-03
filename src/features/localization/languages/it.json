@@ -781,7 +781,7 @@
       "connectionStartup": "Avvio tipico",
       "connectionHlsFirst": "Prima HLS; WebRTC può subentrare",
       "connectionFastest": "Più veloce nella maggior parte dei browser",
-      "connectionGuideMacNote": "L'app Home Assistant del Mac App Store richiede attualmente la modalità Home Assistant. La sua webview Catalyst non può usare il percorso Frigate WebRTC/MSE di questa scheda e l'integrazione Frigate non espone alla scheda un percorso HLS compatibile.",
+      "connectionGuideMacNote": "L'app Home Assistant del Mac App Store usa automaticamente il percorso HLS HA di questa scheda, anche per le telecamere configurate come Frigate go2rtc. Gli altri client continuano a usare la modalità di connessione selezionata.",
       "connectionGuideFootnote": "La disponibilità effettiva dipende dal supporto del browser, dai codec della telecamera, da Home Assistant e dalla configurazione Frigate/go2rtc. PTZ usa l'integrazione Frigate in entrambe le modalità; anche PTZ e audio bidirezionale devono essere abilitati e supportati dalla telecamera.",
       "additionalCamera": "Telecamera aggiuntiva",
       "noneConfigured": "Nessun elemento configurato",
