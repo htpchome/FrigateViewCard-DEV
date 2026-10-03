@@ -62,6 +62,7 @@ export function createHaDirectProviderMounter({
   getSelectedEntity = () => "",
   isMountAttemptCurrent = () => true,
   getPreloadHost = () => null,
+  getPresentationHost = () => null,
   shouldPreload = () => false,
   hasRetainedEngine = () => false,
   retainPreloadedEngine = () => false,
@@ -119,6 +120,8 @@ export function createHaDirectProviderMounter({
     } catch (_) {
       return false;
     }
+    handoff.presentationSlot?.setAttribute?.("aria-hidden", "true");
+    delete provider.haDirectPresentationVideo;
     delete provider.haDirectProviderHandoff;
     return true;
   };
@@ -138,6 +141,8 @@ export function createHaDirectProviderMounter({
     handoff.nextSibling = nextVideo.nextSibling || null;
     handoff.presentationSlot.innerHTML = "";
     handoff.presentationSlot.appendChild(nextVideo);
+    handoff.presentationSlot.removeAttribute?.("aria-hidden");
+    provider.haDirectPresentationVideo = nextVideo;
     nextVideo.muted = Boolean(getStreamMuted?.());
     nextVideo.defaultMuted = nextVideo.muted;
     if (previousVideo && previousVideo !== nextVideo) {
@@ -150,13 +155,20 @@ export function createHaDirectProviderMounter({
 
   const presentProviderVideo = (slot, provider) => {
     const existing = getHandoffState(provider);
-    if (existing?.borrower === ownerToken && existing.video) {
+    if (existing?.video) {
+      if (existing.presentationSlot !== slot) {
+        existing.presentationSlot?.setAttribute?.("aria-hidden", "true");
+      }
+      existing.borrower = ownerToken;
       existing.presentationSlot = slot;
-      slot.innerHTML = "";
-      slot.appendChild(existing.video);
+      if (existing.video.parentNode !== slot) {
+        slot.innerHTML = "";
+        slot.appendChild(existing.video);
+      }
+      slot.removeAttribute?.("aria-hidden");
+      provider.haDirectPresentationVideo = existing.video;
       return existing.video;
     }
-    if (existing) return null;
     const video = findActiveHaCameraStreamVideo(provider);
     const parent = video?.parentNode || video?.parentElement || null;
     if (!video || !parent?.insertBefore) return null;
@@ -169,16 +181,20 @@ export function createHaDirectProviderMounter({
     };
     slot.innerHTML = "";
     slot.appendChild(video);
+    slot.removeAttribute?.("aria-hidden");
+    provider.haDirectPresentationVideo = video;
     return video;
   };
 
   const setProviderVisible = (provider, visible) => {
     const providerSlot = providerSlots.get(provider);
     if (!providerSlot) return false;
-    providerSlot.style.opacity = visible ? "1" : "0";
-    providerSlot.style.zIndex = visible ? "3" : "0";
-    if (visible) providerSlot.removeAttribute?.("aria-hidden");
-    else providerSlot.setAttribute?.("aria-hidden", "true");
+    providerSlot.style.opacity = "1";
+    providerSlot.style.zIndex = "0";
+    providerSlot.setAttribute?.("aria-hidden", "true");
+    if (!visible && getHandoffState(provider)?.borrower === ownerToken) {
+      restoreProviderVideo(provider);
+    }
     provider.muted = visible ? Boolean(getStreamMuted?.()) : true;
     provider.defaultMuted = provider.muted;
     const handoffVideo = getHandoffState(provider)?.video;
@@ -214,6 +230,7 @@ export function createHaDirectProviderMounter({
       }
       return;
     }
+    restoreProviderVideo(provider);
     delete provider.haDirectProviderSlot;
     delete provider.haDirectProviderOwner;
     try {
@@ -297,7 +314,11 @@ export function createHaDirectProviderMounter({
     binding.cleanupRecovery = () => {};
     stopFallbackRefresh(binding);
     stopLoadingFallbackRefresh?.();
-    const readyVideo = video || getProviderVideo(provider);
+    const presentationHost = getPresentationHost?.();
+    let readyVideo = video || getProviderVideo(provider);
+    if (presentationHost) {
+      readyVideo = presentProviderVideo(presentationHost, provider) || readyVideo;
+    }
     provider.streamType = resolveProviderStreamType(
       provider,
       provider.streamType,
@@ -406,7 +427,10 @@ export function createHaDirectProviderMounter({
     const providerSlot = provider.haDirectProviderSlot;
     const host = getPreloadHost?.();
     if (!providerSlot || !host?.appendChild) return false;
-    if (provider?.haDirectProviderOwner !== ownerToken) {
+    if (
+      provider?.haDirectProviderOwner !== ownerToken ||
+      providerSlot.isConnected === true
+    ) {
       providerSlots.set(provider, providerSlot);
       return true;
     }
@@ -449,20 +473,11 @@ export function createHaDirectProviderMounter({
     ) {
       return false;
     }
-    const remoteProvider = provider?.haDirectProviderOwner !== ownerToken;
-    let video = null;
-    if (remoteProvider) {
-      setProviderVisible(provider, false);
-      video = presentProviderVideo(slot, provider);
-      if (!video) return false;
-      video.muted = Boolean(getStreamMuted?.());
-      video.defaultMuted = video.muted;
-    } else {
-      restoreProviderVideo(provider);
-      slot.innerHTML = "";
-      if (!setProviderVisible(provider, true)) return false;
-      video = getProviderVideo(provider);
-    }
+    const presentationHost = getPresentationHost?.() || slot;
+    if (!presentationHost) return false;
+    if (!setProviderVisible(provider, true)) return false;
+    const video = presentProviderVideo(presentationHost, provider);
+    if (!video) return false;
     assignCommittedEngine?.(provider);
     const binding = bindProvider(provider);
     if (video) {

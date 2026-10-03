@@ -7,7 +7,16 @@ const originalDocument = globalThis.document;
 
 function withFakeDocument(run) {
   const hostChildren = [];
+  const bodyChildren = [];
   globalThis.document = {
+    body: {
+      appendChild(node) {
+        node.parentElement = this;
+        node.isConnected = true;
+        bodyChildren.push(node);
+        return node;
+      },
+    },
     createElement() {
       return {
         isConnected: false,
@@ -41,13 +50,15 @@ function withFakeDocument(run) {
     },
   };
 
-  return Promise.resolve(run({ shadowRoot, hostChildren })).finally(() => {
+  return Promise.resolve(
+    run({ shadowRoot, hostChildren, bodyChildren }),
+  ).finally(() => {
     globalThis.document = originalDocument;
   });
 }
 
-test("HA Direct deck remains a slotted light-DOM child of the card", async () => {
-  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+test("HA Direct provider deck is document-stable and presentation stays slotted", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren, bodyChildren }) => {
     const lightDomChildren = [];
     const cardHost = {
       appendChild(node) {
@@ -82,15 +93,21 @@ test("HA Direct deck remains a slotted light-DOM child of the card", async () =>
 
     const firstDeck = controller.getHaDirectDeckHost();
     const secondDeck = controller.getHaDirectDeckHost();
+    const firstPresentation = controller.getHaDirectPresentationHost();
+    const secondPresentation = controller.getHaDirectPresentationHost();
 
     assert.strictEqual(firstDeck, secondDeck);
+    assert.strictEqual(firstPresentation, secondPresentation);
     assert.equal(lightDomChildren.length, 1);
     assert.equal(hostChildren.length, 0);
-    assert.strictEqual(firstDeck.parentElement, cardHost);
+    assert.equal(bodyChildren.length, 1);
+    assert.strictEqual(firstDeck.parentElement, globalThis.document.body);
+    assert.strictEqual(firstPresentation.parentElement, cardHost);
     assert.equal(
-      firstDeck.attributes.get("slot"),
+      firstPresentation.attributes.get("slot"),
       "fvc-ha-direct-provider-deck",
     );
+    assert.equal(firstDeck.attributes.has("slot"), false);
   });
 });
 
@@ -1038,7 +1055,7 @@ test("live grace controller releases HA-direct HLS instead of reparenting it", a
 });
 
 test("live grace controller keeps HA Direct WebRTC live beyond switch grace", async () => {
-  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+  await withFakeDocument(async ({ shadowRoot, bodyChildren }) => {
     const releasedEngines = [];
     const video = {
       paused: false,
@@ -1096,16 +1113,16 @@ test("live grace controller keeps HA Direct WebRTC live beyond switch grace", as
 
     assert.equal(controller.hasRetainedHaDirectEngine("camera.front"), true);
     assert.equal(releasedEngines.length, 0);
-    assert.equal(hostChildren.length, 1);
-    assert.equal(hostChildren[0].style.cssText.includes("width:100%"), true);
-    assert.equal(hostChildren[0].style.cssText.includes("height:100%"), true);
-    assert.equal(hostChildren[0].style.cssText.includes("opacity:0"), false);
+    assert.equal(bodyChildren.length, 1);
+    assert.equal(bodyChildren[0].style.cssText.includes("width:100vw"), true);
+    assert.equal(bodyChildren[0].style.cssText.includes("height:100vh"), true);
+    assert.equal(bodyChildren[0].style.cssText.includes("opacity:0"), true);
     assert.equal(video.style.opacity, "0");
     assert.equal(video.style.zIndex, "0");
     assert.equal(video.style.cssText.includes("left:-9999px"), false);
     assert.strictEqual(
       controller.getHaDirectWebRtcDeckHost(),
-      hostChildren[0],
+      bodyChildren[0],
     );
     assert.equal(
       controller.takeGraceHaDirectEntry("camera.front", "webrtc")?.engine,

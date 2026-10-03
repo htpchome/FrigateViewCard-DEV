@@ -274,6 +274,82 @@ test("editor HA-direct WebRTC handoff transfers and returns one established engi
   assert.equal(donorState.engine, engine);
 });
 
+test("pre-editor handoff returns directly to the original dashboard owner", () => {
+  const engine = {
+    type: "ha_direct",
+    streamType: "webrtc",
+    haDirectProvider: true,
+    deactivateRecovery() {},
+  };
+  const dashboardState = {
+    activeStreamType: "webrtc",
+    engine,
+    entity: "camera.front",
+    hasSlot: true,
+    hostConnected: true,
+    mountInProgress: false,
+    previewPageActive: false,
+    started: true,
+    twoWayTalkActive: false,
+    useGo2Rtc: false,
+    viewMode: "single",
+  };
+  const preEditorState = { ...dashboardState, engine: null };
+  const editorState = { ...dashboardState, engine: null };
+  const createController = (state, context, requestHandoff) => {
+    const controller = createEditorLiveHandoffController({
+      getState: () => state,
+      getContext: () => context,
+      getIdentityKey: () => "matching-card",
+      getConnectionType: () => "ha_direct",
+      isEditorLifecycleActive: () => true,
+      requestHandoff,
+      isEngineReusable: (candidate) => candidate === engine,
+      detachEngine: () => {
+        state.engine = null;
+        return true;
+      },
+      adoptEngine: (candidate) => {
+        state.engine = candidate;
+        return true;
+      },
+      syncLivePresentation: () => {},
+    });
+    return controller;
+  };
+  const dashboard = createController(dashboardState, "dashboard", () => null);
+  const preEditor = createController(preEditorState, "preconfig", (request) =>
+    dashboard.createOffer(request),
+  );
+  const editor = createController(editorState, "config", (request) =>
+    preEditor.createOffer(request),
+  );
+
+  const preEditorTransfer = preEditor.take(
+    "camera.front",
+    "webrtc",
+    "ha_direct",
+  );
+  preEditorState.engine = preEditorTransfer.engine;
+  preEditorTransfer.commit();
+  assert.equal(dashboard.isSuspended(), true);
+  dashboardState.hostConnected = false;
+
+  const editorTransfer = editor.take(
+    "camera.front",
+    "webrtc",
+    "ha_direct",
+  );
+  editorState.engine = editorTransfer.engine;
+  editorTransfer.commit();
+  assert.equal(preEditor.isSuspended(), true);
+
+  assert.equal(editor.returnIfPossible(), true);
+  assert.strictEqual(dashboardState.engine, engine);
+  assert.equal(dashboard.isSuspended(), false);
+  assert.equal(preEditorState.engine, null);
+});
+
 test("editor HA-direct handoff also transfers retained background WebRTC engines", () => {
   const createEngine = (entity) => ({
     type: "ha_direct",

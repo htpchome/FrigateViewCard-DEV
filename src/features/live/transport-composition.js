@@ -150,10 +150,14 @@ export const createLiveTransportControllers = (
       card._liveGraceController?.getHaDirectDeckHost?.() ||
       card._liveGraceController?.getHaDirectWebRtcDeckHost?.() ||
       null,
+    getPresentationHost: () =>
+      card._liveGraceController?.getHaDirectPresentationHost?.() || null,
     shouldPreload: () =>
       deviceProfile.isCatalyst !== true &&
       card.isConnected === true &&
-      card._started === true,
+      card._started === true &&
+      (card._editorPreviewController?.liveHandoffContext?.() ||
+        "dashboard") === "dashboard",
     hasRetainedEngine: (entity) =>
       card._liveGraceController?.hasRetainedHaDirectEngine?.(entity) === true,
     retainPreloadedEngine: (entity, engine) =>

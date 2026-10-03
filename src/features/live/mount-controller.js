@@ -164,7 +164,8 @@ export function createEditorLiveHandoffController({
     }
 
     const nextReturnTarget =
-      !retained && requestContext === "config"
+      !retained &&
+      (requestContext === "config" || requestContext === "preconfig")
         ? returnTarget || controller
         : null;
     let claimed = false;
@@ -261,7 +262,7 @@ export function createEditorLiveHandoffController({
       ? "frigate_go2rtc"
       : "ha_direct";
     return (
-      current.hostConnected === true &&
+      (current.hostConnected === true || engine?.haDirectProvider === true) &&
       suspended === true &&
       !current.engine &&
       !current.mountInProgress &&

@@ -31,10 +31,12 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     createGo2RtcRaceMounter: createFactory("go2rtcRaceMounter"),
   };
   const calls = [];
+  let editorHandoffContext = "dashboard";
   const transferredEditorEngine = { id: "editor-retained-webrtc" };
   let committedEditorTransfer = 0;
   const engineHost = { id: "engine" };
   const haDirectDeckHost = { id: "ha-direct-deck" };
+  const haDirectPresentationHost = { id: "ha-direct-presentation" };
   const catalystHlsDeckHost = { id: "catalyst-hls-deck" };
   const shadowRoot = {
     appendChild: (node) => calls.push(["append-audio", node]),
@@ -80,8 +82,12 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
         };
       },
     },
+    _editorPreviewController: {
+      liveHandoffContext: () => editorHandoffContext,
+    },
     _liveGraceController: {
       getHaDirectDeckHost: () => haDirectDeckHost,
+      getHaDirectPresentationHost: () => haDirectPresentationHost,
       hasRetainedHaDirectEngine: (entity) => entity === "camera.ha",
       retainHaDirectEngine: (entity, engine, options) => {
         calls.push(["retain-ha", entity, engine, options]);
@@ -154,12 +160,21 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
+  editorHandoffContext = "preconfig";
+  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
+  editorHandoffContext = "config";
+  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
+  editorHandoffContext = "dashboard";
   assert.deepEqual(optionsByFactory.haDirectMounter.getPreloadEntities(), [
     "camera.ha",
   ]);
   assert.strictEqual(
     optionsByFactory.haDirectMounter.getPreloadHost(),
     haDirectDeckHost,
+  );
+  assert.strictEqual(
+    optionsByFactory.haDirectMounter.getPresentationHost(),
+    haDirectPresentationHost,
   );
   assert.equal(
     optionsByFactory.haDirectMounter.hasRetainedEngine("camera.ha"),

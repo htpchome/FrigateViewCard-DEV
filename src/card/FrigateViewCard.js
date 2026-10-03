@@ -975,6 +975,19 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _teardownDisconnected() {
+    if (
+      !this.isConnected &&
+      this._editorLiveHandoffController?.isSuspended?.() === true
+    ) {
+      if (this._disconnectTeardownT) {
+        clearTimeout(this._disconnectTeardownT);
+      }
+      this._disconnectTeardownT = setTimeout(() => {
+        this._disconnectTeardownT = null;
+        this._teardownDisconnected();
+      }, LIVE_SWITCH_GRACE_MS);
+      return;
+    }
     this._dashboardLiveGraceActive = false;
     this._haNavbarController?.disconnect?.();
     this._haDashboardSwipeNavigationController?.disconnect?.();
@@ -1117,6 +1130,7 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._setSectionsRowGap(false);
     this._cleanupEngine();
+    this._liveGraceController?.pruneEmptyHaDirectDeckHost?.();
     this._clearLiveEngineSlot();
   }
   // ── init ─────────────────────────────────────────────────
