@@ -74,10 +74,10 @@ decodes each replacement in a cloned image before atomically replacing the
 displayed fallback. This keeps the previous snapshot painted during Chromium's
 image update instead of exposing the cache-busted source change as a flash.
 
-`v1.1.8-dev.151` keeps the Catalyst fallback visible through transient startup
-errors and requires a presented native HLS frame across the browser paint
-boundary before revealing the video. Later error recovery uses the same
-presented-frame gate instead of accepting an early media readiness event.
+`v1.1.8-dev.152` removes the stricter Catalyst presented-frame gate added in
+`v1.1.8-dev.151` because it could leave a viable native HLS connection on the
+snapshot fallback without resolving the startup flash. Catalyst again uses the
+`v1.1.8-dev.150` readiness and late-recovery behavior.
 
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the

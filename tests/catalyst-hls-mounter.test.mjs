@@ -23,9 +23,6 @@ const createVideo = () => {
     removeEventListener(type, handler) {
       if (listeners.get(type) === handler) listeners.delete(type);
     },
-    dispatch(type) {
-      listeners.get(type)?.({ type });
-    },
     destroyCalls: 0,
     destroy() {
       this.destroyCalls += 1;
@@ -101,11 +98,7 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
   assert.equal(videoOptions.streamFormat, "hls");
   assert.equal(videoOptions.muted, true);
   assert.equal(await result.startupReady, true);
-  assert.equal(waitOptions.minCurrentTime, 0.05);
-  assert.equal(waitOptions.minDecodedFrames, 2);
-  assert.equal(waitOptions.requirePresentedFrame, true);
   assert.equal(waitOptions.requireReadyState, 2);
-  assert.equal(waitOptions.strict, true);
   assert.equal(waitOptions.resolveVideo(), video);
   assert.deepEqual(
     calls.find(([name]) => name === "start-fallback-refresh"),
@@ -119,123 +112,6 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
 
   mounter.release(video);
   assert.equal(video.destroyCalls, 1);
-});
-
-test("Catalyst ignores transient video errors while presented-frame startup is pending", async () => {
-  const hass = {
-    states: { "camera.front": { entity_id: "camera.front" } },
-  };
-  const video = createVideo();
-  let currentEngine = null;
-  let resolveStartup = null;
-  let startupOptions = null;
-  const calls = [];
-  const mounter = createCatalystHlsMounter({
-    getHass: () => hass,
-    getStreamMuted: () => true,
-    getRotateOverlayActive: () => false,
-    isCurrentEngine: (engine) => engine === currentEngine,
-    waitForStreamStart: async (_engine, _waitMs, options) => {
-      startupOptions = options;
-      return await new Promise((resolve) => {
-        resolveStartup = resolve;
-      });
-    },
-    assignCommittedEngine: (engine) => {
-      currentEngine = engine;
-    },
-    onCommittedMediaReady: () => calls.push(["media"]),
-    onCommittedStream: (type) => calls.push(["stream", type]),
-    applyResolvedStreamUiState: (state) => calls.push(["ui", state]),
-    startLoadingFallbackRefresh: () => {
-      calls.push(["start-refresh"]);
-      return () => calls.push(["stop-refresh"]);
-    },
-    stopLoadingFallbackRefresh: () => calls.push(["stop-global"]),
-    setLiveNativeControls: () => {},
-    createHlsVideo: () => video,
-  });
-  const result = await mounter.tryMount(
-    {
-      innerHTML: "",
-      appendChild() {},
-    },
-    null,
-    { entity: "camera.front", commit: true },
-  );
-
-  video.dispatch("error");
-  assert.deepEqual(calls, [["start-refresh"]]);
-
-  startupOptions.onVideoReady(video);
-  resolveStartup(true);
-  assert.equal(await result.startupReady, true);
-  assert.deepEqual(calls.map(([name, value]) => [name, value]), [
-    ["start-refresh", undefined],
-    ["stop-refresh", undefined],
-    ["media", undefined],
-    ["stream", "hls"],
-    [
-      "ui",
-      {
-        shouldApply: true,
-        loading: false,
-        fallbackVisible: false,
-        refreshFallbackImage: false,
-        enableNativeControls: false,
-      },
-    ],
-  ]);
-});
-
-test("Catalyst late recovery also requires a presented frame", async () => {
-  const hass = {
-    states: { "camera.front": { entity_id: "camera.front" } },
-  };
-  const video = createVideo();
-  let currentEngine = null;
-  const waitOptions = [];
-  const streamTypes = [];
-  const mounter = createCatalystHlsMounter({
-    getHass: () => hass,
-    getStreamMuted: () => true,
-    getRotateOverlayActive: () => false,
-    isCurrentEngine: (engine) => engine === currentEngine,
-    waitForStreamStart: async (_engine, _waitMs, options) => {
-      waitOptions.push(options);
-      options.onVideoReady(video);
-      return true;
-    },
-    assignCommittedEngine: (engine) => {
-      currentEngine = engine;
-    },
-    onCommittedMediaReady: () => {},
-    onCommittedStream: (type) => streamTypes.push(type),
-    applyResolvedStreamUiState: () => {},
-    startLoadingFallbackRefresh: () => () => {},
-    stopLoadingFallbackRefresh: () => {},
-    setLiveNativeControls: () => {},
-    createHlsVideo: () => video,
-  });
-  const result = await mounter.tryMount(
-    {
-      innerHTML: "",
-      appendChild() {},
-    },
-    null,
-    { entity: "camera.front", commit: true },
-  );
-  assert.equal(await result.startupReady, true);
-
-  video.dispatch("error");
-  await Promise.resolve();
-  await Promise.resolve();
-
-  assert.deepEqual(streamTypes, ["hls", "snapshot", "hls"]);
-  assert.equal(waitOptions.length, 2);
-  assert.equal(waitOptions[1].requirePresentedFrame, true);
-  assert.equal(waitOptions[1].strict, true);
-  assert.equal(waitOptions[1].minDecodedFrames, 2);
 });
 
 test("Catalyst native HLS transfers ownership without restarting playback", async () => {
