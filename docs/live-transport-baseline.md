@@ -126,6 +126,13 @@ before inspecting the surrounding stage, so a warmed player in the Catalyst deck
 cannot become the fullscreen target. Safari and other clients retain their
 existing fullscreen path.
 
+`v1.1.8-dev.159` preserves the exact muted or unmuted state of Catalyst live and
+popup video across native fullscreen. A Catalyst-only state guard reapplies the
+pre-fullscreen value if the native player changes it during entry. An intentional
+mute change made in the native fullscreen controls is then carried back to the
+live or popup video on exit. Other clients retain their existing audio and
+fullscreen behavior.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

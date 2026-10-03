@@ -60,13 +60,21 @@ export class CardFullscreenController {
       : null;
     if (!video) video = this.findFullscreenVideo(element);
     if (!video) video = this.findVideoDeep(element);
+    const preferNativeVideoFullscreen =
+      this._preferNativeVideoFullscreen?.() === true;
     return this._requestFullscreen({
       element,
       video,
       preferElementFullscreen:
         options.preferElementFullscreen === true,
-      preferNativeVideoFullscreen:
-        this._preferNativeVideoFullscreen?.() === true,
+      preferNativeVideoFullscreen,
+      preserveNativeVideoMutedState: preferNativeVideoFullscreen,
+      onNativeVideoMutedStateChange: (muted) => {
+        if (!options.preferLive) return;
+        this._host._applyLiveMuteChange?.(muted, {
+          source: "native-fullscreen",
+        });
+      },
       onBeginNativeVideoFullscreen: (fullscreenVideo) => {
         if (!options.preferLive) return;
         this._host._liveFullscreenLifecycleController?.beginNativeVideoFullscreen(

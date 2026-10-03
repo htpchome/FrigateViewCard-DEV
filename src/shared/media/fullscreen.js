@@ -46,11 +46,93 @@ const isIosFullscreenPlatform = (navigatorObj) =>
   (navigatorObj?.platform === "MacIntel" &&
     Number(navigatorObj?.maxTouchPoints) > 1);
 
+const createNativeVideoMuteGuard = (
+  video,
+  { onMutedStateChange = () => {} } = {},
+) => {
+  const initialMuted = video?.muted === true;
+  const initialDefaultMuted = video?.defaultMuted === true;
+  let applying = false;
+  let active = true;
+  let enteredFullscreen = false;
+  let entrySettled = false;
+
+  const apply = () => {
+    if (!active || !video) return;
+    applying = true;
+    try {
+      video.defaultMuted = initialMuted;
+      video.muted = initialMuted;
+    } catch (_) {}
+    applying = false;
+  };
+  const removeListeners = () => {
+    video?.removeEventListener?.("volumechange", onVolumeChange);
+    video?.removeEventListener?.("webkitbeginfullscreen", onBeginFullscreen);
+    video?.removeEventListener?.("webkitendfullscreen", onEndFullscreen);
+    video?.removeEventListener?.(
+      "webkitpresentationmodechanged",
+      onPresentationModeChange,
+    );
+  };
+  const cleanup = () => {
+    if (!active) return;
+    active = false;
+    removeListeners();
+  };
+  const cancel = () => {
+    cleanup();
+    try {
+      video.defaultMuted = initialDefaultMuted;
+      video.muted = initialMuted;
+    } catch (_) {}
+  };
+  const finish = () => {
+    const finalMuted = entrySettled ? video?.muted === true : initialMuted;
+    cleanup();
+    try {
+      video.defaultMuted = finalMuted;
+      video.muted = finalMuted;
+    } catch (_) {}
+    onMutedStateChange(finalMuted);
+  };
+  const onVolumeChange = () => {
+    if (!applying && !entrySettled && video?.muted !== initialMuted) apply();
+  };
+  const settleEntry = () => {
+    if (!active || entrySettled) return;
+    enteredFullscreen = true;
+    apply();
+    entrySettled = true;
+  };
+  const onBeginFullscreen = () => settleEntry();
+  const onEndFullscreen = () => finish();
+  const onPresentationModeChange = () => {
+    if (video?.webkitPresentationMode === "fullscreen") {
+      settleEntry();
+      return;
+    }
+    if (enteredFullscreen) finish();
+  };
+
+  video?.addEventListener?.("volumechange", onVolumeChange);
+  video?.addEventListener?.("webkitbeginfullscreen", onBeginFullscreen);
+  video?.addEventListener?.("webkitendfullscreen", onEndFullscreen);
+  video?.addEventListener?.(
+    "webkitpresentationmodechanged",
+    onPresentationModeChange,
+  );
+  apply();
+  return { cancel, settleEntry };
+};
+
 export function requestMediaFullscreen({
   element = null,
   video = null,
   preferElementFullscreen = false,
   preferNativeVideoFullscreen = false,
+  preserveNativeVideoMutedState = false,
+  onNativeVideoMutedStateChange = () => {},
   navigatorObj = globalThis.navigator,
   onBeginNativeVideoFullscreen = () => {},
   onBeginDocumentFullscreen = () => {},
@@ -74,6 +156,11 @@ export function requestMediaFullscreen({
       typeof enterVideoFullscreen === "function" ||
       typeof setVideoPresentationMode === "function"
     ) {
+      const muteGuard = preserveNativeVideoMutedState
+        ? createNativeVideoMuteGuard(video, {
+            onMutedStateChange: onNativeVideoMutedStateChange,
+          })
+        : null;
       onBeginNativeVideoFullscreen(video);
       try {
         if (typeof enterVideoFullscreen === "function") {
@@ -81,8 +168,10 @@ export function requestMediaFullscreen({
         } else {
           setVideoPresentationMode.call(video, "fullscreen");
         }
+        muteGuard?.settleEntry();
         return true;
       } catch (_) {
+        muteGuard?.cancel();
         onRequestFailure?.();
       }
     }

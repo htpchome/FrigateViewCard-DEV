@@ -66,10 +66,13 @@ test("Catalyst fullscreen targets selected live and popup videos through native 
   const popupVideo = { name: "popup-video" };
   const selectedVideo = { name: "selected-video" };
   const warmedVideo = { name: "warmed-video" };
+  const muteChanges = [];
   let requestOptions = null;
   const host = {
     _engine: null,
     _isCatalyst: () => true,
+    _applyLiveMuteChange: (muted, options) =>
+      muteChanges.push([muted, options]),
     _cardViewPageController: {
       liveFullscreenTarget: () => liveStage,
     },
@@ -94,10 +97,18 @@ test("Catalyst fullscreen targets selected live and popup videos through native 
   assert.equal(controller.requestLive(), true);
   assert.equal(requestOptions.video, selectedVideo);
   assert.equal(requestOptions.preferNativeVideoFullscreen, true);
+  assert.equal(requestOptions.preserveNativeVideoMutedState, true);
+  requestOptions.onNativeVideoMutedStateChange(false);
+  assert.deepEqual(muteChanges, [
+    [false, { source: "native-fullscreen" }],
+  ]);
 
   assert.equal(controller.request(popupBody), true);
   assert.equal(requestOptions.video, popupVideo);
   assert.equal(requestOptions.preferNativeVideoFullscreen, true);
+  assert.equal(requestOptions.preserveNativeVideoMutedState, true);
+  requestOptions.onNativeVideoMutedStateChange(true);
+  assert.equal(muteChanges.length, 1);
 });
 
 test("card fullscreen controller synchronizes live and popup controls", () => {

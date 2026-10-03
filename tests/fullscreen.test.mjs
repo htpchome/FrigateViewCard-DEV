@@ -147,6 +147,50 @@ test("native video fullscreen falls back to WebKit presentation mode", () => {
   ]);
 });
 
+test("Catalyst native fullscreen carries muted and unmuted state through exit", () => {
+  for (const initialMuted of [true, false]) {
+    class NativeVideo extends EventTarget {
+      constructor() {
+        super();
+        this.muted = initialMuted;
+        this.defaultMuted = !initialMuted;
+      }
+
+      webkitEnterFullscreen() {
+        this.muted = !initialMuted;
+        this.dispatchEvent(new Event("volumechange"));
+        this.dispatchEvent(new Event("webkitbeginfullscreen"));
+      }
+    }
+
+    const video = new NativeVideo();
+    const carriedStates = [];
+    const requested = requestMediaFullscreen({
+      element: {},
+      video,
+      preferNativeVideoFullscreen: true,
+      preserveNativeVideoMutedState: true,
+      onNativeVideoMutedStateChange: (muted) => carriedStates.push(muted),
+    });
+
+    assert.equal(requested, true);
+    assert.equal(video.muted, initialMuted);
+
+    video.muted = !initialMuted;
+    video.dispatchEvent(new Event("volumechange"));
+    assert.equal(video.muted, !initialMuted);
+
+    video.dispatchEvent(new Event("webkitendfullscreen"));
+    assert.equal(video.muted, !initialMuted);
+    assert.equal(video.defaultMuted, !initialMuted);
+    assert.deepEqual(carriedStates, [!initialMuted]);
+
+    video.muted = initialMuted;
+    video.dispatchEvent(new Event("volumechange"));
+    assert.equal(video.muted, initialMuted);
+  }
+});
+
 test("fullscreen falls back to the video request and reports rejection", async () => {
   const calls = [];
   const video = {
