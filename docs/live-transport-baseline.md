@@ -85,6 +85,15 @@ across camera switches and same-dashboard navigation. Catalyst stays outside
 the normal HA Direct WebRTC retention pool, and expired or evicted entries are
 released through the Catalyst-only owner.
 
+`v1.1.8-dev.154` changes Catalyst camera-switch retention to match the retained
+HA-player lifecycle used by Advanced Camera Card. A visited camera's native HLS
+player remains mounted in a hidden card-local host, but is paused and changed
+to metadata-only preload while unselected so the Frigate/go2rtc media demand
+can become idle. Re-selecting the camera reactivates that same HA-facing player
+before attempting a new `camera/stream` request. The retained-player pool is
+bounded by the card's configured-camera limit and is released with the card;
+normal HA Direct and Frigate go2rtc retention are unchanged.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

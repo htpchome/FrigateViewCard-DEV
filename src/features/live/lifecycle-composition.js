@@ -1,6 +1,7 @@
 import {
   LIVE_SWITCH_GRACE_MAX,
   LIVE_SWITCH_GRACE_MS,
+  MAX_CAMERAS,
 } from "../../constants.js";
 import { buildEditorLiveHandoffKey } from "../editor-preview/context.ctrl.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
@@ -27,6 +28,7 @@ export const createLiveLifecycleControllers = (
   const liveGraceController = resolvedFactories.createLiveGraceController({
     graceMs: LIVE_SWITCH_GRACE_MS,
     graceMax: LIVE_SWITCH_GRACE_MAX,
+    catalystRetainedMax: MAX_CAMERAS,
     getShadowRoot: () => card.shadowRoot,
     getScopeKey: () => card,
     getPendingMountDestroyers: () => card._pendingMountDestroyers || [],
@@ -62,8 +64,8 @@ export const createLiveLifecycleControllers = (
       card._haDirectMounter?.adoptRetainedWebRtcEngine?.(engine),
     isCatalystHlsEngineReusable: (engine) =>
       card._catalystHlsMounter?.isRetainableEngine?.(engine) === true,
-    detachCatalystHlsEngine: (engine) =>
-      card._catalystHlsMounter?.detachForHandoff?.(engine) === true,
+    suspendCatalystHlsEngine: (engine) =>
+      card._catalystHlsMounter?.suspendRetainedEngine?.(engine) === true,
     adoptCatalystHlsEngine: (slot, engine) =>
       card._catalystHlsMounter?.adoptRetainedEngine?.(slot, engine) === true,
     releaseCatalystHlsEngine: (engine) =>

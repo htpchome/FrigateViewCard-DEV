@@ -39,3 +39,15 @@ export const prepareEngineVideoForGraceHost = (video) => {
   video.style.cssText = OFFSCREEN_VIDEO_STYLE;
   void video.play?.().catch?.(() => {});
 };
+
+export const prepareEngineVideoForDormantHost = (video) => {
+  if (!video) return;
+  video.autoplay = false;
+  video.muted = true;
+  video.controls = false;
+  video.preload = "metadata";
+  video.style.cssText = OFFSCREEN_VIDEO_STYLE;
+  try {
+    if (video.paused !== true) video.pause?.();
+  } catch (_) {}
+};

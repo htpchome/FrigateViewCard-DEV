@@ -571,7 +571,7 @@ test("Catalyst mounts through the dedicated HLS side path", async () => {
   ]);
 });
 
-test("Catalyst reclaims its grace-pooled native HLS engine before reconnecting", async () => {
+test("Catalyst reclaims its retained native HLS player before reconnecting", async () => {
   const calls = [];
   const slot = { innerHTML: "occupied" };
   const cachedEngine = {

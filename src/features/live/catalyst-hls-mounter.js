@@ -26,6 +26,7 @@ export function createCatalystHlsMounter({
   startLoadingFallbackRefresh,
   stopLoadingFallbackRefresh,
   setLiveNativeControls,
+  scheduleResumeLive,
   prepareHlsPlayback = () => true,
   createHlsVideo = createHaNativeHlsVideoElement,
 }) {
@@ -52,6 +53,7 @@ export function createCatalystHlsMounter({
     stopFallbackRefresh(binding);
     binding.cleanupRecovery?.();
     engine.removeEventListener?.("error", binding.onError);
+    engine.removeEventListener?.("ended", binding.onEnded);
     bindings.delete(engine);
     return true;
   };
@@ -101,20 +103,24 @@ export function createCatalystHlsMounter({
       onCommittedStream?.("snapshot");
       applyResolvedStreamUiState?.(resolveHaDirectFailedState());
     }
+    if (binding.resumeOnFailure) scheduleResumeLive?.("hls-error");
     watchLateRecovery(engine, binding);
   };
 
-  const bindEngine = (engine) => {
+  const bindEngine = (engine, { resumeOnFailure = false } = {}) => {
     const binding = {
       abortController: new AbortController(),
       cleanupRecovery: () => {},
       disposed: false,
       failed: false,
       onError: () => applyFailed(engine),
+      onEnded: () => applyFailed(engine),
+      resumeOnFailure,
       stopLoadingFallbackRefresh: () => {},
     };
     bindings.set(engine, binding);
     engine.addEventListener?.("error", binding.onError);
+    engine.addEventListener?.("ended", binding.onEnded);
     return binding;
   };
 
@@ -123,6 +129,7 @@ export function createCatalystHlsMounter({
     engine?.streamType === "hls" &&
     engine?.catalystHls === true &&
     engine?.ended !== true &&
+    !engine?.error &&
     Number(engine?.readyState) >= 2;
 
   const detachForHandoff = (engine) => {
@@ -130,18 +137,35 @@ export function createCatalystHlsMounter({
     return disposeBinding(engine);
   };
 
+  const suspendRetainedEngine = (engine) => {
+    if (!isRetainableEngine(engine)) return false;
+    disposeBinding(engine);
+    engine.catalystDormant = true;
+    engine.autoplay = false;
+    engine.preload = "metadata";
+    try {
+      engine.pause?.();
+    } catch (_) {}
+    return true;
+  };
+
   const adoptRetainedEngine = (slot, engine) => {
     if (!slot || !isRetainableEngine(engine)) return false;
+    engine.catalystDormant = false;
+    engine.autoplay = true;
+    engine.preload = "auto";
     engine.controls = false;
     engine.muted = Boolean(getStreamMuted());
     engine.style.cssText = CATALYST_HLS_VISIBLE_STYLE;
     slot.innerHTML = "";
     slot.appendChild(engine);
     assignCommittedEngine?.(engine);
-    bindEngine(engine);
+    bindEngine(engine, { resumeOnFailure: true });
     if (getRotateOverlayActive()) setLiveNativeControls?.(true);
     applyReady(engine, engine);
-    void engine.play?.().catch?.(() => {});
+    void engine
+      .play?.()
+      .catch?.(() => scheduleResumeLive?.("hls-error"));
     return true;
   };
 
@@ -225,6 +249,7 @@ export function createCatalystHlsMounter({
     isRetainableEngine,
     prepare,
     release,
+    suspendRetainedEngine,
     tryMount,
   };
 }

@@ -153,6 +153,7 @@ export const createLiveTransportControllers = (
     stopLoadingFallbackRefresh: () =>
       card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
+    scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
   });
   const haDirectTwoWayTalkMounter =
     resolvedFactories.createHaDirectTwoWayTalkMounter({

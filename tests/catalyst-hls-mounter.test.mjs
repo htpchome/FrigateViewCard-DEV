@@ -12,16 +12,27 @@ const createVideo = () => {
     style: { cssText: "" },
     readyState: 3,
     ended: false,
+    error: null,
     playCalls: 0,
+    pauseCalls: 0,
+    paused: false,
     play() {
       this.playCalls += 1;
+      this.paused = false;
       return Promise.resolve();
+    },
+    pause() {
+      this.pauseCalls += 1;
+      this.paused = true;
     },
     addEventListener(type, handler) {
       listeners.set(type, handler);
     },
     removeEventListener(type, handler) {
       if (listeners.get(type) === handler) listeners.delete(type);
+    },
+    emit(type) {
+      listeners.get(type)?.();
     },
     destroyCalls: 0,
     destroy() {
@@ -152,6 +163,7 @@ test("Catalyst native HLS transfers ownership without restarting playback", asyn
   assert.equal(await mounted.startupReady, true);
   assert.equal(donor.isRetainableEngine(video), true);
   assert.equal(donor.detachForHandoff(video), true);
+  assert.equal(video.pauseCalls, 0);
 
   const receiverCalls = [];
   let receiverEngine = null;
@@ -188,6 +200,53 @@ test("Catalyst native HLS transfers ownership without restarting playback", asyn
   ]);
   assert.equal(receiver.detachForHandoff(video), true);
   assert.equal(receiver.adoptRetainedEngine(receiverSlot, video), true);
+});
+
+test("Catalyst native HLS pauses dormant retention and resumes on adoption", async () => {
+  const video = createVideo();
+  let currentEngine = video;
+  const resumeReasons = [];
+  const mounter = createCatalystHlsMounter({
+    getHass: () => ({
+      states: { "camera.front": { entity_id: "camera.front" } },
+    }),
+    getStreamMuted: () => true,
+    getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => engine === currentEngine,
+    waitForStreamStart: async () => true,
+    assignCommittedEngine: (engine) => {
+      currentEngine = engine;
+    },
+    onCommittedMediaReady: () => {},
+    onCommittedStream: () => {},
+    applyResolvedStreamUiState: () => {},
+    scheduleResumeLive: (reason) => resumeReasons.push(reason),
+  });
+
+  video.type = "ha_direct";
+  video.streamType = "hls";
+  video.catalystHls = true;
+  assert.equal(mounter.suspendRetainedEngine(video), true);
+  assert.equal(video.catalystDormant, true);
+  assert.equal(video.autoplay, false);
+  assert.equal(video.preload, "metadata");
+  assert.equal(video.pauseCalls, 1);
+
+  const slot = {
+    innerHTML: "occupied",
+    appendChild(node) {
+      this.child = node;
+    },
+  };
+  assert.equal(mounter.adoptRetainedEngine(slot, video), true);
+  assert.equal(video.catalystDormant, false);
+  assert.equal(video.autoplay, true);
+  assert.equal(video.preload, "auto");
+  assert.equal(video.playCalls, 1);
+  assert.deepEqual(resumeReasons, []);
+
+  video.emit("error");
+  assert.deepEqual(resumeReasons, ["hls-error"]);
 });
 
 test("Catalyst HLS mounter does not mount unavailable camera entities", async () => {

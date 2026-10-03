@@ -5,6 +5,7 @@ import {
   createGraceEngineEntry,
   createGracePendingEntry,
   normalizeGraceEntityKey,
+  prepareEngineVideoForDormantHost,
   prepareEngineVideoForGraceHost,
 } from "../src/features/live/grace-pool.js";
 
@@ -52,4 +53,29 @@ test("prepareEngineVideoForGraceHost applies offscreen muted state", () => {
   assert.equal(video.muted, true);
   assert.equal(video.controls, false);
   assert.equal(video.style.cssText.includes("left:-9999px"), true);
+});
+
+test("prepareEngineVideoForDormantHost pauses offscreen media demand", () => {
+  let pauseCalls = 0;
+  const video = {
+    autoplay: true,
+    muted: false,
+    controls: true,
+    preload: "auto",
+    paused: false,
+    style: { cssText: "" },
+    pause: () => {
+      pauseCalls += 1;
+      video.paused = true;
+    },
+  };
+
+  prepareEngineVideoForDormantHost(video);
+
+  assert.equal(video.autoplay, false);
+  assert.equal(video.muted, true);
+  assert.equal(video.controls, false);
+  assert.equal(video.preload, "metadata");
+  assert.equal(video.style.cssText.includes("left:-9999px"), true);
+  assert.equal(pauseCalls, 1);
 });

@@ -532,7 +532,7 @@ test("live grace controller retains HA-direct WebRTC without entering the Frigat
   });
 });
 
-test("live grace controller retains Catalyst HLS in its dedicated pool", async () => {
+test("live grace controller retains a paused Catalyst HA player without expiry", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {
     const calls = [];
     const catalystEngine = {
@@ -543,6 +543,7 @@ test("live grace controller retains Catalyst HLS in its dedicated pool", async (
       readyState: 4,
       style: { cssText: "" },
       play: () => Promise.resolve(),
+      pause: () => calls.push(["pause"]),
       remove: () => calls.push(["remove"]),
     };
     let engine = catalystEngine;
@@ -550,6 +551,7 @@ test("live grace controller retains Catalyst HLS in its dedicated pool", async (
     const controller = createLiveGraceController({
       graceMs: 100,
       graceMax: 2,
+      catalystRetainedMax: 2,
       getShadowRoot: () => shadowRoot,
       getScopeKey: () => ({ id: "scope" }),
       getPendingMountDestroyers: () => [],
@@ -577,8 +579,8 @@ test("live grace controller retains Catalyst HLS in its dedicated pool", async (
       },
       isCatalystHlsEngineReusable: (candidate) =>
         candidate === catalystEngine,
-      detachCatalystHlsEngine: (candidate) => {
-        calls.push(["detach", candidate]);
+      suspendCatalystHlsEngine: (candidate) => {
+        calls.push(["suspend", candidate]);
         return true;
       },
       adoptCatalystHlsEngine: (slot, candidate) => {
@@ -598,9 +600,12 @@ test("live grace controller retains Catalyst HLS in its dedicated pool", async (
       controller.takeGraceHaDirectEntry("camera.front", "hls"),
       null,
     );
+    await new Promise((resolve) => setTimeout(resolve, 120));
     const entry = controller.takeGraceCatalystHlsEntry("camera.front");
     assert.equal(entry?.engine, catalystEngine);
-    assert.deepEqual(calls, [["detach", catalystEngine]]);
+    assert.deepEqual(calls, [["suspend", catalystEngine], ["pause"]]);
+    assert.equal(catalystEngine.autoplay, false);
+    assert.equal(catalystEngine.preload, "metadata");
 
     const slot = { id: "engine" };
     assert.equal(
@@ -612,7 +617,7 @@ test("live grace controller retains Catalyst HLS in its dedicated pool", async (
   });
 });
 
-test("Catalyst HLS grace pool evicts its oldest connection at the configured limit", async () => {
+test("Catalyst retained-player pool evicts its oldest player at its own limit", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {
     const released = [];
     let engine = null;
@@ -625,11 +630,13 @@ test("Catalyst HLS grace pool evicts its oldest connection at the configured lim
       readyState: 4,
       style: { cssText: "" },
       play: () => Promise.resolve(),
+      pause() {},
       remove() {},
     });
     const controller = createLiveGraceController({
       graceMs: 1000,
-      graceMax: 1,
+      graceMax: 3,
+      catalystRetainedMax: 1,
       getShadowRoot: () => shadowRoot,
       getScopeKey: () => ({ id: "scope" }),
       getPendingMountDestroyers: () => [],
@@ -652,7 +659,7 @@ test("Catalyst HLS grace pool evicts its oldest connection at the configured lim
       setStreamFallbackVisible: () => {},
       setLiveNativeControls: () => {},
       isCatalystHlsEngineReusable: () => true,
-      detachCatalystHlsEngine: () => true,
+      suspendCatalystHlsEngine: () => true,
       adoptCatalystHlsEngine: () => true,
       releaseCatalystHlsEngine: (candidate) =>
         released.push(candidate.id),

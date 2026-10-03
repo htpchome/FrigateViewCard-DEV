@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   LIVE_SWITCH_GRACE_MAX,
   LIVE_SWITCH_GRACE_MS,
+  MAX_CAMERAS,
 } from "../src/constants.js";
 import { buildEditorLiveHandoffKey } from "../src/features/editor-preview/context.ctrl.js";
 import { createLiveLifecycleControllers } from "../src/features/live/lifecycle-composition.js";
@@ -62,6 +63,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     release: (engine) => calls.push(["release-catalyst", engine]),
     isRetainableEngine: (engine) => engine === "catalyst-engine",
     detachForHandoff: (engine) => engine !== "blocked-catalyst-engine",
+    suspendRetainedEngine: (engine) => engine !== "blocked-catalyst-engine",
     adoptRetainedEngine: (slot, engine) => {
       calls.push(["adopt-catalyst", slot, engine]);
       return true;
@@ -149,6 +151,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   });
   assert.equal(optionsByFactory.liveGrace.graceMs, LIVE_SWITCH_GRACE_MS);
   assert.equal(optionsByFactory.liveGrace.graceMax, LIVE_SWITCH_GRACE_MAX);
+  assert.equal(optionsByFactory.liveGrace.catalystRetainedMax, MAX_CAMERAS);
   assert.strictEqual(
     optionsByFactory.liveGrace.attachVideoFit,
     attachContainedVideoFit,
@@ -322,7 +325,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     true,
   );
   assert.equal(
-    optionsByFactory.liveGrace.detachCatalystHlsEngine("catalyst-engine"),
+    optionsByFactory.liveGrace.suspendCatalystHlsEngine("catalyst-engine"),
     true,
   );
   assert.equal(

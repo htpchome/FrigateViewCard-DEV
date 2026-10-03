@@ -2,6 +2,7 @@ import {
   createGraceEngineEntry,
   createGracePendingEntry,
   normalizeGraceEntityKey,
+  prepareEngineVideoForDormantHost,
   prepareEngineVideoForGraceHost,
 } from "./grace-pool.js";
 import { splitPendingDestroyersByGraceMse } from "./pending-destroyers.js";
@@ -14,6 +15,7 @@ import {
 export function createLiveGraceController({
   graceMs,
   graceMax,
+  catalystRetainedMax = graceMax,
   getShadowRoot,
   getScopeKey,
   getPendingMountDestroyers,
@@ -36,7 +38,7 @@ export function createLiveGraceController({
   releaseHaDirectEngine,
   adoptHaDirectWebRtcEngine,
   isCatalystHlsEngineReusable,
-  detachCatalystHlsEngine,
+  suspendCatalystHlsEngine,
   adoptCatalystHlsEngine,
   releaseCatalystHlsEngine,
   scheduleResumeLive,
@@ -46,7 +48,7 @@ export function createLiveGraceController({
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
   const haDirectGracePool = new Map();
-  const catalystHlsGracePool = new Map();
+  const catalystHlsRetainedPool = new Map();
   const terminalWebRtcStates = new Set(["closed", "failed", "disconnected"]);
   let graceEntrySequence = 0;
 
@@ -158,14 +160,14 @@ export function createLiveGraceController({
     } catch (_) {}
   };
 
-  const evictGraceCatalystHlsEntry = (entity) => {
+  const evictRetainedCatalystHlsEntry = (entity) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key) return;
-    const entry = catalystHlsGracePool.get(key);
+    const entry = catalystHlsRetainedPool.get(key);
     if (!entry) return;
     entry.cancelled = true;
     if (entry.timer) clearTimeout(entry.timer);
-    catalystHlsGracePool.delete(key);
+    catalystHlsRetainedPool.delete(key);
     try {
       releaseCatalystHlsEngine?.(entry.engine);
     } catch (_) {}
@@ -201,12 +203,12 @@ export function createLiveGraceController({
     }
   };
 
-  const trimCatalystHlsGracePool = () => {
-    const maxEntries = Math.max(0, Number(graceMax) || 0);
-    while (catalystHlsGracePool.size > maxEntries) {
-      const oldestKey = catalystHlsGracePool.keys().next().value || "";
+  const trimCatalystHlsRetainedPool = () => {
+    const maxEntries = Math.max(0, Number(catalystRetainedMax) || 0);
+    while (catalystHlsRetainedPool.size > maxEntries) {
+      const oldestKey = catalystHlsRetainedPool.keys().next().value || "";
       if (!oldestKey) break;
-      evictGraceCatalystHlsEntry(oldestKey);
+      evictRetainedCatalystHlsEntry(oldestKey);
     }
   };
 
@@ -284,29 +286,26 @@ export function createLiveGraceController({
     trimHaDirectGracePool();
     return true;
   };
-  const stashCatalystHlsEngineForGrace = (entity, engine) => {
+  const stashCatalystHlsEngineForRetention = (entity, engine) => {
     const key = normalizeGraceEntityKey(entity);
     if (
       !key ||
       isCatalystHlsEngineReusable?.(engine) !== true ||
-      detachCatalystHlsEngine?.(engine) !== true
+      suspendCatalystHlsEngine?.(engine) !== true
     ) {
       return false;
     }
-    evictGraceCatalystHlsEntry(key);
+    evictRetainedCatalystHlsEntry(key);
     ensureMseGraceHost().appendChild(engine);
-    prepareEngineVideoForGraceHost(engine);
-    const entry = createGraceEngineEntry({
+    prepareEngineVideoForDormantHost(engine);
+    const entry = {
       engine,
-      graceMs,
-      onExpire: () => {
-        if (catalystHlsGracePool.get(key) !== entry) return;
-        evictGraceCatalystHlsEntry(key);
-      },
-    });
+      cancelled: false,
+      timer: null,
+    };
     entry.graceOrder = ++graceEntrySequence;
-    catalystHlsGracePool.set(key, entry);
-    trimCatalystHlsGracePool();
+    catalystHlsRetainedPool.set(key, entry);
+    trimCatalystHlsRetainedPool();
     return true;
   };
 
@@ -387,10 +386,10 @@ export function createLiveGraceController({
   const takeGraceCatalystHlsEntry = (entity) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key) return null;
-    const entry = catalystHlsGracePool.get(key);
+    const entry = catalystHlsRetainedPool.get(key);
     if (!entry) return null;
     if (entry.timer) clearTimeout(entry.timer);
-    catalystHlsGracePool.delete(key);
+    catalystHlsRetainedPool.delete(key);
     return entry;
   };
 
@@ -561,7 +560,7 @@ export function createLiveGraceController({
       preserveLiveEntity &&
       engine?.catalystHls === true &&
       engine?.streamType === activeStreamType &&
-      stashCatalystHlsEngineForGrace(preserveLiveEntity, engine)
+      stashCatalystHlsEngineForRetention(preserveLiveEntity, engine)
     ) {
       setEngine?.(null, { retainPrevious: true });
       return;
@@ -621,8 +620,8 @@ export function createLiveGraceController({
     for (const entity of [...haDirectGracePool.keys()]) {
       evictGraceHaDirectEntry(entity);
     }
-    for (const entity of [...catalystHlsGracePool.keys()]) {
-      evictGraceCatalystHlsEntry(entity);
+    for (const entity of [...catalystHlsRetainedPool.keys()]) {
+      evictRetainedCatalystHlsEntry(entity);
     }
     try {
       mseGraceHost?.remove?.();
@@ -634,7 +633,7 @@ export function createLiveGraceController({
     evictGraceMseEntry(entity);
     evictGraceWebRtcEntry(entity);
     evictGraceHaDirectEntry(entity);
-    evictGraceCatalystHlsEntry(entity);
+    evictRetainedCatalystHlsEntry(entity);
   };
 
   return {
