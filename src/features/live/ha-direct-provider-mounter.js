@@ -6,6 +6,7 @@ import {
   findActiveHaCameraStreamVideo,
   watchHaPlaybackFirstFrame,
 } from "../../integrations/home-assistant/playback.js";
+import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 import {
   resolveHaDirectFailedState,
   resolveHaDirectMountUnavailableState,
@@ -69,6 +70,7 @@ export function createHaDirectProviderMounter({
   requestFrame = (callback) => globalThis.requestAnimationFrame?.(callback),
   cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
 }) {
+  const ownerToken = {};
   const bindings = new WeakMap();
   const providerSlots = new WeakMap();
   const ownedProviders = new Set();
@@ -98,6 +100,78 @@ export function createHaDirectProviderMounter({
     if (binding) binding.stopLoadingFallbackRefresh = () => {};
   };
 
+  const getHandoffState = (provider) =>
+    provider?.haDirectProviderHandoff || null;
+
+  const getProviderVideo = (provider) =>
+    getHandoffState(provider)?.video ||
+    findActiveHaCameraStreamVideo(provider);
+
+  const restoreProviderVideo = (provider) => {
+    const handoff = getHandoffState(provider);
+    if (!handoff?.video || !handoff.parent?.insertBefore) return false;
+    try {
+      const reference =
+        handoff.nextSibling?.parentNode === handoff.parent
+          ? handoff.nextSibling
+          : null;
+      handoff.parent.insertBefore(handoff.video, reference);
+    } catch (_) {
+      return false;
+    }
+    delete provider.haDirectProviderHandoff;
+    return true;
+  };
+
+  const refreshBorrowedProviderVideo = (provider) => {
+    const handoff = getHandoffState(provider);
+    if (handoff?.borrower !== ownerToken || !handoff.presentationSlot) {
+      return handoff?.video || null;
+    }
+    const nextVideo = findActiveHaCameraStreamVideo(provider);
+    if (!nextVideo || nextVideo === handoff.video) return handoff.video;
+    const nextParent = nextVideo.parentNode || nextVideo.parentElement || null;
+    if (!nextParent?.insertBefore) return handoff.video;
+    const previousVideo = handoff.video;
+    handoff.video = nextVideo;
+    handoff.parent = nextParent;
+    handoff.nextSibling = nextVideo.nextSibling || null;
+    handoff.presentationSlot.innerHTML = "";
+    handoff.presentationSlot.appendChild(nextVideo);
+    nextVideo.muted = Boolean(getStreamMuted?.());
+    nextVideo.defaultMuted = nextVideo.muted;
+    if (previousVideo && previousVideo !== nextVideo) {
+      try {
+        previousVideo.remove?.();
+      } catch (_) {}
+    }
+    return nextVideo;
+  };
+
+  const presentProviderVideo = (slot, provider) => {
+    const existing = getHandoffState(provider);
+    if (existing?.borrower === ownerToken && existing.video) {
+      existing.presentationSlot = slot;
+      slot.innerHTML = "";
+      slot.appendChild(existing.video);
+      return existing.video;
+    }
+    if (existing) return null;
+    const video = findActiveHaCameraStreamVideo(provider);
+    const parent = video?.parentNode || video?.parentElement || null;
+    if (!video || !parent?.insertBefore) return null;
+    provider.haDirectProviderHandoff = {
+      borrower: ownerToken,
+      nextSibling: video.nextSibling || null,
+      parent,
+      presentationSlot: slot,
+      video,
+    };
+    slot.innerHTML = "";
+    slot.appendChild(video);
+    return video;
+  };
+
   const setProviderVisible = (provider, visible) => {
     const providerSlot = providerSlots.get(provider);
     if (!providerSlot) return false;
@@ -107,6 +181,11 @@ export function createHaDirectProviderMounter({
     else providerSlot.setAttribute?.("aria-hidden", "true");
     provider.muted = visible ? Boolean(getStreamMuted?.()) : true;
     provider.defaultMuted = provider.muted;
+    const handoffVideo = getHandoffState(provider)?.video;
+    if (handoffVideo) {
+      handoffVideo.muted = visible ? Boolean(getStreamMuted?.()) : true;
+      handoffVideo.defaultMuted = handoffVideo.muted;
+    }
     return true;
   };
 
@@ -129,7 +208,14 @@ export function createHaDirectProviderMounter({
     ownedProviders.delete(provider);
     const providerSlot = providerSlots.get(provider);
     providerSlots.delete(provider);
+    if (provider?.haDirectProviderOwner !== ownerToken) {
+      if (getHandoffState(provider)?.borrower === ownerToken) {
+        restoreProviderVideo(provider);
+      }
+      return;
+    }
     delete provider.haDirectProviderSlot;
+    delete provider.haDirectProviderOwner;
     try {
       providerSlot?.remove?.();
     } catch (_) {}
@@ -189,6 +275,7 @@ export function createHaDirectProviderMounter({
     provider.streamType = preferredStreamType;
     provider.haDirectEntity = targetEntity;
     provider.haDirectProvider = true;
+    provider.haDirectProviderOwner = ownerToken;
     provider.haDirectProviderSlot = providerSlot;
     providerSlot.appendChild(provider);
     providerSlots.set(provider, providerSlot);
@@ -210,7 +297,7 @@ export function createHaDirectProviderMounter({
     binding.cleanupRecovery = () => {};
     stopFallbackRefresh(binding);
     stopLoadingFallbackRefresh?.();
-    const readyVideo = video || findActiveHaCameraStreamVideo(provider);
+    const readyVideo = video || getProviderVideo(provider);
     provider.streamType = resolveProviderStreamType(
       provider,
       provider.streamType,
@@ -230,6 +317,19 @@ export function createHaDirectProviderMounter({
 
   const watchRecovery = (provider, binding) => {
     binding.cleanupRecovery?.();
+    const handoff = getHandoffState(provider);
+    if (handoff?.borrower === ownerToken && handoff.video) {
+      binding.cleanupRecovery = watchMediaFirstFrame({
+        mediaRoot: handoff.video,
+        findVideo: () => refreshBorrowedProviderVideo(provider),
+        isDestroyed: () =>
+          binding.disposed ||
+          !isCurrentEngine?.(provider) ||
+          !isSelectedEntity(provider?.haDirectEntity),
+        onReady: () => applyReady(provider, getProviderVideo(provider)),
+      });
+      return;
+    }
     binding.cleanupRecovery = watchHaPlaybackFirstFrame({
       stream: provider,
       isDestroyed: () =>
@@ -237,7 +337,7 @@ export function createHaDirectProviderMounter({
         !isCurrentEngine?.(provider) ||
         !isSelectedEntity(provider?.haDirectEntity),
       onReady: () =>
-        applyReady(provider, findActiveHaCameraStreamVideo(provider)),
+        applyReady(provider, getProviderVideo(provider)),
     });
   };
 
@@ -270,6 +370,7 @@ export function createHaDirectProviderMounter({
       onPlaybackChanged: null,
     };
     binding.onPlaybackChanged = (event) => {
+      refreshBorrowedProviderVideo(provider);
       if (event?.type === "streams" && event?.detail?.hasVideo === false) {
         applyFailed(provider);
         return;
@@ -286,11 +387,11 @@ export function createHaDirectProviderMounter({
     if (
       provider?.type !== "ha_direct" ||
       provider?.haDirectProvider !== true ||
-      !providerSlots.has(provider)
+      !provider?.haDirectProviderSlot
     ) {
       return false;
     }
-    const video = findActiveHaCameraStreamVideo(provider);
+    const video = getProviderVideo(provider);
     return Boolean(
       video &&
         video.ended !== true &&
@@ -305,6 +406,10 @@ export function createHaDirectProviderMounter({
     const providerSlot = provider.haDirectProviderSlot;
     const host = getPreloadHost?.();
     if (!providerSlot || !host?.appendChild) return false;
+    if (provider?.haDirectProviderOwner !== ownerToken) {
+      providerSlots.set(provider, providerSlot);
+      return true;
+    }
     if (providerSlot.parentElement !== host) {
       try {
         if (typeof host.moveBefore === "function") {
@@ -344,11 +449,22 @@ export function createHaDirectProviderMounter({
     ) {
       return false;
     }
-    slot.innerHTML = "";
-    if (!setProviderVisible(provider, true)) return false;
+    const remoteProvider = provider?.haDirectProviderOwner !== ownerToken;
+    let video = null;
+    if (remoteProvider) {
+      setProviderVisible(provider, false);
+      video = presentProviderVideo(slot, provider);
+      if (!video) return false;
+      video.muted = Boolean(getStreamMuted?.());
+      video.defaultMuted = video.muted;
+    } else {
+      restoreProviderVideo(provider);
+      slot.innerHTML = "";
+      if (!setProviderVisible(provider, true)) return false;
+      video = getProviderVideo(provider);
+    }
     assignCommittedEngine?.(provider);
     const binding = bindProvider(provider);
-    const video = findActiveHaCameraStreamVideo(provider);
     if (video) {
       video.muted = Boolean(getStreamMuted?.());
       video.defaultMuted = video.muted;
@@ -412,7 +528,7 @@ export function createHaDirectProviderMounter({
       ready = await waitForStreamStart?.(provider, HA_DIRECT_PROVIDER_WAIT_MS, {
         requireReadyState: 2,
         abortSignal: abortController.signal,
-        resolveVideo: () => findActiveHaCameraStreamVideo(provider),
+        resolveVideo: () => getProviderVideo(provider),
       });
     } catch (_) {
       ready = false;
@@ -552,7 +668,7 @@ export function createHaDirectProviderMounter({
           {
             requireReadyState: 2,
             abortSignal: binding.abortController.signal,
-            resolveVideo: () => findActiveHaCameraStreamVideo(provider),
+            resolveVideo: () => getProviderVideo(provider),
           },
         );
       } catch (_) {
@@ -570,7 +686,7 @@ export function createHaDirectProviderMounter({
         scheduleResumeLive?.("ha-camera-stream-failed");
         return false;
       }
-      return applyReady(provider, findActiveHaCameraStreamVideo(provider));
+      return applyReady(provider, getProviderVideo(provider));
     })();
 
     return {

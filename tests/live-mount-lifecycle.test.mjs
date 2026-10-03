@@ -153,6 +153,15 @@ test("editor reparenting retains established WebRTC and Catalyst native HLS", ()
     }),
     false,
   );
+  assert.equal(
+    shouldRetainMountedLiveForEditorTransition({
+      ...eligible,
+      useGo2Rtc: false,
+      activeStreamType: "hls",
+      nativeHaDirectProvider: true,
+    }),
+    true,
+  );
 });
 
 test("connection-loss reasons force a remount without broadening normal stale checks", () => {

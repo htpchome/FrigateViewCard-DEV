@@ -13,7 +13,10 @@ function withFakeDocument(run) {
         isConnected: false,
         style: { cssText: "" },
         children: [],
-        setAttribute() {},
+        attributes: new Map(),
+        setAttribute(name, value) {
+          this.attributes.set(name, value);
+        },
         appendChild(child) {
           if (child.parentElement && child.parentElement !== this) {
             child.disconnectedCallback?.();
@@ -42,6 +45,54 @@ function withFakeDocument(run) {
     globalThis.document = originalDocument;
   });
 }
+
+test("HA Direct deck remains a slotted light-DOM child of the card", async () => {
+  await withFakeDocument(async ({ shadowRoot, hostChildren }) => {
+    const lightDomChildren = [];
+    const cardHost = {
+      appendChild(node) {
+        node.parentElement = this;
+        node.isConnected = true;
+        lightDomChildren.push(node);
+        return node;
+      },
+    };
+    shadowRoot.host = cardHost;
+    const controller = createLiveGraceController({
+      getShadowRoot: () => shadowRoot,
+      getScopeKey: () => ({ id: "scope" }),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      clearRotateOverlayAudioSync: () => {},
+      clearRotateVideoFullscreenStyle: () => {},
+      getEngine: () => null,
+      setEngine: () => {},
+      getActiveStreamType: () => "snapshot",
+      getStreamMuted: () => true,
+      setEngineMountedMuted: () => {},
+      getRotateOverlayActive: () => false,
+      attachVideoFit: () => {},
+      setActiveStreamType: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      setLiveNativeControls: () => {},
+    });
+
+    const firstDeck = controller.getHaDirectDeckHost();
+    const secondDeck = controller.getHaDirectDeckHost();
+
+    assert.strictEqual(firstDeck, secondDeck);
+    assert.equal(lightDomChildren.length, 1);
+    assert.equal(hostChildren.length, 0);
+    assert.strictEqual(firstDeck.parentElement, cardHost);
+    assert.equal(
+      firstDeck.attributes.get("slot"),
+      "fvc-ha-direct-provider-deck",
+    );
+  });
+});
 
 test("mse grace controller preserves pending mse promise across cleanup", async () => {
   await withFakeDocument(async ({ shadowRoot }) => {

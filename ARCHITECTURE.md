@@ -44,13 +44,19 @@ Meaning of `ha_direct`:
   `ha-camera-stream` provider; Home Assistant selects and manages its HLS or
   WebRTC child player without a parallel card-owned transport race
 - providers are created in permanent, camera-scoped HA Direct deck slots and
-  are shown or hidden in place across camera and page changes
+  are shown or hidden in place across camera and page changes; the deck is a
+  stable light-DOM child projected into each page's live stage so replacing a
+  page shell never disconnects the Home Assistant provider subtree
 - after the selected provider renders usable video, remaining configured HA
   Direct cameras may warm sequentially; camera N+1 must not start until camera
   N has usable media or has failed
 - the card owns provider creation, deck visibility, retention and release,
   snapshot fallback presentation, and editor/layout ownership transfer; it
   does not own the provider's signaling or internal media-player lifecycle
+- editor preview handoff must leave the native provider in its permanent deck;
+  only the provider's plain video presentation surface may cross between the
+  connected dashboard and editor card instances, then return to its original
+  Home Assistant player on editor exit
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

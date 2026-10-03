@@ -2,6 +2,7 @@ export function buildLiveEngineWrapMarkup({ icons }) {
   return `<div id="eng-wrap" data-fvc-region="live">
                 <div class="camera-group-live-layout" id="camera-group-live-layout">
                   <div class="camera-group-live-pane camera-group-live-pane--primary is-audio-active" data-camera-group-member="A">
+                    <slot name="fvc-ha-direct-provider-deck"></slot>
                     <frigate-live-stream id="engine">
                       <div class="ph">${icons.live}<span data-fvc-i18n="runtime.live.connecting">Connecting…</span></div>
                     </frigate-live-stream>

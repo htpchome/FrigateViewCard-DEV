@@ -677,6 +677,10 @@ test("shared shell builders expose stable page region anchors", () => {
   assert.doesNotMatch(liveEngineWrap, /id="(?:live-fs-btn|mute-btn)"/);
   assert.match(
     liveEngineWrap,
+    /<slot name="fvc-ha-direct-provider-deck"><\/slot>/,
+  );
+  assert.match(
+    liveEngineWrap,
     /id="camera-suspended-placeholder"[^>]* hidden>[\s\S]*?Camera suspended/,
   );
   assert.match(

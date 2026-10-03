@@ -234,19 +234,31 @@ export function createLiveGraceController({
     return host;
   };
   const ensureHaDirectDeckHost = () => {
-    if (haDirectDeckHost?.isConnected) return haDirectDeckHost;
+    if (
+      haDirectDeckHost?.isConnected ||
+      haDirectDeckHost?.parentElement ||
+      haDirectDeckHost?.parentNode
+    ) {
+      return haDirectDeckHost;
+    }
     const host = document.createElement("div");
     host.setAttribute("aria-hidden", "true");
     host.setAttribute("data-fvc-ha-direct-deck", "");
+    host.setAttribute("slot", "fvc-ha-direct-provider-deck");
     host.style.cssText =
       "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:2";
     const shadowRoot = getShadowRoot?.();
-    const engine = shadowRoot?.querySelector?.("#engine") || null;
-    const parent = engine?.parentElement || shadowRoot;
-    if (engine && parent?.insertBefore) {
-      parent.insertBefore(host, engine);
+    const cardHost = shadowRoot?.host || null;
+    if (cardHost?.appendChild) {
+      cardHost.appendChild(host);
     } else {
-      parent?.appendChild?.(host);
+      const engine = shadowRoot?.querySelector?.("#engine") || null;
+      const parent = engine?.parentElement || shadowRoot;
+      if (engine && parent?.insertBefore) {
+        parent.insertBefore(host, engine);
+      } else {
+        parent?.appendChild?.(host);
+      }
     }
     haDirectDeckHost = host;
     return host;

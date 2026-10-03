@@ -20,6 +20,22 @@ const createFakeVideo = () => ({
 const createFakeProvider = ({ streamType = "webrtc" } = {}) => {
   const listeners = new Map();
   const video = createFakeVideo();
+  const videoParent = {
+    children: [video],
+    insertBefore(child, reference = null) {
+      const existingIndex = this.children.indexOf(child);
+      if (existingIndex >= 0) this.children.splice(existingIndex, 1);
+      const referenceIndex = reference ? this.children.indexOf(reference) : -1;
+      if (referenceIndex >= 0) this.children.splice(referenceIndex, 0, child);
+      else this.children.push(child);
+      child.parentElement = this;
+      child.parentNode = this;
+      return child;
+    },
+  };
+  video.parentElement = videoParent;
+  video.parentNode = videoParent;
+  video.nextSibling = null;
   const player = {
     tagName:
       streamType === "hls" ? "HA-HLS-PLAYER" : "HA-WEB-RTC-PLAYER",
@@ -42,6 +58,7 @@ const createFakeProvider = ({ streamType = "webrtc" } = {}) => {
       listeners.get(type)?.delete(listener);
     },
     video,
+    videoParent,
   };
 };
 
@@ -51,8 +68,24 @@ const createFakeElement = () => ({
   style: { cssText: "", opacity: "", zIndex: "" },
   attributes: new Map(),
   appendChild(child) {
+    const previousChildren = child.parentElement?.children;
+    const previousIndex = previousChildren?.indexOf?.(child) ?? -1;
+    if (previousIndex >= 0) previousChildren.splice(previousIndex, 1);
     this.children.push(child);
     child.parentElement = this;
+    child.parentNode = this;
+    child.isConnected = true;
+    return child;
+  },
+  insertBefore(child, reference = null) {
+    const previousChildren = child.parentElement?.children;
+    const previousIndex = previousChildren?.indexOf?.(child) ?? -1;
+    if (previousIndex >= 0) previousChildren.splice(previousIndex, 1);
+    const referenceIndex = reference ? this.children.indexOf(reference) : -1;
+    if (referenceIndex >= 0) this.children.splice(referenceIndex, 0, child);
+    else this.children.push(child);
+    child.parentElement = this;
+    child.parentNode = this;
     child.isConnected = true;
     return child;
   },
@@ -249,7 +282,7 @@ test("HA Direct warms native providers sequentially", async () => {
   });
 });
 
-test("HA Direct transfers a complete stable provider slot for editor handoff", async () => {
+test("HA Direct lends only its video surface for editor handoff", async () => {
   await withFakeDocument(async () => {
     const donorDeck = createFakeElement();
     const receiverDeck = createFakeElement();
@@ -299,7 +332,15 @@ test("HA Direct transfers a complete stable provider slot for editor handoff", a
     assert.equal(donor.detachProviderForHandoff(provider), true);
     assert.equal(receiver.adoptRetainedHlsEngine(receiverSlot, provider), true);
     assert.strictEqual(provider.parentElement, stableSlot);
-    assert.strictEqual(stableSlot.parentElement, receiverDeck);
+    assert.strictEqual(stableSlot.parentElement, donorDeck);
+    assert.strictEqual(provider.video.parentElement, receiverSlot);
     assert.strictEqual(receiverEngine, provider);
+
+    assert.equal(receiver.detachProviderForHandoff(provider), true);
+    assert.equal(donor.adoptTransferredProvider(provider), true);
+    assert.equal(donor.adoptRetainedHlsEngine(donorSlot, provider), true);
+    assert.strictEqual(provider.video.parentElement, provider.videoParent);
+    assert.strictEqual(stableSlot.parentElement, donorDeck);
+    assert.strictEqual(donorEngine, provider);
   });
 });

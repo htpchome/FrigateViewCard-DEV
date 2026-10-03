@@ -2,15 +2,17 @@
 
 ## Current Baseline
 
-`v1.1.8-dev.169` is a normal-HA-Direct provider-deck experiment based on the
+`v1.1.8-dev.170` is a normal-HA-Direct provider-deck experiment based on the
 `v1.1.8-dev.168` rollback point. Non-Catalyst HA Direct playback now creates one
 stable `ha-camera-stream` provider per loaded camera and delegates HLS/WebRTC
 selection, signaling, fallback, and child-player lifecycle to Home Assistant.
 The card retains ownership only of creation order, permanent camera slots,
 visibility, retention/release, snapshot presentation, and editor/layout
-handoff. Mac Catalyst remains on its separate native HLS-only path. Physical
-validation is required before this experiment replaces `v1.1.8-dev.168` as a
-known-good rollback point.
+handoff. The provider deck remains in the card's light DOM and is projected
+into page-specific live stages, preventing page shell replacement from
+disconnecting native providers. Mac Catalyst remains on its separate native
+HLS-only path. Physical validation is required before this experiment replaces
+`v1.1.8-dev.168` as a known-good rollback point.
 
 `v1.1.8-dev.70` restores the `v1.1.8-dev.68` HA Direct pipeline after physical
 testing rejected the native `ha-camera-stream` provider-deck experiment in
@@ -357,6 +359,14 @@ one of those policies is the cause.
   provider's transport selection and child-player lifecycle; the card owns the
   permanent provider deck, sequential warm-up, visibility, retention, snapshot
   presentation, and editor/layout ownership. Catalyst remains native HLS-only.
+- `v1.1.8-dev.170` keeps the provider deck outside replaceable page shadow
+  markup and projects it through a live-stage slot. Single, Mobile, Wide, Card,
+  and Preview shell changes therefore leave every provider node connected. It
+  also treats the native provider as editor-retainable whether Home Assistant's
+  current child player is HLS or WebRTC. Editor handoff keeps the provider and
+  HA connection in the permanent dashboard deck and lends only its plain video
+  surface to the preview card, restoring that surface to the HA player when
+  the editor returns it.
 
 ## Validation Expectations
 

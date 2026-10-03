@@ -947,6 +947,7 @@ export class FrigateViewCard extends HTMLElement {
         ),
         useGo2Rtc: this._shouldUseGo2RtcForEntity(activeLiveEntity),
         catalystHls: this._engine?.catalystHls === true,
+        nativeHaDirectProvider: this._engine?.haDirectProvider === true,
         activeStreamType: this._currentLiveStreamHint(),
       });
     const preserveDashboardLive =
