@@ -154,10 +154,12 @@ test("Catalyst native fullscreen carries muted and unmuted state through exit", 
         super();
         this.muted = initialMuted;
         this.defaultMuted = !initialMuted;
+        this.volume = 0.65;
       }
 
       webkitEnterFullscreen() {
         this.muted = !initialMuted;
+        this.volume = 1;
         this.dispatchEvent(new Event("volumechange"));
         this.dispatchEvent(new Event("webkitbeginfullscreen"));
       }
@@ -165,25 +167,46 @@ test("Catalyst native fullscreen carries muted and unmuted state through exit", 
 
     const video = new NativeVideo();
     const carriedStates = [];
+    let completeEntryGuard = null;
+    let clearedTimer = null;
     const requested = requestMediaFullscreen({
       element: {},
       video,
       preferNativeVideoFullscreen: true,
       preserveNativeVideoMutedState: true,
       onNativeVideoMutedStateChange: (muted) => carriedStates.push(muted),
+      setTimer: (callback) => {
+        completeEntryGuard = callback;
+        return 17;
+      },
+      clearTimer: (timer) => {
+        clearedTimer = timer;
+      },
     });
 
     assert.equal(requested, true);
     assert.equal(video.muted, initialMuted);
+    assert.equal(video.volume, initialMuted ? 0 : 0.65);
+
+    video.muted = !initialMuted;
+    video.volume = 1;
+    video.dispatchEvent(new Event("volumechange"));
+    assert.equal(video.muted, initialMuted);
+    assert.equal(video.volume, initialMuted ? 0 : 0.65);
+
+    completeEntryGuard();
 
     video.muted = !initialMuted;
     video.dispatchEvent(new Event("volumechange"));
     assert.equal(video.muted, !initialMuted);
+    assert.equal(video.volume, 0.65);
 
     video.dispatchEvent(new Event("webkitendfullscreen"));
     assert.equal(video.muted, !initialMuted);
     assert.equal(video.defaultMuted, !initialMuted);
+    assert.equal(video.volume, 0.65);
     assert.deepEqual(carriedStates, [!initialMuted]);
+    assert.equal(clearedTimer, null);
 
     video.muted = initialMuted;
     video.dispatchEvent(new Event("volumechange"));

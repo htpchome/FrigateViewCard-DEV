@@ -48,14 +48,23 @@ const isIosFullscreenPlatform = (navigatorObj) =>
 
 const createNativeVideoMuteGuard = (
   video,
-  { onMutedStateChange = () => {} } = {},
+  {
+    onMutedStateChange = () => {},
+    setTimer = globalThis.setTimeout?.bind(globalThis),
+    clearTimer = globalThis.clearTimeout?.bind(globalThis),
+    entryGuardMs = 1000,
+  } = {},
 ) => {
   const initialMuted = video?.muted === true;
   const initialDefaultMuted = video?.defaultMuted === true;
+  const initialVolume = Number.isFinite(Number(video?.volume))
+    ? Number(video.volume)
+    : 1;
   let applying = false;
   let active = true;
   let enteredFullscreen = false;
   let entrySettled = false;
+  let entryTimer = null;
 
   const apply = () => {
     if (!active || !video) return;
@@ -63,6 +72,10 @@ const createNativeVideoMuteGuard = (
     try {
       video.defaultMuted = initialMuted;
       video.muted = initialMuted;
+      if (initialMuted && typeof video.volume === "number") video.volume = 0;
+      if (!initialMuted && typeof video.volume === "number") {
+        video.volume = initialVolume;
+      }
     } catch (_) {}
     applying = false;
   };
@@ -78,6 +91,8 @@ const createNativeVideoMuteGuard = (
   const cleanup = () => {
     if (!active) return;
     active = false;
+    if (entryTimer != null) clearTimer?.(entryTimer);
+    entryTimer = null;
     removeListeners();
   };
   const cancel = () => {
@@ -85,25 +100,64 @@ const createNativeVideoMuteGuard = (
     try {
       video.defaultMuted = initialDefaultMuted;
       video.muted = initialMuted;
+      if (typeof video.volume === "number") video.volume = initialVolume;
     } catch (_) {}
   };
   const finish = () => {
     const finalMuted = entrySettled ? video?.muted === true : initialMuted;
+    const fullscreenVolume = Number(video?.volume);
     cleanup();
     try {
       video.defaultMuted = finalMuted;
       video.muted = finalMuted;
+      if (typeof video.volume === "number") {
+        video.volume =
+          !finalMuted && Number.isFinite(fullscreenVolume) && fullscreenVolume > 0
+            ? fullscreenVolume
+            : initialVolume;
+      }
     } catch (_) {}
     onMutedStateChange(finalMuted);
   };
   const onVolumeChange = () => {
-    if (!applying && !entrySettled && video?.muted !== initialMuted) apply();
+    if (applying) return;
+    if (!entrySettled) {
+      if (
+        video?.muted !== initialMuted ||
+        (initialMuted && Number(video?.volume) !== 0)
+      ) {
+        apply();
+      }
+      return;
+    }
+    if (
+      initialMuted &&
+      video?.muted === false &&
+      Number(video?.volume) === 0 &&
+      typeof video.volume === "number"
+    ) {
+      applying = true;
+      try {
+        video.volume = initialVolume;
+      } catch (_) {}
+      applying = false;
+    }
   };
-  const settleEntry = () => {
+  const completeEntryGuard = () => {
     if (!active || entrySettled) return;
-    enteredFullscreen = true;
     apply();
     entrySettled = true;
+    entryTimer = null;
+  };
+  const settleEntry = () => {
+    if (!active || enteredFullscreen) return;
+    enteredFullscreen = true;
+    apply();
+    if (typeof setTimer === "function") {
+      entryTimer = setTimer(completeEntryGuard, entryGuardMs);
+    } else {
+      completeEntryGuard();
+    }
   };
   const onBeginFullscreen = () => settleEntry();
   const onEndFullscreen = () => finish();
@@ -133,6 +187,9 @@ export function requestMediaFullscreen({
   preferNativeVideoFullscreen = false,
   preserveNativeVideoMutedState = false,
   onNativeVideoMutedStateChange = () => {},
+  nativeVideoEntryGuardMs = 1000,
+  setTimer = globalThis.setTimeout?.bind(globalThis),
+  clearTimer = globalThis.clearTimeout?.bind(globalThis),
   navigatorObj = globalThis.navigator,
   onBeginNativeVideoFullscreen = () => {},
   onBeginDocumentFullscreen = () => {},
@@ -159,6 +216,9 @@ export function requestMediaFullscreen({
       const muteGuard = preserveNativeVideoMutedState
         ? createNativeVideoMuteGuard(video, {
             onMutedStateChange: onNativeVideoMutedStateChange,
+            setTimer,
+            clearTimer,
+            entryGuardMs: nativeVideoEntryGuardMs,
           })
         : null;
       onBeginNativeVideoFullscreen(video);

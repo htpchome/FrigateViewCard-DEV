@@ -133,6 +133,12 @@ mute change made in the native fullscreen controls is then carried back to the
 live or popup video on exit. Other clients retain their existing audio and
 fullscreen behavior.
 
+`v1.1.8-dev.160` extends that Catalyst-only mute guard across the asynchronous
+native fullscreen transition. Muted entry also holds the media volume at zero
+through that one-second transition window because Catalyst can initialize its
+native presentation after the synchronous fullscreen request. Once entry is
+settled, native mute changes are accepted and still carried back on exit.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through
