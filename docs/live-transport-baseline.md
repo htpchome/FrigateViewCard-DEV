@@ -94,6 +94,15 @@ before attempting a new `camera/stream` request. The retained-player pool is
 bounded by the card's configured-camera limit and is released with the card;
 normal HA Direct and Frigate go2rtc retention are unchanged.
 
+`v1.1.8-dev.155` separates dormant HA-session retention from reuse of its
+native HLS URL. The hidden player may continue retaining Home Assistant state,
+but after the existing 20-second switch window Catalyst releases that aged URL
+and requests a fresh one when the camera is selected. Reuse inside the window
+must also demonstrate new playback progress within 3.5 seconds; a player that
+only exposes old buffered readiness is replaced through the same fresh mount.
+During either check the selected camera's snapshot remains visible and refreshes
+instead of declaring the stale element to be live HLS.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

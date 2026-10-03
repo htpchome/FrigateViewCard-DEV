@@ -12,6 +12,31 @@ import {
 const CATALYST_HLS_VISIBLE_STYLE =
   "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
 const CATALYST_HLS_WAIT_MS = 8000;
+const CATALYST_HLS_RESUME_WAIT_MS = 3500;
+
+const readDecodedFrames = (video) => {
+  try {
+    return (
+      Number(video?.webkitDecodedFrameCount) ||
+      Number(video?.getVideoPlaybackQuality?.()?.totalVideoFrames) ||
+      0
+    );
+  } catch (_) {
+    return 0;
+  }
+};
+
+const buildRetainedResumeReadiness = (video) => {
+  const currentTime = Number(video?.currentTime);
+  const decodedFrames = readDecodedFrames(video);
+  return {
+    minCurrentTime:
+      (Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0) + 0.05,
+    minDecodedFrames: Math.max(0, decodedFrames) + 1,
+    requireReadyState: 2,
+    strict: true,
+  };
+};
 
 export function createCatalystHlsMounter({
   getHass,
@@ -22,6 +47,7 @@ export function createCatalystHlsMounter({
   assignCommittedEngine,
   onCommittedMediaReady,
   onCommittedStream,
+  onPendingStream,
   applyResolvedStreamUiState,
   startLoadingFallbackRefresh,
   stopLoadingFallbackRefresh,
@@ -103,7 +129,10 @@ export function createCatalystHlsMounter({
       onCommittedStream?.("snapshot");
       applyResolvedStreamUiState?.(resolveHaDirectFailedState());
     }
-    if (binding.resumeOnFailure) scheduleResumeLive?.("hls-error");
+    if (binding.resumeOnFailure) {
+      scheduleResumeLive?.("hls-error");
+      return;
+    }
     watchLateRecovery(engine, binding);
   };
 
@@ -160,12 +189,55 @@ export function createCatalystHlsMounter({
     slot.innerHTML = "";
     slot.appendChild(engine);
     assignCommittedEngine?.(engine);
-    bindEngine(engine, { resumeOnFailure: true });
+    const binding = bindEngine(engine, { resumeOnFailure: true });
+    onPendingStream?.();
+    applyResolvedStreamUiState?.({
+      loading: true,
+      fallbackVisible: true,
+      refreshFallbackImage: true,
+    });
+    binding.stopLoadingFallbackRefresh =
+      startLoadingFallbackRefresh?.({ preserveRenderedFrame: true }) ||
+      (() => {});
     if (getRotateOverlayActive()) setLiveNativeControls?.(true);
-    applyReady(engine, engine);
-    void engine
-      .play?.()
-      .catch?.(() => scheduleResumeLive?.("hls-error"));
+    void (async () => {
+      try {
+        await engine.play?.();
+      } catch (_) {
+        applyFailed(engine);
+        return;
+      }
+      if (binding.disposed || binding.failed || !isCurrentEngine(engine)) {
+        return;
+      }
+
+      let readyVideo = null;
+      let resumed = false;
+      try {
+        resumed = await waitForStreamStart(
+          engine,
+          CATALYST_HLS_RESUME_WAIT_MS,
+          {
+            ...buildRetainedResumeReadiness(engine),
+            abortSignal: binding.abortController.signal,
+            resolveVideo: () => findActiveHaCameraStreamVideo(engine),
+            onVideoReady: (video) => {
+              readyVideo = video;
+            },
+          },
+        );
+      } catch (_) {
+        resumed = false;
+      }
+      if (binding.disposed || binding.failed || !isCurrentEngine(engine)) {
+        return;
+      }
+      if (!resumed) {
+        applyFailed(engine);
+        return;
+      }
+      applyReady(engine, readyVideo || engine);
+    })();
     return true;
   };
 

@@ -156,6 +156,8 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     "catalyst-video",
     { host: engineHost, interactionTarget: engineHost },
   ]);
+  optionsByFactory.catalystHlsMounter.onPendingStream();
+  assert.deepEqual(calls.at(-1), ["stream-type", "--"]);
 
   optionsByFactory.go2rtcMounter.resetMseDiagnostics(100);
   optionsByFactory.go2rtcMounter.markMseChunk(125);

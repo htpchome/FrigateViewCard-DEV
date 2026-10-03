@@ -146,6 +146,7 @@ export const createLiveTransportControllers = (
       card._setStreamLoading(false);
       card._setStreamFallbackVisible(false);
     },
+    onPendingStream: () => card._setActiveStreamType("--"),
     applyResolvedStreamUiState: (streamState) =>
       card._applyResolvedStreamUiState(streamState),
     startLoadingFallbackRefresh: (options) =>

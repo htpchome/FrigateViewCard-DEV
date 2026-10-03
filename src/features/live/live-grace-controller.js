@@ -301,6 +301,7 @@ export function createLiveGraceController({
     const entry = {
       engine,
       cancelled: false,
+      retainedAt: Date.now(),
       timer: null,
     };
     entry.graceOrder = ++graceEntrySequence;
@@ -388,6 +389,16 @@ export function createLiveGraceController({
     if (!key) return null;
     const entry = catalystHlsRetainedPool.get(key);
     if (!entry) return null;
+    const reuseMs = Math.max(0, Number(graceMs) || 0);
+    const retainedAt = Number(entry.retainedAt) || 0;
+    if (
+      reuseMs === 0 ||
+      retainedAt === 0 ||
+      Date.now() - retainedAt >= reuseMs
+    ) {
+      evictRetainedCatalystHlsEntry(key);
+      return null;
+    }
     if (entry.timer) clearTimeout(entry.timer);
     catalystHlsRetainedPool.delete(key);
     return entry;
