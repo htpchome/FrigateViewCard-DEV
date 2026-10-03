@@ -405,6 +405,81 @@ test("live mount controller delegates ha-direct mounts outside the card shell", 
   assert.equal(mountState.mountInProgress, false);
 });
 
+test("Catalyst mounts through the dedicated HLS side path", async () => {
+  const calls = [];
+  const slot = { innerHTML: "occupied" };
+  let mountState = {
+    mountSeq: 0,
+    mountInProgress: false,
+    mountStartedAt: 0,
+    mountTargetEntity: "",
+  };
+  const controller = createLiveMountController({
+    getSlot: () => slot,
+    isPreviewPageActive: () => false,
+    getViewMode: () => "single",
+    isGridModeAvailable: () => true,
+    getMountInProgress: () => mountState.mountInProgress,
+    getMountTargetEntity: () => mountState.mountTargetEntity,
+    getMountState: () => mountState,
+    applyMountTrackingState: (nextState) => {
+      mountState = nextState;
+    },
+    cleanupEngine: () => calls.push(["cleanup"]),
+    getStreamMuted: () => true,
+    setEngineMountedMuted: () => {},
+    liveGraceController: {
+      takeGraceHaDirectEntry: () => {
+        throw new Error("Catalyst must not enter HA Direct grace reuse");
+      },
+      takeGraceMseEntry: () => null,
+    },
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    catalystHlsMounter: {
+      tryMount: async (...args) => {
+        calls.push(["catalyst", ...args]);
+        return { ok: true };
+      },
+    },
+    haDirectMounter: {
+      tryMount: async () => {
+        throw new Error("normal HA Direct must not mount on Catalyst");
+      },
+    },
+    go2rtcRaceMounter: {
+      mountWithRace: async () => {
+        throw new Error("go2rtc must not mount for HA Direct");
+      },
+    },
+    preferredStreamType: () => "webrtc",
+    setActiveStreamType: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    scheduleResumeLive: () => {},
+    resolveUseGo2Rtc: () => false,
+    shouldUseCatalystHls: () => true,
+    takeEditorLiveHandoff: () => {
+      throw new Error("Catalyst must not enter WebRTC editor handoff");
+    },
+  });
+
+  assert.equal(
+    await controller.mount({
+      entity: "camera.front",
+      forcedType: "webrtc",
+    }),
+    true,
+  );
+  assert.equal(calls[0][0], "cleanup");
+  assert.deepEqual(calls[1], [
+    "catalyst",
+    slot,
+    { streamType: "hls" },
+    { entity: "camera.front", commit: true },
+  ]);
+});
+
 test("HA-direct mount ownership prevents lifecycle callbacks from replacing startup", async () => {
   const slot = { innerHTML: "occupied" };
   let mountState = {

@@ -41,6 +41,12 @@ two-way-talk, Frigate go2rtc, or non-Apple playback paths.
 HA Direct once again starts HLS and WebRTC concurrently, commits the first
 usable HLS picture immediately, and lets a ready WebRTC connection take over.
 
+`v1.1.8-dev.145` separates Mac Catalyst from that normal HA Direct startup
+controller. Catalyst uses a dedicated Home Assistant-authenticated native HLS
+mount with no receive-only WebRTC creation, startup race, retained WebRTC
+handoff, or later WebRTC takeover. Non-Catalyst HA Direct behavior retains the
+established HLS/WebRTC race and takeover contract below.
+
 `v1.1.8-dev.65` remains the fallback point predating HA playback-component
 preloading. It restores the behavior from `v1.1.8-dev.57` after reverting the
 Catalyst-native Frigate go2rtc HLS/MP4 experiments from `v1.1.8-dev.58` through

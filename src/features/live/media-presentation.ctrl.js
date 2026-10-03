@@ -14,7 +14,11 @@ export class LiveMediaPresentationController {
       return;
     }
     if (options.retainPrevious !== true) {
-      host._haDirectMounter?.release?.(host._engine);
+      if (host._engine?.catalystHls === true) {
+        host._catalystHlsMounter?.release?.(host._engine);
+      } else {
+        host._haDirectMounter?.release?.(host._engine);
+      }
     }
     this.clearVideoZoom();
     host._clearPictureInPictureButtonController("live");

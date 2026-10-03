@@ -284,6 +284,7 @@ export function createLiveMountController({
   liveGraceController,
   getPendingMountDestroyers,
   setPendingMountDestroyers,
+  catalystHlsMounter,
   haDirectMounter,
   haDirectTwoWayTalkMounter,
   go2rtcRaceMounter,
@@ -293,6 +294,7 @@ export function createLiveMountController({
   setStreamFallbackVisible,
   scheduleResumeLive,
   resolveUseGo2Rtc,
+  shouldUseCatalystHls,
   isCameraRuntimeSuspended,
   applyCameraSuspendedState,
   takeEditorLiveHandoff,
@@ -419,8 +421,12 @@ export function createLiveMountController({
     const hasTwoWayTalkOptions = Boolean(
       twoWayTalkOptions?.microphoneStream,
     );
+    const useCatalystHls =
+      !useGo2Rtc &&
+      !hasTwoWayTalkOptions &&
+      shouldUseCatalystHls?.() === true;
 
-    if (!useGo2Rtc && !hasTwoWayTalkOptions) {
+    if (!useGo2Rtc && !hasTwoWayTalkOptions && !useCatalystHls) {
       const graceHaDirectEntry =
         liveGraceController.takeGraceHaDirectEntry?.(
           targetEntity,
@@ -597,6 +603,26 @@ export function createLiveMountController({
         forcedType,
         preferredStreamType: preferredStreamType?.(),
       });
+
+      if (useCatalystHls) {
+        if (!catalystHlsMounter?.tryMount) return false;
+        const catalystResult = await catalystHlsMounter.tryMount(
+          slot,
+          { streamType: "hls" },
+          {
+            entity: targetEntity,
+            commit: true,
+          },
+        );
+        if (!catalystResult?.ok) return false;
+        setEngineMountedMuted?.(getStreamMuted?.());
+        if (catalystResult.startupReady?.then) {
+          try {
+            await catalystResult.startupReady;
+          } catch (_) {}
+        }
+        return true;
+      }
 
       if (transportPlan.mode === "ha-direct") {
         const directMounter = hasTwoWayTalkOptions

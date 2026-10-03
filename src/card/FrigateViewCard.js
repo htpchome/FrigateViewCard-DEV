@@ -1142,10 +1142,12 @@ export class FrigateViewCard extends HTMLElement {
       )
         ? this._slideshowFeatureController.prepare()
         : Promise.resolve(null);
-    const haDirectPlaybackPreparation = flattenCameraMembers(
+    const livePlaybackPreparation = flattenCameraMembers(
       this._config.cameras,
     ).some((camera) => !this._shouldUseGo2RtcForEntity(camera.entity))
-      ? this._haDirectMounter?.prepare?.()
+      ? this._isCatalyst()
+        ? this._catalystHlsMounter?.prepare?.()
+        : this._haDirectMounter?.prepare?.()
       : Promise.resolve(false);
 
     await Promise.all([
@@ -1153,7 +1155,7 @@ export class FrigateViewCard extends HTMLElement {
       landingPagePreparation,
       gridLandingPreparation,
       slideshowLandingPreparation,
-      haDirectPlaybackPreparation,
+      livePlaybackPreparation,
     ]);
     if (this._editorPreviewController.renderCardPickerDemo()) {
       this._applyCardStyle();

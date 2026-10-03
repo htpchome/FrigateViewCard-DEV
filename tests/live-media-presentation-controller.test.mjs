@@ -73,6 +73,29 @@ test("live media presentation refreshes an unchanged video attachment", () => {
   });
 });
 
+test("live media presentation releases Catalyst HLS through its side path", () => {
+  const previousEngine = { catalystHls: true };
+  const nextEngine = {};
+  const calls = [];
+  const host = {
+    _engine: previousEngine,
+    _catalystHlsMounter: {
+      release: (engine) => calls.push(["release-catalyst", engine]),
+    },
+    _haDirectMounter: {
+      release: () => calls.push(["release-ha"]),
+    },
+    _clearPictureInPictureButtonController: () => {},
+    _liveViewResizeController: { attachMedia: () => {} },
+  };
+  const controller = new LiveMediaPresentationController(host);
+  controller.attachVideoZoom = () => {};
+
+  controller.assignEngine(nextEngine);
+
+  assert.deepEqual(calls, [["release-catalyst", previousEngine]]);
+});
+
 test("live media presentation suspends zoom during rotate overlays", () => {
   const suspended = [];
   const host = {

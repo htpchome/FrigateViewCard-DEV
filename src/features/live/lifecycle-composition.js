@@ -55,7 +55,9 @@ export const createLiveLifecycleControllers = (
       card._setStreamFallbackVisible(visible, refreshImage),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
     releaseHaDirectEngine: (engine) =>
-      card._haDirectMounter?.release?.(engine),
+      engine?.catalystHls === true
+        ? card._catalystHlsMounter?.release?.(engine)
+        : card._haDirectMounter?.release?.(engine),
     adoptHaDirectWebRtcEngine: (engine) =>
       card._haDirectMounter?.adoptRetainedWebRtcEngine?.(engine),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
@@ -163,6 +165,7 @@ export const createLiveLifecycleControllers = (
     setPendingMountDestroyers: (pendingDestroyers) => {
       card._pendingMountDestroyers = pendingDestroyers;
     },
+    catalystHlsMounter: card._catalystHlsMounter,
     haDirectMounter: card._haDirectMounter,
     haDirectTwoWayTalkMounter: card._haDirectTwoWayTalkMounter,
     go2rtcRaceMounter: card._go2rtcRaceMounter,
@@ -173,6 +176,7 @@ export const createLiveLifecycleControllers = (
       card._setStreamFallbackVisible(visible, refreshImage),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     resolveUseGo2Rtc: (entity) => card._shouldUseGo2RtcForEntity(entity),
+    shouldUseCatalystHls: () => card._isCatalyst?.() === true,
     isCameraRuntimeSuspended: (entity) =>
       card._frigateCameraRuntimeController?.isSuspended?.(entity) === true,
     applyCameraSuspendedState: (entity) =>

@@ -58,6 +58,9 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
       calls.push(["adopt-retained-ha", engine]),
     detachWebRtcForHandoff: (engine) => engine !== "blocked-engine",
   };
+  const catalystHlsMounter = {
+    release: (engine) => calls.push(["release-catalyst", engine]),
+  };
   const card = {
     shadowRoot: {
       querySelector: (selector) =>
@@ -83,6 +86,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     _dashboardLiveGraceActive: true,
     _mseChunkCount: 0,
     _haDirectMounter: haDirectMounter,
+    _catalystHlsMounter: catalystHlsMounter,
     _haDirectTwoWayTalkMounter: { name: "ha-talk-mounter" },
     _go2rtcRaceMounter: { name: "go2rtc-race" },
     _editorPreviewController: {
@@ -124,6 +128,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
       calls.push(["mount-tracking", state]),
     _cleanupEngine: () => calls.push(["cleanup-engine"]),
     _preferredStreamType: () => "webrtc",
+    _isCatalyst: () => true,
   };
 
   const controllers = createLiveLifecycleControllers(card, {
@@ -144,6 +149,11 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   );
   assert.strictEqual(optionsByFactory.liveMount.liveGraceController, liveGraceController);
   assert.strictEqual(optionsByFactory.liveMount.haDirectMounter, haDirectMounter);
+  assert.strictEqual(
+    optionsByFactory.liveMount.catalystHlsMounter,
+    catalystHlsMounter,
+  );
+  assert.equal(optionsByFactory.liveMount.shouldUseCatalystHls(), true);
   assert.strictEqual(
     optionsByFactory.liveMount.haDirectTwoWayTalkMounter,
     card._haDirectTwoWayTalkMounter,
@@ -254,9 +264,15 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   optionsByFactory.liveGrace.setStreamFallbackVisible(true, true);
   assert.deepEqual(calls.at(-1), ["fallback", true, true]);
   optionsByFactory.liveGrace.releaseHaDirectEngine("ha-engine");
+  const catalystEngine = {
+    catalystHls: true,
+    id: "catalyst-engine",
+  };
+  optionsByFactory.liveGrace.releaseHaDirectEngine(catalystEngine);
   optionsByFactory.liveGrace.adoptHaDirectWebRtcEngine("ha-engine");
-  assert.deepEqual(calls.slice(-2), [
+  assert.deepEqual(calls.slice(-3), [
     ["release-ha", "ha-engine"],
+    ["release-catalyst", catalystEngine],
     ["adopt-retained-ha", "ha-engine"],
   ]);
 });

@@ -10,6 +10,7 @@ import { createHaDirectTwoWayTalkMounter } from "../../integrations/home-assista
 import { waitForMediaStart } from "../../shared/media/first-frame.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import { createGo2RtcTwoWayTalkBackchannel } from "../two-way-talk/go2rtc-backchannel.js";
+import { createCatalystHlsMounter } from "./catalyst-hls-mounter.js";
 import { createGo2RtcMounter } from "./go2rtc-mounter.js";
 import { createGo2RtcRaceMounter } from "./go2rtc-race-mounter.js";
 import { createHaDirectMounter } from "./ha-direct-mounter.js";
@@ -21,6 +22,7 @@ import {
 const DEFAULT_FACTORIES = Object.freeze({
   createGo2RtcResolver,
   createGo2RtcTwoWayTalkBackchannel,
+  createCatalystHlsMounter,
   createGo2RtcMounter,
   createHaDirectMounter,
   createHaDirectTwoWayTalkMounter,
@@ -121,9 +123,36 @@ export const createLiveTransportControllers = (
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     shouldUseNativeHls: () =>
       deviceProfile.isIOS === true ||
-      deviceProfile.isCatalyst === true ||
       card._isSafari(),
     scopeKey: card,
+  });
+  const catalystHlsMounter = resolvedFactories.createCatalystHlsMounter({
+    getHass: () => card._hass,
+    getStreamMuted: () => card._streamMuted,
+    getRotateOverlayActive: () => card._rotateOverlayActive,
+    isCurrentEngine: (streamEl) => card._engine === streamEl,
+    waitForStreamStart,
+    assignCommittedEngine: (engine, options) =>
+      card._assignLiveEngine(engine, options),
+    onCommittedMediaReady: (engine, video) => {
+      const liveEngineHost = card._$("#engine");
+      card._attachMainLiveVideoZoom(engine, video, {
+        host: liveEngineHost,
+        interactionTarget: liveEngineHost,
+      });
+    },
+    onCommittedStream: (type) => {
+      card._setActiveStreamType(type);
+      card._setStreamLoading(false);
+      card._setStreamFallbackVisible(false);
+    },
+    applyResolvedStreamUiState: (streamState) =>
+      card._applyResolvedStreamUiState(streamState),
+    startLoadingFallbackRefresh: () =>
+      card._startStreamFallbackLoadingRefresh(),
+    stopLoadingFallbackRefresh: () =>
+      card._stopStreamFallbackLoadingRefresh(),
+    setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
   });
   const haDirectTwoWayTalkMounter =
     resolvedFactories.createHaDirectTwoWayTalkMounter({
@@ -190,6 +219,7 @@ export const createLiveTransportControllers = (
     _go2rtcResolver: go2rtcResolver,
     _go2rtcTwoWayTalkBackchannel: go2rtcTwoWayTalkBackchannel,
     _go2rtcMounter: go2rtcMounter,
+    _catalystHlsMounter: catalystHlsMounter,
     _haDirectMounter: haDirectMounter,
     _haDirectTwoWayTalkMounter: haDirectTwoWayTalkMounter,
     _haDirectTwoWayTalkBackchannel: haDirectTwoWayTalkBackchannel,

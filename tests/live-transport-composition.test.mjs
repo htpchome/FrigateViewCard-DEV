@@ -19,6 +19,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     createGo2RtcTwoWayTalkBackchannel: createFactory(
       "go2rtcTwoWayTalkBackchannel",
     ),
+    createCatalystHlsMounter: createFactory("catalystHlsMounter"),
     createGo2RtcMounter: createFactory("go2rtcMounter"),
     createHaDirectMounter: createFactory("haDirectMounter"),
     createHaDirectTwoWayTalkMounter: createFactory(
@@ -81,6 +82,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     "_go2rtcResolver",
     "_go2rtcTwoWayTalkBackchannel",
     "_go2rtcMounter",
+    "_catalystHlsMounter",
     "_haDirectMounter",
     "_haDirectTwoWayTalkMounter",
     "_haDirectTwoWayTalkBackchannel",
@@ -105,6 +107,9 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
   deviceProfile.isIOS = true;
   assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), true);
+  deviceProfile.isIOS = false;
+  deviceProfile.isCatalyst = true;
+  assert.equal(optionsByFactory.haDirectMounter.shouldUseNativeHls(), false);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMobile, true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(7), true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(6), false);
@@ -139,6 +144,16 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     "zoom",
     "ha-engine",
     "ha-video",
+    { host: engineHost, interactionTarget: engineHost },
+  ]);
+  optionsByFactory.catalystHlsMounter.onCommittedMediaReady(
+    "catalyst-engine",
+    "catalyst-video",
+  );
+  assert.deepEqual(calls.at(-1), [
+    "zoom",
+    "catalyst-engine",
+    "catalyst-video",
     { host: engineHost, interactionTarget: engineHost },
   ]);
 

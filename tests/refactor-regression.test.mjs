@@ -197,6 +197,10 @@ const haDirectMounterSource = fs.readFileSync(
   new URL("../src/features/live/ha-direct-mounter.js", import.meta.url),
   "utf8",
 );
+const catalystHlsMounterSource = fs.readFileSync(
+  new URL("../src/features/live/catalyst-hls-mounter.js", import.meta.url),
+  "utf8",
+);
 const haDirectTwoWayTalkMounterSource = fs.readFileSync(
   new URL(
     "../src/integrations/home-assistant/two-way-talk-mounter.js",
@@ -649,6 +653,12 @@ test("live transport ownership is pulled out of the card shell", () => {
     true,
   );
   assert.equal(
+    liveTransportCompositionSource.includes(
+      "const catalystHlsMounter = resolvedFactories.createCatalystHlsMounter",
+    ),
+    true,
+  );
+  assert.equal(
     cardSource.includes(
       'import { createLiveGraceController } from "../features/live/live-grace-controller.js";',
     ),
@@ -786,6 +796,16 @@ test("live transport ownership is pulled out of the card shell", () => {
   assert.equal(
     haDirectMounterSource.includes("createHaHlsPlayerElement"),
     true,
+  );
+  assert.equal(
+    catalystHlsMounterSource.includes(
+      "export function createCatalystHlsMounter",
+    ),
+    true,
+  );
+  assert.equal(
+    catalystHlsMounterSource.includes("createHaDirectWebRtcPlayback"),
+    false,
   );
   assert.equal(
     haDirectTwoWayTalkMounterSource.includes(
@@ -984,7 +1004,7 @@ test("live transport ownership is pulled out of the card shell", () => {
     true,
   );
   assert.equal(
-    /mount\s*=\s*async\s*\(\{[\s\S]*?const directMounter = hasTwoWayTalkOptions[\s\S]*?haDirectTwoWayTalkMounter[\s\S]*?haDirectMounter;[\s\S]*?directMounter\.tryMount\([\s\S]*?streamType: transportPlan\.streamType/.test(
+    /mount\s*=\s*async\s*\(\{[\s\S]*?if \(useCatalystHls\)[\s\S]*?catalystHlsMounter\.tryMount\([\s\S]*?streamType: "hls"[\s\S]*?if \(transportPlan\.mode === "ha-direct"\)[\s\S]*?const directMounter = hasTwoWayTalkOptions[\s\S]*?haDirectTwoWayTalkMounter[\s\S]*?haDirectMounter;[\s\S]*?directMounter\.tryMount\([\s\S]*?streamType: transportPlan\.streamType/.test(
       liveMountControllerSource,
     ),
     true,
