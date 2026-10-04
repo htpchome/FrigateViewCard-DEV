@@ -9,19 +9,119 @@ const failed = Object.freeze({ hasVideo: false, hasAudio: false });
 const fixture = (options = {}) => {
   const video = Object.assign(new EventTarget(), {
     currentTime: 10, readyState: 4, videoWidth: 160, paused: false,
+    getAttribute: () => null,
   });
   const player = { isConnected: true, _errorIsFatal: false,
     shadowRoot: { querySelector: () => video } };
   let child = player;
   let updates = 0;
-  const provider = { _streams: upstreamHaCameraStreamSelector,
+  const ownerDocument = Object.assign(new EventTarget(), { hidden: false });
+  const provider = { _streams: upstreamHaCameraStreamSelector, ownerDocument,
     shadowRoot: { querySelector: () => child }, requestUpdate: () => { updates += 1; } };
   const recovery = createHaCameraHlsRecovery(provider, options);
   preserveHaCameraHlsFallback(provider, undefined, { hlsRecovery: recovery });
   const select = (hls, rtc, types = ["hls", "web_rtc"]) => provider._streams(types, hls, rtc, true);
-  return { video, player, recovery, select, updates: () => updates,
+  return { video, player, recovery, select, ownerDocument, updates: () => updates,
     setChild: (value) => { child = value; } };
 };
+
+test("an expired master after background cleanup stays mounted before HA reports an error", async () => {
+  let requests = 0;
+  let respond;
+  const f = fixture({ requestHls: () => {
+    requests += 1;
+    return new Promise((resolve) => { respond = resolve; });
+  } });
+  f.select(good, failed);
+  // HA's hidden-tab cleanup empties the video. On return an expired master
+  // reports streams:false BEFORE Hls.js exists or emits a retryable error.
+  f.video.readyState = 0;
+  f.video.currentTime = 0;
+  assert.deepEqual(f.select(failed, failed, ["hls"]), [{ type: "hls", visible: true }]);
+  // MEDIA_ATTACHED resets the native error and adds a blob URL while the HA
+  // websocket URL request is still pending. This is not successful playback.
+  f.video.getAttribute = () => "blob:synthetic";
+  respond({ url: "/api/hls/resumed/master_playlist.m3u8" });
+  await Promise.resolve();
+  assert.equal(requests, 1);
+  assert.equal(f.player.url, "/api/hls/resumed/master_playlist.m3u8");
+  f.recovery.dispose();
+});
+
+test("a failed manifest with the same HA URL reloads through the existing player's public input", async () => {
+  const url = "/api/hls/retained/master_playlist.m3u8";
+  const f = fixture({ requestHls: async () => ({ url }) });
+  f.player._url = url;
+  f.player.url = url;
+  f.player._hlsPolyfillInstance = { levels: [] };
+  const updates = [];
+  f.player.requestUpdate = (...args) => updates.push(args);
+  f.player._error = "Stream never started";
+  f.select(failed);
+  await Promise.resolve();
+  assert.deepEqual(updates, [["url", undefined]], "startLoad cannot retry an unparsed manifest");
+  f.recovery.dispose();
+});
+
+test("background failures wait for visibility and late responses cannot reset resumed playback", async () => {
+  let requests = 0;
+  let respond;
+  const f = fixture({ requestHls: () => {
+    requests += 1;
+    return new Promise((resolve) => { respond = resolve; });
+  } });
+  f.select(good, failed);
+  f.ownerDocument.hidden = true;
+  f.player._error = "Stream network error";
+  f.select(failed, failed);
+  assert.equal(requests, 0);
+  // HA resets its error before starting the old URL on foreground return.
+  f.player._error = undefined;
+  f.video.readyState = 0;
+  f.ownerDocument.hidden = false;
+  f.ownerDocument.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(requests, 0, "HA is already starting the cleared player; do not race its master fetch");
+  f.select({ ...failed }, failed);
+  assert.equal(requests, 1);
+  f.select(good, failed);
+  respond({ url: "/api/hls/late/master_playlist.m3u8" });
+  await Promise.resolve();
+  assert.equal(f.player.url, undefined);
+  f.recovery.dispose();
+  f.ownerDocument.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(requests, 1);
+});
+
+test("a short hidden interruption resumes a deferred retry without a native restart", async () => {
+  let requests = 0;
+  const f = fixture({ requestHls: async () => {
+    requests += 1;
+    return { url: "/api/hls/recovered/master_playlist.m3u8" };
+  } });
+  f.select(good, failed);
+  f.ownerDocument.hidden = true;
+  f.player._error = "Stream network error";
+  f.select(failed, failed);
+  assert.equal(requests, 0);
+  f.ownerDocument.hidden = false;
+  f.ownerDocument.dispatchEvent(new Event("visibilitychange"));
+  await Promise.resolve();
+  assert.equal(requests, 1);
+  assert.equal(f.player.url, "/api/hls/recovered/master_playlist.m3u8");
+  f.recovery.dispose();
+});
+
+test("short background returns and healthy HLS never request a replacement URL", () => {
+  let requests = 0;
+  const f = fixture({ requestHls: async () => { requests += 1; return {}; } });
+  f.select(good, failed);
+  f.ownerDocument.hidden = true;
+  f.ownerDocument.dispatchEvent(new Event("visibilitychange"));
+  f.ownerDocument.hidden = false;
+  f.ownerDocument.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(requests, 0);
+  f.recovery.dispose();
+});
 
 test("retryable HLS stays mounted for native recovery with pending or failed WebRTC", () => {
   for (const rtc of [undefined, failed]) {

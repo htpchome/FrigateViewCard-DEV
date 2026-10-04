@@ -29,7 +29,10 @@ test.beforeAll(async () => {
       return;
     }
     try {
-      if (url.pathname === "/hls.mjs") {
+      if (url.pathname.startsWith("/src/") || url.pathname.startsWith("/tests/fixtures/")) {
+        response.setHeader("content-type", "text/javascript");
+        response.end(await readFile(`.${url.pathname}`));
+      } else if (url.pathname === "/hls.mjs") {
         response.setHeader("content-type", "text/javascript");
         response.end(await readFile("node_modules/hls.js/dist/hls.light.mjs"));
       } else if (url.pathname === "/policy.js") {
@@ -50,6 +53,106 @@ test.beforeAll(async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
+
+for (const failure of ["expired master", "unparsed manifest"]) {
+  for (const webRtc of [false, true]) {
+    test(`HA Direct resumes ${failure} after background cleanup with ${webRtc ? "blocked WebRTC" : "HLS only"}`, async ({ page }) => {
+      let generation = 0;
+      let rejectManifest = false;
+      const errors = [];
+      const requests = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("request", (request) => requests.push(request.url()));
+      await page.route("**/master.m3u8?**", (route) => {
+        const url = new URL(route.request().url());
+        const expired = Number(url.searchParams.get("generation")) !== generation;
+        return route.fulfill({ status: expired ? 404 : 200, contentType: "application/vnd.apple.mpegurl",
+          body: expired ? "Stream no longer exists" : '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=400000,CODECS="avc1.42e01e,mp4a.40.2"\n' +
+            `/playlist.m3u8?${url.searchParams}\n` });
+      });
+      await page.route("**/playlist.m3u8?**", (route) => {
+        if (!rejectManifest || new URL(route.request().url()).searchParams.get("entity") !== "camera.one") return route.continue();
+        rejectManifest = false;
+        return route.fulfill({ status: 200, body: "Upstream is restarting" });
+      });
+      await page.goto(baseUrl);
+      await page.evaluate(async (webRtc) => {
+        const { default: Hls } = await import("/hls.mjs");
+        const { installHaHlsBackgroundFixture } = await import("/tests/fixtures/ha-hls-background.mjs");
+        const audit = installHaHlsBackgroundFixture(Hls, { webRtc });
+        const { createHaDirectCameraProvider } = await import("/src/integrations/home-assistant/camera-provider.js");
+        const p = window.backgroundProbe = { audit, generation: 0, requests: [], entries: [], states: new Map() };
+        p.setHidden = (hidden) => {
+          Object.defineProperty(document, "hidden", { configurable: true, value: hidden });
+          document.dispatchEvent(new Event("visibilitychange"));
+        };
+        for (const entity_id of ["camera.one", "camera.two"]) {
+          const entry = createHaDirectCameraProvider({ stateObj: { entity_id, attributes: {} },
+            hass: { callWS: async (message) => {
+              p.requests.push(message.entity_id);
+              return { url: `/master.m3u8?entity=${message.entity_id}&generation=${p.generation}` };
+            } }, onState: (state) => p.states.set(entity_id, state) });
+          document.body.append(entry.provider);
+          // An unselected camera is retained in a mounted, transparent slot.
+          if (entity_id === "camera.two") entry.provider.style.opacity = "0";
+          p.entries.push(entry);
+        }
+        p.players = p.entries.map((entry) => entry.provider.player);
+      }, webRtc);
+      const expectLive = async () => {
+        // Consecutive synthetic returns can fall inside the five-second URL
+        // retry bound; real long-background returns are over a minute apart.
+        await expect.poll(() => page.evaluate(() => [...window.backgroundProbe.states.values()]
+          .filter((state) => state.status === "ready" && state.streamType === "hls").length), { timeout: 12000 }).toBe(2);
+        const times = await page.evaluate(() => window.backgroundProbe.players.map((player) => player.video.currentTime));
+        await expect.poll(() => page.evaluate((times) => window.backgroundProbe.players.every((player, index) =>
+          !player.video.paused && player.video.currentTime > times[index] + 0.2), times)).toBe(true);
+      };
+      await expectLive();
+      // A short tab switch must not reset playback or ask HA for another URL.
+      await page.evaluate(() => { const p = window.backgroundProbe; p.setHidden(true); p.setHidden(false); });
+      await expectLive();
+      expect(await page.evaluate(() => window.backgroundProbe.requests)).toEqual([]);
+      for (const cycle of [1, 2]) {
+        const previousRequests = await page.evaluate(() => window.backgroundProbe.requests.length);
+        await page.evaluate(() => {
+          const p = window.backgroundProbe;
+          p.setHidden(true);
+          // A network interruption while hidden must not race HA's own resume
+          // fetch on return or create replacement streams in the background.
+          p.players[0]._error = "Stream network error";
+          p.players[0].dispatchEvent(new CustomEvent("streams", { bubbles: true, composed: true,
+            detail: { hasVideo: false, hasAudio: false } }));
+          for (const player of p.players) player.hiddenCleanup();
+        });
+        await expect.poll(() => page.evaluate(() => window.backgroundProbe.players.every((player) =>
+          player.video.readyState === 0 && !player.video.hasAttribute("src")))).toBe(true);
+        expect(await page.evaluate(() => window.backgroundProbe.requests.length)).toBe(previousRequests);
+        if (failure === "expired master") generation += 1;
+        else rejectManifest = true;
+        await page.evaluate((generation) => {
+          const p = window.backgroundProbe;
+          p.generation = generation;
+          p.setHidden(false);
+        }, generation);
+        await expectLive();
+        expect(await page.evaluate(() => window.backgroundProbe.audit.starts)).toEqual(["camera.one", "camera.two"]);
+        expect(await page.evaluate(() => window.backgroundProbe.audit.stops)).toEqual([]);
+        expect(await page.evaluate(() => window.backgroundProbe.audit.engines.filter((engine) => engine.media).length)).toBe(2);
+        expect(await page.evaluate(() => window.backgroundProbe.requests.length)).toBe(failure === "expired master" ? cycle * 2 : cycle);
+        expect(await page.evaluate(() => window.backgroundProbe.audit.cleanups.filter((entity) => entity === "camera.two").length))
+          .toBe(failure === "expired master" ? cycle * 2 : cycle);
+      }
+      expect(await page.evaluate(() => window.backgroundProbe.audit.engines.every((engine) => !engine.config.lowLatencyMode))).toBe(true);
+      expect(requests.filter((url) => /_HLS_|partial|next-part/.test(url))).toEqual([]);
+      expect(errors).toEqual([]);
+      await page.evaluate(() => {
+        for (const entry of window.backgroundProbe.entries) { entry.dispose(); entry.provider.remove(); }
+      });
+      expect(await page.evaluate(() => window.backgroundProbe.audit.engines.some((engine) => engine.media))).toBe(false);
+    });
+  }
+}
 
 test.afterAll(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));

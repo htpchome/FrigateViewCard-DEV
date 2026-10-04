@@ -9,21 +9,28 @@ export function createHaCameraHlsRecovery(provider, {
   let failedStreams = null;
   let usableStreams = null;
   let recovered = false;
+  let resumeFailure = false;
   let stoppedAt = 0;
   let disposed = false;
   let refreshing = false;
   let lastRefreshAt = -Infinity;
   let retryTimer = null;
+  const document = provider.ownerDocument;
+  const hasClearedVideo = (target) => {
+    const media = target?.shadowRoot?.querySelector("video");
+    return Boolean(usableStreams && media?.readyState === 0 && !media.getAttribute("src"));
+  };
   const cancelRetry = () => {
     if (retryTimer !== null) clearTimer(retryTimer);
     retryTimer = null;
   };
   const isCurrentFailure = (target) => !disposed && player === target &&
     provider.shadowRoot?.querySelector("ha-hls-player") === target &&
-    target?.isConnected && !recovered && target._error && target._errorIsFatal === false;
+    target?.isConnected && failedStreams && !recovered && target._errorIsFatal === false &&
+    (target._error || resumeFailure || hasClearedVideo(target));
 
   const refreshUrl = async () => {
-    if (!requestHls || refreshing || !isCurrentFailure(player)) return;
+    if (!requestHls || refreshing || document?.hidden || !isCurrentFailure(player)) return;
     const delay = Math.max(0, 5000 - (now() - lastRefreshAt));
     if (delay) {
       if (retryTimer === null) retryTimer = setTimer(() => {
@@ -38,13 +45,17 @@ export function createHaCameraHlsRecovery(provider, {
     const target = player;
     try {
       const response = await requestHls();
-      if (!isCurrentFailure(target)) return;
+      if (document?.hidden || !isCurrentFailure(target)) return;
       const path = typeof response?.url === "string" ? response.url.trim() : "";
       if (!path) throw new Error("HA stream URL unavailable");
       const url = resolveUrl(path);
-      // The public URL input lets HA reset its own player. An unchanged URL
-      // stays with HA's retry/backoff; no new instance or parallel stream.
+      // startLoad cannot retry a manifest that never parsed. Reuse HA's URL
+      // update lifecycle even if its backend retained the same stream URL.
       if (url !== (target.url || target._url)) target.url = url;
+      else if (hasClearedVideo(target) || target._hlsPolyfillInstance?.levels?.length === 0) {
+        if (target.url !== url) target.url = url;
+        else target.requestUpdate("url", undefined);
+      }
     } catch (_) {
       // A backend outage can outlast HA's native request retries.
       if (isCurrentFailure(target)) retryTimer = setTimer(() => {
@@ -55,6 +66,14 @@ export function createHaCameraHlsRecovery(provider, {
       refreshing = false;
     }
   };
+
+  const onVisibility = () => {
+    if (document.hidden) cancelRetry();
+    // HA restarts an emptied player on return. Wait for that attempt's
+    // metadata/error instead of racing its pending master fetch with a new URL.
+    else if (!hasClearedVideo(player)) void refreshUrl();
+  };
+  document?.addEventListener("visibilitychange", onVisibility);
 
   const unwatch = () => {
     video?.removeEventListener("playing", onProgress);
@@ -70,6 +89,7 @@ export function createHaCameraHlsRecovery(provider, {
     failedStreams = null;
     usableStreams = null;
     recovered = false;
+    resumeFailure = false;
   };
   function onProgress() {
     if (disposed || !player?.isConnected || !video || player._error ||
@@ -103,13 +123,19 @@ export function createHaCameraHlsRecovery(provider, {
       if (streams?.hasVideo !== false || !player?.isConnected || player._errorIsFatal !== false) {
         cancelRetry();
         failedStreams = null;
+        resumeFailure = false;
         unwatch();
         return streams;
       }
-      if (player._error && streams !== failedStreams) {
+      // On foreground return HA can parse an expired master as streams:false
+      // before its engine reports an error. Do not discard that emptied player.
+      if ((player._error || hasClearedVideo(player)) && streams !== failedStreams) {
         unwatch();
         failedStreams = streams;
         recovered = false;
+        // Attaching a new MediaSource clears HA's error before the refreshed
+        // URL arrives; only successful metadata/playback settles this failure.
+        resumeFailure ||= hasClearedVideo(player);
         void refreshUrl();
       }
       if (streams !== failedStreams) return streams;
@@ -119,6 +145,7 @@ export function createHaCameraHlsRecovery(provider, {
     },
     dispose() {
       disposed = true;
+      document?.removeEventListener("visibilitychange", onVisibility);
       cancelRetry();
       unwatch();
       player = null;

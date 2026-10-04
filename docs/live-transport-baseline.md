@@ -2,6 +2,24 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.190` repairs normal HA Direct HLS recovery after background-tab
+cleanup. HA may report missing stream codecs from an expired master before it
+constructs Hls.js or emits an error; a previously usable, emptied player must
+remain mounted as pending. Attaching a MediaSource and clearing the native error
+does not by itself cancel the authenticated URL refresh. A failed manifest
+startup also needs HA's public URL update lifecycle when HA returns the same URL:
+Hls.js `startLoad` cannot reload a manifest that never parsed. This reuses the
+same provider, HA child and video; HA disposes and recreates only its own failed
+engine. Ordinary buffered interruptions keep HA's native retry behavior.
+Recovery URL requests wait while the document is hidden and resume on return;
+the existing five-second request bound and late-response guards remain.
+Short background returns and healthy players are not restarted. WebRTC,
+Catalyst, Frigate go2rtc, session ownership, and editor/view handoff are unchanged.
+Tests exercise repeated hidden cleanup/return with expired masters and unparsed
+manifests using real Hls.js and decoded synthetic media, both HLS-only and
+blocked-WebRTC selection, including an unselected retained camera. Physical HA
+background/foreground verification is still required.
+
 `v1.1.8-dev.189` restores standard HLS for normal HA Direct's HA-owned Hls.js
 players. A documented instance-local configuration adapter supplies
 `lowLatencyMode: false` and filters LL-HLS playlist instructions before parsing.

@@ -104,11 +104,18 @@ Meaning of `ha_direct`:
     before HA's recovery runs. Treat that candidate as pending, not ready; after
     HA clears the error and video advances, correct the stale failure metadata
     for selection without mutating HA's state. Request a fresh authenticated
-    `camera/stream` URL on failure and apply a changed URL only through the native
-    player's public `url` input. URL requests are deduplicated and bounded to
-    one per five seconds during failure; rejected requests retry while that
-    same failed child exists. Never recreate providers, touch healthy cameras,
-    or delay a ready WebRTC takeover
+    `camera/stream` URL on failure through the native player's public `url`
+    input. After hidden-tab cleanup, a previously usable but emptied HLS child
+    reporting missing codecs is also pending: an expired master can report
+    this before a native error exists. MediaSource attachment alone must not
+    cancel that recovery. If the URL is unchanged and the engine has no parsed
+    manifest (or the video is still cleared), request the same public URL update
+    so HA cleans up and restarts its own engine; `startLoad` alone cannot retry
+    an unparsed manifest. Do not do this for a buffered fragment interruption.
+    URL requests are deduplicated and bounded to one per five seconds during
+    failure, deferred while the document is hidden, and resumed on visibility;
+    rejected requests retry while that same failed child exists. Never recreate
+    providers, touch healthy cameras, or delay a ready WebRTC takeover
 
   Other selector results are unchanged. Never patch HA's global components or
   their prototypes. Tests must cover WebRTC-only capabilities with indefinitely
