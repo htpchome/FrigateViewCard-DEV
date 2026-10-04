@@ -2,6 +2,12 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.196` removes the temporary HA Direct talk timing diagnostics,
+their opt-in console flag, instrumentation hooks and dedicated diagnostic tests.
+The parallel microphone/configuration preparation and all functional talk tests
+remain. Signaling, readiness, cancellation, cleanup, live playback and retention
+are unchanged; no warm talk connection or transport exception is introduced.
+
 `v1.1.8-dev.195` overlaps HA Direct talk microphone acquisition and the
 per-attempt HA WebRTC client-configuration request after the Talk click. Both
 must complete before the existing separate talk peer is created; configuration
@@ -10,13 +16,12 @@ Cancellation and failed preparation release acquired or late microphone tracks
 without negotiating a stale session. The existing SDP/transceiver shape, ICE
 candidate ordering, audio/video readiness, ten-second media timeout, mute and
 teardown behavior remain intact. Live providers, retention, Frigate go2rtc talk,
-and Catalyst HLS playback are unchanged. Opt-in, bounded startup timings contain
-only fixed milestone names and elapsed milliseconds; there is no polling,
+and Catalyst HLS playback are unchanged. The temporary startup timings added in
+this version were removed in dev.196. There is no polling,
 prewarmed microphone, additional talk connection, or background preparation.
 Automated tests cover overlap, cancellation/failure races, stale camera/HA
-identity, readiness, cleanup and the production bundle. Physical Chrome/Edge
-timings and incoming/outgoing audio still need verification; no measured speedup
-is claimed yet. Candidate queue changes are deferred pending those timings.
+identity, readiness, cleanup and the production bundle. No measured speedup is
+claimed and no candidate queue changes are included.
 The existing Wide View browser regression now observes explicit transition
 completion instead of returning a pending promise to Playwright; its retention,
 geometry and media-progress assertions and production behavior are unchanged.
@@ -559,46 +564,6 @@ Future latency work should first measure the time spent in client-config
 fetching, offer/session/answer signaling, ICE connection, and first rendered
 media. Do not change selection timers or fallback policy without evidence that
 one of those policies is the cause.
-
-For HA Direct talk timing in Chrome/Edge, run `window.FVC_TALK_TIMING = true`
-in DevTools after loading the card, then start Talk. Completion, failure or
-cancellation logs one `[FrigateView HA talk timing]` entry. Each `elapsedMs` is
-cumulative from the start request, not a separate stage duration. Compare
-`microphone-requested`/`microphone-ready`, `config-requested`/`config-ready`,
-`offer-sent`/`answer-received`/`answer-applied`, `ice-connected`/`peer-connected`,
-and `audio-started`/`video-started`/`media-ready`. Candidate milestones record
-the first send/acknowledgment and completion of the session's pending queue.
-Track readiness is not proof of audible sound at the camera: verify outgoing
-speech and incoming audio physically as well. Test first use and repeat use
-with microphone permission already granted, plus cancellation while starting.
-Check that existing live players remain connected and stopping Talk releases
-only its separate session. Disable logging with `window.FVC_TALK_TIMING = false`
-or reload the page. No entity IDs, URLs, SDP, ICE addresses, credentials or audio
-are included, and nothing is persisted.
-
-### Temporary talk diagnostics
-
-The timing tooling is temporary and must be removed once physical testing is
-finished. It does not drive connection decisions. The permanent overlap,
-identity/cancellation guards and functional regression tests must remain.
-
-Removal checklist:
-
-1. Delete `src/features/two-way-talk/startup-timing.js` and its dedicated
-   `tests/two-way-talk-startup-timing.test.mjs` file.
-2. In `src/features/two-way-talk/session.ctrl.js`, remove the
-   `createTwoWayTalkStartupTiming` import, `talkStartupTiming` declaration and
-   finish calls. Remove `onTalkStartupTiming` properties from the three calls.
-3. Remove optional `onTalkStartupTiming` parameters, forwarding properties and
-   milestone calls in `src/features/two-way-talk/session.js` and
-   `src/integrations/home-assistant/two-way-talk-backchannel.js`. Remove the
-   now-empty ICE-connected diagnostic condition; preserve failed-ICE handling.
-4. Search `src` and `tests` for
-   `FVC_TALK_TIMING|TalkStartupTiming|talkStartupTiming|onTalkStartupTiming` to
-   confirm no tooling remains. No functional regression test requires any of
-   these hooks, the debug flag or timing output.
-5. Remove these diagnostic instructions, bump the version, rebuild and run the
-   full validation workflow. Never edit generated bundles by hand.
 
 ## Relevant Development History
 

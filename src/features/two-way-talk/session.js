@@ -31,7 +31,6 @@ const throwIfAborted = (abortSignal) => {
 async function prepareHaDirectTalkResources({
   prepareConnection,
   abortSignal,
-  onTalkStartupTiming,
 }) {
   let localStream = null;
   let abandoned = false;
@@ -43,7 +42,6 @@ async function prepareHaDirectTalkResources({
   abortSignal?.addEventListener?.("abort", handleAbort, { once: true });
   try {
     throwIfAborted(abortSignal);
-    onTalkStartupTiming?.("microphone-requested");
     const microphone = requestMicrophoneStream().then((stream) => {
       // Permission can resolve after cancellation or a configuration failure.
       if (abandoned || abortSignal?.aborted) {
@@ -51,7 +49,6 @@ async function prepareHaDirectTalkResources({
         throw createTwoWayTalkAbortError();
       }
       localStream = stream;
-      onTalkStartupTiming?.("microphone-ready");
       return stream;
     });
     const preparation = (async () => await prepareConnection())();
@@ -77,7 +74,6 @@ async function startMountedTwoWayTalkSession({
   restoreLiveOnStop = true,
   abortSignal = null,
   prepareConnection = null,
-  onTalkStartupTiming = null,
 }) {
   if (typeof mountMicrophoneStream !== "function") {
     throw new Error(`Missing ${type} two-way talk mount handler`);
@@ -101,7 +97,6 @@ async function startMountedTwoWayTalkSession({
       ? await prepareHaDirectTalkResources({
           prepareConnection,
           abortSignal,
-          onTalkStartupTiming,
         })
       : { localStream: await requestMicrophoneStream() };
     localStream = resources.localStream;
@@ -177,7 +172,6 @@ export async function startHaDirectTwoWayTalkSession({
   onEnded,
   abortSignal,
   prepareConnection,
-  onTalkStartupTiming,
 }) {
   return await startMountedTwoWayTalkSession({
     type: "ha_direct",
@@ -186,6 +180,5 @@ export async function startHaDirectTwoWayTalkSession({
     restoreLiveOnStop: false,
     abortSignal,
     prepareConnection,
-    onTalkStartupTiming,
   });
 }
