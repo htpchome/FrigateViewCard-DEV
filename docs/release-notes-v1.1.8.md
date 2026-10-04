@@ -1,6 +1,6 @@
-# FrigateView Card v1.1.8 release notes draft
+# FrigateView Card v1.1.8 release notes
 
-Changes since v1.1.7. Draft for review before release.
+Changes since v1.1.7.
 
 This release combines substantial loading optimizations with updated HA Direct
 playback, Home Assistant Mac app support, new camera controls, and layout and
