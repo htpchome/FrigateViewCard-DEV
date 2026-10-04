@@ -12,7 +12,7 @@ FrigateViewCard is a camera, events, and recordings card for Home Assistant and 
 ## Quick Look
 FrigateViewCard brings your Frigate cameras, alerts, recordings, PTZ, two-way audio, and mobile camera controls together in a single Home Assistant card.
 
-<img src="images/overview.png" alt="Single View live camera and Frigate media browser" width="400">
+<img src="images/overview.png" alt="Single View live camera and Frigate media browser" width="600">
 
 ## Features
 
