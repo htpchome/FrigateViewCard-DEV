@@ -1249,6 +1249,7 @@ test("Save commits the final draft directly to the Home Assistant dialog", () =>
     title: "Final title",
   };
   const dirtyUpdates = [];
+  const handoffs = [];
   const dialog = {
     _cardConfig: { type: "custom:frigate-view-card", title: "Original" },
     _updateDirtyState: (config) => dirtyUpdates.push(config),
@@ -1256,11 +1257,22 @@ test("Save commits the final draft directly to the Home Assistant dialog", () =>
   editor._homeAssistantConfig = () => finalConfig;
   editor._findHomeAssistantEditCardDialog = () => dialog;
   editor._dispatch = () => assert.fail("Save should not use config-changed");
+  const previousConfig = dialog._cardConfig;
+  editor.dispatchEvent = (event) => {
+    assert.equal(dialog._cardConfig, previousConfig, "handoff precedes HA replacement");
+    handoffs.push(event);
+  };
 
   editor._commitDraftToHomeAssistantDialog();
 
   assert.equal(dialog._cardConfig, finalConfig);
   assert.deepEqual(dirtyUpdates, [finalConfig]);
+  assert.equal(handoffs.length, 1);
+  assert.equal(handoffs[0].type, "frigate-view-card-config-commit");
+  assert.equal(handoffs[0].detail.previousConfig, previousConfig);
+  assert.equal(handoffs[0].detail.config, finalConfig);
+  assert.equal(handoffs[0].bubbles, true);
+  assert.equal(handoffs[0].composed, true);
 });
 
 test("editor dispatch announces a draft through config-changed", () => {

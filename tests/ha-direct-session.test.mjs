@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createHaDirectSession } from "../src/features/live/ha-direct-session.js";
+import { acquireHaDirectSession, createHaDirectSession } from "../src/features/live/ha-direct-session.js";
+import { CARD_CONFIG_COMMIT_EVENT } from "../src/product-identity.mjs";
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 const fixture = () => {
@@ -33,6 +34,66 @@ const fixture = () => {
   return { session, calls, callbacks, client, ready };
 };
 
+test("Save transfers only its identified session while old preconfig/editor clients remain connected", () => {
+  const anchor = new EventTarget();
+  const connection = {};
+  const config = { cameras: ["camera.one"], title: "Original" };
+  const make = (context, sourceConfig) => ({
+    host: { isConnected: true }, context: () => context, hass: () => ({ connection }),
+    identity: () => ({ config: sourceConfig, signature: JSON.stringify(sourceConfig) }),
+    entities: () => [], selected: () => "", muted: () => true, canStart: () => false,
+  });
+  const acquire = (client, socket = connection) => acquireHaDirectSession({
+    anchor, client, identity: client.identity(), connection: socket,
+  });
+  const original = make("preconfig", config);
+  const session = acquire(original);
+  const independent = acquire(make("preconfig", structuredClone(config)));
+  anchor.dispatchEvent(new CustomEvent("show-dialog", { detail: {
+    dialogTag: "hui-dialog-edit-card", dialogParams: { cardConfig: config },
+  } }));
+  assert.equal(acquire(make("config", config)), session);
+  const savedConfig = { ...config, title: "Saved" };
+  anchor.dispatchEvent(new CustomEvent(CARD_CONFIG_COMMIT_EVENT, {
+    detail: { previousConfig: config, config: savedConfig },
+  }));
+  // HA can rebuild the preview with the committed config before the dashboard.
+  assert.equal(acquire(make("config", savedConfig)), session);
+  assert.equal(acquire(make("preconfig", savedConfig)), session);
+  assert.notEqual(independent, session);
+  const unrelated = acquire(make("preconfig", savedConfig));
+  assert.notEqual(unrelated, session, "saved-config handoff is consumed exactly once");
+  const otherConnection = acquire(make("config", savedConfig), {});
+  assert.notEqual(otherConnection, session);
+  for (const entry of [session, independent, unrelated, otherConnection]) entry.dispose();
+});
+
+test("Save survives serialized config replacement after the prior dashboard is detached", () => {
+  const anchor = new EventTarget();
+  const connection = {};
+  const config = { title: "Original" };
+  const client = (sourceConfig) => ({
+    host: { isConnected: true }, context: () => "preconfig", hass: () => ({ connection }),
+    identity: () => ({ config: sourceConfig, signature: JSON.stringify({ ...sourceConfig, normalized: true }) }),
+    entities: () => [], selected: () => "", muted: () => true, canStart: () => false,
+  });
+  const original = client(config);
+  const acquire = (owner) => acquireHaDirectSession({ anchor, connection, client: owner, identity: owner.identity() });
+  const session = acquire(original);
+  const savedConfig = { title: "Saved" };
+  anchor.dispatchEvent(new CustomEvent(CARD_CONFIG_COMMIT_EVENT, { detail: { previousConfig: config, config: savedConfig } }));
+  original.host.isConnected = false;
+  session.detach(original);
+  const replacement = client(structuredClone(savedConfig));
+  assert.equal(acquire(replacement), session);
+  // An outgoing client's final HA state update must not erase the saved identity.
+  session.rememberIdentity(original.identity());
+  replacement.host.isConnected = false;
+  session.detach(replacement);
+  assert.equal(acquire(client(structuredClone(savedConfig))), session);
+  session.dispose();
+});
+
 test("selected camera goes live before the sequential background queue starts", async () => {
   const f = fixture();
   const owner = f.client();
@@ -64,6 +125,32 @@ test("a confirmed camera failure settles its queue position without a timed remo
   await flush();
   assert.equal(f.callbacks.size, 2);
   assert.equal(f.session.get("camera.one").status, "failed");
+  f.session.dispose();
+});
+
+test("failure and targeted eviction of one camera never restart healthy siblings", async () => {
+  const f = fixture();
+  const owner = f.client();
+  f.session.attach(owner);
+  for (const entity of ["camera.one", "camera.two", "camera.three"]) await f.ready(entity);
+  const healthy = [f.session.get("camera.one"), f.session.get("camera.three")];
+  const staleCallback = f.callbacks.get("camera.two");
+  f.calls.length = 0;
+  staleCallback({ status: "failed", streamType: "", video: null });
+  f.session.sync(owner);
+  await flush();
+  assert.equal(f.calls.some(([name]) => name === "create" || name === "release"), false);
+  f.session.remove("camera.two");
+  f.session.sync(owner);
+  assert.deepEqual(f.calls.filter(([name]) => name === "create" || name === "release"),
+    [["release", "camera.two"], ["create", "camera.two"]]);
+  staleCallback({ status: "failed", streamType: "", video: null });
+  assert.equal(f.session.get("camera.two").status, "loading", "old callbacks cannot fail the replacement");
+  for (const record of healthy) {
+    assert.equal(f.session.get(record.entity), record);
+    assert.equal(record.status, "ready");
+    assert.equal(record.provider.streamType, "hls");
+  }
   f.session.dispose();
 });
 

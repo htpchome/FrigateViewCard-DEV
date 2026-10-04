@@ -71,6 +71,11 @@ Meaning of `ha_direct`:
   root, websocket connection and card identity, not to camera names alone.
   The stationary application-root mount is an explicit exception to card-local
   ownership; it must retain HA's context and must never use `document.body`
+- saving the editor explicitly identifies the replacement configuration before
+  HA rebuilds the dashboard card. That one-shot handoff keeps the same session
+  even while the old pre-editor card is still connected; matching camera lists
+  alone must never merge independent cards. A camera failure or targeted eviction
+  must not dispose or restart other camera records
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
   HLS/WebRTC player internals, use a readiness timeout to replace the provider,

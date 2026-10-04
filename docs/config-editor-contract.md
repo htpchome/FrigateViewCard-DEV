@@ -72,6 +72,15 @@ modern Home Assistant merely to enable Save: Home Assistant rebuilds preview
 cards when that event is dispatched, which restarts media and makes the editor
 laggy.
 
+Before handing the final configuration to HA on Save, emit the bubbling,
+composed `frigate-view-card-config-commit` notification containing the previous
+HA configuration and the exact replacement object. This is a session-identity
+handoff only: it neither persists settings nor changes dirty state. The normal
+HA Direct session registry consumes it once when the dashboard replacement
+arrives, preserving camera providers through config serialization and overlap
+with the outgoing pre-editor/editor cards. Ordinary drafts and Cancel do not
+emit this notification.
+
 Every editable control must enable Save when its serialized value changes. This
 includes:
 

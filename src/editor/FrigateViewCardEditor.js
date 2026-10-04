@@ -6,6 +6,7 @@ import {
   CARD_TAG,
   CARD_EDITOR_DIRTY_STATE_KEY,
   CARD_PREVIEW_DRAFT_EVENT,
+  CARD_CONFIG_COMMIT_EVENT,
   SUPPORTED_CARD_TAGS,
   DEFAULT_TITLE,
   DEFAULT_SUBTITLE,
@@ -5846,6 +5847,11 @@ export class FrigateViewCardEditor extends HTMLElement {
     }
     this._lastDispatchedConfig = config;
     this._lastDispatchedConfigSig = this._configSignature(config);
+    this.dispatchEvent(new CustomEvent(CARD_CONFIG_COMMIT_EVENT, {
+      detail: { previousConfig: dialog._cardConfig, config },
+      bubbles: true,
+      composed: true,
+    }));
     // Commit only at Save; HA rebuilds every preview-mode card on config-changed.
     dialog._cardConfig = config;
     dialog._updateDirtyState?.(config);

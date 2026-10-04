@@ -1,5 +1,6 @@
 import { createStationaryMediaProjection } from "../../shared/media/stationary-projection.js";
 import { createHaDirectCameraProvider } from "../../integrations/home-assistant/camera-provider.js";
+import { CARD_CONFIG_COMMIT_EVENT } from "../../product-identity.mjs";
 
 const registries = new WeakMap();
 let sessionSequence = 0;
@@ -174,12 +175,25 @@ export function acquireHaDirectSession({ anchor, client, identity, connection })
       const matches = [...registry.sessions].filter((entry) =>
         [...entry.session.clients.keys()].some((owner) => owner.identity().config === config));
       registry.editorSession = matches.length === 1 ? matches[0] : null;
+      for (const entry of registry.sessions) entry.savedConfig = null;
+    };
+    registry.onCommit = (event) => {
+      const { previousConfig, config } = event.detail || {};
+      if (!previousConfig || !config) return;
+      const matches = [...registry.sessions].filter((entry) =>
+        [entry.baselineIdentity, entry.lastIdentity,
+          ...[...entry.session.clients.keys()].map((owner) => owner.identity())]
+          .some((candidate) => candidate.config === previousConfig));
+      const entry = matches.includes(registry.editorSession) ? registry.editorSession
+        : matches.length === 1 ? matches[0] : null;
+      if (entry) entry.savedConfig = config;
     };
     anchor.addEventListener("show-dialog", registry.onDialog, true);
+    anchor.addEventListener(CARD_CONFIG_COMMIT_EVENT, registry.onCommit, true);
     registries.set(anchor, registry);
   }
   const compatible = [...registry.sessions].filter((entry) => {
-    const identities = [entry.initialIdentity, entry.lastIdentity,
+    const identities = [entry.baselineIdentity, entry.lastIdentity,
       ...[...entry.session.clients.keys()].map((owner) => owner.identity())];
     return entry.connection === connection && identities.some((candidate) =>
       candidate.config === identity.config || candidate.signature === identity.signature);
@@ -191,10 +205,24 @@ export function acquireHaDirectSession({ anchor, client, identity, connection })
       owners.every((owner) => !owner.host.isConnected || owner.context() === "config") ||
       (client.context() === "preconfig" && owners.every((owner) => owner.context() !== "preconfig"));
   });
-  let entry = client.context() === "config" && compatible.includes(registry.editorSession)
-    ? registry.editorSession : eligible.length === 1 ? eligible[0] : null;
+  // Save replaces the dashboard while the old card/editor may still be mounted.
+  // Only the explicit saved-config handoff may bypass that ownership exclusion.
+  const saved = [...registry.sessions].filter((entry) => entry.connection === connection && entry.savedConfig && (
+    entry.savedConfig === identity.config || (
+      [...entry.session.clients.keys()].every((owner) => !owner.host.isConnected || owner.context() === "config") &&
+      JSON.stringify(entry.savedConfig) === JSON.stringify(identity.config)
+    )
+  ));
+  let entry = saved.length === 1 ? saved[0]
+    : client.context() === "config" && compatible.includes(registry.editorSession)
+      ? registry.editorSession : eligible.length === 1 ? eligible[0] : null;
+  if (saved.includes(entry) && client.context() !== "config") {
+    entry.savedConfig = null;
+    // Late state updates from the outgoing card must not erase the Save identity.
+    entry.baselineIdentity = identity;
+  }
   if (!entry) {
-    entry = { connection, initialIdentity: identity, lastIdentity: identity, session: null };
+    entry = { connection, baselineIdentity: identity, lastIdentity: identity, savedConfig: null, session: null };
     entry.session = createHaDirectSession({
       createProjection: () => createStationaryMediaProjection({ anchor, name: `fvc-ha-camera-${++sessionSequence}` }),
       onDispose: () => {
@@ -202,6 +230,7 @@ export function acquireHaDirectSession({ anchor, client, identity, connection })
         if (registry.editorSession === entry) registry.editorSession = null;
         if (!registry.sessions.size) {
           anchor.removeEventListener("show-dialog", registry.onDialog, true);
+          anchor.removeEventListener(CARD_CONFIG_COMMIT_EVENT, registry.onCommit, true);
           registries.delete(anchor);
         }
       },
@@ -211,6 +240,7 @@ export function acquireHaDirectSession({ anchor, client, identity, connection })
   entry.session.rememberIdentity = (nextIdentity) => {
     entry.lastIdentity = nextIdentity;
   };
+  entry.lastIdentity = identity;
   entry.session.attach(client);
   return entry.session;
 }

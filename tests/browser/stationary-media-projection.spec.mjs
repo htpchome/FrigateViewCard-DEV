@@ -90,18 +90,22 @@ for (const scenario of scenarios) {
       anchor.attachShadow({ mode: "open" });
       document.body.append(anchor);
       const card = document.createElement("bundle-session-card");
-      card.setConfig({ cameras: [
+      const config = { cameras: [
         { entity: "camera.one", connection_type: "ha_direct" },
         { entity: "camera.two", connection_type: "ha_direct" },
-      ] });
+      ] };
+      const shell = document.createElement("hui-card");
+      shell.config = config;
+      shell.append(card);
+      card.setConfig(config);
       card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
         ["camera.one", "camera.two"].map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
       ) };
       card._activeCamIdx = 0;
       card._started = true;
-      anchor.shadowRoot.append(card);
+      anchor.shadowRoot.append(shell);
       card._renderShell();
-      window.bundleProbe = { card, audit };
+      window.bundleProbe = { card, audit, anchor, shell };
       await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
     }, scenario);
     await expect.poll(() => page.evaluate(() => [...(window.bundleProbe.card._engine?.haDirectSession?.records.values() || [])]
@@ -135,16 +139,68 @@ for (const scenario of scenarios) {
       .toEqual(scenario.supportedTypes ? ["camera.one", "camera.two"] : []);
     if (scenario.webRtc === "pending") {
       const starts = await page.evaluate(() => window.bundleProbe.audit.starts);
+      await page.evaluate(() => {
+        const p = window.bundleProbe;
+        p.hlsPlayers = [...p.session.records.values()].map((record) => record.provider.players.get("hls"));
+      });
       await page.evaluate(() => window.bundleProbe.audit.releaseWebRtc());
       await expect.poll(() => page.evaluate(() => window.bundleProbe.card._activeStreamType)).toBe("webrtc");
       expect(await page.evaluate(() => window.bundleProbe.card._engine === window.bundleProbe.first)).toBe(true);
       expect(await page.evaluate(() => window.bundleProbe.audit.starts)).toEqual(starts);
       await expect.poll(() => page.evaluate(() => [...window.bundleProbe.session.records.values()]
         .every((record) => record.provider.players.size === 1 && record.provider.players.has("web_rtc")))).toBe(true);
+      expect(await page.evaluate(() => window.bundleProbe.hlsPlayers.every((player) =>
+        !player.isConnected && player.video.paused && !player.video.hasAttribute("src")))).toBe(true);
+      expect(await page.evaluate(() => [...window.bundleProbe.audit.stops].sort())).toEqual([
+        "ha-hls-player:camera.one", "ha-hls-player:camera.two",
+      ]);
     }
+    const startsBeforeSave = await page.evaluate(() => window.bundleProbe.audit.starts);
+    // Exercise the real lazy editor bundle's Save notification against the
+    // shipped runtime registry, including compact-vs-normalized config identity.
+    await page.evaluate(async () => {
+      const p = window.bundleProbe;
+      await import("/dist/frigate-view-card-editor.js");
+      customElements.define("bundle-session-editor", class extends customElements.get("frigate-view-card-editor") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      p.card._editorPreviewController.liveHandoffContext = () => "preconfig";
+      const dialog = document.createElement("hui-dialog-edit-card");
+      dialog.attachShadow({ mode: "open" });
+      dialog._cardConfig = p.shell.config;
+      p.anchor.shadowRoot.append(dialog);
+      const editor = document.createElement("bundle-session-editor");
+      dialog.shadowRoot.append(editor);
+      const savedConfig = { ...p.shell.config, title: "Saved title", display_footer: false };
+      editor._homeAssistantConfig = () => savedConfig;
+      editor._findHomeAssistantEditCardDialog = () => dialog;
+      editor._commitDraftToHomeAssistantDialog();
+      const shell = document.createElement("hui-card");
+      shell.config = dialog._cardConfig;
+      const replacement = document.createElement("bundle-session-card");
+      replacement.setConfig(shell.config);
+      replacement._hass = p.card._hass;
+      replacement._activeCamIdx = 0;
+      replacement._started = true;
+      replacement._editorPreviewController.liveHandoffContext = () => "preconfig";
+      shell.append(replacement);
+      p.anchor.shadowRoot.append(shell);
+      replacement._renderShell();
+      await replacement._haDirectMounter.tryMount(replacement.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+      p.replacement = replacement;
+      dialog.remove();
+      p.shell.remove();
+      p.card._haDirectMounter.dispose();
+    });
+    expect(await page.evaluate(() => window.bundleProbe.replacement._engine === window.bundleProbe.first)).toBe(true);
+    expect(await page.evaluate(() => window.bundleProbe.audit.starts)).toEqual(startsBeforeSave);
+    expect(await page.evaluate(() => window.bundleProbe.audit.providerDisconnects)).toBe(0);
+    const retainedTime = await page.evaluate(() => window.bundleProbe.session.get("camera.one").video.currentTime);
+    await expect.poll(() => page.evaluate(() => window.bundleProbe.session.get("camera.one").video.currentTime)).toBeGreaterThan(retainedTime + 0.15);
     expect(errors).toEqual([]);
     await page.evaluate(() => {
-      window.bundleProbe.card._haDirectMounter.dispose();
+      window.bundleProbe.replacement._haDirectMounter.dispose();
       window.bundleProbe.session.dispose();
     });
   });
@@ -263,6 +319,44 @@ for (const scenario of scenarios) {
       await p.mount(p.editor);
     });
     expect(await page.evaluate(() => window.sessionProbe.editor.state.engine.haDirectSession === window.sessionProbe.session)).toBe(true);
+    // Saving changes both the compact config object and its signature. HA may
+    // attach its replacement before removing the old dashboard and preview.
+    await page.evaluate(async () => {
+      const p = window.sessionProbe;
+      p.view.state.context = "preconfig";
+      p.savedConfig = { ...p.config, title: "Saved title", display_footer: false };
+      p.editor.card.dispatchEvent(new CustomEvent("frigate-view-card-config-commit", {
+        detail: { previousConfig: p.config, config: p.savedConfig }, bubbles: true, composed: true,
+      }));
+      p.saved = p.makeView("preconfig", "camera.two", p.savedConfig);
+      p.savedMount = await p.mount(p.saved);
+    });
+    expect(await page.evaluate(() => window.sessionProbe.savedMount.engine.haDirectSession === window.sessionProbe.session)).toBe(true);
+    await page.evaluate(() => {
+      const p = window.sessionProbe;
+      p.editor.outer.remove();
+      p.editor.mounter.dispose();
+      p.view.outer.remove();
+      p.view.mounter.dispose();
+      p.view = p.saved;
+    });
+    await expect.poll(() => page.evaluate(() => window.sessionProbe.view.state.ready.at(-1)?.type)).toBe(transport);
+    expect(await page.evaluate(() => window.sessionProbe.audit.providerDisconnects)).toBe(0);
+    expect(await page.evaluate(() => {
+      const p = window.sessionProbe;
+      return [...p.session.records.values()].every((record, index) => record.provider === p.originalProviders[index]);
+    })).toBe(true);
+    // A failed retained camera cannot reset the other connections on editor exit.
+    const startsBeforeFailure = await page.evaluate(() => window.sessionProbe.audit.starts);
+    await page.evaluate(() => window.sessionProbe.audit.failCamera("camera.two"));
+    await expect.poll(() => page.evaluate(() => window.sessionProbe.session.get("camera.two").status)).toBe("failed");
+    await page.evaluate(() => window.sessionProbe.view.mounter.syncProviderStates());
+    for (const entity of ["camera.one", "camera.three"]) {
+      const time = await page.evaluate((id) => window.sessionProbe.session.get(id).video.currentTime, entity);
+      await expect.poll(() => page.evaluate((id) => window.sessionProbe.session.get(id).video.currentTime, entity)).toBeGreaterThan(time + 0.15);
+    }
+    expect(await page.evaluate(() => window.sessionProbe.audit.starts)).toEqual(startsBeforeFailure);
+    expect(await page.evaluate(() => window.sessionProbe.audit.providerDisconnects)).toBe(0);
     await page.evaluate(() => {
       const p = window.sessionProbe;
       p.editor.mounter.dispose();

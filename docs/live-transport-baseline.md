@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.180` identifies the saved editor configuration before Home Assistant
+rebuilds the dashboard card. A one-shot session handoff retains the camera
+providers even while the old pre-editor card is still connected; unrelated
+cards and websocket connections remain isolated. Regression coverage includes
+changed configuration on Save, overlapping card/editor clients, per-camera
+failure isolation, and HLS child disposal after WebRTC takeover. No transport
+startup, Catalyst, Frigate go2rtc, or two-way-talk policy is changed.
+
+HLS player disposal is distinct from HA's upstream stream lifetime. HA removes
+and cleans up its HLS player when its selector keeps WebRTC alone. Its backend
+stream worker expires through HA-owned idle/preload policy; stopping browser
+playback does not provide a per-viewer API to force-close that shared upstream
+connection. This change does not claim to eliminate the reported go2rtc
+connection-count linger.
+
 `v1.1.8-dev.179` reserves Wide View's selected camera connection for the main
 stage. Its companion tile uses the configured snapshot refresh interval, even
 when live companions or alert-driven live tiles are enabled. Camera switches

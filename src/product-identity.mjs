@@ -16,6 +16,7 @@ export const SUPPORTED_CARD_EDITOR_TAGS = Object.freeze(
 );
 export const CARD_UPDATE_IDENTITIES = Object.freeze(["frigateviewcard"]);
 export const CARD_PREVIEW_DRAFT_EVENT = "frigate-view-card-preview-draft";
+export const CARD_CONFIG_COMMIT_EVENT = "frigate-view-card-config-commit";
 export const CARD_EDITOR_DIRTY_STATE_KEY = "frigate-view-card-editor";
 
 export const normalizeCardTag = (value) =>

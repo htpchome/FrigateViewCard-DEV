@@ -12,13 +12,21 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
     (player.video.readyState >= 2 || player.video.getVideoPlaybackQuality().totalVideoFrames > 0)))
     .map((provider) => provider.stateObj.entity_id);
   const audit = {
-    starts: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
+    starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
     startReadiness: [],
     releaseReadinessAudit: () => {
       for (const entity of heldReadyEntities) audit.readyEntities.add(entity);
       heldReadyEntities.clear();
     },
     releaseWebRtc: () => { for (const player of rtcPlayers.values()) player.startMedia(); },
+    failCamera: (entity) => {
+      for (const provider of providers) {
+        if (provider.stateObj?.entity_id !== entity) continue;
+        provider.hls = { hasVideo: false, hasAudio: false };
+        provider.rtc = { hasVideo: false, hasAudio: false };
+        provider.render();
+      }
+    },
     callWS: async (message) => {
       if (message.type !== "camera/stream" || message.format !== "hls") throw new Error("Unexpected HA request");
       audit.verifications.push(message.entity_id);
@@ -74,7 +82,12 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       this.video.src = `/media.mp4?entity=${this.entityid}&type=${this.localName}`;
       void this.video.play().catch(() => {});
     }
-    disconnectedCallback() { this.video.pause(); this.video.removeAttribute("src"); this.video.load(); }
+    disconnectedCallback() {
+      audit.stops.push(`${this.localName}:${this.entityid}`);
+      this.video.pause();
+      this.video.removeAttribute("src");
+      this.video.load();
+    }
   }
   customElements.define("ha-hls-player", class extends Player {});
   customElements.define("ha-web-rtc-player", class extends Player {});
