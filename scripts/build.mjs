@@ -1,4 +1,5 @@
 import { build, transform } from "esbuild";
+import { Linter } from "eslint";
 import {
   chmod,
   copyFile,
@@ -94,6 +95,7 @@ const minifyStyleModulesPlugin = {
   },
 };
 
+const bindingLinter = new Linter();
 const buildBundle = async ({ entryPoint, outfile }) => {
   const { outputFiles } = await build({
     entryPoints: [entryPoint],
@@ -109,9 +111,19 @@ const buildBundle = async ({ entryPoint, outfile }) => {
   });
   const bundled = outputFiles[0]?.text;
   if (!bundled) throw new Error(`esbuild did not produce ${outfile}`);
-  const modernized = bundled
-    .replace(/^var\s+/gm, "const ")
-    .replaceAll("/* @__PURE__ */ ", "");
+  // esbuild lowers module-level let/const to var. Restore modern declarations
+  // using scope analysis: reassigned bindings must stay mutable.
+  const { output: modernized, messages } = bindingLinter.verifyAndFix(
+    bundled.replace(/^var\s+/gm, "let ").replaceAll("/* @__PURE__ */ ", ""),
+    [{
+      languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+      rules: { "no-var": "error", "prefer-const": "warn", "no-const-assign": "error" },
+    }],
+  );
+  const bindingErrors = messages.filter(({ severity }) => severity === 2);
+  if (bindingErrors.length) {
+    throw new Error(`Unsafe bundle bindings in ${outfile}: ${bindingErrors.map(({ message }) => message).join("; ")}`);
+  }
   const { code: minified } = await transform(modernized, {
     loader: "js",
     format: "esm",

@@ -15,7 +15,7 @@ test.beforeAll(async () => {
   const moduleSource = await readFile("src/shared/media/stationary-projection.js");
   server = createServer(async (request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
-    if (pathname.startsWith("/src/") || pathname.startsWith("/tests/fixtures/")) {
+    if (pathname.startsWith("/src/") || pathname.startsWith("/tests/fixtures/") || pathname.startsWith("/dist/")) {
       try {
         const source = await readFile(`.${pathname}`);
         response.writeHead(200, { "content-type": "text/javascript" });
@@ -35,6 +35,65 @@ test.beforeAll(async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
+
+for (const transport of ["hls", "webrtc"]) {
+  test(`production bundle starts and retains the HA Direct ${transport} session`, async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(baseUrl);
+    await page.evaluate(async (transportName) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const audit = installHaCameraLifecycleFixture({ webRtc: transportName === "webrtc" });
+      await import("/dist/frigate-view-card.js");
+      // Exercise the shipped card's real composition/mounter/session, without
+      // starting unrelated browse requests or dashboard observers in this fixture.
+      customElements.define("bundle-session-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const anchor = document.createElement("home-assistant");
+      anchor.attachShadow({ mode: "open" });
+      document.body.append(anchor);
+      const card = document.createElement("bundle-session-card");
+      card.setConfig({ cameras: [
+        { entity: "camera.one", connection_type: "ha_direct" },
+        { entity: "camera.two", connection_type: "ha_direct" },
+      ] });
+      card._hass = { connection: {}, states: Object.fromEntries(
+        ["camera.one", "camera.two"].map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
+      ) };
+      card._activeCamIdx = 0;
+      card._started = true;
+      anchor.shadowRoot.append(card);
+      card._renderShell();
+      window.bundleProbe = { card, audit };
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+    }, transport);
+    await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.readyEntities.size)).toBe(2);
+    await expect.poll(() => page.evaluate(() => window.bundleProbe.card._activeStreamType)).toBe(transport);
+    await page.evaluate(async () => {
+      const { card } = window.bundleProbe;
+      const session = card._engine.haDirectSession;
+      window.bundleProbe.session = session;
+      window.bundleProbe.first = card._engine;
+      card._activeCamIdx = 1;
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.two" });
+    });
+    expect(await page.evaluate(() => window.bundleProbe.card._engine.haDirectEntity)).toBe("camera.two");
+    await page.evaluate(async () => {
+      const { card } = window.bundleProbe;
+      card._activeCamIdx = 0;
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+    });
+    expect(await page.evaluate(() => window.bundleProbe.card._engine === window.bundleProbe.first)).toBe(true);
+    expect(await page.evaluate(() => window.bundleProbe.audit.providerDisconnects)).toBe(0);
+    expect(errors).toEqual([]);
+    await page.evaluate(() => {
+      window.bundleProbe.card._haDirectMounter.dispose();
+      window.bundleProbe.session.dispose();
+    });
+  });
+}
 
 for (const transport of ["hls", "webrtc"]) {
   test(`HA Direct session retains ${transport} through replaced card/editor clients`, async ({ page }) => {

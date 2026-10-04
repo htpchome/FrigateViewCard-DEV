@@ -2,6 +2,13 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.176` fixes a production-build defect in `v1.1.8-dev.175`: the
+declaration rewrite converted the mutable HA Direct session sequence to a
+constant, throwing before the first provider could start. The build now uses
+scope analysis to preserve `const` for fixed bindings and `let` for reassigned
+ones. Generated-bundle binding checks and browser startup tests cover this
+failure. No transport selection or retention policy changes are included.
+
 `v1.1.8-dev.175` replaces normal HA Direct per-card pools and movable editor
 handoffs with one persistent session per card. The session owns the camera
 registry, sequential startup and readiness/transport subscriptions. Its deck
