@@ -78,8 +78,8 @@ Meaning of `ha_direct`:
   must not dispose or restart other camera records
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
-  HLS/WebRTC player internals (except the scoped standard-HLS configuration
-  boundary below), use a readiness timeout to replace the provider,
+  HLS/WebRTC player internals (except the scoped HLS foreground-resume and
+  standard-HLS configuration boundaries below), use a readiness timeout to replace the provider,
   or schedule a card-owned transport remount after HA startup. Four explicit,
   instance-local selector compatibility corrections are allowed:
 
@@ -119,6 +119,17 @@ Meaning of `ha_direct`:
     failure, deferred while the document is hidden, and resumed on visibility;
     rejected requests retry while that same failed child exists. Never recreate
     providers, touch healthy cameras, or delay a ready WebRTC takeover
+
+  For foreground resume only, the HLS recovery owner may adapt this card's
+  native HLS instance visibility handler. If HA's hidden cleanup has emptied
+  a previously usable player, request a fresh authenticated URL before any
+  restart instead of first fetching the expired URL. Restart through the same
+  public `url` update lifecycle, including when HA returns the same URL. Keep
+  HA's hidden cleanup timer, short-return cancellation, picture-in-picture and
+  cold startup behavior. Deduplicate pending resumes, retain the existing URL
+  retry bound, discard stale/hidden responses, and restore the native listener
+  on replacement/disposal. Do not patch global handlers, create another player,
+  change WebRTC retry/selection, or bypass HA's engine cleanup and construction.
 
   Other selector results are unchanged. Never patch HA's global components or
   their prototypes. Tests must cover WebRTC-only capabilities with indefinitely

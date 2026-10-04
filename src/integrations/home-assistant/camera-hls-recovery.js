@@ -16,6 +16,8 @@ export function createHaCameraHlsRecovery(provider, {
   let refreshing = false;
   let lastRefreshAt = -Infinity;
   let retryTimer = null;
+  let foregroundResume = null;
+  let restoreVisibility = () => {};
   const document = provider.ownerDocument;
   const hasClearedVideo = (target) => {
     const media = target?.shadowRoot?.querySelector("video");
@@ -27,11 +29,12 @@ export function createHaCameraHlsRecovery(provider, {
   };
   const isCurrentFailure = (target) => !disposed && player === target &&
     provider.shadowRoot?.querySelector("ha-hls-player") === target &&
-    target?.isConnected && failedStreams && !recovered && target._errorIsFatal === false &&
-    (target._error || resumeFailure || hasClearedVideo(target));
+    target?.isConnected && target._errorIsFatal === false &&
+    (foregroundResume?.player === target || (failedStreams && !recovered &&
+      (target._error || resumeFailure || hasClearedVideo(target))));
 
   const refreshUrl = async () => {
-    if (!requestHls || refreshing || document?.hidden || !isCurrentFailure(player)) return;
+    if (!requestHls || refreshing || foregroundResume?.started || document?.hidden || !isCurrentFailure(player)) return;
     const delay = Math.max(0, 5000 - (now() - lastRefreshAt));
     if (delay) {
       if (retryTimer === null) retryTimer = setTimer(() => {
@@ -50,6 +53,7 @@ export function createHaCameraHlsRecovery(provider, {
       const path = typeof response?.url === "string" ? response.url.trim() : "";
       if (!path) throw new Error("HA stream URL unavailable");
       const url = resolveUrl(path);
+      if (foregroundResume?.player === target) foregroundResume.started = true;
       // startLoad cannot retry a manifest that never parsed. Reuse HA's URL
       // update lifecycle even if its backend retained the same stream URL.
       if (url !== (target.url || target._url)) target.url = url;
@@ -70,8 +74,8 @@ export function createHaCameraHlsRecovery(provider, {
 
   const onVisibility = () => {
     if (document.hidden) cancelRetry();
-    // HA restarts an emptied player on return. Wait for that attempt's
-    // metadata/error instead of racing its pending master fetch with a new URL.
+    // The instance visibility adapter owns emptied foreground restarts. Other
+    // deferred failures can resume without racing a pending native master fetch.
     else if (!hasClearedVideo(player)) void refreshUrl();
   };
   document?.addEventListener("visibilitychange", onVisibility);
@@ -86,16 +90,52 @@ export function createHaCameraHlsRecovery(provider, {
     if (player === current) return;
     cancelRetry();
     unwatch();
+    restoreVisibility();
+    restoreVisibility = () => {};
     player = current;
+    foregroundResume = null;
     failedStreams = null;
     clearedStreams = null;
     usableStreams = null;
     recovered = false;
     resumeFailure = false;
+    const nativeVisibility = player?._handleVisibilityChange;
+    if (!requestHls || !document || typeof nativeVisibility !== "function") return;
+    const target = player;
+    let wasHidden = document.hidden;
+    const visibility = (event) => {
+      const returning = wasHidden && !document.hidden;
+      wasHidden = document.hidden;
+      if (!document.hidden && foregroundResume?.player === target && !returning) return;
+      // Only replace HA's stale-URL restart after its hidden cleanup. Leave
+      // the native timer, short returns, PiP and initial startup alone.
+      if (!disposed && player === target && target.isConnected && !document.hidden &&
+          !document.pictureInPictureElement && !target._hiddenCleanupTimeout &&
+          target._errorIsFatal === false && hasClearedVideo(target)) {
+        foregroundResume = { player: target, started: false };
+        recovered = false;
+        void refreshUrl();
+        observe();
+        return;
+      }
+      nativeVisibility.call(target, event);
+      // A URL response may have been discarded during another short hide.
+      if (!document.hidden && foregroundResume && !foregroundResume.started) void refreshUrl();
+    };
+    document.removeEventListener("visibilitychange", nativeVisibility);
+    target._handleVisibilityChange = visibility;
+    document.addEventListener("visibilitychange", visibility);
+    restoreVisibility = () => {
+      document.removeEventListener("visibilitychange", visibility);
+      if (target._handleVisibilityChange !== visibility) return;
+      target._handleVisibilityChange = nativeVisibility;
+      if (target.isConnected) document.addEventListener("visibilitychange", nativeVisibility);
+    };
   };
   const onStreams = (event) => {
     if (disposed || event.composedPath()[0] !== provider.shadowRoot?.querySelector("ha-hls-player")) return;
     syncPlayer();
+    foregroundResume = null;
     // HA attaches MediaSource synchronously after reporting missing codecs;
     // its parent's deferred render can no longer see the cleared video then.
     if (event.detail?.hasVideo === false && player?._errorIsFatal === false && hasClearedVideo(player)) {
@@ -108,6 +148,7 @@ export function createHaCameraHlsRecovery(provider, {
         player._errorIsFatal !== false || video.error || video.paused ||
         video.readyState < 2 || !video.videoWidth || video.currentTime === stoppedAt) return;
     recovered = true;
+    foregroundResume = null;
     cancelRetry();
     unwatch();
     // HA clears its error on fragment load but does not re-emit streams:true.
@@ -116,7 +157,7 @@ export function createHaCameraHlsRecovery(provider, {
   function observe() {
     if (disposed) return;
     syncPlayer();
-    if (!failedStreams || recovered) return;
+    if ((!failedStreams || recovered) && !foregroundResume) return;
     const current = player?.shadowRoot?.querySelector("video") || null;
     if (current === video) return;
     unwatch();
@@ -132,6 +173,8 @@ export function createHaCameraHlsRecovery(provider, {
       if (disposed) return streams;
       syncPlayer();
       if (streams?.hasVideo === true) usableStreams = streams;
+      // Cached parent metadata is not a response from the restarted player.
+      if (foregroundResume && streams?.hasVideo !== false) return streams;
       if (streams?.hasVideo !== false || !player?.isConnected || player._errorIsFatal !== false) {
         cancelRetry();
         failedStreams = null;
@@ -143,7 +186,7 @@ export function createHaCameraHlsRecovery(provider, {
       // On foreground return HA can parse an expired master as streams:false
       // before its engine reports an error. Do not discard that emptied player.
       const clearedFailure = streams === clearedStreams;
-      if ((player._error || hasClearedVideo(player) || clearedFailure) && streams !== failedStreams) {
+      if ((player._error || foregroundResume || hasClearedVideo(player) || clearedFailure) && streams !== failedStreams) {
         unwatch();
         failedStreams = streams;
         recovered = false;
@@ -163,6 +206,8 @@ export function createHaCameraHlsRecovery(provider, {
       document?.removeEventListener("visibilitychange", onVisibility);
       cancelRetry();
       unwatch();
+      restoreVisibility();
+      foregroundResume = null;
       player = null;
     },
   };

@@ -15,10 +15,11 @@ export function installHaHlsBackgroundFixture(Hls, { webRtc = false } = {}) {
       this.video.addEventListener("loadeddata", () => this.dispatchEvent(new Event("load")));
     }
     _handleVisibilityChange = () => {
+      if (document.pictureInPictureElement) return;
       if (document.hidden) {
-        this.hiddenCleanup = () => { this.hiddenCleanup = null; this._cleanUp(); };
-      } else if (this.hiddenCleanup) {
-        this.hiddenCleanup = null;
+        this._hiddenCleanupTimeout = () => { this._hiddenCleanupTimeout = undefined; this._cleanUp(); };
+      } else if (this._hiddenCleanupTimeout) {
+        this._hiddenCleanupTimeout = undefined;
       } else {
         this._error = undefined;
         void this._startHls();
@@ -33,6 +34,7 @@ export function installHaHlsBackgroundFixture(Hls, { webRtc = false } = {}) {
     disconnectedCallback() {
       audit.stops.push(this.entityid);
       document.removeEventListener("visibilitychange", this._handleVisibilityChange);
+      this._hiddenCleanupTimeout = undefined;
       this._cleanUp();
     }
     _cleanUp() {
@@ -54,7 +56,9 @@ export function installHaHlsBackgroundFixture(Hls, { webRtc = false } = {}) {
       this._renderHLSPolyfill(this.video, Hls, url);
     }
     _renderHLSPolyfill(video, Engine, url) {
-      const hls = new Engine({ lowLatencyMode: true, backBufferLength: 60 });
+      // The synthetic live playlist is finite. Leave enough media ahead for
+      // the other camera's bounded URL retry, unlike an endless real feed.
+      const hls = new Engine({ lowLatencyMode: true, backBufferLength: 60, liveSyncDurationCount: 7 });
       this._hlsPolyfillInstance = hls;
       audit.engines.push(hls);
       hls.attachMedia(video);

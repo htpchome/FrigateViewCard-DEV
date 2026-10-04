@@ -30,6 +30,146 @@ const fixture = (options = {}) => {
     setChild: (value) => { child = value; } };
 };
 
+const visibilityFixture = (options = {}, ready = true) => {
+  const f = fixture(options);
+  const starts = [];
+  f.player._url = "/api/hls/previous/master_playlist.m3u8";
+  const nativeVisibility = () => {
+    if (f.ownerDocument.pictureInPictureElement) return;
+    if (f.ownerDocument.hidden) {
+      f.player._hiddenCleanupTimeout = () => {
+        f.player._hiddenCleanupTimeout = undefined;
+        f.video.readyState = 0;
+      };
+    } else if (f.player._hiddenCleanupTimeout) f.player._hiddenCleanupTimeout = undefined;
+    else starts.push(f.player._url);
+  };
+  f.player._handleVisibilityChange = nativeVisibility;
+  f.ownerDocument.addEventListener("visibilitychange", nativeVisibility);
+  f.select(ready ? good : undefined, failed);
+  const setHidden = (hidden) => {
+    f.ownerDocument.hidden = hidden;
+    f.ownerDocument.dispatchEvent(new Event("visibilitychange"));
+  };
+  const cleanUpHidden = () => { setHidden(true); f.player._hiddenCleanupTimeout(); };
+  return { ...f, starts, nativeVisibility, setHidden, cleanUpHidden };
+};
+
+test("foreground restart refreshes the URL before HA can fetch the stale master", async () => {
+  let calls = 0;
+  let respond;
+  const f = visibilityFixture({ requestHls: () => {
+    calls += 1;
+    return new Promise((resolve) => { respond = resolve; });
+  } });
+  f.cleanUpHidden();
+  f.setHidden(false);
+  f.setHidden(false);
+  assert.equal(calls, 1, "duplicate visibility events share one refresh");
+  assert.deepEqual(f.starts, [], "no stale native restart before the URL response");
+  f.select(good, failed); // An unrelated parent render still has cached metadata.
+  respond({ url: "/api/hls/fresh/master_playlist.m3u8" });
+  await Promise.resolve();
+  assert.equal(f.player.url, "/api/hls/fresh/master_playlist.m3u8");
+  f.setHidden(false);
+  assert.equal(calls, 1, "a fresh master already starting is not another resume attempt");
+  assert.deepEqual(f.starts, []);
+  f.recovery.dispose();
+  assert.equal(f.player._handleVisibilityChange, f.nativeVisibility);
+});
+
+test("short returns, picture-in-picture, and a cold player keep HA's native visibility handling", () => {
+  let calls = 0;
+  const f = visibilityFixture({ requestHls: async () => { calls += 1; return {}; } });
+  f.setHidden(true);
+  // Even a temporarily empty video is not evidence of HA's timed cleanup.
+  f.video.readyState = 0;
+  f.setHidden(false);
+  assert.equal(f.player._hiddenCleanupTimeout, undefined);
+  assert.deepEqual(f.starts, []);
+  f.ownerDocument.pictureInPictureElement = {};
+  f.setHidden(false);
+  assert.equal(calls, 0);
+  f.recovery.dispose();
+  f.ownerDocument.pictureInPictureElement = null;
+  f.setHidden(false);
+  assert.equal(f.starts.length, 1, "disposal restores the original listener exactly once");
+
+  const cold = visibilityFixture({ requestHls: async () => { calls += 1; return {}; } }, false);
+  cold.video.readyState = 0;
+  cold.setHidden(false);
+  assert.equal(calls, 0);
+  assert.equal(cold.starts.length, 1, "a player without usable history stays under native startup");
+  cold.recovery.dispose();
+});
+
+test("foreground URL failures retry without restarting stale media or losing retries on cached metadata", async () => {
+  const timers = new Map();
+  let time = 0;
+  let calls = 0;
+  const f = visibilityFixture({ now: () => time,
+    setTimer: (callback, delay) => { timers.set(callback, delay); return callback; },
+    clearTimer: (timer) => timers.delete(timer),
+    requestHls: async () => {
+      if (++calls === 1) throw new Error("Backend unavailable");
+      return { url: f.player._url };
+    } });
+  f.cleanUpHidden();
+  f.setHidden(false);
+  await Promise.resolve();
+  f.select(good, failed);
+  assert.deepEqual([...timers.values()], [5000]);
+  time = 5000;
+  const [retry] = timers.keys();
+  timers.delete(retry);
+  retry();
+  await Promise.resolve();
+  assert.equal(f.player.url, f.player._url, "even an unchanged URL uses HA's public update lifecycle");
+  assert.equal(calls, 2);
+  assert.deepEqual(f.starts, []);
+  f.recovery.dispose();
+});
+
+test("a foreground URL response discarded while hidden can resume after a short second hide", async () => {
+  let time = 0;
+  let respond;
+  let calls = 0;
+  const f = visibilityFixture({ now: () => time,
+    requestHls: () => { calls += 1; return new Promise((resolve) => { respond = resolve; }); } });
+  f.cleanUpHidden();
+  f.setHidden(false);
+  f.setHidden(true);
+  respond({ url: "/api/hls/discarded/master_playlist.m3u8" });
+  await Promise.resolve();
+  assert.equal(f.player.url, undefined);
+  time = 5000;
+  f.setHidden(false);
+  assert.equal(calls, 2);
+  respond({ url: f.player._url });
+  await Promise.resolve();
+  assert.equal(f.player.url, f.player._url);
+  assert.deepEqual(f.starts, []);
+  f.recovery.dispose();
+});
+
+test("foreground URL responses cannot revive hidden, removed, replaced, or disposed players", async () => {
+  for (const reason of ["hidden", "removed", "replaced", "disposed", "recovered"]) {
+    let respond;
+    const f = visibilityFixture({ requestHls: () => new Promise((resolve) => { respond = resolve; }) });
+    f.cleanUpHidden();
+    f.setHidden(false);
+    if (reason === "hidden") f.setHidden(true);
+    if (reason === "removed") f.player.isConnected = false;
+    if (reason === "replaced") { f.setChild(null); f.recovery.observe(); }
+    if (reason === "disposed") f.recovery.dispose();
+    if (reason === "recovered") { f.emitStreams({ ...good }); f.select(good, failed); }
+    respond({ url: "/api/hls/late/master_playlist.m3u8" });
+    await Promise.resolve();
+    assert.equal(f.player.url, undefined, reason);
+    f.recovery.dispose();
+  }
+});
+
 test("HA's deferred selector retains the HLS failure captured before MediaSource attachment", async () => {
   const f = fixture({ requestHls: async () => ({ url: "/api/hls/resumed/master_playlist.m3u8" }) });
   f.select(good, failed);

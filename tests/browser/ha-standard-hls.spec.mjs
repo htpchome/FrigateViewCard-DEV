@@ -54,7 +54,7 @@ test.beforeAll(async () => {
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
-for (const failure of ["expired master", "unparsed manifest"]) {
+for (const failure of ["expired master", "retained master", "unparsed manifest"]) {
   for (const webRtc of [false, true]) {
     test(`HA Direct resumes ${failure} after background cleanup with ${webRtc ? "blocked WebRTC" : "HLS only"}`, async ({ page }) => {
       let generation = 0;
@@ -102,11 +102,24 @@ for (const failure of ["expired master", "unparsed manifest"]) {
       const expectLive = async () => {
         // Consecutive synthetic returns can fall inside the five-second URL
         // retry bound; real long-background returns are over a minute apart.
-        await expect.poll(() => page.evaluate(() => [...window.backgroundProbe.states.values()]
-          .filter((state) => state.status === "ready" && state.streamType === "hls").length), { timeout: 12000 }).toBe(2);
+        await expect.poll(() => page.evaluate(() => window.backgroundProbe.entries.map((entry, index) => {
+          const p = window.backgroundProbe;
+          const player = p.players[index];
+          const state = p.states.get(entry.provider.stateObj.entity_id);
+          const video = player.video;
+          return { status: state?.status, streamType: state?.streamType, time: video.currentTime,
+            readyState: video.readyState, paused: video.paused, mediaError: video.error?.code,
+            playerError: player._error, engineErrors: p.audit.errors, requests: p.requests,
+            buffer: Array.from({ length: video.buffered.length }, (_, i) => [video.buffered.start(i), video.buffered.end(i)]) };
+        })), { timeout: 12000 }).toEqual([
+          expect.objectContaining({ status: "ready", streamType: "hls" }),
+          expect.objectContaining({ status: "ready", streamType: "hls" }),
+        ]);
         const times = await page.evaluate(() => window.backgroundProbe.players.map((player) => player.video.currentTime));
-        await expect.poll(() => page.evaluate((times) => window.backgroundProbe.players.every((player, index) =>
-          !player.video.paused && player.video.currentTime > times[index] + 0.2), times)).toBe(true);
+        await expect.poll(() => page.evaluate((times) => window.backgroundProbe.players.map((player, index) => ({
+          advancing: !player.video.paused && player.video.currentTime > times[index] + 0.2,
+          time: player.video.currentTime, state: player.video.readyState, error: player._error,
+        })), times)).toEqual([expect.objectContaining({ advancing: true }), expect.objectContaining({ advancing: true })]);
       };
       await expectLive();
       // A short tab switch must not reset playback or ask HA for another URL.
@@ -115,6 +128,7 @@ for (const failure of ["expired master", "unparsed manifest"]) {
       expect(await page.evaluate(() => window.backgroundProbe.requests)).toEqual([]);
       for (const cycle of [1, 2]) {
         const previousRequests = await page.evaluate(() => window.backgroundProbe.requests.length);
+        const requestOffset = requests.length;
         await page.evaluate(() => {
           const p = window.backgroundProbe;
           p.setHidden(true);
@@ -123,25 +137,31 @@ for (const failure of ["expired master", "unparsed manifest"]) {
           p.players[0]._error = "Stream network error";
           p.players[0].dispatchEvent(new CustomEvent("streams", { bubbles: true, composed: true,
             detail: { hasVideo: false, hasAudio: false } }));
-          for (const player of p.players) player.hiddenCleanup();
+          for (const player of p.players) player._hiddenCleanupTimeout();
         });
         await expect.poll(() => page.evaluate(() => window.backgroundProbe.players.every((player) =>
           player.video.readyState === 0 && !player.video.hasAttribute("src")))).toBe(true);
         expect(await page.evaluate(() => window.backgroundProbe.requests.length)).toBe(previousRequests);
         if (failure === "expired master") generation += 1;
-        else rejectManifest = true;
+        else if (failure === "unparsed manifest") rejectManifest = true;
         await page.evaluate((generation) => {
           const p = window.backgroundProbe;
           p.generation = generation;
           p.setHidden(false);
         }, generation);
         await expectLive();
+        if (failure !== "unparsed manifest") {
+          const masters = requests.slice(requestOffset).filter((url) => url.includes("/master.m3u8?"));
+          expect(masters).toHaveLength(2);
+          expect(masters.every((url) => Number(new URL(url).searchParams.get("generation")) === generation)).toBe(true);
+        }
         expect(await page.evaluate(() => window.backgroundProbe.audit.starts)).toEqual(["camera.one", "camera.two"]);
         expect(await page.evaluate(() => window.backgroundProbe.audit.stops)).toEqual([]);
         expect(await page.evaluate(() => window.backgroundProbe.audit.engines.filter((engine) => engine.media).length)).toBe(2);
-        expect(await page.evaluate(() => window.backgroundProbe.requests.length)).toBe(failure === "expired master" ? cycle * 2 : cycle);
+        expect(await page.evaluate(() => window.backgroundProbe.audit.engines.length)).toBe(2 + cycle * (failure === "unparsed manifest" ? 3 : 2));
+        expect(await page.evaluate(() => window.backgroundProbe.requests.length)).toBe(cycle * (failure === "unparsed manifest" ? 3 : 2));
         expect(await page.evaluate(() => window.backgroundProbe.audit.cleanups.filter((entity) => entity === "camera.two").length))
-          .toBe(failure === "expired master" ? cycle * 2 : cycle);
+          .toBe(cycle * 2);
       }
       expect(await page.evaluate(() => window.backgroundProbe.audit.engines.every((engine) => !engine.config.lowLatencyMode))).toBe(true);
       expect(requests.filter((url) => /_HLS_|partial|next-part/.test(url))).toEqual([]);

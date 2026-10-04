@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.192` requests a fresh HA HLS URL before restarting a previously
+usable player emptied by HA's hidden-tab cleanup. Physical dev.191 testing
+confirmed eventual recovery but reported two restart waves; a real-Hls.js
+regression reproduces the expired-master fetch followed by a fresh-master fetch.
+The explicitly approved, instance-local visibility adapter replaces only that
+foreground restart, using HA's public URL update on the same retained player.
+HA's hidden timer, short tab switches, picture-in-picture, cold startup and
+engine ownership remain intact. Pending resumes are deduplicated; cached parent
+metadata cannot cancel a URL retry, and hidden/stale responses cannot restart
+released media. The existing five-second failure retry bound is unchanged.
+Native listeners are restored on child replacement or disposal. WebRTC policy,
+Catalyst, Frigate go2rtc, and view/editor session retention are unchanged.
+Synthetic media tests check fresh-only master requests and decoded playback;
+physical HA/go2rtc connection-count verification is still required.
+
 `v1.1.8-dev.191` corrects the event-ordering defect missed by dev.190. Physical
 Firefox diagnostics showed retained providers with no HLS child at all, while
 failed WebRTC retries continued. HA emits missing-codec metadata before it
@@ -480,7 +495,8 @@ Preserve all of these behaviors together:
 10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
     objects, extract the nested video, or run timeout-based provider recovery.
     Only the instance-local verified-HLS capability, muted-HLS selector,
-    failed-WebRTC retry, retryable-HLS recovery, and documented standard-HLS
+    failed-WebRTC retry, retryable-HLS recovery (including the scoped foreground
+    visibility adapter), and documented standard-HLS
     configuration corrections above are allowed;
     none affects HA's global
     components. Read-only native-peer observation may drive the bounded retry
