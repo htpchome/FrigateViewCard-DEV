@@ -281,7 +281,7 @@ The Card View can be configured in a few ways and is designed to insert into das
 | `preview_page_show_title_bars` | boolean | `true` | Shows camera name, source, Alerts count, and online state beneath Preview tiles. |
 | `preview_page_alert_live_duration_seconds` | number | `10` | Shared live-promotion duration for alerted Preview and Wide View Companion Camera tiles. Valid values: `5`, `10`, `20`, `30`, `60`, `120`. |
 | `wide_view_page_enabled` | boolean | `false` | Enables Wide View for desktop/tablet navigation and landing-page selection. |
-| `wide_view_live_cameras` | boolean | `false` | Keeps all Wide View Companion Cameras live instead of using refreshed snapshots. |
+| `wide_view_live_cameras` | boolean | `false` | Keeps non-selected Wide View Companion Cameras live. The camera displayed in the main view uses a companion snapshot refreshed at `snapshot_update_seconds`, leaving its live connection exclusively in the main view. |
 | `wide_view_alert_takeover` | boolean | `false` | Initial state of the runtime control that lets a qualifying Companion Camera alert take over the main live view. |
 | `wide_view_timeline_enabled` | boolean | `false` | Enables the collapsible active-camera Timeline beside the Wide View browse area. |
 | `wide_view_timeline_default_open` | boolean | `false` | Opens the Wide View Timeline when the view starts instead of leaving it collapsed behind its drawer handle. |

@@ -40,7 +40,7 @@ export class WideViewCompanionController {
     this._host = host;
     this._constants = constants;
     this._ensureStyles();
-    this._mediaState = null;
+    this._mediaStates = new Map();
     this._lastRenderSignature = "";
     this._alertTakeoverEnabled = null;
     this._panelExpansionPx = 0;
@@ -116,6 +116,12 @@ export class WideViewCompanionController {
   }
 
   shouldUseLive(entity) {
+    const selected = this._host._activeGroupMemberOverride || this._host._activeCam?.entity;
+    // The main stage owns these players; companion copies stay on snapshots.
+    if (entity === selected || (
+      this._host._cameraGroupLiveController?.isActive?.() &&
+      entity === this._host._cameraGroupLiveController.secondaryEntity()
+    )) return false;
     if (this._host._frigateCameraRuntimeController?.isSuspended?.(entity)) {
       return false;
     }
@@ -489,37 +495,40 @@ export class WideViewCompanionController {
   }
 
   teardownMedia() {
-    if (this._mediaState) {
-      this._mediaState.destroyed = true;
-      for (const cleanup of this._mediaState.cleanup || []) {
+    const hosts = new Set([
+      ...this._mediaStates.keys(),
+      ...(this._host.shadowRoot?.querySelectorAll?.(".wide-companion-media-host") || []),
+    ]);
+    for (const mediaHost of hosts) this._teardownMediaHost(mediaHost);
+    this._lastRenderSignature = "";
+  }
+
+  _teardownMediaHost(mediaHost) {
+    const state = this._mediaStates.get(mediaHost);
+    if (state) {
+      state.destroyed = true;
+      for (const cleanup of state.cleanup) {
         try {
           cleanup();
         } catch (_) {}
       }
     }
-    this._mediaState = null;
-    this._lastRenderSignature = "";
-    this._host.shadowRoot
-      ?.querySelectorAll?.(".wide-companion-media-host")
-      ?.forEach((mediaHost) => {
-        mediaHost.querySelectorAll?.("video")?.forEach((video) => {
-          try {
-            video.pause();
-            video.removeAttribute("src");
-            video.load();
-          } catch (_) {}
-        });
-        mediaHost
-          .querySelectorAll?.("img[data-fvc-blob-url]")
-          ?.forEach((img) => {
-            const blobUrl = img.dataset.fvcBlobUrl || "";
-            if (!blobUrl) return;
-            try {
-              URL.revokeObjectURL(blobUrl);
-            } catch (_) {}
-          });
-        mediaHost.innerHTML = "";
-      });
+    this._mediaStates.delete(mediaHost);
+    mediaHost.querySelectorAll?.("video")?.forEach((video) => {
+      try {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      } catch (_) {}
+    });
+    mediaHost.querySelectorAll?.("img[data-fvc-blob-url]")?.forEach((img) => {
+      const blobUrl = img.dataset.fvcBlobUrl || "";
+      if (!blobUrl) return;
+      try {
+        URL.revokeObjectURL(blobUrl);
+      } catch (_) {}
+    });
+    mediaHost.innerHTML = "";
   }
 
   render() {
@@ -538,12 +547,7 @@ export class WideViewCompanionController {
     const cameras = flattenCameraMembers(this._host._config?.cameras);
     const hassReady = !!this._host._hass?.states;
     const nextSignature = cameras
-      .map((camera, index) => {
-        const entity = camera?.entity || "";
-        const useLive = this.shouldUseLive(entity);
-        const liveStreamHint = this.cameraLiveStreamHint(entity);
-        return `${index}:${entity}:${useLive ? `live:${liveStreamHint}` : "snap"}`;
-      })
+      .map((camera, index) => `${index}:${camera?.entity || ""}`)
       .concat(`hass:${hassReady ? "1" : "0"}`)
       .join("|");
 
@@ -551,6 +555,7 @@ export class WideViewCompanionController {
       grid.firstElementChild &&
       this._lastRenderSignature === nextSignature
     ) {
+      this.mountMedia();
       this.updateMeta();
       this._host._syncSnapshotRefreshTimer?.();
       this._host._wideViewPageController?.syncColHeightIfWideView?.();
@@ -627,12 +632,16 @@ export class WideViewCompanionController {
       });
       return;
     }
-    const mediaState = { destroyed: false, cleanup: [] };
-    this._mediaState = mediaState;
     mediaHosts.forEach((mediaHost) => {
       const entity = mediaHost.dataset.wideCompanionMediaEntity || "";
-      const useLive = mediaHost.dataset.wideCompanionUseLive === "1";
+      const useLive = this.shouldUseLive(entity);
       const liveStreamHint = this.cameraLiveStreamHint(entity);
+      const signature = `${entity}:${useLive ? liveStreamHint : "snap"}`;
+      if (this._mediaStates.get(mediaHost)?.signature === signature) return;
+      this._teardownMediaHost(mediaHost);
+      const mediaState = { destroyed: false, cleanup: [], signature };
+      this._mediaStates.set(mediaHost, mediaState);
+      mediaHost.dataset.wideCompanionUseLive = useLive ? "1" : "0";
       const stateObj = entity
         ? buildHaCameraStreamState(this._host._hass, entity) ||
           this._host._hass?.states?.[entity] ||
@@ -665,9 +674,7 @@ export class WideViewCompanionController {
   resumeVisible() {
     if (!this.isActive()) return;
     this.render();
-    if (!this.liveCamerasEnabled()) {
-      void this._host._refreshSnapshotMedia?.();
-    }
+    void this._host._refreshSnapshotMedia?.();
   }
 
   stop() {

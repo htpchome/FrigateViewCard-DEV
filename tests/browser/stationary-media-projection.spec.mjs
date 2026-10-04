@@ -27,6 +27,9 @@ test.beforeAll(async () => {
     } else if (pathname === "/media.mp4") {
       response.writeHead(200, { "content-type": "video/mp4", "content-length": movie.length });
       response.end(movie);
+    } else if (pathname === "/snapshot.svg") {
+      response.writeHead(200, { "content-type": "image/svg+xml" });
+      response.end('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="gray"/></svg>');
     } else {
       response.writeHead(200, { "content-type": "text/html" });
       response.end("<!doctype html><html><body></body></html>");
@@ -379,6 +382,96 @@ for (const webRtc of [true, "pending"]) {
       });
     });
   }
+}
+
+for (const webRtc of [true, "pending"]) {
+  test(`Wide companions leave retained ${webRtc === true ? "WebRTC" : "HLS"} in the main view when selecting cameras`, async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(baseUrl);
+    await page.evaluate(async (webRtc) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const audit = installHaCameraLifecycleFixture({ webRtc, supportedTypes: ["web_rtc"] });
+      await import("/dist/frigate-view-card.js");
+      customElements.define("wide-session-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const anchor = document.createElement("home-assistant");
+      anchor.attachShadow({ mode: "open" });
+      document.body.append(anchor);
+      const card = document.createElement("wide-session-card");
+      const entities = ["camera.one", "camera.two", "camera.three"];
+      card.setConfig({ cameras: entities.map((entity) => ({ entity, connection_type: "ha_direct" })),
+        wide_view_page_enabled: true, wide_view_live_cameras: true,
+        snapshot_update_seconds: 2, show_calendar_button: false,
+      });
+      card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+        entities.map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
+      ) };
+      card._streamFallbackUrl = async (entity) => `/snapshot.svg?entity=${entity}`;
+      card._activeCamIdx = 0;
+      card._started = true;
+      for (const entity of entities) card._camCache[entity] = { discovered: true, events: [], reviews: [], recordings: [], kept: [] };
+      anchor.shadowRoot.append(card);
+      card._renderShell();
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: entities[0] });
+      window.wideProbe = { card, audit, entities, session: card._engine.haDirectSession };
+    }, webRtc);
+    await expect.poll(() => page.evaluate(() => [...window.wideProbe.session.records.values()]
+      .filter((record) => record.status === "ready").length)).toBe(3);
+    const starts = await page.evaluate(async () => {
+      const p = window.wideProbe;
+      p.providers = p.entities.map((entity) => p.session.get(entity).provider);
+      await p.card._wideViewPageController.prepare();
+      p.card._pageId = "wide-view";
+      p.card._renderShellPreserveLive();
+      return [...p.audit.starts];
+    });
+    for (const selected of [0, 1, 2, 0]) {
+      if (selected !== 0 || await page.evaluate(() => window.wideProbe.card._activeCamIdx !== 0)) {
+        await page.evaluate(async (index) => {
+          await window.wideProbe.card._switchCamera(index, { skipBrowseLoad: true });
+        }, selected);
+      }
+      await expect.poll(() => page.evaluate((index) => {
+        const { card, session, entities } = window.wideProbe;
+        const mediaHosts = [...card.shadowRoot.querySelectorAll(".wide-companion-media-host")];
+        if (mediaHosts.length !== 3) return false;
+        return entities.every((entity, cameraIndex) => {
+          const record = session.get(entity);
+          const companion = mediaHosts.find((host) => host.dataset.wideCompanionMediaEntity === entity);
+          const isSelected = cameraIndex === index;
+          if (companion.dataset.wideCompanionUseLive !== (isSelected ? "0" : "1")) return false;
+          if (isSelected && (!companion.querySelector("img") || companion.querySelector("slot"))) return false;
+          const bounds = record.provider.getBoundingClientRect();
+          const target = (isSelected ? card.shadowRoot.querySelector("#eng-wrap") : companion).getBoundingClientRect();
+          return bounds.width > 0 && Math.abs(bounds.left - target.left) < 3 &&
+            Math.abs(bounds.top - target.top) < 3 && Math.abs(bounds.width - target.width) < 3;
+        }) && card._engine === session.get(entities[index]).provider;
+      }, selected)).toBe(true);
+      expect(await page.evaluate(() => window.wideProbe.card._activeStreamType)).toBe(webRtc === true ? "webrtc" : "hls");
+      expect(await page.evaluate(() => window.wideProbe.audit.starts)).toEqual(starts);
+      expect(await page.evaluate(() => window.wideProbe.audit.providerDisconnects)).toBe(0);
+    }
+    // The configured refresh timer must run even with live companions enabled.
+    await expect.poll(() => page.evaluate(() => window.wideProbe.card.shadowRoot
+      .querySelector('.wide-companion-media-host[data-wide-companion-use-live="0"] img')?.src.includes("fvc_snapshot=")))
+      .toBe(true);
+    const time = await page.evaluate(() => window.wideProbe.session.get("camera.one").video.currentTime);
+    await expect.poll(() => page.evaluate(() => window.wideProbe.session.get("camera.one").video.currentTime)).toBeGreaterThan(time + 0.15);
+    expect(await page.evaluate(() => {
+      const p = window.wideProbe;
+      return p.entities.every((entity, index) => p.session.get(entity).provider === p.providers[index]);
+    })).toBe(true);
+    expect(errors).toEqual([]);
+    await page.evaluate(() => {
+      const p = window.wideProbe;
+      p.card._wideViewCompanionController.stop();
+      p.card._haDirectMounter.dispose();
+      p.session.dispose();
+    });
+  });
 }
 
 for (const initialPage of ["grid", "preview"]) {

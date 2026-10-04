@@ -39,6 +39,7 @@ const createHost = ({ live = false, takeover = false } = {}) => {
     _pageId: "wide-view",
     _viewMode: "single",
     _activeCamIdx: 0,
+    get _activeCam() { return this._config.cameras[this._activeCamIdx]; },
     _activeStreamType: "mse",
     _lastLiveStreamHint: "",
     _config: {
@@ -551,7 +552,7 @@ test("visible snapshot companions rerender and retry snapshot loading", () => {
   assert.deepEqual(calls, [["render"], ["refreshSnapshots"]]);
 });
 
-test("visible always-live companions do not request snapshot refresh", () => {
+test("live companions still refresh the selected camera snapshot when resumed", () => {
   const { host, calls } = createHost({ live: true });
   host._refreshSnapshotMedia = () => calls.push(["refreshSnapshots"]);
   const controller = new WideViewCompanionController(host, constants);
@@ -559,7 +560,7 @@ test("visible always-live companions do not request snapshot refresh", () => {
 
   controller.resumeVisible();
 
-  assert.deepEqual(calls, [["render"]]);
+  assert.deepEqual(calls, [["render"], ["refreshSnapshots"]]);
 });
 
 test("Companion Camera live state is config live or active alert", () => {
@@ -572,7 +573,8 @@ test("Companion Camera live state is config live or active alert", () => {
   assert.equal(snapshotController.shouldUseLive("camera.driveway"), false);
 
   snapshotController._alertController.isCameraAlertLive = () => true;
-  assert.equal(snapshotController.shouldUseLive("camera.driveway"), true);
+  assert.equal(snapshotController.shouldUseLive("camera.driveway"), false);
+  assert.equal(snapshotController.shouldUseLive("camera.front_door"), true);
 
   const liveHarness = createHost({ live: true });
   const liveController = new WideViewCompanionController(
@@ -580,7 +582,63 @@ test("Companion Camera live state is config live or active alert", () => {
     constants,
   );
   liveController._alertController.isCameraAlertLive = () => false;
+  assert.equal(liveController.shouldUseLive("camera.driveway"), false);
+  assert.equal(liveController.shouldUseLive("camera.front_door"), true);
+  liveHarness.host._activeCamIdx = 1;
   assert.equal(liveController.shouldUseLive("camera.driveway"), true);
+  assert.equal(liveController.shouldUseLive("camera.front_door"), false);
+});
+
+test("companions do not claim either member displayed in the main camera group", () => {
+  const { host } = createHost({ live: true });
+  host._cameraGroupLiveController = {
+    isActive: () => !host._activeGroupMemberOverride,
+    secondaryEntity: () => "camera.front_door",
+  };
+  const controller = new WideViewCompanionController(host, constants);
+  assert.equal(controller.shouldUseLive("camera.driveway"), false);
+  assert.equal(controller.shouldUseLive("camera.front_door"), false);
+  host._activeGroupMemberOverride = "camera.front_door";
+  assert.equal(controller.shouldUseLive("camera.driveway"), true);
+  assert.equal(controller.shouldUseLive("camera.front_door"), false);
+});
+
+test("switching cameras changes only the old and new selected companion media", () => {
+  const { host, grid } = createHost({ live: true });
+  host._config.cameras.push({ entity: "camera.garage" });
+  const mediaHosts = host._config.cameras.map(({ entity }) => ({
+    dataset: { wideCompanionMediaEntity: entity }, innerHTML: "",
+  }));
+  host.shadowRoot.querySelectorAll = (selector) =>
+    selector === ".wide-companion-media-host" ? mediaHosts : [];
+  const mounts = [];
+  const cleanups = [];
+  host._gridMediaController.mountCameraCellMedia = (mediaHost, options) => {
+    mounts.push(options);
+    mediaHost.innerHTML = options.useLive ? "live" : "snapshot";
+    options.gridState.cleanup.push(() => cleanups.push(options.entity));
+  };
+  const controller = new WideViewCompanionController(host, constants);
+  controller.render();
+  grid.firstElementChild = {};
+  const markup = grid.innerHTML;
+  assert.deepEqual(mounts.map(({ useLive }) => useLive), [false, true, true]);
+
+  host._activeCamIdx = 1;
+  controller.render();
+  assert.equal(grid.innerHTML, markup);
+  assert.deepEqual(mounts.slice(3).map(({ entity, useLive }) => [entity, useLive]), [
+    ["camera.driveway", true], ["camera.front_door", false],
+  ]);
+  assert.deepEqual(cleanups, ["camera.driveway", "camera.front_door"]);
+  assert.equal(mounts[0].gridState.destroyed, true);
+  assert.equal(mounts[1].gridState.destroyed, true);
+  assert.equal(mounts[2].gridState.destroyed, false);
+  assert.deepEqual(mediaHosts.map(({ dataset }) => dataset.wideCompanionUseLive), ["1", "0", "1"]);
+  controller.render();
+  assert.equal(mounts.length, 5);
+  controller.teardownMedia();
+  assert.equal(cleanups.filter((entity) => entity === "camera.garage").length, 1);
 });
 
 test("runtime takeover defaults from config and does not revert main camera", () => {

@@ -60,6 +60,10 @@ Meaning of `ha_direct`:
   adapter. Tile cleanup releases presentation only, not the retained connection.
   Snapshot-only tiles do not request live presentation. Frigate and Catalyst
   tiles keep their separate existing transport owners
+- in Wide View, a camera displayed in the main stage must use a refreshing
+  snapshot in its companion tile, even with live companions or an active alert.
+  Selection changes update only the affected tiles; they must not restart
+  unrelated companions or create a second provider for the main camera
 - page and layout changes keep each native provider in its permanent slot.
   Dashboard/editor handoff changes only the slot-relay chain and the subscribed
   presentation client. Neither providers nor their slots, videos or child

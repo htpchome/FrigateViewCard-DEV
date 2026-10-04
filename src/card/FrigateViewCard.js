@@ -1603,8 +1603,7 @@ export class FrigateViewCard extends HTMLElement {
       this._viewMode === "grid" &&
       !this._gridLiveViewEnabled();
     const shouldRefreshWideCompanions =
-      this._wideViewPageController.isWideViewPageActive() &&
-      !this._wideViewPageController.companionLiveCamerasEnabled();
+      this._wideViewPageController.isWideViewPageActive();
     if (
       !shouldRefreshPreview &&
       !shouldRefreshGrid &&
@@ -1633,8 +1632,7 @@ export class FrigateViewCard extends HTMLElement {
         return;
       }
       if (
-        this._wideViewPageController.isWideViewPageActive() &&
-        !this._wideViewPageController.companionLiveCamerasEnabled()
+        this._wideViewPageController.isWideViewPageActive()
       ) {
         void this._refreshSnapshotMedia().finally(() => {
           this._syncSnapshotRefreshTimer();
@@ -2438,6 +2436,7 @@ export class FrigateViewCard extends HTMLElement {
     this._renderList();
     this._streamMuted = true;
     this._renderMuteButton();
+    this._wideViewPageController?.renderCompanionCameras?.();
     this._cancelPendingMount(
       "switch-camera",
       resolveCameraSwitchCleanupOptions({

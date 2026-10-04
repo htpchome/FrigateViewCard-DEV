@@ -2,6 +2,13 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.179` reserves Wide View's selected camera connection for the main
+stage. Its companion tile uses the configured snapshot refresh interval, even
+when live companions or alert-driven live tiles are enabled. Camera switches
+update the old and new selected tiles in place; unrelated companion media stays
+mounted. The existing snapshot scheduler remains active in Wide View's live
+companion mode. Provider creation, transport selection, and retention are unchanged.
+
 `v1.1.8-dev.178` makes normal HA Direct Grid and Preview live tiles subscribers
 of the existing retained session. The separate raw `ha-camera-stream` tile
 factory is removed: it both duplicated WebRTC connections and bypassed the
