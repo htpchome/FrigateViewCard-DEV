@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.189` restores standard HLS for normal HA Direct's HA-owned Hls.js
+players. A documented instance-local configuration adapter supplies
+`lowLatencyMode: false` and filters LL-HLS playlist instructions before parsing.
+This also prevents blocking `_HLS_msn`/`_HLS_part`/`_HLS_skip` reloads and partial
+segment requests; setting the low-latency flag alone did not guarantee that.
+Complete segments, authenticated URLs, discontinuities and HA's remaining
+configuration are preserved. HA still owns its engine and recovery; the same
+adapter applies when it constructs an engine again after URL recovery.
+WebRTC selection, permanent provider retention, native-video playback, Catalyst,
+Frigate go2rtc and other cards are unchanged. No global HA setting is required.
+Tests use real Hls.js and decoded synthetic fMP4 media with an LL-advertising
+playlist; retained-provider tests also verify the policy on initial construction
+and recovery. Physical HA verification is still needed; unrelated HTTP errors
+are not claimed fixed.
+
 `v1.1.8-dev.188` corrects normal HA Direct's readiness reporting after buffering.
 WebKit can emit `waiting` and then advance media time without another `playing`
 event. While that player is pending, public `timeupdate` events may restore its
@@ -352,10 +367,10 @@ also checked for advancing media time; a playlist session that stops advancing
 is released and remounted instead of remaining stuck in Home Assistant's
 playlist retry loop. On browsers that use Home Assistant's `ha-hls-player`, the
 card disables Hls.js low-latency mode before the player loads its first
-playlist. Standard HLS avoids the blocking `_HLS_msn`/`_HLS_part` request path
-and its practical low concurrent-session limit while retaining Home Assistant
-authentication and player ownership. Catalyst remains on its separate native
-HLS path.
+playlist. That implementation did not guarantee removal of blocking playlist
+reloads: Hls.js can issue those even with low-latency playback disabled. The
+dev.189 policy above restores the flag and filters LL delivery instructions.
+Catalyst remains on its separate native HLS path.
 
 `v1.1.8-dev.166` keeps every retained HA Direct WebRTC video mounted and
 playing at full size, but explicitly transparent while dormant. Adoption clears
@@ -431,7 +446,8 @@ Preserve all of these behaviors together:
 10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
     objects, extract the nested video, or run timeout-based provider recovery.
     Only the instance-local verified-HLS capability, muted-HLS selector,
-    failed-WebRTC retry, and retryable-HLS recovery corrections above are allowed;
+    failed-WebRTC retry, retryable-HLS recovery, and documented standard-HLS
+    configuration corrections above are allowed;
     none affects HA's global
     components. Read-only native-peer observation may drive the bounded retry
     selector but must not patch player internals or own negotiation/teardown.

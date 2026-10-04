@@ -78,7 +78,8 @@ Meaning of `ha_direct`:
   must not dispose or restart other camera records
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
-  HLS/WebRTC player internals, use a readiness timeout to replace the provider,
+  HLS/WebRTC player internals (except the scoped standard-HLS configuration
+  boundary below), use a readiness timeout to replace the provider,
   or schedule a card-owned transport remount after HA startup. Four explicit,
   instance-local selector compatibility corrections are allowed:
 
@@ -113,6 +114,18 @@ Meaning of `ha_direct`:
   their prototypes. Tests must cover WebRTC-only capabilities with indefinitely
   pending ICE, explicit failure, repeated native ICE failure, bounded retries,
   HLS-first/WebRTC-later selection and retention
+- HA Direct browser HLS must not opt into low-latency playback. One explicit
+  instance-local configuration exception is allowed: adapt the card-owned HA
+  HLS child's `_renderHLSPolyfill` entry point before engine construction, using
+  HA's supplied Hls.js constructor with `lowLatencyMode: false` and a playlist
+  loader that removes LL-HLS part, preload, rendition-report and server-control
+  instructions. Keep complete segments, URL authentication, discontinuities,
+  and HA's other configuration intact. HA still owns engine construction,
+  retries and teardown; never create another player, alter global defaults or
+  prototypes, or use this to change WebRTC selection or retained session identity.
+  This adapter does not affect HA's native-video branch or the separate Catalyst
+  native path. Tests must verify actual playlist/segment requests, including
+  recovery, not just a mocked low-latency flag
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

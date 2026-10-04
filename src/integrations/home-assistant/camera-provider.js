@@ -6,6 +6,7 @@ import {
 import { preserveHaCameraHlsFallback } from "./camera-stream-compat.js";
 import { createHaCameraWebRtcRetry } from "./camera-webrtc-retry.js";
 import { createHaCameraHlsRecovery } from "./camera-hls-recovery.js";
+import { configureStandardHaHlsPlayer } from "./camera-hls-policy.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
 export function findHaCameraContextHost(element) {
@@ -52,6 +53,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     await provider.updateComplete;
     scheduled = false;
     if (disposed) return;
+    configureStandardHaHlsPlayer(provider.shadowRoot?.querySelector("ha-hls-player"));
     const playerRoot = findActiveHaCameraStreamPlayer(provider)?.shadowRoot;
     if (provider.shadowRoot && (!observer || observedPlayerRoot !== playerRoot)) {
       observer ??= new MutationObserver(reconcile);

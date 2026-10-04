@@ -212,7 +212,12 @@ for (const webRtc of [false, true]) {
 }
 
 test.afterEach(async ({ page }, testInfo) => {
-  if (testInfo.status === testInfo.expectedStatus) return;
+  if (testInfo.status === testInfo.expectedStatus) {
+    const configurations = await page.evaluate(() => (window.bundleProbe || window.sessionProbe ||
+      window.coldProbe || window.wideProbe || window.recoveryProbe || window.progressProbe)?.audit.hlsConfigurations || []);
+    for (const configuration of configurations) expect(configuration.lowLatencyMode, configuration.entity).toBe(false);
+    return;
+  }
   const state = await page.evaluate(() => {
     const probe = window.bundleProbe || window.sessionProbe || window.coldProbe || window.wideProbe;
     if (!probe) return null;

@@ -15,7 +15,7 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
   const audit = {
     starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
     rtcOffers: [], iceRestarts: [], closedPeers: [], urlUpdates: [],
-    startReadiness: [], mediaEvents: [],
+    startReadiness: [], mediaEvents: [], hlsConfigurations: [],
     failIce: (entity) => {
       const peer = rtcPlayers.get(entity)?._peerConnection;
       if (!peer || peer.iceConnectionState === "closed") return;
@@ -164,7 +164,24 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       this.video.load();
     }
   }
+  class FixtureHls {
+    static DefaultConfig = { loader: class {} };
+    constructor(config) { this.config = config; }
+  }
   customElements.define("ha-hls-player", class extends Player {
+    async startMedia() {
+      // HA awaits its URL and Hls.js import before constructing the engine.
+      // Resolved promises cover the fastest (cached) startup, not a timer.
+      await Promise.resolve();
+      await Promise.resolve();
+      if (!this.isConnected || this.video.hasAttribute("src")) return;
+      this._renderHLSPolyfill(this.video, FixtureHls, this._url);
+      super.startMedia();
+    }
+    _renderHLSPolyfill(video, Hls, url) {
+      this._hlsPolyfillInstance = new Hls({ lowLatencyMode: true, backBufferLength: 60 });
+      audit.hlsConfigurations.push({ entity: this.entityid, lowLatencyMode: this._hlsPolyfillInstance.config.lowLatencyMode });
+    }
     set url(value) {
       if (value === this._url) return;
       this._url = value;
