@@ -2,6 +2,14 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.182` keeps an in-progress Frigate go2rtc WebRTC/MSE race alive
+when a page-layout change synchronously moves its preserved stream host. The
+host checks at the next microtask whether it remains disconnected before
+stopping its owned race. Genuine removal still releases the attempts, and an
+old disconnect cannot stop a replacement race. This prevents navigation from
+cancelling WebRTC and destroying a ready MSE candidate before adoption. Race
+timings, established MSE fallback, HA Direct, Catalyst, and talk are unchanged.
+
 `v1.1.8-dev.180` identifies the saved editor configuration before Home Assistant
 rebuilds the dashboard card. A one-shot session handoff retains the camera
 providers even while the old pre-editor card is still connected; unrelated

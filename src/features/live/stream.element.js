@@ -20,9 +20,14 @@ export class FrigateLiveStreamElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    if (!this._orchestrator) return;
-    void this._orchestrator.stop().catch(() => {});
-    this._orchestrator = null;
+    const orchestrator = this._orchestrator;
+    if (!orchestrator) return;
+    // Preserved page layouts synchronously detach and reattach this same host.
+    queueMicrotask(() => {
+      if (this.isConnected || this._orchestrator !== orchestrator) return;
+      this._orchestrator = null;
+      void orchestrator.stop().catch(() => {});
+    });
   }
 }
 
