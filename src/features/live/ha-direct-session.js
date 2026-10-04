@@ -6,7 +6,7 @@ let sessionSequence = 0;
 const rank = (context) => context === "config" ? 2 : context === "preconfig" ? 1 : 0;
 
 export function createHaDirectSession({
-  projection,
+  createProjection,
   createProvider = createHaDirectCameraProvider,
   onDispose = () => {},
   releaseDelayMs = 20000,
@@ -38,27 +38,26 @@ export function createHaDirectSession({
       if (active && lastMuted !== undefined) active.setMuted?.(lastMuted);
       active?.onPresentationChange?.(true);
     }
-    const target = active?.target();
-    if (target) projection.project(target);
-    else projection.clear();
-    const selected = active?.selected();
     for (const record of records.values()) {
-      const visible = Boolean(target && active?.visible() && record.entity === selected);
+      const target = active?.target(record.entity);
+      if (target) record.projection.project(target);
+      else record.projection.clear();
+      const visible = Boolean(target && active?.visible(record.entity));
       record.slot.style.opacity = visible ? "1" : "0";
       record.slot.style.zIndex = visible ? "3" : "0";
-      if (record.provider) record.provider.muted = visible ? Boolean(active.muted()) : true;
+      if (record.provider) record.provider.muted = visible ? Boolean(active.muted(record.entity)) : true;
+      active?.onState?.(record, true);
     }
-    const record = records.get(selected);
-    if (record) active?.onState?.(record, true);
   };
   const requestedEntities = () => [...new Set([...clients.keys()].flatMap((client) => client.entities()))];
   const start = (entity) => {
     const stateObj = lastHass?.states?.[entity];
     if (!stateObj) return false;
-    const slot = projection.deck.ownerDocument.createElement("div");
-    slot.style.cssText = "position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none";
+    const projection = createProjection();
+    const slot = projection.deck;
+    slot.style.opacity = "0";
     slot.dataset.fvcHaDirectProvider = entity;
-    const record = { entity, slot, provider: null, status: "loading", streamType: "", video: null, cleanup: () => {} };
+    const record = { entity, slot, projection, provider: null, status: "loading", streamType: "", video: null, cleanup: () => {} };
     starting = record;
     try {
       const result = createProvider({
@@ -82,7 +81,6 @@ export function createHaDirectSession({
       });
       records.set(entity, record);
       slot.appendChild(record.provider);
-      projection.deck.appendChild(slot);
     } catch (error) {
       starting = null;
       record.status = "failed";
@@ -108,7 +106,7 @@ export function createHaDirectSession({
     records.delete(entity);
     if (starting === record) starting = null;
     record.cleanup();
-    record.slot.remove();
+    record.projection.dispose();
     if (record.provider) delete record.provider.haDirectSession;
   };
   const sync = (client, { activate = false } = {}) => {
@@ -157,7 +155,6 @@ export function createHaDirectSession({
       if (releaseTimer != null) clearTimeout(releaseTimer);
       for (const entity of [...records.keys()]) removeRecord(entity);
       clients.clear();
-      projection.dispose();
       onDispose();
     },
   };
@@ -199,7 +196,7 @@ export function acquireHaDirectSession({ anchor, client, identity, connection })
   if (!entry) {
     entry = { connection, initialIdentity: identity, lastIdentity: identity, session: null };
     entry.session = createHaDirectSession({
-      projection: createStationaryMediaProjection({ anchor, name: `fvc-ha-session-${++sessionSequence}` }),
+      createProjection: () => createStationaryMediaProjection({ anchor, name: `fvc-ha-camera-${++sessionSequence}` }),
       onDispose: () => {
         registry.sessions.delete(entry);
         if (registry.editorSession === entry) registry.editorSession = null;

@@ -3,11 +3,21 @@ import { upstreamHaCameraStreamSelector } from "./ha-camera-stream-selector.mjs"
 // A lifecycle harness, not a substitute for physical HA integration testing.
 // It uses HA's pinned selection contract and real browser video decoders.
 // Disconnect deliberately stops playback, as the real HA child players do.
-export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls", "web_rtc"] }) {
+export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls", "web_rtc"], holdReadinessAudit = false }) {
   const rtcPlayers = new Map();
+  const providers = new Set();
+  const heldReadyEntities = new Set();
+  const mediaReady = () => [...providers].filter((provider) => [...provider.players.values()].some((player) =>
+    !player.classList.contains("hidden") && player.video.videoWidth > 0 &&
+    (player.video.readyState >= 2 || player.video.getVideoPlaybackQuality().totalVideoFrames > 0)))
+    .map((provider) => provider.stateObj.entity_id);
   const audit = {
     starts: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
     startReadiness: [],
+    releaseReadinessAudit: () => {
+      for (const entity of heldReadyEntities) audit.readyEntities.add(entity);
+      heldReadyEntities.clear();
+    },
     releaseWebRtc: () => { for (const player of rtcPlayers.values()) player.startMedia(); },
     callWS: async (message) => {
       if (message.type !== "camera/stream" || message.format !== "hls") throw new Error("Unexpected HA request");
@@ -27,7 +37,21 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
     }
     connectedCallback() {
       audit.starts.push(`${this.localName}:${this.entityid}`);
-      audit.startReadiness.push({ entity: this.entityid, ready: [...audit.readyEntities] });
+      // Decoding can precede loadeddata, and readyState can drop after a frame.
+      // Inspect visible media and its frame history, not event bookkeeping.
+      audit.startReadiness.push({
+        entity: this.entityid, eventReady: [...audit.readyEntities], ready: mediaReady(),
+        states: [...providers].map((provider) => ({
+          entity: provider.stateObj.entity_id,
+          status: provider.haDirectSession?.get(provider.stateObj.entity_id)?.status,
+          players: [...provider.players.values()].map((player) => ({
+            type: player.localName, hidden: player.classList.contains("hidden"),
+            readyState: player.video.readyState, width: player.video.videoWidth,
+            paused: player.video.paused, time: player.video.currentTime,
+            frames: player.video.getVideoPlaybackQuality().totalVideoFrames,
+          })),
+        })),
+      });
       if (this.localName === "ha-web-rtc-player") rtcPlayers.set(this.entityid, this);
       // A blocked ICE connection often emits neither success nor failure.
       if (this.localName === "ha-web-rtc-player" && webRtc === "pending") return;
@@ -42,7 +66,7 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
     startMedia() {
       if (this.video.hasAttribute("src")) return;
       this.video.addEventListener("loadeddata", () => {
-        audit.readyEntities.add(this.entityid);
+        (holdReadinessAudit ? heldReadyEntities : audit.readyEntities).add(this.entityid);
         this.dispatchEvent(new CustomEvent("streams", {
           detail: { hasAudio: false, hasVideo: true }, bubbles: true, composed: true,
         }));
@@ -61,6 +85,7 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       this.attachShadow({ mode: "open" });
       this.updateComplete = Promise.resolve();
       this.players = new Map();
+      providers.add(this);
       this.addEventListener("streams", (event) => {
         if (event.composedPath()[0].localName === "ha-hls-player") this.hls = event.detail;
         else this.rtc = event.detail;

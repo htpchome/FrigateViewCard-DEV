@@ -21,8 +21,8 @@ export function getHaCameraPresentationIdentity(element, config) {
   return { config: node?.config || config, signature: JSON.stringify(config) };
 }
 
-// Only the normal primary HA Direct session uses this compatibility adapter.
-// Grid, Preview, companion, Catalyst and HA's own cards keep their factories.
+// All normal HA Direct presentations share this provider. Catalyst and HA's
+// own cards keep their separate factories.
 export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   const provider = createHaCameraStreamElement({
     stateObj, muted: true, defaultMuted: true, controls: false, fitMode: "contain",

@@ -901,51 +901,22 @@ test("Grid destroys a transport that finishes after its cell was removed", async
   }
 });
 
-test("Preview HA Direct HLS reveals only after the active HA player renders", async () => {
+test("Preview HA Direct HLS reveals only when its retained session reports usable media", async () => {
   const previousDocument = globalThis.document;
-  let stream = null;
-  let hlsFrameCallback = null;
-  const hlsVideo = {
-    style: {},
-    readyState: 0,
-    videoWidth: 0,
-    currentTime: 0,
-    addEventListener() {},
-    removeEventListener() {},
-    requestVideoFrameCallback(callback) {
-      hlsFrameCallback = callback;
-      return 2;
-    },
-    cancelVideoFrameCallback() {},
-    pause() {},
-    removeAttribute() {},
-    load() {},
-  };
-  globalThis.document = {
-    createElement: (tagName) => {
-      const element = createPreviewMediaElement(tagName);
-      if (tagName === "ha-camera-stream") {
-        stream = element;
-        element.updateComplete = Promise.resolve();
-        const hlsPlayer = {
-          tagName: "HA-HLS-PLAYER",
-          hidden: false,
-          classList: { contains: () => false },
-          shadowRoot: { querySelector: () => hlsVideo },
-        };
-        element.shadowRoot = {
-          querySelectorAll: () => [hlsPlayer],
-          querySelector: () => hlsVideo,
-        };
-      }
-      return element;
-    },
-  };
+  let publish;
+  let detached = false;
+  globalThis.document = { createElement: createPreviewMediaElement };
   try {
     const cell = createPreviewMediaElement("cell");
     cell.isConnected = true;
     const gridState = { destroyed: false, cleanup: [] };
     const controller = new GridMediaController({
+      _haDirectMounter: { mountTile: (target, { entity, onState }) => {
+        assert.equal(entity, "camera.front");
+        assert.equal(target, cell.children[1]);
+        publish = onState;
+        return () => { detached = true; };
+      } },
       _hass: {
         states: {
           "camera.front": {
@@ -973,13 +944,12 @@ test("Preview HA Direct HLS reveals only after the active HA player renders", as
     const liveLayer = cell.children[1];
     assert.equal(liveLayer.classList.contains("is-ready"), false);
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(stream.tagName, "ha-camera-stream");
-    assert.equal(stream.stateObj.attributes.frontend_stream_type, "mse");
-    assert.equal(stream.fitMode, "contain");
-    assert.equal(typeof hlsFrameCallback, "function");
-    hlsFrameCallback();
+    publish({ status: "loading", provider: {} });
+    assert.equal(liveLayer.classList.contains("is-ready"), false);
+    publish({ status: "ready", provider: {}, streamType: "hls" });
     assert.equal(liveLayer.classList.contains("is-ready"), true);
     gridState.cleanup.forEach((cleanup) => cleanup());
+    assert.equal(detached, true);
   } finally {
     globalThis.document = previousDocument;
   }

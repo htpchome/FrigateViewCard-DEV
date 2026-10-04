@@ -2,6 +2,19 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.178` makes normal HA Direct Grid and Preview live tiles subscribers
+of the existing retained session. The separate raw `ha-camera-stream` tile
+factory is removed: it both duplicated WebRTC connections and bypassed the
+verified HLS fallback. Each retained camera now owns an independently projected,
+permanent application-root mount, allowing several cameras to appear in separate
+tiles without moving their players. Grid pagination and tile cleanup change
+presentation only; all providers remain connected. Cold Grid/Preview startup
+uses the same sequential queue. Catalyst and Frigate go2rtc tile factories are
+unchanged. Browser regressions exercise both transports, Grid entry from camera
+1 or 3, pagination, Preview, return to Single View, and cold tile-page startup.
+The separately reported HA low-latency HLS HTTP 400 responses are not claimed
+fixed by this presentation change.
+
 `v1.1.8-dev.177` addresses HA camera capabilities that advertise only WebRTC
 even though the entity supplies an HA HLS stream source. The existing
 instance-local selector adapter immediately makes one authenticated
@@ -296,10 +309,10 @@ Preserve all of these behaviors together:
    camera failed and advance the queue without replacing or remounting its provider.
 4. Do not create a parallel card-owned HLS player, RTCPeerConnection, signaling
    subscription, race, or takeover for normal HA Direct playback.
-5. Create each provider inside a permanent, full-sized slot under its session's
-   stationary application-root deck. Use nested slot projection for each
-   card/editor presentation. Never move the provider or its internal player,
-   and never mount it under `document.body`.
+5. Create each provider inside its own permanent, full-sized application-root
+   mount. Use camera-specific nested slot projection for main, tile and editor
+   presentations. Never move the provider or its internal player, and never
+   mount it under `document.body`.
 6. Hide and mute dormant providers without disconnecting their custom element.
 7. Start background providers sequentially only after the selected provider is
    usable; wait for each background provider before starting the next one.

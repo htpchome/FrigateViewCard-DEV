@@ -7,9 +7,9 @@ const fixture = () => {
   const calls = [];
   const callbacks = new Map();
   const element = () => ({ style: {}, dataset: {}, appendChild() {}, remove() {} });
-  const projection = { deck: { ...element(), ownerDocument: { createElement: element } },
-    project: (target) => calls.push(["project", target]), clear() {}, dispose: () => calls.push(["dispose"]) };
-  const session = createHaDirectSession({ projection, createProvider: ({ stateObj, onState }) => {
+  const createProjection = () => ({ deck: element(),
+    project: (target) => calls.push(["project", target]), clear() {}, dispose: () => calls.push(["dispose"]) });
+  const session = createHaDirectSession({ createProjection, createProvider: ({ stateObj, onState }) => {
     const entity = stateObj.entity_id;
     calls.push(["create", entity]);
     callbacks.set(entity, onState);
@@ -21,7 +21,7 @@ const fixture = () => {
     const value = { selected: entities[0], context, target: {}, enabled: true, events: [] };
     return { value, host: { isConnected: true }, entities: () => entities,
       hass: () => hass, context: () => value.context, selected: () => value.selected,
-      target: () => value.target, visible: () => true, muted: () => true,
+      target: () => value.target, visible: (entity) => entity === value.selected, muted: () => true,
       canStart: () => value.enabled, onState: (record, active) => {
         if (active && record.entity === value.selected) value.events.push([record.entity, record.status, record.provider]);
       } };
@@ -142,5 +142,31 @@ test("editor ownership transfers audio and presentation subscriptions, not playe
   f.session.refresh();
   assert.equal(dashboardMuted, true);
   assert.deepEqual(changes.slice(-2), [["editor", false], ["dashboard", true]]);
+  f.session.dispose();
+});
+
+test("camera-specific projections present multiple retained players and mute only tile audio", async () => {
+  const f = fixture();
+  const owner = f.client();
+  f.session.attach(owner);
+  for (const entity of ["camera.one", "camera.two", "camera.three"]) await f.ready(entity);
+  const original = [...f.session.records.values()].map((record) => record.provider);
+  const targets = new Map([["camera.one", {}], ["camera.two", {}]]);
+  owner.target = (entity) => targets.get(entity) || owner.value.target;
+  owner.visible = (entity) => targets.has(entity);
+  f.calls.length = 0;
+  f.session.refresh();
+  assert.deepEqual(f.calls.filter(([name]) => name === "project").map(([, target]) => target),
+    [targets.get("camera.one"), targets.get("camera.two"), owner.value.target]);
+  assert.equal(f.session.get("camera.one").slot.style.opacity, "1");
+  assert.equal(f.session.get("camera.two").slot.style.opacity, "1");
+  assert.equal(f.session.get("camera.three").slot.style.opacity, "0");
+  targets.clear();
+  owner.visible = (entity) => entity === owner.value.selected;
+  owner.muted = () => false;
+  f.session.refresh();
+  assert.equal(f.session.get("camera.one").provider.muted, false);
+  assert.equal(f.session.get("camera.two").provider.muted, true);
+  assert.deepEqual([...f.session.records.values()].map((record) => record.provider), original);
   f.session.dispose();
 });

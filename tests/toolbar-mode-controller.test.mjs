@@ -202,7 +202,7 @@ test("Grid keeps the go2rtc cell handoff when it will mount the same camera live
   ]);
 });
 
-test("Grid retains the current HA-direct connection for its matching live cell", () => {
+test("Grid keeps normal HA Direct in its session rather than the one-camera overlay", () => {
   let handoffCalls = 0;
   const restoredTypes = [];
   const host = {
@@ -234,7 +234,7 @@ test("Grid retains the current HA-direct connection for its matching live cell",
     releaseMainLive: false,
     returnEntity: "",
   });
-  assert.equal(controller.retainedMainLiveEntity(), "camera.front");
+  assert.equal(controller.retainedMainLiveEntity(), "");
   host._viewMode = "grid";
   assert.equal(controller.takeColdStartLiveHandoff(), null);
   host._viewMode = "single";

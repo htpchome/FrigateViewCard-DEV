@@ -726,6 +726,11 @@ test("camera tile live mounts keep HA Direct and Frigate/go2rtc distinct", async
     };
     const haHost = {
       _hass: hass,
+      _haDirectMounter: { mountTile: (target, options) => {
+        assert.equal(options.entity, "camera.front_door");
+        target.appendChild(createElement("slot"));
+        return () => {};
+      } },
       _shouldUseGo2RtcForEntity: () => false,
       _go2rtcMounter: {
         tryMountWebRtc: async () => {
@@ -743,15 +748,8 @@ test("camera tile live mounts keep HA Direct and Frigate/go2rtc distinct", async
       liveStreamHint: "webrtc",
       gridState: { destroyed: false, cleanup: [] },
     });
-    assert.equal(haCell.children[0].tagName, "ha-camera-stream");
-    assert.equal(Object.hasOwn(haCell.children[0], "hass"), false);
-    assert.equal(
-      Object.hasOwn(
-        haCell.children[0].stateObj.attributes,
-        "frontend_stream_type",
-      ),
-      false,
-    );
+    assert.equal(haCell.children[0].tagName, "slot");
+    assert.equal(haCell.children.length, 1);
 
     haHost._isCatalyst = () => true;
     const catalystCell = createElement("cell");

@@ -52,7 +52,7 @@ export class GridPageController {
       !retainMainLiveInGrid;
     this._returnLiveEntity = releaseMainLive ? activeEntity : "";
     this._hasReturnLiveTarget = hasReturnLiveTarget && !releaseMainLive;
-    this._retainedMainLiveEntity = retainMainLiveInGrid ? activeEntity : "";
+    this._retainedMainLiveEntity = retainMainLiveInGrid && this._host._isCatalyst?.() === true ? activeEntity : "";
     return { releaseMainLive, returnEntity: this._returnLiveEntity };
   }
 

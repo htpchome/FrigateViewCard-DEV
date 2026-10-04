@@ -193,6 +193,10 @@ test("grid mode toolbar and runtime hooks are present", () => {
   );
   assert.equal(
     gridMediaControllerSource.includes("createHaCameraStreamElement"),
+    false,
+  );
+  assert.equal(
+    gridMediaControllerSource.includes("this._host._haDirectMounter.mountTile"),
     true,
   );
   assert.equal(
@@ -504,6 +508,36 @@ test("Grid live preference reaches the go2rtc cell mount", () => {
   );
 
   assert.equal(mountedOptions?.preferWebRtc, true);
+});
+
+test("normal HA Direct tiles subscribe to retained providers without a movable handoff", () => {
+  const mounts = [];
+  const cleanup = [];
+  const ready = [];
+  const detach = () => {};
+  const controller = new GridMediaController({
+    _shouldUseGo2RtcForEntity: () => false,
+    _isCatalyst: () => false,
+    _haDirectMounter: { mountTile: (target, options) => {
+      mounts.push({ target, ...options });
+      return detach;
+    } },
+  });
+  const cell = {};
+  controller.mountCameraCellMedia(cell, {
+    entity: "camera.one", stateObj: {}, useLive: true,
+    gridState: { destroyed: false, cleanup },
+    onLiveReady: (...args) => ready.push(args),
+  });
+  assert.equal(mounts.length, 1);
+  assert.equal(mounts[0].target, cell);
+  assert.equal(mounts[0].entity, "camera.one");
+  const provider = {};
+  mounts[0].onState({ status: "loading", provider });
+  assert.equal(ready.length, 0);
+  mounts[0].onState({ status: "ready", provider, streamType: "hls" });
+  assert.deepEqual(ready, [[provider, { type: "hls" }]]);
+  assert.deepEqual(cleanup, [detach]);
 });
 
 test("entering live Grid releases only duplicate go2rtc main-camera connections", () => {

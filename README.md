@@ -419,6 +419,9 @@ Normal HA Direct primary playback loads cameras sequentially and retains one
 HA provider per camera. The next camera starts after the current one produces
 usable video or reports failure. View and editor changes share the same live
 session; they change where the video is presented, not the player or connection.
+Grid and Preview live tiles use those same retained HA Direct players, including
+HLS fallback, rather than opening additional connections. Snapshot-only tiles
+remain snapshots.
 HA selects WebRTC when usable and HLS otherwise. A scoped compatibility fix
 preserves working HLS when HA's selector would incorrectly switch a muted camera
 to MJPEG after WebRTC fails. If HA advertises only WebRTC, the card immediately

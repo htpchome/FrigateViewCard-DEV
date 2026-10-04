@@ -1,5 +1,4 @@
 import {
-  createHaCameraStreamElement,
   createHaNativeHlsVideoElement,
   findActiveHaCameraStreamPlayer,
   watchHaPlaybackFirstFrame,
@@ -500,28 +499,28 @@ export class CameraCellMediaController {
           },
           onFailure: liveStage?.retainPlaceholder,
         });
+      } else if (stateObj && this._host._isCatalyst?.() !== true) {
+        gridState.cleanup.push(this._host._haDirectMounter.mountTile(liveTarget, {
+          entity,
+          onState: (record) => {
+            if (gridState.destroyed || record.status !== "ready") return;
+            liveStage?.reveal?.();
+            onLiveReady?.(record.provider, { type: record.streamType });
+          },
+        }));
       } else if (stateObj) {
         const styleText =
           "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
-        const stream = this._host._isCatalyst?.() === true
-          ? createHaNativeHlsVideoElement({
-              hass: this._host._hass,
-              entity,
-              streamFormat: "hls",
-              controls: false,
-              muted: true,
-              defaultMuted: true,
-              fitMode: "contain",
-              styleText,
-            })
-          : createHaCameraStreamElement({
-              stateObj,
-              controls: false,
-              muted: true,
-              defaultMuted: true,
-              fitMode: "contain",
-              styleText,
-            });
+        const stream = createHaNativeHlsVideoElement({
+          hass: this._host._hass,
+          entity,
+          streamFormat: "hls",
+          controls: false,
+          muted: true,
+          defaultMuted: true,
+          fitMode: "contain",
+          styleText,
+        });
         if (!stream) {
           liveStage?.retainPlaceholder?.();
           return Boolean(liveStage);

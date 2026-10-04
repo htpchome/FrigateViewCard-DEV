@@ -1011,8 +1011,9 @@ test("live transport ownership is pulled out of the card shell", () => {
   );
   assert.equal(
     gridMediaControllerSource.includes("createHaCameraStreamElement"),
-    true,
+    false,
   );
+  assert.equal(gridMediaControllerSource.includes("this._host._haDirectMounter.mountTile"), true);
   assert.equal(
     /_mountEngine\([\s\S]*?this\._liveMountController\.mount\(\{[\s\S]*?entity:\s*this\._activeGroupMemberOverride \|\| this\._activeCam\?\.entity \|\| ""/.test(
       cardSource,

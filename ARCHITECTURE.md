@@ -43,18 +43,23 @@ Meaning of `ha_direct`:
 - on non-Catalyst clients, each loaded camera owns one stable
   `ha-camera-stream` provider; Home Assistant selects and manages its HLS or
   WebRTC child player without a parallel card-owned transport race
-- providers are created in permanent, camera-scoped HA Direct deck slots and
-  are shown or hidden in place across camera and page changes; the deck is a
-  stable light-DOM child of the owning `home-assistant` application root.
-  Nested slot relays project that stationary deck into the active card or
-  editor stage, including the native dialog. Replacing a card or page shell
-  must never disconnect a provider subtree
+- providers are created in permanent, camera-scoped HA Direct mounts and
+  are shown or hidden in place across camera and page changes. Each mount is
+  a stable light-DOM child of the owning `home-assistant` application root.
+  Camera-specific slot relays project the stationary players into the active
+  main view, Grid/Preview tiles, or editor stage, including the native dialog.
+  Replacing a card or page shell must never disconnect a provider subtree
 - after the selected provider renders usable video, remaining configured HA
   Direct cameras may warm sequentially; camera N+1 must not start until camera
   N has usable media or has failed
 - the card owns provider creation, deck visibility, retention and release,
   snapshot fallback presentation, and editor/layout presentation ownership; it
   does not own the provider's signaling or internal media-player lifecycle
+- Grid and Preview live tiles subscribe to the same normal HA Direct session;
+  they must not create additional HA players or bypass its HLS compatibility
+  adapter. Tile cleanup releases presentation only, not the retained connection.
+  Snapshot-only tiles do not request live presentation. Frigate and Catalyst
+  tiles keep their separate existing transport owners
 - page and layout changes keep each native provider in its permanent slot.
   Dashboard/editor handoff changes only the slot-relay chain and the subscribed
   presentation client. Neither providers nor their slots, videos or child

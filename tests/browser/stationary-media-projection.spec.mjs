@@ -43,6 +43,30 @@ const scenarios = [
   { name: "verified HLS with failed WebRTC-only ICE", transport: "hls", webRtc: false, supportedTypes: ["web_rtc"] },
 ];
 
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+  const state = await page.evaluate(() => {
+    const probe = window.bundleProbe;
+    if (!probe) return null;
+    return {
+      starts: probe.audit.startReadiness,
+      records: [...(probe.card._engine?.haDirectSession?.records.values() || [])].map((record) => ({
+        entity: record.entity, status: record.status, type: record.streamType,
+        players: [...record.provider.players.values()].map((player) => ({
+          type: player.localName, hidden: player.classList.contains("hidden"),
+          readyState: player.video.readyState, paused: player.video.paused,
+          width: player.video.videoWidth, time: player.video.currentTime,
+          error: player.video.error?.message,
+        })),
+      })),
+    };
+  });
+  if (state) await testInfo.attach("camera-readiness", {
+    body: JSON.stringify(state, null, 2), contentType: "application/json",
+  });
+  if (state) console.error("Synthetic camera readiness:", JSON.stringify(state));
+});
+
 for (const scenario of scenarios) {
   const { transport } = scenario;
   test(`production bundle starts and retains the HA Direct ${scenario.name} session`, async ({ page }) => {
@@ -51,7 +75,7 @@ for (const scenario of scenarios) {
     await page.goto(baseUrl);
     await page.evaluate(async (options) => {
       const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
-      const audit = installHaCameraLifecycleFixture(options);
+      const audit = installHaCameraLifecycleFixture({ ...options, holdReadinessAudit: true });
       await import("/dist/frigate-view-card.js");
       // Exercise the shipped card's real composition/mounter/session, without
       // starting unrelated browse requests or dashboard observers in this fixture.
@@ -77,7 +101,8 @@ for (const scenario of scenarios) {
       window.bundleProbe = { card, audit };
       await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
     }, scenario);
-    await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.readyEntities.size)).toBe(2);
+    await expect.poll(() => page.evaluate(() => [...(window.bundleProbe.card._engine?.haDirectSession?.records.values() || [])]
+      .filter((record) => record.status === "ready").length)).toBe(2);
     await expect.poll(() => page.evaluate(() => window.bundleProbe.card._activeStreamType)).toBe(transport);
     await page.evaluate(async () => {
       const { card } = window.bundleProbe;
@@ -95,8 +120,14 @@ for (const scenario of scenarios) {
     });
     expect(await page.evaluate(() => window.bundleProbe.card._engine === window.bundleProbe.first)).toBe(true);
     expect(await page.evaluate(() => window.bundleProbe.audit.providerDisconnects)).toBe(0);
-    expect(await page.evaluate(() => window.bundleProbe.audit.startReadiness
-      .filter((start) => start.entity === "camera.two").every((start) => start.ready.includes("camera.one")))).toBe(true);
+    const secondStarts = await page.evaluate(() => window.bundleProbe.audit.startReadiness
+      .filter((start) => start.entity === "camera.two"));
+    expect(secondStarts.length).toBeGreaterThan(0);
+    for (const start of secondStarts) {
+      expect(start.ready, JSON.stringify(start)).toContain("camera.one");
+      expect(start.eventReady).toEqual([]);
+    }
+    await page.evaluate(() => window.bundleProbe.audit.releaseReadinessAudit());
     expect(await page.evaluate(() => window.bundleProbe.audit.verifications))
       .toEqual(scenario.supportedTypes ? ["camera.one", "camera.two"] : []);
     if (scenario.webRtc === "pending") {
@@ -240,6 +271,173 @@ for (const scenario of scenarios) {
     });
   });
 }
+for (const webRtc of [true, "pending"]) {
+  for (const selectedIndex of [0, 2]) {
+    test(`Grid and Preview reuse every retained ${webRtc === true ? "WebRTC" : "HLS"} camera entering from ${selectedIndex + 1}`, async ({ page }) => {
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.goto(baseUrl);
+      await page.evaluate(async ({ webRtc, selectedIndex }) => {
+        const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+        const audit = installHaCameraLifecycleFixture({ webRtc, supportedTypes: ["web_rtc"] });
+        await import("/dist/frigate-view-card.js");
+        customElements.define("tile-session-card", class extends customElements.get("frigate-view-card") {
+          connectedCallback() {}
+          disconnectedCallback() {}
+        });
+        const anchor = document.createElement("home-assistant");
+        anchor.attachShadow({ mode: "open" });
+        document.body.append(anchor);
+        const card = document.createElement("tile-session-card");
+        const entities = ["camera.one", "camera.two", "camera.three", "camera.four", "camera.five"];
+        card.setConfig({
+          cameras: entities.map((entity) => ({ entity, connection_type: "ha_direct" })),
+          grid_mode_enabled: true, grid_live_view_enabled: true,
+          preview_page_enabled: true, preview_page_live_cameras: true,
+        });
+        card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+          entities.map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
+        ) };
+        card._streamFallbackUrl = async () => "";
+        card._activeCamIdx = selectedIndex;
+        card._started = true;
+        anchor.shadowRoot.append(card);
+        card._renderShell();
+        await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: entities[selectedIndex] });
+        window.tileProbe = { card, audit, entities, anchor, session: card._engine.haDirectSession };
+        await card._gridFeatureController.prepare();
+        await card._previewPageController.prepare();
+      }, { webRtc, selectedIndex });
+      await expect.poll(() => page.evaluate(() => [...window.tileProbe.session.records.values()]
+        .filter((record) => record.status === "ready").length)).toBe(5);
+      const starts = await page.evaluate(() => {
+        const p = window.tileProbe;
+        p.providers = [...p.session.records.values()].map((record) => record.provider);
+        return p.audit.starts;
+      });
+      for (const gridStart of [0, 4, 0]) {
+        await page.evaluate((start) => {
+          const { card } = window.tileProbe;
+          card._gridPageController.prepareLiveForGrid();
+          card._viewMode = "grid";
+          card._gridRotationStart = start;
+          card._gridMediaController.mountGridEngine(card.shadowRoot.querySelector("#grid-engine"));
+        }, gridStart);
+        await expect.poll(() => page.evaluate(() => {
+          const { card, session } = window.tileProbe;
+          return [...card.shadowRoot.querySelectorAll('.live-grid[aria-hidden="false"] .live-grid-cell[data-grid-entity]')]
+            .filter((cell) => {
+              const provider = session.get(cell.dataset.gridEntity)?.provider;
+              const bounds = provider?.getBoundingClientRect();
+              const target = cell.getBoundingClientRect();
+              return cell.querySelector(".preview-live-layer.is-ready") && bounds?.width > 0 &&
+                Math.abs(bounds.left - target.left) < 3 && Math.abs(bounds.top - target.top) < 3 &&
+                Math.abs(bounds.width - target.width) < 3;
+            }).length;
+        })).toBe(gridStart === 0 ? 4 : 1);
+        expect(await page.evaluate(() => window.tileProbe.audit.starts)).toEqual(starts);
+      }
+      await page.evaluate(() => {
+        const { card } = window.tileProbe;
+        card._gridMediaController.teardownGridEngine();
+        card._gridPageController.restoreLiveAfterGrid();
+        card._viewMode = "single";
+        card._pageId = "preview";
+        card._renderShellPreserveLive();
+        card._previewPageController.renderPreviewPage();
+      });
+      await expect.poll(() => page.evaluate(() => {
+        const { card, session } = window.tileProbe;
+        return [...card.shadowRoot.querySelectorAll(".preview-media-host[data-preview-media-entity]")]
+          .filter((cell) => {
+            const bounds = session.get(cell.dataset.previewMediaEntity)?.provider.getBoundingClientRect();
+            const target = cell.getBoundingClientRect();
+            return cell.querySelector(".preview-live-layer.is-ready") && bounds?.width > 0 &&
+              Math.abs(bounds.left - target.left) < 3 && Math.abs(bounds.top - target.top) < 3 &&
+              Math.abs(bounds.width - target.width) < 3;
+          }).length;
+      })).toBe(5);
+      const time = await page.evaluate(() => window.tileProbe.session.get("camera.three").video.currentTime);
+      await expect.poll(() => page.evaluate(() => window.tileProbe.session.get("camera.three").video.currentTime)).toBeGreaterThan(time + 0.15);
+      await page.evaluate(async () => {
+        const { card, entities } = window.tileProbe;
+        card._previewPageController.stopPreviewMode();
+        card._pageId = "single-view";
+        card._renderShellPreserveLive();
+        await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: entities[card._activeCamIdx] });
+      });
+      expect(await page.evaluate(() => window.tileProbe.audit.starts)).toEqual(starts);
+      expect(await page.evaluate(() => window.tileProbe.audit.providerDisconnects)).toBe(0);
+      expect(await page.evaluate(() => {
+        const p = window.tileProbe;
+        return [...p.session.records.values()].every((record, index) => record.provider === p.providers[index]);
+      })).toBe(true);
+      expect(errors).toEqual([]);
+      await page.evaluate(() => {
+        window.tileProbe.card._haDirectMounter.dispose();
+        window.tileProbe.session.dispose();
+      });
+    });
+  }
+}
+
+for (const initialPage of ["grid", "preview"]) {
+  test(`cold ${initialPage} starts HA cameras sequentially without a main-view connection`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (initialPage) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const audit = installHaCameraLifecycleFixture({ webRtc: "pending", supportedTypes: ["web_rtc"] });
+      await import("/dist/frigate-view-card.js");
+      customElements.define("cold-tile-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const anchor = document.createElement("home-assistant");
+      anchor.attachShadow({ mode: "open" });
+      document.body.append(anchor);
+      const card = document.createElement("cold-tile-card");
+      const entities = ["camera.one", "camera.two", "camera.three"];
+      card.setConfig({ cameras: entities.map((entity) => ({ entity, connection_type: "ha_direct" })),
+        grid_mode_enabled: true, grid_live_view_enabled: true,
+        preview_page_enabled: true, preview_page_live_cameras: true,
+      });
+      card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+        entities.map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
+      ) };
+      card._streamFallbackUrl = async () => "";
+      card._started = true;
+      anchor.shadowRoot.append(card);
+      card._renderShell();
+      window.coldProbe = { card, audit, anchor };
+      if (initialPage === "grid") {
+        await card._gridFeatureController.prepare();
+        card._viewMode = "grid";
+        card._gridMediaController.mountGridEngine(card.shadowRoot.querySelector("#grid-engine"));
+      } else {
+        await card._previewPageController.prepare();
+        card._pageId = "preview";
+        card._renderShellPreserveLive();
+        card._previewPageController.renderPreviewPage();
+      }
+    }, initialPage);
+    await expect.poll(() => page.evaluate(() => window.coldProbe.card.shadowRoot
+      .querySelectorAll(".preview-live-layer.is-ready").length)).toBe(3);
+    expect(await page.evaluate(() => {
+      const starts = window.coldProbe.audit.startReadiness;
+      return starts.filter((start) => start.entity === "camera.two").every((start) => start.ready.includes("camera.one")) &&
+        starts.filter((start) => start.entity === "camera.three").every((start) => start.ready.includes("camera.two"));
+    })).toBe(true);
+    expect(await page.evaluate(() => window.coldProbe.audit.verifications)).toEqual(["camera.one", "camera.two", "camera.three"]);
+    expect(await page.evaluate(() => window.coldProbe.audit.providerDisconnects)).toBe(0);
+    await page.evaluate(() => {
+      const { card, anchor } = window.coldProbe;
+      const session = anchor.querySelector("ha-camera-stream").haDirectSession;
+      card._haDirectMounter.dispose();
+      session.dispose();
+    });
+  });
+}
+
 test.afterAll(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));
 });

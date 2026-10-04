@@ -39,6 +39,11 @@ export function createHaDirectProviderMounter({
   let stopFallback = () => {};
   let lastPresentation = null;
   let foregroundRequested = false;
+  const tiles = new Set();
+  let tileSequence = 0;
+  const tileFor = (entity) => [...tiles].find((tile) =>
+    tile.entity === entity && tile.slot.isConnected &&
+    !tile.slot.closest('[hidden],[aria-hidden="true"]'));
   const stopLoading = () => {
     stopFallback();
     stopFallback = () => {};
@@ -51,11 +56,11 @@ export function createHaDirectProviderMounter({
     selected: getSelectedEntity,
     context: getContext,
     identity: getIdentity,
-    muted: getStreamMuted,
+    muted: (entity) => tileFor(entity) ? true : getStreamMuted?.(),
     setMuted: setStreamMuted,
-    target: () => card.shadowRoot?.querySelector('slot[name="fvc-ha-direct-provider-deck"]'),
-    visible: () => presenting,
-    canStart: () => shouldPreload?.() === true && (foregroundRequested || isSelectedExternalReady()),
+    target: (entity) => tileFor(entity)?.slot || card.shadowRoot?.querySelector('slot[name="fvc-ha-direct-provider-deck"]'),
+    visible: (entity) => Boolean(tileFor(entity)) || (presenting && entity === getSelectedEntity?.()),
+    canStart: () => tiles.size > 0 || (shouldPreload?.() === true && (foregroundRequested || isSelectedExternalReady())),
     onPresentationChange(active) {
       lastPresentation = null;
       if (!active) {
@@ -64,7 +69,17 @@ export function createHaDirectProviderMounter({
       }
     },
     onState(record, active) {
-      if (!active || !presenting || disposed || record.entity !== getSelectedEntity?.()) return;
+      if (!active || disposed) return;
+      const tile = tileFor(record.entity);
+      if (tile) {
+        const state = [record.provider, record.status, record.video, record.streamType];
+        if (!tile.lastState?.every((value, index) => value === state[index])) {
+          tile.lastState = state;
+          tile.onState?.(record);
+        }
+        return;
+      }
+      if (!presenting || record.entity !== getSelectedEntity?.()) return;
       const identity = [record.provider, record.status, record.video, client.target()];
       if (lastPresentation?.every((value, index) => value === identity[index])) return;
       lastPresentation = identity;
@@ -106,12 +121,14 @@ export function createHaDirectProviderMounter({
       target = client.target();
       observer = new MutationObserver(() => {
         const nextTarget = client.target();
-        if (target === nextTarget) return;
+        if (target === nextTarget && !tiles.size) return;
+        if (target !== nextTarget) lastPresentation = null;
         target = nextTarget;
-        lastPresentation = null;
         sync();
       });
-      observer.observe(card.shadowRoot, { childList: true, subtree: true });
+      observer.observe(card.shadowRoot, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "aria-hidden"],
+      });
       return session;
     })();
     try { return await preparing; } finally { preparing = null; }
@@ -144,10 +161,28 @@ export function createHaDirectProviderMounter({
     await ensureSession();
     sync();
   };
+  const mountTile = (host, { entity, onState } = {}) => {
+    disposed = false;
+    const slot = host.ownerDocument.createElement("slot");
+    slot.name = `fvc-ha-tile-${++tileSequence}`;
+    host.appendChild(slot);
+    const tile = { entity, slot, onState, lastState: null };
+    tiles.add(tile);
+    void (async () => {
+      if (!(await ensureSession()) || !tiles.has(tile)) return;
+      sync();
+    })();
+    return () => {
+      tiles.delete(tile);
+      slot.remove();
+      session?.refresh();
+    };
+  };
   return {
     prepare,
     tryMount,
     release,
+    mountTile,
     syncProviderStates: sync,
     schedulePreloadDeckAfterPaint,
     cancelPreloads: sync,
@@ -160,6 +195,8 @@ export function createHaDirectProviderMounter({
       stopLoading();
       observer?.disconnect();
       observer = null;
+      for (const tile of tiles) tile.slot.remove();
+      tiles.clear();
       session?.detach(client);
       session = null;
       foregroundRequested = false;
