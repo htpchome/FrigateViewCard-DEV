@@ -2,6 +2,13 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.183` prevents remembered Frigate go2rtc MSE success from locking
+later fresh connections to MSE alone. Only remembered WebRTC success uses the
+single-transport startup shortcut; a remembered fallback runs the existing
+WebRTC/MSE race again and permits the normal WebRTC takeover. Healthy retained
+connections are not restarted. Explicit forced transports, mobile hedging,
+race timings, HA Direct, Catalyst, and two-way talk are unchanged.
+
 `v1.1.8-dev.182` keeps an in-progress Frigate go2rtc WebRTC/MSE race alive
 when a page-layout change synchronously moves its preserved stream host. The
 host checks at the next microtask whether it remains disconnected before

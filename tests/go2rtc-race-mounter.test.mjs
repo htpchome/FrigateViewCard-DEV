@@ -145,7 +145,7 @@ test("go2rtc race mounter adopts the fallback winner and retains deferred webrtc
   }
 });
 
-test("go2rtc race mounter reuses last known good strategy first", async () => {
+test("remembered MSE still plays when a fresh WebRTC attempt fails", async () => {
   const previousDocument = globalThis.document;
   globalThis.document = {
     createElement: () => ({ style: {}, remove() {} }),
@@ -192,13 +192,13 @@ test("go2rtc race mounter reuses last known good strategy first", async () => {
     });
 
     assert.equal(mseCalls, 2);
-    assert.equal(webrtcCalls, 0);
+    assert.equal(webrtcCalls, 1);
   } finally {
     globalThis.document = previousDocument;
   }
 });
 
-test("go2rtc race mounter falls back when hinted strategy fails", async () => {
+test("WebRTC succeeds even when remembered MSE fails", async () => {
   const previousDocument = globalThis.document;
   globalThis.document = {
     createElement: () => ({ style: {}, remove() {} }),
@@ -295,10 +295,18 @@ test("go2rtc race mounter evicts oldest strategy hints when cache is full", asyn
       await raceMounter.mountWithRace({
         slot,
         entity: `camera.seed_${index}`,
-        forcedType: "mse",
+        forcedType: "webrtc",
         mountToken: index + 1,
       });
     }
+
+    await raceMounter.mountWithRace({
+      slot,
+      entity: "camera.seed_69",
+      mountToken: 199,
+    });
+    assert.equal(webrtcCalls, 71);
+    assert.equal(mseCalls, 0);
 
     await raceMounter.mountWithRace({
       slot,
@@ -306,9 +314,105 @@ test("go2rtc race mounter evicts oldest strategy hints when cache is full", asyn
       mountToken: 200,
     });
 
-    assert.equal(webrtcCalls, 1);
-    assert.equal(mseCalls, 71);
+    assert.equal(webrtcCalls, 72);
+    assert.equal(mseCalls, 1);
   } finally {
+    globalThis.document = previousDocument;
+  }
+});
+
+test("a failed remembered WebRTC connection cannot lock later connections to MSE", async () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createElement: () => ({ style: {}, remove() {} }),
+  };
+  let nowMs = 1000;
+  let webRtcAvailable = true;
+  let webRtcGate = null;
+  let pendingDestroyers = [];
+  let pendingTimer = null;
+  let currentWinnerEngine = null;
+  let adoptedType = "";
+  const calls = { webrtc: 0, mse: 0 };
+  try {
+    const raceMounter = createGo2RtcRaceMounter({
+      mounter: {
+        tryMountWebRtc: async (slot) => {
+          calls.webrtc += 1;
+          if (!webRtcAvailable) return false;
+          if (webRtcGate) await webRtcGate;
+          return { ok: true, type: "webrtc", slot, engine: { destroy() {} } };
+        },
+        tryMountMse: async (slot) => {
+          calls.mse += 1;
+          const engine = { destroyed: false, destroy() { this.destroyed = true; } };
+          return { ok: true, type: "mse", slot, engine };
+        },
+      },
+      resolveConnectionType: () => "frigate_go2rtc",
+      getPendingMountDestroyers: () => pendingDestroyers,
+      setPendingMountDestroyers: (next) => { pendingDestroyers = next; },
+      isMountTokenCurrent: () => true,
+      adoptMountedAttempt: (_slot, winner) => {
+        currentWinnerEngine = winner.engine;
+        adoptedType = winner.type;
+      },
+      waitForStreamStart: async () => true,
+      isCurrentWinnerEngine: (engine) => currentWinnerEngine === engine,
+      getPendingWebRtcTakeoverTimer: () => pendingTimer,
+      setPendingWebRtcTakeoverTimer: (timer) => { pendingTimer = timer; },
+      getNowMs: () => nowMs,
+      preferredWebRtcWaitMs: 0,
+    });
+    const slot = { appendChild() {} };
+    const mount = async (forcedType = null) => {
+      assert.equal(await raceMounter.mountWithRace({
+        slot, entity: "camera.front", mountToken: 1, forcedType,
+      }), true);
+      await delay(0);
+    };
+
+    await mount();
+    assert.equal(adoptedType, "webrtc");
+    assert.deepEqual(calls, { webrtc: 1, mse: 1 });
+
+    webRtcAvailable = false;
+    await mount();
+    assert.equal(adoptedType, "mse");
+    assert.deepEqual(calls, { webrtc: 2, mse: 2 });
+
+    nowMs += 60 * 60 * 1000;
+    await mount();
+    assert.equal(adoptedType, "mse");
+    assert.deepEqual(calls, { webrtc: 3, mse: 3 });
+    assert.equal(pendingTimer, null);
+
+    nowMs += 60 * 60 * 1000;
+    webRtcAvailable = true;
+    const gate = {};
+    webRtcGate = new Promise((resolve) => { gate.release = resolve; });
+    await mount();
+    const fallbackEngine = currentWinnerEngine;
+    assert.equal(adoptedType, "mse");
+    assert.deepEqual(calls, { webrtc: 4, mse: 4 });
+    gate.release();
+    await delay(0);
+    assert.equal(adoptedType, "webrtc");
+    assert.equal(fallbackEngine.destroyed, true);
+    assert.equal(pendingTimer, null);
+    assert.deepEqual(pendingDestroyers, []);
+
+    // Successful WebRTC still uses its single-transport fast path next time.
+    await mount();
+    assert.equal(adoptedType, "webrtc");
+    assert.deepEqual(calls, { webrtc: 5, mse: 4 });
+
+    // An explicitly forced MSE request must not create a WebRTC attempt.
+    await mount("mse");
+    assert.equal(adoptedType, "mse");
+    assert.deepEqual(calls, { webrtc: 5, mse: 5 });
+  } finally {
+    if (pendingTimer) clearTimeout(pendingTimer);
     globalThis.document = previousDocument;
   }
 });

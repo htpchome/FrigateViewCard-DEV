@@ -401,7 +401,8 @@ export function createGo2RtcRaceMounter({
         attemptDelayByType: resolveMobileAttemptDelays(attempts, hintedType),
       });
     }
-    if (hintedType) {
+    // A remembered fallback must not exclude WebRTC from a fresh connection.
+    if (hintedType === "webrtc") {
       const preferredAttempt = attempts.find(
         (attempt) => attempt.type === hintedType,
       );
