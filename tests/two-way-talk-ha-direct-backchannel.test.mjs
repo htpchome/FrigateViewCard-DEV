@@ -164,6 +164,7 @@ const startBackchannel = async ({
   onEnded,
   initialCandidate = null,
   emitPendingCandidate = true,
+  usePreparation = false,
 } = {}) => {
   const callWsPayloads = [];
   const microphone = createMicrophone();
@@ -216,11 +217,16 @@ const startBackchannel = async ({
     connectionTimeoutMs: 1000,
   });
 
+  const preparedConnection = usePreparation
+    ? await backchannel.prepare({ entity: "camera.front", abortSignal })
+    : null;
+  if (usePreparation) assert.equal(peerConnection, null);
   const connection = backchannel.connect({
     entity: "camera.front",
     microphoneStream: microphone.stream,
     onEnded,
     abortSignal,
+    preparedConnection,
   });
   await flushPromises();
 
@@ -443,3 +449,52 @@ test("aborting a pending HA direct talk connection releases its signaling resour
   assert.equal(fixture.incomingAudio.srcObject, null);
   assert.equal(fixture.microphone.track.stopCalls, 0);
 });
+
+test("prepared HA talk requests configuration once and retains audio/video readiness", async () => {
+  const fixture = await startBackchannel({ usePreparation: true });
+  let settled = false;
+  void fixture.connection.then(() => { settled = true; });
+  fixture.peerConnection.transceivers[0].currentDirection = "sendonly";
+  fixture.peerConnection.connectionState = "connected";
+  fixture.peerConnection.emit("connectionstatechange");
+  const audio = createTrack("audio", { muted: false });
+  const video = createTrack("video");
+  fixture.peerConnection.emit("track", { track: audio });
+  fixture.peerConnection.emit("track", { track: video });
+  await flushPromises();
+  assert.equal(settled, false, "audio alone must not bypass the existing video readiness gate");
+  video.muted = false;
+  video.emit("unmute");
+  const engine = await fixture.connection;
+  assert.equal(fixture.callWsPayloads.filter(({ type }) => type === "camera/webrtc/get_client_config").length, 1);
+  engine.destroy();
+  await flushPromises();
+  assert.equal(fixture.getUnsubscribeCalls(), 1);
+});
+
+for (const changed of ["entity", "connection", "cancelled"]) {
+  test(`HA talk rejects ${changed} preparation without creating a peer`, async () => {
+    let configurationRequests = 0;
+    let peerCreations = 0;
+    const hass = {
+      connection: { subscribeMessage() {} },
+      async callWS() { configurationRequests += 1; return {}; },
+    };
+    const abortController = new AbortController();
+    const backchannel = createHaDirectTwoWayTalkBackchannel({
+      getHass: () => hass,
+      createPeerConnection: () => { peerCreations += 1; },
+    });
+    const preparedConnection = await backchannel.prepare({ entity: "camera.front" });
+    if (changed === "connection") hass.connection = { subscribeMessage() {} };
+    if (changed === "cancelled") abortController.abort();
+    await assert.rejects(backchannel.connect({
+      entity: changed === "entity" ? "camera.other" : "camera.front",
+      microphoneStream: createMicrophone().stream,
+      preparedConnection,
+      abortSignal: abortController.signal,
+    }), /context changed|stopped during startup/);
+    assert.equal(configurationRequests, 1);
+    assert.equal(peerCreations, 0);
+  });
+}

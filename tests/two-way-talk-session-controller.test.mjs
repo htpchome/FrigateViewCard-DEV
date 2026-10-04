@@ -40,7 +40,13 @@ const withFakeMicrophone = async (run) => {
 const createHost = (useGo2Rtc) => {
   const calls = [];
   const createBackchannel = (type) => ({
-    async connect({ entity, microphoneStream }) {
+    async prepare({ entity }) {
+      calls.push(["prepare", type, entity]);
+      return { entity };
+    },
+    async connect({ entity, microphoneStream, preparedConnection }) {
+      if (type === "ha_direct") assert.equal(preparedConnection.entity, entity);
+      else assert.equal(preparedConnection, undefined);
       calls.push(["connect", type, entity, microphoneStream]);
       return {
         async destroy() {
@@ -92,6 +98,8 @@ test("two-way-talk session controller keeps transport modes explicit", async () 
 
       assert.equal(host._twoWayTalkSession?.type, expectedType);
       assert.equal(host._twoWayTalkEntity, "camera.front");
+      assert.deepEqual(calls.filter(([action]) => action === "prepare"),
+        useGo2Rtc ? [] : [["prepare", "ha_direct", "camera.front"]]);
       assert.deepEqual(
         calls
           .filter(([action]) => action === "connect")
@@ -113,3 +121,26 @@ test("two-way-talk availability rejects grid and alternate group members", () =>
   host._activeGroupMemberOverride = "camera.back";
   assert.equal(controller.shouldRenderButtonForActiveCamera(), false);
 });
+
+for (const change of ["camera", "transport", "cancel"]) {
+  test(`HA talk does not start a stale prepared connection after ${change} changes`, async () => {
+    await withFakeMicrophone(async () => {
+      const { calls, controller, host } = createHost(false);
+      let finishPreparation;
+      host._haDirectTwoWayTalkBackchannel.prepare = () => new Promise((resolve) => {
+        finishPreparation = resolve;
+      });
+      host._toast = () => {};
+      const starting = controller.startSession();
+      await new Promise((resolve) => setImmediate(resolve));
+      if (change === "camera") host._activeCam = { entity: "camera.other", two_way_talk: true };
+      if (change === "transport") host._shouldUseGo2RtcForEntity = () => true;
+      if (change === "cancel") controller.cancelStart();
+      finishPreparation({ entity: "camera.front" });
+      await starting;
+      assert.equal(calls.some(([action]) => action === "connect"), false);
+      assert.equal(host._twoWayTalkSession, null);
+      assert.equal(host._twoWayTalkStarting, false);
+    });
+  });
+}

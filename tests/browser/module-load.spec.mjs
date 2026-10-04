@@ -3051,6 +3051,136 @@ test("date labels follow HA language and time format without replacing media", a
   expect(state.explicit24).toBe("19:18");
 });
 
+test("HA talk bundle overlaps setup without replacing live or weakening readiness", async ({ page }) => {
+  await page.goto(baseUrl);
+  await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const audit = { configurationRequests: 0, microphoneRequests: 0, offers: 0, closes: 0, unsubscribes: 0 };
+    class Track extends EventTarget {
+      constructor(kind, muted = false) { super(); this.kind = kind; this.muted = muted; this.readyState = "live"; this.stops = 0; }
+      stop() { this.stops += 1; this.readyState = "ended"; }
+    }
+    class Stream {
+      constructor() { this.tracks = []; }
+      addTrack(track) { this.tracks.push(track); }
+      getTracks() { return this.tracks; }
+      getAudioTracks() { return this.tracks.filter((track) => track.kind === "audio"); }
+    }
+    const peers = [];
+    class Peer extends EventTarget {
+      constructor() { super(); this.transceivers = []; peers.push(this); }
+      addTransceiver() { const t = { currentDirection: "sendonly", stop() {} }; this.transceivers.push(t); return t; }
+      async createOffer() { return { type: "offer", sdp: "synthetic-talk-offer" }; }
+      async setLocalDescription() {}
+      async setRemoteDescription() {}
+      close() { audit.closes += 1; }
+    }
+    // Synthetic signaling and tracks exercise the built card without HA or microphone access.
+    window.RTCPeerConnection = Peer;
+    window.MediaStream = Stream;
+    const createElement = document.createElement.bind(document);
+    document.createElement = (tag, options) => {
+      const node = createElement(tag, options);
+      if (tag === "audio") {
+        Object.defineProperty(node, "srcObject", { writable: true, value: null });
+        node.play = async () => {};
+        node.pause = () => {};
+      }
+      return node;
+    };
+    const probe = { audit, peers, Track, Stream };
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", { configurable: true, value: () => {
+      audit.microphoneRequests += 1;
+      return new Promise((resolve) => { probe.resolveMicrophone = resolve; });
+    } });
+    const card = document.createElement("frigate-view-card");
+    card.setConfig({ cameras: [{ entity: "camera.front", connection_type: "ha_direct", two_way_talk: true }] });
+    card._pageId = "single-view";
+    card._activeCam = card._config.cameras[0];
+    card._renderShell();
+    const live = card.shadowRoot.querySelector("#live-stage");
+    const video = document.createElement("video");
+    video.play = async () => {};
+    live.append(video);
+    const engine = { video };
+    card._engine = engine;
+    card._mountEngine = () => { throw new Error("Talk must not remount live"); };
+    card._twoWayTalkSoundwaveController.startAfterPaint = () => {};
+    card._hass = {
+      callWS: async ({ type }) => {
+        if (type === "camera/webrtc/get_client_config") {
+          audit.configurationRequests += 1;
+          return await new Promise((resolve) => { probe.resolveConfiguration = resolve; });
+        }
+        return null;
+      },
+      connection: { subscribeMessage: (handler) => {
+        audit.offers += 1;
+        probe.signal = handler;
+        return Promise.resolve(() => { audit.unsubscribes += 1; });
+      } },
+    };
+    Object.assign(probe, { card, engine, video, live });
+    window.talkProbe = probe;
+    probe.starting = card._startTwoWayTalkSession();
+  });
+  await expect.poll(() => page.evaluate(() => [talkProbe.audit.microphoneRequests, talkProbe.audit.configurationRequests])).toEqual([1, 1]);
+  expect(await page.evaluate(() => talkProbe.peers.length)).toBe(0);
+  await page.evaluate(() => talkProbe.resolveConfiguration({ configuration: {} }));
+  expect(await page.evaluate(() => talkProbe.peers.length)).toBe(0);
+  await page.evaluate(() => {
+    const p = talkProbe;
+    p.microphone = new p.Track("audio");
+    const stream = new p.Stream();
+    stream.addTrack(p.microphone);
+    p.resolveMicrophone(stream);
+  });
+  await expect.poll(() => page.evaluate(() => talkProbe.audit.offers)).toBe(1);
+  await page.evaluate(async () => {
+    const p = talkProbe;
+    await p.signal({ type: "session", session_id: "synthetic-talk-session" });
+    await p.signal({ type: "answer", answer: "synthetic-talk-answer" });
+    const peer = p.peers[0];
+    peer.connectionState = "connected";
+    peer.dispatchEvent(new Event("connectionstatechange"));
+    p.remoteVideo = new p.Track("video", true);
+    for (const track of [new p.Track("audio"), p.remoteVideo]) {
+      peer.dispatchEvent(Object.assign(new Event("track"), { track }));
+    }
+  });
+  expect(await page.evaluate(() => talkProbe.card._twoWayTalkStarting)).toBe(true);
+  await page.evaluate(async () => {
+    const p = talkProbe;
+    p.remoteVideo.muted = false;
+    p.remoteVideo.dispatchEvent(new Event("unmute"));
+    await p.starting;
+    if (p.card._engine !== p.engine || p.live.querySelector("video") !== p.video) throw new Error("Live changed");
+    if (!p.card._twoWayTalkSession) throw new Error("Talk not connected");
+    await p.card._stopTwoWayTalkSession();
+    if (p.card._engine !== p.engine || p.live.querySelector("video") !== p.video) throw new Error("Stopping talk changed live");
+    p.card._clearTwoWayTalkResultBubble();
+  });
+  expect(await page.evaluate(() => ({
+    requests: talkProbe.audit.configurationRequests, peers: talkProbe.peers.length,
+    closes: talkProbe.audit.closes, unsubscribes: talkProbe.audit.unsubscribes,
+    microphoneStops: talkProbe.microphone.stops,
+  }))).toEqual({ requests: 1, peers: 1, closes: 1, unsubscribes: 1, microphoneStops: 1 });
+  await page.evaluate(() => { talkProbe.starting = talkProbe.card._startTwoWayTalkSession(); });
+  await expect.poll(() => page.evaluate(() => talkProbe.audit.configurationRequests)).toBe(2);
+  await page.evaluate(async () => {
+    const p = talkProbe;
+    p.card._cancelTwoWayTalkStart();
+    await p.starting;
+    p.lateMicrophone = new p.Track("audio");
+    const stream = new p.Stream();
+    stream.addTrack(p.lateMicrophone);
+    p.resolveMicrophone(stream);
+    p.resolveConfiguration({ configuration: {} });
+  });
+  await expect.poll(() => page.evaluate(() => talkProbe.lateMicrophone.stops)).toBe(1);
+  expect(await page.evaluate(() => [talkProbe.peers.length, talkProbe.audit.offers])).toEqual([1, 1]);
+});
+
 test("two-way talk labels and feedback relocalize without replacing controls or live", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {

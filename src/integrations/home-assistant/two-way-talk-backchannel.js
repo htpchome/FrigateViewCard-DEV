@@ -46,11 +46,38 @@ export function createHaDirectTwoWayTalkBackchannel({
     throw new Error("Missing Home Assistant connection provider");
   }
 
+  const prepare = async ({
+    entity,
+    abortSignal,
+    onTalkStartupTiming,
+  } = {}) => {
+    if (abortSignal?.aborted) {
+      throw new Error("Home Assistant two-way talk was stopped during startup");
+    }
+    const hass = getHass();
+    if (!entity || !hass?.callWS || !hass?.connection?.subscribeMessage) {
+      throw new Error("Home Assistant two-way talk is unavailable");
+    }
+    const connection = hass.connection;
+    onTalkStartupTiming?.("config-requested");
+    const clientConfig = await hass.callWS({
+      type: "camera/webrtc/get_client_config",
+      entity_id: entity,
+    });
+    if (abortSignal?.aborted) {
+      throw new Error("Home Assistant two-way talk was stopped during startup");
+    }
+    onTalkStartupTiming?.("config-ready");
+    return { entity, connection, clientConfig };
+  };
+
   const connect = async ({
     entity,
     microphoneStream,
     onEnded,
     abortSignal,
+    preparedConnection = null,
+    onTalkStartupTiming,
   } = {}) => {
     if (abortSignal?.aborted) {
       throw new Error("Home Assistant two-way talk was stopped during startup");
@@ -66,14 +93,23 @@ export function createHaDirectTwoWayTalkBackchannel({
       throw new Error("Home Assistant two-way talk is unavailable");
     }
 
-    const clientConfig = await hass.callWS({
-      type: "camera/webrtc/get_client_config",
-      entity_id: entity,
+    const prepared = preparedConnection || await prepare({
+      entity,
+      abortSignal,
+      onTalkStartupTiming,
     });
     if (abortSignal?.aborted) {
       throw new Error("Home Assistant two-way talk was stopped during startup");
     }
+    if (
+      prepared.entity !== entity ||
+      prepared.connection !== getHass()?.connection
+    ) {
+      throw new Error("Home Assistant two-way talk context changed during startup");
+    }
+    const { clientConfig } = prepared;
     const pc = createPeerConnection(clientConfig?.configuration);
+    onTalkStartupTiming?.("peer-created");
     const incomingAudio = configureIncomingAudio(createIncomingAudio());
     const incomingAudioStream = createMediaStream();
     const pendingCandidates = [];
@@ -253,6 +289,7 @@ export function createHaDirectTwoWayTalkBackchannel({
       startSettled = true;
       unbindAbort();
       clearConnectionTimer();
+      onTalkStartupTiming?.("media-ready");
       resolveStart(engine);
     };
 
@@ -263,17 +300,20 @@ export function createHaDirectTwoWayTalkBackchannel({
     const markRemoteMediaStarted = () => {
       if (destroyed || remoteMediaStarted) return;
       remoteMediaStarted = true;
+      onTalkStartupTiming?.("video-started");
       finishConnected();
     };
 
     const markRemoteAudioStarted = () => {
       if (destroyed || remoteAudioStarted) return;
       remoteAudioStarted = true;
+      onTalkStartupTiming?.("audio-started");
       finishConnected();
     };
 
     function handleConnectionStateChange() {
       if (pc.connectionState === "connected") {
+        onTalkStartupTiming?.("peer-connected");
         peerConnected = true;
         finishConnected();
       } else if (pc.connectionState === "failed") {
@@ -282,6 +322,9 @@ export function createHaDirectTwoWayTalkBackchannel({
     }
 
     function handleIceConnectionStateChange() {
+      if (["connected", "completed"].includes(pc.iceConnectionState)) {
+        onTalkStartupTiming?.("ice-connected");
+      }
       if (pc.iceConnectionState === "failed") {
         fail(new Error("Home Assistant two-way talk ICE connection failed"));
       }
@@ -289,18 +332,21 @@ export function createHaDirectTwoWayTalkBackchannel({
 
     const sendCandidate = async (candidate) => {
       if (destroyed || !sessionId || !candidate) return;
-      await hass
-        .callWS({
+      onTalkStartupTiming?.("candidate-sent");
+      try {
+        await hass.callWS({
           type: "camera/webrtc/candidate",
           entity_id: entity,
           session_id: sessionId,
           candidate,
-        })
-        .catch(() => {});
+        });
+        onTalkStartupTiming?.("candidate-acknowledged");
+      } catch (_) {}
     };
 
     function handleIceCandidate(event) {
       if (destroyed || !event.candidate?.candidate) return;
+      onTalkStartupTiming?.("local-candidate");
       const candidate = event.candidate.toJSON?.() || event.candidate;
       if (!sessionId) {
         pendingCandidates.push(candidate);
@@ -320,6 +366,7 @@ export function createHaDirectTwoWayTalkBackchannel({
       }
       remoteTracks.push(track);
       if (track.kind === "audio") {
+        onTalkStartupTiming?.("audio-track");
         remoteAudioTrack = track;
         track.addEventListener?.("unmute", markRemoteAudioStarted, {
           once: true,
@@ -340,6 +387,7 @@ export function createHaDirectTwoWayTalkBackchannel({
         return;
       }
       if (track.kind !== "video") return;
+      onTalkStartupTiming?.("video-track");
       track.addEventListener?.("unmute", markRemoteMediaStarted, {
         once: true,
       });
@@ -349,24 +397,29 @@ export function createHaDirectTwoWayTalkBackchannel({
     async function handleOfferEvent(event) {
       if (destroyed) return;
       if (event?.type === "session") {
+        onTalkStartupTiming?.("session-received");
         sessionId = String(event.session_id || "");
         while (pendingCandidates.length && !destroyed) {
           await sendCandidate(pendingCandidates.shift());
         }
+        if (!destroyed) onTalkStartupTiming?.("candidate-queue-flushed");
         return;
       }
       if (event?.type === "answer") {
+        onTalkStartupTiming?.("answer-received");
         try {
           await pc.setRemoteDescription({
             type: "answer",
             sdp: event.answer,
           });
+          if (!destroyed) onTalkStartupTiming?.("answer-applied");
         } catch (error) {
           fail(error);
         }
         return;
       }
       if (event?.type === "candidate" && event.candidate) {
+        onTalkStartupTiming?.("remote-candidate");
         try {
           const candidate =
             event.candidate.sdpMid ||
@@ -432,6 +485,7 @@ export function createHaDirectTwoWayTalkBackchannel({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
       });
+      onTalkStartupTiming?.("offer-created");
       await pc.setLocalDescription(offer);
       if (!destroyed) {
         let gatheredCandidates = "";
@@ -442,6 +496,7 @@ export function createHaDirectTwoWayTalkBackchannel({
           }
         }
         const offerSdp = `${offer.sdp || ""}${gatheredCandidates}`;
+        onTalkStartupTiming?.("offer-sent");
         subscriptionPromise = Promise.resolve(
           hass.connection.subscribeMessage(handleOfferEvent, {
             type: "camera/webrtc/offer",
@@ -458,5 +513,5 @@ export function createHaDirectTwoWayTalkBackchannel({
     return await startPromise;
   };
 
-  return { connect };
+  return { prepare, connect };
 }

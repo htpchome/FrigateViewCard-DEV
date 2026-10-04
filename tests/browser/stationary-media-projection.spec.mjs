@@ -803,18 +803,25 @@ for (const webRtc of [true, "pending"]) {
     }, webRtc);
     await expect.poll(() => page.evaluate(() => [...window.wideProbe.session.records.values()]
       .filter((record) => record.status === "ready").length)).toBe(3);
-    const starts = await page.evaluate(() => {
+    await page.evaluate(() => {
       const p = window.wideProbe;
       p.providers = p.entities.map((entity) => p.session.get(entity).provider);
-      // Keep the async transition rooted while the browser driver awaits it.
+      // Observe completion without making the driver retain a cross-context promise.
+      p.wideTransitionState = "pending";
       p.wideTransition = (async () => {
-        await p.card._wideViewPageController.prepare();
-        p.card._pageId = "wide-view";
-        p.card._renderShellPreserveLive();
-        return [...p.audit.starts];
+        try {
+          await p.card._wideViewPageController.prepare();
+          p.card._pageId = "wide-view";
+          p.card._renderShellPreserveLive();
+          p.wideStarts = [...p.audit.starts];
+          p.wideTransitionState = "ready";
+        } catch (error) {
+          p.wideTransitionState = `failed: ${error.message}`;
+        }
       })();
-      return p.wideTransition;
     });
+    await expect.poll(() => page.evaluate(() => window.wideProbe.wideTransitionState)).toBe("ready");
+    const starts = await page.evaluate(() => window.wideProbe.wideStarts);
     for (const selected of [0, 1, 2, 0]) {
       if (selected !== 0 || await page.evaluate(() => window.wideProbe.card._activeCamIdx !== 0)) {
         await page.evaluate(async (index) => {

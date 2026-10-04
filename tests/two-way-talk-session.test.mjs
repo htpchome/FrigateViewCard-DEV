@@ -6,6 +6,14 @@ import {
   startHaDirectTwoWayTalkSession,
 } from "../src/features/two-way-talk/session.js";
 
+const deferred = () => {
+  let resolve;
+  let reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+};
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
 async function withFakeMicrophone(run) {
   const previousNavigator = Object.getOwnPropertyDescriptor(
     globalThis,
@@ -145,5 +153,109 @@ test("canceling two-way talk startup destroys the mounted engine and releases th
 
     assert.equal(destroyCalls, 1);
     assert.equal(getStopCalls(), 1);
+  });
+});
+
+for (const first of ["microphone", "configuration"]) {
+  test(`HA talk overlaps preparation, with ${first} completing first`, async () => {
+    await withFakeMicrophone(async ({ stream, getStopCalls }) => {
+      const microphone = deferred();
+      const configuration = deferred();
+      const started = [];
+      const prepared = { entity: "camera.front" };
+      let mounts = 0;
+      navigator.mediaDevices.getUserMedia = () => {
+        started.push("microphone");
+        return microphone.promise;
+      };
+      const pending = startHaDirectTwoWayTalkSession({
+        prepareConnection: () => {
+          started.push("configuration");
+          return configuration.promise;
+        },
+        mountMicrophoneStream: async ({ localStream, preparedConnection }) => {
+          mounts += 1;
+          assert.equal(localStream, stream);
+          assert.equal(preparedConnection, prepared);
+          return { destroy() {} };
+        },
+      });
+      assert.deepEqual(started, ["microphone", "configuration"]);
+      if (first === "microphone") microphone.resolve(stream);
+      else configuration.resolve(prepared);
+      await flush();
+      assert.equal(mounts, 0);
+      microphone.resolve(stream);
+      configuration.resolve(prepared);
+      const session = await pending;
+      assert.equal(mounts, 1);
+      assert.equal(getStopCalls(), 0);
+      await session.stop();
+      assert.equal(getStopCalls(), 1);
+    });
+  });
+}
+
+for (const reason of ["cancel", "config-failure", "config-throws"]) {
+  for (const micReady of [false, true]) {
+    test(`HA talk releases ${micReady ? "acquired" : "late"} microphone after ${reason}`, async () => {
+      await withFakeMicrophone(async ({ stream, getStopCalls }) => {
+        const microphone = deferred();
+        const configuration = deferred();
+        const abortController = new AbortController();
+        let mounts = 0;
+        navigator.mediaDevices.getUserMedia = () => microphone.promise;
+        if (micReady) microphone.resolve(stream);
+        const pending = startHaDirectTwoWayTalkSession({
+          abortSignal: abortController.signal,
+          prepareConnection: () => {
+            if (reason === "config-throws") throw new Error("configuration failed");
+            return configuration.promise;
+          },
+          mountMicrophoneStream: async () => { mounts += 1; return {}; },
+        });
+        const rejection = assert.rejects(pending, reason === "cancel" ? /canceled/ : /configuration failed/);
+        await flush();
+        if (reason === "cancel") abortController.abort();
+        else if (reason === "config-failure") configuration.reject(new Error("configuration failed"));
+        await rejection;
+        assert.equal(getStopCalls(), micReady ? 1 : 0);
+        microphone.resolve(stream);
+        if (reason === "cancel") configuration.reject(new Error("late configuration failure"));
+        await flush();
+        assert.equal(mounts, 0);
+        assert.equal(getStopCalls(), 1);
+      });
+    });
+  }
+}
+
+test("HA microphone denial does not negotiate when the configuration arrives later", async () => {
+  await withFakeMicrophone(async () => {
+    const configuration = deferred();
+    let mounts = 0;
+    navigator.mediaDevices.getUserMedia = async () => { throw new Error("permission denied"); };
+    await assert.rejects(startHaDirectTwoWayTalkSession({
+      prepareConnection: () => configuration.promise,
+      mountMicrophoneStream: async () => { mounts += 1; return {}; },
+    }), /permission denied/);
+    configuration.resolve({});
+    await flush();
+    assert.equal(mounts, 0);
+  });
+});
+
+test("an already cancelled HA talk attempt requests neither microphone nor configuration", async () => {
+  await withFakeMicrophone(async ({ requests }) => {
+    const abortController = new AbortController();
+    abortController.abort();
+    let preparations = 0;
+    await assert.rejects(startHaDirectTwoWayTalkSession({
+      abortSignal: abortController.signal,
+      prepareConnection: () => { preparations += 1; },
+      mountMicrophoneStream: async () => ({}),
+    }), /canceled/);
+    assert.equal(preparations, 0);
+    assert.equal(requests.length, 0);
   });
 });

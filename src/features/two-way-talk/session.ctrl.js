@@ -1,6 +1,7 @@
 import { setLocalizedText } from "../localization/localized-dom.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 import { shouldRenderTwoWayTalkButton } from "./index.js";
+import { createTwoWayTalkStartupTiming } from "./startup-timing.js";
 import {
   startGo2RtcTwoWayTalkSession,
   startHaDirectTwoWayTalkSession,
@@ -151,12 +152,14 @@ export class TwoWayTalkSessionController {
     const entity = String(host._activeCam?.entity || "").trim();
     if (!entity || !host._activeCameraTwoWayTalkEnabled()) return;
     const useGo2Rtc = host._shouldUseGo2RtcForEntity(entity);
+    const talkStartupTiming = useGo2Rtc ? null : createTwoWayTalkStartupTiming();
     await host._stopTwoWayTalkSession({ restoreLive: false });
     if (
       String(host._activeCam?.entity || "").trim() !== entity ||
       !host._activeCameraTwoWayTalkEnabled() ||
       host._shouldUseGo2RtcForEntity(entity) !== useGo2Rtc
     ) {
+      talkStartupTiming?.finish("cancelled");
       return;
     }
 
@@ -182,6 +185,7 @@ export class TwoWayTalkSessionController {
         localStream,
         onEnded,
         abortSignal,
+        preparedConnection,
       }) => {
         const activeEntity = String(host._activeCam?.entity || "").trim();
         if (
@@ -204,6 +208,8 @@ export class TwoWayTalkSessionController {
           microphoneStream: localStream,
           onEnded,
           abortSignal,
+          preparedConnection,
+          onTalkStartupTiming: talkStartupTiming?.mark,
         });
       };
       const session = useGo2Rtc
@@ -216,9 +222,17 @@ export class TwoWayTalkSessionController {
             mountMicrophoneStream,
             onEnded: handleEnded,
             abortSignal: abortController.signal,
+            prepareConnection: () =>
+              host._haDirectTwoWayTalkBackchannel.prepare({
+                entity,
+                abortSignal: abortController.signal,
+                onTalkStartupTiming: talkStartupTiming?.mark,
+              }),
+            onTalkStartupTiming: talkStartupTiming?.mark,
           });
       if (abortController.signal.aborted || !isCurrentStart()) {
         await session.stop?.();
+        talkStartupTiming?.finish("cancelled");
         return;
       }
       if (
@@ -233,14 +247,17 @@ export class TwoWayTalkSessionController {
       host._setTwoWayTalkLiveAudioActive(true);
       host._twoWayTalkSoundwaveController?.startAfterPaint(session);
       host._showTwoWayTalkResultBubble(true);
+      talkStartupTiming?.finish("connected");
     } catch (error) {
       if (
         abortController.signal.aborted ||
         !isCurrentStart() ||
         error?.name === "AbortError"
       ) {
+        talkStartupTiming?.finish("cancelled");
         return;
       }
+      talkStartupTiming?.finish("failed");
       console.warn("[Frigate] Two-way talk start failed", error);
       host._showTwoWayTalkResultBubble(false);
       if (!useGo2Rtc) {
