@@ -47,6 +47,73 @@ const scenarios = [
   { name: "HLS with native ICE retry suppression", transport: "hls", webRtc: "ice-retry", supportedTypes: ["web_rtc"] },
 ];
 
+for (const options of [
+  { name: "HLS-only", webRtc: false, supportedTypes: ["hls"] },
+  { name: "failed WebRTC", webRtc: false, supportedTypes: ["web_rtc"] },
+  { name: "pending WebRTC takeover", webRtc: "pending", supportedTypes: ["web_rtc"] },
+]) {
+  test(`HA Direct recovers interrupted HLS in place with ${options.name}`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (scenario) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const audit = installHaCameraLifecycleFixture(scenario);
+      const { createHaDirectCameraProvider } = await import("/src/integrations/home-assistant/camera-provider.js");
+      const states = [];
+      const entries = ["camera.one", "camera.two"].map((entity_id) => {
+        const result = createHaDirectCameraProvider({
+          hass: { callWS: audit.callWS }, stateObj: { entity_id, attributes: {} },
+          onState: (state) => states.push({ entity_id, ...state }),
+        });
+        document.body.append(result.provider);
+        return result;
+      });
+      window.recoveryProbe = { entries, audit, states };
+    }, options);
+    await expect.poll(() => page.evaluate(() => window.recoveryProbe.audit.readyEntities.size)).toBe(2);
+    await page.evaluate(() => {
+      const p = window.recoveryProbe;
+      p.players = p.entries.map(({ provider }) => provider.players.get("hls"));
+      p.starts = [...p.audit.starts];
+      p.states.length = 0;
+      p.audit.interruptHls("camera.one");
+    });
+    await expect.poll(() => page.evaluate(() => window.recoveryProbe.states
+      .filter((state) => state.entity_id === "camera.one").at(-1)?.status)).toBe("loading");
+    expect(await page.evaluate(() => {
+      const p = window.recoveryProbe;
+      return p.entries[0].provider.players.get("hls") === p.players[0] && p.players[0].isConnected;
+    })).toBe(true);
+    expect(await page.evaluate(() => window.recoveryProbe.audit.stops.some((value) => value.startsWith("ha-hls")))).toBe(false);
+    await page.evaluate(() => window.recoveryProbe.audit.recoverHls("camera.one"));
+    await expect.poll(() => page.evaluate(() => window.recoveryProbe.states
+      .filter((state) => state.entity_id === "camera.one").at(-1)?.status)).toBe("ready");
+    const time = await page.evaluate(() => window.recoveryProbe.players[0].video.currentTime);
+    await expect.poll(() => page.evaluate(() => window.recoveryProbe.players[0].video.currentTime)).toBeGreaterThan(time + 0.15);
+    expect(await page.evaluate(() => window.recoveryProbe.entries[0].provider.hls.hasVideo)).toBe(false);
+    expect(await page.evaluate(() => window.recoveryProbe.states.filter((state) => state.entity_id === "camera.two"))).toEqual([]);
+    // The background camera gets one failure, then no more errors or user
+    // navigation. A fresh HA URL must recover that same native player.
+    await page.evaluate(() => window.recoveryProbe.audit.expireHls("camera.two"));
+    await expect.poll(() => page.evaluate(() => window.recoveryProbe.audit.urlUpdates)).toEqual(["camera.two"]);
+    await expect.poll(() => page.evaluate(() => window.recoveryProbe.states
+      .filter((state) => state.entity_id === "camera.two").at(-1)?.status)).toBe("ready");
+    expect(await page.evaluate(() => window.recoveryProbe.entries.every(({ provider }, index) =>
+      provider.players.get("hls") === window.recoveryProbe.players[index]))).toBe(true);
+    expect(await page.evaluate(() => window.recoveryProbe.audit.starts.filter((value) => value.startsWith("ha-hls")))).toEqual(
+      await page.evaluate(() => window.recoveryProbe.starts.filter((value) => value.startsWith("ha-hls"))));
+    if (options.webRtc === "pending") {
+      await page.evaluate(() => { window.recoveryProbe.states.length = 0; window.recoveryProbe.audit.releaseWebRtc(); });
+      await expect.poll(() => page.evaluate(() => window.recoveryProbe.states
+        .filter((state) => state.entity_id === "camera.one").at(-1)?.streamType)).toBe("webrtc");
+      expect(await page.evaluate(() => window.recoveryProbe.states.some((state) => state.status !== "ready"))).toBe(false);
+    }
+    expect(await page.evaluate(() => window.recoveryProbe.audit.providerDisconnects)).toBe(0);
+    await page.evaluate(() => {
+      for (const result of window.recoveryProbe.entries) { result.dispose(); result.provider.remove(); }
+    });
+  });
+}
+
 test.afterEach(async ({ page }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) return;
   const state = await page.evaluate(() => {
@@ -210,6 +277,25 @@ for (const scenario of scenarios.flatMap((scenario) => ["hui-card", "div"].map((
           record.provider.players.get("hls") === p.hlsPlayers[idx] && record.status === "ready");
       })).toBe(true);
       expect(await page.evaluate(() => window.bundleProbe.audit.stops.some((entry) => entry.startsWith("ha-hls")))).toBe(false);
+    }
+    if (scenario.webRtc === false) {
+      await page.evaluate(() => {
+        const p = window.bundleProbe;
+        p.beforeOutage = [...p.session.records.values()].map((record) => ({
+          provider: record.provider, player: record.provider.players.get("hls"),
+        }));
+        // One failed request per camera, including the unselected camera.
+        // No refresh, view change, or continuing errors prompt recovery.
+        p.audit.expireHls("camera.one");
+        p.audit.expireHls("camera.two");
+      });
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.urlUpdates.length)).toBe(2);
+      await expect.poll(() => page.evaluate(() => [...window.bundleProbe.session.records.values()]
+        .every((record) => record.status === "ready" && record.streamType === "hls"))).toBe(true);
+      expect(await page.evaluate(() => [...window.bundleProbe.session.records.values()]
+        .every((record, index) => record.provider === window.bundleProbe.beforeOutage[index].provider &&
+          record.provider.players.get("hls") === window.bundleProbe.beforeOutage[index].player))).toBe(true);
+      expect(await page.evaluate(() => window.bundleProbe.audit.stops.some((value) => value.startsWith("ha-hls")))).toBe(false);
     }
     const startsBeforeSave = await page.evaluate(() => window.bundleProbe.audit.starts);
     // Exercise the real lazy editor bundle's Save notification against the

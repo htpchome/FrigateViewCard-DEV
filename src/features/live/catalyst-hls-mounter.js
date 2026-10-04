@@ -74,6 +74,7 @@ export function createCatalystHlsMounter({
     binding.cleanupRecovery?.();
     engine.removeEventListener?.("error", binding.onError);
     engine.removeEventListener?.("ended", binding.onEnded);
+    engine.removeEventListener?.("playing", binding.onPlaying);
     bindings.delete(engine);
     return true;
   };
@@ -118,7 +119,7 @@ export function createCatalystHlsMounter({
 
   const applyReady = (engine, video = null) => {
     const binding = bindings.get(engine);
-    if (binding?.disposed || !isCurrentEngine(engine)) return;
+    if (!binding || binding.disposed || engine.hlsRecovering || engine.error || engine.ended || !isCurrentEngine(engine)) return;
     binding.failed = false;
     stopFallbackRefresh(binding);
     binding.cleanupRecovery?.();
@@ -163,6 +164,10 @@ export function createCatalystHlsMounter({
       onCommittedStream?.("snapshot");
       applyResolvedStreamUiState?.(resolveHaDirectFailedState());
     }
+    if (typeof engine.recoverHls === "function") {
+      engine.recoverHls();
+      return;
+    }
     if (binding.resumeOnFailure) {
       scheduleResumeLive?.("hls-error");
       return;
@@ -178,6 +183,9 @@ export function createCatalystHlsMounter({
       failed: false,
       onError: () => applyFailed(engine),
       onEnded: () => applyFailed(engine),
+      onPlaying: () => {
+        if (!engine.hlsRecovering && !engine.error) applyReady(engine, engine);
+      },
       layoutFailurePending: false,
       resumeOnFailure,
       stopLoadingFallbackRefresh: () => {},
@@ -185,6 +193,7 @@ export function createCatalystHlsMounter({
     bindings.set(engine, binding);
     engine.addEventListener?.("error", binding.onError);
     engine.addEventListener?.("ended", binding.onEnded);
+    engine.addEventListener?.("playing", binding.onPlaying);
     return binding;
   };
 
@@ -192,9 +201,11 @@ export function createCatalystHlsMounter({
     engine?.type === "ha_direct" &&
     engine?.streamType === "hls" &&
     engine?.catalystHls === true &&
-    engine?.ended !== true &&
-    !engine?.error &&
-    Number(engine?.readyState) >= 2;
+    (engine?.hlsRecovering === true || (
+      engine?.ended !== true &&
+      !engine?.error &&
+      Number(engine?.readyState) >= 2
+    ));
 
   const cancelScheduledPreload = () => {
     if (preloadFrame != null) cancelFrame?.(preloadFrame);
@@ -374,6 +385,7 @@ export function createCatalystHlsMounter({
   const adoptRetainedEngine = (slot, engine) => {
     if (!slot || !isRetainableEngine(engine)) return false;
     ownedEngines.add(engine);
+    engine.hlsRecoverySuspended = false;
     engine.catalystDormant = false;
     engine.autoplay = true;
     engine.preload = "auto";
@@ -401,7 +413,7 @@ export function createCatalystHlsMounter({
         applyFailed(engine);
         return;
       }
-      if (binding.disposed || binding.failed || !isCurrentEngine(engine)) {
+      if (binding.disposed || binding.failed || engine.hlsRecovering || !isCurrentEngine(engine)) {
         return;
       }
       applyReady(engine, findActiveHaCameraStreamVideo(engine) || engine);
@@ -423,6 +435,7 @@ export function createCatalystHlsMounter({
       engines,
       generation: ++layoutTransferGeneration,
     };
+    for (const engine of engines) engine.hlsRecoverySuspended = true;
     layoutTransfer = transfer;
     return transfer;
   };
@@ -447,6 +460,7 @@ export function createCatalystHlsMounter({
       let activeResumeScheduled = false;
       for (const engine of transfer.engines) {
         if (!ownedEngines.has(engine)) continue;
+        engine.hlsRecoverySuspended = false;
         if (engine === activeEngine) activeResumeScheduled = true;
         engine.autoplay = true;
         engine.preload = "auto";
@@ -456,19 +470,21 @@ export function createCatalystHlsMounter({
         void Promise.resolve()
           .then(() => engine.play?.())
           .then(() => {
+            if (engine.error || engine.ended) engine.recoverHls?.();
             if (engine !== activeEngine || transfer !== layoutTransfer) return;
             transfer.active = false;
             layoutTransfer = null;
             const binding = bindings.get(engine);
             if (binding?.disposed) return;
             binding.layoutFailurePending = false;
-            if (isRetainableEngine(engine)) {
+            if (!engine.hlsRecovering && isRetainableEngine(engine)) {
               applyReady(engine);
               return;
             }
             applyFailed(engine);
           })
           .catch(() => {
+            engine.recoverHls?.();
             if (engine !== activeEngine || transfer !== layoutTransfer) return;
             transfer.active = false;
             layoutTransfer = null;

@@ -283,6 +283,118 @@ const createPendingVideo = () => {
   };
 };
 
+test("Catalyst refreshes an expired HLS URL in place, rate limits failure, and cleans up retries", async () => {
+  const previousDocument = globalThis.document;
+  const video = { ...createEventTarget(), style: {}, play: async () => {},
+    pause() {}, load() {}, removeAttribute() {}, readyState: 0 };
+  globalThis.document = { createElement: () => video };
+  const timers = new Map();
+  let now = 0;
+  let requests = 0;
+  try {
+    createHaNativeHlsVideoElement({
+      entity: "camera.front", streamFormat: "hls", now: () => now,
+      setTimer: (callback, delay) => { timers.set(callback, delay); return callback; },
+      clearTimer: (timer) => timers.delete(timer),
+      hass: { callWS: async () => ({ url: `/api/hls/session-${++requests}/master_playlist.m3u8` }) },
+    });
+    await video.hlsUrlReady;
+    assert.equal(requests, 1);
+    video.hlsRecoverySuspended = true;
+    video.emit("error");
+    await Promise.resolve();
+    assert.equal(requests, 1, "layout-transfer grace must not restart HLS");
+    video.hlsRecoverySuspended = false;
+    video.emit("error");
+    video.emit("error");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(requests, 2);
+    assert.equal(video.src, "/api/hls/session-2/master_playlist.m3u8");
+    assert.equal(video.hlsRecovering, true);
+    video.emit("error");
+    assert.deepEqual([...timers.values()], [5000]);
+    now = 5000;
+    const [retry] = timers.keys();
+    timers.delete(retry);
+    await retry();
+    assert.equal(requests, 3);
+    video.readyState = 4;
+    video.emit("playing");
+    assert.equal(video.hlsRecovering, false);
+    video.emit("error");
+    assert.equal(timers.size, 1);
+    video.destroy();
+    assert.equal(timers.size, 0);
+    assert.equal(video.listenerCount("error"), 0);
+    assert.equal(video.listenerCount("playing"), 0);
+    video.emit("error");
+    assert.equal(requests, 3);
+  } finally { globalThis.document = previousDocument; }
+});
+
+test("Catalyst background HLS recovers a silent stall without navigation and ignores a late URL", async () => {
+  const previousDocument = globalThis.document;
+  const videos = [];
+  globalThis.document = { createElement: () => {
+    const video = { ...createEventTarget(), style: {}, currentTime: 10, readyState: 4,
+      play: async () => {}, pause() {}, load() {}, removeAttribute() {} };
+    videos.push(video);
+    return video;
+  } };
+  const timers = new Map();
+  let now = 0;
+  const requests = [];
+  let respond;
+  let reject;
+  try {
+    for (const entity of ["camera.front", "camera.back"]) {
+      const video = createHaNativeHlsVideoElement({
+        entity, now: () => now,
+        setTimer: (callback, delay) => { timers.set(callback, delay); return callback; },
+        clearTimer: (timer) => timers.delete(timer),
+        hass: { callWS: ({ entity_id }) => {
+          requests.push(entity_id);
+          if (requests.length > 2) return new Promise((resolve, fail) => { respond = resolve; reject = fail; });
+          return Promise.resolve({ url: `/api/hls/${entity_id}/master_playlist.m3u8` });
+        } },
+      });
+      await video.hlsUrlReady;
+    }
+    assert.equal(timers.size, 0, "healthy playback has no recovery polling");
+    videos[1].emit("waiting");
+    assert.deepEqual([...timers.values()], [10000]);
+    now = 10000;
+    const [stall] = timers.keys();
+    timers.delete(stall);
+    stall();
+    await Promise.resolve();
+    assert.deepEqual(requests, ["camera.front", "camera.back", "camera.back"]);
+    assert.equal(videos[1].hlsRecovering, true);
+    videos[1].emit("playing");
+    respond({ url: "/api/hls/late/master_playlist.m3u8" });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(videos[1].src, "/api/hls/camera.back/master_playlist.m3u8");
+    assert.equal(videos[1].hlsRecovering, false);
+    assert.equal(timers.size, 0);
+    // A brief wait that resumes does not refresh any URL.
+    videos[0].emit("stalled");
+    videos[0].emit("playing");
+    assert.equal(timers.size, 0);
+    assert.equal(requests.length, 3);
+    now = 20000;
+    videos[1].emit("error");
+    await Promise.resolve();
+    videos[1].emit("playing");
+    reject(new Error("Late request failure"));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(videos[1].hlsRecovering, false, "late failure cannot restart recovered video");
+    assert.equal(timers.size, 0);
+  } finally {
+    for (const video of videos) video.destroy();
+    globalThis.document = previousDocument;
+  }
+});
+
 test("HA camera-stream readiness follows the active player after HA switches to HLS", async () => {
   const events = createEventTarget();
   const webRtcVideo = createPendingVideo();

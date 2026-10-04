@@ -2,6 +2,30 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.187` keeps retryable HA HLS failures from removing the native child
+before its own recovery runs. The selector treats the failed child as pending;
+HA error clearing plus fresh video progress repairs stale failure metadata
+without rewriting HA state. Recovery requests an authenticated URL for only
+that camera, applies changed URLs through the native player's public input,
+and deduplicates/rate-limits requests to five seconds. Failed URL requests retry
+even if no further media errors arrive. Ready WebRTC takeover does not insert
+an artificial loading state. Persistent media events track subsequent recovery,
+including replacement videos inside the same HA player.
+
+Catalyst retains its separate native HLS owner. Every native player, including
+unselected retained cameras, handles error/ended recovery and silent stalls in
+place; a ten-second no-progress check starts only after waiting/stalled events
+or a recovery attempt. Healthy playback has no recovery polling. Failed URL
+requests retry at five-second intervals; resumed playback cancels retries and
+late URLs cannot overwrite it. Recovering players remain reusable across camera
+and layout changes; the existing layout-transfer grace still defers recovery of
+transient move errors until playback resumes after paint. No normal HA provider,
+healthy camera, Frigate go2rtc path,
+editor/save identity, or two-way-talk lifecycle is reset by this recovery.
+Tests simulate interrupted media, stale URLs, backend unavailability, silent
+background stalls, release, and recovery followed by WebRTC takeover. Physical
+HA restart and Catalyst validation is still required.
+
 `v1.1.8-dev.186` bounds normal HA Direct's native WebRTC retries while usable
 HLS continues. An instance-local, read-only peer observer detects failed ICE
 even when HA does not emit a parent stream-failure event. The selector keeps
@@ -392,8 +416,9 @@ Preserve all of these behaviors together:
    two-way-talk backchannel.
 10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
     objects, extract the nested video, or run timeout-based provider recovery.
-    Only the instance-local verified-HLS capability, muted-HLS selector, and
-    failed-WebRTC retry corrections above are allowed; none affects HA's global
+    Only the instance-local verified-HLS capability, muted-HLS selector,
+    failed-WebRTC retry, and retryable-HLS recovery corrections above are allowed;
+    none affects HA's global
     components. Read-only native-peer observation may drive the bounded retry
     selector but must not patch player internals or own negotiation/teardown.
 

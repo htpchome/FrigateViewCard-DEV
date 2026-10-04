@@ -463,6 +463,49 @@ test("Catalyst only replaces a retained live player after a real media failure",
   });
 });
 
+test("Catalyst retains a recovering player across camera and layout changes without remounting", async () => {
+  const video = createVideo();
+  Object.assign(video, { type: "ha_direct", streamType: "hls", catalystHls: true });
+  let recoveryCalls = 0;
+  video.recoverHls = () => { recoveryCalls += 1; video.hlsRecovering = true; };
+  const streamTypes = [];
+  const mounter = createCatalystHlsMounter({
+    getHass: () => ({}), getStreamMuted: () => true, getRotateOverlayActive: () => false,
+    isCurrentEngine: (engine) => engine === video,
+    assignCommittedEngine: () => {},
+    onCommittedStream: (type) => streamTypes.push(type),
+    requestFrame: (callback) => callback(),
+    scheduleResumeLive: () => { throw new Error("Recovery must not remount the camera"); },
+  });
+  const slot = { appendChild(node) { this.child = node; } };
+  assert.equal(mounter.adoptRetainedEngine(slot, video), true);
+  await Promise.resolve();
+  assert.deepEqual(streamTypes, ["hls"]);
+  video.error = { code: 2 };
+  video.readyState = 0;
+  video.emit("error");
+  assert.equal(recoveryCalls, 1);
+  assert.equal(mounter.isRetainableEngine(video), true);
+  assert.equal(mounter.suspendRetainedEngine(video), true);
+  assert.equal(mounter.adoptRetainedEngine(slot, video), true);
+  await Promise.resolve();
+  assert.equal(streamTypes.at(-1), "snapshot");
+  const transfer = mounter.beginLayoutTransfer();
+  assert.equal(video.hlsRecoverySuspended, true);
+  mounter.resumeAfterLayoutTransfer(transfer);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(video.hlsRecoverySuspended, false);
+  assert.equal(video.destroyCalls, 0);
+  video.error = null;
+  video.readyState = 4;
+  video.hlsRecovering = false;
+  video.emit("playing");
+  assert.equal(streamTypes.at(-1), "hls");
+  assert.equal(slot.child, video);
+  mounter.release(video);
+  assert.equal(video.destroyCalls, 1);
+});
+
 test("Catalyst warms remaining HA Direct cameras sequentially after two paint frames", async () => {
   const originalDocument = globalThis.document;
   const frames = [];

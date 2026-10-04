@@ -79,7 +79,7 @@ Meaning of `ha_direct`:
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
   HLS/WebRTC player internals, use a readiness timeout to replace the provider,
-  or schedule a card-owned transport remount after HA startup. Three explicit,
+  or schedule a card-owned transport remount after HA startup. Four explicit,
   instance-local selector compatibility corrections are allowed:
 
   - when HA advertises only WebRTC, immediately verify HLS availability through
@@ -99,6 +99,15 @@ Meaning of `ha_direct`:
     history; failed HLS bypasses suppression. Cancelled, closed, disconnected,
     or superseded peers are not failed-connection evidence. This policy is
     camera-local and is not shared with Frigate go2rtc or Catalyst
+  - a native HLS retryable error must not make the parent remove that player
+    before HA's recovery runs. Treat that candidate as pending, not ready; after
+    HA clears the error and video advances, correct the stale failure metadata
+    for selection without mutating HA's state. Request a fresh authenticated
+    `camera/stream` URL on failure and apply a changed URL only through the native
+    player's public `url` input. URL requests are deduplicated and bounded to
+    one per five seconds during failure; rejected requests retry while that
+    same failed child exists. Never recreate providers, touch healthy cameras,
+    or delay a ready WebRTC takeover
 
   Other selector results are unchanged. Never patch HA's global components or
   their prototypes. Tests must cover WebRTC-only capabilities with indefinitely
@@ -121,6 +130,11 @@ Mac Catalyst exception:
 - the override must be explicit in the live-playback resolver, runtime source
   labels, lifecycle identity, tests, and user documentation
 - non-Catalyst clients continue to follow the configured connection mode
+- Catalyst's native video owns HLS error/ended recovery even while unselected.
+  It refreshes its authenticated HA URL in place, with bounded retries and a
+  ten-second no-progress check only after an interruption or recovery attempt.
+  Healthy retained playback has no recovery polling. Recovering videos remain
+  retained through camera/layout handoff; release cancels all listeners/retries
 
 Why:
 

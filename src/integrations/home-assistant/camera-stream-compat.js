@@ -3,6 +3,7 @@ export function preserveHaCameraHlsFallback(provider, onSelection = () => {}, {
   requestHls,
   isDestroyed = () => false,
   webRtcRetry,
+  hlsRecovery,
 } = {}) {
   const selectStreams = provider?._streams;
   if (typeof selectStreams !== "function") {
@@ -30,15 +31,16 @@ export function preserveHaCameraHlsFallback(provider, onSelection = () => {}, {
     // Native WebRTC integrations can also supply camera/stream, despite omitting
     // HLS from capabilities. Verify now; failed ICE need not emit a failure event.
     if (webRtcOnly && requestHls && !hlsRequested && !isDestroyed()) void verifyHls();
+    const effectiveHlsStreams = hlsRecovery ? hlsRecovery.adjustStreams(hlsStreams) : hlsStreams;
     const effectiveWebRtcStreams = webRtcRetry
-      ? webRtcRetry.adjustWebRtcStreams(hlsStreams, webRtcStreams) : webRtcStreams;
+      ? webRtcRetry.adjustWebRtcStreams(effectiveHlsStreams, webRtcStreams) : webRtcStreams;
     const effectiveTypes = webRtcOnly && hlsVerified && !effectiveWebRtcStreams?.hasVideo
       ? verifiedTypes : supportedTypes;
-    let streams = selectStreams.call(this, effectiveTypes, hlsStreams, effectiveWebRtcStreams, ...args.slice(3));
+    let streams = selectStreams.call(this, effectiveTypes, effectiveHlsStreams, effectiveWebRtcStreams, ...args.slice(3));
     if (
       effectiveTypes?.includes("hls") &&
       effectiveTypes?.includes("web_rtc") &&
-      hlsStreams?.hasVideo === true &&
+      effectiveHlsStreams?.hasVideo === true &&
       effectiveWebRtcStreams?.hasVideo === false &&
       streams?.length === 1 &&
       streams[0]?.type === "mjpeg"

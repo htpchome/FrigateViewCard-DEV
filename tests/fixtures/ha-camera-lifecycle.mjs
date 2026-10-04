@@ -6,6 +6,7 @@ import { upstreamHaCameraStreamSelector } from "./ha-camera-stream-selector.mjs"
 export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls", "web_rtc"], holdReadinessAudit = false }) {
   const rtcPlayers = new Map();
   const providers = new Set();
+  const urlGenerations = new Map();
   const heldReadyEntities = new Set();
   const mediaReady = () => [...providers].filter((provider) => [...provider.players.values()].some((player) =>
     !player.classList.contains("hidden") && player.video.videoWidth > 0 &&
@@ -13,7 +14,7 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
     .map((provider) => provider.stateObj.entity_id);
   const audit = {
     starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
-    rtcOffers: [], iceRestarts: [], closedPeers: [],
+    rtcOffers: [], iceRestarts: [], closedPeers: [], urlUpdates: [],
     startReadiness: [],
     failIce: (entity) => {
       const peer = rtcPlayers.get(entity)?._peerConnection;
@@ -34,10 +35,40 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
         provider.render();
       }
     },
+    interruptHls: (entity) => {
+      for (const provider of providers) {
+        if (provider.stateObj?.entity_id !== entity) continue;
+        const player = provider.players.get("hls");
+        if (!player) continue;
+        // Native HA emits this status before startLoad/recoverMediaError.
+        player._error = "Stream network error";
+        player._errorIsFatal = false;
+        player.video.pause();
+        player.video.dispatchEvent(new Event("waiting"));
+        player.dispatchEvent(new CustomEvent("streams", {
+          detail: { hasAudio: false, hasVideo: false }, bubbles: true, composed: true,
+        }));
+      }
+    },
+    recoverHls: async (entity) => {
+      for (const provider of providers) {
+        if (provider.stateObj?.entity_id !== entity) continue;
+        const player = provider.players.get("hls");
+        if (!player?.isConnected) continue;
+        // HA clears its retry error on fragment load, but does not send a new
+        // streams:true status. Only native media events report resumed video.
+        player._error = undefined;
+        await player.video.play();
+      }
+    },
+    expireHls: (entity) => {
+      urlGenerations.set(entity, (urlGenerations.get(entity) || 0) + 1);
+      audit.interruptHls(entity);
+    },
     callWS: async (message) => {
       if (message.type !== "camera/stream" || message.format !== "hls") throw new Error("Unexpected HA request");
       audit.verifications.push(message.entity_id);
-      return { url: "/api/hls/synthetic/master_playlist.m3u8" };
+      return { url: `/api/hls/synthetic/master_playlist.m3u8?generation=${urlGenerations.get(message.entity_id) || 0}` };
     },
   };
   class Player extends HTMLElement {
@@ -49,6 +80,7 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       this.video.muted = true;
       this.video.playsInline = true;
       this.shadowRoot.append(this.video);
+      this._url = "/api/hls/synthetic/master_playlist.m3u8?generation=0";
     }
     connectedCallback() {
       audit.starts.push(`${this.localName}:${this.entityid}`);
@@ -123,7 +155,17 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       this.video.load();
     }
   }
-  customElements.define("ha-hls-player", class extends Player {});
+  customElements.define("ha-hls-player", class extends Player {
+    set url(value) {
+      if (value === this._url) return;
+      this._url = value;
+      audit.urlUpdates.push(this.entityid);
+      this._error = undefined;
+      this.video.removeAttribute("src");
+      this.startMedia();
+    }
+    get url() { return this._url; }
+  });
   customElements.define("ha-web-rtc-player", class extends Player {});
   customElements.define("ha-camera-stream", class extends HTMLElement {
     _streams = upstreamHaCameraStreamSelector;

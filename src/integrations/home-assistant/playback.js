@@ -83,12 +83,19 @@ export function createHaNativeHlsVideoElement({
   defaultMuted,
   fitMode,
   styleText = "",
+  now = () => Date.now(),
+  setTimer = setTimeout,
+  clearTimer = clearTimeout,
 } = {}) {
   const entityId = String(entity || "").trim();
   if (!hass?.callWS || !entityId) return null;
 
   const video = document.createElement("video");
   let destroyed = false;
+  let pendingUrl = null;
+  let retryTimer = null;
+  let stallTimer = null;
+  let lastRecoveryAt = -Infinity;
   video.autoplay = true;
   video.playsInline = true;
   video.controls = controls;
@@ -103,16 +110,86 @@ export function createHaNativeHlsVideoElement({
   };
   const requestedFormat = String(streamFormat || "").trim();
   if (requestedFormat) streamRequest.format = requestedFormat;
-  video.hlsUrlReady = Promise.resolve(hass.callWS(streamRequest))
-    .then((response) => {
-      const path = String(response?.url || "").trim();
-      if (destroyed || !path) return false;
-      video.src = hass.hassUrl?.(path) || path;
-      return true;
-    })
-    .catch(() => false);
+  const requestUrl = ({ recovery = false } = {}) => {
+    if (destroyed) return Promise.resolve(false);
+    if (pendingUrl) return pendingUrl;
+    pendingUrl = (async () => {
+      await Promise.resolve();
+      try {
+        if (destroyed) return false;
+        const response = await hass.callWS(streamRequest);
+        const path = typeof response?.url === "string" ? response.url.trim() : "";
+        if (destroyed || !path) return false;
+        if (recovery && !video.hlsRecovering) return true;
+        video.src = hass.hassUrl?.(path) || path;
+        return true;
+      } catch (_) {
+        return false;
+      } finally {
+        pendingUrl = null;
+      }
+    })();
+    return pendingUrl;
+  };
+  const watchStall = () => {
+    if (destroyed || stallTimer !== null) return;
+    const stoppedAt = video.currentTime;
+    // Only watch an actual interruption, including in an unselected player.
+    // Healthy retained playback has no polling or connection timer.
+    stallTimer = setTimer(() => {
+      stallTimer = null;
+      if (destroyed || (!video.error && video.currentTime !== stoppedAt)) return;
+      recover();
+    }, 10000);
+  };
+  const recover = () => {
+    if (destroyed || (video.hlsRecoverySuspended && !video.hlsRecovering)) return;
+    if (stallTimer !== null) clearTimer(stallTimer);
+    stallTimer = null;
+    video.hlsRecovering = true;
+    if (pendingUrl || retryTimer !== null) return;
+    const delay = Math.max(0, 5000 - (now() - lastRecoveryAt));
+    const retry = async () => {
+      retryTimer = null;
+      if (destroyed) return;
+      lastRecoveryAt = now();
+      const ready = await requestUrl({ recovery: true });
+      if (destroyed || !video.hlsRecovering) return;
+      if (!ready) { recover(); return; }
+      watchStall();
+      try { await video.play?.(); } catch (_) { if (video.hlsRecovering) recover(); }
+    };
+    if (delay) retryTimer = setTimer(retry, delay);
+    else void retry();
+  };
+  const recovered = () => {
+    if (destroyed || video.error || video.readyState < 2) return;
+    video.hlsRecovering = false;
+    if (retryTimer !== null) clearTimer(retryTimer);
+    retryTimer = null;
+    if (stallTimer !== null) clearTimer(stallTimer);
+    stallTimer = null;
+  };
+  video.recoverHls = recover;
+  video.addEventListener?.("error", recover);
+  video.addEventListener?.("ended", recover);
+  video.addEventListener?.("playing", recovered);
+  video.addEventListener?.("waiting", watchStall);
+  video.addEventListener?.("stalled", watchStall);
+  video.hlsUrlReady = requestUrl();
+  void video.hlsUrlReady.then((ready) => { if (!ready && !destroyed) recover(); });
   video.destroy = () => {
     destroyed = true;
+    video.hlsRecovering = false;
+    if (retryTimer !== null) clearTimer(retryTimer);
+    retryTimer = null;
+    if (stallTimer !== null) clearTimer(stallTimer);
+    stallTimer = null;
+    video.removeEventListener?.("error", recover);
+    video.removeEventListener?.("ended", recover);
+    video.removeEventListener?.("playing", recovered);
+    video.removeEventListener?.("waiting", watchStall);
+    video.removeEventListener?.("stalled", watchStall);
     try {
       video.pause?.();
       video.removeAttribute?.("src");

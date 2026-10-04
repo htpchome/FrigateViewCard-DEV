@@ -5,6 +5,7 @@ import {
 } from "./playback.js";
 import { preserveHaCameraHlsFallback } from "./camera-stream-compat.js";
 import { createHaCameraWebRtcRetry } from "./camera-webrtc-retry.js";
+import { createHaCameraHlsRecovery } from "./camera-hls-recovery.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
 export function findHaCameraContextHost(element) {
@@ -36,8 +37,14 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   let scheduled = false;
   let watchedVideo = null;
   let stopFrameWatch = () => {};
+  let stopVideoEvents = () => {};
   let observer = null;
+  let observedPlayerRoot;
   const webRtcRetry = createHaCameraWebRtcRetry({ provider });
+  const requestHls = () => hass.callWS({ type: "camera/stream", entity_id: stateObj.entity_id, format: "hls" });
+  const hlsRecovery = createHaCameraHlsRecovery(provider, {
+    requestHls, resolveUrl: (url) => hass.hassUrl?.(url) || url,
+  });
   const reconcile = async () => {
     if (scheduled || disposed) return;
     scheduled = true;
@@ -45,43 +52,69 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     await provider.updateComplete;
     scheduled = false;
     if (disposed) return;
-    if (!observer && provider.shadowRoot) {
-      observer = new MutationObserver(reconcile);
+    const playerRoot = findActiveHaCameraStreamPlayer(provider)?.shadowRoot;
+    if (provider.shadowRoot && (!observer || observedPlayerRoot !== playerRoot)) {
+      observer ??= new MutationObserver(reconcile);
+      observer.disconnect();
+      observedPlayerRoot = playerRoot;
       observer.observe(provider.shadowRoot, {
         childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"],
       });
+      if (playerRoot) observer.observe(playerRoot, { childList: true, subtree: true });
     }
     webRtcRetry.observe();
+    hlsRecovery.observe();
     const video = findActiveHaCameraStreamVideo(provider);
     if (video === watchedVideo && video) return;
     stopFrameWatch();
+    stopVideoEvents();
     watchedVideo = video;
     const selected = selection.find((item) => item.visible);
     if (selected?.type === "mjpeg" && !hlsPending) {
       onState({ status: "failed", streamType: "", video: null });
       return;
     }
-    onState({ status: "loading", streamType: "", video: null });
-    if (!video) return;
+    const loading = () => onState({ status: "loading", streamType: "", video: null });
+    if (!video) { loading(); return; }
+    const current = () => !disposed && video === watchedVideo && findActiveHaCameraStreamVideo(provider) === video;
+    let ready = false;
+    const onReady = () => {
+      if (!current()) return;
+      ready = true;
+      const tag = findActiveHaCameraStreamPlayer(provider)?.localName;
+      onState({ status: "ready", streamType: tag === "ha-web-rtc-player" ? "webrtc" : "hls", video });
+    };
+    const onWaiting = () => {
+      if (!current()) return;
+      stopFrameWatch();
+      ready = false;
+      loading();
+    };
+    const waitingEvents = ["waiting", "emptied", "error", "ended"];
+    for (const event of waitingEvents) video.addEventListener(event, onWaiting);
+    video.addEventListener("playing", onReady);
+    stopVideoEvents = () => {
+      for (const event of waitingEvents) video.removeEventListener(event, onWaiting);
+      video.removeEventListener("playing", onReady);
+    };
     stopFrameWatch = watchMediaFirstFrame({
       mediaRoot: provider,
       findVideo: findActiveHaCameraStreamVideo,
       isDestroyed: () => disposed || video !== watchedVideo,
-      onReady: () => {
-        if (disposed || video !== watchedVideo) return;
-        const tag = findActiveHaCameraStreamPlayer(provider)?.localName;
-        onState({ status: "ready", streamType: tag === "ha-web-rtc-player" ? "webrtc" : "hls", video });
-      },
+      onReady,
     });
+    // A ready HA-to-HA takeover is not a new connection/loading phase.
+    if (!ready) loading();
   };
   preserveHaCameraHlsFallback(provider, (streams, status) => {
     selection = streams;
     hlsPending = status.hlsPending;
     void reconcile();
   }, {
-    requestHls: () => hass.callWS({ type: "camera/stream", entity_id: stateObj.entity_id, format: "hls" }),
+    requestHls,
     isDestroyed: () => disposed,
     webRtcRetry,
+    hlsRecovery,
   });
   provider.addEventListener("streams", reconcile, true);
   provider.addEventListener("load", reconcile, true);
@@ -91,7 +124,9 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     dispose: () => {
       disposed = true;
       webRtcRetry.dispose();
+      hlsRecovery.dispose();
       stopFrameWatch();
+      stopVideoEvents();
       observer?.disconnect();
       provider.removeEventListener("streams", reconcile, true);
       provider.removeEventListener("load", reconcile, true);
