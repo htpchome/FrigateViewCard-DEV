@@ -2941,6 +2941,8 @@ export class FrigateViewCard extends HTMLElement {
       this._popupLifecycleController.bindInteractions();
     }
     this._applyBrowse();
+    // Clear outgoing Preview visibility before measuring the new layout.
+    this._applyPreviewShellVisibility();
     this._applyCardStyle();
     this._wideViewPageController.applyLayoutAndWideSyncForCard();
     this._syncBrowseHeadModeClass();
@@ -2959,7 +2961,6 @@ export class FrigateViewCard extends HTMLElement {
     this._slideshowPageController.syncCountdownOverlay();
     this._renderPreviewPage();
     this._wideViewPageController.renderCompanionCameras();
-    this._applyPreviewShellVisibility();
     this._syncMobileViewPageMarkup();
     this._syncVisualStyleToggles();
     this._syncCardViewPageMarkup();

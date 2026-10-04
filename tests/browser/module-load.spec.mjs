@@ -6951,6 +6951,91 @@ test("Sections and Masonry preserve two browse rows when the footer is hidden", 
   }
 });
 
+for (const displayFooter of [true, false]) {
+  test(`Sections restore Single View sizing after Preview with footer ${displayFooter ? "shown" : "hidden"}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 700 });
+    await page.goto(baseUrl);
+
+    const results = await page.evaluate(async (displayFooter) => {
+      await import("/frigate-view-card.js");
+      document.body.style.margin = "0";
+      const measurements = [];
+      for (const heightUnit of ["%", "dvh"]) {
+        const view = document.createElement("hui-sections-view");
+        view.style.cssText = "display:block;width:1000px";
+        const wrapper = document.createElement("div");
+        view.append(wrapper);
+        document.body.append(view);
+        const card = document.createElement("frigate-view-card");
+        wrapper.append(card);
+        card.setConfig({
+          cameras: [{ entity: "camera.front", name: "Front" }],
+          grid_options: { rows: "auto" },
+          stream_height: 100,
+          stream_height_unit: heightUnit,
+          preview_page_enabled: true,
+          display_footer: displayFooter,
+        });
+        await card._previewPageController.prepare();
+        card._pageId = "single-view";
+        card._renderShell();
+        card._renderAll();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        card._applyCardStyle();
+        const root = card.shadowRoot;
+        const live = root.querySelector("#eng-wrap");
+        const engine = root.querySelector("#engine");
+        const popup = root.querySelector("#myPopup");
+        const measure = () => ({
+          panel: card._cardStyleController.isPanelView(),
+          browseRegionHeight: Math.round(
+            root.querySelector('[data-fvc-region="browse"]').getBoundingClientRect().height +
+            root.querySelector('[data-fvc-region="browse-header"]').getBoundingClientRect().height,
+          ),
+          hostHeight: Math.round(card.getBoundingClientRect().height),
+          liveHeight: Math.round(live.getBoundingClientRect().height),
+          pageScrollable: document.documentElement.scrollHeight > window.innerHeight,
+          previewActive: root.querySelector("#card").classList.contains("preview-active"),
+          livePreserved: root.querySelector("#eng-wrap") === live && root.querySelector("#engine") === engine,
+          popupPreserved: root.querySelector("#myPopup") === popup,
+        });
+        const before = measure();
+        const returns = [];
+        // Exercise both navigation buttons and selecting the active Preview tile,
+        // including repeated round trips without a resize or style repair call.
+        for (const exitViaTile of [false, true, false]) {
+          card._pageNavigationController.navigateToPageRoute("preview");
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const previewActive = root.querySelector("#card").classList.contains("preview-active");
+          if (exitViaTile) card._previewPageController.exitPreviewPageToCamera(0);
+          else card._pageNavigationController.navigateToPageRoute("single-view");
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          returns.push({ ...measure(), enteredPreview: previewActive });
+        }
+        measurements.push({ heightUnit, before, returns });
+        view.remove();
+      }
+      return measurements;
+    }, displayFooter);
+
+    for (const { heightUnit, before, returns } of results) {
+      expect(before.panel).toBe(false);
+      expect(before.browseRegionHeight, JSON.stringify(results)).toBeGreaterThanOrEqual(244);
+      expect(before.pageScrollable, JSON.stringify(results)).toBe(true);
+      for (const after of returns) {
+        expect(after.enteredPreview).toBe(true);
+        expect(after.previewActive).toBe(false);
+        expect(after.browseRegionHeight, `${heightUnit}: ${JSON.stringify(after)}`).toBeGreaterThanOrEqual(244);
+        expect(after.hostHeight).toBe(before.hostHeight);
+        expect(after.liveHeight).toBe(before.liveHeight);
+        expect(after.pageScrollable).toBe(true);
+        expect(after.livePreserved).toBe(true);
+        expect(after.popupPreserved).toBe(true);
+      }
+    }
+  });
+}
+
 test("single-camera Preview keeps the same tile width as a two-camera Preview", async ({
   page,
 }) => {
