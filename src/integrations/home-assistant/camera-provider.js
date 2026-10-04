@@ -15,10 +15,11 @@ export function findHaCameraContextHost(element) {
   return null;
 }
 
-export function getHaCameraPresentationIdentity(element, config) {
+export function getHaCameraPresentationIdentity(element, config, sourceConfig) {
   let node = element;
   while (node && node.localName !== "hui-card") node = node.parentNode || node.host;
-  return { config: node?.config || config, signature: JSON.stringify(config) };
+  // Save transfers the actual setConfig input, not a layout wrapper or defaults.
+  return { config: node?.config || config, sourceConfig, signature: JSON.stringify(config) };
 }
 
 // All normal HA Direct presentations share this provider. Catalyst and HA's

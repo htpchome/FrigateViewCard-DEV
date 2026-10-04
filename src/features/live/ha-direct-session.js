@@ -183,7 +183,7 @@ export function acquireHaDirectSession({ anchor, client, identity, connection })
       const matches = [...registry.sessions].filter((entry) =>
         [entry.baselineIdentity, entry.lastIdentity,
           ...[...entry.session.clients.keys()].map((owner) => owner.identity())]
-          .some((candidate) => candidate.config === previousConfig));
+          .some((candidate) => candidate.sourceConfig === previousConfig || candidate.config === previousConfig));
       const entry = matches.includes(registry.editorSession) ? registry.editorSession
         : matches.length === 1 ? matches[0] : null;
       if (entry) entry.savedConfig = config;
@@ -207,10 +207,11 @@ export function acquireHaDirectSession({ anchor, client, identity, connection })
   });
   // Save replaces the dashboard while the old card/editor may still be mounted.
   // Only the explicit saved-config handoff may bypass that ownership exclusion.
+  const savedSourceConfig = identity.sourceConfig || identity.config;
   const saved = [...registry.sessions].filter((entry) => entry.connection === connection && entry.savedConfig && (
-    entry.savedConfig === identity.config || (
+    entry.savedConfig === savedSourceConfig || (
       [...entry.session.clients.keys()].every((owner) => !owner.host.isConnected || owner.context() === "config") &&
-      JSON.stringify(entry.savedConfig) === JSON.stringify(identity.config)
+      JSON.stringify(entry.savedConfig) === JSON.stringify(savedSourceConfig)
     )
   ));
   let entry = saved.length === 1 ? saved[0]

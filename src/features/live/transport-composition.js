@@ -143,7 +143,7 @@ export const createLiveTransportControllers = (
     getSelectedEntity: () =>
       card._activeGroupMemberOverride || card._activeCam?.entity || "",
     getContext: () => card._editorPreviewController?.liveHandoffContext?.() || "dashboard",
-    getIdentity: () => getHaCameraPresentationIdentity(card, card._config),
+    getIdentity: () => getHaCameraPresentationIdentity(card, card._config, card._sourceConfig),
     isSelectedExternalReady: () =>
       card._shouldUseGo2RtcForEntity(card._activeGroupMemberOverride || card._activeCam?.entity) &&
       ["webrtc", "mse"].includes(card._activeStreamType),

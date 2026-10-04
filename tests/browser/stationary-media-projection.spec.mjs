@@ -70,9 +70,9 @@ test.afterEach(async ({ page }, testInfo) => {
   if (state) console.error("Synthetic camera readiness:", JSON.stringify(state));
 });
 
-for (const scenario of scenarios) {
+for (const scenario of scenarios.flatMap((scenario) => ["hui-card", "div"].map((dashboardHost) => ({ ...scenario, dashboardHost })))) {
   const { transport } = scenario;
-  test(`production bundle starts and retains the HA Direct ${scenario.name} session`, async ({ page }) => {
+  test(`production bundle starts and retains the HA Direct ${scenario.name} session (${scenario.dashboardHost})`, async ({ page }) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(baseUrl);
@@ -94,7 +94,8 @@ for (const scenario of scenarios) {
         { entity: "camera.one", connection_type: "ha_direct" },
         { entity: "camera.two", connection_type: "ha_direct" },
       ] };
-      const shell = document.createElement("hui-card");
+      // Save must also work without a hui-card wrapper around the dashboard card.
+      const shell = document.createElement(options.dashboardHost);
       shell.config = config;
       shell.append(card);
       card.setConfig(config);
@@ -165,34 +166,59 @@ for (const scenario of scenarios) {
         connectedCallback() {}
         disconnectedCallback() {}
       });
-      p.card._editorPreviewController.liveHandoffContext = () => "preconfig";
+      history.replaceState(null, "", "?edit=1");
       const dialog = document.createElement("hui-dialog-edit-card");
       dialog.attachShadow({ mode: "open" });
       dialog._cardConfig = p.shell.config;
+      dialog._updateDirtyState = () => {};
+      p.card.dispatchEvent(new CustomEvent("show-dialog", { bubbles: true, composed: true,
+        detail: { dialogTag: "hui-dialog-edit-card", dialogParams: { cardConfig: p.shell.config } },
+      }));
       p.anchor.shadowRoot.append(dialog);
+      const save = document.createElement("button");
+      save.slot = "primaryAction";
+      save.textContent = "Save";
+      dialog.shadowRoot.append(save);
       const editor = document.createElement("bundle-session-editor");
       dialog.shadowRoot.append(editor);
-      const savedConfig = { ...p.shell.config, title: "Saved title", display_footer: false };
-      editor._homeAssistantConfig = () => savedConfig;
-      editor._findHomeAssistantEditCardDialog = () => dialog;
-      editor._commitDraftToHomeAssistantDialog();
-      const shell = document.createElement("hui-card");
+      editor.setConfig(p.shell.config);
+      const previewShell = document.createElement("hui-card");
+      previewShell.config = p.shell.config;
+      const preview = document.createElement("bundle-session-card");
+      preview.setConfig(previewShell.config);
+      preview._hass = p.card._hass;
+      preview._activeCamIdx = 0;
+      preview._started = true;
+      previewShell.append(preview);
+      dialog.shadowRoot.append(previewShell);
+      preview._renderShell();
+      await preview._haDirectMounter.tryMount(preview.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+      const title = editor.querySelector("#title");
+      title.value = "Saved title";
+      title.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      p.saveDirty = editor._hasConfigDraft;
+      save.click();
+      p.savedTitle = dialog._cardConfig.title;
+      const shell = document.createElement(p.shell.localName);
       shell.config = dialog._cardConfig;
       const replacement = document.createElement("bundle-session-card");
       replacement.setConfig(shell.config);
       replacement._hass = p.card._hass;
       replacement._activeCamIdx = 0;
       replacement._started = true;
-      replacement._editorPreviewController.liveHandoffContext = () => "preconfig";
       shell.append(replacement);
       p.anchor.shadowRoot.append(shell);
       replacement._renderShell();
       await replacement._haDirectMounter.tryMount(replacement.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
       p.replacement = replacement;
       dialog.remove();
+      preview._haDirectMounter.dispose();
       p.shell.remove();
       p.card._haDirectMounter.dispose();
     });
+    expect(await page.evaluate(() => window.bundleProbe.saveDirty)).toBe(true);
+    expect(await page.evaluate(() => window.bundleProbe.savedTitle)).toBe("Saved title");
     expect(await page.evaluate(() => window.bundleProbe.replacement._engine === window.bundleProbe.first)).toBe(true);
     expect(await page.evaluate(() => window.bundleProbe.audit.starts)).toEqual(startsBeforeSave);
     expect(await page.evaluate(() => window.bundleProbe.audit.providerDisconnects)).toBe(0);

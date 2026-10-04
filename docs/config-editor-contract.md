@@ -78,7 +78,9 @@ HA configuration and the exact replacement object. This is a session-identity
 handoff only: it neither persists settings nor changes dirty state. The normal
 HA Direct session registry consumes it once when the dashboard replacement
 arrives, preserving camera providers through config serialization and overlap
-with the outgoing pre-editor/editor cards. Ordinary drafts and Cancel do not
+with the outgoing pre-editor/editor cards. Save matching uses the original
+`setConfig()` input, independently of any surrounding `hui-card` wrapper or
+default-expanded runtime configuration. Ordinary drafts and Cancel do not
 emit this notification.
 
 Every editable control must enable Save when its serialized value changes. This

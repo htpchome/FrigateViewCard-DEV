@@ -94,6 +94,35 @@ test("Save survives serialized config replacement after the prior dashboard is d
   session.dispose();
 });
 
+test("Save uses the original card config rather than a layout wrapper or expanded runtime defaults", () => {
+  const anchor = new EventTarget();
+  const connection = {};
+  const sourceConfig = { title: "Original" };
+  const make = (source, wrapper = null) => {
+    const runtime = { ...source, defaultField: true };
+    return {
+      host: { isConnected: true }, context: () => "preconfig", hass: () => ({ connection }),
+      identity: () => ({ config: wrapper || runtime, sourceConfig: source, signature: JSON.stringify(runtime) }),
+      entities: () => [], selected: () => "", muted: () => true, canStart: () => false,
+    };
+  };
+  const acquire = (client) => acquireHaDirectSession({ anchor, connection, client, identity: client.identity() });
+  const original = make(sourceConfig, { type: "vertical-stack", cards: [sourceConfig] });
+  const session = acquire(original);
+  const independent = acquire(make(structuredClone(sourceConfig)));
+  const savedConfig = { ...sourceConfig, title: "Saved" };
+  // The editor preview can be gone by the time the Save notification arrives.
+  anchor.dispatchEvent(new CustomEvent(CARD_CONFIG_COMMIT_EVENT, {
+    detail: { previousConfig: sourceConfig, config: savedConfig },
+  }));
+  const saved = make(savedConfig);
+  assert.equal(acquire(saved), session);
+  assert.notEqual(independent, session);
+  const duplicate = acquire(make(savedConfig));
+  assert.notEqual(duplicate, session, "source identity must not bypass normal ownership after Save is consumed");
+  for (const entry of [session, independent, duplicate]) entry.dispose();
+});
+
 test("selected camera goes live before the sequential background queue starts", async () => {
   const f = fixture();
   const owner = f.client();
