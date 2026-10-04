@@ -542,7 +542,10 @@ test("camera connection settings explain transport capabilities", async ({ page 
   });
 
   expect(state.title).toBe("Which connection should I use?");
-  expect(state.intro).toContain("recommended for most browsers");
+  expect(state.intro).toContain("starts each camera on demand when you select it");
+  expect(state.intro).toContain("starts all cameras configured for that mode one at a time when the card loads");
+  expect(state.intro).toContain("beginning with the selected camera, and retains their live connections");
+  expect(state.intro).not.toMatch(/fastest|recommended for most browsers/i);
   expect(state.rows).toEqual([
     { feature: "WebRTC", values: ["✓Supported", "✓Supported"] },
     { feature: "MSE", values: ["×Not used", "✓Supported"] },
@@ -553,14 +556,14 @@ test("camera connection settings explain transport capabilities", async ({ page 
     },
     { feature: "PTZ", values: ["✓Supported", "✓Supported"] },
     {
-      feature: "Typical startup",
+      feature: "Camera startup",
       values: [
-        "!HLS first; WebRTC may take over",
-        "✓Fastest in most browsers",
+        "All HA Direct cameras, one at a time on card load",
+        "When selected (on demand)",
       ],
     },
   ]);
-  expect(state.statuses).toEqual({ yes: 8, limited: 2, no: 2 });
+  expect(state.statuses).toEqual({ yes: 7, limited: 1, no: 2 });
   expect(state.contained).toBe(true);
   expect(state.horizontallyScrollable).toBe(true);
 });

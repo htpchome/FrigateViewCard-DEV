@@ -994,7 +994,7 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
     "HLS",
     "Two-Way Talk",
     "PTZ",
-    "Typical startup",
+    "Camera startup",
   ]) {
     assert.match(connectionSection, new RegExp(`>${feature}<`));
   }
@@ -1003,8 +1003,11 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
   assert.match(connectionSection, /camera-connection-capability--no/);
   assert.match(
     connectionSection,
-    /Frigate go2rtc uses card-managed WebRTC and MSE[\s\S]*?recommended for most browsers/,
+    /Frigate go2rtc starts each camera on demand when you select it or display it in a live multi-camera view/,
   );
+  assert.match(connectionSection, /Home Assistant \(HA Direct\) starts all cameras configured for that mode one at a time when the card loads/);
+  assert.match(connectionSection, /beginning with the selected camera, and retains their live connections/);
+  assert.doesNotMatch(connectionSection, /fastest|recommended for most browsers/i);
   assert.match(
     connectionSection,
     /Mac App Store app automatically uses this card's HA HLS path[\s\S]*?configured as Frigate go2rtc/,

@@ -4616,7 +4616,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <details id="camera-modal-connection-help" class="camera-group-help camera-connection-help">
                 <summary data-fvc-i18n="editor.cameraModal.connectionGuideTitle">Which connection should I use?</summary>
                 <div class="camera-connection-help-copy">
-                  <p data-fvc-i18n="editor.cameraModal.connectionGuideIntro">Frigate go2rtc uses card-managed WebRTC and MSE through the Home Assistant Frigate integration. It is usually the fastest option and is recommended for most browsers. Home Assistant uses HA-managed HLS and WebRTC for broader client compatibility.</p>
+                  <p data-fvc-i18n="editor.cameraModal.connectionGuideIntro">Frigate go2rtc starts each camera on demand when you select it or display it in a live multi-camera view, using card-managed WebRTC and MSE through the Home Assistant Frigate integration. Home Assistant (HA Direct) starts all cameras configured for that mode one at a time when the card loads, beginning with the selected camera, and retains their live connections.</p>
                   <div class="camera-connection-table-wrap">
                     <table class="camera-connection-table">
                       <caption data-fvc-i18n="editor.cameraModal.connectionComparison">Connection capability comparison</caption>
@@ -4654,9 +4654,9 @@ export class FrigateViewCardEditor extends HTMLElement {
                           <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionSupported">Supported</span></span></td>
                         </tr>
                         <tr>
-                          <th scope="row" data-fvc-i18n="editor.cameraModal.connectionStartup">Typical startup</th>
-                          <td><span class="camera-connection-capability camera-connection-capability--limited"><span class="camera-connection-capability-mark" aria-hidden="true">!</span><span data-fvc-i18n="editor.cameraModal.connectionHlsFirst">HLS first; WebRTC may take over</span></span></td>
-                          <td><span class="camera-connection-capability camera-connection-capability--yes"><span class="camera-connection-capability-mark" aria-hidden="true">✓</span><span data-fvc-i18n="editor.cameraModal.connectionFastest">Fastest in most browsers</span></span></td>
+                          <th scope="row" data-fvc-i18n="editor.cameraModal.connectionStartup">Camera startup</th>
+                          <td data-fvc-i18n="editor.cameraModal.connectionSequentialStartup">All HA Direct cameras, one at a time on card load</td>
+                          <td data-fvc-i18n="editor.cameraModal.connectionOnDemandStartup">When selected (on demand)</td>
                         </tr>
                       </tbody>
                     </table>
