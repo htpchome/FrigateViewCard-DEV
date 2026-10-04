@@ -25,8 +25,21 @@ test.beforeAll(async () => {
       response.writeHead(200, { "content-type": "text/javascript" });
       response.end(moduleSource);
     } else if (pathname === "/media.mp4") {
-      response.writeHead(200, { "content-type": "video/mp4", "content-length": movie.length });
-      response.end(movie);
+      // WebKit requests byte ranges when starting/reopening native media.
+      const range = request.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+      const partial = Boolean(range && (range[1] || range[2]));
+      const start = partial ? (range[1] ? Number(range[1]) : Math.max(0, movie.length - Number(range[2]))) : 0;
+      const end = partial && range[1] && range[2] ? Math.min(Number(range[2]), movie.length - 1) : movie.length - 1;
+      if (start >= movie.length || start > end) {
+        response.writeHead(416, { "content-range": `bytes */${movie.length}` });
+        response.end();
+        return;
+      }
+      response.writeHead(partial ? 206 : 200, {
+        "content-type": "video/mp4", "accept-ranges": "bytes", "content-length": end - start + 1,
+        ...(partial ? { "content-range": `bytes ${start}-${end}/${movie.length}` } : {}),
+      });
+      response.end(movie.subarray(start, end + 1));
     } else if (pathname === "/snapshot.svg") {
       response.writeHead(200, { "content-type": "image/svg+xml" });
       response.end('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="gray"/></svg>');
@@ -39,6 +52,26 @@ test.beforeAll(async () => {
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
+test("synthetic media serves valid byte ranges for native playback", async ({ request }) => {
+  const response = await request.get(`${baseUrl}/media.mp4`);
+  expect(response.status()).toBe(200);
+  const movie = await response.body();
+  for (const [range, start, end] of [
+    ["bytes=0-1", 0, 1], ["bytes=100-", 100, movie.length - 1],
+    ["bytes=-16", movie.length - 16, movie.length - 1],
+    [`bytes=${movie.length - 4}-${movie.length + 10}`, movie.length - 4, movie.length - 1],
+  ]) {
+    const part = await request.get(`${baseUrl}/media.mp4`, { headers: { range } });
+    expect(part.status()).toBe(206);
+    expect(part.headers()["content-range"]).toBe(`bytes ${start}-${end}/${movie.length}`);
+    expect(part.headers()["content-length"]).toBe(String(end - start + 1));
+    expect(await part.body()).toEqual(movie.subarray(start, end + 1));
+  }
+  const invalid = await request.get(`${baseUrl}/media.mp4`, { headers: { range: `bytes=${movie.length}-` } });
+  expect(invalid.status()).toBe(416);
+  expect(invalid.headers()["content-range"]).toBe(`bytes */${movie.length}`);
+});
+
 const scenarios = [
   { name: "hls", transport: "hls", webRtc: false },
   { name: "webrtc", transport: "webrtc", webRtc: true },
@@ -46,6 +79,19 @@ const scenarios = [
   { name: "verified HLS with failed WebRTC-only ICE", transport: "hls", webRtc: false, supportedTypes: ["web_rtc"] },
   { name: "HLS with native ICE retry suppression", transport: "hls", webRtc: "ice-retry", supportedTypes: ["web_rtc"] },
 ];
+
+const expectRetainedSessionVideoAdvancing = async (page, entity) => {
+  const time = await page.evaluate((id) => window.sessionProbe.originalVideos.get(id).currentTime, entity);
+  await expect.poll(() => page.evaluate((id) => {
+    const p = window.sessionProbe;
+    const record = p.session.get(id);
+    const video = p.originalVideos.get(id);
+    // Buffering clears the presentation reference, not the retained player.
+    // Require the same video to return ready and advance; never accept a reload.
+    return record.status === "ready" && record.video === video && video.isConnected
+      ? video.currentTime : -1;
+  }, entity)).toBeGreaterThan(time + 0.15);
+};
 
 for (const options of [
   { name: "HLS-only", webRtc: false, supportedTypes: ["hls"] },
@@ -114,14 +160,70 @@ for (const options of [
   });
 }
 
+for (const webRtc of [false, true]) {
+  test(`HA Direct restores ${webRtc ? "WebRTC" : "HLS"} readiness from progress without another playing event`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (useWebRtc) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const { createHaDirectCameraProvider } = await import("/src/integrations/home-assistant/camera-provider.js");
+      const audit = installHaCameraLifecycleFixture({ webRtc: useWebRtc });
+      const states = [];
+      const entry = createHaDirectCameraProvider({
+        hass: { callWS: audit.callWS }, stateObj: { entity_id: "camera.one", attributes: {} },
+        onState: (state) => states.push(state),
+      });
+      document.body.append(entry.provider);
+      window.progressProbe = { audit, entry, states, playingSuppressed: 0 };
+    }, webRtc);
+    await expect.poll(() => page.evaluate(() => window.progressProbe.states.at(-1)?.streamType)).toBe(webRtc ? "webrtc" : "hls");
+    const stoppedAt = await page.evaluate(() => {
+      const p = window.progressProbe;
+      p.video = p.states.at(-1).video;
+      p.player = [...p.entry.provider.players.values()].find((player) => player.video === p.video);
+      p.starts = [...p.audit.starts];
+      p.video.addEventListener("playing", (event) => {
+        p.playingSuppressed += 1;
+        event.stopImmediatePropagation();
+      }, { capture: true });
+      p.video.pause();
+      p.video.dispatchEvent(new Event("waiting"));
+      p.video.dispatchEvent(new Event("timeupdate"));
+      return p.video.currentTime;
+    });
+    expect(await page.evaluate(() => window.progressProbe.states.at(-1).status)).toBe("loading");
+    await page.evaluate(async () => {
+      const p = window.progressProbe;
+      p.player._error = "Still recovering";
+      await p.video.play();
+    });
+    await expect.poll(() => page.evaluate(() => window.progressProbe.video.currentTime)).toBeGreaterThan(stoppedAt + 0.15);
+    expect(await page.evaluate(() => window.progressProbe.states.at(-1).status)).toBe("loading");
+    await page.evaluate(() => { window.progressProbe.player._error = undefined; });
+    await expect.poll(() => page.evaluate(() => window.progressProbe.states.at(-1).status)).toBe("ready");
+    expect(await page.evaluate(() => window.progressProbe.playingSuppressed)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.progressProbe.states.at(-1).video === window.progressProbe.video)).toBe(true);
+    expect(await page.evaluate(() => window.progressProbe.audit.starts)).toEqual(await page.evaluate(() => window.progressProbe.starts));
+    expect(await page.evaluate(() => window.progressProbe.audit.providerDisconnects)).toBe(0);
+    await page.evaluate(() => {
+      window.progressProbe.entry.dispose();
+      window.progressProbe.entry.provider.remove();
+    });
+  });
+}
+
 test.afterEach(async ({ page }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) return;
   const state = await page.evaluate(() => {
-    const probe = window.bundleProbe;
+    const probe = window.bundleProbe || window.sessionProbe || window.coldProbe || window.wideProbe;
     if (!probe) return null;
+    const session = probe.session || probe.card?._engine?.haDirectSession ||
+      probe.anchor?.querySelector("ha-camera-stream")?.haDirectSession;
     return {
       starts: probe.audit.startReadiness,
-      records: [...(probe.card._engine?.haDirectSession?.records.values() || [])].map((record) => ({
+      mediaEvents: probe.audit.mediaEvents,
+      context: probe.view?.state.context,
+      startsCount: probe.audit.starts, stops: probe.audit.stops,
+      records: [...(session?.records.values() || [])].map((record) => ({
         entity: record.entity, status: record.status, type: record.streamType,
         players: [...record.provider.players.values()].map((player) => ({
           type: player.localName, hidden: player.classList.contains("hidden"),
@@ -420,10 +522,15 @@ for (const scenario of scenarios) {
     }, scenario);
     await expect.poll(() => page.evaluate(() => window.sessionProbe.audit.readyEntities.size)).toBe(3);
     await expect.poll(() => page.evaluate(() => window.sessionProbe.view.state.ready.at(-1)?.type)).toBe(transport);
+    await expect.poll(() => page.evaluate((type) => [...window.sessionProbe.view.state.engine.haDirectSession.records.values()]
+      .every((record) => record.status === "ready" && record.streamType === type), transport)).toBe(true);
     const original = await page.evaluate(() => {
       const probe = window.sessionProbe;
       probe.session = probe.view.state.engine.haDirectSession;
       probe.originalProviders = [...probe.session.records.values()].map((record) => record.provider);
+      probe.originalVideos = new Map([...probe.session.records.values()].map((record) => [
+        record.entity, [...record.provider.players.values()].find((player) => !player.classList.contains("hidden")).video,
+      ]));
       return probe.audit.starts;
     });
     // A still-connected dashboard card must get its exact presentation back
@@ -453,8 +560,7 @@ for (const scenario of scenarios) {
         old.mounter.dispose();
       }, context);
       await expect.poll(() => page.evaluate(() => window.sessionProbe.view.state.ready.at(-1)?.type)).toBe(transport);
-      const time = await page.evaluate(() => window.sessionProbe.session.get("camera.two").video.currentTime);
-      await expect.poll(() => page.evaluate(() => window.sessionProbe.session.get("camera.two").video.currentTime)).toBeGreaterThan(time + 0.15);
+      await expectRetainedSessionVideoAdvancing(page, "camera.two");
       expect(await page.evaluate(() => {
         const p = window.sessionProbe;
         return [...p.session.records.values()].every((record, index) => record.provider === p.originalProviders[index]);
@@ -519,8 +625,7 @@ for (const scenario of scenarios) {
     await expect.poll(() => page.evaluate(() => window.sessionProbe.session.get("camera.two").status)).toBe("failed");
     await page.evaluate(() => window.sessionProbe.view.mounter.syncProviderStates());
     for (const entity of ["camera.one", "camera.three"]) {
-      const time = await page.evaluate((id) => window.sessionProbe.session.get(id).video.currentTime, entity);
-      await expect.poll(() => page.evaluate((id) => window.sessionProbe.session.get(id).video.currentTime, entity)).toBeGreaterThan(time + 0.15);
+      await expectRetainedSessionVideoAdvancing(page, entity);
     }
     // Losing HLS bypasses the failed camera's cooldown once. This fixture has
     // two independent sessions for camera.two; healthy siblings never restart.
@@ -686,13 +791,17 @@ for (const webRtc of [true, "pending"]) {
     }, webRtc);
     await expect.poll(() => page.evaluate(() => [...window.wideProbe.session.records.values()]
       .filter((record) => record.status === "ready").length)).toBe(3);
-    const starts = await page.evaluate(async () => {
+    const starts = await page.evaluate(() => {
       const p = window.wideProbe;
       p.providers = p.entities.map((entity) => p.session.get(entity).provider);
-      await p.card._wideViewPageController.prepare();
-      p.card._pageId = "wide-view";
-      p.card._renderShellPreserveLive();
-      return [...p.audit.starts];
+      // Keep the async transition rooted while the browser driver awaits it.
+      p.wideTransition = (async () => {
+        await p.card._wideViewPageController.prepare();
+        p.card._pageId = "wide-view";
+        p.card._renderShellPreserveLive();
+        return [...p.audit.starts];
+      })();
+      return p.wideTransition;
     });
     for (const selected of [0, 1, 2, 0]) {
       if (selected !== 0 || await page.evaluate(() => window.wideProbe.card._activeCamIdx !== 0)) {

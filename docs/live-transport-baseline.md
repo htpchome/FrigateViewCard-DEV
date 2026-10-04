@@ -2,6 +2,20 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.188` corrects normal HA Direct's readiness reporting after buffering.
+WebKit can emit `waiting` and then advance media time without another `playing`
+event. While that player is pending, public `timeupdate` events may restore its
+ready presentation only when the same active video advances with usable data,
+is not paused/ended, and neither it nor the HA child reports an error. The
+listener is removed on readiness, player replacement, or disposal. No polling,
+new connection, transport restart, or retention-policy change is involved.
+The restart recovery from dev.187, Catalyst, and Frigate go2rtc are unchanged.
+Retention tests now assert the same video resumes instead of dereferencing a
+temporarily absent presentation video. WebKit stress runs use two CPU cores
+and two workers to reproduce the GitHub failures; fixture media events are
+included in failure diagnostics. The synthetic MP4 server now honors byte-range
+requests, preventing WebKit from rejecting test media during startup/recovery.
+
 `v1.1.8-dev.187` keeps retryable HA HLS failures from removing the native child
 before its own recovery runs. The selector treats the failed child as pending;
 HA error clearing plus fresh video progress repairs stale failure metadata

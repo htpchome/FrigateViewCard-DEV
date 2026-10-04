@@ -78,16 +78,28 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     if (!video) { loading(); return; }
     const current = () => !disposed && video === watchedVideo && findActiveHaCameraStreamVideo(provider) === video;
     let ready = false;
+    let waitingTime = video.currentTime;
     const onReady = () => {
       if (!current()) return;
       ready = true;
+      video.removeEventListener("timeupdate", onProgress);
       const tag = findActiveHaCameraStreamPlayer(provider)?.localName;
       onState({ status: "ready", streamType: tag === "ha-web-rtc-player" ? "webrtc" : "hls", video });
+    };
+    const onProgress = () => {
+      // WebKit can resume media time after waiting without another playing
+      // event. Observe recovery, without starting or replacing any transport.
+      if (ready || !current() || video.paused || video.ended || video.error ||
+          video.readyState < 2 || !video.videoWidth || video.currentTime <= waitingTime ||
+          findActiveHaCameraStreamPlayer(provider)?._error) return;
+      onReady();
     };
     const onWaiting = () => {
       if (!current()) return;
       stopFrameWatch();
       ready = false;
+      waitingTime = video.currentTime;
+      video.addEventListener("timeupdate", onProgress);
       loading();
     };
     const waitingEvents = ["waiting", "emptied", "error", "ended"];
@@ -96,6 +108,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     stopVideoEvents = () => {
       for (const event of waitingEvents) video.removeEventListener(event, onWaiting);
       video.removeEventListener("playing", onReady);
+      video.removeEventListener("timeupdate", onProgress);
     };
     stopFrameWatch = watchMediaFirstFrame({
       mediaRoot: provider,

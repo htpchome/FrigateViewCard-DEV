@@ -15,7 +15,7 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
   const audit = {
     starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
     rtcOffers: [], iceRestarts: [], closedPeers: [], urlUpdates: [],
-    startReadiness: [],
+    startReadiness: [], mediaEvents: [],
     failIce: (entity) => {
       const peer = rtcPlayers.get(entity)?._peerConnection;
       if (!peer || peer.iceConnectionState === "closed") return;
@@ -78,7 +78,16 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       this.video = document.createElement("video");
       this.video.style.cssText = "width:100%;height:100%";
       this.video.muted = true;
+      // ha-camera-stream sets autoplay on both native HA child players.
+      this.video.autoplay = true;
       this.video.playsInline = true;
+      for (const event of ["loadeddata", "playing", "waiting", "stalled", "pause", "ended", "error"]) {
+        this.video.addEventListener(event, () => {
+          audit.mediaEvents.push({ entity: this.entityid, player: this.localName, event,
+            time: this.video.currentTime, readyState: this.video.readyState, paused: this.video.paused });
+          if (audit.mediaEvents.length > 200) audit.mediaEvents.shift();
+        });
+      }
       this.shadowRoot.append(this.video);
       this._url = "/api/hls/synthetic/master_playlist.m3u8?generation=0";
     }
