@@ -10,7 +10,8 @@ import {
   destroyLoserAttemptResults,
 } from "./mount-result.js";
 
-const STRATEGY_HINT_COOLDOWN_MS = 120000;
+const WEBRTC_INITIAL_COOLDOWN_MS = 120000;
+const WEBRTC_REPEAT_COOLDOWN_MS = 300000;
 const STRATEGY_HINT_MAX_ENTRIES = 64;
 const DEFERRED_WEBRTC_MAX_HOLD_MS = 4000;
 const PREFERRED_WEBRTC_WAIT_MS = 500;
@@ -77,12 +78,12 @@ export function createGo2RtcRaceMounter({
     return true;
   };
 
-  const trackPendingWebRtcMount = ({ entity, mountToken, strategies }) => {
+  const trackPendingWebRtcMount = ({ entity, mountToken, strategies, probe }) => {
     const strategy = (strategies || []).find(
       (candidate) => candidate?.type === "webrtc",
     );
     if (!strategy) return null;
-    const entry = { entity, mountToken, strategy, cancelled: false };
+    const entry = { entity, mountToken, strategy, probe };
     pendingWebRtcMounts.add(entry);
     return entry;
   };
@@ -110,7 +111,7 @@ export function createGo2RtcRaceMounter({
     for (const entry of [...pendingWebRtcMounts]) {
       pendingWebRtcMounts.delete(entry);
       // Avoid replacing an incomplete WebRTC probe on every rapid switch.
-      entry.cancelled = true;
+      entry.probe.cancelled = true;
       void entry.strategy?.disconnect?.();
     }
   };
@@ -142,38 +143,53 @@ export function createGo2RtcRaceMounter({
       .trim()
       .toLowerCase();
     if (!key || !nextType) return;
+    const current = getHintState(key);
+    const webRtcSucceeded = nextType === "webrtc";
     setHintState(key, {
       type: nextType,
-      failureCount: 0,
-      cooldownUntilMs: 0,
-      updatedAtMs: getNowMs(),
+      webRtcSucceeded: webRtcSucceeded || current?.webRtcSucceeded === true,
+      failureCount: webRtcSucceeded ? 0 : current?.failureCount || 0,
+      cooldownUntilMs: webRtcSucceeded ? 0 : current?.cooldownUntilMs || 0,
     });
   };
 
-  const markHintFailure = (entity = "", type = "") => {
-    const key = normalizeEntityKey(entity);
-    const failedType = String(type || "")
-      .trim()
-      .toLowerCase();
-    if (!key || !failedType) return;
-    const current = getHintState(key);
-    if (!current || current.type !== failedType) return;
-    const failureCount = (Number(current.failureCount) || 0) + 1;
-    setHintState(key, {
-      type: current.type,
+  const recordWebRtcFailure = (probe) => {
+    if (
+      !probe.failed || probe.recorded || probe.cancelled ||
+      !probe.mseEngine || !isMountTokenCurrent(probe.mountToken) ||
+      !isCurrentWinnerEngine(probe.mseEngine)
+    ) return;
+    probe.recorded = true;
+    const current = getHintState(probe.entity);
+    const failureCount = (Number(current?.failureCount) || 0) + 1;
+    // A previously working camera gets one fresh retry before suppression.
+    const cooldownStage = failureCount - (current?.webRtcSucceeded ? 1 : 0);
+    const cooldownMs = cooldownStage <= 0
+      ? 0
+      : cooldownStage === 1
+        ? WEBRTC_INITIAL_COOLDOWN_MS
+        : WEBRTC_REPEAT_COOLDOWN_MS;
+    setHintState(probe.entity, {
+      ...current,
       failureCount,
-      cooldownUntilMs:
-        failureCount >= 2 ? getNowMs() + STRATEGY_HINT_COOLDOWN_MS : 0,
-      updatedAtMs: getNowMs(),
+      cooldownUntilMs: cooldownMs ? probe.failedAtMs + cooldownMs : 0,
     });
+  };
+
+  const failWebRtcProbe = (probe) => {
+    if (
+      probe.failed || probe.cancelled || probe.signal?.aborted ||
+      !isMountTokenCurrent(probe.mountToken)
+    ) return;
+    probe.failed = true;
+    probe.failedAtMs = getNowMs();
+    recordWebRtcFailure(probe);
   };
 
   const resolveHintedType = (entity = "", attempts = [], forcedType = null) => {
     if (forcedType) return null;
     const hint = getHintState(entity);
     if (!hint?.type) return null;
-    const nowMs = getNowMs();
-    if (Number(hint.cooldownUntilMs) > nowMs) return null;
     setHintState(entity, hint);
     return attempts.some((attempt) => attempt.type === hint.type)
       ? hint.type
@@ -199,6 +215,7 @@ export function createGo2RtcRaceMounter({
     preferredWaitMs = preferredWebRtcWaitMs,
     attemptDelayByType = {},
     applyWebRtcRetryBackoff = true,
+    probe,
   }) => {
     const webRtcAttemptDelayMs = attempts.some(
       (attempt) => attempt?.type === "webrtc",
@@ -216,14 +233,18 @@ export function createGo2RtcRaceMounter({
       createStrategyForType({
         type: attempt.type,
         connect: async ({ abortSignal }) => {
+          if (attempt.type === "webrtc") probe.signal = abortSignal;
           try {
             const ready = await waitForAttemptDelay(
               resolvedAttemptDelayByType[attempt.type],
               abortSignal,
             );
             if (!ready) return false;
-            return await attempt.start({ abortSignal, entity });
+            const result = await attempt.start({ abortSignal, entity });
+            if (attempt.type === "webrtc" && !result?.ok) failWebRtcProbe(probe);
+            return result;
           } catch (_) {
+            if (attempt.type === "webrtc") failWebRtcProbe(probe);
             return false;
           }
         },
@@ -252,6 +273,7 @@ export function createGo2RtcRaceMounter({
       entity,
       mountToken,
       strategies,
+      probe,
     });
     setPendingMountDestroyers(ownedPendingDestroyers);
 
@@ -302,6 +324,11 @@ export function createGo2RtcRaceMounter({
       adoptMountedAttempt(slot, winner, {
         preservePendingSlots: deferredPreferredType === "webrtc",
       });
+      markHintSuccess(entity, winner.type);
+      if (winner.type === "mse") {
+        probe.mseEngine = winner.engine;
+        recordWebRtcFailure(probe);
+      }
       void destroyLosers();
       scheduleDeferredWebRtcTakeover({
         entity,
@@ -315,10 +342,8 @@ export function createGo2RtcRaceMounter({
         ),
         pendingWebRtcMount,
         webRtcAttemptDelayMs,
+        probe,
       });
-      if (isMobile || deferredPreferredType !== "webrtc") {
-        markHintSuccess(entity, winner.type);
-      }
       return true;
     }
 
@@ -383,6 +408,10 @@ export function createGo2RtcRaceMounter({
     mountToken,
     webRtcOptions = null,
   }) => {
+    const probe = {
+      entity, mountToken, signal: null, cancelled: false,
+      failed: false, recorded: false, failedAtMs: 0, mseEngine: null,
+    };
     const attempts = buildAttempts(
       entity,
       forcedType,
@@ -390,18 +419,32 @@ export function createGo2RtcRaceMounter({
       webRtcOptions,
     );
     const hintedType = resolveHintedType(entity, attempts, forcedType);
+    const mseAttempt = attempts.find((attempt) => attempt.type === "mse");
+    if (!forcedType && mseAttempt && getHintState(entity)?.cooldownUntilMs > getNowMs()) {
+      const mounted = await mountWithOrchestrator({
+        slot, entity, mountToken, probe, attempts: [mseAttempt],
+      });
+      if (mounted || !isMountTokenCurrent(mountToken)) return mounted;
+      // A failed MSE connection must not leave WebRTC blocked by old history.
+      return await mountWithOrchestrator({
+        slot, entity, mountToken, probe,
+        attempts: attempts.filter((attempt) => attempt.type === "webrtc"),
+        applyWebRtcRetryBackoff: false,
+      });
+    }
     if (isMobile && !forcedType) {
       return await mountWithOrchestrator({
         slot,
         entity,
         mountToken,
+        probe,
         attempts,
         preferredType: "webrtc",
         preferredWaitMs: 0,
         attemptDelayByType: resolveMobileAttemptDelays(attempts, hintedType),
       });
     }
-    // A remembered fallback must not exclude WebRTC from a fresh connection.
+    // Only a working WebRTC winner gets the existing single-transport shortcut.
     if (hintedType === "webrtc") {
       const preferredAttempt = attempts.find(
         (attempt) => attempt.type === hintedType,
@@ -411,17 +454,15 @@ export function createGo2RtcRaceMounter({
           slot,
           entity,
           mountToken,
+          probe,
           attempts: [preferredAttempt],
           preferredType: hintedType,
           preferredWaitMs: 0,
         });
         if (preferredMounted) {
-          markHintSuccess(entity, hintedType);
           return true;
         }
         if (!isMountTokenCurrent(mountToken)) return false;
-
-        markHintFailure(entity, hintedType);
 
         const fallbackAttempts = attempts.filter(
           (attempt) => attempt.type !== hintedType,
@@ -431,6 +472,7 @@ export function createGo2RtcRaceMounter({
           slot,
           entity,
           mountToken,
+          probe,
           attempts: fallbackAttempts,
           preferredType: "webrtc",
         });
@@ -441,6 +483,7 @@ export function createGo2RtcRaceMounter({
       slot,
       entity,
       mountToken,
+      probe,
       attempts,
       preferredType: "webrtc",
       applyWebRtcRetryBackoff: forcedType !== "webrtc",
@@ -471,6 +514,7 @@ export function createGo2RtcRaceMounter({
     pendingDestroyers = [],
     pendingWebRtcMount = null,
     webRtcAttemptDelayMs = 0,
+    probe,
   }) {
     if (!slot || !deferredAttempt || deferredAttempt.type !== "webrtc") return;
     if (winnerType !== "mse" && winnerType !== "hls") return;
@@ -481,6 +525,9 @@ export function createGo2RtcRaceMounter({
     }
     let settled = false;
     let holdTimer = null;
+    const canTakeOver = () =>
+      !settled && !probe.cancelled && !probe.signal?.aborted &&
+      isMountTokenCurrent(mountToken) && isCurrentWinnerEngine(winnerEngine);
     const settleDeferredState = () => {
       if (settled) return;
       settled = true;
@@ -497,7 +544,10 @@ export function createGo2RtcRaceMounter({
 
     holdTimer = setTimeout(
       () => {
-        if (pendingWebRtcMount?.cancelled !== true) deferWebRtcRetry();
+        if (canTakeOver()) {
+          failWebRtcProbe(probe);
+          deferWebRtcRetry();
+        }
         settleDeferredState();
         void (async () => {
           await deferredAttempt.strategy?.disconnect?.();
@@ -519,8 +569,13 @@ export function createGo2RtcRaceMounter({
     void (async () => {
       try {
         const result = await deferredAttempt.promise.catch(() => null);
+        if (!canTakeOver()) {
+          cleanupStaleWinnerResult(result);
+          return;
+        }
         if (!result?.ok || result.type !== "webrtc") {
-          if (pendingWebRtcMount?.cancelled !== true) deferWebRtcRetry();
+          failWebRtcProbe(probe);
+          deferWebRtcRetry();
           return;
         }
         const takeoverStable = await waitForStreamStart(result.slot, 1500, {
@@ -529,16 +584,13 @@ export function createGo2RtcRaceMounter({
           requireReadyState: 2,
           strict: true,
         });
+        if (!canTakeOver()) {
+          cleanupStaleWinnerResult(result);
+          return;
+        }
         if (!takeoverStable) {
-          if (pendingWebRtcMount?.cancelled !== true) deferWebRtcRetry();
-          cleanupStaleWinnerResult(result);
-          return;
-        }
-        if (!isMountTokenCurrent(mountToken)) {
-          cleanupStaleWinnerResult(result);
-          return;
-        }
-        if (!isCurrentWinnerEngine(winnerEngine)) {
+          failWebRtcProbe(probe);
+          deferWebRtcRetry();
           cleanupStaleWinnerResult(result);
           return;
         }

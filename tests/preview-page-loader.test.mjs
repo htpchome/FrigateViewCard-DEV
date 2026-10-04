@@ -75,6 +75,34 @@ test("enabled inactive Preview Page remains dormant", async () => {
   assert.equal(controllers.alert.isCameraAlertLive("camera.front"), false);
 });
 
+test("mobile preload installs enabled Preview code/styles without activating media or timers", async () => {
+  for (const enabled of [false, true]) {
+    for (const mobile of [false, true]) {
+      const calls = [];
+      const host = { _config: { preview_page_enabled: enabled }, _pageId: "mobile-view",
+        _isLikelyMobileClient: () => mobile };
+      const controllers = createLazyPreviewControllers(host, constants, {
+        loadModule: async () => {
+          calls.push("load");
+          return {
+            buildPreviewPageMainLayoutShellMarkup: () => "<main></main>",
+            installPreviewPageStyles: () => calls.push("styles"),
+            createPreviewControllers: () => ({
+              page: { startPreviewMode: () => calls.push("start"),
+                activatePreviewPageRoute: () => calls.push("activate") },
+              alert: { start: () => calls.push("alerts") },
+            }),
+          };
+        },
+      });
+      await controllers.page.preloadForMobile();
+      await controllers.page.preloadForMobile();
+      assert.deepEqual(calls, enabled && mobile ? ["load", "styles"] : []);
+      assert.equal(host._pageId, "mobile-view");
+    }
+  }
+});
+
 test("Preview landing preparation loads once and hydrates its shell", async () => {
   const calls = [];
   class PageController {}

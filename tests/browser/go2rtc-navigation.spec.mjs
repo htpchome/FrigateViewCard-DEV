@@ -54,6 +54,7 @@ for (const phase of ["both pending", "MSE ready before commit", "WebRTC takeover
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(baseUrl);
+    if (phase === "MSE only") await page.clock.setFixedTime(new Date("2026-10-04T00:00:00Z"));
     await page.evaluate(async (phase) => {
       await import("/dist/frigate-view-card.js");
       customElements.define("go2rtc-navigation-card", class extends customElements.get("frigate-view-card") {
@@ -161,6 +162,47 @@ for (const phase of ["both pending", "MSE ready before commit", "WebRTC takeover
     expect(await page.evaluate(() => window.go2rtcProbe.retainedEngine.video.isConnected)).toBe(true);
     expect(await page.evaluate(() => window.go2rtcProbe.retainedEngine.destroyed === true)).toBe(false);
     expect(await page.evaluate(() => window.go2rtcProbe.calls)).toEqual(["webrtc", "mse"]);
+    if (phase === "MSE only") {
+      // Expired grace connections reconnect with MSE only until a fresh
+      // WebRTC check is due. Advance Date, not media or readiness timers.
+      const reconnect = async () => {
+        const previousMseCalls = await page.evaluate(() =>
+          window.go2rtcProbe.calls.filter((type) => type === "mse").length);
+        await page.evaluate(() => {
+          const p = window.go2rtcProbe;
+          p.card._cleanupEngine();
+          p.mount = p.card._mountEngine();
+        });
+        await expect.poll(() => page.evaluate(() =>
+          window.go2rtcProbe.calls.filter((type) => type === "mse").length)).toBe(previousMseCalls + 1);
+        await page.evaluate(async () => {
+          const p = window.go2rtcProbe;
+          p.attempts.mse.release();
+          await p.mount;
+        });
+        await expect.poll(() => page.evaluate(() => window.go2rtcProbe.card._activeStreamType)).toBe("mse");
+      };
+      const expectWebRtcCalls = async (count) => {
+        expect(await page.evaluate(() =>
+          window.go2rtcProbe.calls.filter((type) => type === "webrtc").length)).toBe(count);
+      };
+      await page.clock.setFixedTime(new Date("2026-10-04T00:00:21Z"));
+      await reconnect();
+      await expectWebRtcCalls(1);
+      await page.clock.setFixedTime(new Date("2026-10-04T00:01:59.999Z"));
+      await reconnect();
+      await expectWebRtcCalls(1);
+      await page.clock.setFixedTime(new Date("2026-10-04T00:02:00Z"));
+      await reconnect();
+      await expectWebRtcCalls(2);
+      await page.clock.setFixedTime(new Date("2026-10-04T00:06:59.999Z"));
+      await reconnect();
+      await expectWebRtcCalls(2);
+      await page.clock.setFixedTime(new Date("2026-10-04T00:07:00Z"));
+      await reconnect();
+      await expectWebRtcCalls(3);
+      expect(errors).toEqual([]);
+    }
     expect(errors).toEqual([]);
     await page.evaluate(() => {
       window.go2rtcProbe.card._cleanupEngine();

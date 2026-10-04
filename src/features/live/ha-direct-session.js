@@ -20,6 +20,7 @@ export function createHaDirectSession({
   let lastHass = null;
   let releaseTimer = null;
   let lastMuted;
+  let lastSelectedEntity;
 
   const notify = (record) => {
     if (record.provider) {
@@ -38,6 +39,11 @@ export function createHaDirectSession({
       previous?.onPresentationChange?.(false);
       if (active && lastMuted !== undefined) active.setMuted?.(lastMuted);
       active?.onPresentationChange?.(true);
+    }
+    const selectedEntity = active?.selected();
+    if (selectedEntity && selectedEntity !== lastSelectedEntity) {
+      lastSelectedEntity = selectedEntity;
+      records.get(selectedEntity)?.onSelected?.();
     }
     for (const record of records.values()) {
       const target = active?.target(record.entity);
@@ -76,6 +82,7 @@ export function createHaDirectSession({
       });
       record.provider = result.provider;
       record.cleanup = result.dispose;
+      record.onSelected = result.onSelected;
       Object.assign(record.provider, {
         type: "ha_direct", haDirectProvider: true, haDirectEntity: entity,
         haDirectSession: api, haDirectProviderSlot: slot,

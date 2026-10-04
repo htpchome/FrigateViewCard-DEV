@@ -177,6 +177,12 @@ export class LazyPreviewPageController {
     return this._runtime.prepare(options);
   }
 
+  preloadForMobile() {
+    const mobile = this._runtime._constants?.page?.DEVICE_PROFILE?.isMobile === true ||
+      this._runtime._host?._isLikelyMobileClient?.() === true;
+    return mobile ? this.prepare() : Promise.resolve(null);
+  }
+
   buildMainLayoutShellMarkup(options = {}) {
     return this._runtime.buildMainLayoutShellMarkup(options);
   }

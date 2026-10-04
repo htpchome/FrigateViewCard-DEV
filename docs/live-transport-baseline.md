@@ -2,6 +2,38 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.186` bounds normal HA Direct's native WebRTC retries while usable
+HLS continues. An instance-local, read-only peer observer detects failed ICE
+even when HA does not emit a parent stream-failure event. The selector keeps
+HLS alone, letting HA remove and clean up the failed WebRTC child without
+replacing the provider or HLS player. First failure uses a two-minute cooldown;
+subsequent failures use five minutes. Only camera reselection after expiry
+requests another native attempt, not a timer or same-camera page/editor handoff.
+WebRTC media success resets the history; unusable HLS bypasses suppression.
+Peer discovery waits for HA's asynchronous creation; no peer methods, native
+handlers, signaling, or global prototypes are patched. Each camera is isolated.
+Catalyst, Frigate go2rtc, sequential warm-up, and retention policy are unchanged.
+Mobile startup also preloads enabled Preview code/styles without awaiting it or
+activating Preview media/timers; Preview landing still waits for preparation.
+Synthetic regression coverage includes native ICE restart loops and delayed
+Preview downloads. Physical Firefox/VPN and cellular validation remains required.
+
+`v1.1.8-dev.185` replaces indefinite Frigate go2rtc MSE preference with bounded,
+camera-scoped WebRTC retry history in the owning card runtime. When MSE works
+but a complete WebRTC attempt fails, fresh connections use only MSE for two
+minutes, then retry WebRTC on the next reconnect. Further failed checks use a
+five-minute cooldown. A camera with prior rendered WebRTC success gets one
+additional fresh attempt before the first cooldown; any new WebRTC success
+clears the failure count and cooldown. MSE playback never extends the deadline.
+Cancelled, aborted, superseded, or layout-interrupted attempts are not failure
+evidence. Failed MSE and explicit WebRTC requests bypass suppression. Expiration
+does not create background probes or restart healthy retained connections.
+History is bounded and in memory only; a new card runtime or page reload starts
+fresh. Grace retention, eligible race timing, mobile hedging, HA Direct,
+Catalyst, and two-way talk are unchanged. Tests cover retry boundaries, late
+results, cancellation, and the built bundle's MSE-only reconnect behavior;
+physical browser/VPN and go2rtc connection-count validation remains required.
+
 `v1.1.8-dev.183` prevents remembered Frigate go2rtc MSE success from locking
 later fresh connections to MSE alone. Only remembered WebRTC success uses the
 single-transport startup shortcut; a remembered fallback runs the existing
@@ -360,8 +392,10 @@ Preserve all of these behaviors together:
    two-way-talk backchannel.
 10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
     objects, extract the nested video, or run timeout-based provider recovery.
-    Only the instance-local verified-HLS capability and muted-HLS selector
-    corrections above are allowed; neither affects HA's global components.
+    Only the instance-local verified-HLS capability, muted-HLS selector, and
+    failed-WebRTC retry corrections above are allowed; none affects HA's global
+    components. Read-only native-peer observation may drive the bounded retry
+    selector but must not patch player internals or own negotiation/teardown.
 
 The card may observe the active nested player for readiness, source labels,
 zoom, fullscreen, and recovery presentation, but Home Assistant remains the

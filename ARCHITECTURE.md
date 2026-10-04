@@ -79,7 +79,7 @@ Meaning of `ha_direct`:
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
   HLS/WebRTC player internals, use a readiness timeout to replace the provider,
-  or schedule a card-owned transport remount after HA startup. Two explicit,
+  or schedule a card-owned transport remount after HA startup. Three explicit,
   instance-local selector compatibility corrections are allowed:
 
   - when HA advertises only WebRTC, immediately verify HLS availability through
@@ -89,10 +89,21 @@ Meaning of `ha_direct`:
     its own HLS child while WebRTC is pending and keeps WebRTC once usable
   - when HA reports working HLS video and failed WebRTC but chooses MJPEG,
     preserve HLS regardless of mute
+  - while HLS is usable, observe the native WebRTC child's peer state without
+    modifying its methods, handlers, or signaling. On failed ICE/connection or
+    an explicit failed WebRTC stream, select HLS alone so HA disposes its failed
+    child and stops indefinite ICE restarts. Keep the provider and HLS player.
+    Retry is eligible after two minutes, then five minutes for repeated failure,
+    only on camera reselection; expiry, HA state updates, and same-camera
+    page/editor handoffs do not start probes. Rendered WebRTC success resets
+    history; failed HLS bypasses suppression. Cancelled, closed, disconnected,
+    or superseded peers are not failed-connection evidence. This policy is
+    camera-local and is not shared with Frigate go2rtc or Catalyst
 
   Other selector results are unchanged. Never patch HA's global components or
   their prototypes. Tests must cover WebRTC-only capabilities with indefinitely
-  pending ICE, explicit failure, HLS-first/WebRTC-later selection and retention
+  pending ICE, explicit failure, repeated native ICE failure, bounded retries,
+  HLS-first/WebRTC-later selection and retention
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

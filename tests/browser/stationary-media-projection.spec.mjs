@@ -44,6 +44,7 @@ const scenarios = [
   { name: "webrtc", transport: "webrtc", webRtc: true },
   { name: "verified HLS with pending WebRTC-only ICE", transport: "hls", webRtc: "pending", supportedTypes: ["web_rtc"] },
   { name: "verified HLS with failed WebRTC-only ICE", transport: "hls", webRtc: false, supportedTypes: ["web_rtc"] },
+  { name: "HLS with native ICE retry suppression", transport: "hls", webRtc: "ice-retry", supportedTypes: ["web_rtc"] },
 ];
 
 test.afterEach(async ({ page }, testInfo) => {
@@ -155,6 +156,60 @@ for (const scenario of scenarios.flatMap((scenario) => ["hui-card", "div"].map((
       expect(await page.evaluate(() => [...window.bundleProbe.audit.stops].sort())).toEqual([
         "ha-hls-player:camera.one", "ha-hls-player:camera.two",
       ]);
+    }
+    if (scenario.webRtc === "ice-retry") {
+      const initialTime = Date.now();
+      await page.clock.setFixedTime(initialTime);
+      await page.evaluate(() => {
+        const p = window.bundleProbe;
+        p.hlsPlayers = [...p.session.records.values()].map((record) => record.provider.players.get("hls"));
+        p.audit.failIce("camera.one");
+      });
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.closedPeers)).toEqual(["camera.one"]);
+      expect(await page.evaluate(() => window.bundleProbe.session.get("camera.two").provider.players.has("web_rtc"))).toBe(true);
+      await page.evaluate(() => window.bundleProbe.audit.failIce("camera.two"));
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.closedPeers)).toHaveLength(2);
+      const starts = await page.evaluate(() => window.bundleProbe.audit.starts);
+      await page.clock.setFixedTime(initialTime + 120000);
+      // Expiry and presentation refresh cannot create a background retry.
+      await page.evaluate(() => window.bundleProbe.session.refresh());
+      expect(await page.evaluate(() => window.bundleProbe.audit.starts)).toEqual(starts);
+      await page.evaluate(async () => {
+        const { card } = window.bundleProbe;
+        card._activeCamIdx = 1;
+        await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.two" });
+      });
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.rtcOffers)).toEqual([
+        "camera.one", "camera.two", "camera.two",
+      ]);
+      await page.evaluate(() => window.bundleProbe.audit.failIce("camera.two"));
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.closedPeers)).toHaveLength(3);
+      await page.clock.setFixedTime(initialTime + 419999);
+      await page.evaluate(() => {
+        const p = window.bundleProbe;
+        p.session.get("camera.two").onSelected();
+      });
+      expect(await page.evaluate(() => window.bundleProbe.audit.rtcOffers.length)).toBe(3);
+      await page.clock.setFixedTime(initialTime + 420000);
+      await page.evaluate(() => window.bundleProbe.session.get("camera.two").onSelected());
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.rtcOffers.length)).toBe(4);
+      // Leave failed candidates retired during all the editor handoff checks.
+      await page.evaluate(() => window.bundleProbe.audit.failIce("camera.two"));
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.closedPeers)).toHaveLength(4);
+      await page.evaluate(async () => {
+        const p = window.bundleProbe;
+        p.card._activeCamIdx = 0;
+        await p.card._haDirectMounter.tryMount(p.card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+      });
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.rtcOffers.length)).toBe(5);
+      await page.evaluate(() => window.bundleProbe.audit.failIce("camera.one"));
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.closedPeers)).toHaveLength(5);
+      await expect.poll(() => page.evaluate(() => {
+        const p = window.bundleProbe;
+        return [...p.session.records.values()].every((record, idx) =>
+          record.provider.players.get("hls") === p.hlsPlayers[idx] && record.status === "ready");
+      })).toBe(true);
+      expect(await page.evaluate(() => window.bundleProbe.audit.stops.some((entry) => entry.startsWith("ha-hls")))).toBe(false);
     }
     const startsBeforeSave = await page.evaluate(() => window.bundleProbe.audit.starts);
     // Exercise the real lazy editor bundle's Save notification against the
@@ -381,7 +436,12 @@ for (const scenario of scenarios) {
       const time = await page.evaluate((id) => window.sessionProbe.session.get(id).video.currentTime, entity);
       await expect.poll(() => page.evaluate((id) => window.sessionProbe.session.get(id).video.currentTime, entity)).toBeGreaterThan(time + 0.15);
     }
-    expect(await page.evaluate(() => window.sessionProbe.audit.starts)).toEqual(startsBeforeFailure);
+    // Losing HLS bypasses the failed camera's cooldown once. This fixture has
+    // two independent sessions for camera.two; healthy siblings never restart.
+    const startsAfterFailure = await page.evaluate(() => window.sessionProbe.audit.starts);
+    expect(startsAfterFailure.slice(0, startsBeforeFailure.length)).toEqual(startsBeforeFailure);
+    expect(startsAfterFailure.slice(startsBeforeFailure.length)).toEqual(scenario.webRtc === false
+      ? ["ha-web-rtc-player:camera.two", "ha-web-rtc-player:camera.two"] : []);
     expect(await page.evaluate(() => window.sessionProbe.audit.providerDisconnects)).toBe(0);
     await page.evaluate(() => {
       const p = window.sessionProbe;

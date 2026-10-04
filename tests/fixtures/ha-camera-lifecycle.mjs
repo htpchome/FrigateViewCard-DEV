@@ -13,7 +13,14 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
     .map((provider) => provider.stateObj.entity_id);
   const audit = {
     starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
+    rtcOffers: [], iceRestarts: [], closedPeers: [],
     startReadiness: [],
+    failIce: (entity) => {
+      const peer = rtcPlayers.get(entity)?._peerConnection;
+      if (!peer || peer.iceConnectionState === "closed") return;
+      peer.iceConnectionState = "failed";
+      peer.dispatchEvent(new Event("iceconnectionstatechange"));
+    },
     releaseReadinessAudit: () => {
       for (const entity of heldReadyEntities) audit.readyEntities.add(entity);
       heldReadyEntities.clear();
@@ -61,6 +68,28 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
         })),
       });
       if (this.localName === "ha-web-rtc-player") rtcPlayers.set(this.entityid, this);
+      if (this.localName === "ha-web-rtc-player" && webRtc === "ice-retry") {
+        // Like HA: fetch configuration before creating the peer, and restart
+        // failed ICE without emitting a parent streams:false event.
+        queueMicrotask(() => {
+          if (!this.isConnected) return;
+          const peer = new EventTarget();
+          peer.iceConnectionState = "checking";
+          peer.addEventListener("iceconnectionstatechange", () => {
+            if (peer.iceConnectionState !== "failed") return;
+            audit.iceRestarts.push(this.entityid);
+            this.retryTimer = setTimeout(() => {
+              if (!this.isConnected) return;
+              audit.rtcOffers.push(this.entityid);
+              peer.iceConnectionState = "checking";
+              this.retryTimer = setTimeout(() => audit.failIce(this.entityid), 20);
+            }, 0);
+          });
+          this._peerConnection = peer;
+          audit.rtcOffers.push(this.entityid);
+        });
+        return;
+      }
       // A blocked ICE connection often emits neither success nor failure.
       if (this.localName === "ha-web-rtc-player" && webRtc === "pending") return;
       if (this.localName === "ha-web-rtc-player" && !webRtc) {
@@ -84,6 +113,11 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
     }
     disconnectedCallback() {
       audit.stops.push(`${this.localName}:${this.entityid}`);
+      clearTimeout(this.retryTimer);
+      if (this._peerConnection) {
+        this._peerConnection.iceConnectionState = "closed";
+        audit.closedPeers.push(this.entityid);
+      }
       this.video.pause();
       this.video.removeAttribute("src");
       this.video.load();

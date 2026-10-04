@@ -4,6 +4,7 @@ import {
   findActiveHaCameraStreamVideo,
 } from "./playback.js";
 import { preserveHaCameraHlsFallback } from "./camera-stream-compat.js";
+import { createHaCameraWebRtcRetry } from "./camera-webrtc-retry.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
 export function findHaCameraContextHost(element) {
@@ -36,6 +37,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   let watchedVideo = null;
   let stopFrameWatch = () => {};
   let observer = null;
+  const webRtcRetry = createHaCameraWebRtcRetry({ provider });
   const reconcile = async () => {
     if (scheduled || disposed) return;
     scheduled = true;
@@ -49,6 +51,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
         childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"],
       });
     }
+    webRtcRetry.observe();
     const video = findActiveHaCameraStreamVideo(provider);
     if (video === watchedVideo && video) return;
     stopFrameWatch();
@@ -78,13 +81,16 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   }, {
     requestHls: () => hass.callWS({ type: "camera/stream", entity_id: stateObj.entity_id, format: "hls" }),
     isDestroyed: () => disposed,
+    webRtcRetry,
   });
   provider.addEventListener("streams", reconcile, true);
   provider.addEventListener("load", reconcile, true);
   return {
     provider,
+    onSelected: () => webRtcRetry.retryIfEligible(),
     dispose: () => {
       disposed = true;
+      webRtcRetry.dispose();
       stopFrameWatch();
       observer?.disconnect();
       provider.removeEventListener("streams", reconcile, true);

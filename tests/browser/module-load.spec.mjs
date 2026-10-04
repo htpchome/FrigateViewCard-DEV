@@ -929,6 +929,61 @@ test("Preview Page stays dormant until its enabled route is requested", async ({
   expect(previewRequests).toBe(1);
 });
 
+test("mobile startup preloads enabled Preview and hydrates immediate navigation on a slow download", async ({ page }) => {
+  let previewRequests = 0;
+  let releaseDownload;
+  const downloadGate = new Promise((resolve) => { releaseDownload = resolve; });
+  await page.route("**/frigate-view-card-preview.js?*", async (route) => {
+    previewRequests += 1;
+    await downloadGate;
+    await route.continue();
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(baseUrl);
+  await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      landing_page: "mobile-view", preview_page_enabled: true,
+    });
+    card._isLikelyMobileClient = () => true;
+    card._discoverAll = async () => {};
+    card._browseWindowLoaderController.loadWindow = async () => {};
+    card._browseBackgroundWorkController.scheduleStartup = () => {};
+    card._previewAlertController.start = () => {};
+    card._mountEngine = () => {};
+    card._renderAll = () => {};
+    card._subscribe = () => {};
+    card._startEditModeWatchdog = () => {};
+    card._startEditorDialogCloseObserver = () => {};
+    card._restartRealtimeHeadPollTimer = () => {};
+    card._setupResizeObserver = () => {};
+    await card._start();
+    clearInterval(card._refresh);
+    card._refresh = null;
+    window.previewStartupCard = card;
+  });
+  await expect.poll(() => previewRequests).toBe(1);
+  expect(await page.evaluate(() => ({
+    page: window.previewStartupCard._pageId,
+    delegate: Boolean(window.previewStartupCard._previewPageController._runtime._pageDelegate),
+    previewTimer: Boolean(window.previewStartupCard._previewTimer),
+  }))).toEqual({ page: "mobile-view", delegate: false, previewTimer: false });
+  // Navigate before the cellular download finishes; it must hydrate without
+  // another visit or a second asset request, and retain its independent CSS.
+  await page.evaluate(() => window.previewStartupCard._pageNavigationController.navigateToPageRoute("preview"));
+  releaseDownload();
+  await expect.poll(() => page.evaluate(() => {
+    const root = window.previewStartupCard.shadowRoot;
+    return Boolean(root.querySelector("#preview-shell") &&
+      root.querySelector("style[data-fvc-preview-page-styles]")?.textContent.trim());
+  })).toBe(true);
+  expect(await page.evaluate(() => window.previewStartupCard._pageId)).toBe("preview");
+  expect(previewRequests).toBe(1);
+});
+
 test("Recordings navigation stays dormant until the Recordings tab is requested", async ({
   page,
 }) => {

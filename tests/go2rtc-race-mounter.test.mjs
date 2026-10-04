@@ -5,6 +5,287 @@ import { createGo2RtcRaceMounter } from "../src/features/live/go2rtc-race-mounte
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const createRetryHarness = (t, options = {}) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => ({ style: {}, remove() {} }) };
+  const state = {
+    now: 1000, token: 0, calls: [], adopted: [], gates: [], pending: [], timer: null,
+    webRtc: "failed", mse: true, stable: true, winner: null,
+  };
+  const result = (type, slot) => ({
+    ok: true, type, slot,
+    engine: { destroyed: false, destroy() { this.destroyed = true; } },
+  });
+  const race = createGo2RtcRaceMounter({
+    mounter: {
+      tryMountWebRtc: async (slot, _startup, { entity, abortSignal }) => {
+        state.calls.push([entity, "webrtc"]);
+        const mode = state.webRtc;
+        if (mode === "pending" || mode === "late") {
+          return await new Promise((resolve) => {
+            state.gates.push({
+              fail: () => resolve(false),
+              succeed: () => resolve(result("webrtc", slot)),
+              signal: abortSignal,
+            });
+            if (mode === "pending") {
+              abortSignal.addEventListener("abort", () => resolve(false), { once: true });
+            }
+          });
+        }
+        if (mode === "throw") throw new Error("signaling failed");
+        return mode === "ready" ? result("webrtc", slot) : false;
+      },
+      tryMountMse: async (slot, _startup, { entity }) => {
+        state.calls.push([entity, "mse"]);
+        return state.mse ? result("mse", slot) : false;
+      },
+    },
+    resolveConnectionType: (entity) => entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
+    getPendingMountDestroyers: () => state.pending,
+    setPendingMountDestroyers: (pending) => { state.pending = pending; },
+    isMountTokenCurrent: (token) => token === state.token,
+    adoptMountedAttempt: (_slot, winner) => {
+      state.winner = winner.engine;
+      state.adopted.push(winner.type);
+    },
+    waitForStreamStart: async () => state.stable,
+    isCurrentWinnerEngine: (engine) => state.winner === engine,
+    getPendingWebRtcTakeoverTimer: () => state.timer,
+    setPendingWebRtcTakeoverTimer: (timer) => { state.timer = timer; },
+    preferredWebRtcWaitMs: 0,
+    mobileFallbackHedgeMs: 0,
+    webRtcRetryBackoffMs: 0,
+    getNowMs: () => state.now,
+    ...options,
+  });
+  const slot = {
+    appendChild() {},
+    attachOrchestrator(orchestrator) { this.orchestrator = orchestrator; },
+    clearOrchestrator(orchestrator) {
+      if (this.orchestrator === orchestrator) this.orchestrator = null;
+    },
+  };
+  const mount = async (entity = "camera.front", forcedType = null) => {
+    state.token += 1;
+    const mounted = await race.mountWithRace({
+      slot, entity, forcedType, mountToken: state.token,
+    });
+    await delay(0);
+    return mounted;
+  };
+  t.after(() => {
+    race.cancelPendingWebRtcAttempts();
+    if (state.timer) clearTimeout(state.timer);
+    for (const gate of state.gates) gate.fail();
+    globalThis.document = previousDocument;
+  });
+  const count = (type, entity = "camera.front") =>
+    state.calls.filter((call) => call[0] === entity && call[1] === type).length;
+  return { state, race, slot, mount, count };
+};
+
+for (const isMobile of [false, true]) {
+  test(`Frigate WebRTC retries after 2 then 5 minutes without sliding the deadline (${isMobile ? "mobile" : "desktop"})`, async (t) => {
+    const { state, mount, count } = createRetryHarness(t, { isMobile });
+    assert.equal(await mount(), true);
+    assert.equal(count("webrtc"), 1);
+    assert.equal(state.adopted.at(-1), "mse");
+    const firstFailureAt = state.now;
+    for (const elapsed of [20001, 60000, 119999]) {
+      state.now = firstFailureAt + elapsed;
+      await mount();
+      assert.equal(count("webrtc"), 1);
+    }
+    state.now = firstFailureAt + 120000;
+    // Expiration alone must not start a probe or disturb the live MSE engine.
+    const retained = state.winner;
+    await delay(0);
+    assert.equal(count("webrtc"), 1);
+    assert.equal(retained.destroyed, false);
+    await mount();
+    assert.equal(count("webrtc"), 2);
+    const secondFailureAt = state.now;
+    for (const elapsed of [20001, 120000, 299999]) {
+      state.now = secondFailureAt + elapsed;
+      await mount();
+      assert.equal(count("webrtc"), 2);
+    }
+    state.now = secondFailureAt + 300000;
+    await mount();
+    assert.equal(count("webrtc"), 3);
+    // Repeated failures stay capped at five minutes, not ten or forever.
+    state.now += 300000;
+    state.webRtc = "pending";
+    await mount();
+    assert.equal(count("webrtc"), 4);
+    const fallback = state.winner;
+    state.gates.at(-1).succeed();
+    await delay(0);
+    assert.equal(state.adopted.at(-1), "webrtc");
+    assert.equal(fallback.destroyed, true);
+    assert.equal(state.timer, null);
+    assert.deepEqual(state.pending, []);
+    // Success clears both the cooldown and accumulated failures.
+    state.webRtc = "failed";
+    await mount();
+    assert.equal(count("webrtc"), 5);
+    await mount();
+    assert.equal(count("webrtc"), 6);
+    state.now += 119999;
+    await mount();
+    assert.equal(count("webrtc"), 6);
+    state.now += 1;
+    await mount();
+    assert.equal(count("webrtc"), 7);
+  });
+}
+
+test("a previously working WebRTC camera retries once before the 2-minute cooldown", async (t) => {
+  const { state, mount, count } = createRetryHarness(t);
+  state.webRtc = "ready";
+  await mount();
+  state.webRtc = "failed";
+  await mount();
+  state.webRtc = "pending";
+  await mount();
+  assert.equal(count("webrtc"), 3);
+  const fallback = state.winner;
+  state.gates.at(-1).succeed();
+  await delay(0);
+  assert.equal(state.adopted.at(-1), "webrtc");
+  assert.equal(fallback.destroyed, true);
+});
+
+test("MSE failure and explicit WebRTC requests bypass suppression", async (t) => {
+  const { state, mount, count } = createRetryHarness(t);
+  await mount();
+  state.mse = false;
+  state.webRtc = "ready";
+  assert.equal(await mount(), true);
+  assert.equal(count("webrtc"), 2);
+  assert.equal(state.adopted.at(-1), "webrtc");
+  // Build a new cooldown, then exercise the explicit-transport escape.
+  state.mse = true;
+  state.webRtc = "failed";
+  await mount();
+  await mount();
+  const before = count("webrtc");
+  await mount();
+  assert.equal(count("webrtc"), before);
+  state.webRtc = "ready";
+  await mount("camera.front", "webrtc");
+  assert.equal(count("webrtc"), before + 1);
+  assert.equal(state.adopted.at(-1), "webrtc");
+});
+
+test("an offline camera does not teach WebRTC suppression without working MSE", async (t) => {
+  const { state, mount, count } = createRetryHarness(t);
+  state.mse = false;
+  assert.equal(await mount(), false);
+  state.mse = true;
+  state.webRtc = "ready";
+  assert.equal(await mount(), true);
+  assert.equal(count("webrtc"), 2);
+});
+
+for (const cancellation of ["camera switch", "pending destroyer", "stale token"]) {
+  test(`${cancellation} does not count as a WebRTC failure`, async (t) => {
+    const { state, mount, race, count } = createRetryHarness(t);
+    state.webRtc = "pending";
+    // Cancellation during pending takeover must not exhaust a camera's retries.
+    for (let index = 0; index < 3; index += 1) {
+      await mount();
+      if (cancellation === "camera switch") race.cancelPendingWebRtcAttempts();
+      if (cancellation === "pending destroyer") {
+        state.pending.find((entry) => entry.type === "webrtc").destroy();
+      }
+      if (cancellation === "stale token") {
+        state.token += 1;
+        state.gates.at(-1).fail();
+      }
+      await delay(0);
+    }
+    state.webRtc = "ready";
+    await mount();
+    assert.equal(count("webrtc"), 4);
+    assert.equal(state.adopted.at(-1), "webrtc");
+  });
+}
+
+test("removing the layout before a winner does not teach WebRTC suppression", async (t) => {
+  const { state, mount, slot, count } = createRetryHarness(t);
+  state.webRtc = "pending";
+  state.mse = false;
+  const mounting = mount();
+  await delay(0);
+  await slot.orchestrator.stop();
+  assert.equal(await mounting, false);
+  state.mse = true;
+  state.webRtc = "ready";
+  await mount();
+  assert.equal(count("webrtc"), 2);
+  assert.equal(state.adopted.at(-1), "webrtc");
+});
+
+test("genuine takeover timeout counts once and rejects a late WebRTC success", async (t) => {
+  const { state, mount, count } = createRetryHarness(t, { deferredWebRtcMaxHoldMs: 10 });
+  state.webRtc = "late";
+  await mount();
+  await delay(25);
+  assert.equal(state.gates[0].signal.aborted, true);
+  state.gates[0].succeed();
+  await delay(0);
+  assert.equal(state.adopted.at(-1), "mse");
+  await mount();
+  assert.equal(count("webrtc"), 1);
+  state.now += 120000;
+  state.webRtc = "ready";
+  await mount();
+  assert.equal(count("webrtc"), 2);
+  assert.equal(state.adopted.at(-1), "webrtc");
+});
+
+test("failed takeover readiness suppresses WebRTC but stale readiness does not", async (t) => {
+  const { state, mount, count } = createRetryHarness(t);
+  state.webRtc = "pending";
+  state.stable = false;
+  await mount();
+  state.gates[0].succeed();
+  await delay(0);
+  await mount();
+  assert.equal(count("webrtc"), 1);
+  state.now += 120000;
+  state.stable = true;
+  await mount();
+  state.token += 1;
+  state.gates.at(-1).succeed();
+  await delay(0);
+  await mount();
+  assert.equal(count("webrtc"), 3);
+});
+
+test("failure history is isolated by camera and owner and never affects HA Direct", async (t) => {
+  const first = createRetryHarness(t);
+  first.state.webRtc = "throw";
+  await first.mount();
+  await first.mount();
+  assert.equal(first.count("webrtc"), 1);
+  first.state.webRtc = "ready";
+  await first.mount("camera.other");
+  assert.equal(first.count("webrtc", "camera.other"), 1);
+  const before = first.state.calls.length;
+  assert.equal(await first.mount("camera.ha"), false);
+  assert.equal(first.state.calls.length, before);
+  await t.test("an independent owner has no inherited cooldown", async (child) => {
+    const second = createRetryHarness(child);
+    second.state.webRtc = "ready";
+    await second.mount();
+    assert.equal(second.count("webrtc"), 1);
+    assert.equal(second.state.adopted.at(-1), "webrtc");
+  });
+});
+
 test("go2rtc race mounter excludes HLS from automatic startup", () => {
   const raceMounter = createGo2RtcRaceMounter({
     mounter: {

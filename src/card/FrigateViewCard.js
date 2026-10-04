@@ -1153,6 +1153,10 @@ export class FrigateViewCard extends HTMLElement {
           this._deepLinkController.hasParsedDeepLinkTarget(),
       });
 
+    // Fetch enabled Preview code/styles during mobile startup without delaying
+    // the landing camera or starting Preview's streams and refresh timers.
+    void this._previewPageController.preloadForMobile();
+
     const landingPagePreparation =
       preparedLandingPage === PAGE_IDS.wideView
         ? this._wideViewPageController.prepare({ startup: true })

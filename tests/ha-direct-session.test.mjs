@@ -14,7 +14,8 @@ const fixture = () => {
     const entity = stateObj.entity_id;
     calls.push(["create", entity]);
     callbacks.set(entity, onState);
-    return { provider: { stateObj }, dispose: () => calls.push(["release", entity]) };
+    return { provider: { stateObj }, dispose: () => calls.push(["release", entity]),
+      onSelected: () => calls.push(["selected", entity]) };
   } });
   const entities = ["camera.one", "camera.two", "camera.three"];
   const hass = { states: Object.fromEntries(entities.map((entity_id) => [entity_id, { entity_id }])) };
@@ -154,6 +155,33 @@ test("a confirmed camera failure settles its queue position without a timed remo
   await flush();
   assert.equal(f.callbacks.size, 2);
   assert.equal(f.session.get("camera.one").status, "failed");
+  f.session.dispose();
+});
+
+test("only camera selection changes authorize retries, not page/editor handoff or HA updates", async () => {
+  const f = fixture();
+  const owner = f.client();
+  f.session.attach(owner);
+  for (const entity of ["camera.one", "camera.two", "camera.three"]) await f.ready(entity);
+  f.calls.length = 0;
+  f.session.sync(owner);
+  f.session.refresh();
+  owner.value.context = "preconfig";
+  f.session.sync(owner, { activate: true });
+  const editor = f.client("config");
+  f.session.attach(editor);
+  f.session.detach(editor);
+  f.session.detach(owner);
+  f.session.attach(owner);
+  assert.deepEqual(f.calls.filter(([name]) => name === "selected"), []);
+  owner.value.selected = "camera.two";
+  f.session.sync(owner, { activate: true });
+  f.session.sync(owner);
+  owner.value.selected = "camera.one";
+  f.session.sync(owner, { activate: true });
+  assert.deepEqual(f.calls.filter(([name]) => name === "selected"),
+    [["selected", "camera.two"], ["selected", "camera.one"]]);
+  assert.equal(f.calls.some(([name]) => name === "create" || name === "release"), false);
   f.session.dispose();
 });
 
