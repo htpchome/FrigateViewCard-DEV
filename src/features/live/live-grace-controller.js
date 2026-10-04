@@ -15,7 +15,6 @@ import {
 export function createLiveGraceController({
   graceMs,
   graceMax,
-  haDirectRetainedMax = graceMax,
   catalystRetainedMax = graceMax,
   getShadowRoot,
   getScopeKey,
@@ -37,9 +36,7 @@ export function createLiveGraceController({
   setStreamFallbackVisible,
   setLiveNativeControls,
   releaseHaDirectEngine,
-  isHaDirectProviderReusable,
-  suspendHaDirectProvider,
-  adoptHaDirectProvider,
+  evictHaDirectEntity,
   isCatalystHlsEngineReusable,
   suspendCatalystHlsEngine,
   adoptCatalystHlsEngine,
@@ -50,7 +47,6 @@ export function createLiveGraceController({
 }) {
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
-  const haDirectRetainedPool = new Map();
   const catalystHlsRetainedPool = new Map();
   const terminalWebRtcStates = new Set(["closed", "failed", "disconnected"]);
   let graceEntrySequence = 0;
@@ -77,11 +73,7 @@ export function createLiveGraceController({
       (!Number.isFinite(wsState) || wsState <= 1 || signalingClosedAfterConnect)
     );
   };
-  const isHaDirectEngineReusable = (engine) =>
-    engine?.haDirectProvider === true &&
-    isHaDirectProviderReusable?.(engine) === true;
   let mseGraceHost = null;
-  let haDirectDeckHost = null;
   let catalystHlsDeckHost = null;
 
   const evictGraceMseEntry = (entity) => {
@@ -107,23 +99,6 @@ export function createLiveGraceController({
     webRtcGracePool.delete(key);
     try {
       entry.engine?.destroy?.();
-    } catch (_) {}
-  };
-
-  const evictGraceHaDirectEntry = (entity) => {
-    const key = normalizeGraceEntityKey(entity);
-    if (!key) return;
-    const entry = haDirectRetainedPool.get(key);
-    if (!entry) return;
-    entry.cancelled = true;
-    if (entry.timer) clearTimeout(entry.timer);
-    haDirectRetainedPool.delete(key);
-    try {
-      releaseHaDirectEngine?.(entry.engine);
-    } catch (_) {}
-    const mediaNode = entry.engine?.video || entry.engine;
-    try {
-      mediaNode?.remove?.();
     } catch (_) {}
   };
 
@@ -161,15 +136,6 @@ export function createLiveGraceController({
     }
   };
 
-  const trimHaDirectGracePool = () => {
-    const maxEntries = Math.max(0, Number(haDirectRetainedMax) || 0);
-    while (haDirectRetainedPool.size > maxEntries) {
-      const oldestKey = haDirectRetainedPool.keys().next().value || "";
-      if (!oldestKey) break;
-      evictGraceHaDirectEntry(oldestKey);
-    }
-  };
-
   const trimCatalystHlsRetainedPool = () => {
     const maxEntries = Math.max(0, Number(catalystRetainedMax) || 0);
     while (catalystHlsRetainedPool.size > maxEntries) {
@@ -187,36 +153,6 @@ export function createLiveGraceController({
       "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px";
     getShadowRoot?.()?.appendChild?.(host);
     mseGraceHost = host;
-    return host;
-  };
-  const ensureHaDirectDeckHost = () => {
-    if (
-      haDirectDeckHost?.isConnected ||
-      haDirectDeckHost?.parentElement ||
-      haDirectDeckHost?.parentNode
-    ) {
-      return haDirectDeckHost;
-    }
-    const host = document.createElement("div");
-    host.setAttribute("aria-hidden", "true");
-    host.setAttribute("data-fvc-ha-direct-deck", "");
-    host.setAttribute("slot", "fvc-ha-direct-provider-deck");
-    host.style.cssText =
-      "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:2";
-    const shadowRoot = getShadowRoot?.();
-    const cardHost = shadowRoot?.host || null;
-    if (cardHost?.appendChild) {
-      cardHost.appendChild(host);
-    } else {
-      const engine = shadowRoot?.querySelector?.("#engine") || null;
-      const parent = engine?.parentElement || shadowRoot;
-      if (engine && parent?.insertBefore) {
-        parent.insertBefore(host, engine);
-      } else {
-        parent?.appendChild?.(host);
-      }
-    }
-    haDirectDeckHost = host;
     return host;
   };
   const ensureCatalystHlsDeckHost = () => {
@@ -275,25 +211,6 @@ export function createLiveGraceController({
     entry.graceOrder = ++graceEntrySequence;
     webRtcGracePool.set(key, entry);
     trimGracePool();
-    return true;
-  };
-  const stashHaDirectEngineForGrace = (entity, engine) => {
-    const key = normalizeGraceEntityKey(entity);
-    if (!key || engine?.haDirectProvider !== true) return false;
-    const engineEntity = normalizeGraceEntityKey(engine?.haDirectEntity);
-    if (engineEntity && engineEntity !== key) return false;
-    if (engine && !engineEntity) engine.haDirectEntity = key;
-    if (!isHaDirectEngineReusable(engine)) return false;
-    if (suspendHaDirectProvider?.(engine) !== true) return false;
-    evictGraceHaDirectEntry(key);
-    const entry = {
-      engine,
-      cancelled: false,
-      timer: null,
-    };
-    entry.graceOrder = ++graceEntrySequence;
-    haDirectRetainedPool.set(key, entry);
-    trimHaDirectGracePool();
     return true;
   };
   const stashCatalystHlsEngineForRetention = (entity, engine) => {
@@ -379,93 +296,6 @@ export function createLiveGraceController({
     if (entry.timer) clearTimeout(entry.timer);
     webRtcGracePool.delete(key);
     return entry;
-  };
-  const takeGraceHaDirectEntry = (entity, streamType = "") => {
-    const key = normalizeGraceEntityKey(entity);
-    if (!key) return null;
-    const entry = haDirectRetainedPool.get(key);
-    if (!entry) return null;
-    if (normalizeGraceEntityKey(entry.engine?.haDirectEntity) !== key) {
-      evictGraceHaDirectEntry(key);
-      return null;
-    }
-    const expectedType = String(streamType || "")
-      .trim()
-      .toLowerCase();
-    if (
-      expectedType &&
-      entry.engine?.haDirectProvider !== true &&
-      entry.engine?.streamType !== expectedType
-    ) {
-      return null;
-    }
-    if (!isHaDirectEngineReusable(entry.engine)) {
-      evictGraceHaDirectEntry(key);
-      return null;
-    }
-    if (entry.timer) clearTimeout(entry.timer);
-    haDirectRetainedPool.delete(key);
-    return entry;
-  };
-
-  const peekRetainedHaDirectEngineForHandoff = (
-    entity,
-    streamType = "webrtc",
-  ) => {
-    const key = normalizeGraceEntityKey(entity);
-    if (!key) return null;
-    const entry = haDirectRetainedPool.get(key);
-    const engine = entry?.engine || null;
-    if (
-      !engine ||
-      normalizeGraceEntityKey(engine.haDirectEntity) !== key ||
-      engine.haDirectProvider !== true ||
-      !isHaDirectEngineReusable(engine)
-    ) {
-      return null;
-    }
-    return engine;
-  };
-
-  const takeRetainedHaDirectEngineForHandoff = (
-    entity,
-    expectedEngine,
-    streamType = "webrtc",
-  ) => {
-    const key = normalizeGraceEntityKey(entity);
-    const engine = peekRetainedHaDirectEngineForHandoff(entity, streamType);
-    if (!key || !engine || engine !== expectedEngine) return null;
-    const entry = haDirectRetainedPool.get(key);
-    if (entry?.timer) clearTimeout(entry.timer);
-    haDirectRetainedPool.delete(key);
-    return engine;
-  };
-
-  const hasRetainedHaDirectEngine = (entity) => {
-    const key = normalizeGraceEntityKey(entity);
-    if (!key) return false;
-    const entry = haDirectRetainedPool.get(key);
-    if (!entry) return false;
-    if (isHaDirectEngineReusable(entry.engine)) return true;
-    evictGraceHaDirectEntry(key);
-    return false;
-  };
-
-  const hasRetainedHaDirectHandoffEngines = () =>
-    [...haDirectRetainedPool.values()].some(({ engine } = {}) =>
-      isHaDirectEngineReusable(engine),
-    );
-
-  const retainHaDirectEngine = (entity, engine) =>
-    stashHaDirectEngineForGrace(entity, engine);
-
-  const syncRetainedHaDirectEntities = (entities = []) => {
-    const retainedEntities = new Set(
-      entities.map((entity) => normalizeGraceEntityKey(entity)).filter(Boolean),
-    );
-    for (const entity of [...haDirectRetainedPool.keys()]) {
-      if (!retainedEntities.has(entity)) evictGraceHaDirectEntry(entity);
-    }
   };
   const takeGraceCatalystHlsEntry = (entity) => {
     const key = normalizeGraceEntityKey(entity);
@@ -558,20 +388,6 @@ export function createLiveGraceController({
     void engine.video.play?.().catch?.(() => {});
     return true;
   };
-  const adoptGraceHaDirectEngine = (slot, engine) => {
-    if (
-      !slot ||
-      engine?.haDirectProvider !== true ||
-      isHaDirectProviderReusable?.(engine) !== true ||
-      adoptHaDirectProvider?.(slot, engine) !== true
-    ) {
-      try {
-        releaseHaDirectEngine?.(engine);
-      } catch (_) {}
-      return false;
-    }
-    return true;
-  };
   const adoptGraceCatalystHlsEngine = (slot, engine) => {
     if (
       !slot ||
@@ -632,13 +448,8 @@ export function createLiveGraceController({
       setEngine?.(null, { retainPrevious: true });
       return;
     }
-    if (
-      preserveLiveEntity &&
-      engine?.type === "ha_direct" &&
-      (engine?.haDirectProvider === true ||
-        engine?.streamType === activeStreamType) &&
-      stashHaDirectEngineForGrace(preserveLiveEntity, engine)
-    ) {
+    if (engine?.haDirectProvider === true) {
+      releaseHaDirectEngine?.(engine);
       setEngine?.(null, { retainPrevious: true });
       return;
     }
@@ -685,9 +496,6 @@ export function createLiveGraceController({
     for (const entity of [...webRtcGracePool.keys()]) {
       evictGraceWebRtcEntry(entity);
     }
-    for (const entity of [...haDirectRetainedPool.keys()]) {
-      evictGraceHaDirectEntry(entity);
-    }
     for (const entity of [...catalystHlsRetainedPool.keys()]) {
       evictRetainedCatalystHlsEntry(entity);
     }
@@ -695,10 +503,6 @@ export function createLiveGraceController({
       mseGraceHost?.remove?.();
     } catch (_) {}
     mseGraceHost = null;
-    try {
-      haDirectDeckHost?.remove?.();
-    } catch (_) {}
-    haDirectDeckHost = null;
     try {
       catalystHlsDeckHost?.remove?.();
     } catch (_) {}
@@ -708,7 +512,7 @@ export function createLiveGraceController({
   const evictEntity = (entity) => {
     evictGraceMseEntry(entity);
     evictGraceWebRtcEntry(entity);
-    evictGraceHaDirectEntry(entity);
+    evictHaDirectEntity?.(entity);
     evictRetainedCatalystHlsEntry(entity);
   };
 
@@ -722,16 +526,6 @@ export function createLiveGraceController({
     takeGraceWebRtcEntry,
     adoptGraceWebRtcEngine,
     isWebRtcEngineReusable,
-    takeGraceHaDirectEntry,
-    peekRetainedHaDirectEngineForHandoff,
-    takeRetainedHaDirectEngineForHandoff,
-    adoptGraceHaDirectEngine,
-    isHaDirectEngineReusable,
-    hasRetainedHaDirectEngine,
-    hasRetainedHaDirectHandoffEngines,
-    retainHaDirectEngine,
-    syncRetainedHaDirectEntities,
-    getHaDirectDeckHost: ensureHaDirectDeckHost,
     takeGraceCatalystHlsEntry,
     hasRetainedCatalystHlsEngine,
     retainCatalystHlsEngine,

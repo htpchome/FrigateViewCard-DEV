@@ -32,13 +32,8 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   };
   const calls = [];
   let editorHandoffContext = "dashboard";
-  const transferredEditorEngine = {
-    id: "editor-retained-provider",
-    haDirectProvider: true,
-  };
-  let committedEditorTransfer = 0;
+  let backgroundStarts = 0;
   const engineHost = { id: "engine" };
-  const haDirectDeckHost = { id: "ha-direct-deck" };
   const catalystHlsDeckHost = { id: "catalyst-hls-deck" };
   const shadowRoot = {
     appendChild: (node) => calls.push(["append-audio", node]),
@@ -73,36 +68,13 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     _frigateCameraRuntimeController: {
       isSuspended: () => false,
     },
-    _editorLiveHandoffController: {
-      take: (...args) => {
-        calls.push(["take-editor-handoff", ...args]);
-        return {
-          engine: transferredEditorEngine,
-          commit: () => {
-            committedEditorTransfer += 1;
-          },
-        };
-      },
-    },
     _haDirectMounter: {
-      adoptTransferredProvider: () => true,
+      schedulePreloadDeckAfterPaint: () => { backgroundStarts += 1; },
     },
     _editorPreviewController: {
       liveHandoffContext: () => editorHandoffContext,
     },
     _liveGraceController: {
-      getHaDirectDeckHost: () => haDirectDeckHost,
-      hasRetainedHaDirectEngine: (entity) => entity === "camera.ha",
-      retainHaDirectEngine: (entity, engine) => {
-        calls.push(["retain-ha", entity, engine]);
-        return (
-          entity === "camera.ha" &&
-          (engine === "ha-provider-engine" ||
-            engine === transferredEditorEngine)
-        );
-      },
-      syncRetainedHaDirectEntities: (entities) =>
-        calls.push(["sync-ha-retained", entities]),
       getCatalystHlsDeckHost: () => catalystHlsDeckHost,
       hasRetainedCatalystHlsEngine: (entity) => entity === "camera.ha",
       retainCatalystHlsEngine: (entity, engine) =>
@@ -162,47 +134,21 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     attachContainedVideoFit,
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
+  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
+  assert.equal(optionsByFactory.haDirectMounter.isSelectedExternalReady(), false);
+  card._activeStreamType = "webrtc";
+  assert.equal(optionsByFactory.haDirectMounter.isSelectedExternalReady(), true);
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
   editorHandoffContext = "preconfig";
-  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
+  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
   editorHandoffContext = "config";
-  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
+  assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
   editorHandoffContext = "dashboard";
   assert.deepEqual(optionsByFactory.haDirectMounter.getPreloadEntities(), [
     "camera.ha",
   ]);
-  assert.strictEqual(
-    optionsByFactory.haDirectMounter.getPreloadHost(),
-    haDirectDeckHost,
-  );
-  assert.equal(
-    optionsByFactory.haDirectMounter.hasRetainedEngine("camera.ha"),
-    true,
-  );
-  assert.equal(
-    optionsByFactory.haDirectMounter.retainPreloadedEngine(
-      "camera.ha",
-      "ha-provider-engine",
-    ),
-    true,
-  );
-  assert.equal(
-    optionsByFactory.haDirectMounter.adoptEditorPreloadedEngine(
-      "camera.ha",
-    ),
-    true,
-  );
-  assert.deepEqual(calls.slice(-2), [
-    ["take-editor-handoff", "camera.ha", "provider", "ha_direct"],
-    [
-      "retain-ha",
-      "camera.ha",
-      transferredEditorEngine,
-    ],
-  ]);
-  assert.equal(committedEditorTransfer, 1);
-  optionsByFactory.haDirectMounter.syncRetainedEntities(["camera.ha"]);
-  assert.deepEqual(calls.at(-1), ["sync-ha-retained", ["camera.ha"]]);
+  assert.equal(optionsByFactory.haDirectMounter.getPreloadHost, undefined);
+  assert.equal(optionsByFactory.haDirectMounter.adoptEditorPreloadedEngine, undefined);
   assert.equal(optionsByFactory.catalystHlsMounter.shouldPreload(), false);
   deviceProfile.isIOS = true;
   deviceProfile.isIOS = false;
@@ -299,4 +245,10 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.deepEqual(calls.at(-1), ["append-audio", audio]);
   releaseAudio();
   assert.equal(removed, true);
+
+  const startsBeforeAdoption = backgroundStarts;
+  const winner = { type: "webrtc", slot: { style: {} }, engine: {} };
+  assert.equal(optionsByFactory.go2rtcRaceMounter.adoptMountedAttempt({}, winner), true);
+  assert.equal(backgroundStarts, startsBeforeAdoption + 1,
+    "a selected Frigate race winner releases the sequential HA-only background queue");
 });

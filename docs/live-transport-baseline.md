@@ -2,31 +2,28 @@
 
 ## Current Baseline
 
-`v1.1.8-dev.174` corrects the physically rejected readiness and handoff behavior
-in `v1.1.8-dev.173` without restoring a card-owned transport race. Non-Catalyst
-HA Direct playback creates one
-stable `ha-camera-stream` provider per loaded camera and delegates HLS/WebRTC
-selection, signaling, fallback, and child-player lifecycle to Home Assistant.
-The card retains ownership only of creation order, permanent camera slots,
-visibility, retention/release, snapshot presentation, and editor/layout
-handoff. The provider deck remains in the card's Home Assistant-scoped light
-DOM and is projected into page-specific live stages. Page changes leave the
-provider slots connected; editor ownership transfer moves the complete
-camera-specific slot with `Element.moveBefore()` and never extracts HA's inner
-video. The provider receives the real HA state object without a fabricated
-`frontend_stream_type`. Provider readiness now requires a presented frame from
-the player Home Assistant made visible. A `streams: false` event from HA's
-hidden WebRTC or HLS candidate is not treated as failure of the complete
-provider, and readiness observation yields through HA's child-event render
-before resolving the visible player. HA therefore remains free to select the
-other player. When editor handoff
-discovery finds one active provider alongside retained offers, the active
-provider wins instead of the broker rejecting the transfer as ambiguous. The
-card no longer patches HA HLS internals, waits on an eight-second transport
-gate, or remounts a provider after a card-owned startup timeout.
-`v1.1.8-dev.172`'s inner-video lending is rejected. Mac Catalyst remains on its
-separate native HLS-only path. Physical validation is required before this
-experiment replaces `v1.1.8-dev.168` as a known-good rollback point.
+`v1.1.8-dev.175` replaces normal HA Direct per-card pools and movable editor
+handoffs with one persistent session per card. The session owns the camera
+registry, sequential startup and readiness/transport subscriptions. Its deck
+is mounted once under the owning `home-assistant` application root. Nested
+Shadow DOM slot relays present it in the card, pre-editor or native editor
+dialog without moving any provider, child player or video. Connected editor
+clients keep the session alive after the original card is destroyed. Only a
+session with no remaining clients receives a 20-second release timer.
+
+HA still owns capabilities, authentication, HLS/WebRTC creation, signaling and
+player internals. An explicit instance-local selector correction preserves
+working HLS video when HA reports WebRTC failure but selects MJPEG while muted.
+This defect was reproduced in upstream frontend 20260826.7 and 20260930.0.
+Other HA selection decisions are unchanged; there is no card-owned race or
+startup timeout. Catalyst, Frigate go2rtc and two-way talk keep their existing
+transport owners.
+
+Validation covers the pinned upstream selector, sequential/failure queues,
+and real browser media advancing through replaced presentation clients and
+native modals in Chromium, Firefox and WebKit. The browser HA provider harness
+is synthetic: physical Home Assistant validation is still necessary and is not
+claimed by those tests.
 
 `v1.1.8-dev.70` restores the `v1.1.8-dev.68` HA Direct pipeline after physical
 testing rejected the native `ha-camera-stream` provider-deck experiment in
@@ -269,23 +266,28 @@ Preserve all of these behaviors together:
 2. Pass the unmodified Home Assistant camera state to the provider, then let
    Home Assistant query capabilities and create and manage its HLS/WebRTC child
    players.
-3. Keep the snapshot visible until the provider emits Home Assistant's `load`
-   signal. An explicit no-video `streams` result may show the snapshot fallback,
-   but it must not replace or remount the provider.
+3. Keep the snapshot visible until the selected HA child player has usable
+   video. A hidden candidate failing is not whole-provider failure. When HA
+   settles on its image fallback, mark that camera failed and advance the
+   queue without replacing or remounting its provider.
 4. Do not create a parallel card-owned HLS player, RTCPeerConnection, signaling
    subscription, race, or takeover for normal HA Direct playback.
-5. Create each provider inside a permanent, full-sized camera deck slot in the
-   owning card's Home Assistant-scoped light DOM and retain it there across
-   camera and page changes. Never move that custom element to `document.body`.
+5. Create each provider inside a permanent, full-sized slot under its session's
+   stationary application-root deck. Use nested slot projection for each
+   card/editor presentation. Never move the provider or its internal player,
+   and never mount it under `document.body`.
 6. Hide and mute dormant providers without disconnecting their custom element.
 7. Start background providers sequentially only after the selected provider is
    usable; wait for each background provider before starting the next one.
-8. A newly selected camera preempts background work and promotes its existing
-   provider when one is already loading or retained.
+8. A selected loaded camera uses its retained provider immediately. A queued
+   selection moves to the front of the queue; finish the current startup first
+   rather than disconnecting it or starting concurrent providers.
 9. Preserve the explicit Catalyst native-HLS exception and the separate
    two-way-talk backchannel.
 10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
     objects, extract the nested video, or run timeout-based provider recovery.
+    The instance-local muted-HLS selector correction is the sole documented
+    compatibility exception; it must not affect HA's global components.
 
 The card may observe the active nested player for readiness, source labels,
 zoom, fullscreen, and recovery presentation, but Home Assistant remains the

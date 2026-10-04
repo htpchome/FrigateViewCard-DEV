@@ -560,6 +560,7 @@ export class FrigateViewCard extends HTMLElement {
       this._applyCardStyle();
     }
     this._scheduleRotateOverlayUpdate();
+    this._haDirectMounter?.syncProviderStates?.();
     if (this._started && !cardPickerDemoActive) {
       const activeLiveEntity =
         this._activeGroupMemberOverride || this._activeCam?.entity || "";
@@ -915,6 +916,7 @@ export class FrigateViewCard extends HTMLElement {
     };
   }
   disconnectedCallback() {
+    this._haDirectMounter?.disconnect?.();
     this._cardStyleController.releaseBubbleFullscreenEscape();
     this._cardStyleController.releaseBubblePopupPadding();
     this._deepLinkController.disconnect();
@@ -928,10 +930,7 @@ export class FrigateViewCard extends HTMLElement {
     const editorLifecycleActive =
       this._editorPreviewController?.isEditorLifecycleActive?.() === true;
     const retainEditorHandoffLive =
-      this._editorLiveHandoffController?.isSuspended?.() === true ||
-      (editorLifecycleActive &&
-        this._liveGraceController?.hasRetainedHaDirectHandoffEngines?.() ===
-          true);
+      this._editorLiveHandoffController?.isSuspended?.() === true;
     const activeLiveEntity =
       this._activeGroupMemberOverride || this._activeCam?.entity || "";
     const retainMountedEditorLive =
@@ -1119,7 +1118,7 @@ export class FrigateViewCard extends HTMLElement {
       );
     }
     getLiveRotateOverlayController(this).dispose();
-    this._haDirectMounter?.cancelPreloads?.();
+    this._haDirectMounter?.dispose?.();
     this._catalystHlsMounter?.cancelPreloads?.();
     this._liveGraceController.clearGracePool();
     this._frigateCameraRuntimeController?.dispose?.();

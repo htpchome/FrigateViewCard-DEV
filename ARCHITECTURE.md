@@ -45,24 +45,31 @@ Meaning of `ha_direct`:
   WebRTC child player without a parallel card-owned transport race
 - providers are created in permanent, camera-scoped HA Direct deck slots and
   are shown or hidden in place across camera and page changes; the deck is a
-  stable light-DOM child projected into each page's live stage so replacing a
-  page shell never disconnects the Home Assistant provider subtree
+  stable light-DOM child of the owning `home-assistant` application root.
+  Nested slot relays project that stationary deck into the active card or
+  editor stage, including the native dialog. Replacing a card or page shell
+  must never disconnect a provider subtree
 - after the selected provider renders usable video, remaining configured HA
   Direct cameras may warm sequentially; camera N+1 must not start until camera
   N has usable media or has failed
 - the card owns provider creation, deck visibility, retention and release,
-  snapshot fallback presentation, and editor/layout ownership transfer; it
+  snapshot fallback presentation, and editor/layout presentation ownership; it
   does not own the provider's signaling or internal media-player lifecycle
 - page and layout changes keep each native provider in its permanent slot.
-  A dashboard/editor ownership handoff may move the whole camera-specific slot
-  with the platform's state-preserving DOM move operation; it must never detach,
-  clone, or lend the provider's internal video or child player. Native providers
-  must never be mounted under `document.body` or another host outside the
-  card's scoped custom-element context
+  Dashboard/editor handoff changes only the slot-relay chain and the subscribed
+  presentation client. Neither providers nor their slots, videos or child
+  players are moved, cloned or lent. The session is scoped to one HA application
+  root, websocket connection and card identity, not to camera names alone.
+  The stationary application-root mount is an explicit exception to card-local
+  ownership; it must retain HA's context and must never use `document.body`
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
-  player internals, use a card-owned readiness timeout to replace the provider,
-  or schedule a card-owned transport remount after HA startup
+  HLS/WebRTC player internals, use a readiness timeout to replace the provider,
+  or schedule a card-owned transport remount after HA startup. The one explicit
+  selector compatibility correction is instance-local: when HA reports working
+  HLS video and failed WebRTC but chooses MJPEG, preserve HLS regardless of mute.
+  All other selector results are unchanged. Never patch HA's global components
+  or their prototypes; tests must reproduce the upstream selector defect
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

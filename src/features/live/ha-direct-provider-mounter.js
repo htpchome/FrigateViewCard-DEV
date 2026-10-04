@@ -1,547 +1,169 @@
-import {
-  buildHaCameraStreamState,
-  createHaCameraStreamElement,
-  ensureHaCameraPlaybackElements,
-  findActiveHaCameraStreamPlayer,
-  findActiveHaCameraStreamVideo,
-  watchHaPlaybackFirstFrame,
-} from "../../integrations/home-assistant/playback.js";
-import {
-  resolveHaDirectFailedState,
-  resolveHaDirectMountUnavailableState,
-  resolveHaDirectReadyState,
-} from "./startup-policy.js";
+import { ensureHaCameraPlaybackElements } from "../../integrations/home-assistant/playback.js";
+import { findHaCameraContextHost } from "../../integrations/home-assistant/camera-provider.js";
+import { acquireHaDirectSession } from "./ha-direct-session.js";
+import { resolveHaDirectFailedState, resolveHaDirectReadyState } from "./startup-policy.js";
 
-const HA_DIRECT_PROVIDER_STYLE =
-  "width:100%;height:100%;display:block;background:var(--c-bg-deep)";
-const HA_DIRECT_PROVIDER_SLOT_STYLE =
-  "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;opacity:0;z-index:0";
-
-const normalizeEntity = (entity) => String(entity || "").trim();
-
-const resolveProviderStreamType = (provider) => {
-  const tagName =
-    findActiveHaCameraStreamPlayer(provider)?.tagName?.toLowerCase?.() || "";
-  if (tagName === "ha-web-rtc-player") return "webrtc";
-  if (tagName === "ha-hls-player" || tagName === "video") return "hls";
-  return "";
-};
-
+// A card is a presentation client. It never owns, moves or destroys individual
+// HA player subtrees; the session owns those and its sequential startup queue.
 export function createHaDirectProviderMounter({
+  scopeKey: card,
   getHass,
   getStreamMuted,
+  setStreamMuted,
   getRotateOverlayActive,
-  isCurrentEngine,
+  getSelectedEntity,
+  getPreloadEntities,
+  getContext = () => "dashboard",
+  getIdentity,
+  shouldPreload,
+  isSelectedExternalReady = () => false,
+  isMountAttemptCurrent = () => true,
   assignCommittedEngine,
   onCommittedMediaReady,
   onCommittedStream,
+  onPendingStream,
+  onPresentationLost,
   applyResolvedStreamUiState,
   startLoadingFallbackRefresh,
   stopLoadingFallbackRefresh,
   setLiveNativeControls,
   preparePlaybackElements = ensureHaCameraPlaybackElements,
-  createCameraStream = createHaCameraStreamElement,
-  getPreloadEntities = () => [],
-  getActiveEntity = () => "",
-  getSelectedEntity = () => "",
-  isMountAttemptCurrent = () => true,
-  getPreloadHost = () => null,
-  shouldPreload = () => false,
-  hasRetainedEngine = () => false,
-  retainPreloadedEngine = () => false,
-  adoptEditorPreloadedEngine = () => false,
-  syncRetainedEntities = () => {},
-  requestFrame = (callback) => globalThis.requestAnimationFrame?.(callback),
-  cancelFrame = (frame) => globalThis.cancelAnimationFrame?.(frame),
-  watchProviderReady = watchHaPlaybackFirstFrame,
+  acquireSession = acquireHaDirectSession,
 }) {
-  const ownerToken = {};
-  const bindings = new WeakMap();
-  const providerSlots = new WeakMap();
-  const providerReadyWaiters = new WeakMap();
-  const ownedProviders = new Set();
-  const settledEntities = new Set();
-  let preloadGeneration = 0;
-  let preloadRunning = false;
-  let preloadRescheduleRequested = false;
-  let preloadFrame = null;
-  let preloadPaintFrame = null;
-  let pendingPreload = null;
-
-  const prepare = () => {
-    try {
-      return preparePlaybackElements?.() ?? false;
-    } catch (_) {
-      return false;
-    }
-  };
-
-  const isSelectedEntity = (entity) =>
-    normalizeEntity(getSelectedEntity?.()) === normalizeEntity(entity);
-
-  const isOwnedMountAttempt = (entity, mountToken) =>
-    mountToken == null || isMountAttemptCurrent?.(mountToken, entity) === true;
-
-  const stopFallbackRefresh = (binding) => {
-    binding?.stopLoadingFallbackRefresh?.();
-    if (binding) binding.stopLoadingFallbackRefresh = () => {};
-  };
-
-  const markProviderReady = (provider) => {
-    if (!provider || provider.haDirectProviderReady === true) return;
-    provider.haDirectProviderReady = true;
-    const waiters = providerReadyWaiters.get(provider);
-    providerReadyWaiters.delete(provider);
-    for (const waiter of waiters || []) waiter();
-  };
-
-  const subscribeProviderReady = (provider, callback) => {
-    if (!provider || typeof callback !== "function") return () => {};
-    if (provider.haDirectProviderReady === true) {
-      callback();
-      return () => {};
-    }
-    let waiters = providerReadyWaiters.get(provider);
-    if (!waiters) {
-      waiters = new Set();
-      providerReadyWaiters.set(provider, waiters);
-    }
-    waiters.add(callback);
-    return () => {
-      waiters.delete(callback);
-      if (!waiters.size) providerReadyWaiters.delete(provider);
-    };
-  };
-
-  const setProviderVisible = (provider, visible) => {
-    const providerSlot = providerSlots.get(provider);
-    if (!providerSlot) return false;
-    providerSlot.style.opacity = visible ? "1" : "0";
-    providerSlot.style.zIndex = visible ? "3" : "0";
-    if (visible) providerSlot.removeAttribute?.("aria-hidden");
-    else providerSlot.setAttribute?.("aria-hidden", "true");
-    provider.muted = visible ? Boolean(getStreamMuted?.()) : true;
-    provider.defaultMuted = provider.muted;
-    return true;
-  };
-
-  const disposeBinding = (provider) => {
-    const binding = bindings.get(provider);
-    if (!binding) return false;
-    binding.disposed = true;
-    stopFallbackRefresh(binding);
-    binding.stopReadySubscription?.();
-    bindings.delete(provider);
-    return true;
-  };
-
-  const release = (provider) => {
-    if (provider?.haDirectProvider !== true) return;
-    disposeBinding(provider);
-    ownedProviders.delete(provider);
-    const providerSlot = providerSlots.get(provider);
-    providerSlots.delete(provider);
-    if (provider?.haDirectProviderOwner !== ownerToken) return;
-    provider.haDirectProviderMetadataCleanup?.();
-    delete provider.haDirectProviderMetadataCleanup;
-    delete provider.haDirectProviderSlot;
-    delete provider.haDirectProviderOwner;
-    try {
-      providerSlot?.remove?.();
-    } catch (_) {}
-  };
-
-  const createProviderSlot = (entity) => {
-    const host = getPreloadHost?.();
-    if (!host?.appendChild || !globalThis.document?.createElement) return null;
-    const providerSlot = document.createElement("div");
-    providerSlot.setAttribute?.("data-fvc-ha-direct-provider", entity);
-    providerSlot.setAttribute?.("aria-hidden", "true");
-    providerSlot.style.cssText = HA_DIRECT_PROVIDER_SLOT_STYLE;
-    host.appendChild(providerSlot);
-    return providerSlot;
-  };
-
-  const createProvider = ({ entity, muted = true }) => {
-    const hass = getHass?.();
-    const targetEntity = normalizeEntity(entity);
-    const stateObj = buildHaCameraStreamState(hass, targetEntity);
-    if (!targetEntity || !stateObj) return null;
-    const providerSlot = createProviderSlot(targetEntity);
-    if (!providerSlot) return null;
-    let provider = null;
-    try {
-      provider = createCameraStream({
-        stateObj,
-        muted,
-        defaultMuted: muted,
-        controls: false,
-        fitMode: "contain",
-        styleText: HA_DIRECT_PROVIDER_STYLE,
-      });
-    } catch (_) {
-      provider = null;
-    }
-    if (!provider) {
-      providerSlot.remove?.();
-      return null;
-    }
-    provider.type = "ha_direct";
-    provider.streamType = "";
-    provider.haDirectEntity = targetEntity;
-    provider.haDirectProvider = true;
-    provider.haDirectProviderOwner = ownerToken;
-    provider.haDirectProviderSlot = providerSlot;
-    providerSlot.appendChild(provider);
-    const stopReadyWatch = watchProviderReady?.({
-      stream: provider,
-      isDestroyed: () => !provider.haDirectProviderOwner,
-      onReady: () => markProviderReady(provider),
-    });
-    provider.haDirectProviderMetadataCleanup = () => {
-      stopReadyWatch?.();
-      providerReadyWaiters.delete(provider);
-    };
-    providerSlots.set(provider, providerSlot);
-    ownedProviders.add(provider);
-    return provider;
-  };
-
-  const markSettled = (provider) => {
-    const entity = normalizeEntity(provider?.haDirectEntity);
-    if (entity) settledEntities.add(entity);
-  };
-
-  const applyReady = (provider) => {
-    const binding = bindings.get(provider);
-    if (
-      binding?.disposed ||
-      !isCurrentEngine?.(provider) ||
-      !isSelectedEntity(provider?.haDirectEntity)
-    ) {
-      return false;
-    }
-    stopFallbackRefresh(binding);
+  let session = null;
+  let observer = null;
+  let target = null;
+  let presenting = false;
+  let disposed = false;
+  let preparing = null;
+  let stopFallback = () => {};
+  let lastPresentation = null;
+  let foregroundRequested = false;
+  const stopLoading = () => {
+    stopFallback();
+    stopFallback = () => {};
     stopLoadingFallbackRefresh?.();
-    markSettled(provider);
-    provider.haDirectProviderReady = true;
-    const streamType = resolveProviderStreamType(provider);
-    const video = findActiveHaCameraStreamVideo(provider);
-    if (streamType) provider.streamType = streamType;
-    if (video) onCommittedMediaReady?.(provider, video);
-    onCommittedStream?.(provider.streamType || "hls");
-    applyResolvedStreamUiState?.(
-      resolveHaDirectReadyState({
-        rotateOverlayActive: getRotateOverlayActive?.() === true,
-        isCurrentEngine: true,
-        waitSucceeded: true,
-      }),
-    );
-    schedulePreloadDeckAfterPaint();
-    return true;
   };
-
-  const bindProvider = (provider) => {
-    const existing = bindings.get(provider);
-    if (existing && !existing.disposed) return existing;
-    const binding = {
-      disposed: false,
-      stopLoadingFallbackRefresh: () => {},
-      stopReadySubscription: () => {},
-    };
-    bindings.set(provider, binding);
-    binding.stopReadySubscription = subscribeProviderReady(provider, () =>
-      applyReady(provider),
-    );
-    return binding;
-  };
-
-  const isRetainableProvider = (provider) =>
-    Boolean(
-      provider?.type === "ha_direct" &&
-        provider?.haDirectProvider === true &&
-        provider?.haDirectProviderSlot,
-    );
-
-  const moveProviderSlot = (provider) => {
-    if (provider?.haDirectProvider !== true) return false;
-    const providerSlot = provider.haDirectProviderSlot;
-    const host = getPreloadHost?.();
-    if (!providerSlot || !host) return false;
-    if (providerSlot.parentElement !== host && providerSlot.parentNode !== host) {
-      if (typeof host.moveBefore !== "function") return false;
-      try {
-        host.moveBefore(providerSlot, null);
-      } catch (_) {
-        return false;
+  const client = {
+    host: card,
+    hass: getHass,
+    entities: getPreloadEntities,
+    selected: getSelectedEntity,
+    context: getContext,
+    identity: getIdentity,
+    muted: getStreamMuted,
+    setMuted: setStreamMuted,
+    target: () => card.shadowRoot?.querySelector('slot[name="fvc-ha-direct-provider-deck"]'),
+    visible: () => presenting,
+    canStart: () => shouldPreload?.() === true && (foregroundRequested || isSelectedExternalReady()),
+    onPresentationChange(active) {
+      lastPresentation = null;
+      if (!active) {
+        stopLoading();
+        onPresentationLost?.();
       }
-    }
-    provider.haDirectProviderOwner = ownerToken;
-    providerSlots.set(provider, providerSlot);
-    ownedProviders.add(provider);
-    const stateObj = getHass?.()?.states?.[provider.haDirectEntity];
-    if (stateObj && provider.stateObj !== stateObj) provider.stateObj = stateObj;
-    return true;
-  };
-
-  const detachProviderForHandoff = (provider) => {
-    if (!isRetainableProvider(provider)) return false;
-    disposeBinding(provider);
-    ownedProviders.delete(provider);
-    providerSlots.delete(provider);
-    return true;
-  };
-
-  const suspendRetainedProvider = (provider) => {
-    if (!isRetainableProvider(provider)) return false;
-    disposeBinding(provider);
-    return setProviderVisible(provider, false);
-  };
-
-  const adoptRetainedProvider = (_slot, provider) => {
-    if (
-      !moveProviderSlot(provider) ||
-      !isSelectedEntity(provider?.haDirectEntity) ||
-      !setProviderVisible(provider, true)
-    ) {
-      return false;
-    }
-    assignCommittedEngine?.(provider);
-    const binding = bindProvider(provider);
-    binding.stopLoadingFallbackRefresh =
-      startLoadingFallbackRefresh?.() || (() => {});
-    if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
-    if (provider.haDirectProviderReady === true) applyReady(provider);
-    return true;
-  };
-
-  const waitForProviderOutcome = (provider, abortSignal) =>
-    new Promise((resolve) => {
-      let settled = false;
-      const finish = (value) => {
-        if (settled) return;
-        settled = true;
-        stopReadySubscription();
-        abortSignal?.removeEventListener?.("abort", onAbort);
-        resolve(value);
-      };
-      const onAbort = () => finish(null);
-      let stopReadySubscription = () => {};
-      stopReadySubscription = subscribeProviderReady(provider, () =>
-        finish(true),
-      );
-      abortSignal?.addEventListener?.("abort", onAbort, { once: true });
-      if (provider.haDirectProviderReady === true) finish(true);
-      else if (abortSignal?.aborted) finish(null);
-    });
-
-  const cancelScheduledPreload = () => {
-    if (preloadFrame != null) cancelFrame?.(preloadFrame);
-    if (preloadPaintFrame != null) cancelFrame?.(preloadPaintFrame);
-    preloadFrame = null;
-    preloadPaintFrame = null;
-  };
-
-  const cancelPendingPreload = ({ preserveProvider = false } = {}) => {
-    const pending = pendingPreload;
-    if (!pending) return null;
-    pendingPreload = null;
-    pending.promoted = preserveProvider;
-    pending.abortController.abort();
-    if (!preserveProvider) release(pending.provider);
-    return preserveProvider ? pending.provider : null;
-  };
-
-  const cancelPreloads = () => {
-    preloadGeneration += 1;
-    preloadRescheduleRequested = false;
-    cancelScheduledPreload();
-    cancelPendingPreload();
-  };
-
-  const syncProviderStates = () => {
-    const hass = getHass?.();
-    for (const provider of ownedProviders) {
-      const stateObj = hass?.states?.[provider?.haDirectEntity];
-      if (stateObj && provider.stateObj !== stateObj) {
-        provider.stateObj = stateObj;
+    },
+    onState(record, active) {
+      if (!active || !presenting || disposed || record.entity !== getSelectedEntity?.()) return;
+      const identity = [record.provider, record.status, record.video, client.target()];
+      if (lastPresentation?.every((value, index) => value === identity[index])) return;
+      lastPresentation = identity;
+      if (record.provider) assignCommittedEngine?.(record.provider, { retainPrevious: true });
+      if (record.status === "ready") {
+        stopLoading();
+        onCommittedMediaReady?.(record.provider, record.video);
+        onCommittedStream?.(record.streamType);
+        applyResolvedStreamUiState?.(resolveHaDirectReadyState({
+          rotateOverlayActive: getRotateOverlayActive?.() === true,
+          isCurrentEngine: true, waitSucceeded: true,
+        }));
+        if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
+      } else if (record.status === "failed") {
+        stopLoading();
+        onPendingStream?.();
+        applyResolvedStreamUiState?.(resolveHaDirectFailedState());
+      } else {
+        onPendingStream?.();
+        applyResolvedStreamUiState?.({ loading: true, fallbackVisible: true, refreshFallbackImage: true });
       }
-    }
+    },
   };
-
-  const preloadEntity = async (entity, generation) => {
-    const targetEntity = normalizeEntity(entity);
-    if (
-      !targetEntity ||
-      generation !== preloadGeneration ||
-      shouldPreload?.() !== true ||
-      hasRetainedEngine?.(targetEntity) === true
-    ) {
-      return false;
-    }
-    if (adoptEditorPreloadedEngine?.(targetEntity) === true) return true;
-    const provider = createProvider({ entity: targetEntity, muted: true });
-    if (!provider) return false;
-    const abortController = new AbortController();
-    const pending = {
-      abortController,
-      entity: targetEntity,
-      promoted: false,
-      provider,
-    };
-    pendingPreload = pending;
-    const outcome = await waitForProviderOutcome(
-      provider,
-      abortController.signal,
-    );
-    if (pendingPreload === pending) pendingPreload = null;
-    if (pending.promoted) return true;
-    const stillConfigured = (getPreloadEntities?.() || []).includes(targetEntity);
-    if (
-      outcome == null ||
-      generation !== preloadGeneration ||
-      shouldPreload?.() !== true ||
-      !stillConfigured
-    ) {
-      release(provider);
-      return false;
-    }
-    markSettled(provider);
-    provider.haDirectProviderReady = true;
-    provider.streamType = resolveProviderStreamType(provider);
-    if (retainPreloadedEngine?.(targetEntity, provider) === true) return true;
-    release(provider);
-    return false;
+  const prepare = () => preparePlaybackElements?.() ?? false;
+  const sync = () => {
+    if (disposed || !session) return;
+    session.rememberIdentity?.(getIdentity());
+    session.sync(client);
   };
-
-  const runPreloadDeck = async (generation) => {
-    if (preloadRunning || generation !== preloadGeneration) return;
-    const activeEntity = normalizeEntity(getActiveEntity?.());
-    if (!activeEntity || !settledEntities.has(activeEntity)) return;
-    preloadRunning = true;
-    try {
-      const entities = [...new Set(getPreloadEntities?.() || [])];
-      syncRetainedEntities?.(entities);
-      for (const entity of entities) {
-        if (generation !== preloadGeneration || shouldPreload?.() !== true) {
-          break;
-        }
-        if (
-          entity === activeEntity ||
-          hasRetainedEngine?.(entity) === true
-        ) {
-          continue;
-        }
-        await preloadEntity(entity, generation);
-      }
-    } finally {
-      preloadRunning = false;
-      if (preloadRescheduleRequested) {
-        preloadRescheduleRequested = false;
-        schedulePreloadDeckAfterPaint();
-      }
-    }
-  };
-
-  function schedulePreloadDeckAfterPaint() {
-    const activeEntity = normalizeEntity(getActiveEntity?.());
-    if (
-      shouldPreload?.() !== true ||
-      !activeEntity ||
-      !settledEntities.has(activeEntity)
-    ) {
-      return;
-    }
-    if (preloadRunning) {
-      preloadRescheduleRequested = true;
-      return;
-    }
-    if (preloadFrame != null || preloadPaintFrame != null) return;
-    const generation = preloadGeneration;
-    if (typeof requestFrame !== "function") {
-      void runPreloadDeck(generation);
-      return;
-    }
-    preloadFrame = requestFrame(() => {
-      preloadFrame = null;
-      preloadPaintFrame = requestFrame(() => {
-        preloadPaintFrame = null;
-        void runPreloadDeck(generation);
+  const ensureSession = async () => {
+    if (disposed) return null;
+    if (session) return session;
+    if (preparing) return preparing;
+    preparing = (async () => {
+      if (!(await prepare()) || disposed) return null;
+      const anchor = findHaCameraContextHost(card);
+      if (!anchor) return null;
+      session = acquireSession({ anchor, client, identity: getIdentity(), connection: getHass()?.connection });
+      target = client.target();
+      observer = new MutationObserver(() => {
+        const nextTarget = client.target();
+        if (target === nextTarget) return;
+        target = nextTarget;
+        lastPresentation = null;
+        sync();
       });
-    });
-  }
-
-  const tryMount = async (_slot, _startup = null, options = {}) => {
-    const entity = normalizeEntity(options.entity);
-    const commit = options.commit !== false;
-    const mountToken = options.mountToken;
-    const hass = getHass?.();
-    if (!entity) return false;
-    if (!hass?.states?.[entity]) {
-      if (commit) {
-        applyResolvedStreamUiState?.(resolveHaDirectMountUnavailableState());
-      }
-      return false;
-    }
-    const prepared = prepare();
-    if (prepared?.then) await prepared;
-    if (commit && !isOwnedMountAttempt(entity, mountToken)) return false;
-
-    const pendingForEntity = pendingPreload?.entity === entity;
-    if (commit) {
-      preloadGeneration += 1;
-      cancelScheduledPreload();
-    }
-    const provider = pendingForEntity
-      ? cancelPendingPreload({ preserveProvider: true })
-      : createProvider({
-          entity,
-          muted: options.muted ?? getStreamMuted?.(),
-        });
-    if (!pendingForEntity && commit) cancelPendingPreload();
-    if (!provider) {
-      if (commit) applyResolvedStreamUiState?.(resolveHaDirectFailedState());
-      return false;
-    }
-    if (!commit) {
-      return {
-        ok: true,
-        type: "ha",
-        engine: provider,
-        slot: provider.haDirectProviderSlot,
-      };
-    }
-    if (!isOwnedMountAttempt(entity, mountToken)) {
-      release(provider);
-      return false;
-    }
-
-    setProviderVisible(provider, true);
-    assignCommittedEngine?.(provider);
-    const binding = bindProvider(provider);
-    binding.stopLoadingFallbackRefresh =
-      startLoadingFallbackRefresh?.() || (() => {});
-    if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
-    return {
-      ok: true,
-      type: provider.streamType || "ha",
-      engine: provider,
-      slot: provider.haDirectProviderSlot,
-      startupReady: Promise.resolve(true),
-    };
+      observer.observe(card.shadowRoot, { childList: true, subtree: true });
+      return session;
+    })();
+    try { return await preparing; } finally { preparing = null; }
   };
-
+  const tryMount = async (_slot, _startup, { entity, mountToken } = {}) => {
+    disposed = false;
+    if (!entity || !(await ensureSession())) return false;
+    if (mountToken != null && !isMountAttemptCurrent(mountToken, entity)) return false;
+    foregroundRequested = true;
+    presenting = true;
+    lastPresentation = null;
+    stopFallback();
+    stopFallback = startLoadingFallbackRefresh?.() || (() => {});
+    session.sync(client, { activate: true });
+    return { ok: true, engine: session.get(entity)?.provider || null };
+  };
+  const release = (provider) => {
+    if (provider?.haDirectSession !== session || provider?.haDirectProvider !== true) return false;
+    presenting = false;
+    lastPresentation = null;
+    stopLoading();
+    session.refresh();
+    return true;
+  };
+  const schedulePreloadDeckAfterPaint = async () => {
+    if (shouldPreload?.() !== true || !getPreloadEntities?.().length) return;
+    // The foreground mount follows the initial browse load. Do not let shell
+    // paint start a second, earlier live-startup path.
+    if (!session && !isSelectedExternalReady()) return;
+    await ensureSession();
+    sync();
+  };
   return {
-    adoptRetainedProvider,
-    adoptTransferredProvider: moveProviderSlot,
-    cancelPreloads,
-    detachProviderForHandoff,
-    isRetainableProvider,
     prepare,
-    release,
-    schedulePreloadDeckAfterPaint,
-    syncProviderStates,
-    suspendRetainedProvider,
     tryMount,
+    release,
+    syncProviderStates: sync,
+    schedulePreloadDeckAfterPaint,
+    cancelPreloads: sync,
+    disconnect: () => { lastPresentation = null; session?.refresh(); },
+    isRetainableProvider: (provider) => Boolean(provider?.haDirectSession === session && provider?.isConnected),
+    evictEntity: (entity) => session?.remove(entity),
+    dispose: () => {
+      disposed = true;
+      presenting = false;
+      stopLoading();
+      observer?.disconnect();
+      observer = null;
+      session?.detach(client);
+      session = null;
+      foregroundRequested = false;
+      lastPresentation = null;
+    },
   };
 }

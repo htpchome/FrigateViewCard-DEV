@@ -415,6 +415,16 @@ The two connection modes are intentionally separate on ordinary browser clients:
 - `frigate_go2rtc` lets the card manage live startup, transport choice, and fallback using Home Assistant-exposed Frigate/go2rtc surfaces. Automatic primary live startup races WebRTC with an MSE hedge before falling back to refreshed snapshots; it does not start HLS automatically.
 - `ha_direct` delegates playback to Home Assistant's camera stream components and transport decisions.
 
+Normal HA Direct primary playback loads cameras sequentially and retains one
+HA provider per camera. The next camera starts after the current one produces
+usable video or reports failure. View and editor changes share the same live
+session; they change where the video is presented, not the player or connection.
+HA selects WebRTC when usable and HLS otherwise. A scoped compatibility fix
+preserves working HLS when HA's selector would incorrectly switch a muted camera
+to MJPEG after WebRTC fails. Other cards and HA's global components are unchanged.
+Retained cameras continue consuming streaming bandwidth and decoder resources;
+an abandoned session is released after a short replacement-card grace period.
+
 The Home Assistant Mac Catalyst app is the explicit exception. It resolves both
 configured modes to the card's dedicated HA-authenticated HLS path before
 live startup, so a camera saved as `frigate_go2rtc` does not start the Frigate

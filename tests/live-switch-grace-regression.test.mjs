@@ -99,7 +99,7 @@ test("camera switching preserves recent live engines for short switch-back reuse
     liveGraceControllerSource.includes(
       "const haDirectRetainedPool = new Map()",
     ),
-    true,
+    false,
   );
   assert.equal(
     liveGraceControllerSource.includes("takeGraceWebRtcEntry"),
@@ -111,11 +111,11 @@ test("camera switching preserves recent live engines for short switch-back reuse
   );
   assert.equal(
     liveGraceControllerSource.includes("adoptGraceHaDirectEngine"),
-    true,
+    false,
   );
   assert.equal(
     liveGraceControllerSource.includes("isHaDirectProviderReusable"),
-    true,
+    false,
   );
   assert.equal(
     liveGraceControllerSource.includes("ensureHaDirectGraceHost"),
@@ -229,7 +229,7 @@ test("same-dashboard departure uses the complete camera-switch grace policy", ()
   );
   assert.match(
     cardSource,
-    /retainEditorHandoffLive[\s\S]*?hasRetainedHaDirectHandoffEngines\?\.\(\)[\s\S]*?retainMountedEditorLive \|\| retainEditorHandoffLive/,
+    /disconnectedCallback\(\)[\s\S]*?_haDirectMounter\?\.disconnect\?\.\(\)/,
   );
   assert.match(
     haDashboardCompositionSource,

@@ -15,6 +15,7 @@ import { createCatalystHlsMounter } from "./catalyst-hls-mounter.js";
 import { createGo2RtcMounter } from "./go2rtc-mounter.js";
 import { createGo2RtcRaceMounter } from "./go2rtc-race-mounter.js";
 import { createHaDirectProviderMounter } from "./ha-direct-provider-mounter.js";
+import { getHaCameraPresentationIdentity } from "../../integrations/home-assistant/camera-provider.js";
 import {
   adoptMountedAttemptResult,
   isMountTokenCurrent,
@@ -95,6 +96,15 @@ export const createLiveTransportControllers = (
     },
   });
   const haDirectMounter = resolvedFactories.createHaDirectMounter({
+    onPendingStream: () => card._setActiveStreamType("--"),
+    onPresentationLost: () => {
+      card._liveMediaPresentationController?.clearVideoZoom?.();
+      card._liveViewResizeController?.attachMedia?.(null);
+    },
+    setStreamMuted: (muted) => {
+      card._streamMuted = muted;
+      card._renderMuteButton?.();
+    },
     getHass: () => card._hass,
     getStreamMuted: () => card._streamMuted,
     getRotateOverlayActive: () => card._rotateOverlayActive,
@@ -130,59 +140,23 @@ export const createLiveTransportControllers = (
             !card._shouldUseGo2RtcForEntity(entity) &&
             card._frigateCameraRuntimeController?.isSuspended?.(entity) !== true,
         ),
-    getActiveEntity: () =>
-      card._engine?.type === "ha_direct"
-        ? card._activeGroupMemberOverride || card._activeCam?.entity || ""
-        : "",
     getSelectedEntity: () =>
       card._activeGroupMemberOverride || card._activeCam?.entity || "",
+    getContext: () => card._editorPreviewController?.liveHandoffContext?.() || "dashboard",
+    getIdentity: () => getHaCameraPresentationIdentity(card, card._config),
+    isSelectedExternalReady: () =>
+      card._shouldUseGo2RtcForEntity(card._activeGroupMemberOverride || card._activeCam?.entity) &&
+      ["webrtc", "mse"].includes(card._activeStreamType),
     isMountAttemptCurrent: (mountToken, entity) =>
       card._mountSeq === mountToken &&
       (card._activeGroupMemberOverride || card._activeCam?.entity || "") ===
         entity,
-    getPreloadHost: () =>
-      card._liveGraceController?.getHaDirectDeckHost?.() || null,
     shouldPreload: () =>
       deviceProfile.isCatalyst !== true &&
       card.isConnected === true &&
       card._started === true &&
-      (card._editorPreviewController?.liveHandoffContext?.() ||
-        "dashboard") === "dashboard",
-    hasRetainedEngine: (entity) =>
-      card._liveGraceController?.hasRetainedHaDirectEngine?.(entity) === true,
-    retainPreloadedEngine: (entity, engine) =>
-      card._liveGraceController?.retainHaDirectEngine?.(entity, engine) === true,
-    adoptEditorPreloadedEngine: (entity) => {
-      for (const streamType of ["provider"]) {
-        const transfer = card._editorLiveHandoffController?.take?.(
-          entity,
-          streamType,
-          "ha_direct",
-        );
-        if (!transfer?.engine) continue;
-        if (
-          transfer.engine?.haDirectProvider === true &&
-          card._haDirectMounter?.adoptTransferredProvider?.(
-            transfer.engine,
-          ) !== true
-        ) {
-          transfer.reject?.();
-          continue;
-        }
-        const retained = card._liveGraceController?.retainHaDirectEngine?.(
-          entity,
-          transfer.engine,
-        );
-        if (retained === true) {
-          transfer.commit?.();
-          return true;
-        }
-        transfer.reject?.();
-      }
-      return false;
-    },
-    syncRetainedEntities: (entities) =>
-      card._liveGraceController?.syncRetainedHaDirectEntities?.(entities),
+      (!card._shouldUseGo2RtcForEntity(card._activeCam?.entity) ||
+        ["webrtc", "mse"].includes(card._activeStreamType)),
     scopeKey: card,
   });
   const catalystHlsMounter = resolvedFactories.createCatalystHlsMounter({
@@ -284,7 +258,10 @@ export const createLiveTransportControllers = (
         setEngineMountedMuted: (muted) => {
           card._engineMountedMuted = muted;
         },
-        setActiveStreamType: (type) => card._setActiveStreamType(type),
+        setActiveStreamType: (type) => {
+          card._setActiveStreamType(type);
+          card._haDirectMounter?.schedulePreloadDeckAfterPaint?.();
+        },
         setStreamLoading: (loading) => card._setStreamLoading(loading),
         setStreamFallbackVisible: (visible) =>
           card._setStreamFallbackVisible(visible),
