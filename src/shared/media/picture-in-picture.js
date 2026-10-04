@@ -338,6 +338,8 @@ export class PictureInPictureController {
     isFirefox = () => false,
     isLiveAllowed = () => true,
     isPopupAllowed = () => true,
+    restoreMutedOnExit = () => false,
+    onMutedStateRestored = () => {},
     onUnsupported = () => {},
     onFailure = () => {},
     onShowPopupControls = () => {},
@@ -356,6 +358,8 @@ export class PictureInPictureController {
     this._isFirefox = isFirefox;
     this._isLiveAllowed = isLiveAllowed;
     this._isPopupAllowed = isPopupAllowed;
+    this._restoreMutedOnExit = restoreMutedOnExit;
+    this._onMutedStateRestored = onMutedStateRestored;
     this._onUnsupported = onUnsupported;
     this._onFailure = onFailure;
     this._onShowPopupControls = onShowPopupControls;
@@ -365,6 +369,7 @@ export class PictureInPictureController {
     this._enableNative = enableNative;
     this._disableNative = disableNative;
     this._buttonControllers = new Map();
+    this._muteRestorers = new Map();
   }
 
   clear(scope) {
@@ -429,6 +434,27 @@ export class PictureInPictureController {
     );
   }
 
+  _rememberMuted(video, documentObj, popup) {
+    const muted = video.muted === true;
+    const defaultMuted = video.defaultMuted === true;
+    const restore = () => {
+      if (this._muteRestorers.get(video) !== restore) return;
+      this._muteRestorers.delete(video);
+      video.removeEventListener?.("leavepictureinpicture", onExit);
+      video.removeEventListener?.("webkitpresentationmodechanged", onExit);
+      video.defaultMuted = defaultMuted;
+      video.muted = muted;
+      this._onMutedStateRestored(video, muted, { popup });
+    };
+    const onExit = () => {
+      if (!isVideoPictureInPictureActive(video, documentObj)) restore();
+    };
+    this._muteRestorers.set(video, restore);
+    video.addEventListener?.("leavepictureinpicture", onExit);
+    video.addEventListener?.("webkitpresentationmodechanged", onExit);
+    return restore;
+  }
+
   async toggle(video, { popup = false } = {}) {
     const documentObj = video?.ownerDocument || globalThis.document || null;
     const firefox = this._isFirefox() === true;
@@ -439,14 +465,22 @@ export class PictureInPictureController {
       return;
     }
 
+    const entering = !isVideoPictureInPictureActive(video, documentObj);
+    // Native PiP may change audio without updating the inline controls. Keep
+    // its audio independent and restore only the same video's inline state.
+    const restoreMuted = this._muteRestorers.get(video) ||
+      (entering && this._restoreMutedOnExit()
+        ? this._rememberMuted(video, documentObj, popup) : null);
     try {
-      await this._togglePictureInPicture({
+      const result = await this._togglePictureInPicture({
         video,
         documentObj,
         temporarilyAllowDisabled: firefox,
         resumePlaybackOnExit: firefox && !popup,
       });
+      if (result?.active === false && !isVideoPictureInPictureActive(video, documentObj)) restoreMuted?.();
     } catch (error) {
+      if (entering) restoreMuted?.();
       this._onFailure(error);
     } finally {
       this.sync();
@@ -455,6 +489,7 @@ export class PictureInPictureController {
   }
 
   dispose() {
+    for (const restore of this._muteRestorers.values()) restore();
     this.clear("live");
     this.clear("popup");
   }

@@ -2,6 +2,17 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.193` restores the inline video's pre-PiP mute state when Catalyst
+PiP closes via Close or Return, without suppressing native PiP audio. Live
+controls are synchronized on return; closing PiP for a camera that is no longer
+selected leaves that retained camera muted without changing the current camera. Popup media uses
+the same opt-in restoration. Failed entry and controller disposal remove the
+exit listeners. Other browsers, fullscreen audio, transport startup and HLS
+foreground recovery are unchanged. Tests cover native-exit events and the
+production bundle's Catalyst-only policy; physical Catalyst validation remains
+required. The editor-retention test now waits for the independent card's full
+sequential warm-up before counting failure-induced reconnects.
+
 `v1.1.8-dev.192` requests a fresh HA HLS URL before restarting a previously
 usable player emptied by HA's hidden-tab cleanup. Physical dev.191 testing
 confirmed eventual recovery but reported two restart waves; a real-Hls.js

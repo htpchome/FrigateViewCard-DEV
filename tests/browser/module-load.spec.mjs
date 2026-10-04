@@ -1921,6 +1921,73 @@ test("keeps PiP dormant on mobile and loads it on first desktop use", async ({
   expect(state).toEqual({ mobileLoaded: false, desktopLoaded: true });
 });
 
+for (const catalyst of [true, false]) {
+  test(`PiP restores inline mute and controls only on Catalyst (${catalyst})`, async ({ page }) => {
+    await page.goto(baseUrl);
+    const state = await page.evaluate(async (isCatalyst) => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      const live = document.createElement("video");
+      const popup = document.createElement("video");
+      const button = document.createElement("button");
+      card._isCatalyst = () => isCatalyst;
+      card._livePictureInPictureVideo = () => card._engine;
+      card._popupMediaControlsController.video = () => popup;
+      card._$ = (selector) => selector === "#mute-btn" ? button : null;
+      card._engine = live;
+      card._streamMuted = true;
+      card._renderMuteButton();
+      const originalLabel = button.getAttribute("aria-label");
+      for (const video of [live, popup]) {
+        video.muted = true;
+        video.defaultMuted = true;
+        // Simulate Catalyst's native presentation events on real video nodes;
+        // desktop test engines cannot open the WKWebView PiP window itself.
+        Object.defineProperties(video, {
+          requestPictureInPicture: { configurable: true, value: undefined },
+          webkitPresentationMode: { configurable: true, writable: true, value: "inline" },
+          webkitSupportsPresentationMode: { configurable: true, value: () => true },
+          webkitSetPresentationMode: { configurable: true, value(mode) {
+            this.webkitPresentationMode = mode;
+            if (mode === "picture-in-picture") this.muted = false;
+            this.dispatchEvent(new Event("webkitpresentationmodechanged"));
+          } },
+        });
+      }
+      await card._togglePictureInPicture(live);
+      const pipMuted = live.muted;
+      live.webkitSetPresentationMode("inline");
+      const liveMuted = live.muted;
+      const controlsMatch = button.getAttribute("aria-label") === originalLabel && card._streamMuted;
+      // One normal button click must now unmute, and the next must mute.
+      card._toggleMute();
+      const unmuted = !live.muted && button.getAttribute("aria-label") !== originalLabel;
+      card._toggleMute();
+      const remuted = live.muted && button.getAttribute("aria-label") === originalLabel;
+      await card._togglePictureInPicture(live);
+      live.webkitPresentationMode = "inline";
+      live.dispatchEvent(new Event("leavepictureinpicture"));
+      live.dispatchEvent(new Event("webkitpresentationmodechanged"));
+      const liveClosedMuted = live.muted;
+      await card._togglePictureInPicture(popup, { popup: true });
+      popup.webkitSetPresentationMode("inline");
+      const popupMuted = popup.muted;
+      // Closing an old camera's PiP must not change the newly selected camera.
+      live.muted = false;
+      await card._togglePictureInPicture(live);
+      card._engine = document.createElement("video");
+      card._engine.muted = true;
+      live.webkitSetPresentationMode("inline");
+      const oldCameraMuted = live.muted;
+      const selectedMuted = card._engine.muted;
+      card._pictureInPictureController.dispose();
+      return { pipMuted, liveMuted, liveClosedMuted, controlsMatch, unmuted, remuted, popupMuted, oldCameraMuted, selectedMuted };
+    }, catalyst);
+    expect(state).toEqual({ pipMuted: false, liveMuted: catalyst, liveClosedMuted: catalyst, controlsMatch: true,
+      unmuted: true, remuted: true, popupMuted: catalyst, oldCameraMuted: catalyst, selectedMuted: true });
+  });
+}
+
 test("loads the synthetic card-picker demo only inside HA's picker", async ({
   page,
 }) => {

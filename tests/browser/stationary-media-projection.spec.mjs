@@ -625,6 +625,13 @@ for (const scenario of scenarios) {
       return [...p.session.records.values()].every((record, index) => record.provider === p.originalProviders[index]);
     })).toBe(true);
     // A failed retained camera cannot reset the other connections on editor exit.
+    // The independent card warms sequentially too. Its first ready camera is
+    // not a barrier for the other two: their initial starts are not reconnects.
+    await expect.poll(() => page.evaluate((type) => {
+      const session = window.sessionProbe.independent.state.engine.haDirectSession;
+      return session.records.size === 3 && [...session.records.values()]
+        .every((record) => record.status === "ready" && record.streamType === type);
+    }, transport)).toBe(true);
     const startsBeforeFailure = await page.evaluate(() => window.sessionProbe.audit.starts);
     await page.evaluate(() => window.sessionProbe.audit.failCamera("camera.two"));
     await expect.poll(() => page.evaluate(() => window.sessionProbe.session.get("camera.two").status)).toBe("failed");

@@ -465,6 +465,116 @@ test("PiP controller preserves Firefox live and popup toggle policies", async ()
   assert.deepEqual(failures, []);
 });
 
+for (const muted of [true, false]) {
+  for (const popup of [true, false]) {
+    test(`opt-in PiP restores ${muted ? "muted" : "unmuted"} ${popup ? "popup" : "live"} audio via Close and Return`, async () => {
+      const restored = [];
+      const video = createEventTarget({
+        muted, defaultMuted: muted, webkitPresentationMode: "inline",
+        webkitSetPresentationMode(mode) {
+          this.webkitPresentationMode = mode;
+          this.muted = false;
+          this.defaultMuted = false;
+          this.dispatch("webkitpresentationmodechanged");
+        },
+      });
+      const controller = new PictureInPictureController({
+        restoreMutedOnExit: () => true,
+        onMutedStateRestored: (...args) => restored.push(args),
+      });
+      for (const action of ["close", "return"]) {
+        await controller.toggle(video, { popup });
+        assert.equal(video.muted, false, "PiP audio is not suppressed");
+        video.muted = !muted;
+        if (action === "close") {
+          video.webkitPresentationMode = "inline";
+          video.dispatch("leavepictureinpicture");
+          video.dispatch("webkitpresentationmodechanged");
+        } else video.webkitSetPresentationMode("inline");
+        assert.equal(video.muted, muted);
+        assert.equal(video.defaultMuted, muted);
+        assert.equal(video.listenerCount("webkitpresentationmodechanged"), 0);
+        assert.equal(video.listenerCount("leavepictureinpicture"), 0);
+      }
+      assert.deepEqual(restored, [[video, muted, { popup }], [video, muted, { popup }]]);
+      controller.dispose();
+    });
+  }
+}
+
+test("PiP mute restoration handles standard exit, rejected entry and disposal", async () => {
+  const documentObj = { pictureInPictureEnabled: true, pictureInPictureElement: null };
+  const restored = [];
+  const video = createEventTarget({
+    ownerDocument: documentObj, muted: true, defaultMuted: true,
+    async requestPictureInPicture() { documentObj.pictureInPictureElement = this; this.muted = false; },
+  });
+  documentObj.exitPictureInPicture = async () => {
+    documentObj.pictureInPictureElement = null;
+    video.dispatch("leavepictureinpicture");
+  };
+  const controller = new PictureInPictureController({
+    restoreMutedOnExit: () => true,
+    onMutedStateRestored: (...args) => restored.push(args),
+  });
+  await controller.toggle(video);
+  await controller.toggle(video);
+  assert.equal(video.muted, true);
+  assert.equal(restored.length, 1, "button and native exit restore only once");
+  video.requestPictureInPicture = async () => { video.muted = false; throw new Error("denied"); };
+  await controller.toggle(video);
+  assert.equal(video.muted, true);
+  assert.equal(video.listenerCount("leavepictureinpicture"), 0);
+  video.requestPictureInPicture = async () => { documentObj.pictureInPictureElement = video; video.muted = false; };
+  await controller.toggle(video);
+  controller.dispose();
+  assert.equal(video.muted, true);
+  assert.equal(video.listenerCount("leavepictureinpicture"), 0);
+  assert.equal(video.listenerCount("webkitpresentationmodechanged"), 0);
+});
+
+test("PiP exit leaves audio unchanged unless restoration is enabled", async () => {
+  const video = createEventTarget({
+    muted: true, webkitPresentationMode: "inline",
+    webkitSetPresentationMode(mode) { this.webkitPresentationMode = mode; this.muted = false; },
+  });
+  const controller = new PictureInPictureController();
+  await controller.toggle(video);
+  video.webkitSetPresentationMode("inline");
+  video.dispatch("webkitpresentationmodechanged");
+  assert.equal(video.muted, false);
+  assert.equal(video.listenerCount("webkitpresentationmodechanged"), 0);
+  controller.dispose();
+});
+
+test("WebKit button exit waits for the native presentation transition before restoring mute", async () => {
+  let completeExit;
+  const video = createEventTarget({
+    muted: true, defaultMuted: true, webkitPresentationMode: "inline",
+    webkitSetPresentationMode(mode) {
+      if (mode === "picture-in-picture") {
+        this.webkitPresentationMode = mode;
+        this.muted = false;
+        this.dispatch("webkitpresentationmodechanged");
+      } else {
+        completeExit = () => {
+          this.webkitPresentationMode = mode;
+          this.muted = false;
+          this.dispatch("webkitpresentationmodechanged");
+        };
+      }
+    },
+  });
+  const controller = new PictureInPictureController({ restoreMutedOnExit: () => true });
+  await controller.toggle(video);
+  await controller.toggle(video);
+  assert.equal(video.muted, false, "native exit has not happened yet");
+  completeExit();
+  assert.equal(video.muted, true);
+  assert.equal(video.listenerCount("webkitpresentationmodechanged"), 0);
+  controller.dispose();
+});
+
 test("PiP controller reports unsupported and failed requests", async () => {
   const unsupported = [];
   const failures = [];

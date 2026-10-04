@@ -271,6 +271,21 @@ export class FrigateViewCard extends HTMLElement {
         this._$("#myPopup")?.classList.contains("is-open") === true,
       isMobileTabletViewport: () => this._isMobileTabletViewport(),
       isFirefox: () => this._isFirefox(),
+      restoreMutedOnExit: () => this._isCatalyst(),
+      onMutedStateRestored: (video, muted, { popup }) => {
+        if (popup) {
+          if (video === this._popupMediaControlsController.video()) {
+            this._popupMediaControlsController.update(video);
+          }
+        } else if (video === this._livePictureInPictureVideo()) {
+          this._streamMuted = muted;
+          this._renderMuteButton();
+        } else {
+          // A camera left while PiP was open is now a muted retained camera.
+          video.muted = true;
+          video.defaultMuted = true;
+        }
+      },
       isLiveAllowed: () =>
         this._activePageShellCapabilities().hasLivePictureInPicture &&
         this._viewMode !== "grid",
