@@ -62,6 +62,7 @@ export function createHaDirectSession({
     starting = record;
     try {
       const result = createProvider({
+        hass: lastHass,
         stateObj,
         onState: (state) => {
           if (disposed || records.get(entity) !== record) return;

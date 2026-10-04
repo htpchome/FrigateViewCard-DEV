@@ -421,7 +421,11 @@ usable video or reports failure. View and editor changes share the same live
 session; they change where the video is presented, not the player or connection.
 HA selects WebRTC when usable and HLS otherwise. A scoped compatibility fix
 preserves working HLS when HA's selector would incorrectly switch a muted camera
-to MJPEG after WebRTC fails. Other cards and HA's global components are unchanged.
+to MJPEG after WebRTC fails. If HA advertises only WebRTC, the card immediately
+checks HA's HLS endpoint and enables HA's native HLS fallback when that request
+succeeds—even if WebRTC never reports failure. Usable WebRTC remains preferred,
+with no card-added startup or takeover delay. Other cards and HA's global
+components are unchanged.
 Retained cameras continue consuming streaming bandwidth and decoder resources;
 an abandoned session is released after a short replacement-card grace period.
 

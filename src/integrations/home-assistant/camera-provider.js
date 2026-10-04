@@ -23,12 +23,13 @@ export function getHaCameraPresentationIdentity(element, config) {
 
 // Only the normal primary HA Direct session uses this compatibility adapter.
 // Grid, Preview, companion, Catalyst and HA's own cards keep their factories.
-export function createHaDirectCameraProvider({ stateObj, onState }) {
+export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   const provider = createHaCameraStreamElement({
     stateObj, muted: true, defaultMuted: true, controls: false, fitMode: "contain",
     styleText: "display:block;width:100%;height:100%",
   });
   let selection = [];
+  let hlsPending = false;
   let disposed = false;
   let scheduled = false;
   let watchedVideo = null;
@@ -52,7 +53,7 @@ export function createHaDirectCameraProvider({ stateObj, onState }) {
     stopFrameWatch();
     watchedVideo = video;
     const selected = selection.find((item) => item.visible);
-    if (selected?.type === "mjpeg") {
+    if (selected?.type === "mjpeg" && !hlsPending) {
       onState({ status: "failed", streamType: "", video: null });
       return;
     }
@@ -69,9 +70,13 @@ export function createHaDirectCameraProvider({ stateObj, onState }) {
       },
     });
   };
-  preserveHaCameraHlsFallback(provider, (streams) => {
+  preserveHaCameraHlsFallback(provider, (streams, status) => {
     selection = streams;
+    hlsPending = status.hlsPending;
     void reconcile();
+  }, {
+    requestHls: () => hass.callWS({ type: "camera/stream", entity_id: stateObj.entity_id, format: "hls" }),
+    isDestroyed: () => disposed,
   });
   provider.addEventListener("streams", reconcile, true);
   provider.addEventListener("load", reconcile, true);

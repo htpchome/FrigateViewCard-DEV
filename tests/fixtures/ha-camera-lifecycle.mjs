@@ -3,8 +3,18 @@ import { upstreamHaCameraStreamSelector } from "./ha-camera-stream-selector.mjs"
 // A lifecycle harness, not a substitute for physical HA integration testing.
 // It uses HA's pinned selection contract and real browser video decoders.
 // Disconnect deliberately stops playback, as the real HA child players do.
-export function installHaCameraLifecycleFixture({ webRtc }) {
-  const audit = { starts: [], providerDisconnects: 0, readyEntities: new Set() };
+export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls", "web_rtc"] }) {
+  const rtcPlayers = new Map();
+  const audit = {
+    starts: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
+    startReadiness: [],
+    releaseWebRtc: () => { for (const player of rtcPlayers.values()) player.startMedia(); },
+    callWS: async (message) => {
+      if (message.type !== "camera/stream" || message.format !== "hls") throw new Error("Unexpected HA request");
+      audit.verifications.push(message.entity_id);
+      return { url: "/api/hls/synthetic/master_playlist.m3u8" };
+    },
+  };
   class Player extends HTMLElement {
     constructor() {
       super();
@@ -17,12 +27,20 @@ export function installHaCameraLifecycleFixture({ webRtc }) {
     }
     connectedCallback() {
       audit.starts.push(`${this.localName}:${this.entityid}`);
+      audit.startReadiness.push({ entity: this.entityid, ready: [...audit.readyEntities] });
+      if (this.localName === "ha-web-rtc-player") rtcPlayers.set(this.entityid, this);
+      // A blocked ICE connection often emits neither success nor failure.
+      if (this.localName === "ha-web-rtc-player" && webRtc === "pending") return;
       if (this.localName === "ha-web-rtc-player" && !webRtc) {
         queueMicrotask(() => this.dispatchEvent(new CustomEvent("streams", {
           detail: { hasAudio: false, hasVideo: false }, bubbles: true, composed: true,
         })));
         return;
       }
+      this.startMedia();
+    }
+    startMedia() {
+      if (this.video.hasAttribute("src")) return;
       this.video.addEventListener("loadeddata", () => {
         audit.readyEntities.add(this.entityid);
         this.dispatchEvent(new CustomEvent("streams", {
@@ -50,10 +68,11 @@ export function installHaCameraLifecycleFixture({ webRtc }) {
       });
     }
     connectedCallback() { this.render(); }
+    requestUpdate() { queueMicrotask(() => this.render()); }
     disconnectedCallback() { audit.providerDisconnects += 1; }
     render() {
       if (!this.isConnected) return;
-      const streams = this._streams(["hls", "web_rtc"], this.hls, this.rtc, true);
+      const streams = this._streams(supportedTypes, this.hls, this.rtc, true);
       for (const [type, player] of this.players) {
         if (streams.some((stream) => stream.type === type)) continue;
         player.remove();

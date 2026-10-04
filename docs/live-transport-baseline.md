@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.8-dev.177` addresses HA camera capabilities that advertise only WebRTC
+even though the entity supplies an HA HLS stream source. The existing
+instance-local selector adapter immediately makes one authenticated
+`camera/stream` HLS request. A successful endpoint response permits HLS in
+the selector inputs; a rejected or missing endpoint leaves HA's capabilities
+unchanged. No ICE-failure event or artificial timeout is required. HA creates
+and manages both child players, selects HLS while WebRTC is pending, and keeps
+WebRTC alone when it becomes usable. The card does not create another player
+or peer connection. The verification request and HA HLS player's own request
+reuse HA's camera stream worker; they are not two card-owned HLS players.
+Native HLS/WebRTC startup can overlap until HA selects usable WebRTC.
+Permanent provider slots, session retention, Catalyst, Frigate go2rtc and
+two-way talk are unchanged. Tests include WebRTC-only capabilities with
+indefinitely pending and explicitly failed ICE, plus HLS-to-WebRTC promotion.
+
 `v1.1.8-dev.176` fixes a production-build defect in `v1.1.8-dev.175`: the
 declaration rewrite converted the mutable HA Direct session sequence to a
 constant, throwing before the first provider could start. The build now uses
@@ -22,9 +37,9 @@ HA still owns capabilities, authentication, HLS/WebRTC creation, signaling and
 player internals. An explicit instance-local selector correction preserves
 working HLS video when HA reports WebRTC failure but selects MJPEG while muted.
 This defect was reproduced in upstream frontend 20260826.7 and 20260930.0.
-Other HA selection decisions are unchanged; there is no card-owned race or
-startup timeout. Catalyst, Frigate go2rtc and two-way talk keep their existing
-transport owners.
+Aside from the verified-HLS exception above, other HA selection decisions are
+unchanged; there is no card-owned race or startup timeout. Catalyst, Frigate
+go2rtc and two-way talk keep their existing transport owners.
 
 Validation covers the pinned upstream selector, sequential/failure queues,
 and real browser media advancing through replaced presentation clients and
@@ -272,11 +287,13 @@ Preserve all of these behaviors together:
 1. Create one `ha-camera-stream` provider for the selected HA Direct camera.
 2. Pass the unmodified Home Assistant camera state to the provider, then let
    Home Assistant query capabilities and create and manage its HLS/WebRTC child
-   players.
+   players. For WebRTC-only capabilities, immediately verify HLS through
+   `camera/stream` once; enable the native HLS child only after HA supplies an
+   endpoint. A stalled WebRTC connection must not prevent this verification.
 3. Keep the snapshot visible until the selected HA child player has usable
    video. A hidden candidate failing is not whole-provider failure. When HA
-   settles on its image fallback, mark that camera failed and advance the
-   queue without replacing or remounting its provider.
+   settles on its image fallback with no HLS verification pending, mark that
+   camera failed and advance the queue without replacing or remounting its provider.
 4. Do not create a parallel card-owned HLS player, RTCPeerConnection, signaling
    subscription, race, or takeover for normal HA Direct playback.
 5. Create each provider inside a permanent, full-sized slot under its session's
@@ -293,8 +310,8 @@ Preserve all of these behaviors together:
    two-way-talk backchannel.
 10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
     objects, extract the nested video, or run timeout-based provider recovery.
-    The instance-local muted-HLS selector correction is the sole documented
-    compatibility exception; it must not affect HA's global components.
+    Only the instance-local verified-HLS capability and muted-HLS selector
+    corrections above are allowed; neither affects HA's global components.
 
 The card may observe the active nested player for readiness, source labels,
 zoom, fullscreen, and recovery presentation, but Home Assistant remains the

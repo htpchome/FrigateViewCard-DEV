@@ -97,8 +97,10 @@ theme: default
 npm run test:compat:browsers
 ```
 
-The required Playwright engines are installed automatically when the
-devcontainer is created.
+The required Playwright engines and system `ffmpeg` executable are installed
+automatically when the devcontainer is created. The media lifecycle tests use
+`ffmpeg` to generate synthetic video. Outside the devcontainer, install both
+dependencies; the Validate workflow explicitly installs both on its runner.
 
 ### Manual Sync (after each change)
 

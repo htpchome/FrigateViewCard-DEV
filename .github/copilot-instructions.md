@@ -95,6 +95,12 @@ Use the narrowest validation that matches the change.
 - When a focused test file exists for the changed surface, run that test before broader validation.
 - After structural or behavioral source changes, run `npm run build`.
 - For refactor safety, run `node --test tests/refactor-regression.test.mjs` after focused tests and build when the change is compatibility-sensitive.
+- Before handing off committable code, run the complete Validate workflow's
+  local checks: `npm test`, `npm run test:compat:api`,
+  `npm run test:compat:bundle`, and `npm run test:compat:browsers`.
+  Focused tests alone do not make a passing handoff. Match CI dependencies,
+  resolve failures, and explicitly report any blocked validation. Never present
+  local success as proof that a hosted GitHub Actions run passed.
 
 ## Change Planning Guidance
 

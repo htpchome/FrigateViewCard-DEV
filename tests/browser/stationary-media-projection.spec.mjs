@@ -36,14 +36,22 @@ test.beforeAll(async () => {
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
-for (const transport of ["hls", "webrtc"]) {
-  test(`production bundle starts and retains the HA Direct ${transport} session`, async ({ page }) => {
+const scenarios = [
+  { name: "hls", transport: "hls", webRtc: false },
+  { name: "webrtc", transport: "webrtc", webRtc: true },
+  { name: "verified HLS with pending WebRTC-only ICE", transport: "hls", webRtc: "pending", supportedTypes: ["web_rtc"] },
+  { name: "verified HLS with failed WebRTC-only ICE", transport: "hls", webRtc: false, supportedTypes: ["web_rtc"] },
+];
+
+for (const scenario of scenarios) {
+  const { transport } = scenario;
+  test(`production bundle starts and retains the HA Direct ${scenario.name} session`, async ({ page }) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(baseUrl);
-    await page.evaluate(async (transportName) => {
+    await page.evaluate(async (options) => {
       const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
-      const audit = installHaCameraLifecycleFixture({ webRtc: transportName === "webrtc" });
+      const audit = installHaCameraLifecycleFixture(options);
       await import("/dist/frigate-view-card.js");
       // Exercise the shipped card's real composition/mounter/session, without
       // starting unrelated browse requests or dashboard observers in this fixture.
@@ -59,7 +67,7 @@ for (const transport of ["hls", "webrtc"]) {
         { entity: "camera.one", connection_type: "ha_direct" },
         { entity: "camera.two", connection_type: "ha_direct" },
       ] });
-      card._hass = { connection: {}, states: Object.fromEntries(
+      card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
         ["camera.one", "camera.two"].map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
       ) };
       card._activeCamIdx = 0;
@@ -68,7 +76,7 @@ for (const transport of ["hls", "webrtc"]) {
       card._renderShell();
       window.bundleProbe = { card, audit };
       await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
-    }, transport);
+    }, scenario);
     await expect.poll(() => page.evaluate(() => window.bundleProbe.audit.readyEntities.size)).toBe(2);
     await expect.poll(() => page.evaluate(() => window.bundleProbe.card._activeStreamType)).toBe(transport);
     await page.evaluate(async () => {
@@ -87,6 +95,19 @@ for (const transport of ["hls", "webrtc"]) {
     });
     expect(await page.evaluate(() => window.bundleProbe.card._engine === window.bundleProbe.first)).toBe(true);
     expect(await page.evaluate(() => window.bundleProbe.audit.providerDisconnects)).toBe(0);
+    expect(await page.evaluate(() => window.bundleProbe.audit.startReadiness
+      .filter((start) => start.entity === "camera.two").every((start) => start.ready.includes("camera.one")))).toBe(true);
+    expect(await page.evaluate(() => window.bundleProbe.audit.verifications))
+      .toEqual(scenario.supportedTypes ? ["camera.one", "camera.two"] : []);
+    if (scenario.webRtc === "pending") {
+      const starts = await page.evaluate(() => window.bundleProbe.audit.starts);
+      await page.evaluate(() => window.bundleProbe.audit.releaseWebRtc());
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.card._activeStreamType)).toBe("webrtc");
+      expect(await page.evaluate(() => window.bundleProbe.card._engine === window.bundleProbe.first)).toBe(true);
+      expect(await page.evaluate(() => window.bundleProbe.audit.starts)).toEqual(starts);
+      await expect.poll(() => page.evaluate(() => [...window.bundleProbe.session.records.values()]
+        .every((record) => record.provider.players.size === 1 && record.provider.players.has("web_rtc")))).toBe(true);
+    }
     expect(errors).toEqual([]);
     await page.evaluate(() => {
       window.bundleProbe.card._haDirectMounter.dispose();
@@ -95,18 +116,19 @@ for (const transport of ["hls", "webrtc"]) {
   });
 }
 
-for (const transport of ["hls", "webrtc"]) {
-  test(`HA Direct session retains ${transport} through replaced card/editor clients`, async ({ page }) => {
+for (const scenario of scenarios) {
+  const { transport } = scenario;
+  test(`HA Direct session retains ${scenario.name} through replaced card/editor clients`, async ({ page }) => {
     await page.goto(baseUrl);
-    await page.evaluate(async (transportName) => {
+    await page.evaluate(async (options) => {
       const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
-      const audit = installHaCameraLifecycleFixture({ webRtc: transportName === "webrtc" });
+      const audit = installHaCameraLifecycleFixture(options);
       const { createHaDirectProviderMounter } = await import("/src/features/live/ha-direct-provider-mounter.js");
       const anchor = document.createElement("home-assistant");
       anchor.attachShadow({ mode: "open" });
       document.body.append(anchor);
       const entities = ["camera.one", "camera.two", "camera.three"];
-      const hass = { connection: {}, states: Object.fromEntries(entities.map((entity_id) => [entity_id, { entity_id, attributes: {} }])) };
+      const hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(entities.map((entity_id) => [entity_id, { entity_id, attributes: {} }])) };
       const config = { cameras: entities };
       const views = [];
       const makeView = (context, selected = "camera.one", viewConfig = config) => {
@@ -138,7 +160,7 @@ for (const transport of ["hls", "webrtc"]) {
       const view = makeView("dashboard");
       window.sessionProbe = { audit, makeView, mount, views, view, hass, anchor, config };
       await mount(view);
-    }, transport);
+    }, scenario);
     await expect.poll(() => page.evaluate(() => window.sessionProbe.audit.readyEntities.size)).toBe(3);
     await expect.poll(() => page.evaluate(() => window.sessionProbe.view.state.ready.at(-1)?.type)).toBe(transport);
     const original = await page.evaluate(() => {
@@ -182,6 +204,8 @@ for (const transport of ["hls", "webrtc"]) {
       })).toBe(true);
       expect(await page.evaluate(() => window.sessionProbe.audit.providerDisconnects)).toBe(0);
       expect(await page.evaluate(() => window.sessionProbe.audit.starts)).toEqual(original);
+      expect(await page.evaluate(() => window.sessionProbe.audit.verifications))
+        .toEqual(scenario.supportedTypes ? ["camera.one", "camera.two", "camera.three"] : []);
       expect(await page.evaluate(() => window.sessionProbe.view.state.ready.at(-1).entity)).toBe("camera.two");
     }
     // Two independent visible cards with identical settings are not one owner.

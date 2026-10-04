@@ -48,5 +48,10 @@ jobs:
       - name: Install browser engines
         run: npx playwright install --with-deps chromium firefox webkit
 
+      - name: Install synthetic media encoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Load bundles in browser engines
         run: npm run test:compat:browsers

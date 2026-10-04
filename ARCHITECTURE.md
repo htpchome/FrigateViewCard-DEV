@@ -65,11 +65,20 @@ Meaning of `ha_direct`:
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
   HLS/WebRTC player internals, use a readiness timeout to replace the provider,
-  or schedule a card-owned transport remount after HA startup. The one explicit
-  selector compatibility correction is instance-local: when HA reports working
-  HLS video and failed WebRTC but chooses MJPEG, preserve HLS regardless of mute.
-  All other selector results are unchanged. Never patch HA's global components
-  or their prototypes; tests must reproduce the upstream selector defect
+  or schedule a card-owned transport remount after HA startup. Two explicit,
+  instance-local selector compatibility corrections are allowed:
+
+  - when HA advertises only WebRTC, immediately verify HLS availability through
+    HA's `camera/stream` API once per provider. Only a successful endpoint response
+    permits HLS in that provider's selector inputs. Do not mutate HA's capabilities
+    or camera state. Start no extra player or signaling subscription; HA creates
+    its own HLS child while WebRTC is pending and keeps WebRTC once usable
+  - when HA reports working HLS video and failed WebRTC but chooses MJPEG,
+    preserve HLS regardless of mute
+
+  Other selector results are unchanged. Never patch HA's global components or
+  their prototypes. Tests must cover WebRTC-only capabilities with indefinitely
+  pending ICE, explicit failure, HLS-first/WebRTC-later selection and retention
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm
