@@ -93,10 +93,22 @@ export function installHaHlsBackgroundFixture(Hls, { webRtc = false } = {}) {
     constructor() {
       super();
       this.attachShadow({ mode: "open" });
-      this.addEventListener("streams", (event) => { this.hls = event.detail; this.render(); });
+      // HA records the event synchronously, but its Lit render runs after the
+      // child has attached MediaSource. A synchronous render hides that race.
+      this.addEventListener("streams", (event) => { this.hls = event.detail; this.requestUpdate(); });
     }
     connectedCallback() { this.render(); }
-    requestUpdate() { queueMicrotask(() => this.render()); }
+    requestUpdate() {
+      if (this.updatePending) return;
+      this.updatePending = true;
+      this.updateComplete = new Promise((resolve) => {
+        queueMicrotask(() => {
+          this.updatePending = false;
+          this.render();
+          resolve();
+        });
+      });
+    }
     render() {
       if (!this.isConnected) return;
       // Blocked WebRTC emits no usable stream. HLS-only advertises no WebRTC.

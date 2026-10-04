@@ -7,6 +7,7 @@ export function createHaCameraHlsRecovery(provider, {
   let player = null;
   let video = null;
   let failedStreams = null;
+  let clearedStreams = null;
   let usableStreams = null;
   let recovered = false;
   let resumeFailure = false;
@@ -87,10 +88,21 @@ export function createHaCameraHlsRecovery(provider, {
     unwatch();
     player = current;
     failedStreams = null;
+    clearedStreams = null;
     usableStreams = null;
     recovered = false;
     resumeFailure = false;
   };
+  const onStreams = (event) => {
+    if (disposed || event.composedPath()[0] !== provider.shadowRoot?.querySelector("ha-hls-player")) return;
+    syncPlayer();
+    // HA attaches MediaSource synchronously after reporting missing codecs;
+    // its parent's deferred render can no longer see the cleared video then.
+    if (event.detail?.hasVideo === false && player?._errorIsFatal === false && hasClearedVideo(player)) {
+      clearedStreams = event.detail;
+    }
+  };
+  provider.addEventListener("streams", onStreams, true);
   function onProgress() {
     if (disposed || !player?.isConnected || !video || player._error ||
         player._errorIsFatal !== false || video.error || video.paused ||
@@ -123,19 +135,21 @@ export function createHaCameraHlsRecovery(provider, {
       if (streams?.hasVideo !== false || !player?.isConnected || player._errorIsFatal !== false) {
         cancelRetry();
         failedStreams = null;
+        clearedStreams = null;
         resumeFailure = false;
         unwatch();
         return streams;
       }
       // On foreground return HA can parse an expired master as streams:false
       // before its engine reports an error. Do not discard that emptied player.
-      if ((player._error || hasClearedVideo(player)) && streams !== failedStreams) {
+      const clearedFailure = streams === clearedStreams;
+      if ((player._error || hasClearedVideo(player) || clearedFailure) && streams !== failedStreams) {
         unwatch();
         failedStreams = streams;
         recovered = false;
         // Attaching a new MediaSource clears HA's error before the refreshed
         // URL arrives; only successful metadata/playback settles this failure.
-        resumeFailure ||= hasClearedVideo(player);
+        resumeFailure ||= clearedFailure || hasClearedVideo(player);
         void refreshUrl();
       }
       if (streams !== failedStreams) return streams;
@@ -145,6 +159,7 @@ export function createHaCameraHlsRecovery(provider, {
     },
     dispose() {
       disposed = true;
+      provider.removeEventListener("streams", onStreams, true);
       document?.removeEventListener("visibilitychange", onVisibility);
       cancelRetry();
       unwatch();

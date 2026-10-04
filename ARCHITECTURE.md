@@ -107,8 +107,11 @@ Meaning of `ha_direct`:
     `camera/stream` URL on failure through the native player's public `url`
     input. After hidden-tab cleanup, a previously usable but emptied HLS child
     reporting missing codecs is also pending: an expired master can report
-    this before a native error exists. MediaSource attachment alone must not
-    cancel that recovery. If the URL is unchanged and the engine has no parsed
+    this before a native error exists. Capture that cleared-video evidence at
+    the HLS child's `streams` event, before MediaSource attachment, and bind it
+    to that exact child and status object for HA's deferred selector render.
+    Checking the video only at render time is too late. MediaSource attachment
+    alone must not cancel that recovery. If the URL is unchanged and the engine has no parsed
     manifest (or the video is still cleared), request the same public URL update
     so HA cleans up and restarts its own engine; `startLoad` alone cannot retry
     an unparsed manifest. Do not do this for a buffered fragment interruption.

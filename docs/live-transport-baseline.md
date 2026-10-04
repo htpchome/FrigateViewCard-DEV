@@ -2,8 +2,24 @@
 
 ## Current Baseline
 
-`v1.1.8-dev.190` repairs normal HA Direct HLS recovery after background-tab
-cleanup. HA may report missing stream codecs from an expired master before it
+`v1.1.8-dev.191` corrects the event-ordering defect missed by dev.190. Physical
+Firefox diagnostics showed retained providers with no HLS child at all, while
+failed WebRTC retries continued. HA emits missing-codec metadata before it
+attaches MediaSource, but the parent evaluates its selector asynchronously,
+after the cleared-video evidence is gone. The recovery owner now captures that
+evidence at the child's `streams` event and associates it with the exact player
+and status object until selection runs. No HA state, transport or player method
+is patched. Success, child replacement and disposal clear the captured failure.
+The browser harness now models deferred, coalesced HA rendering and reproduces
+the missing-player failure on dev.190. Tests assert that the original HLS child
+survives and resumes decoded video with HLS-only and blocked-WebRTC selection.
+No new polling, retry timer, engine, or connection policy is introduced. Physical
+HA background/foreground retesting is still required.
+
+`v1.1.8-dev.190` addressed two normal HA Direct HLS recovery cases but did not
+resolve the reported physical background-return loop: its synchronous selector
+test harness missed the deferred-render failure corrected above. After background-tab
+cleanup, HA may report missing stream codecs from an expired master before it
 constructs Hls.js or emits an error; a previously usable, emptied player must
 remain mounted as pending. Attaching a MediaSource and clearing the native error
 does not by itself cancel the authenticated URL refresh. A failed manifest

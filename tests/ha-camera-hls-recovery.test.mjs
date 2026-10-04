@@ -16,14 +16,64 @@ const fixture = (options = {}) => {
   let child = player;
   let updates = 0;
   const ownerDocument = Object.assign(new EventTarget(), { hidden: false });
-  const provider = { _streams: upstreamHaCameraStreamSelector, ownerDocument,
-    shadowRoot: { querySelector: () => child }, requestUpdate: () => { updates += 1; } };
+  const provider = Object.assign(new EventTarget(), { _streams: upstreamHaCameraStreamSelector, ownerDocument,
+    shadowRoot: { querySelector: () => child }, requestUpdate: () => { updates += 1; } });
   const recovery = createHaCameraHlsRecovery(provider, options);
   preserveHaCameraHlsFallback(provider, undefined, { hlsRecovery: recovery });
   const select = (hls, rtc, types = ["hls", "web_rtc"]) => provider._streams(types, hls, rtc, true);
-  return { video, player, recovery, select, ownerDocument, updates: () => updates,
+  const emitStreams = (detail, source = player) => {
+    const event = new Event("streams");
+    Object.assign(event, { detail, composedPath: () => [source, provider] });
+    provider.dispatchEvent(event);
+  };
+  return { video, player, recovery, select, emitStreams, ownerDocument, updates: () => updates,
     setChild: (value) => { child = value; } };
 };
+
+test("HA's deferred selector retains the HLS failure captured before MediaSource attachment", async () => {
+  const f = fixture({ requestHls: async () => ({ url: "/api/hls/resumed/master_playlist.m3u8" }) });
+  f.select(good, failed);
+  f.video.readyState = 0;
+  f.video.currentTime = 0;
+  f.emitStreams(failed);
+  // The native child attaches its engine before the parent's async render.
+  f.video.getAttribute = () => "blob:attached-before-render";
+  assert.equal(f.player._error, undefined);
+  await Promise.resolve();
+  assert.deepEqual(f.select(failed, failed, ["hls"]), [{ type: "hls", visible: true }]);
+  await Promise.resolve();
+  assert.equal(f.player.url, "/api/hls/resumed/master_playlist.m3u8");
+  f.recovery.dispose();
+});
+
+test("captured resume failure belongs only to its HLS child and exact event status", () => {
+  for (const source of ["rtc", "old-child", "different-status", "fatal", "disposed"]) {
+    const f = fixture();
+    f.select(good, failed);
+    f.video.readyState = 0;
+    if (source === "fatal") f.player._errorIsFatal = true;
+    if (source === "disposed") f.recovery.dispose();
+    f.emitStreams(failed, ["rtc", "old-child"].includes(source) ? {} : f.player);
+    f.video.getAttribute = () => "blob:new";
+    f.player._errorIsFatal = false;
+    assert.equal(f.recovery.adjustStreams(source === "different-status" ? { ...failed } : failed)?.hasVideo, false, source);
+    f.recovery.dispose();
+  }
+});
+
+test("successful metadata or child replacement clears the captured resume failure", () => {
+  for (const replacement of [false, true]) {
+    const f = fixture();
+    f.select(good, failed);
+    f.video.readyState = 0;
+    f.emitStreams(failed);
+    f.video.getAttribute = () => "blob:new";
+    if (replacement) f.setChild({ ...f.player });
+    else f.select(good, failed);
+    assert.equal(f.recovery.adjustStreams(failed), failed);
+    f.recovery.dispose();
+  }
+});
 
 test("an expired master after background cleanup stays mounted before HA reports an error", async () => {
   let requests = 0;
