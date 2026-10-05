@@ -35,6 +35,23 @@ const fixture = () => {
   return { session, calls, callbacks, client, ready };
 };
 
+test("retained presentation cannot renew the HA state captured by actual media readiness", async () => {
+  const f = fixture();
+  const client = f.client();
+  f.session.attach(client);
+  await f.ready("camera.one", "webrtc");
+  const provider = f.session.get("camera.one").provider;
+  const readyState = provider.haDirectReadyState;
+  client.hass().states["camera.one"] = { entity_id: "camera.one", state: "unavailable" };
+  f.session.sync(client);
+  f.session.refresh();
+  assert.equal(provider.haDirectReadyState, readyState);
+  assert.notEqual(provider.stateObj, readyState);
+  await f.ready("camera.one", "hls");
+  assert.equal(provider.haDirectReadyState, provider.stateObj);
+  f.session.dispose();
+});
+
 test("Save transfers only its identified session while old preconfig/editor clients remain connected", () => {
   const anchor = new EventTarget();
   const connection = {};

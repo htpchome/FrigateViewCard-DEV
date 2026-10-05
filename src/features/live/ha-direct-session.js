@@ -73,6 +73,9 @@ export function createHaDirectSession({
         onState: (state) => {
           if (disposed || records.get(entity) !== record) return;
           Object.assign(record, state);
+          if (state.status === "ready") {
+            record.provider.haDirectReadyState = record.provider.stateObj;
+          }
           notify(record);
           if (state.status !== "loading" && starting === record) {
             starting = null;

@@ -7,6 +7,17 @@ export const isLiveTransportType = (type) => {
   return active === "webrtc" || active === "mse" || active === "hls";
 };
 
+export const hasCurrentHaDirectLiveEvidence = (engine, state) => {
+  if (engine?.haDirectProvider !== true) return true;
+  if (engine.haDirectProviderReady === false) return false;
+  if (state?.state !== "unavailable") return true;
+  const readyState = engine.haDirectReadyState;
+  // Re-projecting a retained player is not fresh media after a new outage.
+  return Boolean(readyState && readyState.state === "unavailable" &&
+    (readyState === state || (state.last_changed &&
+      readyState.last_changed === state.last_changed)));
+};
+
 export const resolveCameraAvailabilitySnapshot = ({
   previous = null,
   entity = "",
@@ -98,15 +109,17 @@ export const applyStreamFallbackVisibilityForCard = ({
 
 export const applyActiveStreamTypeForCard = ({ card, type }) => {
   if (!card) return;
+  const liveEntity = String(
+    card._activeGroupMemberOverride || card._activeCam?.entity || "",
+  ).trim();
   const nextState = resolveActiveStreamTypeState({
-    type,
+    type: isLiveTransportType(type) && !hasCurrentHaDirectLiveEvidence(
+      card._engine, card._hass?.states?.[liveEntity],
+    ) ? "--" : type,
     lastLiveStreamHint: card._lastLiveStreamHint,
   });
   card._activeStreamType = nextState.activeStreamType;
   card._lastLiveStreamHint = nextState.lastLiveStreamHint;
-  const liveEntity = String(
-    card._activeGroupMemberOverride || card._activeCam?.entity || "",
-  ).trim();
   const committedEngine = isLiveTransportType(nextState.activeStreamType)
     ? card._engine || null
     : null;

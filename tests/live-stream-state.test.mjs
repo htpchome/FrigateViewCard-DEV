@@ -9,10 +9,22 @@ import {
   applyStreamLoadingStateForCard,
   applyStreamLoadingState,
   isLiveTransportType,
+  hasCurrentHaDirectLiveEvidence,
   resolveCameraAvailabilitySnapshot,
   resolveActiveStreamTypeState,
   resolveSnapshotFallbackState,
 } from "../src/features/live/stream.state.js";
+
+test("HA readiness is scoped to the unavailable state it disproved, not unrelated HA updates", () => {
+  const state = { state: "unavailable", last_changed: "2026-10-05T12:00:00Z" };
+  const engine = { haDirectProvider: true, haDirectProviderReady: true, haDirectReadyState: state };
+  assert.equal(hasCurrentHaDirectLiveEvidence(engine, state), true);
+  assert.equal(hasCurrentHaDirectLiveEvidence(engine, { ...state, attributes: { changed: true } }), true);
+  assert.equal(hasCurrentHaDirectLiveEvidence(engine, { ...state, last_changed: "2026-10-05T13:00:00Z" }), false);
+  assert.equal(hasCurrentHaDirectLiveEvidence(engine, { state: "recording" }), true);
+  assert.equal(hasCurrentHaDirectLiveEvidence({ type: "go2rtc" }, state), true);
+  assert.equal(hasCurrentHaDirectLiveEvidence({ type: "ha_direct" }, state), true);
+});
 
 test("camera availability only reports recovery for the same active camera", () => {
   const offline = resolveCameraAvailabilitySnapshot({

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { FrigateCameraRuntimeController } from "../src/features/live/camera-runtime.ctrl.js";
+import { applyActiveStreamTypeForCard } from "../src/features/live/stream.state.js";
 
 const cameraState = (state, supportedFeatures) => ({
   state,
@@ -231,4 +232,70 @@ test("committed live playback overrides stale states from the same Frigate clien
   host._activeStreamType = "hls";
   host._hass.states["camera.front"] = cameraState("idle", 0);
   assert.equal(controller.isAvailable("camera.front"), false);
+});
+
+for (const type of ["webrtc", "hls"]) {
+  test(`${type} outage revokes selected camera live status without releasing its connection`, () => {
+    const { host, calls } = createHost();
+    host._hass.states["camera.back"] = cameraState("recording", 1);
+    const controller = new FrigateCameraRuntimeController(host);
+    const engine = {
+      haDirectProvider: true,
+      haDirectProviderReady: true,
+      haDirectReadyState: host._hass.states["camera.front"],
+    };
+    host._engine = engine;
+    controller.reconcileHass();
+    applyActiveStreamTypeForCard({ card: host, type });
+    assert.equal(controller.isAvailable(), true);
+
+    // HA reports the outage before buffered HLS stops or native ICE fails.
+    host._hass.states["camera.front"] = cameraState("unavailable", 1);
+    host._hass.states["camera.back"] = cameraState("unavailable", 1);
+    controller.reconcileHass();
+    assert.equal(controller.isAvailable(), false);
+    assert.equal(controller.isAvailable("camera.back"), false);
+    assert.equal(host._activeStreamType, "--");
+    assert.equal(host._committedLiveAvailabilityEngine, null);
+    assert.equal(host._engine, engine);
+    assert.deepEqual(calls.filter(([action]) =>
+      ["cancel", "clear-slot", "evict", "resume"].includes(action)), []);
+
+    // A view/editor handoff can re-publish the retained record's old readiness.
+    applyActiveStreamTypeForCard({ card: host, type });
+    assert.equal(host._activeStreamType, "--");
+    assert.equal(controller.isAvailable(), false);
+
+    // Actual recovered media can still beat HA's delayed state publication.
+    engine.haDirectReadyState = host._hass.states["camera.front"];
+    applyActiveStreamTypeForCard({ card: host, type });
+    controller.reconcileHass();
+    assert.equal(controller.isAvailable(), true);
+    assert.equal(controller.isAvailable("camera.back"), true);
+    assert.equal(host._activeStreamType, type);
+
+    host._hass.states["camera.front"] = cameraState("recording", 1);
+    controller.reconcileHass();
+    host._hass.states["camera.front"] = cameraState("unavailable", 1);
+    controller.reconcileHass();
+    assert.equal(controller.isAvailable(), false);
+    assert.equal(host._activeStreamType, "--");
+    controller.dispose();
+  });
+}
+
+test("a retained HA provider that is no longer ready is not live availability evidence", () => {
+  const { host } = createHost();
+  host._hass.states["camera.front"] = cameraState("unavailable", 1);
+  host._engine = {
+    haDirectProvider: true,
+    haDirectProviderReady: true,
+    haDirectReadyState: host._hass.states["camera.front"],
+  };
+  const controller = new FrigateCameraRuntimeController(host);
+  applyActiveStreamTypeForCard({ card: host, type: "hls" });
+  assert.equal(controller.isAvailable(), true);
+  host._engine.haDirectProviderReady = false;
+  assert.equal(controller.isAvailable(), false);
+  controller.dispose();
 });

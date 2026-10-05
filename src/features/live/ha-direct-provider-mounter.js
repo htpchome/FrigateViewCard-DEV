@@ -80,7 +80,8 @@ export function createHaDirectProviderMounter({
         return;
       }
       if (!presenting || record.entity !== getSelectedEntity?.()) return;
-      const identity = [record.provider, record.status, record.video, client.target()];
+      const identity = [record.provider, record.status, record.video, client.target(),
+        getHass()?.states?.[record.entity]?.state];
       if (lastPresentation?.every((value, index) => value === identity[index])) return;
       lastPresentation = identity;
       if (record.provider) assignCommittedEngine?.(record.provider, { retainPrevious: true });

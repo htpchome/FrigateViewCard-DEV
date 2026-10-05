@@ -4,7 +4,10 @@ import {
 } from "../../integrations/home-assistant/frigate-camera-runtime.js";
 import { CARD_DISPLAY_NAME } from "../../product-identity.mjs";
 import { applyLocalizedText } from "../localization/localized-dom.js";
-import { isLiveTransportType } from "./stream.state.js";
+import {
+  hasCurrentHaDirectLiveEvidence,
+  isLiveTransportType,
+} from "./stream.state.js";
 import { buildLiveCameraPowerControlMarkup } from "./view.tmpl.js";
 import { canUserManageCameraSuspension } from "./camera-suspension-policy.js";
 
@@ -90,6 +93,9 @@ export class FrigateCameraRuntimeController {
         activeEntity === this._host._committedLiveAvailabilityEntity &&
         this._host._engine &&
         this._host._committedLiveAvailabilityEngine === this._host._engine &&
+        hasCurrentHaDirectLiveEvidence(
+          this._host._engine, this._host._hass?.states?.[activeEntity],
+        ) &&
         isLiveTransportType(this._host._activeStreamType),
     );
   }
@@ -446,6 +452,20 @@ export class FrigateCameraRuntimeController {
     this._finishPending(reportedRuntime);
     const runtime = this.resolve(reportedRuntime.entity);
     this._activeSnapshot = runtime;
+
+    // Live evidence may override a stale unavailable state after recovery,
+    // but it cannot override a subsequent outage. Retain the player itself.
+    if (
+      previous?.entity === runtime.entity &&
+      !previous.unavailable &&
+      runtime.unavailable
+    ) {
+      this._host._committedLiveAvailabilityEntity = "";
+      this._host._committedLiveAvailabilityEngine = null;
+      if (isLiveTransportType(this._host._activeStreamType)) {
+        this._host._setActiveStreamType?.("--");
+      }
+    }
 
     if (
       this._host._started === true &&

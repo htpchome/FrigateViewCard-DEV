@@ -160,6 +160,105 @@ for (const options of [
   });
 }
 
+for (const transport of ["hls", "webrtc"]) {
+  test(`HA Direct ${transport} outage clears selected status across retained presentation`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (type) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const audit = installHaCameraLifecycleFixture({ webRtc: type === "webrtc" });
+      await import("/dist/frigate-view-card.js");
+      customElements.define("status-session-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const anchor = document.createElement("home-assistant");
+      anchor.attachShadow({ mode: "open" });
+      document.body.append(anchor);
+      const card = document.createElement("status-session-card");
+      const entities = ["camera.one", "camera.two"];
+      card.setConfig({ cameras: entities.map((entity) => ({ entity, connection_type: "ha_direct" })) });
+      card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+        entities.map((entity_id) => [entity_id, { entity_id, state: "recording", attributes: { client_id: "fixture" } }]),
+      ) };
+      card._activeCamIdx = 0;
+      card._started = true;
+      anchor.shadowRoot.append(card);
+      card._renderShell();
+      card._frigateCameraRuntimeController.reconcileHass();
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+      window.statusProbe = { card, audit, session: card._engine.haDirectSession };
+    }, transport);
+    await expect.poll(() => page.evaluate(() => [...window.statusProbe.session.records.values()]
+      .filter((record) => record.status === "ready").length)).toBe(2);
+    await expect.poll(() => page.evaluate(() => window.statusProbe.card._activeStreamType)).toBe(transport);
+    await page.evaluate(() => {
+      const p = window.statusProbe;
+      p.starts = [...p.audit.starts];
+      p.provider = p.card._engine;
+      for (const [entity, state] of Object.entries(p.card._hass.states)) {
+        p.card._hass.states[entity] = { ...state, state: "unavailable" };
+      }
+      p.card._haDirectMounter.syncProviderStates();
+      p.card._frigateCameraRuntimeController.reconcileHass();
+      // The decoder still has video; HA's new outage is newer than that evidence.
+    });
+    const status = () => page.evaluate(() => {
+      const { card } = window.statusProbe;
+      return {
+        available: ["camera.one", "camera.two"].map((entity) => card._frigateCameraRuntimeController.isAvailable(entity)),
+        type: card._activeStreamType,
+        label: card.shadowRoot.querySelector("#on-lbl")?.textContent?.trim(),
+      };
+    });
+    await expect.poll(status).toEqual({ available: [false, false], type: "--", label: "Offline" });
+    await page.evaluate(async () => {
+      const { card } = window.statusProbe;
+      card._haDirectMounter.disconnect();
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+    });
+    await expect.poll(status).toEqual({ available: [false, false], type: "--", label: "Offline" });
+    // A short HLS outage can end before its buffer empties (no playing event).
+    await page.evaluate(() => {
+      const { card } = window.statusProbe;
+      for (const [entity, state] of Object.entries(card._hass.states)) {
+        card._hass.states[entity] = { ...state, state: "recording" };
+      }
+      card._haDirectMounter.syncProviderStates();
+      card._frigateCameraRuntimeController.reconcileHass();
+    });
+    await expect.poll(() => page.evaluate(() => window.statusProbe.card._activeStreamType)).toBe(transport);
+    await page.evaluate(() => {
+      const { card } = window.statusProbe;
+      for (const [entity, state] of Object.entries(card._hass.states)) {
+        card._hass.states[entity] = { ...state, state: "unavailable" };
+      }
+      card._haDirectMounter.syncProviderStates();
+      card._frigateCameraRuntimeController.reconcileHass();
+    });
+    await expect.poll(status).toEqual({ available: [false, false], type: "--", label: "Offline" });
+    await page.evaluate(() => {
+      const { session } = window.statusProbe;
+      const video = session.get("camera.one").video;
+      video.dispatchEvent(new Event("waiting"));
+      video.dispatchEvent(new Event("playing"));
+    });
+    await expect.poll(() => page.evaluate(() => window.statusProbe.card._activeStreamType)).toBe(transport);
+    expect(await page.evaluate(() => {
+      const p = window.statusProbe;
+      return {
+        same: p.provider === p.card._engine,
+        available: p.card._frigateCameraRuntimeController.isAvailable(),
+        starts: p.audit.starts,
+        before: p.starts,
+        disconnects: p.audit.providerDisconnects,
+      };
+    })).toMatchObject({ same: true, available: true, disconnects: 0 });
+    expect(await page.evaluate(() => window.statusProbe.audit.starts))
+      .toEqual(await page.evaluate(() => window.statusProbe.starts));
+    await page.evaluate(() => window.statusProbe.session.dispose());
+  });
+}
+
 for (const failure of ["ice", "native-error"]) {
   for (const supportedTypes of [["hls", "web_rtc"], ["web_rtc"]]) {
     test(`production HA Direct recovers established WebRTC after ${failure} (${supportedTypes.join("+")})`, async ({ page }) => {
