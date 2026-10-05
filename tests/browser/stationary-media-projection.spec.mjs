@@ -160,6 +160,94 @@ for (const options of [
   });
 }
 
+for (const failure of ["ice", "native-error"]) {
+  for (const supportedTypes of [["hls", "web_rtc"], ["web_rtc"]]) {
+    test(`production HA Direct recovers established WebRTC after ${failure} (${supportedTypes.join("+")})`, async ({ page }) => {
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.goto(baseUrl);
+      await page.evaluate(async (types) => {
+        const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+        const audit = installHaCameraLifecycleFixture({ webRtc: "recoverable", supportedTypes: types, deferRenders: true });
+        await import("/dist/frigate-view-card.js");
+        customElements.define("recovery-session-card", class extends customElements.get("frigate-view-card") {
+          connectedCallback() {}
+          disconnectedCallback() {}
+        });
+        const anchor = document.createElement("home-assistant");
+        anchor.attachShadow({ mode: "open" });
+        document.body.append(anchor);
+        const card = document.createElement("recovery-session-card");
+        const entities = ["camera.one", "camera.two", "camera.three"];
+        card.setConfig({ cameras: entities.map((entity) => ({ entity, connection_type: "ha_direct" })) });
+        card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+          entities.map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
+        ) };
+        card._activeCamIdx = 0;
+        card._started = true;
+        anchor.shadowRoot.append(card);
+        card._renderShell();
+        window.bundleProbe = { card, audit, anchor };
+        await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+        window.bundleProbe.session = card._engine.haDirectSession;
+      }, supportedTypes);
+      await expect.poll(() => page.evaluate(() => [...window.bundleProbe.session.records.values()]
+        .filter((record) => record.status === "ready" && record.streamType === "webrtc" &&
+          record.provider.players.size === 1).length)).toBe(3);
+      await page.evaluate((mode) => {
+        const p = window.bundleProbe;
+        p.providers = [...p.session.records.values()].map((record) => record.provider);
+        p.originalRtc = p.providers.map((provider) => provider.players.get("web_rtc"));
+        p.starts = [...p.audit.starts];
+        p.stops = [...p.audit.stops];
+        p.healthyTime = p.session.get("camera.three").video.currentTime;
+        for (const entity of ["camera.one", "camera.two"]) p.audit.crashWebRtc(entity, mode);
+      }, failure);
+      await expect.poll(() => page.evaluate(() => window.bundleProbe.providers.slice(0, 2)
+        .every((provider) => provider.players.has("hls") && !provider.players.has("web_rtc")))).toBe(true);
+      // No navigation is needed for the selected or dormant camera's recovery.
+      expect(await page.evaluate(() => window.bundleProbe.audit.rtcOffers)).toEqual([
+        "camera.one", "camera.two", "camera.three",
+      ]);
+      await expect.poll(() => page.evaluate(() => {
+        const p = window.bundleProbe;
+        return p.session.get("camera.three").video.currentTime - p.healthyTime;
+      })).toBeGreaterThan(0.15);
+      for (const entity of ["camera.one", "camera.two"]) {
+        await page.evaluate((id) => window.bundleProbe.audit.restoreBackend(id), entity);
+        await expect.poll(() => page.evaluate((id) => {
+          const record = window.bundleProbe.session.get(id);
+          return record.status === "ready" && record.streamType === "webrtc" && record.provider.players.size === 1;
+        }, entity)).toBe(true);
+        const time = await page.evaluate((id) => window.bundleProbe.session.get(id).video.currentTime, entity);
+        await expect.poll(() => page.evaluate((id) => window.bundleProbe.session.get(id).video?.currentTime || 0, entity))
+          .toBeGreaterThan(time + 0.15);
+      }
+      expect(await page.evaluate(() => {
+        const p = window.bundleProbe;
+        return [...p.session.records.values()].every((record, index) => record.provider === p.providers[index]);
+      })).toBe(true);
+      expect(await page.evaluate(() => window.bundleProbe.audit.providerDisconnects)).toBe(0);
+      expect(await page.evaluate(() => window.bundleProbe.audit.rtcOffers)).toEqual([
+        "camera.one", "camera.two", "camera.three", "camera.one", "camera.two",
+      ]);
+      expect(await page.evaluate(() => {
+        const p = window.bundleProbe;
+        return p.providers[2].players.get("web_rtc") === p.originalRtc[2] &&
+          p.audit.starts.filter((value) => value.endsWith(":camera.three")).length ===
+          p.starts.filter((value) => value.endsWith(":camera.three")).length &&
+          p.audit.stops.filter((value) => value.endsWith(":camera.three")).length ===
+          p.stops.filter((value) => value.endsWith(":camera.three")).length;
+      })).toBe(true);
+      expect(errors).toEqual([]);
+      await page.evaluate(() => {
+        window.bundleProbe.card._haDirectMounter.dispose();
+        window.bundleProbe.session.dispose();
+      });
+    });
+  }
+}
+
 for (const webRtc of [false, true]) {
   test(`HA Direct restores ${webRtc ? "WebRTC" : "HLS"} readiness from progress without another playing event`, async ({ page }) => {
     await page.goto(baseUrl);

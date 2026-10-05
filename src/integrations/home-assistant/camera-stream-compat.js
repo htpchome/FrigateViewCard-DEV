@@ -47,7 +47,9 @@ export function preserveHaCameraHlsFallback(provider, onSelection = () => {}, {
     ) {
       streams = [{ type: "hls", visible: true }];
     }
-    if (webRtcRetry) streams = webRtcRetry.filterSelection(streams);
+    if (webRtcRetry) streams = webRtcRetry.filterSelection(streams, {
+      canUseHls: supportedTypes?.includes("hls") || (webRtcOnly && hlsVerified),
+    });
     onSelection(streams, { hlsPending });
     return streams;
   };

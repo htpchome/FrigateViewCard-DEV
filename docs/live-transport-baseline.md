@@ -2,6 +2,22 @@
 
 ## Current Baseline
 
+`v1.1.9-dev.1` repairs normal HA Direct recovery after an established WebRTC
+stream fails. HA can close its native peer on a signaling error without sending
+new stream metadata; the retained `hasVideo` value previously left the dead
+player selected. Read-only native failure observation now invalidates that
+selection locally, and HA restores its advertised or verified HLS fallback.
+Once HLS has playable video, HA may create one fresh WebRTC child automatically.
+Terminal HLS errors also permit that attempt instead of blocking recovery.
+Failure of that attempt retains usable HLS under the existing two-/five-minute
+retry policy. No provider is moved or replaced; healthy cameras, HLS recovery,
+Catalyst, Frigate go2rtc, sequential startup and editor/view retention keep their
+existing owners. Temporary recovery media listeners are removed on success or
+disposal; no additional polling or card-owned signaling is introduced.
+Regression coverage includes stale successful metadata, native signaling and
+ICE failures, selected and dormant cameras, and healthy-camera isolation.
+Physical Frigate restart testing is still required.
+
 `v1.1.8-dev.196` removes the temporary HA Direct talk timing diagnostics,
 their opt-in console flag, instrumentation hooks and dedicated diagnostic tests.
 The parallel microphone/configuration preparation and all functional talk tests

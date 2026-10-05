@@ -3,11 +3,14 @@ import { upstreamHaCameraStreamSelector } from "./ha-camera-stream-selector.mjs"
 // A lifecycle harness, not a substitute for physical HA integration testing.
 // It uses HA's pinned selection contract and real browser video decoders.
 // Disconnect deliberately stops playback, as the real HA child players do.
-export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls", "web_rtc"], holdReadinessAudit = false }) {
+export function installHaCameraLifecycleFixture({
+  webRtc, supportedTypes = ["hls", "web_rtc"], holdReadinessAudit = false, deferRenders = false,
+}) {
   const rtcPlayers = new Map();
   const providers = new Set();
   const urlGenerations = new Map();
   const heldReadyEntities = new Set();
+  const outages = new Set();
   const mediaReady = () => [...providers].filter((provider) => [...provider.players.values()].some((player) =>
     !player.classList.contains("hidden") && player.video.videoWidth > 0 &&
     (player.video.readyState >= 2 || player.video.getVideoPlaybackQuality().totalVideoFrames > 0)))
@@ -27,6 +30,31 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       heldReadyEntities.clear();
     },
     releaseWebRtc: () => { for (const player of rtcPlayers.values()) player.startMedia(); },
+    crashWebRtc: (entity, failure) => {
+      const player = rtcPlayers.get(entity);
+      const peer = player?._peerConnection;
+      if (!peer) throw new Error("Expected an established synthetic WebRTC peer");
+      outages.add(entity);
+      player.video.pause();
+      player.video.dispatchEvent(new Event("waiting"));
+      if (failure === "native-error") {
+        // HA's signaling error cleans up the peer and replaces its video with
+        // an alert without sending streams:false to the camera provider.
+        player._error = "Failed to start WebRTC stream";
+        player._peerConnection = undefined;
+        peer.iceConnectionState = "closed";
+        player.video.remove();
+        peer.dispatchEvent(new Event("iceconnectionstatechange"));
+      } else audit.failIce(entity);
+    },
+    restoreBackend: (entity) => {
+      outages.delete(entity);
+      // Only the mounted HLS player's own recovery can resume. A dead WebRTC
+      // child cannot be revived by the fixture's backend-return helper.
+      for (const provider of providers) {
+        if (provider.stateObj.entity_id === entity) provider.players.get("hls")?.startMedia();
+      }
+    },
     failCamera: (entity) => {
       for (const provider of providers) {
         if (provider.stateObj?.entity_id !== entity) continue;
@@ -109,6 +137,12 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
         })),
       });
       if (this.localName === "ha-web-rtc-player") rtcPlayers.set(this.entityid, this);
+      if (this.localName === "ha-web-rtc-player" && webRtc === "recoverable") {
+        this._peerConnection = new EventTarget();
+        this._peerConnection.iceConnectionState = "connected";
+        this._peerConnection.connectionState = "connected";
+        audit.rtcOffers.push(this.entityid);
+      }
       if (this.localName === "ha-web-rtc-player" && webRtc === "ice-retry") {
         // Like HA: fetch configuration before creating the peer, and restart
         // failed ICE without emitting a parent streams:false event.
@@ -142,7 +176,7 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       this.startMedia();
     }
     startMedia() {
-      if (this.video.hasAttribute("src")) return;
+      if (outages.has(this.entityid) || this.video.hasAttribute("src")) return;
       this.video.addEventListener("loadeddata", () => {
         (holdReadinessAudit ? heldReadyEntities : audit.readyEntities).add(this.entityid);
         this.dispatchEvent(new CustomEvent("streams", {
@@ -208,9 +242,22 @@ export function installHaCameraLifecycleFixture({ webRtc, supportedTypes = ["hls
       });
     }
     connectedCallback() { this.render(); }
-    requestUpdate() { queueMicrotask(() => this.render()); }
+    requestUpdate() {
+      if (deferRenders) this.render();
+      else queueMicrotask(() => this.render());
+    }
     disconnectedCallback() { audit.providerDisconnects += 1; }
     render() {
+      if (!deferRenders) { this.renderStreams(); return; }
+      if (this.renderPending) return;
+      // Match Lit's coalesced render and updateComplete boundary for recovery.
+      this.renderPending = true;
+      this.updateComplete = Promise.resolve().then(() => {
+        this.renderPending = false;
+        this.renderStreams();
+      });
+    }
+    renderStreams() {
       if (!this.isConnected) return;
       const streams = this._streams(supportedTypes, this.hls, this.rtc, true);
       for (const [type, player] of this.players) {

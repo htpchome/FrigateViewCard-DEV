@@ -99,7 +99,20 @@ Meaning of `ha_direct`:
     page/editor handoffs do not start probes. Rendered WebRTC success resets
     history; failed HLS bypasses suppression. Cancelled, closed, disconnected,
     or superseded peers are not failed-connection evidence. This policy is
-    camera-local and is not shared with Frigate go2rtc or Catalyst
+    camera-local and is not shared with Frigate go2rtc or Catalyst.
+    If a previously usable WebRTC child fails, its cached successful stream
+    metadata must not prevent recovery. On failed ICE/peer state or a native
+    error that replaces its video, select advertised/verified HLS so HA retires
+    that failed child. An error flag alone or ordinary stream metadata must not
+    override otherwise unchanged native recovery/failure decisions.
+    After the mounted HLS video is actually playing, permit one fresh native
+    WebRTC attempt automatically; a terminal HLS error also permits that attempt
+    rather than blocking the remaining transport. Ignore stale WebRTC metadata
+    until the new child reports; a failed fresh attempt uses the existing
+    bounded retry policy while HLS is usable.
+    This recovery uses media/state events, not a startup timeout, new polling,
+    provider replacement, or direct signaling/peer manipulation. Ordinary
+    disconnection, background cleanup and healthy cameras are unchanged.
   - a native HLS retryable error must not make the parent remove that player
     before HA's recovery runs. Treat that candidate as pending, not ready; after
     HA clears the error and video advances, correct the stale failure metadata
