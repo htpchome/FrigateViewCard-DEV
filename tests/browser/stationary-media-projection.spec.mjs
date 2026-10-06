@@ -161,6 +161,69 @@ for (const options of [
 }
 
 for (const transport of ["hls", "webrtc"]) {
+  test(`HA Direct ${transport} receives zoom input through its stationary projection`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (type) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const audit = installHaCameraLifecycleFixture({ webRtc: type === "webrtc" });
+      await import("/dist/frigate-view-card.js");
+      customElements.define("zoom-session-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const anchor = document.createElement("home-assistant");
+      anchor.attachShadow({ mode: "open" });
+      document.body.append(anchor);
+      const card = document.createElement("zoom-session-card");
+      card.style.cssText = "display:block;width:640px";
+      const entities = ["camera.one", "camera.two"];
+      card.setConfig({ cameras: entities.map((entity) => ({ entity, connection_type: "ha_direct" })) });
+      card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+        entities.map((entity_id) => [entity_id, { entity_id, state: "recording", attributes: {} }]),
+      ) };
+      card._activeCamIdx = 0;
+      card._started = true;
+      anchor.shadowRoot.append(card);
+      card._renderShell();
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+      window.zoomProbe = { card, audit, session: card._engine.haDirectSession };
+    }, transport);
+    await expect.poll(() => page.evaluate(() => [...window.zoomProbe.session.records.values()]
+      .filter((record) => record.status === "ready").length)).toBe(2);
+    for (const entity of ["camera.one", "camera.two", "camera.one"]) {
+      await page.evaluate(async (id) => {
+        const { card } = window.zoomProbe;
+        card._activeCamIdx = id === "camera.one" ? 0 : 1;
+        await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: id });
+      }, entity);
+      const point = await page.evaluate(() => {
+        const { card } = window.zoomProbe;
+        const rect = card._liveVideoZoomController.host.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      });
+      await page.mouse.move(point.x, point.y);
+      await page.mouse.wheel(0, -100);
+      await expect.poll(() => page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.state.scale)).toBeGreaterThan(1);
+      await page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.reset());
+      await page.mouse.dblclick(point.x, point.y);
+      await expect.poll(() => page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.state.scale)).toBe(2);
+      const panBefore = await page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.state.x);
+      await page.mouse.down();
+      await page.mouse.move(point.x + 30, point.y + 15, { steps: 3 });
+      await page.mouse.up();
+      await expect.poll(() => page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.state.x)).toBeGreaterThan(panBefore);
+      expect(await page.evaluate((selected) => {
+        const dormant = [...window.zoomProbe.session.records.values()].find((record) => record.entity !== selected);
+        return getComputedStyle(dormant.video).pointerEvents;
+      }, entity)).toBe("none");
+      await page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.reset());
+    }
+    expect(await page.evaluate(() => window.zoomProbe.audit.providerDisconnects)).toBe(0);
+    await page.evaluate(() => window.zoomProbe.session.dispose());
+  });
+}
+
+for (const transport of ["hls", "webrtc"]) {
   test(`HA Direct ${transport} outage clears selected status across retained presentation`, async ({ page }) => {
     await page.goto(baseUrl);
     await page.evaluate(async (type) => {

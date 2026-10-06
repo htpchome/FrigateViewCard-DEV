@@ -208,7 +208,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     "zoom",
     "ha-engine",
     "ha-video",
-    { host: engineHost, interactionTarget: engineHost },
+    { host: engineHost, interactionTarget: "ha-video" },
   ]);
   optionsByFactory.catalystHlsMounter.onCommittedMediaReady(
     "catalyst-engine",

@@ -88,6 +88,7 @@ function createZoomFixture({
   onZoomStateChange = null,
   resizeObserverCtor = null,
   enablePresentationRefresh = true,
+  enablePointerEvents = false,
   keyboardTarget = new FakeTarget(),
 } = {}) {
   const host = {
@@ -158,6 +159,7 @@ function createZoomFixture({
     onZoomStateChange,
     resizeObserverCtor,
     enablePresentationRefresh,
+    enablePointerEvents,
     keyboardTarget,
   }).bind();
   return { controller, host, interactionTarget, keyboardTarget, video };
@@ -359,6 +361,40 @@ test("continuous trackpad wheel sequences scroll without changing video zoom", (
   });
   assert.equal(trackpadWhileZoomed.defaultPrevented, false);
   assert.equal(controller.state.scale, 1.2);
+});
+
+test("discrete pixel wheels still zoom when legacy wheel units are scaled", () => {
+  for (const wheelDeltaY of [100, 150, 200, 300]) {
+    const { controller, video } = createZoomFixture();
+    const inward = video.dispatch("wheel", { deltaY: -100, wheelDeltaY, timeStamp: 100 });
+    assert.equal(inward.defaultPrevented, true);
+    assert.equal(controller.state.scale, 1.2);
+    const outward = video.dispatch("wheel", { deltaY: 100, wheelDeltaY: -wheelDeltaY, timeStamp: 200 });
+    assert.equal(outward.defaultPrevented, true);
+    assert.equal(controller.state.scale, 1);
+    // An accelerating trackpad sequence is still not a mouse wheel.
+    video.dispatch("wheel", { deltaY: -2.5, wheelDeltaY: 7.5, timeStamp: 300 });
+    const scroll = video.dispatch("wheel", { deltaY: -100, wheelDeltaY, timeStamp: 350 });
+    assert.equal(scroll.defaultPrevented, false);
+    assert.equal(controller.state.scale, 1);
+    controller.dispose();
+  }
+});
+
+test("zoom enables pointer input only for its bound video and restores it on disposal", () => {
+  const { controller, video } = createZoomFixture({ enablePointerEvents: true });
+  assert.equal(video.style.getPropertyValue("pointer-events"), "auto");
+  controller.dispose();
+  assert.equal(video.style.getPropertyValue("pointer-events"), "");
+  video.style.setProperty("pointer-events", "none", "important");
+  controller.bind();
+  assert.equal(video.style.getPropertyValue("pointer-events"), "auto");
+  controller.dispose();
+  assert.equal(video.style.getPropertyValue("pointer-events"), "none");
+  assert.equal(video.style.getPropertyPriority("pointer-events"), "important");
+  const ordinary = createZoomFixture();
+  assert.equal(ordinary.video.style.getPropertyValue("pointer-events"), "");
+  ordinary.controller.dispose();
 });
 
 test("modified-wheel pinch and unadvertised Catalyst gestures preserve deliberate zoom intent", () => {

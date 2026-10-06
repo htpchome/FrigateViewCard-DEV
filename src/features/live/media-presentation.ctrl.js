@@ -80,6 +80,7 @@ export class LiveMediaPresentationController {
       host: zoomHost,
       interactionTarget,
       enablePresentationRefresh,
+      enablePointerEvents: engine.haDirectProvider === true,
       onInteractionStart: () => hostCard._dismissLinkedLightDimmers(),
       onZoomStateChange: (zoomed) => {
         hostCard._$("#card")?.classList?.toggle?.(

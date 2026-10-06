@@ -49,6 +49,46 @@ test("Frigate stream host still stops its race on real removal", async ({ page }
   expect(state).toEqual({ stops: 1, cleared: true });
 });
 
+for (const transport of ["webrtc", "mse"]) {
+  test(`Frigate go2rtc ${transport} live presentation accepts wheel and click zoom`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (type) => {
+      await import("/dist/frigate-view-card.js");
+      customElements.define("go2rtc-zoom-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const card = document.createElement("go2rtc-zoom-card");
+      card.style.cssText = "display:block;width:640px";
+      card.setConfig({ cameras: [{ entity: "camera.front", connection_type: "frigate_go2rtc" }] });
+      document.body.append(card);
+      card._renderShell();
+      const video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.src = "/media.mp4";
+      card.shadowRoot.querySelector("#engine").replaceChildren(video);
+      await video.play();
+      card._assignLiveEngine({ video, streamType: type });
+      card._setActiveStreamType(type);
+      card._setStreamLoading(false);
+      card._setStreamFallbackVisible(false);
+      window.zoomCard = card;
+    }, transport);
+    const point = await page.evaluate(() => {
+      const bounds = window.zoomCard._liveVideoZoomController.host.getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+    });
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.wheel(0, -100);
+    await expect.poll(() => page.evaluate(() => window.zoomCard._liveVideoZoomController.state.scale)).toBeGreaterThan(1);
+    await page.evaluate(() => window.zoomCard._liveVideoZoomController.reset());
+    await page.mouse.dblclick(point.x, point.y);
+    await expect.poll(() => page.evaluate(() => window.zoomCard._liveVideoZoomController.state.scale)).toBe(2);
+    await page.evaluate(() => window.zoomCard._liveMediaPresentationController.clearVideoZoom());
+  });
+}
+
 for (const phase of ["both pending", "MSE ready before commit", "WebRTC takeover pending", "MSE only"]) {
   test(`Frigate go2rtc survives page navigation with ${phase}`, async ({ page }) => {
     const errors = [];

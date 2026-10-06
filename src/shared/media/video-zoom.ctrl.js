@@ -42,9 +42,11 @@ function isContinuousTrackpadWheelEvent(event) {
   const legacyDelta = Number(event?.wheelDeltaY ?? event?.wheelDelta);
   if (Number.isFinite(legacyDelta) && Math.abs(legacyDelta) > EPSILON) {
     const notches = Math.abs(legacyDelta) / LEGACY_WHEEL_NOTCH;
-    return Math.abs(notches - Math.round(notches)) > EPSILON;
+    if (Math.abs(notches - Math.round(notches)) <= EPSILON) return false;
   }
 
+  // Legacy wheel units can be scaled. A non-120 multiple alone cannot veto
+  // an otherwise discrete standard delta; continuous sequences stay filtered.
   const deltaY = Number(event?.deltaY) || 0;
   return (
     !Number.isInteger(deltaY) ||
@@ -155,6 +157,7 @@ export class VideoZoomController {
     this._interactionTarget = options.interactionTarget || video || null;
     this._keyboardTarget = options.keyboardTarget ?? globalThis.window ?? null;
     this._nativeCoverPanEnabled = options.nativeCoverPan === true;
+    this._enablePointerEvents = options.enablePointerEvents === true;
     this._onInteractionStart =
       typeof options.onInteractionStart === "function"
         ? options.onInteractionStart
@@ -251,6 +254,7 @@ export class VideoZoomController {
       touchAction: styleSnapshot(this._video.style, "touch-action"),
       willChange: styleSnapshot(this._video.style, "will-change"),
       userSelect: styleSnapshot(this._video.style, "user-select"),
+      pointerEvents: styleSnapshot(this._video.style, "pointer-events"),
     };
     this._hostOverflowSnapshot = styleSnapshot(this._host.style, "overflow");
 
@@ -258,6 +262,11 @@ export class VideoZoomController {
     this._video.style?.setProperty?.("touch-action", "none");
     this._video.style?.setProperty?.("will-change", "transform");
     this._video.style?.setProperty?.("user-select", "none");
+    // A projected video may inherit a non-interactive deck. Only the attached
+    // media surface receives input; dormant players keep their inherited state.
+    if (this._enablePointerEvents) {
+      this._video.style?.setProperty?.("pointer-events", "auto");
+    }
     this._host.style?.setProperty?.("overflow", "hidden");
 
     this._cleanup.addEventListener(
@@ -412,6 +421,13 @@ export class VideoZoomController {
       this._styleSnapshots?.userSelect,
     );
     restoreStyle(this._host.style, "overflow", this._hostOverflowSnapshot);
+    if (this._enablePointerEvents) {
+      restoreStyle(
+        this._video.style,
+        "pointer-events",
+        this._styleSnapshots?.pointerEvents,
+      );
+    }
     this._pointers.clear();
   }
 

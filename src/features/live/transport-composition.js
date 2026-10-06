@@ -115,7 +115,8 @@ export const createLiveTransportControllers = (
       const liveEngineHost = card._$("#engine");
       card._attachMainLiveVideoZoom(engine, video, {
         host: liveEngineHost,
-        interactionTarget: liveEngineHost,
+        // The stationary provider is projected beside #engine, not inside it.
+        interactionTarget: video,
       });
     },
     onCommittedStream: (type) => {
