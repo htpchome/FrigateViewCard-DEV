@@ -45,13 +45,10 @@ function isContinuousTrackpadWheelEvent(event) {
     if (Math.abs(notches - Math.round(notches)) <= EPSILON) return false;
   }
 
-  // Legacy wheel units can be scaled. A non-120 multiple alone cannot veto
-  // an otherwise discrete standard delta; continuous sequences stay filtered.
+  // Browser scaling can make mouse-wheel pixels fractional and legacy units
+  // non-120 multiples. Neither is evidence of a continuous trackpad sequence.
   const deltaY = Number(event?.deltaY) || 0;
-  return (
-    !Number.isInteger(deltaY) ||
-    Math.abs(deltaY) < DISCRETE_PIXEL_WHEEL_MIN
-  );
+  return Math.abs(deltaY) < DISCRETE_PIXEL_WHEEL_MIN;
 }
 
 export function clampVideoZoom(value, min = VIDEO_ZOOM_MIN, max = VIDEO_ZOOM_MAX) {

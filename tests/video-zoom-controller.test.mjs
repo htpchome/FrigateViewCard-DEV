@@ -381,6 +381,33 @@ test("discrete pixel wheels still zoom when legacy wheel units are scaled", () =
   }
 });
 
+test("Windows Edge fractional mouse-wheel samples zoom in and out immediately", () => {
+  const { controller, video } = createZoomFixture();
+  const magnitude = 90.90908893868948;
+  const directions = [-1, -1, -1, -1, -1, 1, 1, 1, 1, 1, -1, -1];
+  let expectedScale = 1;
+  for (const [index, direction] of directions.entries()) {
+    const event = video.dispatch("wheel", {
+      deltaX: 0, deltaY: direction * magnitude, deltaMode: 0,
+      wheelDeltaY: -direction * 109, ctrlKey: false, timeStamp: index * 50,
+    });
+    expectedScale = Math.max(1, expectedScale - direction * magnitude * 0.002);
+    assert.equal(event.defaultPrevented, true);
+    assert.ok(Math.abs(controller.state.scale - expectedScale) < 0.000001);
+  }
+  controller.dispose();
+});
+
+test("fractional acceleration stays page scrolling during a continuous trackpad sequence", () => {
+  const { controller, video } = createZoomFixture();
+  for (const [index, deltaY] of [-2.5, -90.90908893868948, -110.5].entries()) {
+    const event = video.dispatch("wheel", { deltaY, deltaMode: 0, timeStamp: 100 + index * 50 });
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(controller.state.scale, 1);
+  }
+  controller.dispose();
+});
+
 test("zoom enables pointer input only for its bound video and restores it on disposal", () => {
   const { controller, video } = createZoomFixture({ enablePointerEvents: true });
   assert.equal(video.style.getPropertyValue("pointer-events"), "auto");

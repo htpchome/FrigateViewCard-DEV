@@ -82,6 +82,22 @@ for (const transport of ["webrtc", "mse"]) {
     await page.mouse.move(point.x, point.y);
     await page.mouse.wheel(0, -100);
     await expect.poll(() => page.evaluate(() => window.zoomCard._liveVideoZoomController.state.scale)).toBeGreaterThan(1);
+    const edgeSamples = await page.evaluate(({ x, y }) => {
+      const zoom = window.zoomCard._liveVideoZoomController;
+      zoom.reset();
+      return [-1, 1].map((direction) => {
+        // Replay the user's Windows Edge values against the production bundle.
+        const event = new WheelEvent("wheel", {
+          deltaX: 0, deltaY: direction * 90.90908893868948, deltaMode: 0,
+          clientX: x, clientY: y, bubbles: true, composed: true, cancelable: true,
+        });
+        Object.defineProperty(event, "wheelDeltaY", { value: -direction * 109 });
+        return { consumed: !zoom.video.dispatchEvent(event), scale: zoom.state.scale };
+      });
+    }, point);
+    expect(edgeSamples.map((sample) => sample.consumed)).toEqual([true, true]);
+    expect(edgeSamples[0].scale).toBeCloseTo(1.181818177877379, 8);
+    expect(edgeSamples[1].scale).toBeCloseTo(1, 8);
     await page.evaluate(() => window.zoomCard._liveVideoZoomController.reset());
     await page.mouse.dblclick(point.x, point.y);
     await expect.poll(() => page.evaluate(() => window.zoomCard._liveVideoZoomController.state.scale)).toBe(2);
