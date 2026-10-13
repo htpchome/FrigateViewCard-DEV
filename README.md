@@ -613,4 +613,6 @@ I get tired doing all this work stuff, if you like this card you can help keep m
 
 ## Acknowledgments
 
+Thanks to [@beaugunderson](https://github.com/beaugunderson) for contributing the unavailable-review-event deep-link stack overflow fix and regression tests in [PR #11](https://github.com/htpchome/FrigateViewCard/pull/11).
+
 This project originally started as a fork of [frigate-modern-hass-card](https://github.com/QuadNL/frigate-modern-hass-card) by [QuadNL](https://github.com/QuadNL). The codebase has since been rewritten and evolved independently, while retaining appreciation for the ideas that inspired the project.
