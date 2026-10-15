@@ -8516,6 +8516,92 @@ test("Wide View companion tiles stay large when two columns nearly fit", async (
   expect(result.statusBeforeName, JSON.stringify(result)).toBe(true);
 });
 
+for (const scenario of [
+  { columns: 2, cameras: 5, width: 1000, height: 1000 },
+  { columns: 3, cameras: 7, width: 1500, height: 1100 },
+]) {
+  test(`Wide View scrolls overflowing companion cameras in ${scenario.columns} columns`, async ({ page }) => {
+    await page.setViewportSize({ width: scenario.width + 100, height: scenario.height });
+    await page.goto(baseUrl);
+    await page.evaluate(async ({ cameras, width }) => {
+      await import("/frigate-view-card.js");
+      document.body.style.margin = "0";
+      const card = document.createElement("frigate-view-card");
+      card.style.width = `${width}px`;
+      document.body.append(card);
+      card.setConfig({
+        cameras: Array.from({ length: cameras }, (_, index) => ({
+          entity: `camera.camera_${index + 1}`,
+          name: `Camera ${index + 1}`,
+        })),
+        wide_view_page_enabled: true,
+        wide_view_width: 75,
+        stream_height: 100,
+        stream_height_unit: "dvh",
+      });
+      await card._wideViewPageController.prepare();
+      card._pageId = "wide-view";
+      card._renderShell();
+      card._wideViewPageController.startWideViewMode();
+      await card._wideViewCompanionController._ensureDelegate();
+      card._applyCardStyle();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const root = card.shadowRoot;
+      window.companionScrollProbe = {
+        root,
+        media: [...root.querySelectorAll(".wide-companion-media-host")],
+        live: root.querySelector("#live-stage"),
+      };
+    }, scenario);
+
+    const grid = page.locator("#wide-companion-grid");
+    const measure = () => page.evaluate(() => {
+      const { root, media, live } = window.companionScrollProbe;
+      const grid = root.querySelector("#wide-companion-grid");
+      const rect = grid.getBoundingClientRect();
+      const lastMeta = grid.querySelector(".wide-companion-cell:last-child .wide-companion-meta");
+      return {
+        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+        overflow: getComputedStyle(grid).overflowY,
+        scrollTop: grid.scrollTop,
+        remaining: grid.scrollHeight - grid.clientHeight - grid.scrollTop,
+        height: grid.clientHeight,
+        headerTop: root.querySelector(".wide-companion-header").getBoundingClientRect().top,
+        liveHeight: live.getBoundingClientRect().height,
+        lastVisible: lastMeta.getBoundingClientRect().bottom <= rect.bottom + 1,
+        mediaPreserved: media.every((node, index) => node === root.querySelectorAll(".wide-companion-media-host")[index]),
+        livePreserved: live === root.querySelector("#live-stage"),
+        pageScroll: window.scrollY,
+      };
+    });
+    const before = await measure();
+    expect(before.columns).toBe(scenario.columns);
+    expect(before.remaining).toBeGreaterThan(20);
+    expect(before.overflow).toBe("auto");
+    const bounds = await grid.boundingBox();
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + Math.min(50, bounds.height / 2));
+    await page.mouse.wheel(0, 300);
+    await expect.poll(async () => (await measure()).scrollTop).toBeGreaterThan(0);
+    await grid.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    await expect.poll(async () => (await measure()).lastVisible).toBe(true);
+    const after = await measure();
+    expect(after.headerTop).toBeCloseTo(before.headerTop, 0);
+    expect(after.liveHeight).toBeCloseTo(before.liveHeight, 0);
+    expect(after.pageScroll).toBe(before.pageScroll);
+    expect(after.mediaPreserved).toBe(true);
+    expect(after.livePreserved).toBe(true);
+
+    await page.locator("[data-wide-companion-expand-button]").click();
+    await expect.poll(async () => (await measure()).height).toBeGreaterThan(before.height);
+    await page.locator("[data-wide-companion-expand-button]").click();
+    await expect.poll(async () => (await measure()).height).toBe(before.height);
+    const collapsed = await measure();
+    expect(collapsed.mediaPreserved).toBe(true);
+    expect(collapsed.livePreserved).toBe(true);
+  });
+}
+
 test("Wide View divider expands past 75% until companions reach their header", async ({
   page,
 }) => {
