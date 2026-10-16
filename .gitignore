@@ -173,5 +173,6 @@ docs/*
 !docs/live-transport-baseline.md
 !docs/product-rename-plan.md
 !docs/release-notes-v1.1.8.md
+!docs/release-notes-v1.1.9.md
 Agents.md
 ARCHITECTURE.md
