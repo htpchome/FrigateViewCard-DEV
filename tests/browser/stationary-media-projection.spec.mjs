@@ -1009,8 +1009,9 @@ for (const webRtc of [true, "pending"]) {
               Math.abs(bounds.width - target.width) < 3;
           }).length;
       })).toBe(5);
-      const time = await page.evaluate(() => window.tileProbe.session.get("camera.three").video.currentTime);
-      await expect.poll(() => page.evaluate(() => window.tileProbe.session.get("camera.three").video.currentTime)).toBeGreaterThan(time + 0.15);
+      // Native player handoff can briefly clear the video between polls.
+      const time = await page.evaluate(() => window.tileProbe.session.get("camera.three").video?.currentTime ?? 0);
+      await expect.poll(() => page.evaluate(() => window.tileProbe.session.get("camera.three").video?.currentTime ?? 0)).toBeGreaterThan(time + 0.15);
       await page.evaluate(async () => {
         const { card, entities } = window.tileProbe;
         card._previewPageController.stopPreviewMode();
