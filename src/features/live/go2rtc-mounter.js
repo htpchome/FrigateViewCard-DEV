@@ -8,6 +8,7 @@ import {
   createVideoElement,
   mountNodeIntoSlot,
 } from "../../shared/media/video-factory.js";
+import { HOME_ASSISTANT_STUN_SERVER } from "../../constants.js";
 
 const WEBRTC_NEGOTIATION_TIMEOUT_MS = 4000;
 
@@ -412,7 +413,7 @@ export function createGo2RtcMounter({
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceServers: [{ urls: HOME_ASSISTANT_STUN_SERVER }],
     });
     const ws = new WebSocket(wsUrl);
     let abortBound = false;

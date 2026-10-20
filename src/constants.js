@@ -2,9 +2,11 @@ import { CARD_NAME } from "./product-identity.mjs";
 
 export * from "./product-identity.mjs";
 
-export const VERSION = "1.1.9";
+export const VERSION = "1.1.10-dev.1";
 
 export const RECOMMENDED_HOME_ASSISTANT_VERSION = "2026.9.0";
+export const HOME_ASSISTANT_STUN_SERVER =
+  "stun:stun.home-assistant.io:3478";
 
 export const DEFAULT_TITLE = CARD_NAME;
 export const DEFAULT_SUBTITLE = "{Camera}";

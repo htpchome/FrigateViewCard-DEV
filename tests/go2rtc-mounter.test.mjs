@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { HOME_ASSISTANT_STUN_SERVER } from "../src/constants.js";
 import { createGo2RtcMounter } from "../src/features/live/go2rtc-mounter.js";
 
 function createFakeVideoElement() {
@@ -736,7 +737,8 @@ test("go2rtc mounter WebRTC releases completed signaling without remounting", as
     }
 
     class FakePeerConnection {
-      constructor() {
+      constructor(config) {
+        this.config = config;
         this.connectionState = "new";
         this.iceConnectionState = "new";
         this._listeners = new Map();
@@ -795,6 +797,9 @@ test("go2rtc mounter WebRTC releases completed signaling without remounting", as
 
       assert.equal(result, true);
       assert.ok(assignedEngine?.pc);
+      assert.deepEqual(assignedEngine.pc.config.iceServers, [
+        { urls: HOME_ASSISTANT_STUN_SERVER },
+      ]);
       assignedEngine.pc.connectionState = "connected";
       assignedEngine.pc.emit("connectionstatechange");
       await new Promise((resolve) => setTimeout(resolve, 0));

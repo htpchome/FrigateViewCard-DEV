@@ -1,3 +1,5 @@
+import { HOME_ASSISTANT_STUN_SERVER } from "../../constants.js";
+
 const DEFAULT_CONNECTION_TIMEOUT_MS = 10000;
 
 const stopMediaStream = (stream) => {
@@ -55,7 +57,7 @@ export function createGo2RtcTwoWayTalkBackchannel({
     const pc = createPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceServers: [{ urls: HOME_ASSISTANT_STUN_SERVER }],
     });
     let ws = null;
     let transceiver = null;

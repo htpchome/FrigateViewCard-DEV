@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { HOME_ASSISTANT_STUN_SERVER } from "../src/constants.js";
 import { createGo2RtcTwoWayTalkBackchannel } from "../src/features/two-way-talk/go2rtc-backchannel.js";
 
 class FakeEventTarget {
@@ -167,6 +168,9 @@ test("go2rtc two-way talk uses a separate send-only microphone peer", async () =
 
   assert.equal(engine.type, "frigate_go2rtc_backchannel");
   assert.equal(engine.microphoneStream, microphone.stream);
+  assert.deepEqual(peerConnection.config.iceServers, [
+    { urls: HOME_ASSISTANT_STUN_SERVER },
+  ]);
   assert.equal(peerConnection.transceivers.length, 1);
   assert.equal(peerConnection.transceivers[0].track, microphone.track);
   assert.deepEqual(peerConnection.transceivers[0].options, {
