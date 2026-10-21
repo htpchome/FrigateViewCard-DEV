@@ -162,7 +162,7 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   ]);
 });
 
-test("fresh-page autoplay restrictions defer unmute without interrupting MSE playback", async () => {
+test("Firefox MSE attempts startup audio immediately when autoplay is allowed", async () => {
   const listeners = new Map();
   const interactionTarget = {
     addEventListener(type, handler) {
@@ -202,13 +202,6 @@ test("fresh-page autoplay restrictions defer unmute without interrupting MSE pla
 
   controller.prepareCameraStart({ start_unmuted: true });
   assert.equal(controller.applyCameraStartPreference(), true);
-
-  assert.equal(host._streamMuted, true);
-  assert.equal(video.muted, true);
-  assert.equal(video.playCalls, 0);
-  assert.deepEqual([...listeners.keys()], ["click", "keydown"]);
-
-  interactionTarget.dispatch("click");
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(host._streamMuted, false);
