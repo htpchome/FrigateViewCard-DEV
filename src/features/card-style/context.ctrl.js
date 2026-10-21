@@ -22,10 +22,6 @@ const PANEL_ASPECT_MAX_WIDTH_PROPERTY =
   "--fvc-panel-view-max-width";
 const PANEL_ASPECT_HEIGHT_PROPERTY =
   "--fvc-panel-view-card-height";
-const PHONE_SAFARI_VIEWPORT_CLASS =
-  "phone-safari-viewport-constrained";
-const PHONE_SAFARI_VIEWPORT_HEIGHT_PROPERTY =
-  "--fvc-phone-safari-viewport-height";
 const HA_HEIGHT_MANAGED_VIEW_TAGS = new Set([
   "HUI-SECTIONS-VIEW",
   "HUI-SIDEBAR-VIEW",
@@ -381,7 +377,6 @@ export class CardStyleContextController {
     // Clear values written by older card builds; CSS owns these now.
     this._host.style?.removeProperty?.("box-shadow");
     this._host.style?.removeProperty?.("border-radius");
-    this.syncPhoneSafariViewportConstraint();
   }
 
   shouldConstrainPhonePageHeight() {
@@ -389,38 +384,6 @@ export class CardStyleContextController {
       this._host._isLikelyPhoneClient?.() === true &&
       (this._host._isMobileViewPageActive?.() === true ||
         this._host._singleViewPageController?.isActive?.() === true)
-    );
-  }
-
-  syncPhoneSafariViewportConstraint() {
-    const enabled =
-      this.shouldConstrainPhonePageHeight() &&
-      this._host._isSafari?.() === true;
-    if (!enabled && this._phoneSafariViewportConstraintActive !== true) {
-      return;
-    }
-    this._phoneSafariViewportConstraintActive = enabled;
-    this._host.classList?.toggle(
-      PHONE_SAFARI_VIEWPORT_CLASS,
-      enabled,
-    );
-    if (!enabled) {
-      this._host.style?.removeProperty?.(
-        PHONE_SAFARI_VIEWPORT_HEIGHT_PROPERTY,
-      );
-      return;
-    }
-
-    const hostTop = Number(this._host.getBoundingClientRect?.().top);
-    const bottomInset = Number(
-      this._host._haNavbarController?.bottomNavbarReservedHeightPx?.(),
-    );
-    const occupiedHeight =
-      (Number.isFinite(hostTop) ? Math.max(0, hostTop) : 0) +
-      (Number.isFinite(bottomInset) ? Math.max(0, bottomInset) : 0);
-    this._host.style?.setProperty?.(
-      PHONE_SAFARI_VIEWPORT_HEIGHT_PROPERTY,
-      `calc(100dvh - ${Math.ceil(occupiedHeight)}px)`,
     );
   }
 
@@ -1165,8 +1128,13 @@ export class CardStyleContextController {
   }
 
   resolvePercentHeightWrapperViewportPx(ratio) {
-    if (this._host._config?.tight_margins === true) return null;
-    const availableHeight = this.resolveHeightWrapperViewportPx();
+    const phonePage = this.shouldConstrainPhonePageHeight();
+    // Standalone mobile browsers can expose a full HA card height even when
+    // the card begins below navigation; the actual host top is authoritative.
+    if (this._host._config?.tight_margins === true && !phonePage) return null;
+    const availableHeight = this.resolveHeightWrapperViewportPx(
+      phonePage ? this._host : this._host.parentElement,
+    );
     return availableHeight != null
       ? Math.max(1, availableHeight * ratio)
       : null;
@@ -1480,10 +1448,12 @@ export class CardStyleContextController {
         : "100%";
   }
 
-  resolveHeightWrapperViewportPx() {
+  resolveHeightWrapperViewportPx(
+    anchorElement = this._host.parentElement,
+  ) {
     if (
       this._host._isPreviewContext() ||
-      !this._host.parentElement?.getBoundingClientRect
+      !anchorElement?.getBoundingClientRect
     ) {
       return null;
     }
@@ -1493,7 +1463,7 @@ export class CardStyleContextController {
     const viewportHeight =
       Number(visualViewport?.height) || Number(window.innerHeight) || 0;
     const wrapperTop = Number(
-      this._host.parentElement.getBoundingClientRect().top,
+      anchorElement.getBoundingClientRect().top,
     );
     if (!Number.isFinite(wrapperTop) || viewportHeight <= 0) return null;
 

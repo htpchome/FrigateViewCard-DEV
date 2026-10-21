@@ -663,7 +663,7 @@ test("phone startup defers non-visible browse warming until delayed idle", async
   await context.close();
 });
 
-test("phone Safari caps Single and Mobile Views to the native dynamic viewport", async ({
+test("phone tight-margin Single and Mobile Views fit the remaining viewport", async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -689,28 +689,23 @@ test("phone Safari caps Single and Mobile Views to the native dynamic viewport",
       const card = document.createElement("frigate-view-card");
       card._isLikelyMobileClient = () => true;
       card._isLikelyPhoneClient = () => true;
-      card._isSafari = () => true;
+      card.style.setProperty("--ha-card-height", "664px");
       wrapper.append(card);
       card.setConfig({
         cameras: [{ entity: "camera.front", name: "Front" }],
         mobile_view_page_enabled: true,
         stream_height: 100,
         stream_height_unit: "%",
+        tight_margins: true,
       });
       card._pageId = pageId;
       card._renderShell();
-      card.style.setProperty("--card-host-height", "744px");
-      card._cardStyleController.syncHostOuterStyles();
+      card._applyCardStyle();
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
       const rect = card.getBoundingClientRect();
       const measurement = {
-        constrained: card.classList.contains(
-          "phone-safari-viewport-constrained",
-        ),
-        cap: card.style.getPropertyValue(
-          "--fvc-phone-safari-viewport-height",
-        ),
+        resolvedHeight: card.style.getPropertyValue("--card-host-height"),
         height: Math.round(rect.height),
         bottom: Math.round(rect.bottom),
         pageScrollable:
@@ -728,8 +723,7 @@ test("phone Safari caps Single and Mobile Views to the native dynamic viewport",
   });
 
   for (const measurement of [result.single, result.mobile]) {
-    expect(measurement.constrained).toBe(true);
-    expect(measurement.cap).toBe("calc(100dvh - 56px)");
+    expect(measurement.resolvedHeight).toBe("608px");
     expect(measurement.height).toBe(608);
     expect(measurement.bottom).toBeLessThanOrEqual(result.viewportHeight);
     expect(measurement.pageScrollable).toBe(false);

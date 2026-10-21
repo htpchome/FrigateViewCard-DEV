@@ -1357,6 +1357,89 @@ test("applyCardStyle fits non-tight percent height within wrapper viewport", () 
   assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "812px"]]);
 });
 
+test("phone tight-margin percent height fits below the card top", () => {
+  const hostStyleCalls = [];
+  let cardTop = 56;
+  const card = {
+    querySelector: () => null,
+    style: {
+      setProperty: () => {},
+      removeProperty: () => {},
+    },
+  };
+  const parentElement = {
+    style: {},
+    getBoundingClientRect: () => ({ top: cardTop }),
+  };
+  const host = {
+    _config: {
+      stream_height: 100,
+      stream_height_unit: "%",
+      compact_preview: false,
+      tight_margins: true,
+      theme: "default",
+    },
+    _isPreviewContext: () => false,
+    _isCardViewPageActive: () => false,
+    _isLikelyPhoneClient: () => true,
+    _isMobileViewPageActive: () => false,
+    _singleViewPageController: { isActive: () => true },
+    _wideViewPageController: { isWideViewPageActive: () => false },
+    getBoundingClientRect: () => ({ top: cardTop }),
+    parentElement,
+    shadowRoot: { querySelector: () => card },
+    style: {
+      setProperty: (name, value) => hostStyleCalls.push(["set", name, value]),
+      removeProperty: (name) => hostStyleCalls.push(["remove", name]),
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.applyTightMargins = () => {};
+  controller.syncHostOuterStyles = () => {};
+
+  withGlobals(
+    {
+      document: global.document,
+      window: {
+        innerHeight: 844,
+        visualViewport: { height: 844, offsetTop: 0 },
+      },
+      getComputedStyle: (element) => ({
+        boxSizing: element === parentElement ? "border-box" : "",
+        paddingTop: "0px",
+        paddingBottom: "0px",
+        getPropertyValue: (name) => {
+          if (name === "--ha-card-height") return "844px";
+          if (name === "--header-height") return "56px";
+          return "";
+        },
+      }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "788px"]]);
+
+  hostStyleCalls.length = 0;
+  cardTop = 0;
+  withGlobals(
+    {
+      document: global.document,
+      window: {
+        innerHeight: 844,
+        visualViewport: { height: 844, offsetTop: 0 },
+      },
+      getComputedStyle: () => ({
+        getPropertyValue: (name) =>
+          name === "--ha-card-height" ? "844px" : "",
+      }),
+    },
+    () => controller.applyCardStyle(),
+  );
+
+  assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "844px"]]);
+});
+
 test("card height reserves only the bottom navbar's added height", () => {
   const parentElement = {
     getBoundingClientRect: () => ({ top: 56 }),
@@ -1906,11 +1989,8 @@ test("minimum usable height overrides compact percent and dvh heights", () => {
 
 test("phone Single and Mobile Views do not expand for minimum event rows", () => {
   let page = "single";
-  const classes = new Map();
-  const style = createInlineStyle();
   const host = {
     _isLikelyPhoneClient: () => true,
-    _isSafari: () => true,
     _isMobileViewPageActive: () => page === "mobile",
     _singleViewPageController: {
       isActive: () => page === "single",
@@ -1918,15 +1998,6 @@ test("phone Single and Mobile Views do not expand for minimum event rows", () =>
     _wideViewPageController: {
       isWideViewPageActive: () => false,
     },
-    _config: {},
-    _haNavbarController: {
-      bottomNavbarReservedHeightPx: () => 66,
-    },
-    classList: {
-      toggle: (name, enabled) => classes.set(name, enabled),
-    },
-    getBoundingClientRect: () => ({ top: 56 }),
-    style,
   };
   const controller = new CardStyleContextController(host);
   controller.resolveMinimumUsableHostHeightPx = () => 652;
@@ -1941,33 +2012,12 @@ test("phone Single and Mobile Views do not expand for minimum event rows", () =>
     );
   }
 
-  host._isSafari = () => false;
   assert.deepEqual(
     controller.resolveUsableHostHeight({
       card: {},
       resolvedHeightPx: 444,
     }),
     { heightPx: 444, expanded: false },
-  );
-  host._isSafari = () => true;
-
-  controller.syncHostOuterStyles();
-  assert.equal(classes.get("phone-safari-viewport-constrained"), true);
-  assert.equal(
-    style.getPropertyValue("--fvc-phone-safari-viewport-height"),
-    "calc(100dvh - 122px)",
-  );
-  assert.match(
-    STYLES,
-    /:host\(\.phone-safari-viewport-constrained\)[\s\S]*?height: min\([\s\S]*?--fvc-phone-safari-viewport-height/,
-  );
-
-  host._isSafari = () => false;
-  controller.syncHostOuterStyles();
-  assert.equal(classes.get("phone-safari-viewport-constrained"), false);
-  assert.equal(
-    style.getPropertyValue("--fvc-phone-safari-viewport-height"),
-    "",
   );
 });
 
