@@ -1313,8 +1313,15 @@ export class CardStyleContextController {
       (this.isPanelView() || this.isSidebarView());
     const keepStandardViewConstrained =
       this.shouldConstrainMinimumBrowseWithinHost();
+    const keepPhoneSafariViewConstrained =
+      this._host._isLikelyPhoneClient?.() === true &&
+      this._host._isSafari?.() === true &&
+      (this._host._isMobileViewPageActive?.() === true ||
+        this._host._singleViewPageController?.isActive?.() === true);
     const keepConstrainedViewHeight =
-      keepWideViewConstrained || keepStandardViewConstrained;
+      keepWideViewConstrained ||
+      keepStandardViewConstrained ||
+      keepPhoneSafariViewConstrained;
     if (keepConstrainedViewHeight) {
       return {
         heightPx: resolvedHeightPx,

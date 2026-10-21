@@ -1904,6 +1904,33 @@ test("minimum usable height overrides compact percent and dvh heights", () => {
   assert.equal(parentElement.style.height, "auto");
 });
 
+test("phone Safari keeps Single and Mobile Views within the usable viewport", () => {
+  let page = "single";
+  const host = {
+    _isLikelyPhoneClient: () => true,
+    _isSafari: () => true,
+    _isMobileViewPageActive: () => page === "mobile",
+    _singleViewPageController: {
+      isActive: () => page === "single",
+    },
+    _wideViewPageController: {
+      isWideViewPageActive: () => false,
+    },
+  };
+  const controller = new CardStyleContextController(host);
+  controller.resolveMinimumUsableHostHeightPx = () => 652;
+
+  for (page of ["single", "mobile"]) {
+    assert.deepEqual(
+      controller.resolveUsableHostHeight({
+        card: {},
+        resolvedHeightPx: 444,
+      }),
+      { heightPx: 444, expanded: false },
+    );
+  }
+});
+
 test("Panel Single, Mobile, and Wide Views keep full constrained height", () => {
   let page = "single";
   const host = {
