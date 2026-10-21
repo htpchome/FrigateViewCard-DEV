@@ -1368,7 +1368,7 @@ test("phone tight-margin percent height fits below the card top", () => {
     },
   };
   const parentElement = {
-    style: {},
+    style: { height: "100%" },
     getBoundingClientRect: () => ({ top: cardTop }),
   };
   const host = {
@@ -1419,6 +1419,7 @@ test("phone tight-margin percent height fits below the card top", () => {
   );
 
   assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "788px"]]);
+  assert.equal(parentElement.style.height, "auto");
 
   hostStyleCalls.length = 0;
   cardTop = 0;
@@ -1438,6 +1439,7 @@ test("phone tight-margin percent height fits below the card top", () => {
   );
 
   assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "844px"]]);
+  assert.equal(parentElement.style.height, "auto");
 });
 
 test("card height reserves only the bottom navbar's added height", () => {

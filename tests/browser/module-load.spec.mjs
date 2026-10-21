@@ -679,7 +679,9 @@ test("phone tight-margin Single and Mobile Views fit the remaining viewport", as
 
   const result = await page.evaluate(async () => {
     await import("/frigate-view-card.js");
+    document.documentElement.style.height = "100%";
     document.body.style.margin = "0";
+    document.body.style.height = "100%";
     const spacer = document.createElement("div");
     spacer.style.height = "56px";
     const wrapper = document.createElement("div");
@@ -706,6 +708,7 @@ test("phone tight-margin Single and Mobile Views fit the remaining viewport", as
       const rect = card.getBoundingClientRect();
       const measurement = {
         resolvedHeight: card.style.getPropertyValue("--card-host-height"),
+        wrapperHeight: wrapper.style.height,
         height: Math.round(rect.height),
         bottom: Math.round(rect.bottom),
         pageScrollable:
@@ -724,6 +727,7 @@ test("phone tight-margin Single and Mobile Views fit the remaining viewport", as
 
   for (const measurement of [result.single, result.mobile]) {
     expect(measurement.resolvedHeight).toBe("608px");
+    expect(measurement.wrapperHeight).toBe("auto");
     expect(measurement.height).toBe(608);
     expect(measurement.bottom).toBeLessThanOrEqual(result.viewportHeight);
     expect(measurement.pageScrollable).toBe(false);

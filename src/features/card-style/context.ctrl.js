@@ -400,17 +400,25 @@ export class CardStyleContextController {
     const tightMarginsEnabled = this._host._config?.tight_margins === true;
     const inPreviewContext = this._host._isPreviewContext();
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
+    const embeddedPopup = this.isInEmbeddedPopup();
+    const homeAssistantGridHeightMode = embeddedPopup
+      ? null
+      : this.resolveHomeAssistantGridHeightMode();
     const homeAssistantAutoHeight =
-      !this.isInEmbeddedPopup() &&
-      this.resolveHomeAssistantGridHeightMode() === "auto";
+      !embeddedPopup && homeAssistantGridHeightMode === "auto";
     const homeAssistantMasonry =
-      !this.isInEmbeddedPopup() && this.isInMasonryView();
+      !embeddedPopup && this.isInMasonryView();
+    const phonePageNaturalHeight =
+      !embeddedPopup &&
+      homeAssistantGridHeightMode !== "fixed" &&
+      this.shouldConstrainPhonePageHeight();
     if (this._host.parentElement) {
       this._host.parentElement.style.height =
         inPreviewContext ||
         naturalCardView ||
         homeAssistantAutoHeight ||
         homeAssistantMasonry ||
+        phonePageNaturalHeight ||
         this._viewportMinimumActive === true
           ? "auto"
           : "100%";
@@ -1443,6 +1451,9 @@ export class CardStyleContextController {
     this._host.parentElement.style.height =
       this._viewportMinimumActive ||
       homeAssistantAutoHeight ||
+      (this.shouldConstrainPhonePageHeight() &&
+        !constrainToHaGrid &&
+        !this.isInEmbeddedPopup()) ||
       (this.isInMasonryView() && !this.isInEmbeddedPopup())
         ? "auto"
         : "100%";
