@@ -813,6 +813,22 @@ test("a fully normalized default config saves no redundant YAML options", () => 
   );
 });
 
+test("camera start audio defaults muted and only saves the unmuted opt-in", () => {
+  const normalized = normalizeCardConfig({
+    cameras: [
+      { entity: "camera.muted", start_unmuted: false },
+      { entity: "camera.audible", start_unmuted: true },
+    ],
+  });
+
+  assert.equal(normalized.cameras[0].start_unmuted, undefined);
+  assert.equal(normalized.cameras[1].start_unmuted, true);
+  assert.deepEqual(compactEditorConfigForYaml(normalized).cameras, [
+    { entity: "camera.muted" },
+    { entity: "camera.audible", start_unmuted: true },
+  ]);
+});
+
 test("event and Alerts/Reviews day defaults remain independent", () => {
   const normalized = normalizeCardConfig({
     cameras: [{ entity: "camera.front_door" }],

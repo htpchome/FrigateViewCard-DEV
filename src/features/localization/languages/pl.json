@@ -811,6 +811,8 @@
       "options": "Opcje",
       "showAllReviews": "Pokaż wszystkie przeglądy w alertach",
       "showAllReviewsHelp": "Frigate grupuje aktywność w przeglądy, które mogą zawierać alerty, wykrycia lub oba typy. Włącz, aby pokazywać wszystkie przeglądy na karcie Alerty; wyłącz, aby pokazywać tylko alerty.",
+      "startCameraUnmuted": "Uruchom kamerę z dźwiękiem",
+      "startCameraUnmutedHelp": "Uruchamia tę kamerę z dźwiękiem, gdy przeglądarka zezwala na odtwarzanie audio. Jeśli automatyczne odtwarzanie jest zablokowane, obraz na żywo pozostaje wyciszony do czasu interakcji ze stroną.",
       "enablePtz": "Włącz sterowanie PTZ",
       "ptzHelp": "Dodaje sterowanie obrotem i pochyleniem, jeśli kamera je obsługuje.",
       "ptzRotation": "Obrót sterowania PTZ",

@@ -231,6 +231,10 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
   );
   assert.ok(
     source.indexOf('id="camera-modal-all-reviews"') <
+      source.indexOf('id="camera-modal-start-unmuted"'),
+  );
+  assert.ok(
+    source.indexOf('id="camera-modal-start-unmuted"') <
       source.indexOf('id="camera-modal-ptz-toggle-row"'),
   );
   assert.match(
@@ -417,6 +421,7 @@ test("editing a camera restores its linked light and icon", () => {
     "#camera-modal-secondary-entity": node(),
     "#camera-modal-connection-type": node(),
     "#camera-modal-all-reviews": node(),
+    "#camera-modal-start-unmuted": node(),
     "#camera-modal-ptz-enabled": node(),
     "#camera-modal-two-way-talk-enabled": node(),
     "#camera-modal-light-entity": node(),
@@ -428,6 +433,7 @@ test("editing a camera restores its linked light and icon", () => {
   editor._getCams = () => [
     {
       entity: "camera.front",
+      start_unmuted: true,
       linked_entities: [
         { entity: "light.porch", icon: "mdi:coach-lamp" },
         {
@@ -454,6 +460,7 @@ test("editing a camera restores its linked light and icon", () => {
   assert.equal(nodes["#camera-modal-save"].textContent, "Update");
   assert.equal(nodes["#camera-modal-light-entity"].value, "light.porch");
   assert.equal(nodes["#camera-modal-light-icon"].value, "mdi:coach-lamp");
+  assert.equal(nodes["#camera-modal-start-unmuted"].checked, true);
   assert.equal(nodes["#camera-modal-light-entity-2"].value, "light.driveway");
   assert.equal(
     nodes["#camera-modal-light-icon-2"].value,

@@ -52,6 +52,79 @@ test("live audio changes do not remount either live transport", () => {
   assert.equal(frigateGo2rtc.host._engineMountedMuted, false);
 });
 
+test("camera start audio remains muted until ready, then applies the opt-in", async () => {
+  const calls = [];
+  const video = {
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
+    play: () => Promise.resolve(),
+  };
+  const engine = { video, tagName: "DIV", querySelector: () => video };
+  const host = {
+    _streamMuted: false,
+    _cameraStartUnmutePending: false,
+    _engineMountedMuted: true,
+    _engine: engine,
+    _findVideoDeep: () => video,
+    _cameraGroupLiveController: {
+      syncAudio: () => calls.push("sync"),
+    },
+    _renderMuteButton: () => calls.push("render"),
+  };
+  const controller = new LiveAudioController(host, {
+    setTimer: () => {},
+  });
+
+  controller.prepareCameraStart({ start_unmuted: true });
+  assert.equal(host._streamMuted, true);
+  assert.equal(host._cameraStartUnmutePending, true);
+
+  assert.equal(controller.applyCameraStartPreference(), true);
+  await Promise.resolve();
+
+  assert.equal(host._streamMuted, false);
+  assert.equal(video.muted, false);
+  assert.equal(host._engineMountedMuted, false);
+  assert.deepEqual(calls, ["sync", "render"]);
+
+  controller.prepareCameraStart({ start_unmuted: false });
+  assert.equal(host._streamMuted, true);
+  assert.equal(host._cameraStartUnmutePending, false);
+  assert.equal(controller.applyCameraStartPreference(), false);
+});
+
+test("camera start audio falls back to muted when audible autoplay is rejected", async () => {
+  const calls = [];
+  const video = {
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
+    play: () => Promise.reject(new DOMException("Blocked", "NotAllowedError")),
+  };
+  const engine = { video, tagName: "DIV", querySelector: () => video };
+  const host = {
+    _streamMuted: true,
+    _cameraStartUnmutePending: true,
+    _engine: engine,
+    _findVideoDeep: () => video,
+    _cameraGroupLiveController: {
+      syncAudio: () => calls.push("sync"),
+    },
+    _renderMuteButton: () => calls.push("render"),
+  };
+  const controller = new LiveAudioController(host, {
+    setTimer: () => {},
+  });
+
+  controller.applyCameraStartPreference();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(host._streamMuted, true);
+  assert.equal(video.muted, true);
+  assert.deepEqual(calls, ["sync", "render", "sync", "render"]);
+});
+
 test("active HA Direct two-way talk preserves its isolated peer on unmute", () => {
   const haDirectTalk = createMuteChangeHost({
     haDirect: true,

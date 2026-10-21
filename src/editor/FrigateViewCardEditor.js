@@ -2118,6 +2118,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     const alertsContentAllReviews = this.querySelector(
       "#camera-modal-all-reviews",
     );
+    const startUnmuted = this.querySelector("#camera-modal-start-unmuted");
     const ptzEnabled = this.querySelector("#camera-modal-ptz-enabled");
     const twoWayTalkEnabled = this.querySelector(
       "#camera-modal-two-way-talk-enabled",
@@ -2165,6 +2166,9 @@ export class FrigateViewCardEditor extends HTMLElement {
     if (alertsContentAllReviews) {
       alertsContentAllReviews.checked =
         normalizeAlertsAreaContent(cam?.alerts_content) === "all_reviews";
+    }
+    if (startUnmuted) {
+      startUnmuted.checked = cam?.start_unmuted === true;
     }
     if (ptzEnabled) {
       ptzEnabled.checked = hasCameraPtz(cam);
@@ -2696,6 +2700,9 @@ export class FrigateViewCardEditor extends HTMLElement {
         DEFAULT_CAMERA_CONNECTION_TYPE,
     );
     const alertsContentToggle = this.querySelector("#camera-modal-all-reviews");
+    const startUnmutedToggle = this.querySelector(
+      "#camera-modal-start-unmuted",
+    );
     const ptzEnabledToggle = this.querySelector("#camera-modal-ptz-enabled");
     const twoWayTalkToggle = this.querySelector(
       "#camera-modal-two-way-talk-enabled",
@@ -2704,6 +2711,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       resolveSwitchChecked(alertsContentToggle) === true
         ? "all_reviews"
         : "alerts_only";
+    const startUnmuted = resolveSwitchChecked(startUnmutedToggle) === true;
     const ptzSupported = ptzEnabledToggle?.dataset?.supported === "true";
     const ptzEnabled = ptzSupported && resolveSwitchChecked(ptzEnabledToggle);
     const twoWayTalkSupported =
@@ -2777,6 +2785,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       connection_type: connectionType,
       alerts_content: alertsContent,
       ptz,
+      ...(startUnmuted ? { start_unmuted: true } : {}),
       ...(twoWayTalkEnabled ? { two_way_talk: true } : {}),
       ...(group ? { group } : {}),
       ...(linkedEntities.length ? { linked_entities: linkedEntities } : {}),
@@ -4809,6 +4818,15 @@ export class FrigateViewCardEditor extends HTMLElement {
                 <div class="field-helper" data-fvc-i18n="editor.cameraModal.showAllReviewsHelp">Frigate groups activity into reviews that may contain alerts, detections, or both. Enable this to show every review in the Alerts tab; disable it to show alerts only.</div>
               </div>
               <ha-switch id="camera-modal-all-reviews"></ha-switch>
+            </div>
+          </div>
+          <div class="cam-modal-field">
+            <div class="layout-row cam-modal-toggle-row">
+              <div class="cam-modal-toggle-copy">
+                <span class="cam-modal-label" data-fvc-i18n="editor.cameraModal.startCameraUnmuted">Start Camera Unmuted</span>
+                <div class="field-helper" data-fvc-i18n="editor.cameraModal.startCameraUnmutedHelp">Starts this camera with audio when the browser allows audible playback. If autoplay is blocked, live video remains muted until you interact with the page.</div>
+              </div>
+              <ha-switch id="camera-modal-start-unmuted"></ha-switch>
             </div>
           </div>
           <div class="cam-modal-field">

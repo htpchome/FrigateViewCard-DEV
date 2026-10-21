@@ -811,6 +811,8 @@
       "options": "Options",
       "showAllReviews": "Show All Reviews in Alerts",
       "showAllReviewsHelp": "Frigate groups activity into reviews that may contain alerts, detections, or both. Enable this to show every review in the Alerts tab; disable it to show alerts only.",
+      "startCameraUnmuted": "Start Camera Unmuted",
+      "startCameraUnmutedHelp": "Starts this camera with audio when the browser allows audible playback. If autoplay is blocked, live video remains muted until you interact with the page.",
       "enablePtz": "Enable PTZ Controls",
       "ptzHelp": "Adds pan and tilt controls when supported.",
       "ptzRotation": "PTZ Control Rotation",

@@ -47,6 +47,7 @@ export const createInitialCardRuntimeState = ({ singleViewPageId }) => ({
   _cardWidth: 0,
   _playSeq: 0,
   _streamMuted: true,
+  _cameraStartUnmutePending: false,
   _activeStreamType: "--",
   _lastLiveStreamHint: "",
   _committedLiveAvailabilityEntity: "",

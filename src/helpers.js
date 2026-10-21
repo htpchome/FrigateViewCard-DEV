@@ -1271,6 +1271,7 @@ export function normalizeCameraConfig(camera, { fallbackName = null } = {}) {
       connection_type: normalizeCameraConnectionType(camera.connection_type),
       alerts_content: normalizeAlertsAreaContent(camera.alerts_content),
       ptz: normalizeCameraPtzConfig(camera.ptz),
+      ...(camera.start_unmuted === true ? { start_unmuted: true } : {}),
       ...(camera.two_way_talk === true ? { two_way_talk: true } : {}),
       ...(group ? { group } : {}),
       ...(linkedEntities.length ? { linked_entities: linkedEntities } : {}),

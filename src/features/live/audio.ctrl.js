@@ -2,6 +2,9 @@ import { ICONS } from "../../icons.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 import { buildLiveMuteControlMarkup } from "./view.tmpl.js";
 
+export const cameraStartsUnmuted = (camera) =>
+  camera?.start_unmuted === true;
+
 export class LiveAudioController {
   constructor(
     host,
@@ -17,6 +20,47 @@ export class LiveAudioController {
 
   resolveMuted() {
     return this._host._streamMuted;
+  }
+
+  prepareCameraStart(camera) {
+    const host = this._host;
+    host._cameraStartUnmutePending = cameraStartsUnmuted(camera);
+    // Establish media muted so browser autoplay policy cannot stall startup.
+    host._streamMuted = true;
+  }
+
+  cancelCameraStartPreference() {
+    this._host._cameraStartUnmutePending = false;
+  }
+
+  applyCameraStartPreference() {
+    const host = this._host;
+    if (host._cameraStartUnmutePending !== true || !host._engine) return false;
+    host._cameraStartUnmutePending = false;
+    const engine = host._engine;
+
+    this.setMuted(false);
+    host._cameraGroupLiveController?.syncAudio?.();
+    host._renderMuteButton?.();
+    host._engineMountedMuted = false;
+
+    const video =
+      engine.video ||
+      (engine.tagName?.toLowerCase() === "video" ? engine : null) ||
+      host._findVideoDeep?.(engine);
+    let playback = null;
+    try {
+      playback = video?.play?.();
+    } catch (_) {
+      playback = null;
+    }
+    playback?.catch?.(() => {
+      if (engine !== host._engine || host._streamMuted) return;
+      this.setMuted(true);
+      host._cameraGroupLiveController?.syncAudio?.();
+      host._renderMuteButton?.();
+    });
+    return true;
   }
 
   buildControlMarkup({ buttonClass = "square-btn" } = {}) {
@@ -157,6 +201,7 @@ export class LiveAudioController {
 
   applyMuteChange(nextMuted) {
     const host = this._host;
+    this.cancelCameraStartPreference();
     host._setLiveMuted(nextMuted);
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton();

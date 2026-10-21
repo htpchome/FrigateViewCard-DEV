@@ -132,6 +132,7 @@ const normalizeCameraConfig = (camera, { fallbackName = null } = {}) => {
       connection_type: normalizeCameraConnectionType(camera.connection_type),
       alerts_content: normalizeAlertsAreaContent(camera.alerts_content),
       ptz: normalizeCameraPtzConfig(camera.ptz),
+      ...(camera.start_unmuted === true ? { start_unmuted: true } : {}),
       ...(camera.two_way_talk === true ? { two_way_talk: true } : {}),
       ...(group ? { group } : {}),
       ...(linkedEntities.length ? { linked_entities: linkedEntities } : {}),
@@ -193,6 +194,9 @@ const compactCameraConfigForYaml = (camera) => {
   }
   if (normalized.two_way_talk === true) {
     compact.two_way_talk = true;
+  }
+  if (normalized.start_unmuted === true) {
+    compact.start_unmuted = true;
   }
   if (normalized.group) {
     compact.group = { ...normalized.group };

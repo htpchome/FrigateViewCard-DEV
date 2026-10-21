@@ -1230,6 +1230,7 @@ export class FrigateViewCard extends HTMLElement {
     if (deepLinkHandlingEnabled) {
       await this._deepLinkController.prepareStartupCameraTarget();
     }
+    getLiveAudioController(this).prepareCameraStart(this._activeCam);
 
     const initialLoad = this._browseWindowLoaderController.loadWindow(true);
     this._browseBackgroundWorkController.scheduleStartup({
@@ -1451,7 +1452,13 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _setActiveStreamType(type) {
-    return getLiveStreamStatusController(this).setActiveType(type);
+    const result = getLiveStreamStatusController(this).setActiveType(type);
+    if (
+      ["hls", "mse", "webrtc"].includes(String(type || "").toLowerCase())
+    ) {
+      getLiveAudioController(this).applyCameraStartPreference();
+    }
+    return result;
   }
 
   _setStreamFallbackVisible(visible, refreshImage = false) {
@@ -1839,6 +1846,7 @@ export class FrigateViewCard extends HTMLElement {
         this._clearLiveEngineSlot();
       }
       this._slideshowPageController.stop("grid-mode", false);
+      getLiveAudioController(this).cancelCameraStartPreference();
       this._setLiveMuted(true);
       this._gridRotationStart = Math.max(
         0,
@@ -1851,6 +1859,9 @@ export class FrigateViewCard extends HTMLElement {
     }
     const viewModeChanged = this._viewMode !== nextMode;
     this._viewMode = nextMode;
+    if (leavingGrid) {
+      getLiveAudioController(this).prepareCameraStart(this._activeCam);
+    }
     const restoredLiveAfterGrid = leavingGrid
       ? this._gridPageController.restoreLiveAfterGrid()
       : false;
@@ -2453,7 +2464,7 @@ export class FrigateViewCard extends HTMLElement {
       this._renderFilter();
     }
     this._renderList();
-    this._streamMuted = true;
+    getLiveAudioController(this).prepareCameraStart(this._activeCam);
     this._renderMuteButton();
     this._wideViewPageController?.renderCompanionCameras?.();
     this._cancelPendingMount(

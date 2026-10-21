@@ -811,6 +811,8 @@
       "options": "Options",
       "showAllReviews": "Afficher toutes les revues dans Alertes",
       "showAllReviewsHelp": "Frigate regroupe l'activité en revues pouvant contenir des alertes, des détections ou les deux. Activez cette option pour afficher toutes les revues dans l'onglet Alertes ; désactivez-la pour n'afficher que les alertes.",
+      "startCameraUnmuted": "Démarrer la caméra avec le son",
+      "startCameraUnmutedHelp": "Démarre cette caméra avec le son lorsque le navigateur autorise la lecture audio. Si la lecture automatique est bloquée, la vidéo en direct reste muette jusqu'à ce que vous interagissiez avec la page.",
       "enablePtz": "Activer les commandes PTZ",
       "ptzHelp": "Ajoute les commandes de panoramique et d'inclinaison lorsque la caméra les prend en charge.",
       "ptzRotation": "Rotation des commandes PTZ",

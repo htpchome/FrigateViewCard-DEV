@@ -811,6 +811,8 @@
       "options": "Opciones",
       "showAllReviews": "Mostrar todas las revisiones en Alertas",
       "showAllReviewsHelp": "Frigate agrupa la actividad en revisiones que pueden contener alertas, detecciones o ambas. Actívalo para mostrar todas las revisiones en la pestaña Alertas; desactívalo para mostrar solo alertas.",
+      "startCameraUnmuted": "Iniciar cámara con sonido",
+      "startCameraUnmutedHelp": "Inicia esta cámara con audio cuando el navegador permite la reproducción con sonido. Si la reproducción automática está bloqueada, el vídeo en directo permanece silenciado hasta que interactúes con la página.",
       "enablePtz": "Activar controles PTZ",
       "ptzHelp": "Añade controles de giro e inclinación cuando están disponibles.",
       "ptzRotation": "Rotación de los controles PTZ",
