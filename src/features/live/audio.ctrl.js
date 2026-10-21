@@ -81,6 +81,12 @@ export class LiveAudioController {
   _attemptCameraStartUnmute(engine, resolvedVideo = null) {
     const host = this._host;
 
+    if (
+      host._isLikelyMobileClient?.() === true &&
+      cameraStartsUnmuted(this._cameraStartUnmuteCamera)
+    ) {
+      this._scheduleDeferredStartUnmute(engine);
+    }
     this.setMuted(false);
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
@@ -95,23 +101,40 @@ export class LiveAudioController {
       return;
     }
     if (!playback?.then) {
-      this._cameraStartUnmuteCamera = null;
+      this._handleCameraStartUnmuteSuccess(engine);
       return;
     }
     playback.then(
-      () => {
-        if (engine === host._engine && host._streamMuted === false) {
-          this._cameraStartUnmuteCamera = null;
-          this._clearDeferredStartUnmute();
-        }
-      },
+      () => this._handleCameraStartUnmuteSuccess(engine),
       () => this._handleCameraStartUnmuteFailure(engine),
     );
   }
 
+  _handleCameraStartUnmuteSuccess(engine) {
+    const host = this._host;
+    if (engine !== host._engine || host._streamMuted !== false) return;
+    // iOS can resolve play() for muted autoplay without granting audible
+    // playback. Keep one real interaction armed even after apparent success.
+    if (
+      host._isLikelyMobileClient?.() === true &&
+      cameraStartsUnmuted(this._cameraStartUnmuteCamera)
+    ) {
+      this._scheduleDeferredStartUnmute(engine);
+      return;
+    }
+    this._cameraStartUnmuteCamera = null;
+    this._clearDeferredStartUnmute();
+  }
+
   _handleCameraStartUnmuteFailure(engine) {
     const host = this._host;
-    if (engine !== host._engine || host._streamMuted) return;
+    if (
+      !cameraStartsUnmuted(this._cameraStartUnmuteCamera) ||
+      engine !== host._engine ||
+      host._streamMuted
+    ) {
+      return;
+    }
     this.setMuted(true);
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
@@ -160,12 +183,6 @@ export class LiveAudioController {
       // whose rejected promise can otherwise remute an already unlocked video
       // on iOS WebKit.
       this.applyMuteChange(false);
-      try {
-        engineVideo?.pause?.();
-        engineVideo?.removeAttribute?.("muted");
-        const playback = engineVideo?.play?.();
-        playback?.catch?.(() => {});
-      } catch (_) {}
     };
     for (const target of targets) {
       target.addEventListener(
