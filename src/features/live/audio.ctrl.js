@@ -123,7 +123,9 @@ export class LiveAudioController {
   }
 
   _scheduleDeferredStartUnmute(engine) {
+    const engineVideo = this._resolveEngineVideo(engine);
     const targets = [
+      engineVideo,
       this._interactionTarget,
       this._host?.shadowRoot,
       this._host,
@@ -158,6 +160,12 @@ export class LiveAudioController {
       // whose rejected promise can otherwise remute an already unlocked video
       // on iOS WebKit.
       this.applyMuteChange(false);
+      try {
+        engineVideo?.pause?.();
+        engineVideo?.removeAttribute?.("muted");
+        const playback = engineVideo?.play?.();
+        playback?.catch?.(() => {});
+      } catch (_) {}
     };
     for (const target of targets) {
       target.addEventListener(

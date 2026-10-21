@@ -98,6 +98,8 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   const calls = [];
   const listeners = new Map();
   let allowPlayback = false;
+  let pauseCalls = 0;
+  let mutedAttributeRemoved = false;
   const listenerOptions = new Map();
   const interactionTarget = {
     addEventListener(type, handler, options) {
@@ -119,6 +121,12 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
       allowPlayback
         ? Promise.resolve()
         : Promise.reject(new DOMException("Blocked", "NotAllowedError")),
+    pause: () => {
+      pauseCalls += 1;
+    },
+    removeAttribute: (name) => {
+      if (name === "muted") mutedAttributeRemoved = true;
+    },
   };
   const engine = { video, tagName: "DIV", querySelector: () => video };
   const host = {
@@ -165,6 +173,8 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   assert.equal(video.muted, false);
   assert.equal(video.defaultMuted, false);
   assert.equal(video.volume, 1);
+  assert.equal(pauseCalls, 1);
+  assert.equal(mutedAttributeRemoved, true);
   assert.equal(listeners.size, 0);
   assert.deepEqual(calls, [
     "sync",
@@ -229,7 +239,7 @@ test("deferred startup audio leaves the live mute control transition alone", asy
   assert.equal(listeners.size, 0);
 });
 
-test("deferred startup audio observes interactions inside the card shadow root", async () => {
+test("deferred startup audio observes the active HA Direct media element", async () => {
   const createTarget = () => {
     const listeners = new Map();
     return {
@@ -247,13 +257,20 @@ test("deferred startup audio observes interactions inside the card shadow root",
   };
   const documentTarget = createTarget();
   const shadowTarget = createTarget();
+  const videoTarget = createTarget();
+  let pauseCalls = 0;
   const video = {
+    ...videoTarget,
     muted: true,
     defaultMuted: true,
     volume: 0,
     play: () => Promise.reject(new DOMException("Blocked", "NotAllowedError")),
+    pause: () => {
+      pauseCalls += 1;
+    },
+    removeAttribute: () => {},
   };
-  const engine = { video, tagName: "DIV", querySelector: () => video };
+  const engine = { tagName: "HA-CAMERA-STREAM" };
   const host = {
     shadowRoot: shadowTarget,
     _streamMuted: true,
@@ -272,10 +289,12 @@ test("deferred startup audio observes interactions inside the card shadow root",
   controller.applyCameraStartPreference();
   await new Promise((resolve) => setImmediate(resolve));
 
-  shadowTarget.dispatch("touchstart");
+  video.dispatch("touchstart");
 
   assert.equal(host._streamMuted, false);
   assert.equal(video.muted, false);
+  assert.equal(pauseCalls, 1);
+  assert.equal(video.listeners.size, 0);
   assert.equal(documentTarget.listeners.size, 0);
   assert.equal(shadowTarget.listeners.size, 0);
 });
