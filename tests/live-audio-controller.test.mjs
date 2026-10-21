@@ -176,9 +176,8 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   ]);
 });
 
-test("iOS startup audio stays muted until the first interaction", async () => {
+test("mobile startup audio keeps first-touch unmute armed after play resolves", async () => {
   const listeners = new Map();
-  let playCalls = 0;
   const interactionTarget = {
     addEventListener(type, handler) {
       listeners.set(type, handler);
@@ -194,10 +193,7 @@ test("iOS startup audio stays muted until the first interaction", async () => {
     muted: true,
     defaultMuted: true,
     volume: 0,
-    play: () => {
-      playCalls += 1;
-      return Promise.resolve();
-    },
+    play: () => Promise.resolve(),
   };
   const engine = {
     type: "frigate_go2rtc",
@@ -208,7 +204,7 @@ test("iOS startup audio stays muted until the first interaction", async () => {
     _streamMuted: true,
     _cameraStartUnmutePending: false,
     _engine: engine,
-    _isIOSClient: () => true,
+    _isLikelyMobileClient: () => true,
     _findVideoDeep: () => video,
     _cameraGroupLiveController: { syncAudio: () => {} },
     _renderMuteButton: () => {},
@@ -221,16 +217,59 @@ test("iOS startup audio stays muted until the first interaction", async () => {
   assert.equal(listeners.has("touchstart"), true);
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.equal(host._streamMuted, true);
-  assert.equal(video.muted, true);
-  assert.equal(playCalls, 0);
+  assert.equal(host._streamMuted, false);
   assert.equal(listeners.has("touchstart"), true);
 
   interactionTarget.dispatch("touchstart");
 
   assert.equal(host._streamMuted, false);
   assert.equal(video.muted, false);
-  assert.ok(playCalls > 0);
+  assert.equal(listeners.size, 0);
+});
+
+test("a late mobile autoplay rejection cannot undo first-touch unmute", async () => {
+  const listeners = new Map();
+  const interactionTarget = {
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (listeners.get(type) === handler) listeners.delete(type);
+    },
+    dispatch(type, event = {}) {
+      listeners.get(type)?.(event);
+    },
+  };
+  const video = {
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
+    play: () => Promise.reject(new DOMException("Blocked", "NotAllowedError")),
+  };
+  const engine = {
+    type: "frigate_go2rtc",
+    streamType: "webrtc",
+    video,
+  };
+  const host = {
+    _streamMuted: true,
+    _cameraStartUnmutePending: false,
+    _engine: engine,
+    _isLikelyMobileClient: () => true,
+    _findVideoDeep: () => video,
+    _cameraGroupLiveController: { syncAudio: () => {} },
+    _renderMuteButton: () => {},
+  };
+  const controller = new LiveAudioController(host, { interactionTarget });
+  host._setLiveMuted = (muted) => controller.setMuted(muted);
+
+  controller.prepareCameraStart({ start_unmuted: true });
+  controller.applyCameraStartPreference();
+  interactionTarget.dispatch("touchstart");
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(host._streamMuted, false);
+  assert.equal(video.muted, false);
   assert.equal(listeners.size, 0);
 });
 
