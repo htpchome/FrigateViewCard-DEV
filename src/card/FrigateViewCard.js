@@ -1270,6 +1270,10 @@ export class FrigateViewCard extends HTMLElement {
     return DEVICE_PROFILE.isMobile;
   }
 
+  _isIOSClient() {
+    return DEVICE_PROFILE.isIOS === true;
+  }
+
   _isLikelyPhoneClient() {
     return DEVICE_PROFILE.isPhone;
   }

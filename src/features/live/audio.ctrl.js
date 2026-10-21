@@ -66,6 +66,13 @@ export class LiveAudioController {
     const engine = host._engine;
     const video = this._resolveEngineVideo(engine);
 
+    if (
+      host._isIOSClient?.() === true &&
+      cameraStartsUnmuted(this._cameraStartUnmuteCamera)
+    ) {
+      this._scheduleDeferredStartUnmute(engine);
+      return true;
+    }
     this._attemptCameraStartUnmute(engine, video);
     return true;
   }
@@ -81,12 +88,6 @@ export class LiveAudioController {
   _attemptCameraStartUnmute(engine, resolvedVideo = null) {
     const host = this._host;
 
-    if (
-      host._isLikelyMobileClient?.() === true &&
-      cameraStartsUnmuted(this._cameraStartUnmuteCamera)
-    ) {
-      this._scheduleDeferredStartUnmute(engine);
-    }
     this.setMuted(false);
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
@@ -113,15 +114,6 @@ export class LiveAudioController {
   _handleCameraStartUnmuteSuccess(engine) {
     const host = this._host;
     if (engine !== host._engine || host._streamMuted !== false) return;
-    // iOS can resolve play() for muted autoplay without granting audible
-    // playback. Keep one real interaction armed even after apparent success.
-    if (
-      host._isLikelyMobileClient?.() === true &&
-      cameraStartsUnmuted(this._cameraStartUnmuteCamera)
-    ) {
-      this._scheduleDeferredStartUnmute(engine);
-      return;
-    }
     this._cameraStartUnmuteCamera = null;
     this._clearDeferredStartUnmute();
   }
