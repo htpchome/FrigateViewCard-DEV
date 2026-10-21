@@ -4,6 +4,7 @@ import {
   normalizeThemeCustomDefaultsConfig,
 } from "../../helpers.js";
 import { resolveThemeCustomOverrides } from "./config.js";
+import { HomeAssistantPhoneViewport } from "../../integrations/home-assistant/phone-viewport.js";
 
 const HA_DEFAULT_THEME_ALIASES = new Set([
   "",
@@ -216,6 +217,7 @@ export const resolveHomeAssistantThemeContext = (
 export class CardStyleContextController {
   constructor(host) {
     this._host = host;
+    this._phoneViewport = new HomeAssistantPhoneViewport(host);
     this._bubbleFullscreenElements = new Set();
     this._bubbleFullscreenPopoverOwned = false;
   }
@@ -385,6 +387,10 @@ export class CardStyleContextController {
       (this._host._isMobileViewPageActive?.() === true ||
         this._host._singleViewPageController?.isActive?.() === true)
     );
+  }
+
+  releasePhoneViewport() {
+    this._phoneViewport.release();
   }
 
   shouldSuppressOuterShadowForPhonePage() {
@@ -939,8 +945,20 @@ export class CardStyleContextController {
     const haCardHeight =
       hostComputedStyle?.getPropertyValue("--ha-card-height").trim() || "";
     let expandedForMinimumBrowseHeight = false;
+    const phoneBrowserHeight = this._phoneViewport.resolveHeight(
+      this.shouldConstrainPhonePageHeight() &&
+        !this._host._isPreviewContext() &&
+        this._host._isDashboardEditMode?.() !== true &&
+        embeddedPopupHeightPx == null && !this.isInEmbeddedPopup() &&
+        !constrainToHaGrid && numericHeight === 100 &&
+        (isPercentHeight || isViewportHeight),
+    );
 
-    if (embeddedPopupHeightPx != null && (isPercentHeight || isViewportHeight)) {
+    if (phoneBrowserHeight != null) {
+      requestedHeightPx = phoneBrowserHeight;
+      this._host.style.setProperty("--card-host-height", `${phoneBrowserHeight}px`);
+      card.style.setProperty("--view-height", `${phoneBrowserHeight}px`);
+    } else if (embeddedPopupHeightPx != null && (isPercentHeight || isViewportHeight)) {
       requestedHeightPx = Math.max(
         1,
         embeddedPopupHeightPx * (numericHeight / 100),

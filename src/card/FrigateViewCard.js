@@ -934,6 +934,7 @@ export class FrigateViewCard extends HTMLElement {
     this._haDirectMounter?.disconnect?.();
     this._cardStyleController.releaseBubbleFullscreenEscape();
     this._cardStyleController.releaseBubblePopupPadding();
+    this._cardStyleController.releasePhoneViewport();
     this._deepLinkController.disconnect();
     void this._stopPtzMotion("disconnected");
     this._popupPlaybackTargetController?.release("popup");

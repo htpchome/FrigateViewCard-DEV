@@ -269,6 +269,13 @@ Browser must not assume:
 `src/integrations/home-assistant/`
 
 - explicit Home Assistant-owned playback adapters and helpers for `ha_direct`, plus Home Assistant entity-service adapters used by linked controls
+- Home Assistant dashboard-shell adapters, including navbar placement and
+  standalone iPhone Safari full-height geometry. The phone viewport adapter
+  sizes Single/Mobile View from the visible viewport, unscrolled card origin,
+  and actual surrounding bottom spacing. It may release viewport-sized shell
+  height/min-height constraints only for a sole full-height card, restoring
+  them on exit, editing, or disconnect. It must not lock document scrolling,
+  change media ownership, or alter Companion, desktop, popup, or fixed-grid sizing.
 
 `src/shared/media/`
 

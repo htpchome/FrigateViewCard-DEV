@@ -735,6 +735,124 @@ test("phone tight-margin Single and Mobile Views fit the remaining viewport", as
   await context.close();
 });
 
+test("phone Safari sizes the full HA shell without scroll-driven growth", async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
+    viewport: { width: 390, height: 664 },
+  });
+  const page = await context.newPage();
+  await page.goto(baseUrl);
+  await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    document.body.style.margin = "0";
+    // Model an HA shell still sized to the larger viewport while Safari chrome is open.
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 900 });
+  });
+  for (const pageId of ["single-view", "mobile-view"]) {
+    for (const bottom of [false, true]) {
+      const first = await page.evaluate(({ pageId, bottom }) => {
+        const shell = document.createElement("hui-root");
+        const root = shell.attachShadow({ mode: "open" });
+        root.innerHTML = `<style>
+          :host { display:block; height:900px; min-height:900px; }
+          #view { height:900px; min-height:900px; box-sizing:border-box;
+            padding-top:${bottom ? 0 : 56}px; padding-bottom:${bottom ? 66 : 0}px; }
+          hui-view { display:block; height:100%; min-height:100%; }
+          .header { position:fixed; ${bottom ? "bottom" : "top"}:0; height:${bottom ? 66 : 56}px; }
+        </style><div class="header"></div><div id="view"><hui-view><div id="wrapper"></div></hui-view></div>`;
+        document.body.append(shell);
+        const card = document.createElement("frigate-view-card");
+        root.querySelector("#wrapper").append(card);
+        card.setConfig({ cameras: [{ entity: "camera.front" }], mobile_view_page_enabled: true,
+          stream_height: 100, stream_height_unit: "%", tight_margins: true });
+        card._pageId = pageId;
+        card.style.setProperty("--ha-card-height", "900px");
+        card._renderShell();
+        const viewportOwner = card._cardStyleController._phoneViewport;
+        const resolveHeight = viewportOwner.resolveHeight;
+        viewportOwner.release();
+        viewportOwner.resolveHeight = () => null;
+        card._applyCardStyle();
+        const legacyPageHeight = document.documentElement.scrollHeight;
+        viewportOwner.resolveHeight = resolveHeight;
+        card._applyCardStyle();
+        const browse = card.shadowRoot.querySelector(".browse");
+        const events = document.createElement("div");
+        events.style.cssText = "height:1500px;flex-shrink:0";
+        browse.append(events);
+        const read = () => ({
+          cardHeight: card.getBoundingClientRect().height,
+          shellHeight: shell.getBoundingClientRect().height,
+          pageHeight: document.documentElement.scrollHeight,
+          viewport: window.visualViewport.height,
+          browseHeight: browse.clientHeight,
+        });
+        window.phoneSizingProbe = { shell, root, card, browse, read };
+        return { ...read(), legacyPageHeight };
+      }, { pageId, bottom });
+      expect(first.legacyPageHeight).toBeGreaterThan(664);
+      expect(first.shellHeight).toBeCloseTo(664, 0);
+      expect(first.cardHeight).toBeCloseTo(664 - (bottom ? 66 : 56), 0);
+      expect(first.pageHeight).toBeLessThanOrEqual(665);
+      const scrolling = await page.evaluate(() => {
+        const { browse, card, read } = window.phoneSizingProbe;
+        browse.scrollTop = 30;
+        const browseScroll = browse.scrollTop;
+        const spacer = document.createElement("div");
+        spacer.style.height = "1000px";
+        document.body.append(spacer);
+        window.scrollTo(0, 40);
+        const outerScroll = window.scrollY;
+        card._applyCardStyle();
+        const result = { ...read(), browseScroll, outerScroll };
+        spacer.remove();
+        window.scrollTo(0, 0);
+        return result;
+      });
+      expect(scrolling.browseScroll).toBeGreaterThan(0);
+      expect(scrolling.outerScroll).toBeGreaterThan(0);
+      expect(scrolling.cardHeight).toBeCloseTo(first.cardHeight, 0);
+      await page.setViewportSize({ width: 390, height: 744 });
+      const expanded = await page.evaluate(() => {
+        window.phoneSizingProbe.card._applyCardStyle();
+        return window.phoneSizingProbe.read();
+      });
+      expect(expanded.shellHeight).toBeCloseTo(744, 0);
+      expect(expanded.cardHeight - first.cardHeight).toBeCloseTo(80, 0);
+      expect(expanded.browseHeight - first.browseHeight).toBeCloseTo(80, 0);
+      expect(expanded.pageHeight).toBeLessThanOrEqual(745);
+      await page.setViewportSize({ width: 390, height: 664 });
+      const restored = await page.evaluate(() => {
+        const { card, shell, root, read } = window.phoneSizingProbe;
+        card._applyCardStyle();
+        const collapsed = read();
+        card._isDashboardEditMode = () => true;
+        card._applyCardStyle();
+        const edit = { rootHeight: shell.style.height, viewHeight: root.querySelector("#view").style.height };
+        card._isDashboardEditMode = () => false;
+        card._applyCardStyle();
+        const sibling = document.createElement("hui-card");
+        sibling.style.cssText = "display:block;height:40px";
+        root.querySelector("#view").append(sibling);
+        card._applyCardStyle();
+        const multipleCards = { rootHeight: shell.style.height, viewHeight: root.querySelector("#view").style.height };
+        sibling.remove();
+        card._applyCardStyle();
+        card.remove();
+        const disconnected = { rootHeight: shell.style.height, viewHeight: root.querySelector("#view").style.height };
+        shell.remove();
+        return { collapsed, edit, multipleCards, disconnected };
+      });
+      expect(restored.collapsed.cardHeight).toBeCloseTo(first.cardHeight, 0);
+      expect(restored.edit).toEqual({ rootHeight: "", viewHeight: "" });
+      expect(restored.multipleCards).toEqual({ rootHeight: "", viewHeight: "" });
+      expect(restored.disconnected).toEqual({ rootHeight: "", viewHeight: "" });
+    }
+  }
+  await context.close();
+});
+
 test("Grid runtime stays dormant until desktop Grid is requested", async ({
   page,
 }) => {
