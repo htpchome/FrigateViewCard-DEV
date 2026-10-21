@@ -35,6 +35,7 @@ export class LiveAudioController {
     this._cameraStartUnmuteCamera = null;
     this._deferredStartUnmuteEngine = null;
     this._onDeferredStartUnmuteInteraction = null;
+    this._deferredStartUnmuteTargets = [];
   }
 
   resolveMuted() {
@@ -122,56 +123,95 @@ export class LiveAudioController {
   }
 
   _scheduleDeferredStartUnmute(engine) {
-    const target = this._interactionTarget;
+    const targets = [
+      this._interactionTarget,
+      this._host?.shadowRoot,
+      this._host,
+    ].filter(
+      (target, index, candidates) =>
+        Boolean(target?.addEventListener) && candidates.indexOf(target) === index,
+    );
     if (
       !this._cameraStartUnmuteCamera ||
-      !target?.addEventListener ||
+      !targets.length ||
       this._onDeferredStartUnmuteInteraction
     ) {
       return;
     }
     this._deferredStartUnmuteEngine = engine;
+    this._deferredStartUnmuteTargets = targets;
     this._onDeferredStartUnmuteInteraction = (event) => {
       // Let the mute control's own click handler own its state transition.
       if (isLiveMuteControlInteraction(event)) return;
       const deferredEngine = this._deferredStartUnmuteEngine;
       const configuredCamera = this._cameraStartUnmuteCamera;
-      this._clearDeferredStartUnmute();
       if (
         !configuredCamera ||
         !cameraStartsUnmuted(configuredCamera) ||
         deferredEngine !== this._host._engine
       ) {
+        this._clearDeferredStartUnmute();
         return;
       }
-      this._attemptCameraStartUnmute(deferredEngine);
+      // A trusted touch is the user's playback decision. Apply it through the
+      // same path as the mute button instead of rerunning the autoplay probe,
+      // whose rejected promise can otherwise remute an already unlocked video
+      // on iOS WebKit.
+      this.applyMuteChange(false);
     };
-    target.addEventListener("pointerup", this._onDeferredStartUnmuteInteraction, {
-      capture: true,
-      passive: true,
-    });
-    target.addEventListener("touchend", this._onDeferredStartUnmuteInteraction, {
-      capture: true,
-      passive: true,
-    });
-    target.addEventListener("click", this._onDeferredStartUnmuteInteraction);
-    target.addEventListener(
-      "keydown",
-      this._onDeferredStartUnmuteInteraction,
-    );
+    for (const target of targets) {
+      target.addEventListener(
+        "pointerdown",
+        this._onDeferredStartUnmuteInteraction,
+        {
+          capture: true,
+          passive: true,
+        },
+      );
+      target.addEventListener(
+        "touchstart",
+        this._onDeferredStartUnmuteInteraction,
+        {
+          capture: true,
+          passive: true,
+        },
+      );
+      target.addEventListener(
+        "pointerup",
+        this._onDeferredStartUnmuteInteraction,
+        {
+          capture: true,
+          passive: true,
+        },
+      );
+      target.addEventListener(
+        "touchend",
+        this._onDeferredStartUnmuteInteraction,
+        {
+          capture: true,
+          passive: true,
+        },
+      );
+      target.addEventListener("click", this._onDeferredStartUnmuteInteraction);
+      target.addEventListener("keydown", this._onDeferredStartUnmuteInteraction);
+    }
   }
 
   _clearDeferredStartUnmute() {
-    const target = this._interactionTarget;
     const handler = this._onDeferredStartUnmuteInteraction;
-    if (handler && target?.removeEventListener) {
-      target.removeEventListener("pointerup", handler, true);
-      target.removeEventListener("touchend", handler, true);
-      target.removeEventListener("click", handler);
-      target.removeEventListener("keydown", handler);
+    if (handler) {
+      for (const target of this._deferredStartUnmuteTargets) {
+        target.removeEventListener?.("pointerdown", handler, true);
+        target.removeEventListener?.("touchstart", handler, true);
+        target.removeEventListener?.("pointerup", handler, true);
+        target.removeEventListener?.("touchend", handler, true);
+        target.removeEventListener?.("click", handler);
+        target.removeEventListener?.("keydown", handler);
+      }
     }
     this._deferredStartUnmuteEngine = null;
     this._onDeferredStartUnmuteInteraction = null;
+    this._deferredStartUnmuteTargets = [];
   }
 
   dispose() {

@@ -135,6 +135,7 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
     setTimer: () => {},
     interactionTarget,
   });
+  host._setLiveMuted = (muted) => controller.setMuted(muted);
 
   controller.prepareCameraStart({ start_unmuted: true });
   controller.applyCameraStartPreference();
@@ -143,6 +144,8 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   assert.equal(host._streamMuted, true);
   assert.equal(video.muted, true);
   assert.deepEqual([...listeners.keys()], [
+    "pointerdown",
+    "touchstart",
     "pointerup",
     "touchend",
     "click",
@@ -155,7 +158,7 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   assert.deepEqual(calls, ["sync", "render", "sync", "render"]);
 
   allowPlayback = true;
-  interactionTarget.dispatch("touchend");
+  interactionTarget.dispatch("touchstart");
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(host._streamMuted, false);
@@ -224,6 +227,57 @@ test("deferred startup audio leaves the live mute control transition alone", asy
   controller.setMuted(false);
   assert.equal(host._streamMuted, false);
   assert.equal(listeners.size, 0);
+});
+
+test("deferred startup audio observes interactions inside the card shadow root", async () => {
+  const createTarget = () => {
+    const listeners = new Map();
+    return {
+      listeners,
+      addEventListener(type, handler) {
+        listeners.set(type, handler);
+      },
+      removeEventListener(type, handler) {
+        if (listeners.get(type) === handler) listeners.delete(type);
+      },
+      dispatch(type, event = {}) {
+        listeners.get(type)?.(event);
+      },
+    };
+  };
+  const documentTarget = createTarget();
+  const shadowTarget = createTarget();
+  const video = {
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
+    play: () => Promise.reject(new DOMException("Blocked", "NotAllowedError")),
+  };
+  const engine = { video, tagName: "DIV", querySelector: () => video };
+  const host = {
+    shadowRoot: shadowTarget,
+    _streamMuted: true,
+    _cameraStartUnmutePending: false,
+    _engine: engine,
+    _findVideoDeep: () => video,
+    _cameraGroupLiveController: { syncAudio: () => {} },
+    _renderMuteButton: () => {},
+  };
+  const controller = new LiveAudioController(host, {
+    interactionTarget: documentTarget,
+  });
+  host._setLiveMuted = (muted) => controller.setMuted(muted);
+
+  controller.prepareCameraStart({ start_unmuted: true });
+  controller.applyCameraStartPreference();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  shadowTarget.dispatch("touchstart");
+
+  assert.equal(host._streamMuted, false);
+  assert.equal(video.muted, false);
+  assert.equal(documentTarget.listeners.size, 0);
+  assert.equal(shadowTarget.listeners.size, 0);
 });
 
 test("Firefox MSE attempts startup audio immediately when autoplay is allowed", async () => {
@@ -344,7 +398,7 @@ test("changing cameras cancels a deferred startup unmute", async () => {
   controller.prepareCameraStart({ start_unmuted: true });
   controller.applyCameraStartPreference();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(listeners.size, 4);
+  assert.equal(listeners.size, 6);
 
   controller.prepareCameraStart({ start_unmuted: false });
 

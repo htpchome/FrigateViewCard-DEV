@@ -4039,6 +4039,9 @@ export class FrigateViewCard extends HTMLElement {
 
   _setLiveMuted(muted) {
     getLiveAudioController(this).setMuted(muted);
+    // HA Direct owns retained providers outside the visible presentation slot.
+    // Refresh their properties immediately instead of waiting for navigation.
+    this._haDirectMounter?.syncProviderStates?.();
   }
 
   _renderMuteButton() {
