@@ -132,6 +132,75 @@ test.afterAll(async () => {
   });
 });
 
+test("layout diagnostics are absent without the explicit URL flag", async ({ page }) => {
+  await page.goto(baseUrl);
+  await page.evaluate(() => import("/frigate-view-card.js"));
+  expect(await page.locator("#fvc-layout-diagnostics").count()).toBe(0);
+});
+
+test("layout diagnostics measure shadow ancestors without changing layout and can be removed", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  await page.goto(`${baseUrl}/?fvc_layout_debug=1`);
+  const before = await page.evaluate(async () => {
+    // A deliberately overflowing HA-like shell, not an assertion about real HA geometry.
+    customElements.define("frigate-view-card", class extends HTMLElement {});
+    document.body.style.margin = "0";
+    const shell = document.createElement("hui-root");
+    const shellRoot = shell.attachShadow({ mode: "open" });
+    shellRoot.innerHTML = `<style>:host{display:block}#view{height:500px;overflow-y:auto;padding-top:56px}.spacer{height:900px}</style>
+      <div class="header" style="height:56px"></div><div id="view"><frigate-view-card></frigate-view-card><div class="spacer"></div></div>`;
+    document.body.append(shell);
+    const card = shellRoot.querySelector("frigate-view-card");
+    card.style.cssText = "display:block;height:300px;--card-host-height:300px";
+    card._pageId = "mobile-view";
+    card._config = { stream_height: 100, stream_height_unit: "%", tight_margins: true, cameras: [{ entity: "camera.private_never_export" }] };
+    card._isLikelyPhoneClient = () => true;
+    card._isLikelyMobileClient = () => true;
+    card.attachShadow({ mode: "open" }).innerHTML = '<div class="card"><div class="layout"><div class="browse">Events</div></div></div>';
+    const read = () => ({
+      card: card.getBoundingClientRect().toJSON(),
+      shell: shell.getBoundingClientRect().toJSON(),
+      pageHeight: document.documentElement.scrollHeight,
+      style: card.getAttribute("style"),
+    });
+    window.layoutProbe = { read, shellRoot };
+    const baseline = read();
+    await import("/frigate-view-card.js");
+    return baseline;
+  });
+  const panel = page.locator("#fvc-layout-diagnostics");
+  await expect(panel).toBeVisible();
+  expect(await page.evaluate(() => window.layoutProbe.read())).toEqual(before);
+  await panel.getByRole("button", { name: "Details", exact: true }).click();
+  const readReport = () => page.evaluate(() => JSON.parse(document.getElementById("fvc-layout-diagnostics").shadowRoot.querySelector("#details").textContent));
+  const report = await readReport();
+  expect(report.version).toMatch(/^1\.1\./);
+  expect(report.viewport.visualHeight).toBeGreaterThan(0);
+  expect(report.cards[0]).toMatchObject({ phone: true, page: "mobile-view", configuredHeight: 100 });
+  expect(report.boxes.find((box) => box.label.includes("up1:div"))).toMatchObject({ client: 556, scroll: 1256, excess: 700 });
+  expect(JSON.stringify(report)).not.toContain("private_never_export");
+  await page.evaluate(() => { window.layoutProbe.shellRoot.querySelector("#view").scrollTop = 80; });
+  await expect(panel.locator("#summary")).toContainText("Last scroll: card1/up1:div");
+  await panel.getByRole("button", { name: "Freeze", exact: true }).click();
+  const frozen = await readReport();
+  await page.evaluate(() => { window.layoutProbe.shellRoot.querySelector("#view").scrollTop = 140; });
+  await page.waitForTimeout(1100);
+  expect(await readReport()).toEqual(frozen);
+  // Clipboard rejection must leave a manually copyable report on mobile.
+  await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("denied"); } } }));
+  await panel.getByRole("button", { name: "Copy report", exact: true }).click();
+  await expect(panel.locator("textarea")).toBeVisible();
+  const copied = JSON.parse(await panel.locator("textarea").inputValue());
+  expect(copied.initial.boxes.find((box) => box.label === "card1").height).toBe(300);
+  expect(copied.scrolls.some((entry) => entry.label === "card1/up1:div")).toBe(true);
+  await panel.getByRole("button", { name: "Resume", exact: true }).click();
+  await expect.poll(async () => (await readReport()).elapsedMs).toBeGreaterThan(frozen.elapsedMs);
+  await panel.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await page.waitForTimeout(1100);
+  await expect(panel).toHaveCount(0);
+});
+
 test("suspended Frigate cameras expose a transport-independent power control", async ({
   page,
 }) => {

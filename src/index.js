@@ -11,9 +11,11 @@ import { DEVICE_PROFILE } from "./helpers.js";
 import { installLazyHomeAssistantDashboardNavbarCustomization } from "./integrations/home-assistant/navbar.loader.js";
 import { installLazyHomeAssistantDashboardSwipeNavigation } from "./integrations/home-assistant/dashboard-swipe-navigation.loader.js";
 import { installDeepLinkHashRouteBridge } from "./features/navigation/deep-link.ctrl.js";
+import { installLayoutDiagnostics } from "./integrations/home-assistant/layout-diagnostics.js";
 
 // index.js — registers custom elements and announces card to HA
 installDeepLinkHashRouteBridge();
+installLayoutDiagnostics();
 if (!customElements.get(CARD_TAG))
   customElements.define(CARD_TAG, FrigateViewCard);
 for (const legacyTag of LEGACY_CARD_TAGS) {
