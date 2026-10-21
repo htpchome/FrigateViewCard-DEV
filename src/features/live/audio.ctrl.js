@@ -5,6 +5,20 @@ import { buildLiveMuteControlMarkup } from "./view.tmpl.js";
 export const cameraStartsUnmuted = (camera) =>
   camera?.start_unmuted === true;
 
+const LIVE_MUTE_CONTROL_IDS = new Set([
+  "mute-btn",
+  "mobile-view-mute-btn",
+  "two-way-talk-mute-btn",
+]);
+
+const isLiveMuteControlInteraction = (event) => {
+  const path =
+    typeof event?.composedPath === "function"
+      ? event.composedPath()
+      : [event?.target];
+  return path.some((element) => LIVE_MUTE_CONTROL_IDS.has(element?.id));
+};
+
 export class LiveAudioController {
   constructor(
     host,
@@ -117,7 +131,9 @@ export class LiveAudioController {
       return;
     }
     this._deferredStartUnmuteEngine = engine;
-    this._onDeferredStartUnmuteInteraction = () => {
+    this._onDeferredStartUnmuteInteraction = (event) => {
+      // Let the mute control's own click handler own its state transition.
+      if (isLiveMuteControlInteraction(event)) return;
       const deferredEngine = this._deferredStartUnmuteEngine;
       const configuredCamera = this._cameraStartUnmuteCamera;
       this._clearDeferredStartUnmute();
@@ -130,6 +146,14 @@ export class LiveAudioController {
       }
       this._attemptCameraStartUnmute(deferredEngine);
     };
+    target.addEventListener("pointerup", this._onDeferredStartUnmuteInteraction, {
+      capture: true,
+      passive: true,
+    });
+    target.addEventListener("touchend", this._onDeferredStartUnmuteInteraction, {
+      capture: true,
+      passive: true,
+    });
     target.addEventListener("click", this._onDeferredStartUnmuteInteraction);
     target.addEventListener(
       "keydown",
@@ -141,6 +165,8 @@ export class LiveAudioController {
     const target = this._interactionTarget;
     const handler = this._onDeferredStartUnmuteInteraction;
     if (handler && target?.removeEventListener) {
+      target.removeEventListener("pointerup", handler, true);
+      target.removeEventListener("touchend", handler, true);
       target.removeEventListener("click", handler);
       target.removeEventListener("keydown", handler);
     }

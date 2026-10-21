@@ -858,6 +858,42 @@ test("reserves both relocated header rows above final dashboard actions", () => 
   assert.equal(h.getTargets().view.style.getPropertyValue("padding-bottom"), "");
 });
 
+test("detached card-editor owners cannot retain dashboard edit clearance", () => {
+  const h = createHarness({ dashboardEditMode: true, dashboardScope: true });
+  const detachedHost = {
+    ...h.host,
+    _isLikelyMobileClient: () => true,
+    _isLikelyPhoneClient: () => true,
+    _isDashboardEditMode: () => true,
+  };
+  const detached = new HomeAssistantNavbarController(detachedHost, {
+    MutationObserverCtor: FakeMutationObserver,
+    documentRef: h.documentRef,
+    windowRef: h.windowRef,
+    isIOS: true,
+  });
+
+  assert.equal(h.controller.sync(), true);
+  assert.equal(detached.sync(), true);
+  assert.match(
+    h.getTargets().view.style.getPropertyValue("padding-bottom"),
+    /header-height.*header-height/,
+  );
+
+  detachedHost.isConnected = false;
+  detached.disconnect();
+  h.host._dashboardEditMode = false;
+  assert.equal(h.controller.sync(), true);
+
+  assert.equal(
+    h.getTargets().view.style.getPropertyValue("padding-bottom"),
+    "calc(var(--header-height, 56px) + 10px + (var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) * 0.25))",
+  );
+
+  detached.disconnect({ force: true });
+  h.controller.disconnect({ force: true });
+});
+
 test("reserves bottom safe-area padding only for a bottom navbar", () => {
   const top = createHarness({ moveBottom: false });
   assert.equal(top.controller.homeAssistantViewContentHeightPx(), 741);

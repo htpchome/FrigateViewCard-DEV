@@ -357,7 +357,8 @@ const applyManagedTargets = (state) => {
     return false;
   }
 
-  const ownerOptions = [...state.owners.values()];
+  const ownerEntries = [...state.owners.entries()];
+  const ownerOptions = ownerEntries.map(([, options]) => options);
   const isIOS = ownerOptions.some(
     (options) => options?.isIOS === true,
   );
@@ -376,8 +377,10 @@ const applyManagedTargets = (state) => {
     ownerOptions.some(
       (options) => options?.promoteViewInLandscape === true,
     );
-  const reserveDashboardEditActions = ownerOptions.some(
-    (options) => options?.reserveDashboardEditActions === true,
+  const reserveDashboardEditActions = ownerEntries.some(
+    ([owner, options]) =>
+      options?.reserveDashboardEditActions === true &&
+      owner?._host?.isConnected !== false,
   );
   const headerStyles = resolveHeaderBottomStyles(isIOS);
   const viewStyles = resolveViewBottomStyles(
