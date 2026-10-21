@@ -11,11 +11,16 @@ export class LiveAudioController {
     {
       icons = ICONS,
       setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
+      interactionTarget = globalThis.document,
     } = {},
   ) {
     this._host = host;
     this._icons = icons;
     this._setTimer = (callback, delay) => setTimer(callback, delay);
+    this._interactionTarget = interactionTarget;
+    this._cameraStartUnmuteCamera = null;
+    this._deferredStartUnmuteEngine = null;
+    this._onDeferredStartUnmuteInteraction = null;
   }
 
   resolveMuted() {
@@ -24,13 +29,19 @@ export class LiveAudioController {
 
   prepareCameraStart(camera) {
     const host = this._host;
+    this._clearDeferredStartUnmute();
     host._cameraStartUnmutePending = cameraStartsUnmuted(camera);
+    this._cameraStartUnmuteCamera = host._cameraStartUnmutePending
+      ? camera
+      : null;
     // Establish media muted so browser autoplay policy cannot stall startup.
     host._streamMuted = true;
   }
 
   cancelCameraStartPreference() {
     this._host._cameraStartUnmutePending = false;
+    this._cameraStartUnmuteCamera = null;
+    this._clearDeferredStartUnmute();
   }
 
   applyCameraStartPreference() {
@@ -38,6 +49,13 @@ export class LiveAudioController {
     if (host._cameraStartUnmutePending !== true || !host._engine) return false;
     host._cameraStartUnmutePending = false;
     const engine = host._engine;
+
+    this._attemptCameraStartUnmute(engine);
+    return true;
+  }
+
+  _attemptCameraStartUnmute(engine) {
+    const host = this._host;
 
     this.setMuted(false);
     host._cameraGroupLiveController?.syncAudio?.();
@@ -52,15 +70,76 @@ export class LiveAudioController {
     try {
       playback = video?.play?.();
     } catch (_) {
-      playback = null;
+      this._handleCameraStartUnmuteFailure(engine);
+      return;
     }
-    playback?.catch?.(() => {
-      if (engine !== host._engine || host._streamMuted) return;
-      this.setMuted(true);
-      host._cameraGroupLiveController?.syncAudio?.();
-      host._renderMuteButton?.();
-    });
-    return true;
+    if (!playback?.then) {
+      this._cameraStartUnmuteCamera = null;
+      return;
+    }
+    playback.then(
+      () => {
+        if (engine === host._engine && host._streamMuted === false) {
+          this._cameraStartUnmuteCamera = null;
+          this._clearDeferredStartUnmute();
+        }
+      },
+      () => this._handleCameraStartUnmuteFailure(engine),
+    );
+  }
+
+  _handleCameraStartUnmuteFailure(engine) {
+    const host = this._host;
+    if (engine !== host._engine || host._streamMuted) return;
+    this.setMuted(true);
+    host._cameraGroupLiveController?.syncAudio?.();
+    host._renderMuteButton?.();
+    this._scheduleDeferredStartUnmute(engine);
+  }
+
+  _scheduleDeferredStartUnmute(engine) {
+    const target = this._interactionTarget;
+    if (
+      !this._cameraStartUnmuteCamera ||
+      !target?.addEventListener ||
+      this._onDeferredStartUnmuteInteraction
+    ) {
+      return;
+    }
+    this._deferredStartUnmuteEngine = engine;
+    this._onDeferredStartUnmuteInteraction = () => {
+      const deferredEngine = this._deferredStartUnmuteEngine;
+      const configuredCamera = this._cameraStartUnmuteCamera;
+      this._clearDeferredStartUnmute();
+      if (
+        !configuredCamera ||
+        !cameraStartsUnmuted(configuredCamera) ||
+        deferredEngine !== this._host._engine
+      ) {
+        return;
+      }
+      this._attemptCameraStartUnmute(deferredEngine);
+    };
+    target.addEventListener("click", this._onDeferredStartUnmuteInteraction);
+    target.addEventListener(
+      "keydown",
+      this._onDeferredStartUnmuteInteraction,
+    );
+  }
+
+  _clearDeferredStartUnmute() {
+    const target = this._interactionTarget;
+    const handler = this._onDeferredStartUnmuteInteraction;
+    if (handler && target?.removeEventListener) {
+      target.removeEventListener("click", handler);
+      target.removeEventListener("keydown", handler);
+    }
+    this._deferredStartUnmuteEngine = null;
+    this._onDeferredStartUnmuteInteraction = null;
+  }
+
+  dispose() {
+    this.cancelCameraStartPreference();
   }
 
   buildControlMarkup({ buttonClass = "square-btn" } = {}) {

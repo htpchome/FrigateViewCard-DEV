@@ -1053,6 +1053,7 @@ export class FrigateViewCard extends HTMLElement {
     this._displayedFrameCaptureController?.dispose();
     this._liveViewResizeController?.dispose();
     this._cameraGroupLiveController?.teardown?.();
+    this._liveAudioController?.dispose?.();
     this._liveFullscreenLifecycleController?.dispose();
     this._pictureInPictureController?.dispose?.();
     this._popupPlaybackTargetController?.dispose?.();
