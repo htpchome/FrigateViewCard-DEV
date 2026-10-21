@@ -19,6 +19,8 @@ export class LiveAudioController {
     this._setTimer = (callback, delay) => setTimer(callback, delay);
     this._interactionTarget = interactionTarget;
     this._cameraStartUnmuteCamera = null;
+    this._startUnmuteInteractionObserved = false;
+    this._onStartUnmuteInteraction = null;
     this._deferredStartUnmuteEngine = null;
     this._onDeferredStartUnmuteInteraction = null;
   }
@@ -30,10 +32,15 @@ export class LiveAudioController {
   prepareCameraStart(camera) {
     const host = this._host;
     this._clearDeferredStartUnmute();
+    this._clearStartUnmuteInteractionObserver();
+    this._startUnmuteInteractionObserved = false;
     host._cameraStartUnmutePending = cameraStartsUnmuted(camera);
     this._cameraStartUnmuteCamera = host._cameraStartUnmutePending
       ? camera
       : null;
+    if (host._cameraStartUnmutePending) {
+      this._observeStartUnmuteInteraction();
+    }
     // Establish media muted so browser autoplay policy cannot stall startup.
     host._streamMuted = true;
   }
@@ -41,6 +48,7 @@ export class LiveAudioController {
   cancelCameraStartPreference() {
     this._host._cameraStartUnmutePending = false;
     this._cameraStartUnmuteCamera = null;
+    this._clearStartUnmuteInteractionObserver();
     this._clearDeferredStartUnmute();
   }
 
@@ -49,12 +57,59 @@ export class LiveAudioController {
     if (host._cameraStartUnmutePending !== true || !host._engine) return false;
     host._cameraStartUnmutePending = false;
     const engine = host._engine;
+    const video = this._resolveEngineVideo(engine);
 
-    this._attemptCameraStartUnmute(engine);
+    if (this._shouldDeferCameraStartUnmute()) {
+      this._clearStartUnmuteInteractionObserver();
+      this._scheduleDeferredStartUnmute(engine);
+      return true;
+    }
+
+    this._clearStartUnmuteInteractionObserver();
+    this._attemptCameraStartUnmute(engine, video);
     return true;
   }
 
-  _attemptCameraStartUnmute(engine) {
+  _resolveEngineVideo(engine) {
+    return (
+      engine?.video ||
+      (engine?.tagName?.toLowerCase() === "video" ? engine : null) ||
+      this._host._findVideoDeep?.(engine)
+    );
+  }
+
+  _shouldDeferCameraStartUnmute() {
+    const streamType = String(
+      this._host._currentLiveStreamHint?.() || "",
+    ).toLowerCase();
+    return (
+      this._host._isFirefox?.() === true &&
+      streamType === "mse" &&
+      this._startUnmuteInteractionObserved !== true
+    );
+  }
+
+  _observeStartUnmuteInteraction() {
+    const target = this._interactionTarget;
+    if (!target?.addEventListener || this._onStartUnmuteInteraction) return;
+    this._onStartUnmuteInteraction = () => {
+      this._startUnmuteInteractionObserved = true;
+    };
+    target.addEventListener("click", this._onStartUnmuteInteraction);
+    target.addEventListener("keydown", this._onStartUnmuteInteraction);
+  }
+
+  _clearStartUnmuteInteractionObserver() {
+    const target = this._interactionTarget;
+    const handler = this._onStartUnmuteInteraction;
+    if (handler && target?.removeEventListener) {
+      target.removeEventListener("click", handler);
+      target.removeEventListener("keydown", handler);
+    }
+    this._onStartUnmuteInteraction = null;
+  }
+
+  _attemptCameraStartUnmute(engine, resolvedVideo = null) {
     const host = this._host;
 
     this.setMuted(false);
@@ -62,10 +117,7 @@ export class LiveAudioController {
     host._renderMuteButton?.();
     host._engineMountedMuted = false;
 
-    const video =
-      engine.video ||
-      (engine.tagName?.toLowerCase() === "video" ? engine : null) ||
-      host._findVideoDeep?.(engine);
+    const video = resolvedVideo || this._resolveEngineVideo(engine);
     let playback = null;
     try {
       playback = video?.play?.();
@@ -94,6 +146,10 @@ export class LiveAudioController {
     this.setMuted(true);
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
+    const video = this._resolveEngineVideo(engine);
+    try {
+      video?.play?.()?.catch?.(() => {});
+    } catch (_) {}
     this._scheduleDeferredStartUnmute(engine);
   }
 
@@ -111,6 +167,7 @@ export class LiveAudioController {
       const deferredEngine = this._deferredStartUnmuteEngine;
       const configuredCamera = this._cameraStartUnmuteCamera;
       this._clearDeferredStartUnmute();
+      this._startUnmuteInteractionObserved = true;
       if (
         !configuredCamera ||
         !cameraStartsUnmuted(configuredCamera) ||

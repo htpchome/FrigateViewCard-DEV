@@ -162,6 +162,99 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   ]);
 });
 
+test("fresh-page autoplay restrictions defer unmute without interrupting MSE playback", async () => {
+  const listeners = new Map();
+  const interactionTarget = {
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (listeners.get(type) === handler) listeners.delete(type);
+    },
+    dispatch(type) {
+      listeners.get(type)?.();
+    },
+  };
+  const video = {
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
+    playCalls: 0,
+    play() {
+      this.playCalls += 1;
+      return Promise.resolve();
+    },
+  };
+  const host = {
+    _streamMuted: true,
+    _cameraStartUnmutePending: false,
+    _engine: { video, tagName: "DIV", querySelector: () => video },
+    _findVideoDeep: () => video,
+    _isFirefox: () => true,
+    _currentLiveStreamHint: () => "mse",
+    _cameraGroupLiveController: { syncAudio: () => {} },
+    _renderMuteButton: () => {},
+  };
+  const controller = new LiveAudioController(host, {
+    setTimer: () => {},
+    interactionTarget,
+  });
+
+  controller.prepareCameraStart({ start_unmuted: true });
+  assert.equal(controller.applyCameraStartPreference(), true);
+
+  assert.equal(host._streamMuted, true);
+  assert.equal(video.muted, true);
+  assert.equal(video.playCalls, 0);
+  assert.deepEqual([...listeners.keys()], ["click", "keydown"]);
+
+  interactionTarget.dispatch("click");
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(host._streamMuted, false);
+  assert.equal(video.muted, false);
+  assert.equal(video.playCalls > 0, true);
+  assert.equal(listeners.size, 0);
+});
+
+test("rejected startup audio explicitly resumes the retained player muted", async () => {
+  let allowPlayback = false;
+  let mutedResumeCalls = 0;
+  const video = {
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
+    play() {
+      if (allowPlayback) {
+        if (this.muted) mutedResumeCalls += 1;
+        return Promise.resolve();
+      }
+      return Promise.reject(new DOMException("Blocked", "NotAllowedError"));
+    },
+  };
+  const host = {
+    _streamMuted: true,
+    _cameraStartUnmutePending: false,
+    _engine: { video, tagName: "DIV", querySelector: () => video },
+    _findVideoDeep: () => video,
+    _cameraGroupLiveController: { syncAudio: () => {} },
+    _renderMuteButton: () => {},
+  };
+  const controller = new LiveAudioController(host, {
+    setTimer: () => {},
+    interactionTarget: null,
+  });
+
+  controller.prepareCameraStart({ start_unmuted: true });
+  controller.applyCameraStartPreference();
+  allowPlayback = true;
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(host._streamMuted, true);
+  assert.equal(video.muted, true);
+  assert.equal(mutedResumeCalls, 1);
+});
+
 test("changing cameras cancels a deferred startup unmute", async () => {
   const listeners = new Map();
   const interactionTarget = {
