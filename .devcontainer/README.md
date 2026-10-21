@@ -234,26 +234,6 @@ Then reopen the devcontainer in VS Code.
 - **Multiple browsers**: Test in an incognito/private window to avoid cache issues.
 - **Frigate API**: Access the Frigate API directly at `http://localhost:5000/api/` for debugging.
 
-## Temporary phone layout diagnostics
-
-On the dashboard URL, add `?fvc_layout_debug=1` (or `&fvc_layout_debug=1`
-if it already has a query string), before any `#` fragment, then reload.
-The panel displays the loaded card version; no console or YAML change is needed.
-It is disabled by default and does not persist its reports or send them anywhere.
-
-Reproduce the page scrolling outside the panel, then tap **Freeze** and
-**Copy report**. The report includes the first observed card layout, five recent
-samples, and recent scroll targets, including Shadow DOM ancestors. It records
-geometry and sizing flags, not camera names, stream URLs, entity states, or tokens.
-If clipboard access fails, select and copy the report from the displayed text box.
-**Minimize** reduces obstruction while reproducing; **Close** removes the panel,
-timer, and scroll listeners. Remove the URL flag to keep it off after reload.
-
-This is measurement tooling, not a Safari layout correction. For complete source
-removal, delete `src/integrations/home-assistant/layout-diagnostics.js`, remove its
-import and installer call in `src/index.js`, remove the two `layout diagnostics`
-tests in `tests/browser/module-load.spec.mjs` and this section, then rebuild.
-
 ## Requirements
 
 - Docker Desktop (Windows/Mac) or Docker Engine (Linux)
