@@ -813,6 +813,8 @@
       "showAllReviewsHelp": "Frigate gruppiert Aktivitäten in Reviews, die Alarme, Erkennungen oder beides enthalten können. Aktivieren, um alle Reviews im Tab „Alarme“ anzuzeigen; deaktivieren, um nur Alarme anzuzeigen.",
       "startCameraUnmuted": "Kamera mit Ton starten",
       "startCameraUnmutedHelp": "Startet diese Kamera mit Ton, wenn der Browser die Audiowiedergabe zulässt. Wenn die automatische Wiedergabe blockiert wird, bleibt das Livevideo stumm, bis Sie mit der Seite interagieren.",
+      "muted": "Stummgeschaltet",
+      "unmuted": "Nicht stummgeschaltet",
       "enablePtz": "PTZ-Steuerung aktivieren",
       "ptzHelp": "Fügt Schwenk- und Neigesteuerung hinzu, wenn unterstützt.",
       "ptzRotation": "Drehung der PTZ-Steuerung",

@@ -80,18 +80,19 @@ test("camera summaries only show configured capabilities with friendly light nam
       ptz: null,
       two_way_talk: false,
     }),
-    "Frigate go2rtc · Alerts only",
+    "Frigate go2rtc · Alerts only · Muted",
   );
   assert.equal(
     editor._cameraMetaLabel({
       entity: "camera.doorbell",
       connection_type: "frigate_go2rtc",
       alerts_content: "alerts_only",
+      start_unmuted: true,
       ptz: { enabled: true },
       two_way_talk: true,
       linked_entities: [{ entity: "light.porch_light" }],
     }),
-    "Frigate go2rtc · Alerts only · PTZ on · Two-Way Talk on · Light: Porch Light",
+    "Frigate go2rtc · Alerts only · Unmuted · PTZ on · Two-Way Talk on · Light: Porch Light",
   );
 });
 
@@ -769,6 +770,7 @@ test("camera modal accordion summaries reflect only configured values", () => {
       dataset: { value: "light.porch" },
     },
     "#camera-modal-light-entity-2": { value: "", dataset: { value: "" } },
+    "#camera-modal-start-unmuted": { checked: true },
     "#camera-modal-ptz-enabled": { checked: true },
     "#camera-modal-two-way-talk-enabled": { checked: true },
     "#camera-modal-connection-summary": summary(),
@@ -794,19 +796,23 @@ test("camera modal accordion summaries reflect only configured values", () => {
   assert.equal(nodes["#camera-modal-connection-summary"].textContent, "Home Assistant");
   assert.equal(nodes["#camera-modal-additional-summary"].textContent, "Package Camera");
   assert.equal(nodes["#camera-modal-lights-summary"].textContent, "Porch Light");
-  assert.equal(nodes["#camera-modal-options-summary"].textContent, "PTZ · Two-Way Talk");
+  assert.equal(
+    nodes["#camera-modal-options-summary"].textContent,
+    "Unmuted · PTZ · Two-Way Talk",
+  );
   assert.equal(nodes["#camera-modal-options-summary"].hidden, false);
 
   editor._cameraModalGroupEnabled = false;
   editor._cameraModalLightEnabled = false;
+  nodes["#camera-modal-start-unmuted"].checked = false;
   nodes["#camera-modal-ptz-enabled"].checked = false;
   nodes["#camera-modal-two-way-talk-enabled"].checked = false;
   editor._syncCameraModalAccordionSummaries();
 
   assert.equal(nodes["#camera-modal-additional-summary"].textContent, "None configured");
   assert.equal(nodes["#camera-modal-lights-summary"].textContent, "None configured");
-  assert.equal(nodes["#camera-modal-options-summary"].textContent, "");
-  assert.equal(nodes["#camera-modal-options-summary"].hidden, true);
+  assert.equal(nodes["#camera-modal-options-summary"].textContent, "Muted");
+  assert.equal(nodes["#camera-modal-options-summary"].hidden, false);
 });
 
 test("limited display text removes control characters and stops at 24 characters", () => {

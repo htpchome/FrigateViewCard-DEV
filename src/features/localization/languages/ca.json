@@ -813,6 +813,8 @@
       "showAllReviewsHelp": "Frigate agrupa l'activitat en revisions que poden contenir alertes, deteccions o totes dues. Activa-ho per mostrar totes les revisions a la pestanya Alertes; desactiva-ho per mostrar només les alertes.",
       "startCameraUnmuted": "Inicia la càmera amb so",
       "startCameraUnmutedHelp": "Inicia aquesta càmera amb àudio quan el navegador permet la reproducció amb so. Si la reproducció automàtica està bloquejada, el vídeo en directe roman silenciat fins que interactuïs amb la pàgina.",
+      "muted": "Silenciat",
+      "unmuted": "Amb so",
       "enablePtz": "Activa els controls PTZ",
       "ptzHelp": "Afegeix controls de panoràmica i inclinació quan la càmera els admet.",
       "ptzRotation": "Rotació dels controls PTZ",

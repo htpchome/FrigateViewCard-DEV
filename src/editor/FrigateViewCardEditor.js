@@ -1901,6 +1901,12 @@ export class FrigateViewCardEditor extends HTMLElement {
     return value === true ? "Two-Way Talk on" : "";
   }
 
+  _cameraStartAudioLabel(value) {
+    return value === true
+      ? this._t("editor.cameraModal.unmuted")
+      : this._t("editor.cameraModal.muted");
+  }
+
   _cameraLinkedLightLabel(camera) {
     const names = linkedLightsForCamera(camera).map(({ entity }) =>
       linkedLightFriendlyName(entity, this._hass?.states?.[entity]),
@@ -1922,6 +1928,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         : []),
       this._cameraConnectionLabel(camera?.connection_type),
       this._cameraAlertsContentLabel(camera?.alerts_content),
+      this._cameraStartAudioLabel(camera?.start_unmuted),
       this._cameraPtzLabel(camera?.ptz),
       this._cameraTwoWayTalkLabel(camera?.two_way_talk),
       this._cameraLinkedLightLabel(camera),
@@ -2048,7 +2055,13 @@ export class FrigateViewCardEditor extends HTMLElement {
       lights.join(", ") || this._t("editor.cameraModal.noneConfigured"),
     );
 
-    const options = [];
+    const options = [
+      this._cameraStartAudioLabel(
+        resolveSwitchChecked(
+          this.querySelector("#camera-modal-start-unmuted"),
+        ),
+      ),
+    ];
     if (resolveSwitchChecked(this.querySelector("#camera-modal-ptz-enabled"))) {
       options.push("PTZ");
     }
@@ -5228,10 +5241,14 @@ export class FrigateViewCardEditor extends HTMLElement {
         }),
     );
     ["value-changed", "change"].forEach((eventName) => {
-      this.querySelector("#camera-modal-two-way-talk-enabled")?.addEventListener(
-        eventName,
-        () => this._syncCameraModalAccordionSummaries(),
-      );
+      [
+        "#camera-modal-start-unmuted",
+        "#camera-modal-two-way-talk-enabled",
+      ].forEach((selector) => {
+        this.querySelector(selector)?.addEventListener(eventName, () =>
+          this._syncCameraModalAccordionSummaries(),
+        );
+      });
     });
     this.querySelector("#camera-modal-ptz-enabled")?.addEventListener(
       "change",
