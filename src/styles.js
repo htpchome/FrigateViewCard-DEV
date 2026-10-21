@@ -25,6 +25,16 @@ export const STYLES_BEFORE_CARD_VIEW = `
   }
   :host(.outer-shadows-off) { box-shadow: none; }
   :host(.outer-corners-off) { border-radius: 0; }
+  :host(.phone-safari-viewport-constrained) {
+    height: min(
+      var(--card-host-height, 100%),
+      var(--fvc-phone-safari-viewport-height)
+    ) !important;
+    max-height: min(
+      var(--card-host-height, 100%),
+      var(--fvc-phone-safari-viewport-height)
+    ) !important;
+  }
   :host(.card-picker-demo-host) {
     --card-host-height: 360px !important;
     height: 360px !important;

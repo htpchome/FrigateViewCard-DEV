@@ -1904,8 +1904,10 @@ test("minimum usable height overrides compact percent and dvh heights", () => {
   assert.equal(parentElement.style.height, "auto");
 });
 
-test("phone Safari keeps Single and Mobile Views within the usable viewport", () => {
+test("phone Single and Mobile Views do not expand for minimum event rows", () => {
   let page = "single";
+  const classes = new Map();
+  const style = createInlineStyle();
   const host = {
     _isLikelyPhoneClient: () => true,
     _isSafari: () => true,
@@ -1916,6 +1918,15 @@ test("phone Safari keeps Single and Mobile Views within the usable viewport", ()
     _wideViewPageController: {
       isWideViewPageActive: () => false,
     },
+    _config: {},
+    _haNavbarController: {
+      bottomNavbarReservedHeightPx: () => 66,
+    },
+    classList: {
+      toggle: (name, enabled) => classes.set(name, enabled),
+    },
+    getBoundingClientRect: () => ({ top: 56 }),
+    style,
   };
   const controller = new CardStyleContextController(host);
   controller.resolveMinimumUsableHostHeightPx = () => 652;
@@ -1929,6 +1940,35 @@ test("phone Safari keeps Single and Mobile Views within the usable viewport", ()
       { heightPx: 444, expanded: false },
     );
   }
+
+  host._isSafari = () => false;
+  assert.deepEqual(
+    controller.resolveUsableHostHeight({
+      card: {},
+      resolvedHeightPx: 444,
+    }),
+    { heightPx: 444, expanded: false },
+  );
+  host._isSafari = () => true;
+
+  controller.syncHostOuterStyles();
+  assert.equal(classes.get("phone-safari-viewport-constrained"), true);
+  assert.equal(
+    style.getPropertyValue("--fvc-phone-safari-viewport-height"),
+    "calc(100dvh - 122px)",
+  );
+  assert.match(
+    STYLES,
+    /:host\(\.phone-safari-viewport-constrained\)[\s\S]*?height: min\([\s\S]*?--fvc-phone-safari-viewport-height/,
+  );
+
+  host._isSafari = () => false;
+  controller.syncHostOuterStyles();
+  assert.equal(classes.get("phone-safari-viewport-constrained"), false);
+  assert.equal(
+    style.getPropertyValue("--fvc-phone-safari-viewport-height"),
+    "",
+  );
 });
 
 test("Panel Single, Mobile, and Wide Views keep full constrained height", () => {

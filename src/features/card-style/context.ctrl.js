@@ -22,6 +22,10 @@ const PANEL_ASPECT_MAX_WIDTH_PROPERTY =
   "--fvc-panel-view-max-width";
 const PANEL_ASPECT_HEIGHT_PROPERTY =
   "--fvc-panel-view-card-height";
+const PHONE_SAFARI_VIEWPORT_CLASS =
+  "phone-safari-viewport-constrained";
+const PHONE_SAFARI_VIEWPORT_HEIGHT_PROPERTY =
+  "--fvc-phone-safari-viewport-height";
 const HA_HEIGHT_MANAGED_VIEW_TAGS = new Set([
   "HUI-SECTIONS-VIEW",
   "HUI-SIDEBAR-VIEW",
@@ -377,6 +381,47 @@ export class CardStyleContextController {
     // Clear values written by older card builds; CSS owns these now.
     this._host.style?.removeProperty?.("box-shadow");
     this._host.style?.removeProperty?.("border-radius");
+    this.syncPhoneSafariViewportConstraint();
+  }
+
+  shouldConstrainPhonePageHeight() {
+    return (
+      this._host._isLikelyPhoneClient?.() === true &&
+      (this._host._isMobileViewPageActive?.() === true ||
+        this._host._singleViewPageController?.isActive?.() === true)
+    );
+  }
+
+  syncPhoneSafariViewportConstraint() {
+    const enabled =
+      this.shouldConstrainPhonePageHeight() &&
+      this._host._isSafari?.() === true;
+    if (!enabled && this._phoneSafariViewportConstraintActive !== true) {
+      return;
+    }
+    this._phoneSafariViewportConstraintActive = enabled;
+    this._host.classList?.toggle(
+      PHONE_SAFARI_VIEWPORT_CLASS,
+      enabled,
+    );
+    if (!enabled) {
+      this._host.style?.removeProperty?.(
+        PHONE_SAFARI_VIEWPORT_HEIGHT_PROPERTY,
+      );
+      return;
+    }
+
+    const hostTop = Number(this._host.getBoundingClientRect?.().top);
+    const bottomInset = Number(
+      this._host._haNavbarController?.bottomNavbarReservedHeightPx?.(),
+    );
+    const occupiedHeight =
+      (Number.isFinite(hostTop) ? Math.max(0, hostTop) : 0) +
+      (Number.isFinite(bottomInset) ? Math.max(0, bottomInset) : 0);
+    this._host.style?.setProperty?.(
+      PHONE_SAFARI_VIEWPORT_HEIGHT_PROPERTY,
+      `calc(100dvh - ${Math.ceil(occupiedHeight)}px)`,
+    );
   }
 
   shouldSuppressOuterShadowForPhonePage() {
@@ -1313,15 +1358,12 @@ export class CardStyleContextController {
       (this.isPanelView() || this.isSidebarView());
     const keepStandardViewConstrained =
       this.shouldConstrainMinimumBrowseWithinHost();
-    const keepPhoneSafariViewConstrained =
-      this._host._isLikelyPhoneClient?.() === true &&
-      this._host._isSafari?.() === true &&
-      (this._host._isMobileViewPageActive?.() === true ||
-        this._host._singleViewPageController?.isActive?.() === true);
+    const keepPhonePageConstrained =
+      this.shouldConstrainPhonePageHeight();
     const keepConstrainedViewHeight =
       keepWideViewConstrained ||
       keepStandardViewConstrained ||
-      keepPhoneSafariViewConstrained;
+      keepPhonePageConstrained;
     if (keepConstrainedViewHeight) {
       return {
         heightPx: resolvedHeightPx,

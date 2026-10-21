@@ -674,6 +674,22 @@ export class HomeAssistantNavbarController {
     return this.isNavbarAtBottom() ? BOTTOM_NAVBAR_EXTRA_HEIGHT_PX : 0;
   }
 
+  bottomNavbarReservedHeightPx() {
+    if (!this.isNavbarAtBottom()) return 0;
+    const huiRoot = this._huiRoot || findHomeAssistantLovelaceRoot(this._host);
+    const targets = resolveHomeAssistantNavbarTargets(huiRoot);
+    const viewStyle = targets?.view
+      ? this._getComputedStyle?.(targets.view)
+      : null;
+    const paddingBottom = parsePxLength(
+      viewStyle?.paddingBottom ||
+        viewStyle?.getPropertyValue?.("padding-bottom"),
+    );
+    return paddingBottom != null && paddingBottom > 0
+      ? paddingBottom
+      : BOTTOM_NAVBAR_EXTRA_HEIGHT_PX;
+  }
+
   homeAssistantViewContentHeightPx() {
     if (!this._isMobileDevice()) return null;
     const huiRoot = this._huiRoot || findHomeAssistantLovelaceRoot(this._host);

@@ -368,6 +368,7 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.equal(h.controller.shouldMoveNavbarToBottom(), true);
   assert.equal(h.controller.isNavbarAtBottom(), true);
   assert.equal(h.controller.bottomNavbarExtraHeightPx(), 10);
+  assert.equal(h.controller.bottomNavbarReservedHeightPx(), 34);
   assert.equal(h.controller.shouldStackNavbarTabs(), true);
   assert.equal(
     h.getTargets().header.style.getPropertyValue("bottom"),
@@ -397,6 +398,7 @@ test("stacks icon-and-title tabs when the master toggle is enabled", () => {
   assert.equal(h.controller.sync(), false);
   assert.equal(h.controller.isNavbarAtBottom(), false);
   assert.equal(h.controller.bottomNavbarExtraHeightPx(), 0);
+  assert.equal(h.controller.bottomNavbarReservedHeightPx(), 0);
   assert.equal(h.getTargets().children.length, 0);
 });
 
