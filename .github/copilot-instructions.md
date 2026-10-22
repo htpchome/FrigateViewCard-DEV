@@ -102,6 +102,39 @@ Use the narrowest validation that matches the change.
   resolve failures, and explicitly report any blocked validation. Never present
   local success as proof that a hosted GitHub Actions run passed.
 
+## Release And HACS Publication Gate
+
+- Do not create a release or report that a release/HACS setup is complete until
+  the following checks pass.
+- FrigateView Card is already accepted and listed in the default HACS store.
+  Routine releases must update that existing listing; they must not repeat the
+  initial repository-registration or approval process. HACS regularly imports
+  new repository metadata and releases, and its **Update information** action
+  can be used to request an immediate metadata refresh.
+- Confirm the existing HACS listing still resolves to the intended public
+  release repository and exposes the expected repository identity and metadata.
+  Registration work is required only if the repository identity, ownership, or
+  listing itself changes, and must then follow the current HACS migration rules.
+- Confirm the release version, Git tag, `src/constants.js`, generated bundle,
+  and HACS manifest filename all agree.
+- Attach every runtime file from the flat `dist/` package to the GitHub Release
+  as an individual release asset. Attaching only `frigate-view-card.js` is
+  invalid because the card also requires its lazy-loaded chunks, locales, and
+  supporting assets.
+- Confirm the release includes the configured HACS main asset
+  `frigate-view-card.js`. A tagged source archive alone is not a complete HACS
+  release package and cannot provide the asset `download_count` used by HACS.
+- Compare the published GitHub Release assets with
+  `scripts/list-release-assets.mjs`. Missing or unexpected assets must fail the
+  release process.
+- After publication, inspect the actual public GitHub Release and verify the
+  existing HACS listing discovers the new version and installs through the
+  intended release-asset path. A passing listing check, tag, source archive, or
+  local build is not sufficient proof of a correct release.
+- If any release check cannot be performed or does not pass, stop and report
+  the release as incomplete. Never describe a partially verified release or
+  HACS setup as fully correct.
+
 ## Change Planning Guidance
 
 - Prefer incremental refactor slices over broad rewrites.
