@@ -1357,91 +1357,6 @@ test("applyCardStyle fits non-tight percent height within wrapper viewport", () 
   assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "812px"]]);
 });
 
-test("phone tight-margin percent height fits below the card top", () => {
-  const hostStyleCalls = [];
-  let cardTop = 56;
-  const card = {
-    querySelector: () => null,
-    style: {
-      setProperty: () => {},
-      removeProperty: () => {},
-    },
-  };
-  const parentElement = {
-    style: { height: "100%" },
-    getBoundingClientRect: () => ({ top: cardTop }),
-  };
-  const host = {
-    _config: {
-      stream_height: 100,
-      stream_height_unit: "%",
-      compact_preview: false,
-      tight_margins: true,
-      theme: "default",
-    },
-    _isPreviewContext: () => false,
-    _isCardViewPageActive: () => false,
-    _isLikelyPhoneClient: () => true,
-    _isMobileViewPageActive: () => false,
-    _singleViewPageController: { isActive: () => true },
-    _wideViewPageController: { isWideViewPageActive: () => false },
-    getBoundingClientRect: () => ({ top: cardTop }),
-    parentElement,
-    shadowRoot: { querySelector: () => card },
-    style: {
-      setProperty: (name, value) => hostStyleCalls.push(["set", name, value]),
-      removeProperty: (name) => hostStyleCalls.push(["remove", name]),
-    },
-  };
-  const controller = new CardStyleContextController(host);
-  controller.applyTightMargins = () => {};
-  controller.syncHostOuterStyles = () => {};
-
-  withGlobals(
-    {
-      document: global.document,
-      window: {
-        innerHeight: 844,
-        visualViewport: { height: 844, offsetTop: 0 },
-      },
-      getComputedStyle: (element) => ({
-        boxSizing: element === parentElement ? "border-box" : "",
-        paddingTop: "0px",
-        paddingBottom: "0px",
-        getPropertyValue: (name) => {
-          if (name === "--ha-card-height") return "844px";
-          if (name === "--header-height") return "56px";
-          return "";
-        },
-      }),
-    },
-    () => controller.applyCardStyle(),
-  );
-
-  assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "788px"]]);
-  assert.equal(parentElement.style.height, "auto");
-
-  hostStyleCalls.length = 0;
-  cardTop = 0;
-  withGlobals(
-    {
-      document: global.document,
-      window: {
-        innerHeight: 844,
-        visualViewport: { height: 844, offsetTop: 0 },
-      },
-      getComputedStyle: () => ({
-        getPropertyValue: (name) =>
-          name === "--ha-card-height" ? "844px" : "",
-      }),
-    },
-    () => controller.applyCardStyle(),
-  );
-
-  assert.deepEqual(hostStyleCalls, [["set", "--card-host-height", "844px"]]);
-  assert.equal(parentElement.style.height, "auto");
-});
-
 test("card height reserves only the bottom navbar's added height", () => {
   const parentElement = {
     getBoundingClientRect: () => ({ top: 56 }),
@@ -1987,40 +1902,6 @@ test("minimum usable height overrides compact percent and dvh heights", () => {
     "652px",
   ]);
   assert.equal(parentElement.style.height, "auto");
-});
-
-test("phone Single and Mobile Views do not expand for minimum event rows", () => {
-  let page = "single";
-  const host = {
-    _isLikelyPhoneClient: () => true,
-    _isMobileViewPageActive: () => page === "mobile",
-    _singleViewPageController: {
-      isActive: () => page === "single",
-    },
-    _wideViewPageController: {
-      isWideViewPageActive: () => false,
-    },
-  };
-  const controller = new CardStyleContextController(host);
-  controller.resolveMinimumUsableHostHeightPx = () => 652;
-
-  for (page of ["single", "mobile"]) {
-    assert.deepEqual(
-      controller.resolveUsableHostHeight({
-        card: {},
-        resolvedHeightPx: 444,
-      }),
-      { heightPx: 444, expanded: false },
-    );
-  }
-
-  assert.deepEqual(
-    controller.resolveUsableHostHeight({
-      card: {},
-      resolvedHeightPx: 444,
-    }),
-    { heightPx: 444, expanded: false },
-  );
 });
 
 test("Panel Single, Mobile, and Wide Views keep full constrained height", () => {

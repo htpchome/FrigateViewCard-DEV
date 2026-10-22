@@ -4,7 +4,6 @@ import {
   normalizeThemeCustomDefaultsConfig,
 } from "../../helpers.js";
 import { resolveThemeCustomOverrides } from "./config.js";
-import { HomeAssistantPhoneViewport } from "../../integrations/home-assistant/phone-viewport.js";
 
 const HA_DEFAULT_THEME_ALIASES = new Set([
   "",
@@ -217,7 +216,6 @@ export const resolveHomeAssistantThemeContext = (
 export class CardStyleContextController {
   constructor(host) {
     this._host = host;
-    this._phoneViewport = new HomeAssistantPhoneViewport(host);
     this._bubbleFullscreenElements = new Set();
     this._bubbleFullscreenPopoverOwned = false;
   }
@@ -381,18 +379,6 @@ export class CardStyleContextController {
     this._host.style?.removeProperty?.("border-radius");
   }
 
-  shouldConstrainPhonePageHeight() {
-    return (
-      this._host._isLikelyPhoneClient?.() === true &&
-      (this._host._isMobileViewPageActive?.() === true ||
-        this._host._singleViewPageController?.isActive?.() === true)
-    );
-  }
-
-  releasePhoneViewport() {
-    this._phoneViewport.release();
-  }
-
   shouldSuppressOuterShadowForPhonePage() {
     if (this._host._isLikelyPhoneClient?.() !== true) return false;
     return (
@@ -406,25 +392,17 @@ export class CardStyleContextController {
     const tightMarginsEnabled = this._host._config?.tight_margins === true;
     const inPreviewContext = this._host._isPreviewContext();
     const naturalCardView = this._host._isCardViewPageActive?.() === true;
-    const embeddedPopup = this.isInEmbeddedPopup();
-    const homeAssistantGridHeightMode = embeddedPopup
-      ? null
-      : this.resolveHomeAssistantGridHeightMode();
     const homeAssistantAutoHeight =
-      !embeddedPopup && homeAssistantGridHeightMode === "auto";
+      !this.isInEmbeddedPopup() &&
+      this.resolveHomeAssistantGridHeightMode() === "auto";
     const homeAssistantMasonry =
-      !embeddedPopup && this.isInMasonryView();
-    const phonePageNaturalHeight =
-      !embeddedPopup &&
-      homeAssistantGridHeightMode !== "fixed" &&
-      this.shouldConstrainPhonePageHeight();
+      !this.isInEmbeddedPopup() && this.isInMasonryView();
     if (this._host.parentElement) {
       this._host.parentElement.style.height =
         inPreviewContext ||
         naturalCardView ||
         homeAssistantAutoHeight ||
         homeAssistantMasonry ||
-        phonePageNaturalHeight ||
         this._viewportMinimumActive === true
           ? "auto"
           : "100%";
@@ -945,20 +923,8 @@ export class CardStyleContextController {
     const haCardHeight =
       hostComputedStyle?.getPropertyValue("--ha-card-height").trim() || "";
     let expandedForMinimumBrowseHeight = false;
-    const phoneBrowserHeight = this._phoneViewport.resolveHeight(
-      this.shouldConstrainPhonePageHeight() &&
-        !this._host._isPreviewContext() &&
-        this._host._isDashboardEditMode?.() !== true &&
-        embeddedPopupHeightPx == null && !this.isInEmbeddedPopup() &&
-        !constrainToHaGrid && numericHeight === 100 &&
-        (isPercentHeight || isViewportHeight),
-    );
 
-    if (phoneBrowserHeight != null) {
-      requestedHeightPx = phoneBrowserHeight;
-      this._host.style.setProperty("--card-host-height", `${phoneBrowserHeight}px`);
-      card.style.setProperty("--view-height", `${phoneBrowserHeight}px`);
-    } else if (embeddedPopupHeightPx != null && (isPercentHeight || isViewportHeight)) {
+    if (embeddedPopupHeightPx != null && (isPercentHeight || isViewportHeight)) {
       requestedHeightPx = Math.max(
         1,
         embeddedPopupHeightPx * (numericHeight / 100),
@@ -1154,13 +1120,8 @@ export class CardStyleContextController {
   }
 
   resolvePercentHeightWrapperViewportPx(ratio) {
-    const phonePage = this.shouldConstrainPhonePageHeight();
-    // Standalone mobile browsers can expose a full HA card height even when
-    // the card begins below navigation; the actual host top is authoritative.
-    if (this._host._config?.tight_margins === true && !phonePage) return null;
-    const availableHeight = this.resolveHeightWrapperViewportPx(
-      phonePage ? this._host : this._host.parentElement,
-    );
+    if (this._host._config?.tight_margins === true) return null;
+    const availableHeight = this.resolveHeightWrapperViewportPx();
     return availableHeight != null
       ? Math.max(1, availableHeight * ratio)
       : null;
@@ -1352,12 +1313,8 @@ export class CardStyleContextController {
       (this.isPanelView() || this.isSidebarView());
     const keepStandardViewConstrained =
       this.shouldConstrainMinimumBrowseWithinHost();
-    const keepPhonePageConstrained =
-      this.shouldConstrainPhonePageHeight();
     const keepConstrainedViewHeight =
-      keepWideViewConstrained ||
-      keepStandardViewConstrained ||
-      keepPhonePageConstrained;
+      keepWideViewConstrained || keepStandardViewConstrained;
     if (keepConstrainedViewHeight) {
       return {
         heightPx: resolvedHeightPx,
@@ -1469,20 +1426,15 @@ export class CardStyleContextController {
     this._host.parentElement.style.height =
       this._viewportMinimumActive ||
       homeAssistantAutoHeight ||
-      (this.shouldConstrainPhonePageHeight() &&
-        !constrainToHaGrid &&
-        !this.isInEmbeddedPopup()) ||
       (this.isInMasonryView() && !this.isInEmbeddedPopup())
         ? "auto"
         : "100%";
   }
 
-  resolveHeightWrapperViewportPx(
-    anchorElement = this._host.parentElement,
-  ) {
+  resolveHeightWrapperViewportPx() {
     if (
       this._host._isPreviewContext() ||
-      !anchorElement?.getBoundingClientRect
+      !this._host.parentElement?.getBoundingClientRect
     ) {
       return null;
     }
@@ -1492,7 +1444,7 @@ export class CardStyleContextController {
     const viewportHeight =
       Number(visualViewport?.height) || Number(window.innerHeight) || 0;
     const wrapperTop = Number(
-      anchorElement.getBoundingClientRect().top,
+      this._host.parentElement.getBoundingClientRect().top,
     );
     if (!Number.isFinite(wrapperTop) || viewportHeight <= 0) return null;
 
