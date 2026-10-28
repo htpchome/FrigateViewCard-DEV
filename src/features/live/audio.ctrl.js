@@ -185,30 +185,7 @@ export class LiveAudioController {
       this.applyMuteChange(false);
     };
     for (const target of targets) {
-      target.addEventListener(
-        "pointerdown",
-        this._onDeferredStartUnmuteInteraction,
-        {
-          capture: true,
-          passive: true,
-        },
-      );
-      target.addEventListener(
-        "touchstart",
-        this._onDeferredStartUnmuteInteraction,
-        {
-          capture: true,
-          passive: true,
-        },
-      );
-      target.addEventListener(
-        "pointerup",
-        this._onDeferredStartUnmuteInteraction,
-        {
-          capture: true,
-          passive: true,
-        },
-      );
+      // Wait for touchend so an earlier event cannot consume the pending retry.
       target.addEventListener(
         "touchend",
         this._onDeferredStartUnmuteInteraction,
@@ -226,9 +203,6 @@ export class LiveAudioController {
     const handler = this._onDeferredStartUnmuteInteraction;
     if (handler) {
       for (const target of this._deferredStartUnmuteTargets) {
-        target.removeEventListener?.("pointerdown", handler, true);
-        target.removeEventListener?.("touchstart", handler, true);
-        target.removeEventListener?.("pointerup", handler, true);
         target.removeEventListener?.("touchend", handler, true);
         target.removeEventListener?.("click", handler);
         target.removeEventListener?.("keydown", handler);

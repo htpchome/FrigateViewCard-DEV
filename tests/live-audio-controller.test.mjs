@@ -144,9 +144,6 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   assert.equal(host._streamMuted, true);
   assert.equal(video.muted, true);
   assert.deepEqual([...listeners.keys()], [
-    "pointerdown",
-    "touchstart",
-    "pointerup",
     "touchend",
     "click",
     "keydown",
@@ -158,7 +155,13 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   assert.deepEqual(calls, ["sync", "render", "sync", "render"]);
 
   allowPlayback = true;
+  interactionTarget.dispatch("pointerdown");
   interactionTarget.dispatch("touchstart");
+  interactionTarget.dispatch("pointerup");
+  assert.equal(host._streamMuted, true);
+  assert.equal(video.muted, true);
+  assert.equal(listeners.has("touchend"), true);
+  interactionTarget.dispatch("touchend");
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(host._streamMuted, false);
@@ -214,13 +217,13 @@ test("mobile startup audio keeps first-touch unmute armed after play resolves", 
 
   controller.prepareCameraStart({ start_unmuted: true });
   controller.applyCameraStartPreference();
-  assert.equal(listeners.has("touchstart"), true);
+  assert.equal(listeners.has("touchend"), true);
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(host._streamMuted, false);
-  assert.equal(listeners.has("touchstart"), true);
+  assert.equal(listeners.has("touchend"), true);
 
-  interactionTarget.dispatch("touchstart");
+  interactionTarget.dispatch("touchend");
 
   assert.equal(host._streamMuted, false);
   assert.equal(video.muted, false);
@@ -265,7 +268,7 @@ test("a late mobile autoplay rejection cannot undo first-touch unmute", async ()
 
   controller.prepareCameraStart({ start_unmuted: true });
   controller.applyCameraStartPreference();
-  interactionTarget.dispatch("touchstart");
+  interactionTarget.dispatch("touchend");
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(host._streamMuted, false);
@@ -371,7 +374,7 @@ test("deferred startup audio observes the active HA Direct media element", async
   controller.applyCameraStartPreference();
   await new Promise((resolve) => setImmediate(resolve));
 
-  video.dispatch("touchstart");
+  video.dispatch("touchend");
 
   assert.equal(host._streamMuted, false);
   assert.equal(video.muted, false);
@@ -498,7 +501,7 @@ test("changing cameras cancels a deferred startup unmute", async () => {
   controller.prepareCameraStart({ start_unmuted: true });
   controller.applyCameraStartPreference();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(listeners.size, 6);
+  assert.equal(listeners.size, 3);
 
   controller.prepareCameraStart({ start_unmuted: false });
 
