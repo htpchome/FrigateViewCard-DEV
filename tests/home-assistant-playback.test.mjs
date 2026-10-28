@@ -395,6 +395,188 @@ test("Catalyst background HLS recovers a silent stall without navigation and ign
   }
 });
 
+test("Catalyst native HLS stops background audio and ignores superseded foreground URLs", async () => {
+  const previousDocument = globalThis.document;
+  const doc = { ...createEventTarget(), visibilityState: "visible" };
+  const win = createEventTarget();
+  const timers = new Map();
+  const requests = [];
+  const video = {
+    ...createEventTarget(), style: {}, currentTime: 10, readyState: 4,
+    isConnected: true, playCalls: 0, paused: false,
+    play() { this.playCalls += 1; this.paused = false; return Promise.resolve(); },
+    pause() { this.paused = true; },
+    load() { this.readyState = 0; },
+    removeAttribute() { delete this.src; },
+  };
+  globalThis.document = { createElement: () => video };
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  try {
+    createHaNativeHlsVideoElement({
+      entity: "camera.front", muted: false, documentTarget: doc, windowTarget: win,
+      setTimer: (cb, delay) => { timers.set(cb, delay); return cb; },
+      clearTimer: (id) => timers.delete(id),
+      hass: { callWS: () => new Promise((resolve) => requests.push(resolve)) },
+    });
+    await settle();
+    requests[0]({ url: "/initial.m3u8" });
+    await video.hlsUrlReady;
+    video.emit("waiting");
+    assert.equal(timers.size, 1);
+    let backgrounds = 0;
+    let foregrounds = 0;
+    video.onHlsBackground = () => { backgrounds += 1; };
+    video.onHlsForeground = () => { foregrounds += 1; };
+    doc.visibilityState = "hidden";
+    doc.emit("visibilitychange");
+    win.emit("pagehide");
+    assert.equal(video.muted, true);
+    assert.equal(video.paused, false);
+    assert.equal(video.autoplay, true);
+    assert.equal(video.src, "/initial.m3u8");
+    assert.equal(timers.size, 0);
+    assert.equal(backgrounds, 1);
+    video.emit("error");
+    video.emit("waiting");
+    await settle();
+    assert.equal(requests.length, 1, "no background recovery requests");
+
+    doc.visibilityState = "visible";
+    doc.emit("visibilitychange");
+    win.emit("pageshow");
+    await settle();
+    assert.equal(requests.length, 1, "retain the existing URL while checking progress");
+    const [firstCheck] = [...timers].find(([, delay]) => delay === 1500);
+    timers.delete(firstCheck);
+    firstCheck();
+    await settle();
+    assert.equal(requests.length, 2);
+    assert.equal(foregrounds, 1);
+    assert.equal(video.muted, true, "manual unmute does not survive window closure");
+    win.emit("pagehide");
+    win.emit("pageshow");
+    await settle();
+    const [secondCheck] = [...timers].find(([, delay]) => delay === 1500);
+    timers.delete(secondCheck);
+    secondCheck();
+    await settle();
+    assert.equal(requests.length, 3);
+    requests[1]({ url: "/stale-resume.m3u8" });
+    await settle();
+    assert.equal(video.src, "/initial.m3u8");
+    assert.equal(video.playCalls, 0, "late URL cannot play or clear the newer pending request");
+    requests[2]({ url: "/fresh-resume.m3u8" });
+    await settle();
+    assert.equal(video.src, "/fresh-resume.m3u8");
+    assert.equal(video.playCalls, 1);
+    video.readyState = 4;
+    video.emit("playing");
+    assert.equal(video.hlsRecovering, false);
+    assert.equal(timers.size, 0);
+
+    win.emit("pagehide");
+    video.currentTime += 5;
+    win.emit("pageshow");
+    assert.equal(video.hlsResumePending, true, "background progress alone is not foreground evidence");
+    video.currentTime += 1;
+    video.emit("timeupdate");
+    assert.equal(video.hlsResumePending, false);
+    assert.equal(timers.size, 0, "healthy retained stream cancels verification without ongoing polling");
+    assert.equal(video.src, "/fresh-resume.m3u8");
+    assert.equal(requests.length, 3, "healthy foreground progress retains the URL and connection");
+    assert.equal(video.muted, true);
+
+    win.emit("pagehide");
+    video.isConnected = false;
+    win.emit("pageshow");
+    await settle();
+    assert.equal(requests.length, 3, "detached old card cannot restart audio");
+    video.destroy();
+    assert.equal(doc.listenerCount("visibilitychange"), 0);
+    assert.equal(win.listenerCount("pageshow"), 0);
+    assert.equal(win.listenerCount("pagehide"), 0);
+  } finally {
+    video.destroy?.();
+    globalThis.document = previousDocument;
+  }
+});
+
+test("Catalyst native HLS created while hidden waits for foreground, including retained muted players", async () => {
+  const previousDocument = globalThis.document;
+  const doc = { ...createEventTarget(), visibilityState: "hidden" };
+  const win = createEventTarget();
+  const videos = [];
+  let requests = 0;
+  globalThis.document = { createElement: () => {
+    const video = { ...createEventTarget(), style: {}, readyState: 0,
+      isConnected: true, play: async () => {}, pause() {}, load() {},
+      removeAttribute() { delete this.src; } };
+    videos.push(video);
+    return video;
+  } };
+  try {
+    for (const muted of [true, false]) {
+      const video = createHaNativeHlsVideoElement({
+        entity: "camera.front", muted, documentTarget: doc, windowTarget: win,
+        hass: { callWS: async () => { requests += 1; return { url: "/fresh.m3u8" }; } },
+      });
+      await video.hlsUrlReady;
+      assert.equal(video.muted, true);
+      assert.equal(video.src, undefined);
+    }
+    assert.equal(requests, 0);
+    doc.visibilityState = "visible";
+    doc.emit("visibilitychange");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(requests, 2);
+    for (const video of videos) {
+      assert.equal(video.src, "/fresh.m3u8");
+      assert.equal(video.muted, true);
+    }
+    doc.pictureInPictureElement = videos[0];
+    doc.visibilityState = "hidden";
+    doc.emit("visibilitychange");
+    assert.equal(videos[0].hlsBackgroundSuspended, false, "explicit PiP remains playing");
+    assert.equal(videos[1].hlsBackgroundSuspended, true, "ordinary retained player stops");
+    doc.pictureInPictureElement = null;
+    videos[0].emit("leavepictureinpicture");
+    assert.equal(videos[0].hlsBackgroundSuspended, true, "closing PiP while hidden stops inline playback");
+  } finally {
+    videos.forEach((video) => video.destroy());
+    globalThis.document = previousDocument;
+  }
+});
+
+test("Catalyst close during initial URL lookup cannot resurrect audio", async () => {
+  const previousDocument = globalThis.document;
+  const doc = { ...createEventTarget(), visibilityState: "visible" };
+  const win = createEventTarget();
+  let respond;
+  let requests = 0;
+  const video = { ...createEventTarget(), style: {},
+    pause() {}, load() {}, removeAttribute() { delete this.src; } };
+  globalThis.document = { createElement: () => video };
+  try {
+    createHaNativeHlsVideoElement({
+      entity: "camera.front", muted: false, documentTarget: doc, windowTarget: win,
+      hass: { callWS: () => {
+        requests += 1;
+        return new Promise((resolve) => { respond = resolve; });
+      } },
+    });
+    await Promise.resolve();
+    win.emit("pagehide");
+    respond({ url: "/late-initial.m3u8" });
+    assert.equal(await video.hlsUrlReady, false);
+    assert.equal(video.src, undefined);
+    assert.equal(video.muted, true);
+    assert.equal(requests, 1);
+  } finally {
+    video.destroy?.();
+    globalThis.document = previousDocument;
+  }
+});
+
 test("HA camera-stream readiness follows the active player after HA switches to HLS", async () => {
   const events = createEventTarget();
   const webRtcVideo = createPendingVideo();

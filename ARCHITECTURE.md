@@ -210,6 +210,19 @@ Mac Catalyst exception:
   ten-second no-progress check only after an interruption or recovery attempt.
   Healthy retained playback has no recovery polling. Recovering videos remain
   retained through camera/layout handoff; release cancels all listeners/retries
+- Closing/backgrounding the Catalyst document mutes its native HLS videos,
+  retaining their sources and playback while cancelling recovery and invalidating
+  pending URLs. Foreground return reapplies the selected camera's configured
+  startup audio preference once usable playback resumes; dormant players stay muted.
+  A single bounded 1.5-second foreground progress check retains advancing native
+  HLS playback; failed, emptied or stalled players request a fresh authenticated
+  URL on the same element. No background or ongoing verification is permitted.
+  Cold startup continues to honor the configured audio preference.
+  Generic live recovery must not
+  remount a suspended/resuming native player. Released or detached players
+  cannot resume. Explicit picture-in-picture playback retains its native
+  lifecycle; exiting PiP while hidden mutes inline playback. This lifecycle
+  is separate from normal HA Direct providers.
 
 Why:
 

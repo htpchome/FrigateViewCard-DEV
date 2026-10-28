@@ -30,6 +30,8 @@ export function createCatalystHlsMounter({
   stopLoadingFallbackRefresh,
   setLiveNativeControls,
   scheduleResumeLive,
+  onBackground,
+  onForeground,
   prepareHlsPlayback = () => true,
   createHlsVideo = createHaNativeHlsVideoElement,
   getPreloadEntities = () => [],
@@ -75,6 +77,9 @@ export function createCatalystHlsMounter({
     engine.removeEventListener?.("error", binding.onError);
     engine.removeEventListener?.("ended", binding.onEnded);
     engine.removeEventListener?.("playing", binding.onPlaying);
+    engine.onHlsBackground = null;
+    engine.onHlsForeground = null;
+    engine.onHlsResumeReady = null;
     bindings.delete(engine);
     return true;
   };
@@ -119,7 +124,7 @@ export function createCatalystHlsMounter({
 
   const applyReady = (engine, video = null) => {
     const binding = bindings.get(engine);
-    if (!binding || binding.disposed || engine.hlsRecovering || engine.error || engine.ended || !isCurrentEngine(engine)) return;
+    if (!binding || binding.disposed || engine.hlsBackgroundSuspended || engine.hlsResumePending || engine.hlsRecovering || engine.error || engine.ended || !isCurrentEngine(engine)) return;
     binding.failed = false;
     stopFallbackRefresh(binding);
     binding.cleanupRecovery?.();
@@ -149,7 +154,7 @@ export function createCatalystHlsMounter({
 
   const applyFailed = (engine) => {
     const binding = bindings.get(engine);
-    if (binding?.disposed || !isCurrentEngine(engine)) return;
+    if (binding?.disposed || engine.hlsBackgroundSuspended || !isCurrentEngine(engine)) return;
     if (
       layoutTransfer?.active === true &&
       layoutTransfer.engines.includes(engine)
@@ -191,6 +196,16 @@ export function createCatalystHlsMounter({
       stopLoadingFallbackRefresh: () => {},
     };
     bindings.set(engine, binding);
+    engine.onHlsBackground = () => {
+      if (binding.disposed || !isCurrentEngine(engine)) return;
+      cancelPreloads();
+      onBackground?.();
+    };
+    engine.onHlsForeground = () => {
+      if (binding.disposed || !isCurrentEngine(engine)) return;
+      onForeground?.();
+    };
+    engine.onHlsResumeReady = () => applyReady(engine, engine);
     engine.addEventListener?.("error", binding.onError);
     engine.addEventListener?.("ended", binding.onEnded);
     engine.addEventListener?.("playing", binding.onPlaying);
@@ -201,7 +216,7 @@ export function createCatalystHlsMounter({
     engine?.type === "ha_direct" &&
     engine?.streamType === "hls" &&
     engine?.catalystHls === true &&
-    (engine?.hlsRecovering === true || (
+    (engine?.hlsBackgroundSuspended === true || engine?.hlsRecovering === true || (
       engine?.ended !== true &&
       !engine?.error &&
       Number(engine?.readyState) >= 2
@@ -461,6 +476,7 @@ export function createCatalystHlsMounter({
       for (const engine of transfer.engines) {
         if (!ownedEngines.has(engine)) continue;
         engine.hlsRecoverySuspended = false;
+        if (engine.hlsBackgroundSuspended) continue;
         if (engine === activeEngine) activeResumeScheduled = true;
         engine.autoplay = true;
         engine.preload = "auto";

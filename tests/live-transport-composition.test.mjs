@@ -241,6 +241,16 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   ]);
   optionsByFactory.catalystHlsMounter.onPendingStream();
   assert.deepEqual(calls.at(-1), ["stream-type", "--"]);
+  card._liveAudioController = {
+    cancelCameraStartPreference: () => calls.push(["cancel-audio"]),
+    setMuted: (muted) => calls.push(["mute", muted]),
+    prepareCameraStart: (camera) => calls.push(["prepare-audio", camera]),
+  };
+  card._renderMuteButton = () => calls.push(["render-mute"]);
+  optionsByFactory.catalystHlsMounter.onBackground();
+  assert.deepEqual(calls.slice(-3), [["cancel-audio"], ["mute", true], ["render-mute"]]);
+  optionsByFactory.catalystHlsMounter.onForeground();
+  assert.deepEqual(calls.slice(-2), [["prepare-audio", card._activeCam], ["render-mute"]]);
 
   optionsByFactory.go2rtcMounter.resetMseDiagnostics(100);
   optionsByFactory.go2rtcMounter.markMseChunk(125);

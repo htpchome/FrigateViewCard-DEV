@@ -2,6 +2,23 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.20` adds background audio suspension to Catalyst native HLS.
+Document visibility/page lifecycle events synchronously mute native videos,
+including retained and tile players, cancel recovery timers and invalidate late
+URL responses without unloading existing streams. Foreground return reapplies
+the selected camera's startup audio preference once usable playback resumes;
+dormant players stay muted. A single 1.5-second maximum progress
+check retains advancing playback, ending early on success. Only emptied, failed
+or stalled players request fresh HA URLs on the same native element. Re-hiding
+and release cancel verification; there is no ongoing polling. Fresh page startup
+still honors the configured audio preference. Generic recovery cannot replace a
+native player during its own suspend/resume. Explicit PiP playback keeps its
+native lifecycle; leaving PiP while hidden mutes inline media.
+Normal HA Direct,
+Frigate go2rtc, iPhone behavior and layout calculations are unchanged. Automated
+lifecycle coverage does not replace physical Catalyst red-X/reopen validation,
+which remains required.
+
 `v1.1.10-dev.19` makes Companion HA Direct resume selective. Released peers,
 ended tracks and emptied HLS players are discarded immediately, before native
 foreground restart. Potentially healthy providers remain mounted while a single

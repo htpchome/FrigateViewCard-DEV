@@ -28,6 +28,18 @@ const createHost = () => ({
   _$: () => null,
 });
 
+test("generic recovery cannot replace a suspended or resuming Catalyst HLS player", () => {
+  for (const state of ["hlsBackgroundSuspended", "hlsResumePending", "hlsRecovering"]) {
+    const host = createHost();
+    host._engine = { catalystHls: true, [state]: true };
+    const controller = new LiveRecoveryController(host);
+    host._mountEngine = () => assert.fail("native HLS owns this resume");
+    host._currentLiveStreamHint = () => assert.fail("must not enter generic recovery");
+    controller.kickIfStale(true, true);
+    controller.resumeIfNeeded("doc-visible");
+  }
+});
+
 test("live recovery keeps editor and Firefox resume timing stable", () => {
   const host = createHost();
   const calls = [];

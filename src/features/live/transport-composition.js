@@ -162,6 +162,15 @@ export const createLiveTransportControllers = (
     scopeKey: card,
   });
   const catalystHlsMounter = resolvedFactories.createCatalystHlsMounter({
+    onBackground: () => {
+      card._liveAudioController?.cancelCameraStartPreference();
+      card._liveAudioController?.setMuted(true);
+      card._renderMuteButton?.();
+    },
+    onForeground: () => {
+      card._liveAudioController?.prepareCameraStart(card._activeCam);
+      card._renderMuteButton?.();
+    },
     getHass: () => card._hass,
     getStreamMuted: () => card._streamMuted,
     getRotateOverlayActive: () => card._rotateOverlayActive,

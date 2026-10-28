@@ -2102,6 +2102,89 @@ test("keeps PiP dormant on mobile and loads it on first desktop use", async ({
   expect(state).toEqual({ mobileLoaded: false, desktopLoaded: true });
 });
 
+for (const startUnmuted of [false, true]) {
+  for (const healthy of [false, true]) {
+  test(`Catalyst HLS window return restores configured audio (auto=${startUnmuted}, healthy=${healthy})`, async ({ page }) => {
+    await page.goto(baseUrl);
+    const state = await page.evaluate(async ({ autoUnmute, healthy }) => {
+      await import("/frigate-view-card.js");
+      const card = document.createElement("frigate-view-card");
+      const slot = document.createElement("div");
+      document.body.append(slot);
+      const button = document.createElement("button");
+      Object.defineProperty(card, "_activeCam", {
+        value: { entity: "camera.front", start_unmuted: autoUnmute },
+      });
+      let requests = 0;
+      card._hass = {
+        states: { "camera.front": { entity_id: "camera.front" } },
+        callWS: async () => {
+          const url = `/hls/session-${++requests}.m3u8`;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          return { url };
+        },
+      };
+      card._$ = (selector) => selector === "#mute-btn" ? button : null;
+      card._assignLiveEngine = (engine) => { card._engine = engine; };
+      card._attachMainLiveVideoZoom = () => {};
+      card._startStreamFallbackLoadingRefresh = () => () => {};
+      card._stopStreamFallbackLoadingRefresh = () => {};
+      card._applyResolvedStreamUiState = () => {};
+      card._setStreamLoading = () => {};
+      card._setStreamFallbackVisible = () => {};
+      const result = await card._catalystHlsMounter.tryMount(slot, null, {
+        entity: "camera.front", commit: false, muted: true,
+      });
+      const video = result.engine;
+      // Simulate the native HLS decoder; desktop test engines are not Catalyst.
+      // Exercise the production bundle's lifecycle, ownership and audio wiring.
+      let readyState = 4;
+      let source = "";
+      Object.defineProperty(video, "src", { get: () => source, set: (value) => { source = value; } });
+      const removeAttribute = video.removeAttribute.bind(video);
+      video.removeAttribute = (name) => {
+        if (name === "src") source = "";
+        removeAttribute(name);
+      };
+      Object.defineProperty(video, "readyState", { get: () => readyState });
+      Object.defineProperty(video, "currentTime", { writable: true, value: 10 });
+      Object.defineProperty(video, "paused", { get: () => false });
+      video.play = async () => {
+        readyState = 4;
+        video.dispatchEvent(new Event("playing"));
+      };
+      await video.hlsUrlReady;
+      card._catalystHlsMounter.adoptRetainedEngine(slot, video);
+      await Promise.resolve();
+      card._liveAudioController.setMuted(false);
+      const beforeClose = video.muted;
+      window.dispatchEvent(new Event("pagehide"));
+      const closed = { muted: video.muted, hostMuted: card._streamMuted,
+        sourceRetained: video.src === "/hls/session-1.m3u8", suspended: video.hlsBackgroundSuspended };
+      window.dispatchEvent(new Event("pageshow"));
+      window.dispatchEvent(new Event("pageshow"));
+      if (healthy) {
+        video.currentTime += 1;
+        video.dispatchEvent(new Event("timeupdate"));
+      }
+      await new Promise((resolve) => setTimeout(resolve, healthy ? 30 : 1650));
+      const resumed = { muted: video.muted, hostMuted: card._streamMuted,
+        recovering: video.hlsRecovering, requests,
+        source: video.src, sameEngine: card._engine === video };
+      card._catalystHlsMounter.release(video);
+      card._liveAudioController.dispose();
+      slot.remove();
+      return { beforeClose, closed, resumed };
+    }, { autoUnmute: startUnmuted, healthy });
+    expect(state.beforeClose).toBe(false);
+    expect(state.closed).toEqual({ muted: true, hostMuted: true, sourceRetained: true, suspended: true });
+    const requests = healthy ? 1 : 2;
+    expect(state.resumed).toEqual({ muted: !startUnmuted, hostMuted: !startUnmuted,
+      recovering: false, requests, source: `/hls/session-${requests}.m3u8`, sameEngine: true });
+  });
+  }
+}
+
 for (const catalyst of [true, false]) {
   test(`PiP restores inline mute and controls only on Catalyst (${catalyst})`, async ({ page }) => {
     await page.goto(baseUrl);

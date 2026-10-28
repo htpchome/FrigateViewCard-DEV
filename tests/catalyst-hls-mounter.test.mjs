@@ -77,6 +77,8 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
       calls.push(["assign", engine]);
     },
     onCommittedMediaReady: (...args) => calls.push(["media", ...args]),
+    onBackground: () => calls.push(["background"]),
+    onForeground: () => calls.push(["foreground"]),
     onCommittedStream: (type) => calls.push(["stream", type]),
     applyResolvedStreamUiState: (state) => calls.push(["ui", state]),
     startLoadingFallbackRefresh: (options) => {
@@ -129,7 +131,21 @@ test("Catalyst HLS mounter owns a native HLS-only startup", async () => {
   video.emit("error");
   assert.deepEqual(resumeReasons, ["hls-error"]);
 
+  video.hlsBackgroundSuspended = true;
+  video.readyState = 0;
+  video.onHlsBackground();
+  assert.deepEqual(calls.at(-1), ["background"]);
+  assert.equal(mounter.isRetainableEngine(video), true);
+  const callCount = calls.length;
+  video.emit("playing");
+  video.emit("error");
+  assert.equal(calls.length, callCount, "background events cannot mark media ready or remount");
+  video.onHlsForeground();
+  assert.equal(calls.some(([name]) => name === "foreground"), true);
+
   mounter.release(video);
+  assert.equal(video.onHlsBackground, null);
+  assert.equal(video.onHlsForeground, null);
   assert.equal(video.destroyCalls, 1);
 });
 
