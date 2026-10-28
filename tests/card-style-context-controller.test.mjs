@@ -198,6 +198,14 @@ test("embedded popup height bypasses dashboard deductions for Mobile and Single 
       controller.applyCardStyle();
       assert.equal(assignedHeights.at(-1), "710px");
 
+      popup.scrollTop = 150;
+      parentElement.getBoundingClientRect = () => ({ top: -30, height: 600 });
+      assert.equal(controller.resolveEmbeddedPopupHeightPx(), 710);
+      popup.scrollTop = 0;
+      parentElement.getBoundingClientRect = () => ({ top: 900, height: 600 });
+      assert.equal(controller.resolveEmbeddedPopupHeightPx(), 1);
+      parentElement.getBoundingClientRect = () => ({ top: 120, height: 600 });
+
       host._isMobileViewPageActive = () => false;
       host._singleViewPageController.isActive = () => true;
       controller.applyCardStyle();

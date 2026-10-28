@@ -6607,6 +6607,84 @@ test("Bubble outer vertical scroll locks only when phone Mobile View fits", asyn
   expect(state.disconnected).toBe("auto");
 });
 
+for (const phone of [true, false]) {
+  test(`Bubble popup preserves two browse rows with preceding cards on ${phone ? "a phone" : "a short desktop"}`, async ({ page }) => {
+    await page.setViewportSize(phone ? { width: 390, height: 844 } : { width: 900, height: 500 });
+    await page.goto(baseUrl);
+    const results = await page.evaluate(async (phone) => {
+      await import("/frigate-view-card.js");
+      document.body.style.margin = "0";
+      const results = [];
+      for (const pageId of ["mobile-view", "single-view"]) {
+        for (const tightMargins of [true, false]) {
+          for (const unit of ["%", "dvh"]) {
+            const sections = document.createElement("hui-sections-view");
+            const popup = document.createElement("div");
+            popup.className = "bubble-pop-up-container";
+            popup.style.cssText = `position:fixed;top:40px;left:0;width:${phone ? 390 : 450}px;height:${phone ? 680 : 400}px;overflow-y:auto;box-sizing:border-box;padding:14px 8px`;
+            const content = popup.attachShadow({ mode: "open" });
+            const preceding = document.createElement("div");
+            preceding.style.height = "300px";
+            const wrapper = document.createElement("div");
+            content.append(preceding, wrapper);
+            sections.append(popup);
+            document.body.append(sections);
+            const card = document.createElement("frigate-view-card");
+            card._isLikelyMobileClient = () => phone;
+            card._isLikelyPhoneClient = () => phone;
+            card.setConfig({
+              cameras: [{ entity: "camera.front" }],
+              tight_margins: tightMargins,
+              stream_height: 100,
+              stream_height_unit: unit,
+              display_footer: false,
+            });
+            wrapper.append(card);
+            card._pageId = pageId;
+            card._renderShell();
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            card._applyCardStyle();
+            const browse = card.shadowRoot.querySelector('[data-fvc-region="browse"]');
+            const initialHeight = card.getBoundingClientRect().height;
+            const browseHeight = browse.getBoundingClientRect().height;
+            const overflowY = getComputedStyle(popup).overflowY;
+            popup.scrollTop = popup.scrollHeight;
+            const scrollTop = popup.scrollTop;
+            card._applyCardStyle();
+            const scrolledHeight = card.getBoundingClientRect().height;
+            const browseReachable = browse.getBoundingClientRect().bottom <= popup.getBoundingClientRect().bottom + 1;
+            const following = document.createElement("div");
+            following.style.height = "40px";
+            content.append(following);
+            card._applyCardStyle();
+            const withFollowingHeight = browse.getBoundingClientRect().height;
+            // The browse list remains independently scrollable inside the taller card.
+            const events = document.createElement("div");
+            events.style.cssText = "height:1200px;flex:none";
+            browse.append(events);
+            browse.scrollTop = 100;
+            results.push({ pageId, tightMargins, unit, initialHeight, scrolledHeight,
+              browseHeight, withFollowingHeight, overflowY, scrollTop, browseReachable,
+              browseScrollTop: browse.scrollTop });
+            sections.remove();
+          }
+        }
+      }
+      return results;
+    }, phone);
+    for (const result of results) {
+      const context = JSON.stringify(result);
+      expect(result.browseHeight, context).toBeGreaterThanOrEqual(244);
+      expect(result.withFollowingHeight, context).toBeGreaterThanOrEqual(244);
+      expect(result.overflowY, context).toBe("auto");
+      expect(result.scrollTop, context).toBeGreaterThan(0);
+      expect(result.scrolledHeight, context).toBeCloseTo(result.initialHeight, 0);
+      expect(result.browseReachable, context).toBe(true);
+      expect(result.browseScrollTop, context).toBeGreaterThan(0);
+    }
+  });
+}
+
 test("a dashboard card's return-to-top chip stays beneath an external popup", async ({
   page,
 }) => {

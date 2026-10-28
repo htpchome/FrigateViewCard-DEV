@@ -759,6 +759,13 @@ export class CardStyleContextController {
     return this.embeddedPopupAncestor() !== null;
   }
 
+  isInBubblePopup() {
+    const popup = this.embeddedPopupAncestor();
+    return ["bubble-pop-up", "bubble-pop-up-container", "bubble-popup"].some(
+      (name) => popup?.classList?.contains?.(name),
+    );
+  }
+
   resolveEmbeddedPopupHeightPx() {
     const popup = this.embeddedPopupAncestor();
     const parent = this._host.parentElement;
@@ -766,14 +773,25 @@ export class CardStyleContextController {
 
     const popupBottom = Number(popup.getBoundingClientRect?.().bottom);
     const contentTop = Number(parent.getBoundingClientRect?.().top);
+    // Use the unscrolled position so scrolling the popup cannot grow the card.
+    let scrollOffset = 0;
+    const bubblePopup = this.isInBubblePopup();
+    let ancestor = bubblePopup && parent !== popup
+      ? this.composedParentElement(parent)
+      : null;
+    for (let depth = 0; ancestor && depth < 30; depth += 1) {
+      scrollOffset += Math.max(0, Number(ancestor.scrollTop) || 0);
+      if (ancestor === popup) break;
+      ancestor = this.composedParentElement(ancestor);
+    }
     const bottomPadding = this.parsePxLength(
       typeof getComputedStyle === "function"
         ? getComputedStyle(popup).paddingBottom
         : "",
     ) ?? 0;
-    const availableHeight = popupBottom - contentTop - bottomPadding;
-    if (Number.isFinite(availableHeight) && availableHeight > 0) {
-      return availableHeight;
+    const availableHeight = popupBottom - contentTop - scrollOffset - bottomPadding;
+    if (Number.isFinite(availableHeight) && (bubblePopup || availableHeight > 0)) {
+      return Math.max(1, availableHeight);
     }
 
     const parentHeight = this.measureRenderedHeight(parent);
@@ -929,7 +947,12 @@ export class CardStyleContextController {
         1,
         embeddedPopupHeightPx * (numericHeight / 100),
       );
-      const popupHeight = `${requestedHeightPx}px`;
+      const minimumHeightPx = this.isInBubblePopup()
+        ? this.resolveMinimumUsableHostHeightPx(card) ?? 0
+        : 0;
+      const usableHeightPx = Math.max(requestedHeightPx, minimumHeightPx);
+      expandedForMinimumBrowseHeight = usableHeightPx > requestedHeightPx;
+      const popupHeight = `${usableHeightPx}px`;
       this._host.style.setProperty("--card-host-height", popupHeight);
       card.style.setProperty("--view-height", popupHeight);
     } else if (constrainToHaGrid) {
