@@ -668,6 +668,62 @@ test.afterEach(async ({ page }, testInfo) => {
   if (state) console.error("Synthetic camera readiness:", JSON.stringify(state));
 });
 
+for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
+  for (const denied of [false, true]) {
+    test(`production HA Direct requests initial ${transport} audio before readiness (denied=${denied})`, async ({ page }) => {
+      await page.goto(baseUrl);
+      await page.evaluate(async ({ transport, denied }) => {
+        const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+        const audit = installHaCameraLifecycleFixture({ webRtc: true, supportedTypes: transport.split("+"),
+          auditStartupAudio: true, denyAudiblePlayback: denied });
+        await import("/dist/frigate-view-card.js");
+        customElements.define("startup-audio-card", class extends customElements.get("frigate-view-card") {
+          connectedCallback() {}
+          disconnectedCallback() {}
+        });
+        const anchor = document.createElement("home-assistant");
+        anchor.attachShadow({ mode: "open" });
+        document.body.append(anchor);
+        const card = document.createElement("startup-audio-card");
+        card.setConfig({ cameras: ["camera.one", "camera.two"].map((entity) => ({
+          entity, connection_type: "ha_direct", start_unmuted: true,
+        })) });
+        card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+          ["camera.one", "camera.two"].map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
+        ) };
+        card._activeCamIdx = 0;
+        card._started = true;
+        anchor.shadowRoot.append(card);
+        card._renderShell();
+        window.startupAudioProbe = { card, audit };
+        // Mirror _start's audio preparation; this fixture skips browse startup.
+        card._setLiveMuted(true);
+        card._liveAudioController.prepareCameraStart(card._activeCam);
+        await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+      }, { transport, denied });
+      await expect.poll(() => page.evaluate(() => [...(window.startupAudioProbe.card._engine?.haDirectSession?.records.values() || [])]
+        .filter((record) => record.status === "ready").length)).toBe(2);
+      const result = await page.evaluate(() => {
+        const { card, audit } = window.startupAudioProbe;
+        return { requests: audit.playbackRequests,
+          muted: card._engine.haDirectSession.get("camera.one").video.muted, uiMuted: card._streamMuted };
+      });
+      const first = result.requests.filter((request) => request.entity === "camera.one");
+      expect(first[0].muted).toBe(false);
+      expect(first[0].readyState).toBeLessThan(2);
+      expect(result.muted).toBe(denied);
+      expect(result.uiMuted).toBe(denied);
+      if (denied) expect(first.some((request) => request.muted)).toBe(true);
+      const background = result.requests.filter((request) => request.entity === "camera.two");
+      expect(background.length).toBeGreaterThan(0);
+      expect(background.every((request) => request.muted)).toBe(true);
+      expect(await page.evaluate(() => [...window.startupAudioProbe.card._engine.haDirectSession.records.values()]
+        .every((record) => [...record.provider.players.values()]
+          .every((player) => !player.classList.contains("hidden") || player.video.muted)))).toBe(true);
+    });
+  }
+}
+
 for (const scenario of scenarios.flatMap((scenario) => ["hui-card", "div"].map((dashboardHost) => ({ ...scenario, dashboardHost })))) {
   const { transport } = scenario;
   test(`production bundle starts and retains the HA Direct ${scenario.name} session (${scenario.dashboardHost})`, async ({ page }) => {

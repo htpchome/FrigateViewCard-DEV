@@ -3,6 +3,7 @@ import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 import { buildLiveMuteControlMarkup } from "./view.tmpl.js";
 import { synchronizeHaCameraAudio } from "../../integrations/home-assistant/camera-audio.js";
 import { findActiveHaCameraStreamVideo } from "../../integrations/home-assistant/playback.js";
+import { createInitialPlayback } from "../../shared/media/initial-playback.js";
 
 export const cameraStartsUnmuted = (camera) =>
   camera?.start_unmuted === true;
@@ -39,6 +40,8 @@ export class LiveAudioController {
     this._deferredStartUnmuteEngine = null;
     this._onDeferredStartUnmuteInteraction = null;
     this._deferredStartUnmuteTargets = [];
+    this._initialPlaybackVideos = new Map();
+    this._initialAudioOwner = null;
   }
 
   resolveMuted() {
@@ -49,12 +52,14 @@ export class LiveAudioController {
     const host = this._host;
     this._clearDeferredStartUnmute();
     this._clearStartUnmuteReadiness();
+    this._clearInitialPlayback();
     this._cameraStartUnmuteAttempt = null;
     host._cameraStartUnmutePending = cameraStartsUnmuted(camera);
     this._cameraStartUnmuteCamera = host._cameraStartUnmutePending
       ? camera
       : null;
-    // Establish media muted so browser autoplay policy cannot stall startup.
+    // Dormant players stay muted; the startup owner applies selected audio
+    // before its first play, with a muted fallback if permission is denied.
     host._streamMuted = true;
   }
 
@@ -64,6 +69,68 @@ export class LiveAudioController {
     this._clearStartUnmuteReadiness();
     this._cameraStartUnmuteAttempt = null;
     this._clearDeferredStartUnmute();
+    this._clearInitialPlayback();
+  }
+
+  resolveStartupMuted(entity) {
+    return !(
+      cameraStartsUnmuted(this._cameraStartUnmuteCamera) &&
+      !this._initialPlaybackVideos.get(this._initialAudioOwner)?.state.blocked &&
+      entity === (this._host._activeGroupMemberOverride || this._host._activeCam?.entity) &&
+      this._interactionTarget?.visibilityState !== "hidden"
+    );
+  }
+
+  createInitialPlayback(video, { entity, isCurrent = () => true, onMuted = () => {}, replaceExisting = false } = {}) {
+    if (this.resolveStartupMuted(entity)) return null;
+    const camera = this._cameraStartUnmuteCamera;
+    if (replaceExisting) this._clearInitialPlayback(video);
+    // Only one racing candidate may request audio before a winner is selected.
+    this._initialAudioOwner ??= video;
+    const playback = createInitialPlayback(video, {
+      getMuted: () => {
+        const muted = this._initialAudioOwner !== video || this.resolveStartupMuted(entity);
+        if (this._initialAudioOwner === video) {
+          this._host._streamMuted = muted;
+          if (this._resolveEngineVideo(this._host._engine) === video) {
+            this.setMuted(muted, { startPlayback: false, synchronizeLater: false });
+          }
+          this._host._renderMuteButton?.();
+        }
+        return muted;
+      },
+      isCurrent: () => camera === this._cameraStartUnmuteCamera && isCurrent(),
+      onMuted: () => {
+        onMuted();
+        if (this._initialAudioOwner === video) {
+          this._host._streamMuted = true;
+          this._host._renderMuteButton?.();
+          if (this._resolveEngineVideo(this._host._engine) === video) {
+            this._scheduleDeferredStartUnmute(this._host._engine);
+          }
+        }
+      },
+    });
+    this._initialPlaybackVideos.set(video, playback);
+    return {
+      play: playback.play,
+      dispose: () => {
+        playback.dispose();
+        if (this._initialPlaybackVideos.get(video) !== playback) return;
+        this._initialPlaybackVideos.delete(video);
+        if (this._initialAudioOwner === video) this._initialAudioOwner = null;
+      },
+    };
+  }
+
+  _clearInitialPlayback(keepVideo = null) {
+    for (const [video, playback] of this._initialPlaybackVideos) {
+      if (video === keepVideo) continue;
+      playback.dispose();
+      video.muted = true;
+      this._initialPlaybackVideos.delete(video);
+    }
+    this._initialAudioOwner = keepVideo;
   }
 
   applyCameraStartPreference() {
@@ -86,6 +153,19 @@ export class LiveAudioController {
     this._clearStartUnmuteReadiness();
     const attempt = { engine, video, inFlight: false, retries: 0, blocked: false };
     this._cameraStartUnmuteAttempt = attempt;
+    this._clearInitialPlayback(video);
+    const initial = this._initialPlaybackVideos.get(video);
+    if (initial?.state.started && initial.state.requestedUnmuted) {
+      host._streamMuted = video.muted;
+      host._renderMuteButton?.();
+      if (initial.state.blocked) {
+        attempt.blocked = true;
+        this._scheduleDeferredStartUnmute(engine);
+      } else {
+        this._handleCameraStartUnmuteSuccess(attempt);
+      }
+      return true;
+    }
     attempt.onReady = () => this._retryCameraStartUnmute(attempt);
     for (const type of ["loadeddata", "canplay"]) {
       video.addEventListener?.(type, attempt.onReady);

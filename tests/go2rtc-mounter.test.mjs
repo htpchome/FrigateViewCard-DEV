@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { HOME_ASSISTANT_STUN_SERVER } from "../src/constants.js";
 import { createGo2RtcMounter } from "../src/features/live/go2rtc-mounter.js";
+import { LiveAudioController } from "../src/features/live/audio.ctrl.js";
 
 function createFakeVideoElement() {
   const attrs = new Map();
@@ -184,6 +185,64 @@ function createBaseMounter(overrides = {}) {
     ...overrides,
     resolver,
   });
+}
+
+for (const transport of ["WebRtc", "Mse", "Hls"]) {
+  for (const denied of [false, true]) {
+    test(`go2rtc ${transport} applies selected audio at first playback, before commit (denied=${denied})`, async () => {
+      await withFakeDocument(() => withFakeObjectUrl(async () => {
+        const camera = { entity: "camera.front", start_unmuted: true };
+        const host = { _activeCam: camera, _engine: null, _renderMuteButton() {} };
+        const audio = new LiveAudioController(host, { interactionTarget: null });
+        audio.prepareCameraStart(camera);
+        let peer;
+        class Socket extends EventTarget { close() {} }
+        class Peer extends EventTarget {
+          constructor() { super(); peer = this; }
+          addTransceiver() {}
+          getTransceivers() { return []; }
+          close() {}
+        }
+        class Source extends EventTarget { static isTypeSupported() { return true; } }
+        const previousSocket = globalThis.WebSocket;
+        const previousPeer = globalThis.RTCPeerConnection;
+        globalThis.WebSocket = Socket;
+        globalThis.RTCPeerConnection = Peer;
+        const calls = [];
+        const mounter = createBaseMounter({
+          getStreamMuted: () => true,
+          createStartupPlayback(video, options) {
+            video.play = () => {
+              calls.push(video.muted);
+              return denied && !video.muted
+                ? Promise.reject(new DOMException("Denied", "NotAllowedError")) : Promise.resolve();
+            };
+            return audio.createInitialPlayback(video, options);
+          },
+          waitForStreamStart: async () => {
+            if (transport === "WebRtc") {
+              peer.dispatchEvent(Object.assign(new Event("track"), { streams: [{ getTracks: () => [] }] }));
+            }
+            await Promise.resolve();
+            await Promise.resolve();
+            assert.deepEqual(calls, denied ? [false, true] : [false]);
+            assert.equal(host._engine, null);
+            return true;
+          },
+        });
+        try {
+          const result = await withFakeWindow({ WebSocket: Socket, RTCPeerConnection: Peer, MediaSource: Source },
+            () => mounter[`tryMount${transport}`](createSlot()));
+          assert.equal(result.ok, true);
+          result.engine.destroy();
+        } finally {
+          audio.dispose();
+          globalThis.WebSocket = previousSocket;
+          globalThis.RTCPeerConnection = previousPeer;
+        }
+      }));
+    });
+  }
 }
 
 test("go2rtc mounter MSE path exits when no mount entity resolves", async () => {

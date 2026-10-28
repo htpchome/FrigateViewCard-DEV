@@ -69,6 +69,28 @@ for (const startUnmuted of [false, true]) {
   });
 }
 
+test("initial HA playback restores already received audio before requesting play", async () => {
+  const h = createHarness();
+  h.host._activeCam = { entity: "camera.one", start_unmuted: true };
+  h.controller.prepareCameraStart(h.host._activeCam);
+  const requests = [];
+  h.video.play = () => {
+    h.video.playCalls += 1;
+    requests.push({ tracks: [...h.stream.getAudioTracks()], muted: h.video.muted,
+      volume: h.video.volume, playerMuted: h.player.muted });
+    return Promise.resolve();
+  };
+  const playback = h.controller.createInitialPlayback(h.video, { entity: "camera.one" });
+  await playback.play();
+  h.controller.applyCameraStartPreference();
+  assert.equal(h.video.playCalls, 1);
+  assert.deepEqual(requests, [{ tracks: [h.audio], muted: false, volume: 1, playerMuted: false }]);
+  assert.equal(h.hiddenVideo.muted, true);
+  assert.equal(h.video.srcObject, h.stream);
+  assert.equal(h.player._peerConnection, h.peer);
+  h.controller.dispose();
+});
+
 test("startup preference restores audio on the active HA child, not a hidden candidate", async () => {
   const h = createHarness();
   h.controller.prepareCameraStart({ start_unmuted: true });

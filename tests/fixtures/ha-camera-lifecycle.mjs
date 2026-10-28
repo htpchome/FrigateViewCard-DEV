@@ -6,6 +6,7 @@ import { upstreamHaCameraStreamSelector } from "./ha-camera-stream-selector.mjs"
 export function installHaCameraLifecycleFixture({
   webRtc, supportedTypes = ["hls", "web_rtc"], holdReadinessAudit = false, deferRenders = false,
   observeVisibility = false,
+  auditStartupAudio = false, denyAudiblePlayback = false,
 }) {
   const rtcPlayers = new Map();
   const providers = new Set();
@@ -18,7 +19,7 @@ export function installHaCameraLifecycleFixture({
     .map((provider) => provider.stateObj.entity_id);
   const audit = {
     starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
-    rtcOffers: [], iceRestarts: [], closedPeers: [], urlUpdates: [],
+    rtcOffers: [], iceRestarts: [], closedPeers: [], urlUpdates: [], playbackRequests: [],
     startReadiness: [], mediaEvents: [], hlsConfigurations: [], nativeForegroundRestarts: [], nativeForegroundVisits: [],
     failIce: (entity) => {
       const peer = rtcPlayers.get(entity)?._peerConnection;
@@ -107,6 +108,15 @@ export function installHaCameraLifecycleFixture({
       this.video = document.createElement("video");
       this.video.style.cssText = "width:100%;height:100%";
       this.video.muted = true;
+      if (auditStartupAudio) {
+        const play = this.video.play.bind(this.video);
+        this.video.play = () => {
+          audit.playbackRequests.push({ entity: this.entityid, player: this.localName,
+            muted: this.video.muted, readyState: this.video.readyState });
+          return denyAudiblePlayback && !this.video.muted
+            ? Promise.reject(new DOMException("Audible autoplay denied", "NotAllowedError")) : play();
+        };
+      }
       // ha-camera-stream sets autoplay on both native HA child players.
       this.video.autoplay = true;
       this.video.playsInline = true;
@@ -120,6 +130,8 @@ export function installHaCameraLifecycleFixture({
       this.shadowRoot.append(this.video);
       this._url = "/api/hls/synthetic/master_playlist.m3u8?generation=0";
     }
+    set muted(value) { if (auditStartupAudio) this.video.muted = value; }
+    get muted() { return this.video.muted; }
     connectedCallback() {
       if (observeVisibility) {
         this.onVisibility = () => {
@@ -274,7 +286,7 @@ export function installHaCameraLifecycleFixture({
     }
     renderStreams() {
       if (!this.isConnected) return;
-      const streams = this._streams(supportedTypes, this.hls, this.rtc, true);
+      const streams = this._streams(supportedTypes, this.hls, this.rtc, auditStartupAudio ? this.muted : true);
       for (const [type, player] of this.players) {
         if (streams.some((stream) => stream.type === type)) continue;
         player.remove();
@@ -286,6 +298,7 @@ export function installHaCameraLifecycleFixture({
         if (!player) {
           player = document.createElement(stream.type === "hls" ? "ha-hls-player" : "ha-web-rtc-player");
           player.entityid = this.stateObj.entity_id;
+          if (auditStartupAudio) player.muted = this.muted;
           this.players.set(stream.type, player);
           this.shadowRoot.append(player);
         }

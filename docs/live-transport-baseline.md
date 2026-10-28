@@ -2,6 +2,20 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.22` moves the selected camera's startup audio intent ahead of
+initial playback. Frigate go2rtc WebRTC/MSE/HLS uses a tracked first play request;
+only one racing candidate can request audio. Normal HA Direct passes the
+selected camera's public `muted` input before creating native child players,
+and observes a play request before waiting for first-frame readiness. An audible
+autoplay denial immediately retries muted video and leaves the existing
+mute/unmute button and interaction retry available. Hidden/background cameras
+start muted. Camera changes, manual overrides and disposal cancel stale startup
+audio work. Native HA still owns sources, transport selection and peers.
+No microphone access, extra audio control or pause/unmute/play sequence is added;
+Catalyst's separate startup and background recovery remain unchanged.
+Automated startup-order and denial coverage does not establish physical iPhone
+Safari/Companion success; that device validation remains outstanding.
+
 `v1.1.10-dev.21` makes startup audio a single tracked play request after
 synchronous unmute, without the manual control's delayed playback calls.
 Only `NotAllowedError` resumes muted playback and defers to the existing user
@@ -12,7 +26,8 @@ Camera changes, manual mute and disposal remove readiness listeners, and hidden
 documents cannot trigger automatic retries. HA's selected-child audio restoration,
 transport startup/selection, retention, Catalyst background recovery and layouts
 are unchanged. Physical iPhone Safari/Companion validation remains required;
-this does not bypass browser autoplay permissions.
+this does not bypass browser autoplay permissions. Physical iPhone testing
+reported no improvement; its late unmute did not cover the first playback request.
 
 `v1.1.10-dev.20` adds background audio suspension to Catalyst native HLS.
 Document visibility/page lifecycle events synchronously mute native videos,

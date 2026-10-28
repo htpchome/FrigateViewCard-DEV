@@ -59,7 +59,10 @@ export function createHaDirectSession({
       const visible = Boolean(target && active?.visible(record.entity));
       record.slot.style.opacity = visible ? "1" : "0";
       record.slot.style.zIndex = visible ? "3" : "0";
-      if (record.provider) record.provider.muted = visible ? Boolean(active.muted(record.entity)) : true;
+      if (record.provider) record.provider.muted = visible
+        ? (record.status === "loading" && !record.video && record.startupAudio &&
+          active.startupMuted?.(record.entity) === false ? false : Boolean(active.muted(record.entity)))
+        : true;
       active?.onState?.(record, true);
     }
   };
@@ -71,12 +74,22 @@ export function createHaDirectSession({
     const slot = projection.deck;
     slot.style.opacity = "0";
     slot.dataset.fvcHaDirectProvider = entity;
-    const record = { entity, slot, projection, provider: null, status: "loading", streamType: "", video: null, cleanup: () => {} };
+    const startupAudio = active?.visible(entity) && active?.startupMuted?.(entity) === false;
+    const record = { entity, slot, projection, startupAudio, provider: null, status: "loading", streamType: "", video: null, cleanup: () => {} };
     starting = record;
     try {
       const result = createProvider({
         hass: lastHass,
         stateObj,
+        muted: !startupAudio,
+        createStartupPlayback: (video, options) => {
+          if (!active?.visible(entity) || active?.startupMuted?.(entity) !== false) return null;
+          return active.createStartupPlayback?.(video, {
+            ...options, entity,
+            isCurrent: () => !disposed && records.get(entity) === record &&
+              active?.visible(entity) && options.isCurrent(),
+          });
+        },
         onState: (state) => {
           if (disposed || records.get(entity) !== record) return;
           Object.assign(record, state);

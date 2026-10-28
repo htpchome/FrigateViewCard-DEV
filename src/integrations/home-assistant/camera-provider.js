@@ -28,9 +28,9 @@ export function getHaCameraPresentationIdentity(element, config, sourceConfig) {
 
 // All normal HA Direct presentations share this provider. Catalyst and HA's
 // own cards keep their separate factories.
-export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
+export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = true, createStartupPlayback }) {
   const provider = createHaCameraStreamElement({
-    stateObj, muted: true, defaultMuted: true, controls: false, fitMode: "contain",
+    stateObj, muted, defaultMuted: muted, controls: false, fitMode: "contain",
     styleText: "display:block;width:100%;height:100%",
   });
   let selection = [];
@@ -40,6 +40,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   let watchedVideo = null;
   let stopFrameWatch = () => {};
   let stopVideoEvents = () => {};
+  let initialPlayback = null;
   let observer = null;
   let observedPlayerRoot;
   const webRtcRetry = createHaCameraWebRtcRetry({ provider });
@@ -55,6 +56,12 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     scheduled = false;
     if (disposed) return;
     configureStandardHaHlsPlayer(provider.shadowRoot?.querySelector("ha-hls-player"));
+    const activePlayer = findActiveHaCameraStreamPlayer(provider);
+    if (createStartupPlayback) {
+      for (const player of provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || []) {
+        player.muted = player === activePlayer ? provider.muted : true;
+      }
+    }
     const playerRoot = findActiveHaCameraStreamPlayer(provider)?.shadowRoot;
     if (provider.shadowRoot && (!observer || observedPlayerRoot !== playerRoot)) {
       observer ??= new MutationObserver(reconcile);
@@ -71,6 +78,8 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     if (video === watchedVideo && video) return;
     stopFrameWatch();
     stopVideoEvents();
+    initialPlayback?.dispose();
+    initialPlayback = null;
     watchedVideo = video;
     const selected = selection.find((item) => item.visible);
     if (selected?.type === "mjpeg" && !hlsPending) {
@@ -80,6 +89,19 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
     const loading = () => onState({ status: "loading", streamType: "", video: null });
     if (!video) { loading(); return; }
     const current = () => !disposed && video === watchedVideo && findActiveHaCameraStreamVideo(provider) === video;
+    // The public provider mute input is set before HA constructs its children.
+    // Handle denial before waiting for a first frame, which denied autoplay
+    // cannot produce. HA still owns the source, peer and native autoplay.
+    initialPlayback = createStartupPlayback?.(video, {
+      isCurrent: current,
+      replaceExisting: true,
+      onMuted: () => {
+        provider.muted = true;
+        const player = findActiveHaCameraStreamPlayer(provider);
+        if (player) player.muted = true;
+      },
+    });
+    if (initialPlayback) void initialPlayback.play();
     let ready = false;
     let waitingTime = video.currentTime;
     const onReady = () => {
@@ -144,6 +166,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
       hlsRecovery.dispose();
       stopFrameWatch();
       stopVideoEvents();
+      initialPlayback?.dispose();
       observer?.disconnect();
       provider.removeEventListener("streams", reconcile, true);
       provider.removeEventListener("load", reconcile, true);

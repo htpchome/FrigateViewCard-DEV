@@ -1,4 +1,5 @@
 import { DEFAULT_CAMERA_CONNECTION_TYPE } from "../../constants.js";
+import { getLiveAudioController } from "./audio.ctrl.js";
 import {
   DEVICE_PROFILE,
   mkCamState,
@@ -73,6 +74,7 @@ export const createLiveTransportControllers = (
   const go2rtcMounter = resolvedFactories.createGo2RtcMounter({
     resolver: go2rtcResolver,
     getStreamMuted: () => card._streamMuted,
+    createStartupPlayback: (video, options) => getLiveAudioController(card).createInitialPlayback(video, options),
     waitForStreamStart,
     attachVideoFit: attachContainedVideoFit,
     assignCommittedEngine: (engine) => card._assignLiveEngine(engine),
@@ -96,6 +98,8 @@ export const createLiveTransportControllers = (
     },
   });
   const haDirectMounter = resolvedFactories.createHaDirectMounter({
+    getStartupMuted: (entity) => getLiveAudioController(card).resolveStartupMuted(entity),
+    createStartupPlayback: (video, options) => getLiveAudioController(card).createInitialPlayback(video, options),
     onPendingStream: () => card._setActiveStreamType("--"),
     onPresentationLost: () => {
       card._liveMediaPresentationController?.clearVideoZoom?.();
