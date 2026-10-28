@@ -210,8 +210,12 @@ export class LiveAudioController {
       attempt.readyWhilePending = true;
       return false;
     }
-    if (!attempt.retryNeeded && !attempt.video.muted) return false;
-    attempt.retries += 1;
+    if (attempt.awaitingLoaded) {
+      if (Number(attempt.video.readyState) < 2) return false;
+    } else {
+      if (!attempt.retryNeeded && !attempt.video.muted) return false;
+      attempt.retries += 1;
+    }
     this._attemptCameraStartUnmute(attempt);
     return true;
   }
@@ -238,6 +242,13 @@ export class LiveAudioController {
   _attemptCameraStartUnmute(attempt) {
     const host = this._host;
     const { engine, video } = attempt;
+    // Transport adoption can precede loadeddata (including WebKit source
+    // resets). Do not spend the loaded-player attempt on that early state.
+    if (Number(video.readyState) < 2) {
+      attempt.awaitingLoaded = true;
+      return;
+    }
+    attempt.awaitingLoaded = false;
     attempt.inFlight = true;
     attempt.retryNeeded = false;
     attempt.readyWhilePending = false;

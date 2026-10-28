@@ -196,6 +196,13 @@ for (const transport of ["hls", "webrtc"]) {
         card._activeCamIdx = id === "camera.one" ? 0 : 1;
         await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: id });
       }, entity);
+      await expect.poll(() => page.evaluate((id) => {
+        const { card, session } = window.zoomProbe;
+        const record = session.get(id);
+        const zoom = card._liveVideoZoomController;
+        return record?.status === "ready" && record.video?.isConnected === true &&
+          zoom?.video === record.video && zoom.host?.isConnected === true;
+      }, entity)).toBe(true);
       const point = await page.evaluate(() => {
         const { card } = window.zoomProbe;
         const rect = card._liveVideoZoomController.host.getBoundingClientRect();
@@ -228,9 +235,22 @@ for (const transport of ["hls", "webrtc"]) {
       await page.mouse.move(point.x + 30, point.y + 15, { steps: 3 });
       await page.mouse.up();
       await expect.poll(() => page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.state.x)).toBeGreaterThan(panBefore);
-      expect(await page.evaluate((selected) => {
+      // Loading clears record.video without removing the native player. Force
+      // that state too: CI can reach it naturally while the camera is dormant.
+      expect(await page.evaluate(async (selected) => {
+        const { findActiveHaCameraStreamVideo } = await import("/src/integrations/home-assistant/playback.js");
         const dormant = [...window.zoomProbe.session.records.values()].find((record) => record.entity !== selected);
-        return getComputedStyle(dormant.video).pointerEvents;
+        const video = findActiveHaCameraStreamVideo(dormant.provider);
+        if (!video) return false;
+        video.dispatchEvent(new Event("waiting"));
+        return dormant.video === null && video.isConnected &&
+          findActiveHaCameraStreamVideo(dormant.provider) === video;
+      }, entity)).toBe(true);
+      await expect.poll(() => page.evaluate(async (selected) => {
+        const { findActiveHaCameraStreamVideo } = await import("/src/integrations/home-assistant/playback.js");
+        const dormant = [...window.zoomProbe.session.records.values()].find((record) => record.entity !== selected);
+        const video = findActiveHaCameraStreamVideo(dormant.provider);
+        return video?.isConnected ? getComputedStyle(video).pointerEvents : null;
       }, entity)).toBe("none");
       await page.evaluate(() => window.zoomProbe.card._liveVideoZoomController.reset());
     }

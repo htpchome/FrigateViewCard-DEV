@@ -2,6 +2,19 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.24` gates the selected-player auto-unmute attempt on actual media
+readiness (`readyState >= HAVE_CURRENT_DATA`). Transport adoption is not that
+boundary: a synthetic-audio WebRTC comparison reproduced the production go2rtc
+mounter adopting in WebKit while its video still reported `readyState = 0`.
+The previous loaded-player attempt was rejected there, then ignored the real
+`loadeddata` transition. The same controller with adoption after `playing`
+unmuted successfully. The controller now keeps that attempt pending until
+loaded data/canplay readiness; early notifications do not consume its retry
+budget. Manual mute, camera changes, hidden documents and disposal still guard
+the pending work. This does not alter transport adoption, peers, source
+assignment, native HA autoplay, the mute button, or layout. Physical iPhone
+Safari/Companion confirmation is still required.
+
 `v1.1.10-dev.23` reapplies the configured audio preference when the selected
 player becomes usable, even after an early startup autoplay denial. It retires
 the initial-playback handler before the loaded-player unmute/play attempt so
@@ -13,7 +26,25 @@ readiness events cannot loop denied autoplay. Manual mute, camera changes,
 replacement and disposal cancel automatic work; hidden documents cannot retry.
 The existing mute button remains visible. Catalyst's separate native lifecycle
 is unchanged. Synthetic policy tests cover early denial followed by allowed
-loaded playback; physical iPhone Safari/Companion validation remains required.
+loaded playback. Physical iPhone Safari/Companion testing reported no improvement;
+this version is not a verified fix for first-camera audible startup.
+
+For audio investigations, do not treat the silent synthetic videos used by the
+layout/lifecycle suite, or startup invoked through `page.evaluate`, as proof of
+gesture-free audible playback. The test driver can supply user activation.
+`node tests/diagnostics/compare-startup-audio.mjs /path/to/acc-source file`
+(or `webrtc`) runs ACC's actual media-actions/video controllers alongside this
+card's live-audio controller using a synthetic tone and video. The WebRTC run
+also exercises the production Frigate go2rtc mounter/frame-readiness code with
+local synthetic signaling and no public STUN. Receivers start
+from page scripts and report over HTTP without test-driver evaluation; the
+WebRTC sender runs in a separate browser. The script asserts no receiver user
+activation and reports playback decisions, decoded-media evidence and received
+audio statistics. It requires an existing ACC source checkout and never accesses
+live cameras. This is a controller-level experiment, not full native HA/ACC
+integration or an iPhone/Companion reproduction. Missing decoded frames or audio
+statistics must not be reported as a passing WebRTC/audio comparison, and
+received audio energy alone does not prove speaker output.
 
 `v1.1.10-dev.22` moves the selected camera's startup audio intent ahead of
 initial playback. Frigate go2rtc WebRTC/MSE/HLS uses a tracked first play request;

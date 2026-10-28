@@ -4,13 +4,48 @@ import { createInitialPlayback } from "../src/shared/media/initial-playback.js";
 import { LiveAudioController } from "../src/features/live/audio.ctrl.js";
 
 const makeVideo = (denied = false) => Object.assign(new EventTarget(), {
-  muted: true, defaultMuted: true, calls: [],
+  muted: true, defaultMuted: true, readyState: 2, calls: [],
   play() {
     this.calls.push(this.muted);
     return denied && !this.muted
       ? Promise.reject(new DOMException("Denied", "NotAllowedError")) : Promise.resolve();
   },
 });
+
+for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
+  test(`transport adoption before loadeddata preserves the loaded audio attempt: ${action}`, async () => {
+    const camera = { entity: "camera.one", start_unmuted: true };
+    const video = Object.assign(makeVideo(), { readyState: 0 });
+    video.play = function () {
+      this.calls.push({ muted: this.muted, readyState: this.readyState });
+      return !this.muted && this.readyState < 2
+        ? Promise.reject(new DOMException("Early audible playback denied", "NotAllowedError"))
+        : Promise.resolve();
+    };
+    const target = Object.assign(new EventTarget(), { visibilityState: "visible" });
+    const host = { _activeCam: camera, _engine: null, _renderMuteButton() {}, _findVideoDeep: engine => engine?.video };
+    const controller = new LiveAudioController(host, { interactionTarget: target });
+    host._setLiveMuted = muted => controller.setMuted(muted, { startPlayback: false, synchronizeLater: false });
+    controller.prepareCameraStart(camera);
+    await controller.createInitialPlayback(video, { entity: camera.entity }).play();
+    host._engine = { video };
+    controller.applyCameraStartPreference();
+    controller.applyCameraStartPreference();
+    video.dispatchEvent(new Event("canplay"));
+    assert.deepEqual(video.calls, [{ muted: false, readyState: 0 }, { muted: true, readyState: 0 }]);
+    if (action === "manual-mute") controller.applyMuteChange(true);
+    if (action === "camera-change") controller.prepareCameraStart({ entity: "camera.two" });
+    if (action === "hidden") target.visibilityState = "hidden";
+    if (action === "dispose") controller.dispose();
+    video.readyState = 2;
+    video.dispatchEvent(new Event("loadeddata"));
+    await Promise.resolve();
+    assert.equal(video.muted, action !== "loaded");
+    assert.equal(video.calls.length, action === "loaded" ? 3 : 2);
+    if (action === "loaded") assert.deepEqual(video.calls.at(-1), { muted: false, readyState: 2 });
+    controller.dispose();
+  });
+}
 
 for (const denied of [false, true]) {
   test(`initial playback requests audio before first play and handles denial (${denied})`, async () => {

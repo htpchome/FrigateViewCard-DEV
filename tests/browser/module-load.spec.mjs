@@ -262,6 +262,7 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
       video.muted = true;
       const playStates = [];
       // Deterministic interrupted playback, not a simulation of iPhone policy.
+      Object.defineProperty(video, "readyState", { value: 2 });
       video.play = () => {
         playStates.push(video.muted);
         return playStates.length === 1
@@ -319,6 +320,7 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
           const slot = document.createElement("div");
           const video = document.createElement("video");
           video.muted = true;
+          Object.defineProperty(video, "readyState", { value: 0, configurable: true });
           // Model autoplay permission only; this test does not simulate iOS audio output.
           video.play = () => video.muted || allowAudio
             ? Promise.resolve()
@@ -331,6 +333,10 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         const target = card.shadowRoot.querySelector("#engine");
         card._adoptLiveAttemptResult(target, first);
         await Promise.resolve();
+        const beforeLoadedMuted = first.engine.video.muted;
+        Object.defineProperty(first.engine.video, "readyState", { value: 2 });
+        first.engine.video.dispatchEvent(new Event("loadeddata"));
+        await Promise.resolve();
         const firstMuted = first.engine.video.muted;
         const oldVideo = first.engine.video;
         if (connectionType === "ha_direct") {
@@ -342,6 +348,10 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
           card._adoptLiveAttemptResult(target, second);
         }
         await Promise.resolve();
+        const takeoverBeforeLoadedMuted = second.engine.video.muted;
+        Object.defineProperty(second.engine.video, "readyState", { value: 2 });
+        second.engine.video.dispatchEvent(new Event("loadeddata"));
+        await Promise.resolve();
         const takeoverMuted = second.engine.video.muted;
         allowAudio = true;
         oldVideo.dispatchEvent(new Event("touchend"));
@@ -351,10 +361,12 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         card._liveAudioController.dispose();
         card._liveMediaPresentationController?.clearVideoZoom();
         card.remove();
-        return { firstMuted, takeoverMuted, afterOldTouch, afterNewTouch };
+        return { beforeLoadedMuted, firstMuted, takeoverBeforeLoadedMuted, takeoverMuted, afterOldTouch, afterNewTouch };
       }, { connectionType, blocked });
       expect(state).toEqual({
+        beforeLoadedMuted: true,
         firstMuted: blocked,
+        takeoverBeforeLoadedMuted: true,
         takeoverMuted: blocked,
         afterOldTouch: blocked,
         afterNewTouch: false,
