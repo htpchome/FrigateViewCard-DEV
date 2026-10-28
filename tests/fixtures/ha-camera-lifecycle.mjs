@@ -19,7 +19,7 @@ export function installHaCameraLifecycleFixture({
   const audit = {
     starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
     rtcOffers: [], iceRestarts: [], closedPeers: [], urlUpdates: [],
-    startReadiness: [], mediaEvents: [], hlsConfigurations: [], nativeForegroundRestarts: [],
+    startReadiness: [], mediaEvents: [], hlsConfigurations: [], nativeForegroundRestarts: [], nativeForegroundVisits: [],
     failIce: (entity) => {
       const peer = rtcPlayers.get(entity)?._peerConnection;
       if (!peer || peer.iceConnectionState === "closed") return;
@@ -123,7 +123,10 @@ export function installHaCameraLifecycleFixture({
     connectedCallback() {
       if (observeVisibility) {
         this.onVisibility = () => {
-          if (!document.hidden) audit.nativeForegroundRestarts.push(this.entityid);
+          if (document.hidden) { this._hiddenCleanupTimeout = 1; return; }
+          audit.nativeForegroundVisits.push(this.entityid);
+          if (!this._hiddenCleanupTimeout) audit.nativeForegroundRestarts.push(this.entityid);
+          this._hiddenCleanupTimeout = undefined;
         };
         document.addEventListener("visibilitychange", this.onVisibility);
       }
@@ -148,6 +151,10 @@ export function installHaCameraLifecycleFixture({
         this._peerConnection = new EventTarget();
         this._peerConnection.iceConnectionState = "connected";
         this._peerConnection.connectionState = "connected";
+        this._peerConnection.getStats = async () => new Map([["video", {
+          id: "video", type: "inbound-rtp", kind: "video",
+          bytesReceived: this.video.getVideoPlaybackQuality().totalVideoFrames * 1000,
+        }]]);
         audit.rtcOffers.push(this.entityid);
       }
       if (this.localName === "ha-web-rtc-player" && webRtc === "ice-retry") {

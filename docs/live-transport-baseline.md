@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.19` makes Companion HA Direct resume selective. Released peers,
+ended tracks and emptied HLS players are discarded immediately, before native
+foreground restart. Potentially healthy providers remain mounted while a single
+1.5-second maximum check verifies progress. WebRTC requires both decoded-video
+progress and new inbound video bytes from the same peer/receiver; a connected
+flag or buffered frame alone is insufficient. HLS retains advancing playback,
+with later network failure still handled by its existing native recovery.
+Successful checks end early. Unverified players alone re-enter the normal
+sequential startup queue. Paused playback can receive play() without any mute
+change; autoplay denial preserves the connection instead of reconnecting.
+Re-hiding/disposal cancels checks, and stale results cannot remove new players.
+There is no duration-away threshold, cold-start timeout, or perpetual watchdog.
+Ordinary browsers, Catalyst, go2rtc, audio controls and layouts are unchanged.
+Physical iPhone Companion verification remains required.
+
 `v1.1.10-dev.18` replaces the rejected dev.17 ten-second WebRTC progress check
 with a Companion-only session restart. On return from document/page
 backgrounding, retire the old normal HA Direct providers before their native

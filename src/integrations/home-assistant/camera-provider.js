@@ -7,6 +7,7 @@ import { preserveHaCameraHlsFallback } from "./camera-stream-compat.js";
 import { createHaCameraWebRtcRetry } from "./camera-webrtc-retry.js";
 import { createHaCameraHlsRecovery } from "./camera-hls-recovery.js";
 import { configureStandardHaHlsPlayer } from "./camera-hls-policy.js";
+import { checkHaCameraResume } from "./camera-resume-health.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
 export function findHaCameraContextHost(element) {
@@ -136,6 +137,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   return {
     provider,
     onSelected: () => webRtcRetry.retryIfEligible(),
+    checkResume: (onResult) => checkHaCameraResume({ provider, onResult }),
     dispose: () => {
       disposed = true;
       webRtcRetry.dispose();

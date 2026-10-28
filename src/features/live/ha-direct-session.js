@@ -23,6 +23,7 @@ export function createHaDirectSession({
   let releaseTimer = null;
   let lastMuted;
   let lastSelectedEntity;
+  let resumeEpoch = 0;
   let backgrounded = restartOnResume && documentRef?.hidden === true;
   const windowRef = documentRef?.defaultView;
   const inPictureInPicture = () => Boolean(documentRef?.pictureInPictureElement) ||
@@ -92,6 +93,7 @@ export function createHaDirectSession({
       record.provider = result.provider;
       record.cleanup = result.dispose;
       record.onSelected = result.onSelected;
+      record.checkResume = result.checkResume;
       Object.assign(record.provider, {
         type: "ha_direct", haDirectProvider: true, haDirectEntity: entity,
         haDirectSession: api, haDirectProviderSlot: slot,
@@ -121,6 +123,7 @@ export function createHaDirectSession({
     const record = records.get(entity);
     if (!record) return;
     records.delete(entity);
+    record.cancelResume?.();
     if (starting === record) starting = null;
     record.cleanup();
     record.projection.dispose();
@@ -143,15 +146,32 @@ export function createHaDirectSession({
     pump();
   };
   const suspend = () => {
-    if (!disposed && !inPictureInPicture()) backgrounded = true;
+    if (disposed || inPictureInPicture()) return;
+    backgrounded = true;
+    resumeEpoch += 1;
+    for (const record of records.values()) record.cancelResume?.();
   };
   const resume = () => {
     if (disposed || !backgrounded || documentRef?.hidden) return;
     backgrounded = false;
     if (inPictureInPicture()) { pump(); return; }
-    // Retire stale providers before their native visibility listeners can
-    // restart every camera at once. HA still owns each player's teardown.
-    for (const entity of [...records.keys()]) removeRecord(entity);
+    const epoch = ++resumeEpoch;
+    const selected = active?.selected();
+    const candidates = [...records.values()].sort((a, b) =>
+      Number(b.entity === selected) - Number(a.entity === selected));
+    for (const record of candidates) {
+      // Never turn an interrupted cold startup into an unbounded retained wait.
+      if (!record.provider?.haDirectReadyState || !record.checkResume) {
+        removeRecord(record.entity);
+        continue;
+      }
+      record.cancelResume = record.checkResume((reusable) => {
+        if (disposed || backgrounded || epoch !== resumeEpoch || records.get(record.entity) !== record) return;
+        if (!reusable) removeRecord(record.entity);
+        else if (starting === record) starting = null;
+        queueMicrotask(pump);
+      });
+    }
     // Install fresh providers after this event, through the normal queue.
     queueMicrotask(() => {
       if (disposed || backgrounded) return;

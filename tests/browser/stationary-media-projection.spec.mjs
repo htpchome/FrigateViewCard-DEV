@@ -341,6 +341,10 @@ for (const transport of ["hls", "webrtc"]) {
 for (const scenario of [
   { name: "Companion WebRTC", companion: true, webRtc: "recoverable", type: "webrtc" },
   { name: "Companion HLS", companion: true, webRtc: false, type: "hls" },
+  { name: "Companion mixed WebRTC", companion: true, webRtc: "recoverable", type: "webrtc", mixed: true },
+  { name: "Companion mixed HLS", companion: true, webRtc: false, type: "hls", mixed: true },
+  { name: "Companion healthy WebRTC", companion: true, webRtc: "recoverable", type: "webrtc", healthy: true },
+  { name: "Companion healthy HLS", companion: true, webRtc: false, type: "hls", healthy: true },
   { name: "ordinary browser", companion: false, webRtc: "recoverable", type: "webrtc" },
 ]) {
   test('production HA Direct foreground lifecycle: ' + scenario.name, async ({ page }) => {
@@ -383,7 +387,7 @@ for (const scenario of [
     await expect.poll(() => page.evaluate((type) => [...window.foregroundProbe.session.records.values()]
       .filter((record) => record.status === "ready" && record.streamType === type && record.provider.players.size === 1).length,
     scenario.type)).toBe(3);
-    await page.evaluate((companion) => {
+    await page.evaluate(({ companion, mixed, healthy }) => {
       const p = window.foregroundProbe;
       p.providers = [...p.session.records.values()].map((record) => record.provider);
       p.audit.starts.length = 0;
@@ -392,20 +396,46 @@ for (const scenario of [
       Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
       p.setHidden = (value) => { hidden = value; document.dispatchEvent(new Event("visibilitychange")); };
       p.setHidden(true);
-      if (companion) {
-        // Cached success and connected peer flags survive a suspended decoder.
-        // Resume must not wait for a failure event, frame test, or health timeout.
+      if (companion && !healthy) {
+        // Mixed return: selected camera stays healthy, one native session has
+        // been released, and another decoder is silently frozen but connected.
         for (const provider of p.providers) {
+          if (mixed && provider.stateObj.entity_id === "camera.two") continue;
           for (const player of provider.players.values()) {
             player.video.pause();
-            Object.defineProperty(player.video, "paused", { configurable: true, get: () => false });
+            if (mixed && provider.stateObj.entity_id === "camera.three") {
+              Object.defineProperty(player.video, "paused", { configurable: true, get: () => false });
+            } else {
+              player._peerConnection = undefined;
+              player._hiddenCleanupTimeout = undefined;
+              player.video.removeAttribute("src");
+              player.video.load();
+            }
           }
         }
       }
       p.setHidden(false);
       window.dispatchEvent(new Event("pageshow"));
-    }, scenario.companion);
-    if (scenario.companion) {
+    }, scenario);
+    if (scenario.mixed) {
+      await expect.poll(() => page.evaluate(() => {
+        const p = window.foregroundProbe;
+        return p.audit.providerDisconnects;
+      })).toBe(2);
+      await expect.poll(() => page.evaluate((type) => [...window.foregroundProbe.session.records.values()]
+        .filter((record) => record.status === "ready" && record.streamType === type && record.provider.players.size === 1).length,
+      scenario.type)).toBe(3);
+      expect(await page.evaluate(() => {
+        const p = window.foregroundProbe;
+        const selected = p.providers.find((provider) => provider.stateObj.entity_id === "camera.two");
+        return {
+          retained: selected === p.session.get("camera.two").provider && selected.isConnected,
+          newCameras: [...new Set(p.audit.startReadiness.map((entry) => entry.entity))],
+          restarts: p.audit.nativeForegroundRestarts,
+          selected: p.card._engine === selected,
+        };
+      })).toEqual({ retained: true, newCameras: ["camera.one", "camera.three"], restarts: [], selected: true });
+    } else if (scenario.companion && !scenario.healthy) {
       await expect.poll(() => page.evaluate((type) => [...window.foregroundProbe.session.records.values()]
         .filter((record) => record.status === "ready" && record.streamType === type && record.provider.players.size === 1).length,
       scenario.type)).toBe(3);
@@ -439,13 +469,23 @@ for (const scenario of [
         const p = window.foregroundProbe;
         return p.audit.providerDisconnects === 0 && p.audit.starts.length === 0 &&
           p.providers.every((provider) => provider === p.session.get(provider.stateObj.entity_id).provider) &&
-          p.audit.nativeForegroundRestarts.length > 0;
+          p.audit.nativeForegroundVisits.length > 0 && p.audit.nativeForegroundRestarts.length === 0;
       })).toBe(true);
     }
     for (const entity of ["camera.one", "camera.two", "camera.three"]) {
       const time = await page.evaluate((id) => window.foregroundProbe.session.get(id).video.currentTime, entity);
       await expect.poll(() => page.evaluate((id) => window.foregroundProbe.session.get(id).video?.currentTime, entity))
         .toBeGreaterThan(time + 0.15);
+    }
+    if (scenario.healthy) {
+      // Outlast verification before asserting that every retained camera,
+      // including dormant cameras, survived without a delayed replacement.
+      await page.waitForTimeout(1600);
+      expect(await page.evaluate(() => {
+        const p = window.foregroundProbe;
+        return p.audit.providerDisconnects === 0 && p.audit.starts.length === 0 &&
+          p.providers.every((provider) => provider === p.session.get(provider.stateObj.entity_id)?.provider);
+      })).toBe(true);
     }
     expect(errors).toEqual([]);
     await page.evaluate(() => {

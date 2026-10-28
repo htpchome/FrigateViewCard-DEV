@@ -145,11 +145,19 @@ Meaning of `ha_direct`:
   change WebRTC retry/selection, or bypass HA's engine cleanup and construction.
 
   Companion background-return exception: outside Catalyst, the HA Direct
-  session retires its providers on a real hidden-to-visible or pagehide-to-
-  pageshow transition and uses normal selected-first sequential startup. This
-  is an explicit session lifecycle reset, including brief returns, not a stall
-  timer or transport fallback. Capture the foreground event before native
-  players can restart concurrently; construct fresh providers after the event.
+  session inspects its providers on a real hidden-to-visible or pagehide-to-
+  pageshow transition. Retire released/failed players before their native
+  foreground listeners run and replace them through normal selected-first
+  sequential startup. Potentially reusable players stay mounted for a single
+  bounded 1.5-second verification, ending as soon as progress is confirmed.
+  WebRTC requires advancing decoded frames (media time if counters are absent)
+  and increasing inbound video bytes across foreground samples of the same
+  native peer/receiver. HLS requires advancing playback; this does not prove
+  that its backend cannot expire after buffered playback. A paused video may
+  receive play(), without changing mute; autoplay denial is not a reconnect
+  reason. Unknown/unresponsive players re-enter the same startup queue, not
+  an HLS fallback or new signaling path. No background or permanent watchdog
+  is permitted. Re-hiding, replacement and disposal cancel verification.
   Ignore stale callbacks and duplicate foreground notifications. Preserve the
   selected camera, mute choice, session clients and presentation targets.
   Picture-in-picture, ordinary browser resumes, camera selection and editor/

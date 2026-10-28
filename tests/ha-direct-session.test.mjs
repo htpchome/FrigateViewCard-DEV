@@ -15,6 +15,7 @@ const fixture = (options = {}) => {
     calls.push(["create", entity]);
     callbacks.set(entity, onState);
     return { provider: { stateObj }, dispose: () => calls.push(["release", entity]),
+      checkResume: options.checkResume ? (onResult) => options.checkResume(entity, onResult) : undefined,
       onSelected: () => calls.push(["selected", entity]) };
   } });
   const entities = ["camera.one", "camera.two", "camera.three"];
@@ -43,7 +44,7 @@ const lifecycle = () => {
   } };
 };
 
-test("Companion resume discards the old session media and runs selected-first sequential startup immediately", async () => {
+test("Companion resume discards released session media and runs selected-first sequential startup immediately", async () => {
   const life = lifecycle();
   const f = fixture({ ...life, restartOnResume: true });
   const owner = f.client();
@@ -81,6 +82,67 @@ test("Companion resume discards the old session media and runs selected-first se
   await flush();
   assert.equal(f.calls.filter(([name]) => name === "create").length, 3, "duplicate foreground events do not restart twice");
   f.session.dispose();
+});
+
+test("Companion keeps healthy providers and queues only released or unverified cameras", async () => {
+  const life = lifecycle();
+  const checks = new Map();
+  const f = fixture({ ...life, restartOnResume: true, checkResume: (entity, onResult) => {
+    checks.set(entity, onResult);
+    if (entity === "camera.two") onResult(false);
+    return () => {};
+  } });
+  const owner = f.client();
+  f.session.attach(owner);
+  for (const entity of owner.entities()) await f.ready(entity);
+  const first = f.session.get("camera.one");
+  owner.value.selected = "camera.two";
+  f.session.sync(owner);
+  life.visibility(true);
+  life.visibility(false);
+  assert.equal(f.session.get("camera.two"), undefined, "released camera is removed immediately");
+  assert.equal(f.session.get("camera.one"), first, "potentially healthy camera remains mounted");
+  await flush();
+  const replacement = f.session.get("camera.two");
+  checks.get("camera.one")(true);
+  checks.get("camera.three")(false);
+  await flush();
+  assert.equal(f.session.get("camera.three"), undefined, "replacement waits for the current startup");
+  await f.ready("camera.two");
+  assert.equal(f.session.get("camera.one"), first);
+  assert.equal(f.session.get("camera.two"), replacement);
+  assert.equal(f.session.get("camera.three").status, "loading");
+  await f.ready("camera.three");
+  life.visibility(false);
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 5);
+  f.session.dispose();
+});
+
+test("re-hiding cancels verification and stale outcomes cannot remove the retained provider", async () => {
+  const life = lifecycle();
+  const checks = [];
+  let cancelled = 0;
+  const f = fixture({ ...life, restartOnResume: true, checkResume: (_entity, done) => {
+    checks.push(done);
+    return () => { cancelled += 1; };
+  } });
+  const owner = f.client();
+  f.session.attach(owner);
+  await f.ready("camera.one");
+  const original = f.session.get("camera.one");
+  life.visibility(true);
+  life.visibility(false);
+  life.visibility(true);
+  checks[0](false);
+  await flush();
+  assert.equal(f.session.get("camera.one"), original);
+  assert.equal(cancelled, 1);
+  life.visibility(false);
+  checks[0](false);
+  assert.equal(f.session.get("camera.one"), original);
+  f.session.dispose();
+  checks.at(-1)(false);
+  assert.equal(f.session.records.size, 0);
 });
 
 test("Companion startup pauses while hidden and resumes with fresh providers even mid-warmup", async () => {
