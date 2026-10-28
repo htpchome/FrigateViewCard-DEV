@@ -132,6 +132,72 @@ test.afterAll(async () => {
   });
 });
 
+for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
+  for (const blocked of [false, true]) {
+    test(`${connectionType} startup audio follows takeover in the bundle (blocked=${blocked})`, async ({ page }) => {
+      await page.goto(baseUrl);
+      const state = await page.evaluate(async ({ connectionType, blocked }) => {
+        await import("/frigate-view-card.js");
+        customElements.define("audio-takeover-card", class extends customElements.get("frigate-view-card") {
+          connectedCallback() {}
+          disconnectedCallback() {}
+        });
+        const card = document.createElement("audio-takeover-card");
+        card.setConfig({ cameras: [{ entity: "camera.front", connection_type: connectionType, start_unmuted: true }] });
+        document.body.append(card);
+        card._renderShell();
+        card._isLikelyMobileClient = () => true;
+        card._setLiveMuted(true);
+        card._liveAudioController.prepareCameraStart(card._config.cameras[0]);
+        let allowAudio = !blocked;
+        const createResult = (type) => {
+          const slot = document.createElement("div");
+          const video = document.createElement("video");
+          video.muted = true;
+          // Model autoplay permission only; this test does not simulate iOS audio output.
+          video.play = () => video.muted || allowAudio
+            ? Promise.resolve()
+            : Promise.reject(new DOMException("Blocked", "NotAllowedError"));
+          slot.append(video);
+          return { ok: true, type, slot, engine: { type: connectionType, video } };
+        };
+        const first = createResult(connectionType === "ha_direct" ? "hls" : "mse");
+        const second = createResult("webrtc");
+        const target = card.shadowRoot.querySelector("#engine");
+        card._adoptLiveAttemptResult(target, first);
+        await Promise.resolve();
+        const firstMuted = first.engine.video.muted;
+        const oldVideo = first.engine.video;
+        if (connectionType === "ha_direct") {
+          // HA keeps its provider while replacing the selected child video.
+          first.engine.video = second.engine.video;
+          target.replaceChildren(second.slot);
+          card._setActiveStreamType("webrtc");
+        } else {
+          card._adoptLiveAttemptResult(target, second);
+        }
+        await Promise.resolve();
+        const takeoverMuted = second.engine.video.muted;
+        allowAudio = true;
+        oldVideo.dispatchEvent(new Event("touchend"));
+        const afterOldTouch = second.engine.video.muted;
+        second.engine.video.dispatchEvent(new Event("touchend"));
+        const afterNewTouch = second.engine.video.muted;
+        card._liveAudioController.dispose();
+        card._liveMediaPresentationController?.clearVideoZoom();
+        card.remove();
+        return { firstMuted, takeoverMuted, afterOldTouch, afterNewTouch };
+      }, { connectionType, blocked });
+      expect(state).toEqual({
+        firstMuted: blocked,
+        takeoverMuted: blocked,
+        afterOldTouch: blocked,
+        afterNewTouch: false,
+      });
+    });
+  }
+}
+
 test("suspended Frigate cameras expose a transport-independent power control", async ({
   page,
 }) => {

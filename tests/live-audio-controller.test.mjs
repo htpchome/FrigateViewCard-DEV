@@ -3,6 +3,144 @@ import assert from "node:assert/strict";
 
 import { LiveAudioController } from "../src/features/live/audio.ctrl.js";
 
+const createTakeoverAudioHarness = ({ connectionType, mobile = true } = {}) => {
+  const createTarget = () => {
+    const listeners = new Map();
+    return {
+      addEventListener(type, handler) { listeners.set(type, handler); },
+      removeEventListener(type, handler) {
+        if (listeners.get(type) === handler) listeners.delete(type);
+      },
+      dispatchEvent(event) { listeners.get(event.type)?.(event); },
+    };
+  };
+  const interactionTarget = createTarget();
+  const timers = [];
+  const createVideo = () => Object.assign(createTarget(), {
+    muted: true,
+    defaultMuted: true,
+    volume: 1,
+    allowAudio: true,
+    playCalls: 0,
+    play() {
+      this.playCalls += 1;
+      return this.muted || this.allowAudio
+        ? Promise.resolve()
+        : Promise.reject(new DOMException("Blocked", "NotAllowedError"));
+    },
+  });
+  const firstVideo = createVideo();
+  const nextVideo = createVideo();
+  const firstEngine = { type: connectionType, video: firstVideo };
+  const nextEngine = connectionType === "ha_direct"
+    ? firstEngine
+    : { type: connectionType, video: nextVideo };
+  const host = {
+    _engine: firstEngine,
+    _streamMuted: true,
+    _isLikelyMobileClient: () => mobile,
+    _findVideoDeep: (engine) => engine.video,
+    _renderMuteButton() {},
+  };
+  const controller = new LiveAudioController(host, {
+    interactionTarget,
+    setTimer: (callback) => timers.push(callback),
+  });
+  host._setLiveMuted = (muted) => controller.setMuted(muted);
+  const start = () => {
+    controller.prepareCameraStart({ start_unmuted: true });
+    return controller.applyCameraStartPreference();
+  };
+  const takeOver = () => {
+    nextEngine.video = nextVideo;
+    host._engine = nextEngine;
+    return controller.applyCameraStartPreference();
+  };
+  return {
+    controller, host, firstVideo, nextVideo, interactionTarget, timers, start, takeOver,
+  };
+};
+
+for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
+  for (const mobile of [true, false]) {
+    test(`${connectionType} startup unmute follows replacement media (mobile=${mobile})`, async () => {
+      const h = createTakeoverAudioHarness({ connectionType, mobile });
+      assert.equal(h.start(), true);
+      await Promise.resolve();
+      assert.equal(h.firstVideo.muted, false);
+
+      assert.equal(h.takeOver(), true);
+      await Promise.resolve();
+      assert.equal(h.nextVideo.muted, false);
+      assert.equal(h.host._streamMuted, false);
+      const playCalls = h.nextVideo.playCalls;
+      assert.equal(h.controller.applyCameraStartPreference(), false);
+      assert.equal(h.nextVideo.playCalls, playCalls, "same-player status updates do not retry audio");
+      h.controller.dispose();
+    });
+  }
+
+  test(`${connectionType} blocked replacement playback retries on the new video's touchend`, async () => {
+    const h = createTakeoverAudioHarness({ connectionType });
+    h.firstVideo.allowAudio = false;
+    h.nextVideo.allowAudio = false;
+    h.start();
+    await Promise.resolve();
+    assert.equal(h.host._streamMuted, true);
+    h.takeOver();
+    await Promise.resolve();
+    assert.equal(h.nextVideo.muted, true);
+
+    h.nextVideo.allowAudio = true;
+    h.firstVideo.dispatchEvent(new Event("touchend"));
+    assert.equal(h.nextVideo.muted, true, "old video no longer owns the retry");
+    h.nextVideo.dispatchEvent(new Event("touchend"));
+    assert.equal(h.nextVideo.muted, false);
+    assert.equal(h.host._streamMuted, false);
+    h.controller.dispose();
+  });
+
+  test(`${connectionType} stale autoplay rejection cannot remute replacement media`, async () => {
+    const h = createTakeoverAudioHarness({ connectionType });
+    const rejections = [];
+    h.firstVideo.play = () => new Promise((resolve, reject) => rejections.push(reject));
+    h.start();
+    h.takeOver();
+    await Promise.resolve();
+    rejections.forEach((reject) => reject(new DOMException("Interrupted", "AbortError")));
+    await Promise.resolve();
+    assert.equal(h.nextVideo.muted, false);
+    assert.equal(h.host._streamMuted, false);
+    h.controller.dispose();
+  });
+
+  test(`${connectionType} manual mute cancels startup audio through takeover`, async () => {
+    const h = createTakeoverAudioHarness({ connectionType });
+    h.start();
+    await Promise.resolve();
+    h.controller.applyMuteChange(true);
+    assert.equal(h.takeOver(), false);
+    h.interactionTarget.dispatchEvent(new Event("touchend"));
+    h.nextVideo.dispatchEvent(new Event("touchend"));
+    h.timers.forEach((callback) => callback());
+    assert.equal(h.nextVideo.muted, true);
+    assert.equal(h.host._streamMuted, true);
+    h.controller.dispose();
+  });
+
+  test(`${connectionType} camera switch cancels the previous startup preference`, async () => {
+    const h = createTakeoverAudioHarness({ connectionType });
+    h.start();
+    h.controller.prepareCameraStart({ start_unmuted: false });
+    assert.equal(h.takeOver(), false);
+    await Promise.resolve();
+    h.interactionTarget.dispatchEvent(new Event("touchend"));
+    assert.equal(h.nextVideo.muted, true);
+    assert.equal(h.host._streamMuted, true);
+    h.controller.dispose();
+  });
+}
+
 const createMuteChangeHost = ({ haDirect, talkActive = false }) => {
   const calls = [];
   const host = {

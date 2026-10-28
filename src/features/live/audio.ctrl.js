@@ -33,6 +33,7 @@ export class LiveAudioController {
     this._setTimer = (callback, delay) => setTimer(callback, delay);
     this._interactionTarget = interactionTarget;
     this._cameraStartUnmuteCamera = null;
+    this._cameraStartUnmuteAttempt = null;
     this._deferredStartUnmuteEngine = null;
     this._onDeferredStartUnmuteInteraction = null;
     this._deferredStartUnmuteTargets = [];
@@ -45,6 +46,7 @@ export class LiveAudioController {
   prepareCameraStart(camera) {
     const host = this._host;
     this._clearDeferredStartUnmute();
+    this._cameraStartUnmuteAttempt = null;
     host._cameraStartUnmutePending = cameraStartsUnmuted(camera);
     this._cameraStartUnmuteCamera = host._cameraStartUnmutePending
       ? camera
@@ -56,17 +58,27 @@ export class LiveAudioController {
   cancelCameraStartPreference() {
     this._host._cameraStartUnmutePending = false;
     this._cameraStartUnmuteCamera = null;
+    this._cameraStartUnmuteAttempt = null;
     this._clearDeferredStartUnmute();
   }
 
   applyCameraStartPreference() {
     const host = this._host;
-    if (host._cameraStartUnmutePending !== true || !host._engine) return false;
-    host._cameraStartUnmutePending = false;
+    if (!cameraStartsUnmuted(this._cameraStartUnmuteCamera) || !host._engine) {
+      return false;
+    }
     const engine = host._engine;
     const video = this._resolveEngineVideo(engine);
-
-    this._attemptCameraStartUnmute(engine, video);
+    const previous = this._cameraStartUnmuteAttempt;
+    if (!video || (previous?.engine === engine && previous.video === video)) {
+      return false;
+    }
+    host._cameraStartUnmutePending = false;
+    // A takeover gets its own attempt and interaction targets, not the old player's.
+    this._clearDeferredStartUnmute();
+    const attempt = { engine, video };
+    this._cameraStartUnmuteAttempt = attempt;
+    this._attemptCameraStartUnmute(attempt);
     return true;
   }
 
@@ -78,8 +90,17 @@ export class LiveAudioController {
     );
   }
 
-  _attemptCameraStartUnmute(engine, resolvedVideo = null) {
+  _isCurrentStartUnmuteAttempt(attempt) {
+    return (
+      this._cameraStartUnmuteAttempt === attempt &&
+      attempt.engine === this._host._engine &&
+      attempt.video === this._resolveEngineVideo(attempt.engine)
+    );
+  }
+
+  _attemptCameraStartUnmute(attempt) {
     const host = this._host;
+    const { engine, video } = attempt;
 
     if (
       host._isLikelyMobileClient?.() === true &&
@@ -92,45 +113,44 @@ export class LiveAudioController {
     host._renderMuteButton?.();
     host._engineMountedMuted = false;
 
-    const video = resolvedVideo || this._resolveEngineVideo(engine);
     let playback = null;
     try {
       playback = video?.play?.();
     } catch (_) {
-      this._handleCameraStartUnmuteFailure(engine);
+      this._handleCameraStartUnmuteFailure(attempt);
       return;
     }
     if (!playback?.then) {
-      this._handleCameraStartUnmuteSuccess(engine);
+      this._handleCameraStartUnmuteSuccess(attempt);
       return;
     }
     playback.then(
-      () => this._handleCameraStartUnmuteSuccess(engine),
-      () => this._handleCameraStartUnmuteFailure(engine),
+      () => this._handleCameraStartUnmuteSuccess(attempt),
+      () => this._handleCameraStartUnmuteFailure(attempt),
     );
   }
 
-  _handleCameraStartUnmuteSuccess(engine) {
+  _handleCameraStartUnmuteSuccess(attempt) {
     const host = this._host;
-    if (engine !== host._engine || host._streamMuted !== false) return;
+    if (!this._isCurrentStartUnmuteAttempt(attempt) || host._streamMuted !== false) return;
     // iOS can resolve play() for muted autoplay without granting audible
     // playback. Keep one real interaction armed even after apparent success.
     if (
       host._isLikelyMobileClient?.() === true &&
       cameraStartsUnmuted(this._cameraStartUnmuteCamera)
     ) {
-      this._scheduleDeferredStartUnmute(engine);
+      this._scheduleDeferredStartUnmute(attempt.engine);
       return;
     }
-    this._cameraStartUnmuteCamera = null;
+    // Retain the preference for a later player takeover until the user overrides it.
     this._clearDeferredStartUnmute();
   }
 
-  _handleCameraStartUnmuteFailure(engine) {
+  _handleCameraStartUnmuteFailure(attempt) {
     const host = this._host;
     if (
       !cameraStartsUnmuted(this._cameraStartUnmuteCamera) ||
-      engine !== host._engine ||
+      !this._isCurrentStartUnmuteAttempt(attempt) ||
       host._streamMuted
     ) {
       return;
@@ -138,7 +158,7 @@ export class LiveAudioController {
     this.setMuted(true);
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
-    const video = this._resolveEngineVideo(engine);
+    const { engine, video } = attempt;
     try {
       video?.play?.()?.catch?.(() => {});
     } catch (_) {}
