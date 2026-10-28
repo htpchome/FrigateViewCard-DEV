@@ -112,7 +112,15 @@ Meaning of `ha_direct`:
     bounded retry policy while HLS is usable.
     This recovery uses media/state events, not a startup timeout, new polling,
     provider replacement, or direct signaling/peer manipulation. Ordinary
-    disconnection, background cleanup and healthy cameras are unchanged.
+    disconnection and healthy cameras are unchanged. After document/page
+    backgrounding, a previously usable WebRTC player may receive one ten-second
+    foreground progress check when presented. Resume a paused video without
+    changing its mute choice; autoplay denial is not a transport failure. If
+    decoded frames (or media time when frame counters are unavailable) do not
+    advance, use the same advertised/verified-HLS recovery above. This is not a
+    cold-start timeout or perpetual watchdog. Dormant cameras defer the check
+    until presented. Progress, renewed hiding, replacement or disposal cancels
+    observation. HA still owns hidden cleanup and all peer/player lifecycles.
   - a native HLS retryable error must not make the parent remove that player
     before HA's recovery runs. Treat that candidate as pending, not ready; after
     HA clears the error and video advances, correct the stale failure metadata

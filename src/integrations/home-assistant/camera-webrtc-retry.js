@@ -1,3 +1,5 @@
+import { createHaCameraWebRtcResume } from "./camera-webrtc-resume.js";
+
 const INITIAL_RETRY_MS = 120000;
 const REPEATED_RETRY_MS = 300000;
 const PEER_DISCOVERY_MS = 250;
@@ -57,6 +59,11 @@ export function createHaCameraWebRtcRetry({
     provider.requestUpdate();
     return true;
   };
+  const foregroundResume = createHaCameraWebRtcResume({
+    provider, setTimer, clearTimer,
+    isUsable: (target) => Boolean(target && target === usablePlayer),
+    onStalled: (target) => { if (target === player) recoverEstablishedPlayer(); },
+  });
 
   const suppress = () => {
     if (disposed || suppressed || !hlsReady) return;
@@ -97,6 +104,7 @@ export function createHaCameraWebRtcRetry({
   }
   function observe() {
     if (disposed) return;
+    foregroundResume.observe();
     const nextPlayer = provider.shadowRoot?.querySelector("ha-web-rtc-player");
     const nextPeer = nextPlayer?._peerConnection || null;
     if (player !== nextPlayer || peer !== nextPeer) {
@@ -144,6 +152,7 @@ export function createHaCameraWebRtcRetry({
   };
   return {
     observe,
+    setPresented: foregroundResume.setPresented,
     adjustWebRtcStreams(hlsStreams, webRtcStreams) {
       hlsReady = hlsStreams?.hasVideo === true;
       lastWebRtcStreams = webRtcStreams;
@@ -172,6 +181,7 @@ export function createHaCameraWebRtcRetry({
     },
     dispose() {
       disposed = true;
+      foregroundResume.dispose();
       stopDiscovery();
       stopRecoveryWatch();
       detachPeer();

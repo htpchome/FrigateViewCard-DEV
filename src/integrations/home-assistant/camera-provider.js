@@ -136,6 +136,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState }) {
   return {
     provider,
     onSelected: () => webRtcRetry.retryIfEligible(),
+    setPresented: (visible) => webRtcRetry.setPresented(visible),
     dispose: () => {
       disposed = true;
       webRtcRetry.dispose();

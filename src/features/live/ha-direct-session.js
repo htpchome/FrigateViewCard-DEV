@@ -53,6 +53,7 @@ export function createHaDirectSession({
       record.slot.style.opacity = visible ? "1" : "0";
       record.slot.style.zIndex = visible ? "3" : "0";
       if (record.provider) record.provider.muted = visible ? Boolean(active.muted(record.entity)) : true;
+      record.setPresented?.(visible);
       active?.onState?.(record, true);
     }
   };
@@ -86,6 +87,7 @@ export function createHaDirectSession({
       record.provider = result.provider;
       record.cleanup = result.dispose;
       record.onSelected = result.onSelected;
+      record.setPresented = result.setPresented;
       Object.assign(record.provider, {
         type: "ha_direct", haDirectProvider: true, haDirectEntity: entity,
         haDirectSession: api, haDirectProviderSlot: slot,

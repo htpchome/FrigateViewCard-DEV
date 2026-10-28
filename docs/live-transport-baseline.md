@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.17` adds a foreground-only progress check for previously usable
+HA Direct WebRTC players. A retained peer can stop delivering frames during
+app suspension without reporting a failed connection; cached readiness alone
+must not keep that frozen picture selected indefinitely. A presented player
+gets ten seconds to resume decoding, including a normal `play()` for a paused
+element without changing its audio choice. Lack of progress invokes the
+existing camera-local advertised/verified-HLS recovery, followed by HA's fresh
+WebRTC attempt. No provider replacement or peer manipulation is added.
+Hidden cameras defer checking until presented; successful progress, re-hiding,
+replacement and disposal cancel the watch. Cold starts, ordinary camera
+switches without backgrounding, autoplay-denied playback, HLS-only recovery,
+Catalyst and Frigate go2rtc retain their existing paths. Automated tests model
+silent suspension with retained successful metadata; physical Companion app
+background-return verification remains required.
+
 `v1.1.10-dev.16` restores received WebRTC audio omitted by HA during muted
 startup when the selected HA Direct camera is unmuted. The integration-owned
 adapter synchronizes the selected child's public mute input within the user
