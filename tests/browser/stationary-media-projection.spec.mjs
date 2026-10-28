@@ -338,97 +338,122 @@ for (const transport of ["hls", "webrtc"]) {
   });
 }
 
-test("production HA Direct recovers silent foreground stalls without restarting healthy cameras", async ({ page }) => {
-  test.setTimeout(60000);
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(baseUrl);
-  await page.evaluate(async () => {
-    const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
-    const audit = installHaCameraLifecycleFixture({ webRtc: "recoverable", supportedTypes: ["web_rtc"], deferRenders: true });
-    await import("/dist/frigate-view-card.js");
-    customElements.define("foreground-session-card", class extends customElements.get("frigate-view-card") {
-      connectedCallback() {}
-      disconnectedCallback() {}
-    });
-    const anchor = document.createElement("home-assistant");
-    anchor.attachShadow({ mode: "open" });
-    document.body.append(anchor);
-    const card = document.createElement("foreground-session-card");
-    const entities = ["camera.one", "camera.two", "camera.three"];
-    card.setConfig({ cameras: entities.map((entity) => ({ entity, connection_type: "ha_direct" })) });
-    card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
-      entities.map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
-    ) };
-    card._activeCamIdx = 0;
-    card._started = true;
-    anchor.shadowRoot.append(card);
-    card._renderShell();
-    await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
-    window.foregroundProbe = { card, audit, session: card._engine.haDirectSession };
-  });
-  await expect.poll(() => page.evaluate(() => [...window.foregroundProbe.session.records.values()]
-    .filter((record) => record.status === "ready" && record.streamType === "webrtc" && record.provider.players.size === 1).length)).toBe(3);
-  await page.evaluate(() => {
-    const p = window.foregroundProbe;
-    p.providers = [...p.session.records.values()].map((record) => record.provider);
-    p.originalRtc = p.providers.map((provider) => provider.players.get("web_rtc"));
-    let hidden = false;
-    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
-    p.setHidden = (value) => { hidden = value; document.dispatchEvent(new Event("visibilitychange")); };
-    p.setHidden(true);
-    // Model suspension: frozen decoder, but no ICE failure, streams:false or
-    // waiting event. The same successful metadata and old image remain.
-    for (const player of p.originalRtc.slice(0, 2)) {
-      player.video.pause();
-      Object.defineProperty(player.video, "paused", { configurable: true, get: () => false });
+for (const scenario of [
+  { name: "Companion WebRTC", companion: true, webRtc: "recoverable", type: "webrtc" },
+  { name: "Companion HLS", companion: true, webRtc: false, type: "hls" },
+  { name: "ordinary browser", companion: false, webRtc: "recoverable", type: "webrtc" },
+]) {
+  test('production HA Direct foreground lifecycle: ' + scenario.name, async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    if (scenario.companion) {
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "userAgent", { get: () =>
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Home Assistant/2026.9 Mobile/HomeAssistant, like Safari" });
+      });
     }
-    p.setHidden(false);
-  });
-  const recovered = async (entity) => {
-    await expect.poll(() => page.evaluate((id) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async ({ webRtc }) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const audit = installHaCameraLifecycleFixture({ webRtc, deferRenders: true, observeVisibility: true });
+      await import("/dist/frigate-view-card.js");
+      customElements.define("foreground-session-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const anchor = document.createElement("home-assistant");
+      anchor.attachShadow({ mode: "open" });
+      document.body.append(anchor);
+      const card = document.createElement("foreground-session-card");
+      const entities = ["camera.one", "camera.two", "camera.three"];
+      card.setConfig({ cameras: [
+        ...entities.map((entity) => ({ entity, connection_type: "ha_direct" })),
+        { entity: "camera.external", connection_type: "frigate_go2rtc" },
+      ] });
+      card._hass = { connection: {}, callWS: audit.callWS, states: Object.fromEntries(
+        [...entities, "camera.external"].map((entity_id) => [entity_id, { entity_id, state: "idle", attributes: {} }]),
+      ) };
+      card._activeCamIdx = 1;
+      card._started = true;
+      anchor.shadowRoot.append(card);
+      card._renderShell();
+      await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.two" });
+      window.foregroundProbe = { card, audit, session: card._engine.haDirectSession };
+    }, scenario);
+    await expect.poll(() => page.evaluate((type) => [...window.foregroundProbe.session.records.values()]
+      .filter((record) => record.status === "ready" && record.streamType === type && record.provider.players.size === 1).length,
+    scenario.type)).toBe(3);
+    await page.evaluate((companion) => {
       const p = window.foregroundProbe;
-      const record = p.session.get(id);
-      const index = id === "camera.one" ? 0 : 1;
-      return record.status === "ready" && record.streamType === "webrtc" &&
-        record.provider.players.get("web_rtc") !== p.originalRtc[index];
-    }, entity), { timeout: 15000 }).toBe(true);
-    const time = await page.evaluate((id) => window.foregroundProbe.session.get(id).video.currentTime, entity);
-    await expect.poll(() => page.evaluate((id) => window.foregroundProbe.session.get(id).video.currentTime, entity)).toBeGreaterThan(time + 0.15);
-  };
-  await recovered("camera.one");
-  expect(await page.evaluate(() => window.foregroundProbe.audit.rtcOffers)).toEqual([
-    "camera.one", "camera.two", "camera.three", "camera.one",
-  ]);
-  // A hidden retained camera gets its own check when selected, not a mass reset.
-  await page.evaluate(async () => {
-    const { card } = window.foregroundProbe;
-    card._activeCamIdx = 1;
-    await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.two" });
+      p.providers = [...p.session.records.values()].map((record) => record.provider);
+      p.audit.starts.length = 0;
+      p.audit.startReadiness.length = 0;
+      let hidden = false;
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+      p.setHidden = (value) => { hidden = value; document.dispatchEvent(new Event("visibilitychange")); };
+      p.setHidden(true);
+      if (companion) {
+        // Cached success and connected peer flags survive a suspended decoder.
+        // Resume must not wait for a failure event, frame test, or health timeout.
+        for (const provider of p.providers) {
+          for (const player of provider.players.values()) {
+            player.video.pause();
+            Object.defineProperty(player.video, "paused", { configurable: true, get: () => false });
+          }
+        }
+      }
+      p.setHidden(false);
+      window.dispatchEvent(new Event("pageshow"));
+    }, scenario.companion);
+    if (scenario.companion) {
+      await expect.poll(() => page.evaluate((type) => [...window.foregroundProbe.session.records.values()]
+        .filter((record) => record.status === "ready" && record.streamType === type && record.provider.players.size === 1).length,
+      scenario.type)).toBe(3);
+      expect(await page.evaluate(() => {
+        const p = window.foregroundProbe;
+        return {
+          order: [...p.session.records.keys()],
+          replaced: p.providers.every((provider) => !provider.isConnected &&
+            provider !== p.session.get(provider.stateObj.entity_id)?.provider),
+          disconnects: p.audit.providerDisconnects,
+          concurrentNativeRestarts: p.audit.nativeForegroundRestarts,
+          selected: p.card._engine.haDirectEntity,
+          // Each new camera's first child starts only after earlier cameras
+          // settle. Additional children within one native provider are HA-owned.
+          starts: p.audit.startReadiness.filter((entry, index, all) =>
+            all.findIndex((other) => other.entity === entry.entity) === index)
+            .map((entry) => ({ entity: entry.entity, earlier: entry.states
+              .filter((state) => state.entity !== entry.entity).map((state) => state.status) })),
+        };
+      })).toEqual({
+        order: ["camera.two", "camera.one", "camera.three"], replaced: true, disconnects: 3,
+        concurrentNativeRestarts: [], selected: "camera.two",
+        starts: [
+          { entity: "camera.two", earlier: [] },
+          { entity: "camera.one", earlier: ["ready"] },
+          { entity: "camera.three", earlier: ["ready", "ready"] },
+        ],
+      });
+    } else {
+      expect(await page.evaluate(() => {
+        const p = window.foregroundProbe;
+        return p.audit.providerDisconnects === 0 && p.audit.starts.length === 0 &&
+          p.providers.every((provider) => provider === p.session.get(provider.stateObj.entity_id).provider) &&
+          p.audit.nativeForegroundRestarts.length > 0;
+      })).toBe(true);
+    }
+    for (const entity of ["camera.one", "camera.two", "camera.three"]) {
+      const time = await page.evaluate((id) => window.foregroundProbe.session.get(id).video.currentTime, entity);
+      await expect.poll(() => page.evaluate((id) => window.foregroundProbe.session.get(id).video?.currentTime, entity))
+        .toBeGreaterThan(time + 0.15);
+    }
+    expect(errors).toEqual([]);
+    await page.evaluate(() => {
+      window.foregroundProbe.card._haDirectMounter.dispose();
+      window.foregroundProbe.session.dispose();
+    });
   });
-  await recovered("camera.two");
-  await page.evaluate(async () => {
-    const { card } = window.foregroundProbe;
-    card._activeCamIdx = 2;
-    await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.three" });
-  });
-  const time = await page.evaluate(() => window.foregroundProbe.session.get("camera.three").video.currentTime);
-  await expect.poll(() => page.evaluate(() => window.foregroundProbe.session.get("camera.three").video.currentTime)).toBeGreaterThan(time + 0.15);
-  expect(await page.evaluate(() => {
-    const p = window.foregroundProbe;
-    return p.audit.providerDisconnects === 0 && p.providers.every((provider, index) =>
-      provider === p.session.get(["camera.one", "camera.two", "camera.three"][index]).provider) &&
-      p.providers[2].players.get("web_rtc") === p.originalRtc[2];
-  })).toBe(true);
-  expect(await page.evaluate(() => window.foregroundProbe.audit.rtcOffers)).toEqual([
-    "camera.one", "camera.two", "camera.three", "camera.one", "camera.two",
-  ]);
-  expect(errors).toEqual([]);
-  await page.evaluate(() => {
-    window.foregroundProbe.card._haDirectMounter.dispose();
-    window.foregroundProbe.session.dispose();
-  });
-});
+}
 
 for (const failure of ["ice", "native-error"]) {
   for (const supportedTypes of [["hls", "web_rtc"], ["web_rtc"]]) {

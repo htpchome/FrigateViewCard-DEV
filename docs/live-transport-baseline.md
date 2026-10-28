@@ -2,20 +2,21 @@
 
 ## Current Baseline
 
-`v1.1.10-dev.17` adds a foreground-only progress check for previously usable
-HA Direct WebRTC players. A retained peer can stop delivering frames during
-app suspension without reporting a failed connection; cached readiness alone
-must not keep that frozen picture selected indefinitely. A presented player
-gets ten seconds to resume decoding, including a normal `play()` for a paused
-element without changing its audio choice. Lack of progress invokes the
-existing camera-local advertised/verified-HLS recovery, followed by HA's fresh
-WebRTC attempt. No provider replacement or peer manipulation is added.
-Hidden cameras defer checking until presented; successful progress, re-hiding,
-replacement and disposal cancel the watch. Cold starts, ordinary camera
-switches without backgrounding, autoplay-denied playback, HLS-only recovery,
-Catalyst and Frigate go2rtc retain their existing paths. Automated tests model
-silent suspension with retained successful metadata; physical Companion app
-background-return verification remains required.
+`v1.1.10-dev.18` replaces the rejected dev.17 ten-second WebRTC progress check
+with a Companion-only session restart. On return from document/page
+backgrounding, retire the old normal HA Direct providers before their native
+foreground listeners run, then use the existing selected-first sequential
+startup queue. Each camera must become usable or fail before the next starts.
+This also applies to brief background returns: no elapsed-time threshold or
+cached peer-health flag decides whether to restart. Duplicate foreground events
+and stale callbacks cannot start additional queues. Backgrounding pauses queue
+advancement; picture-in-picture retains its existing behavior. Selected camera,
+mute choice and presentation clients survive the restart. Browser resumes,
+go2rtc, Catalyst, audio restoration and editor/layout retention are unchanged.
+Physical iPhone Companion background-return verification remains required.
+
+`v1.1.10-dev.17` was rejected in physical Companion testing. Its foreground
+progress check did not restore playback and has been removed.
 
 `v1.1.10-dev.16` restores received WebRTC audio omitted by HA during muted
 startup when the selected HA Direct camera is unmuted. The integration-owned
@@ -572,6 +573,8 @@ Preserve all of these behaviors together:
    two-way-talk backchannel.
 10. Do not fabricate `frontend_stream_type`, mutate HA's private HLS/WebRTC
     objects, extract the nested video, or run timeout-based provider recovery.
+    The explicit Companion background-return session reset above is not a
+    timeout-based recovery and is the only provider-retention exception here.
     Only the instance-local verified-HLS capability, muted-HLS selector,
     failed-WebRTC retry, retryable-HLS recovery (including the scoped foreground
     visibility adapter), documented standard-HLS configuration, and scoped

@@ -145,6 +145,7 @@ test("detects iPhone as iOS phone", () => {
 
   const profile = detectDeviceProfile();
   assert.equal(profile.os, "iOS");
+  assert.equal(profile.isCompanionApp, false);
   assert.equal(profile.isIOS, true);
   assert.equal(profile.isAndroid, false);
   assert.equal(profile.isPhone, true);
@@ -172,6 +173,7 @@ test("detects Android as mobile with touch", () => {
 
   const profile = detectDeviceProfile();
   assert.equal(profile.os, "Android");
+  assert.equal(profile.isCompanionApp, false);
   assert.equal(profile.isAndroid, true);
   assert.equal(profile.isIOS, false);
   assert.equal(profile.isPhone, true);
@@ -269,7 +271,21 @@ test("detects the Home Assistant Mac Catalyst app as desktop Catalyst", () => {
 
   const profile = detectDeviceProfile();
   assert.equal(profile.isCatalyst, true);
+  assert.equal(profile.isCompanionApp, true);
   assert.equal(profile.isDesktop, true);
   assert.equal(profile.isMobile, false);
   assert.equal(profile.isIOS, false);
 });
+
+for (const userAgent of [
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Home Assistant/2026.9 Mobile/HomeAssistant, like Safari",
+  "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) Home Assistant/2026.9 Mobile/HomeAssistant, like Safari",
+  "Mozilla/5.0 (Linux; Android 15) Mobile Safari/537.36 Home Assistant/2026.9",
+  "Mozilla/5.0 (Linux; Android 15) Mobile Safari/537.36 HomeAssistant/2026.9",
+]) {
+  test(`recognizes Companion resume eligibility: ${userAgent}`, () => {
+    const profile = loadDetector({ navigator: { userAgent }, window: { matchMedia: createMatchMedia() } })();
+    assert.equal(profile.isCompanionApp, true);
+    assert.equal(profile.isCatalyst, false);
+  });
+}

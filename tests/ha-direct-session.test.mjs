@@ -4,13 +4,13 @@ import { acquireHaDirectSession, createHaDirectSession } from "../src/features/l
 import { CARD_CONFIG_COMMIT_EVENT } from "../src/product-identity.mjs";
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
-const fixture = () => {
+const fixture = (options = {}) => {
   const calls = [];
   const callbacks = new Map();
   const element = () => ({ style: {}, dataset: {}, appendChild() {}, remove() {} });
   const createProjection = () => ({ deck: element(),
     project: (target) => calls.push(["project", target]), clear() {}, dispose: () => calls.push(["dispose"]) });
-  const session = createHaDirectSession({ createProjection, createProvider: ({ stateObj, onState }) => {
+  const session = createHaDirectSession({ ...options, createProjection, createProvider: ({ stateObj, onState }) => {
     const entity = stateObj.entity_id;
     calls.push(["create", entity]);
     callbacks.set(entity, onState);
@@ -34,6 +34,109 @@ const fixture = () => {
   };
   return { session, calls, callbacks, client, ready };
 };
+
+const lifecycle = () => {
+  const documentRef = Object.assign(new EventTarget(), { hidden: false, defaultView: new EventTarget() });
+  return { documentRef, visibility: (hidden) => {
+    documentRef.hidden = hidden;
+    documentRef.dispatchEvent(new Event("visibilitychange"));
+  } };
+};
+
+test("Companion resume discards the old session media and runs selected-first sequential startup immediately", async () => {
+  const life = lifecycle();
+  const f = fixture({ ...life, restartOnResume: true });
+  const owner = f.client();
+  owner.muted = () => false;
+  f.session.attach(owner);
+  for (const entity of owner.entities()) await f.ready(entity, "webrtc");
+  const original = [...f.session.records.values()];
+  const staleCallbacks = [...f.callbacks.values()];
+  owner.value.selected = "camera.two";
+  f.session.sync(owner);
+  f.calls.length = 0;
+  life.visibility(true);
+  assert.equal(f.session.records.size, 3, "hide alone retains native hidden cleanup");
+  life.visibility(false);
+  life.documentRef.defaultView.dispatchEvent(new Event("pageshow"));
+  assert.equal(f.session.records.size, 0, "retire old providers synchronously before native resume");
+  await flush();
+  assert.deepEqual(f.calls.filter(([name]) => name === "create"), [["create", "camera.two"]]);
+  assert.equal(f.calls.filter(([name]) => name === "release").length, 3);
+  const selected = f.session.get("camera.two");
+  assert.equal(selected.status, "loading");
+  assert.equal(selected.provider.muted, false);
+  for (const notify of staleCallbacks) notify({ status: "ready", streamType: "webrtc" });
+  await flush();
+  assert.equal(f.session.records.size, 1, "old readiness must not advance the new queue");
+  await f.ready("camera.two", "hls");
+  assert.deepEqual([...f.session.records.keys()], ["camera.two", "camera.one"]);
+  f.callbacks.get("camera.one")({ status: "failed" });
+  await flush();
+  assert.deepEqual([...f.session.records.keys()], ["camera.two", "camera.one", "camera.three"]);
+  await f.ready("camera.three");
+  for (const record of original) assert.notEqual(f.session.get(record.entity).provider, record.provider);
+  life.visibility(false);
+  life.documentRef.defaultView.dispatchEvent(new Event("pageshow"));
+  await flush();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 3, "duplicate foreground events do not restart twice");
+  f.session.dispose();
+});
+
+test("Companion startup pauses while hidden and resumes with fresh providers even mid-warmup", async () => {
+  const life = lifecycle();
+  const f = fixture({ ...life, restartOnResume: true });
+  const owner = f.client();
+  f.session.attach(owner);
+  life.visibility(true);
+  await f.ready("camera.one");
+  f.session.sync(owner);
+  assert.equal(f.session.records.size, 1);
+  life.visibility(false);
+  life.visibility(true); // Hidden again before the queued foreground startup.
+  await flush();
+  assert.equal(f.session.records.size, 0);
+  life.visibility(false);
+  await flush();
+  assert.deepEqual([...f.session.records.keys()], ["camera.one"]);
+  f.session.dispose();
+});
+
+test("pagehide/pageshow is sufficient and disposal cancels a queued Companion restart", async () => {
+  const life = lifecycle();
+  const f = fixture({ ...life, restartOnResume: true });
+  f.session.attach(f.client());
+  const win = life.documentRef.defaultView;
+  win.dispatchEvent(new Event("pagehide"));
+  win.dispatchEvent(new Event("pageshow"));
+  await flush();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 2);
+  win.dispatchEvent(new Event("pagehide"));
+  win.dispatchEvent(new Event("pageshow"));
+  f.session.dispose();
+  await flush();
+  life.visibility(true);
+  life.visibility(false);
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 2);
+});
+
+test("ordinary browser visibility and picture-in-picture retain their providers", async () => {
+  for (const pip of [null, "standard", "webkit"]) {
+    const life = lifecycle();
+    const f = fixture({ ...life, restartOnResume: pip !== null });
+    f.session.attach(f.client());
+    await f.ready("camera.one");
+    const record = f.session.get("camera.one");
+    if (pip === "standard") life.documentRef.pictureInPictureElement = record.video;
+    if (pip === "webkit") record.video.webkitPresentationMode = "picture-in-picture";
+    life.visibility(true);
+    life.visibility(false);
+    await flush();
+    assert.equal(f.session.get("camera.one"), record);
+    assert.equal(f.calls.filter(([name]) => name === "release").length, 0);
+    f.session.dispose();
+  }
+});
 
 test("retained presentation cannot renew the HA state captured by actual media readiness", async () => {
   const f = fixture();

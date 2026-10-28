@@ -5,6 +5,7 @@ import { upstreamHaCameraStreamSelector } from "./ha-camera-stream-selector.mjs"
 // Disconnect deliberately stops playback, as the real HA child players do.
 export function installHaCameraLifecycleFixture({
   webRtc, supportedTypes = ["hls", "web_rtc"], holdReadinessAudit = false, deferRenders = false,
+  observeVisibility = false,
 }) {
   const rtcPlayers = new Map();
   const providers = new Set();
@@ -18,7 +19,7 @@ export function installHaCameraLifecycleFixture({
   const audit = {
     starts: [], stops: [], providerDisconnects: 0, readyEntities: new Set(), verifications: [],
     rtcOffers: [], iceRestarts: [], closedPeers: [], urlUpdates: [],
-    startReadiness: [], mediaEvents: [], hlsConfigurations: [],
+    startReadiness: [], mediaEvents: [], hlsConfigurations: [], nativeForegroundRestarts: [],
     failIce: (entity) => {
       const peer = rtcPlayers.get(entity)?._peerConnection;
       if (!peer || peer.iceConnectionState === "closed") return;
@@ -120,12 +121,18 @@ export function installHaCameraLifecycleFixture({
       this._url = "/api/hls/synthetic/master_playlist.m3u8?generation=0";
     }
     connectedCallback() {
+      if (observeVisibility) {
+        this.onVisibility = () => {
+          if (!document.hidden) audit.nativeForegroundRestarts.push(this.entityid);
+        };
+        document.addEventListener("visibilitychange", this.onVisibility);
+      }
       audit.starts.push(`${this.localName}:${this.entityid}`);
       // Decoding can precede loadeddata, and readyState can drop after a frame.
       // Inspect visible media and its frame history, not event bookkeeping.
       audit.startReadiness.push({
         entity: this.entityid, eventReady: [...audit.readyEntities], ready: mediaReady(),
-        states: [...providers].map((provider) => ({
+        states: [...providers].filter((provider) => provider.isConnected).map((provider) => ({
           entity: provider.stateObj.entity_id,
           status: provider.haDirectSession?.get(provider.stateObj.entity_id)?.status,
           players: [...provider.players.values()].map((player) => ({
@@ -187,6 +194,7 @@ export function installHaCameraLifecycleFixture({
       void this.video.play().catch(() => {});
     }
     disconnectedCallback() {
+      if (this.onVisibility) document.removeEventListener("visibilitychange", this.onVisibility);
       audit.stops.push(`${this.localName}:${this.entityid}`);
       clearTimeout(this.retryTimer);
       if (this._peerConnection) {

@@ -6,14 +6,13 @@ import { upstreamHaCameraStreamSelector } from "./fixtures/ha-camera-stream-sele
 
 const good = { hasVideo: true, hasAudio: false };
 const failed = { hasVideo: false, hasAudio: false };
-const fixture = ({ types = ["hls", "web_rtc"], requestHls, document } = {}) => {
+const fixture = ({ types = ["hls", "web_rtc"], requestHls } = {}) => {
   let time = 0;
   let updates = 0;
   let child;
   let hlsChild;
   const timers = new Set();
   const provider = {
-    ownerDocument: document,
     _streams: upstreamHaCameraStreamSelector,
     requestUpdate: () => { updates += 1; },
     shadowRoot: { querySelector: (selector) => selector === "ha-web-rtc-player" ? child : hlsChild },
@@ -70,29 +69,6 @@ test("failed native ICE retires only WebRTC, with selection-gated 2/5 minute ret
   f.retry.retryIfEligible();
   assert.deepEqual(f.select(), both);
   f.retry.dispose();
-});
-
-test("silent foreground stall uses existing HA selection recovery without replacing the provider", () => {
-  const document = Object.assign(new EventTarget(), { hidden: false });
-  const f = fixture({ document });
-  const peer = f.attach();
-  peer.iceConnectionState = peer.connectionState = "connected";
-  const video = Object.assign(new EventTarget(), {
-    currentTime: 10, readyState: 4, videoWidth: 640, paused: false,
-    getVideoPlaybackQuality: () => ({ totalVideoFrames: 100 }),
-  });
-  f.getChild().shadowRoot = { querySelector: () => video };
-  f.select(good, good);
-  document.hidden = true;
-  document.dispatchEvent(new Event("visibilitychange"));
-  document.hidden = false;
-  document.dispatchEvent(new Event("visibilitychange"));
-  assert.equal(f.timers.size, 1);
-  for (const callback of [...f.timers]) { f.timers.delete(callback); callback(); }
-  assert.deepEqual(f.select(good, good), [{ type: "hls", visible: true }]);
-  assert.equal(peer.connectionState, "connected", "adapter does not manipulate the native peer");
-  f.retry.dispose();
-  assert.equal(f.timers.size, 0);
 });
 
 test("failure before HLS is ready is remembered without cutting off the only candidate", () => {

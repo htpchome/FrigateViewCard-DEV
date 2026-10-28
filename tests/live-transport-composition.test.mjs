@@ -4,6 +4,25 @@ import assert from "node:assert/strict";
 import { createLiveTransportControllers } from "../src/features/live/transport-composition.js";
 import { attachContainedVideoFit } from "../src/shared/media/video-fit.js";
 
+test("fresh HA Direct resume is Companion-only and excludes Catalyst", () => {
+  for (const [deviceProfile, expected] of [
+    [{ isCompanionApp: true, isCatalyst: false }, true],
+    [{ isCompanionApp: true, isCatalyst: true }, false],
+    [{ isIOS: true, isCompanionApp: false }, false],
+    [{}, false],
+  ]) {
+    let options;
+    const factories = Object.fromEntries([
+      "createGo2RtcResolver", "createGo2RtcTwoWayTalkBackchannel", "createCatalystHlsMounter",
+      "createGo2RtcMounter", "createHaDirectTwoWayTalkMounter", "createHaDirectTwoWayTalkBackchannel",
+      "createGo2RtcRaceMounter",
+    ].map((name) => [name, () => ({})]));
+    factories.createHaDirectMounter = (value) => { options = value; return {}; };
+    createLiveTransportControllers({}, { deviceProfile, factories });
+    assert.equal(options.restartOnResume, expected);
+  }
+});
+
 test("live transport composition keeps go2rtc and HA Direct stacks explicit", async () => {
   const optionsByFactory = {};
   const createFactory = (name, result = { name }) => (options) => {

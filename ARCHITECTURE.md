@@ -112,15 +112,7 @@ Meaning of `ha_direct`:
     bounded retry policy while HLS is usable.
     This recovery uses media/state events, not a startup timeout, new polling,
     provider replacement, or direct signaling/peer manipulation. Ordinary
-    disconnection and healthy cameras are unchanged. After document/page
-    backgrounding, a previously usable WebRTC player may receive one ten-second
-    foreground progress check when presented. Resume a paused video without
-    changing its mute choice; autoplay denial is not a transport failure. If
-    decoded frames (or media time when frame counters are unavailable) do not
-    advance, use the same advertised/verified-HLS recovery above. This is not a
-    cold-start timeout or perpetual watchdog. Dormant cameras defer the check
-    until presented. Progress, renewed hiding, replacement or disposal cancels
-    observation. HA still owns hidden cleanup and all peer/player lifecycles.
+    disconnection and healthy cameras are unchanged.
   - a native HLS retryable error must not make the parent remove that player
     before HA's recovery runs. Treat that candidate as pending, not ready; after
     HA clears the error and video advances, correct the stale failure metadata
@@ -151,6 +143,18 @@ Meaning of `ha_direct`:
   retry bound, discard stale/hidden responses, and restore the native listener
   on replacement/disposal. Do not patch global handlers, create another player,
   change WebRTC retry/selection, or bypass HA's engine cleanup and construction.
+
+  Companion background-return exception: outside Catalyst, the HA Direct
+  session retires its providers on a real hidden-to-visible or pagehide-to-
+  pageshow transition and uses normal selected-first sequential startup. This
+  is an explicit session lifecycle reset, including brief returns, not a stall
+  timer or transport fallback. Capture the foreground event before native
+  players can restart concurrently; construct fresh providers after the event.
+  Ignore stale callbacks and duplicate foreground notifications. Preserve the
+  selected camera, mute choice, session clients and presentation targets.
+  Picture-in-picture, ordinary browser resumes, camera selection and editor/
+  layout handoffs retain their existing lifecycles. HA owns native teardown
+  and negotiation; no direct peer manipulation or global patch is permitted.
 
   Other selector results are unchanged. Never patch HA's global components or
   their prototypes. Tests must cover WebRTC-only capabilities with indefinitely

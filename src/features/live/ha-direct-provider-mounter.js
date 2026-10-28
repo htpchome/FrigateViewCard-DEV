@@ -15,6 +15,7 @@ export function createHaDirectProviderMounter({
   getPreloadEntities,
   getContext = () => "dashboard",
   getIdentity,
+  restartOnResume = false,
   shouldPreload,
   isSelectedExternalReady = () => false,
   isMountAttemptCurrent = () => true,
@@ -118,7 +119,7 @@ export function createHaDirectProviderMounter({
       if (!(await prepare()) || disposed) return null;
       const anchor = findHaCameraContextHost(card);
       if (!anchor) return null;
-      session = acquireSession({ anchor, client, identity: getIdentity(), connection: getHass()?.connection });
+      session = acquireSession({ anchor, client, identity: getIdentity(), connection: getHass()?.connection, restartOnResume });
       target = client.target();
       observer = new MutationObserver(() => {
         const nextTarget = client.target();
