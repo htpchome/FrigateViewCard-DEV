@@ -269,6 +269,25 @@ test("phones keep only the main camera live", () => {
   assert.equal(mounts.length, 0);
 });
 
+test("startup owns primary playback without changing group audio selection", () => {
+  const { host, primaryVideo, secondaryVideo } = createHost();
+  const controller = new CameraGroupLiveController(host);
+  const plays = [];
+  primaryVideo.play = () => { plays.push("A"); return Promise.resolve(); };
+  secondaryVideo.play = () => { plays.push("B"); return Promise.resolve(); };
+  controller.syncAudio({ playbackOwner: primaryVideo });
+  assert.equal(primaryVideo.muted, false);
+  assert.equal(secondaryVideo.muted, true);
+  assert.deepEqual(plays, []);
+  controller.syncAudio();
+  assert.deepEqual(plays, ["A"], "ordinary synchronization still resumes playback");
+  controller._activeAudioMember = "B";
+  controller.syncAudio({ playbackOwner: primaryVideo });
+  assert.equal(primaryVideo.muted, true);
+  assert.equal(secondaryVideo.muted, false);
+  assert.deepEqual(plays, ["A", "B"], "secondary playback keeps its owner");
+});
+
 test("A/B audio selection keeps exactly one pane audible and follows mute", () => {
   const { host, primaryVideo, secondaryVideo } = createHost();
   const controller = new CameraGroupLiveController(host);

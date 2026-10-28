@@ -62,6 +62,95 @@ const createTakeoverAudioHarness = ({ connectionType, mobile = true } = {}) => {
 };
 
 for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
+  test(`${connectionType} startup sets audio before one playback request without delayed plays`, async () => {
+    const h = createTakeoverAudioHarness({ connectionType });
+    const states = [];
+    h.firstVideo.play = () => {
+      states.push({ muted: h.firstVideo.muted, defaultMuted: h.firstVideo.defaultMuted });
+      return Promise.resolve();
+    };
+    h.start();
+    await Promise.resolve();
+    assert.deepEqual(states, [{ muted: false, defaultMuted: false }]);
+    assert.equal(h.timers.length, 0);
+    h.controller.dispose();
+  });
+
+  for (const errorName of ["AbortError", "NotSupportedError"]) {
+    test(`${connectionType} ${errorName} retries on readiness without forcing muted playback`, async () => {
+      const h = createTakeoverAudioHarness({ connectionType });
+      let plays = 0;
+      h.firstVideo.play = () => ++plays === 1
+        ? Promise.reject(new DOMException("Starting", errorName))
+        : Promise.resolve();
+      h.start();
+      await Promise.resolve();
+      assert.equal(h.firstVideo.muted, false);
+      assert.equal(h.host._streamMuted, false);
+      assert.equal(plays, 1, "no immediate retry loop");
+      h.firstVideo.dispatchEvent(new Event("canplay"));
+      await Promise.resolve();
+      assert.equal(plays, 2);
+      h.firstVideo.dispatchEvent(new Event("canplay"));
+      assert.equal(plays, 2, "successful playback is not repeatedly started");
+      h.controller.dispose();
+    });
+  }
+
+  test(`${connectionType} readiness retries are bounded and blocked autoplay waits for interaction`, async () => {
+    const h = createTakeoverAudioHarness({ connectionType });
+    let plays = 0;
+    h.firstVideo.play = () => {
+      plays += 1;
+      throw new DOMException("Interrupted", "AbortError");
+    };
+    h.start();
+    for (let index = 0; index < 10; index += 1) {
+      h.firstVideo.dispatchEvent(new Event("canplay"));
+      h.controller.applyCameraStartPreference();
+    }
+    assert.equal(plays, 3, "initial attempt plus at most two readiness retries");
+    h.controller.dispose();
+
+    const blocked = createTakeoverAudioHarness({ connectionType });
+    blocked.firstVideo.allowAudio = false;
+    blocked.start();
+    await Promise.resolve();
+    assert.equal(blocked.firstVideo.playCalls, 2, "audible request then muted fallback");
+    blocked.firstVideo.dispatchEvent(new Event("canplay"));
+    blocked.controller.applyCameraStartPreference();
+    assert.equal(blocked.firstVideo.playCalls, 2, "muted recovery cannot trigger an autoplay loop");
+    blocked.controller.dispose();
+  });
+
+  test(`${connectionType} readiness during pending play is coalesced and hidden/manual states are protected`, async () => {
+    const h = createTakeoverAudioHarness({ connectionType });
+    let rejectStart;
+    let plays = 0;
+    h.firstVideo.play = () => {
+      plays += 1;
+      return plays === 1 ? new Promise((resolve, reject) => { rejectStart = reject; }) : Promise.resolve();
+    };
+    h.start();
+    h.firstVideo.dispatchEvent(new Event("loadeddata"));
+    h.firstVideo.dispatchEvent(new Event("canplay"));
+    assert.equal(plays, 1);
+    rejectStart(new DOMException("Interrupted", "AbortError"));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(plays, 2);
+    h.firstVideo.muted = true;
+    h.interactionTarget.visibilityState = "hidden";
+    h.firstVideo.dispatchEvent(new Event("canplay"));
+    assert.equal(h.firstVideo.muted, true);
+    h.interactionTarget.visibilityState = "visible";
+    h.controller.applyMuteChange(true);
+    h.firstVideo.dispatchEvent(new Event("canplay"));
+    assert.equal(h.firstVideo.muted, true);
+    assert.equal(plays, 2);
+    h.controller.dispose();
+  });
+
   for (const mobile of [true, false]) {
     test(`${connectionType} startup unmute follows replacement media (mobile=${mobile})`, async () => {
       const h = createTakeoverAudioHarness({ connectionType, mobile });
@@ -107,7 +196,7 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
     h.start();
     h.takeOver();
     await Promise.resolve();
-    rejections.forEach((reject) => reject(new DOMException("Interrupted", "AbortError")));
+    rejections.forEach((reject) => reject(new DOMException("Blocked", "NotAllowedError")));
     await Promise.resolve();
     assert.equal(h.nextVideo.muted, false);
     assert.equal(h.host._streamMuted, false);

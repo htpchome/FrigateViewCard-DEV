@@ -143,7 +143,7 @@ export class CameraGroupLiveController {
     return true;
   }
 
-  syncAudio() {
+  syncAudio({ playbackOwner = null } = {}) {
     const active = this.isActive() ? this._activeAudioMember : "A";
     const muted = this._host._streamMuted === true;
     const primaryPane = this._host._$(
@@ -161,8 +161,8 @@ export class CameraGroupLiveController {
       this._host._findVideoDeep?.(
         this._host._$("#camera-group-secondary-engine"),
       ) || null;
-    this._applyVideoMuted(primaryVideo, muted || active !== "A");
-    this._applyVideoMuted(secondaryVideo, muted || active !== "B");
+    this._applyVideoMuted(primaryVideo, muted || active !== "A", playbackOwner);
+    this._applyVideoMuted(secondaryVideo, muted || active !== "B", playbackOwner);
     [
       [primaryPane, "A"],
       [secondaryPane, "B"],
@@ -350,13 +350,14 @@ export class CameraGroupLiveController {
     mediaState.cleanup.push(() => clearTimeout(retry));
   }
 
-  _applyVideoMuted(video, muted) {
+  _applyVideoMuted(video, muted, playbackOwner = null) {
     if (!video) return;
     video.muted = muted;
     video.defaultMuted = muted;
     if (!muted) {
       video.volume = 1;
-      video.play?.()?.catch?.(() => {});
+      // Startup audio owns the primary play promise and its permission result.
+      if (video !== playbackOwner) video.play?.()?.catch?.(() => {});
     }
   }
 

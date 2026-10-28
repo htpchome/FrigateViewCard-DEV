@@ -2,6 +2,18 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.21` makes startup audio a single tracked play request after
+synchronous unmute, without the manual control's delayed playback calls.
+Only `NotAllowedError` resumes muted playback and defers to the existing user
+interaction handler. Other startup rejections preserve audio intent and permit
+up to two retries on media readiness or a subsequent selected-stream readiness
+notification. Pending requests are coalesced; denial cannot create a retry loop.
+Camera changes, manual mute and disposal remove readiness listeners, and hidden
+documents cannot trigger automatic retries. HA's selected-child audio restoration,
+transport startup/selection, retention, Catalyst background recovery and layouts
+are unchanged. Physical iPhone Safari/Companion validation remains required;
+this does not bypass browser autoplay permissions.
+
 `v1.1.10-dev.20` adds background audio suspension to Catalyst native HLS.
 Document visibility/page lifecycle events synchronously mute native videos,
 including retained and tile players, cancel recovery timers and invalidate late

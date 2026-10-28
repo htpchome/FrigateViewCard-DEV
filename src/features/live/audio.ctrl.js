@@ -48,6 +48,7 @@ export class LiveAudioController {
   prepareCameraStart(camera) {
     const host = this._host;
     this._clearDeferredStartUnmute();
+    this._clearStartUnmuteReadiness();
     this._cameraStartUnmuteAttempt = null;
     host._cameraStartUnmutePending = cameraStartsUnmuted(camera);
     this._cameraStartUnmuteCamera = host._cameraStartUnmutePending
@@ -60,6 +61,7 @@ export class LiveAudioController {
   cancelCameraStartPreference() {
     this._host._cameraStartUnmutePending = false;
     this._cameraStartUnmuteCamera = null;
+    this._clearStartUnmuteReadiness();
     this._cameraStartUnmuteAttempt = null;
     this._clearDeferredStartUnmute();
   }
@@ -72,14 +74,46 @@ export class LiveAudioController {
     const engine = host._engine;
     const video = this._resolveEngineVideo(engine);
     const previous = this._cameraStartUnmuteAttempt;
-    if (!video || (previous?.engine === engine && previous.video === video)) {
+    if (!video || this._interactionTarget?.visibilityState === "hidden") {
       return false;
+    }
+    if (previous?.engine === engine && previous.video === video) {
+      return previous.retryNeeded ? this._retryCameraStartUnmute(previous) : false;
     }
     host._cameraStartUnmutePending = false;
     // A takeover gets its own attempt and interaction targets, not the old player's.
     this._clearDeferredStartUnmute();
-    const attempt = { engine, video };
+    this._clearStartUnmuteReadiness();
+    const attempt = { engine, video, inFlight: false, retries: 0, blocked: false };
     this._cameraStartUnmuteAttempt = attempt;
+    attempt.onReady = () => this._retryCameraStartUnmute(attempt);
+    for (const type of ["loadeddata", "canplay"]) {
+      video.addEventListener?.(type, attempt.onReady);
+    }
+    this._attemptCameraStartUnmute(attempt);
+    return true;
+  }
+
+  _clearStartUnmuteReadiness() {
+    const attempt = this._cameraStartUnmuteAttempt;
+    if (!attempt?.onReady) return;
+    for (const type of ["loadeddata", "canplay"]) {
+      attempt.video.removeEventListener?.(type, attempt.onReady);
+    }
+    attempt.onReady = null;
+  }
+
+  _retryCameraStartUnmute(attempt) {
+    if (
+      !this._isCurrentStartUnmuteAttempt(attempt) || attempt.blocked ||
+      attempt.retries >= 2 || this._interactionTarget?.visibilityState === "hidden"
+    ) return false;
+    if (attempt.inFlight) {
+      attempt.readyWhilePending = true;
+      return false;
+    }
+    if (!attempt.retryNeeded && !attempt.video.muted) return false;
+    attempt.retries += 1;
     this._attemptCameraStartUnmute(attempt);
     return true;
   }
@@ -106,6 +140,9 @@ export class LiveAudioController {
   _attemptCameraStartUnmute(attempt) {
     const host = this._host;
     const { engine, video } = attempt;
+    attempt.inFlight = true;
+    attempt.retryNeeded = false;
+    attempt.readyWhilePending = false;
 
     if (
       host._isLikelyMobileClient?.() === true &&
@@ -113,16 +150,18 @@ export class LiveAudioController {
     ) {
       this._scheduleDeferredStartUnmute(engine);
     }
-    this.setMuted(false);
-    host._cameraGroupLiveController?.syncAudio?.();
+    // Apply audio before the single tracked play request. Manual controls keep
+    // their existing playback and delayed-child synchronization behavior.
+    this.setMuted(false, { startPlayback: false, synchronizeLater: false });
+    host._cameraGroupLiveController?.syncAudio?.({ playbackOwner: video });
     host._renderMuteButton?.();
     host._engineMountedMuted = false;
 
     let playback = null;
     try {
       playback = video?.play?.();
-    } catch (_) {
-      this._handleCameraStartUnmuteFailure(attempt);
+    } catch (error) {
+      this._handleCameraStartUnmuteFailure(attempt, error);
       return;
     }
     if (!playback?.then) {
@@ -131,11 +170,12 @@ export class LiveAudioController {
     }
     playback.then(
       () => this._handleCameraStartUnmuteSuccess(attempt),
-      () => this._handleCameraStartUnmuteFailure(attempt),
+      (error) => this._handleCameraStartUnmuteFailure(attempt, error),
     );
   }
 
   _handleCameraStartUnmuteSuccess(attempt) {
+    attempt.inFlight = false;
     const host = this._host;
     if (!this._isCurrentStartUnmuteAttempt(attempt) || host._streamMuted !== false) return;
     // iOS can resolve play() for muted autoplay without granting audible
@@ -151,7 +191,8 @@ export class LiveAudioController {
     this._clearDeferredStartUnmute();
   }
 
-  _handleCameraStartUnmuteFailure(attempt) {
+  _handleCameraStartUnmuteFailure(attempt, error) {
+    attempt.inFlight = false;
     const host = this._host;
     if (
       !cameraStartsUnmuted(this._cameraStartUnmuteCamera) ||
@@ -160,7 +201,16 @@ export class LiveAudioController {
     ) {
       return;
     }
-    this.setMuted(true);
+    // An interrupted or not-yet-supported source is not an autoplay denial.
+    // Retry only on readiness, never on a timer or an immediate rejection loop.
+    if (error?.name !== "NotAllowedError") {
+      attempt.retryNeeded = true;
+      if (attempt.readyWhilePending) this._retryCameraStartUnmute(attempt);
+      return;
+    }
+    attempt.blocked = true;
+    this._clearStartUnmuteReadiness();
+    this.setMuted(true, { startPlayback: false, synchronizeLater: false });
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
     const { engine, video } = attempt;
@@ -272,7 +322,7 @@ export class LiveAudioController {
     });
   }
 
-  setMuted(muted) {
+  setMuted(muted, { startPlayback = true, synchronizeLater = true } = {}) {
     const host = this._host;
     host._streamMuted = !!muted;
     host._twoWayTalkSession?.engine?.setIncomingAudioMuted?.(
@@ -289,7 +339,7 @@ export class LiveAudioController {
       }
       if (!host._streamMuted) {
         if (typeof video.volume === "number") video.volume = 1;
-        video.play?.().catch(() => {});
+        if (startPlayback) video.play?.().catch(() => {});
       }
       return true;
     };
@@ -301,7 +351,9 @@ export class LiveAudioController {
       };
       synchronize();
       // Follow HA's selected child, never the first (possibly hidden) video.
-      [120, 400, 900].forEach((delay) => this._setTimer(synchronize, delay));
+      if (synchronizeLater) {
+        [120, 400, 900].forEach((delay) => this._setTimer(synchronize, delay));
+      }
       return;
     }
 
@@ -317,7 +369,7 @@ export class LiveAudioController {
     }
     if (!host._streamMuted && engine.video) {
       if (typeof engine.video.volume === "number") engine.video.volume = 1;
-      engine.video.play?.().catch(() => {});
+      if (startPlayback) engine.video.play?.().catch(() => {});
     }
 
     let video =
@@ -330,6 +382,7 @@ export class LiveAudioController {
 
     // Legacy live players can attach or replace their nested video shortly
     // after their host is running, so synchronize the replacement as well.
+    if (!synchronizeLater) return;
     [120, 400, 900].forEach((delay) => {
       this._setTimer(() => {
         if (engine !== host._engine) return;

@@ -77,7 +77,35 @@ test("startup preference restores audio on the active HA child, not a hidden can
   assert.deepEqual(h.stream.getAudioTracks(), [h.audio]);
   assert.equal(h.video.muted, false);
   assert.equal(h.hiddenVideo.muted, true);
+  assert.equal(h.video.playCalls, 1, "audio restoration precedes one tracked playback request");
+  assert.equal(h.timers.length, 0, "startup does not queue untracked playback retries");
   h.controller.dispose();
+});
+
+test("HA Direct readiness retries interrupted audio without replacing its provider or stream", async () => {
+  const h = createHarness();
+  const events = new EventTarget();
+  h.video.addEventListener = events.addEventListener.bind(events);
+  h.video.removeEventListener = events.removeEventListener.bind(events);
+  let plays = 0;
+  h.video.play = () => ++plays === 1
+    ? Promise.reject(new DOMException("Interrupted", "AbortError"))
+    : Promise.resolve();
+  h.controller.prepareCameraStart({ start_unmuted: true });
+  h.controller.applyCameraStartPreference();
+  await Promise.resolve();
+  assert.equal(h.provider.muted, false);
+  events.dispatchEvent(new Event("canplay"));
+  await Promise.resolve();
+  assert.equal(plays, 2);
+  assert.equal(h.video.srcObject, h.stream);
+  assert.equal(h.host._engine, h.provider);
+  assert.equal(h.player._peerConnection, h.peer);
+  assert.deepEqual(h.stream.getAudioTracks(), [h.audio]);
+  assert.equal(h.hiddenVideo.muted, true);
+  h.controller.dispose();
+  events.dispatchEvent(new Event("canplay"));
+  assert.equal(plays, 2);
 });
 
 test("blocked HA autoplay resumes muted playback with audio retained for the mute button", async () => {

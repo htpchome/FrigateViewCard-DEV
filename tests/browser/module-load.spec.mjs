@@ -245,6 +245,59 @@ for (const startUnmuted of [false, true]) {
 }
 
 for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
+  test(`${connectionType} interrupted startup audio retries on readiness in the bundle`, async ({ page }) => {
+    await page.goto(baseUrl);
+    const state = await page.evaluate(async (connectionType) => {
+      await import("/frigate-view-card.js");
+      customElements.define("audio-readiness-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const card = document.createElement("audio-readiness-card");
+      card.setConfig({ cameras: [{ entity: "camera.front", connection_type: connectionType, start_unmuted: true }] });
+      document.body.append(card);
+      card._renderShell();
+      card._setLiveMuted(true);
+      const video = document.createElement("video");
+      video.muted = true;
+      const playStates = [];
+      // Deterministic interrupted playback, not a simulation of iPhone policy.
+      video.play = () => {
+        playStates.push(video.muted);
+        return playStates.length === 1
+          ? Promise.reject(new DOMException("Interrupted", "AbortError"))
+          : Promise.resolve();
+      };
+      let engine = { type: connectionType, video };
+      if (connectionType === "ha_direct") {
+        const player = document.createElement("ha-web-rtc-player");
+        player.attachShadow({ mode: "open" }).append(video);
+        engine = document.createElement("div");
+        engine.haDirectProvider = true;
+        engine.attachShadow({ mode: "open" }).append(player);
+      }
+      card._engine = engine;
+      card._liveAudioController.prepareCameraStart(card._config.cameras[0]);
+      card._setActiveStreamType("webrtc");
+      await Promise.resolve();
+      const afterInterruption = { muted: video.muted, plays: playStates.length };
+      video.dispatchEvent(new Event("canplay"));
+      await Promise.resolve();
+      video.dispatchEvent(new Event("canplay"));
+      const retained = card._engine === engine;
+      card._liveAudioController.applyMuteChange(true);
+      video.dispatchEvent(new Event("loadeddata"));
+      const manualMutePreserved = video.muted;
+      card._liveAudioController.dispose();
+      card.remove();
+      return { afterInterruption, playStates, retained, manualMutePreserved };
+    }, connectionType);
+    expect(state).toEqual({
+      afterInterruption: { muted: false, plays: 1 },
+      playStates: [false, false], retained: true, manualMutePreserved: true,
+    });
+  });
+
   for (const blocked of [false, true]) {
     test(`${connectionType} startup audio follows takeover in the bundle (blocked=${blocked})`, async ({ page }) => {
       await page.goto(baseUrl);
