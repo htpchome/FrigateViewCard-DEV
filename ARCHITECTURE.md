@@ -79,7 +79,7 @@ Meaning of `ha_direct`:
 - normal HA Direct must pass the real Home Assistant camera state to
   `ha-camera-stream`. It must not fabricate `frontend_stream_type`, patch HA
   HLS/WebRTC player internals (except the scoped HLS foreground-resume and
-  standard-HLS configuration boundaries below), use a readiness timeout to replace the provider,
+  standard-HLS configuration and received-audio restoration boundaries below), use a readiness timeout to replace the provider,
   or schedule a card-owned transport remount after HA startup. Four explicit,
   instance-local selector compatibility corrections are allowed:
 
@@ -160,6 +160,14 @@ Meaning of `ha_direct`:
   This adapter does not affect HA's native-video branch or the separate Catalyst
   native path. Tests must verify actual playlist/segment requests, including
   recovery, not just a mocked low-latency flag
+- HA Direct mute controls may synchronously update the selected native child's
+  public `muted` input. A narrowly scoped received-audio compatibility adapter
+  may read that WebRTC child's existing `_peerConnection` receivers and attach
+  live audio tracks omitted during muted startup to the same `_remoteStream`
+  already assigned to its video. It must not replace streams, change receiver
+  tracks, patch native methods, reconnect, negotiate, change transport selection,
+  or stop tracks. HA retains lifecycle ownership. Hidden players, other providers,
+  HLS internals, Catalyst and Frigate go2rtc are outside this exception.
 - the normal HA Direct deck contains only cameras whose effective configured
   mode is `ha_direct`
 - cameras configured as `frigate_go2rtc` never enter the normal HA Direct warm

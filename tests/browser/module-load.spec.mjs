@@ -132,6 +132,118 @@ test.afterAll(async () => {
   });
 });
 
+for (const startUnmuted of [false, true]) {
+  test(`HA Direct mute control restores received WebRTC audio (start_unmuted=${startUnmuted})`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (startUnmuted) => {
+      await import("/frigate-view-card.js");
+      customElements.define("ha-audio-test-card", class extends customElements.get("frigate-view-card") {
+        connectedCallback() {}
+        disconnectedCallback() {}
+      });
+      const card = document.createElement("ha-audio-test-card");
+      card.setConfig({ cameras: [{ entity: "camera.front", connection_type: "ha_direct", start_unmuted: startUnmuted }] });
+      document.body.append(card);
+      card._renderShell();
+
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const destination = context.createMediaStreamDestination();
+      oscillator.connect(destination);
+      oscillator.start();
+      const audioTrack = destination.stream.getAudioTracks()[0];
+      // Model HA's peer receivers with real browser MediaStreamTracks. This
+      // checks stream repair, not network negotiation or physical audio output.
+      const receiver = { getReceivers: () => [{ track: audioTrack }], connectionState: "connected" };
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 64;
+      canvas.style.cssText = "position:fixed;top:0;right:0";
+      document.body.append(canvas);
+      const paint = canvas.getContext("2d");
+      const frames = setInterval(() => {
+        paint.fillStyle = `rgb(${Date.now() % 255}, 80, 80)`;
+        paint.fillRect(0, 0, 64, 64);
+      }, 40);
+      const cameraStream = canvas.captureStream(25);
+      const provider = document.createElement("ha-camera-stream");
+      provider.style.cssText = "display:block;position:fixed;top:0;left:0;width:64px;height:64px";
+      provider.haDirectProvider = true;
+      provider.muted = true;
+      provider.attachShadow({ mode: "open" });
+      const hidden = document.createElement("ha-hls-player");
+      hidden.hidden = true;
+      hidden.attachShadow({ mode: "open" }).append(document.createElement("video"));
+      const player = document.createElement("ha-web-rtc-player");
+      player.muted = true;
+      player._peerConnection = receiver;
+      player._remoteStream = cameraStream;
+      const video = document.createElement("video");
+      video.muted = true;
+      video.defaultMuted = true;
+      video.width = video.height = 64;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.srcObject = player._remoteStream;
+      player.attachShadow({ mode: "open" }).append(video);
+      provider.shadowRoot.append(hidden, player);
+      document.body.append(provider);
+      void video.play().catch(() => {});
+      // Reproduce HA's _addTrack behavior, including its muted-audio omission.
+      const addTrack = (track) => {
+        if (track.kind === "audio" && player.muted) return;
+        player._remoteStream.addTrack(track);
+      };
+      addTrack(audioTrack);
+      card._engine = provider;
+      card._setLiveMuted(true);
+      card._liveAudioController.prepareCameraStart(card._config.cameras[0]);
+      const button = document.createElement("button");
+      button.id = "test-mute-control";
+      button.style.cssText = "position:fixed;top:70px;left:0";
+      button.textContent = "Toggle existing live mute action";
+      button.onclick = () => {
+        void context.resume();
+        card._applyLiveMuteChange(!card._streamMuted, { source: "button" });
+      };
+      document.body.append(button);
+      window.haAudioTest = { card, provider, player, video, receiver, frames,
+        context, oscillator, audioTrack, stream: player._remoteStream };
+    }, startUnmuted);
+
+    await expect.poll(() => page.evaluate(() => window.haAudioTest.video.currentTime)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.haAudioTest.stream.getAudioTracks().length)).toBe(0);
+    await page.locator("#test-mute-control").click();
+    await expect.poll(() => page.evaluate(() => {
+      const { video, stream, player, provider } = window.haAudioTest;
+      return { tracks: stream.getAudioTracks().length, videoMuted: video.muted,
+        playerMuted: player.muted, providerMuted: provider.muted, paused: video.paused,
+        progressing: video.currentTime > 0 };
+    })).toEqual({ tracks: 1, videoMuted: false, playerMuted: false, providerMuted: false,
+      paused: false, progressing: true });
+    const unmutedTime = await page.evaluate(() => window.haAudioTest.video.currentTime);
+    await expect.poll(() => page.evaluate(() => window.haAudioTest.video.currentTime)).toBeGreaterThan(unmutedTime);
+    await page.locator("#test-mute-control").click();
+    expect(await page.evaluate(() => {
+      const { video, player, provider } = window.haAudioTest;
+      return video.muted && player.muted && provider.muted;
+    })).toBe(true);
+    await page.locator("#test-mute-control").click();
+    expect(await page.evaluate(() => {
+      const { video, stream, receiver, player, audioTrack } = window.haAudioTest;
+      return !video.muted && video.srcObject === stream && player._peerConnection === receiver &&
+        stream.getAudioTracks().length === 1 && stream.getAudioTracks()[0] === audioTrack;
+    })).toBe(true);
+    await page.evaluate(async () => {
+      const state = window.haAudioTest;
+      state.card._liveAudioController.dispose();
+      clearInterval(state.frames);
+      state.stream.getTracks().forEach((track) => track.stop());
+      state.oscillator.stop();
+      await state.context.close();
+    });
+  });
+}
+
 for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
   for (const blocked of [false, true]) {
     test(`${connectionType} startup audio follows takeover in the bundle (blocked=${blocked})`, async ({ page }) => {

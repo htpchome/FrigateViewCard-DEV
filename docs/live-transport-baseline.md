@@ -2,6 +2,18 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.16` restores received WebRTC audio omitted by HA during muted
+startup when the selected HA Direct camera is unmuted. The integration-owned
+adapter synchronizes the selected child's public mute input within the user
+gesture and adds only live receiver audio tracks missing from that child's
+existing playback stream. This is the narrow received-audio exception documented
+in `ARCHITECTURE.md`; HA still owns the peer, tracks, stream and cleanup.
+No pause/restart, new connection, selector changes, or layout changes are made.
+HLS only receives public mute synchronization. Catalyst and Frigate go2rtc are
+unchanged. Browser autoplay permission is still required for audible startup;
+this repair does not claim to bypass iPhone autoplay restrictions. Physical
+iPhone Safari/Companion audio verification remains required.
+
 `v1.1.9-dev.1` repairs normal HA Direct recovery after an established WebRTC
 stream fails. HA can close its native peer on a signaling error without sending
 new stream metadata; the retained `hasVideo` value previously left the dead
@@ -547,8 +559,8 @@ Preserve all of these behaviors together:
     objects, extract the nested video, or run timeout-based provider recovery.
     Only the instance-local verified-HLS capability, muted-HLS selector,
     failed-WebRTC retry, retryable-HLS recovery (including the scoped foreground
-    visibility adapter), and documented standard-HLS
-    configuration corrections above are allowed;
+    visibility adapter), documented standard-HLS configuration, and scoped
+    received-audio restoration corrections above are allowed;
     none affects HA's global
     components. Read-only native-peer observation may drive the bounded retry
     selector but must not patch player internals or own negotiation/teardown.

@@ -1,6 +1,8 @@
 import { ICONS } from "../../icons.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 import { buildLiveMuteControlMarkup } from "./view.tmpl.js";
+import { synchronizeHaCameraAudio } from "../../integrations/home-assistant/camera-audio.js";
+import { findActiveHaCameraStreamVideo } from "../../integrations/home-assistant/playback.js";
 
 export const cameraStartsUnmuted = (camera) =>
   camera?.start_unmuted === true;
@@ -83,6 +85,9 @@ export class LiveAudioController {
   }
 
   _resolveEngineVideo(engine) {
+    if (engine?.haDirectProvider === true) {
+      return findActiveHaCameraStreamVideo(engine);
+    }
     return (
       engine?.video ||
       (engine?.tagName?.toLowerCase() === "video" ? engine : null) ||
@@ -288,6 +293,17 @@ export class LiveAudioController {
       }
       return true;
     };
+
+    if (engine.haDirectProvider === true) {
+      const synchronize = () => {
+        if (engine !== host._engine) return;
+        applyToVideo(synchronizeHaCameraAudio(engine, host._streamMuted));
+      };
+      synchronize();
+      // Follow HA's selected child, never the first (possibly hidden) video.
+      [120, 400, 900].forEach((delay) => this._setTimer(synchronize, delay));
+      return;
+    }
 
     if (typeof engine.muted === "boolean") engine.muted = host._streamMuted;
     if (typeof engine.defaultMuted === "boolean") {
