@@ -1,9 +1,10 @@
 import { ICONS } from "../../icons.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 import { buildLiveMuteControlMarkup } from "./view.tmpl.js";
-import { synchronizeHaCameraAudio } from "../../integrations/home-assistant/camera-audio.js";
+import { getHaCameraAudioPeer, synchronizeHaCameraAudio } from "../../integrations/home-assistant/camera-audio.js";
 import { findActiveHaCameraStreamVideo } from "../../integrations/home-assistant/playback.js";
 import { createInitialPlayback } from "../../shared/media/initial-playback.js";
+import { watchAudioAvailability } from "../../shared/media/audio-availability.js";
 
 export const cameraStartsUnmuted = (camera) =>
   camera?.start_unmuted === true;
@@ -76,6 +77,7 @@ export class LiveAudioController {
     return !(
       cameraStartsUnmuted(this._cameraStartUnmuteCamera) &&
       !this._initialPlaybackVideos.get(this._initialAudioOwner)?.state.blocked &&
+      !this._cameraStartUnmuteAttempt?.blocked &&
       entity === (this._host._activeGroupMemberOverride || this._host._activeCam?.entity) &&
       this._interactionTarget?.visibilityState !== "hidden"
     );
@@ -155,16 +157,14 @@ export class LiveAudioController {
     this._cameraStartUnmuteAttempt = attempt;
     this._clearInitialPlayback(video);
     const initial = this._initialPlaybackVideos.get(video);
-    if (initial?.state.started && initial.state.requestedUnmuted) {
-      host._streamMuted = video.muted;
-      host._renderMuteButton?.();
-      if (initial.state.blocked) {
-        attempt.blocked = true;
-        this._scheduleDeferredStartUnmute(engine);
-      } else {
-        this._handleCameraStartUnmuteSuccess(attempt);
-      }
-      return true;
+    // Selection is now usable. Retire early startup promises and reapply audio
+    // to this loaded player, rather than latching its earlier autoplay denial.
+    initial?.dispose();
+    this._initialPlaybackVideos.delete(video);
+    if (engine.catalystHls !== true) {
+      attempt.stopAudioWatch = watchAudioAvailability(video,
+        getHaCameraAudioPeer(engine) || engine.pc,
+        () => this._retryCameraStartUnmuteForAudio(attempt));
     }
     attempt.onReady = () => this._retryCameraStartUnmute(attempt);
     for (const type of ["loadeddata", "canplay"]) {
@@ -174,13 +174,31 @@ export class LiveAudioController {
     return true;
   }
 
-  _clearStartUnmuteReadiness() {
+  _clearStartUnmuteReadiness({ keepAudioWatch = false } = {}) {
     const attempt = this._cameraStartUnmuteAttempt;
+    if (!keepAudioWatch) {
+      attempt?.stopAudioWatch?.();
+      if (attempt) attempt.stopAudioWatch = null;
+    }
     if (!attempt?.onReady) return;
     for (const type of ["loadeddata", "canplay"]) {
       attempt.video.removeEventListener?.(type, attempt.onReady);
     }
     attempt.onReady = null;
+  }
+
+  _retryCameraStartUnmuteForAudio(attempt) {
+    if (!this._isCurrentStartUnmuteAttempt(attempt) ||
+        !cameraStartsUnmuted(this._cameraStartUnmuteCamera) ||
+        this._interactionTarget?.visibilityState === "hidden") return;
+    if (attempt.inFlight) {
+      attempt.audioReadyWhilePending = true;
+      return;
+    }
+    attempt.audioReadyWhilePending = false;
+    attempt.blocked = false;
+    attempt.retries = 0;
+    this._attemptCameraStartUnmute(attempt);
   }
 
   _retryCameraStartUnmute(attempt) {
@@ -258,6 +276,10 @@ export class LiveAudioController {
     attempt.inFlight = false;
     const host = this._host;
     if (!this._isCurrentStartUnmuteAttempt(attempt) || host._streamMuted !== false) return;
+    if (attempt.audioReadyWhilePending) {
+      this._retryCameraStartUnmuteForAudio(attempt);
+      return;
+    }
     // iOS can resolve play() for muted autoplay without granting audible
     // playback. Keep one real interaction armed even after apparent success.
     if (
@@ -285,11 +307,12 @@ export class LiveAudioController {
     // Retry only on readiness, never on a timer or an immediate rejection loop.
     if (error?.name !== "NotAllowedError") {
       attempt.retryNeeded = true;
-      if (attempt.readyWhilePending) this._retryCameraStartUnmute(attempt);
+      if (attempt.audioReadyWhilePending) this._retryCameraStartUnmuteForAudio(attempt);
+      else if (attempt.readyWhilePending) this._retryCameraStartUnmute(attempt);
       return;
     }
     attempt.blocked = true;
-    this._clearStartUnmuteReadiness();
+    this._clearStartUnmuteReadiness({ keepAudioWatch: true });
     this.setMuted(true, { startPlayback: false, synchronizeLater: false });
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
@@ -298,6 +321,7 @@ export class LiveAudioController {
       video?.play?.()?.catch?.(() => {});
     } catch (_) {}
     this._scheduleDeferredStartUnmute(engine);
+    if (attempt.audioReadyWhilePending) this._retryCameraStartUnmuteForAudio(attempt);
   }
 
   _scheduleDeferredStartUnmute(engine) {

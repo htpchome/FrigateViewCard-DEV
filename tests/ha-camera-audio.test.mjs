@@ -83,11 +83,38 @@ test("initial HA playback restores already received audio before requesting play
   const playback = h.controller.createInitialPlayback(h.video, { entity: "camera.one" });
   await playback.play();
   h.controller.applyCameraStartPreference();
-  assert.equal(h.video.playCalls, 1);
-  assert.deepEqual(requests, [{ tracks: [h.audio], muted: false, volume: 1, playerMuted: false }]);
+  assert.equal(h.video.playCalls, 2, "initial playback followed by loaded selection");
+  assert.deepEqual(requests, Array(2).fill({ tracks: [h.audio], muted: false, volume: 1, playerMuted: false }));
   assert.equal(h.hiddenVideo.muted, true);
   assert.equal(h.video.srcObject, h.stream);
   assert.equal(h.player._peerConnection, h.peer);
+  h.controller.dispose();
+});
+
+test("late HA receiver audio retries the selected provider and restores its omitted track", async () => {
+  const h = createHarness();
+  const received = [];
+  const peer = Object.assign(new EventTarget(), { connectionState: "connected", getReceivers: () => received });
+  h.player._peerConnection = peer;
+  let allowed = false;
+  h.video.play = () => h.video.muted || allowed ? Promise.resolve()
+    : Promise.reject(new DOMException("Denied", "NotAllowedError"));
+  h.controller.prepareCameraStart({ start_unmuted: true });
+  h.controller.applyCameraStartPreference();
+  await Promise.resolve();
+  assert.equal(h.video.muted, true);
+  const track = Object.assign(new EventTarget(), { kind: "audio", readyState: "live", muted: true });
+  received.push({ track });
+  peer.dispatchEvent(new Event("track"));
+  allowed = true;
+  track.muted = false;
+  track.dispatchEvent(new Event("unmute"));
+  await Promise.resolve();
+  assert.equal(h.video.muted, false);
+  assert.deepEqual(h.stream.getAudioTracks(), [track]);
+  assert.equal(h.video.srcObject, h.stream);
+  assert.equal(h.player._peerConnection, peer);
+  assert.equal(h.hiddenVideo.muted, true);
   h.controller.dispose();
 });
 

@@ -2,6 +2,19 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.23` reapplies the configured audio preference when the selected
+player becomes usable, even after an early startup autoplay denial. It retires
+the initial-playback handler before the loaded-player unmute/play attempt so
+an old rejection cannot remute the selected player. A first usable audio
+capability arriving after video readiness permits one additional attempt;
+read-only stream/receiver/track listeners observe that transition without
+polling, reconnecting or changing transport selection. Repeated buffering and
+readiness events cannot loop denied autoplay. Manual mute, camera changes,
+replacement and disposal cancel automatic work; hidden documents cannot retry.
+The existing mute button remains visible. Catalyst's separate native lifecycle
+is unchanged. Synthetic policy tests cover early denial followed by allowed
+loaded playback; physical iPhone Safari/Companion validation remains required.
+
 `v1.1.10-dev.22` moves the selected camera's startup audio intent ahead of
 initial playback. Frigate go2rtc WebRTC/MSE/HLS uses a tracked first play request;
 only one racing candidate can request audio. Normal HA Direct passes the
@@ -14,7 +27,8 @@ audio work. Native HA still owns sources, transport selection and peers.
 No microphone access, extra audio control or pause/unmute/play sequence is added;
 Catalyst's separate startup and background recovery remain unchanged.
 Automated startup-order and denial coverage does not establish physical iPhone
-Safari/Companion success; that device validation remains outstanding.
+Safari/Companion success. Physical testing reported no improvement; the early
+denial latch still prevented the selected-player loaded-media attempt.
 
 `v1.1.10-dev.21` makes startup audio a single tracked play request after
 synchronous unmute, without the manual control's delayed playback calls.

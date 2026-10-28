@@ -669,7 +669,7 @@ test.afterEach(async ({ page }, testInfo) => {
 });
 
 for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
-  for (const denied of [false, true]) {
+  for (const denied of [false, true, "before-loaded"]) {
     test(`production HA Direct requests initial ${transport} audio before readiness (denied=${denied})`, async ({ page }) => {
       await page.goto(baseUrl);
       await page.evaluate(async ({ transport, denied }) => {
@@ -711,9 +711,12 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       const first = result.requests.filter((request) => request.entity === "camera.one");
       expect(first[0].muted).toBe(false);
       expect(first[0].readyState).toBeLessThan(2);
-      expect(result.muted).toBe(denied);
-      expect(result.uiMuted).toBe(denied);
+      expect(result.muted).toBe(denied === true);
+      expect(result.uiMuted).toBe(denied === true);
       if (denied) expect(first.some((request) => request.muted)).toBe(true);
+      if (denied === "before-loaded") {
+        expect(first.some((request) => !request.muted && request.readyState >= 2)).toBe(true);
+      }
       const background = result.requests.filter((request) => request.entity === "camera.two");
       expect(background.length).toBeGreaterThan(0);
       expect(background.every((request) => request.muted)).toBe(true);

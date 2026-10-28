@@ -62,6 +62,32 @@ const createTakeoverAudioHarness = ({ connectionType, mobile = true } = {}) => {
 };
 
 for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
+  for (const manualMute of [false, true]) {
+    test(`${connectionType} late audio retries once and respects manual mute (${manualMute})`, async () => {
+      const h = createTakeoverAudioHarness({ connectionType });
+      const tracks = [];
+      const peer = Object.assign(new EventTarget(), { getReceivers: () => tracks.map((track) => ({ track })) });
+      h.host._engine.pc = peer;
+      h.firstVideo.allowAudio = false;
+      h.start();
+      await Promise.resolve();
+      assert.equal(h.firstVideo.muted, true);
+      if (manualMute) h.controller.applyMuteChange(true);
+      const beforeAudio = h.firstVideo.playCalls;
+      h.firstVideo.allowAudio = true;
+      const track = Object.assign(new EventTarget(), { kind: "audio", readyState: "live", muted: true });
+      tracks.push(track);
+      peer.dispatchEvent(new Event("track"));
+      track.muted = false;
+      track.dispatchEvent(new Event("unmute"));
+      await Promise.resolve();
+      assert.equal(h.firstVideo.muted, manualMute);
+      assert.equal(h.firstVideo.playCalls, beforeAudio + (manualMute ? 0 : 1));
+      track.dispatchEvent(new Event("unmute"));
+      assert.equal(h.firstVideo.playCalls, beforeAudio + (manualMute ? 0 : 1));
+      h.controller.dispose();
+    });
+  }
   test(`${connectionType} startup sets audio before one playback request without delayed plays`, async () => {
     const h = createTakeoverAudioHarness({ connectionType });
     const states = [];

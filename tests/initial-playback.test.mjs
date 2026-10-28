@@ -24,9 +24,9 @@ for (const denied of [false, true]) {
     playback.dispose();
   });
 
-  test(`selected startup audio runs before engine readiness and keeps denial on adoption (${denied})`, async () => {
+  test(`selected startup audio reapplies its preference once the player is loaded (${denied})`, async () => {
     const camera = { entity: "camera.one", start_unmuted: true };
-    const host = { _activeCam: camera, _engine: null, _renderMuteButton() {} };
+    const host = { _activeCam: camera, _engine: null, _renderMuteButton() {}, _findVideoDeep: (engine) => engine?.video };
     const controller = new LiveAudioController(host, { interactionTarget: new EventTarget() });
     controller.prepareCameraStart(camera);
     const video = makeVideo(denied);
@@ -36,11 +36,70 @@ for (const denied of [false, true]) {
     assert.deepEqual(video.calls, denied ? [false, true] : [false]);
     host._engine = { video };
     assert.equal(controller.applyCameraStartPreference(), true);
+    await Promise.resolve();
     assert.equal(host._streamMuted, denied);
-    assert.deepEqual(video.calls, denied ? [false, true] : [false], "adoption does not repeat autoplay");
+    assert.equal(controller.resolveStartupMuted(camera.entity), denied,
+      "provider loading updates must preserve a loaded-playback denial");
+    assert.deepEqual(video.calls, denied ? [false, true, false, true] : [false, false]);
+    controller.applyCameraStartPreference();
+    video.dispatchEvent(new Event("canplay"));
+    assert.equal(video.calls.length, denied ? 4 : 2, "repeated readiness cannot loop unmute");
     controller.dispose();
   });
 }
+
+for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
+  test(`early denial followed by allowed loaded playback respects ${action}`, async () => {
+    const camera = { entity: "camera.one", start_unmuted: true };
+    const video = makeVideo();
+    let allowed = false;
+    video.play = function () {
+      this.calls.push(this.muted);
+      return this.muted || allowed ? Promise.resolve()
+        : Promise.reject(new DOMException("Denied", "NotAllowedError"));
+    };
+    const target = Object.assign(new EventTarget(), { visibilityState: "visible" });
+    const host = { _activeCam: camera, _engine: null, _renderMuteButton() {}, _findVideoDeep: (engine) => engine?.video };
+    const controller = new LiveAudioController(host, { interactionTarget: target });
+    host._setLiveMuted = (muted) => controller.setMuted(muted, { startPlayback: false, synchronizeLater: false });
+    controller.prepareCameraStart(camera);
+    await controller.createInitialPlayback(video, { entity: camera.entity }).play();
+    host._engine = { video };
+    allowed = true;
+    if (action === "manual-mute") controller.applyMuteChange(true);
+    if (action === "camera-change") controller.prepareCameraStart({ entity: "camera.two", start_unmuted: false });
+    if (action === "hidden") target.visibilityState = "hidden";
+    if (action === "dispose") controller.dispose();
+    video.dispatchEvent(new Event("loadeddata"));
+    controller.applyCameraStartPreference();
+    await Promise.resolve();
+    assert.equal(video.muted, action !== "loaded");
+    assert.deepEqual(video.calls, action === "loaded" ? [false, true, false] : [false, true]);
+    controller.dispose();
+  });
+}
+
+test("a late initial denial cannot remute the successful loaded-player attempt", async () => {
+  const camera = { entity: "camera.one", start_unmuted: true };
+  const video = makeVideo();
+  let rejectInitial;
+  video.play = function () {
+    this.calls.push(this.muted);
+    return this.calls.length === 1 ? new Promise((_resolve, reject) => { rejectInitial = reject; }) : Promise.resolve();
+  };
+  const host = { _activeCam: camera, _engine: null, _renderMuteButton() {}, _findVideoDeep: (engine) => engine?.video };
+  const controller = new LiveAudioController(host, { interactionTarget: null });
+  controller.prepareCameraStart(camera);
+  const pending = controller.createInitialPlayback(video, { entity: camera.entity }).play();
+  host._engine = { video };
+  controller.applyCameraStartPreference();
+  rejectInitial(new DOMException("Stale denial", "NotAllowedError"));
+  await pending;
+  assert.deepEqual(video.calls, [false, false]);
+  assert.equal(video.muted, false);
+  assert.equal(host._streamMuted, false);
+  controller.dispose();
+});
 
 test("racing candidates, background cameras and cancelled starts cannot introduce extra audio", async () => {
   const camera = { entity: "camera.one", start_unmuted: true };

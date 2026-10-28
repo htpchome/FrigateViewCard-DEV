@@ -113,7 +113,9 @@ export function installHaCameraLifecycleFixture({
         this.video.play = () => {
           audit.playbackRequests.push({ entity: this.entityid, player: this.localName,
             muted: this.video.muted, readyState: this.video.readyState });
-          return denyAudiblePlayback && !this.video.muted
+          const denied = denyAudiblePlayback === "before-loaded"
+            ? this.video.readyState < 2 : denyAudiblePlayback;
+          return denied && !this.video.muted
             ? Promise.reject(new DOMException("Audible autoplay denied", "NotAllowedError")) : play();
         };
       }

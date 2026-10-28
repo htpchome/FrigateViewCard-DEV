@@ -3,6 +3,10 @@ import {
   findActiveHaCameraStreamVideo,
 } from "./playback.js";
 
+export const getHaCameraAudioPeer = (provider) =>
+  provider?.haDirectProvider === true
+    ? findActiveHaCameraStreamPlayer(provider)?._peerConnection : null;
+
 // HA omits incoming audio from its playback stream when startup is muted.
 // Restore only tracks already received by this owned player's existing peer.
 export function synchronizeHaCameraAudio(provider, muted) {
