@@ -10,7 +10,14 @@ const fixture = (options = {}) => {
   const element = () => ({ style: {}, dataset: {}, appendChild() {}, remove() {} });
   const createProjection = () => ({ deck: element(),
     project: (target) => calls.push(["project", target]), clear() {}, dispose: () => calls.push(["dispose"]) });
-  const session = createHaDirectSession({ ...options, createProjection, createProvider: ({ stateObj, onState, muted, outputMuted, startupUnmuted }) => {
+  const session = createHaDirectSession({ ...options, createProjection, createProvider: ({
+    stateObj,
+    onState,
+    muted,
+    outputMuted,
+    startupUnmuted,
+    createStartupPlayback,
+  }) => {
     const entity = stateObj.entity_id;
     options.onCreate?.({ entity, muted, outputMuted, startupUnmuted });
     calls.push(["create", entity]);
@@ -18,6 +25,7 @@ const fixture = (options = {}) => {
     const provider = {
       stateObj,
       outputMuted,
+      createStartupPlayback,
       fvcSetOutputMuted(nextMuted) { this.outputMuted = nextMuted; },
     };
     return { provider, dispose: () => calls.push(["release", entity]),
@@ -75,6 +83,31 @@ test("selected HA Direct audio preference reaches provider construction before w
     { entity: "camera.one", muted: false, outputMuted: true, startupUnmuted: true },
     { entity: "camera.two", muted: true, outputMuted: true, startupUnmuted: false },
   ]);
+  f.session.dispose();
+});
+
+test("selected HA Direct startup action updates card and provider mute ownership together", () => {
+  const f = fixture();
+  const owner = f.client();
+  const muted = [];
+  let startupOptions;
+  owner.startupMuted = () => false;
+  owner.setMuted = (value) => muted.push(value);
+  owner.createStartupPlayback = (_video, options) => {
+    startupOptions = options;
+    return { options };
+  };
+  f.session.attach(owner);
+  const provider = f.session.get("camera.one").provider;
+  const playback = provider.createStartupPlayback({}, {
+    isCurrent: () => true,
+    onUnmuted: () => muted.push("provider"),
+  });
+
+  assert.ok(playback);
+  startupOptions.onUnmuted();
+  assert.deepEqual(muted, [false, "provider"]);
+  assert.equal(provider.outputMuted, false);
   f.session.dispose();
 });
 

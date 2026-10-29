@@ -132,6 +132,7 @@ function resolveCommittedResult({
   onCommittedStream,
 }) {
   if (!commit) return { ok: true, type, engine, slot };
+  engine.commitStartupPlayback?.();
   onCommittedStream(type);
   return true;
 }
@@ -187,8 +188,9 @@ export function createGo2RtcMounter({
     let destroyed = false;
     const initialPlayback =
       options.muted == null
-        ? createStartupPlayback?.(video, {
+          ? createStartupPlayback?.(video, {
             entity,
+            deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
               if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
@@ -272,6 +274,7 @@ export function createGo2RtcMounter({
       streamType: "mse",
       video,
       startupPlaybackDeferred: Boolean(initialPlayback),
+      commitStartupPlayback: () => initialPlayback?.commit?.(),
       ws,
       destroy,
       activateRecovery: () => {
@@ -430,8 +433,9 @@ export function createGo2RtcMounter({
     let destroyed = false;
     const initialPlayback =
       options.muted == null
-        ? createStartupPlayback?.(video, {
+          ? createStartupPlayback?.(video, {
             entity,
+            deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
               // Cancelling audio must not cancel ordinary muted autoplay.
@@ -542,6 +546,7 @@ export function createGo2RtcMounter({
       streamType: "webrtc",
       video,
       startupPlaybackDeferred: Boolean(initialPlayback),
+      commitStartupPlayback: () => initialPlayback?.commit?.(),
       pc,
       ws,
       localStream: microphoneStream,
@@ -793,8 +798,9 @@ export function createGo2RtcMounter({
     let destroyed = false;
     const initialPlayback =
       options.muted == null
-        ? createStartupPlayback?.(video, {
+          ? createStartupPlayback?.(video, {
             entity,
+            deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
               if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
@@ -853,6 +859,7 @@ export function createGo2RtcMounter({
     const engine = {
       video,
       startupPlaybackDeferred: Boolean(initialPlayback),
+      commitStartupPlayback: () => initialPlayback?.commit?.(),
       destroy,
       activateRecovery: () => {
         recoveryEnabled = true;

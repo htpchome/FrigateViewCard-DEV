@@ -67,6 +67,7 @@ export const adoptMountedAttemptResult = ({
   });
   result.engine.activateRecovery?.();
   assignEngine?.(result.engine);
+  result.engine.commitStartupPlayback?.();
   setEngineMountedMuted?.(streamMuted);
   setActiveStreamType?.(result.type);
   setStreamLoading?.(false);

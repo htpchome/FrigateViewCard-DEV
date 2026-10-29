@@ -2,6 +2,7 @@
 export function createInitialPlayback(video, {
   getMuted = () => true,
   isCurrent = () => true,
+  onCompleted = () => {},
   onMuted = () => {},
   onDispose = () => {},
   waitForData = false,
@@ -9,6 +10,7 @@ export function createInitialPlayback(video, {
   deferUntilCommit = false,
   retryOnReadiness = true,
   settleAroundMute = false,
+  deferLoadedReapplyUntilCommit = false,
 } = {}) {
   let disposed = false;
   let pending = false;
@@ -16,6 +18,7 @@ export function createInitialPlayback(video, {
   let retries = 0;
   let readinessPending = false;
   let loadedReapplyPending = false;
+  let committed = !deferLoadedReapplyUntilCommit;
   const state = {
     started: false,
     completed: false,
@@ -59,6 +62,7 @@ export function createInitialPlayback(video, {
       await video.play();
       completed = true;
       state.completed = true;
+      onCompleted({ loadedReapply, muted: Boolean(video.muted) });
     } catch (error) {
       if (disposed || !isCurrent()) return;
       if (error?.name === "NotAllowedError" && !video.muted) {
@@ -71,11 +75,12 @@ export function createInitialPlayback(video, {
           await video.play();
           completed = true;
           state.completed = true;
+          onCompleted({ loadedReapply, muted: true });
         } catch (_) {}
       }
     } finally {
       pending = false;
-      if (loadedReapplyPending) {
+      if (loadedReapplyPending && committed) {
         loadedReapplyPending = false;
         readinessPending = false;
         void play({ loadedReapply: true });
@@ -85,7 +90,13 @@ export function createInitialPlayback(video, {
     }
   };
   const onReadiness = () => void play();
-  const onLoadedData = () => void play({ loadedReapply: reapplyOnLoadedData });
+  const onLoadedData = () => {
+    if (reapplyOnLoadedData && !committed) {
+      loadedReapplyPending = true;
+      return;
+    }
+    void play({ loadedReapply: reapplyOnLoadedData });
+  };
   if (!deferUntilCommit) {
     if (retryOnReadiness) {
       video.addEventListener?.("loadedmetadata", onReadiness);
@@ -96,6 +107,13 @@ export function createInitialPlayback(video, {
   return {
     state,
     play,
+    commit() {
+      if (disposed || committed) return;
+      committed = true;
+      if (!loadedReapplyPending) return;
+      loadedReapplyPending = false;
+      void play({ loadedReapply: true });
+    },
     dispose() {
       if (disposed) return;
       disposed = true;

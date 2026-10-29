@@ -95,6 +95,58 @@ test("selected startup owner repeats ACC's early action when media loads", async
   controller.dispose();
 });
 
+test("go2rtc repeats its loaded-media action only after the race winner is committed", async () => {
+  const video = makeVideo();
+  const playback = createInitialPlayback(video, {
+    getMuted: () => false,
+    reapplyOnLoadedData: true,
+    deferLoadedReapplyUntilCommit: true,
+  });
+
+  await playback.play();
+  video.dispatchEvent(new Event("loadeddata"));
+  await flushMicrotasks();
+  assert.deepEqual(video.calls, [false], "hidden race readiness must not own loaded audio");
+
+  playback.commit();
+  await flushMicrotasks();
+  assert.deepEqual(video.calls, [false, false], "the adopted winner receives media-loaded audio");
+  playback.dispose();
+});
+
+test("adopting a go2rtc winner does not duplicate its committed loaded action", async () => {
+  const camera = { entity: "camera.one", start_unmuted: true };
+  const video = makeVideo();
+  const host = {
+    _activeCam: camera,
+    _engine: null,
+    _renderMuteButton() {},
+    _findVideoDeep: (engine) => engine?.video,
+  };
+  const controller = new LiveAudioController(host, {
+    interactionTarget: new EventTarget(),
+  });
+  controller.prepareCameraStart(camera);
+  let releases = 0;
+  const playback = controller.createInitialPlayback(video, {
+    entity: camera.entity,
+    deferLoadedReapplyUntilCommit: true,
+    onDispose: () => { releases += 1; },
+  });
+
+  await playback.play();
+  video.dispatchEvent(new Event("loadeddata"));
+  host._engine = { video };
+  playback.commit();
+  controller.applyCameraStartPreference();
+  await flushMicrotasks();
+
+  assert.deepEqual(video.calls, [false, false]);
+  assert.equal(host._streamMuted, false);
+  assert.equal(releases, 1);
+  controller.dispose();
+});
+
 test("adopting an early autoplay denial does not veto ACC's loaded-media retry", async () => {
   const camera = { entity: "camera.one", start_unmuted: true };
   const video = Object.assign(makeVideo(), { readyState: 0, loaded: false });

@@ -226,7 +226,7 @@ test("go2rtc race candidates retain shared startup playback ownership", async ()
   }));
 });
 
-test("production go2rtc cold startup establishes muted playback before selected audio", async () => {
+test("go2rtc without a selected startup owner uses ordinary muted autoplay", async () => {
   await withFakeDocument(() => withFakeObjectUrl(async () => {
     const camera = { entity: "camera.front", start_unmuted: true };
     const host = {
@@ -358,8 +358,9 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             await flushMicrotasks();
             assert.deepEqual(calls,
               denied === "cancel" ? [false]
-                : denied === true ? [false, true, false, true]
-                  : [false, false]);
+                : denied === true ? [false, true]
+                  : [false],
+            "loaded readiness must not give a hidden race candidate audio");
             assert.equal(host._engine, null);
             return true;
           },
@@ -373,6 +374,13 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             "selected-audio media must enter the document with native autoplay disabled");
           assert.equal(slot.mutedAtAppend[0], true,
             "ACC's selected media enters the document muted before its early action");
+          result.engine.commitStartupPlayback();
+          await flushMicrotasks();
+          assert.deepEqual(calls,
+            denied === "cancel" ? [false]
+              : denied === true ? [false, true, false, true]
+                : [false, false],
+          "only the committed race winner receives the loaded-media action");
           result.engine.destroy();
         } finally {
           audio.dispose();

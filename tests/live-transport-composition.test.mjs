@@ -145,9 +145,9 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   );
   assert.strictEqual(optionsByFactory.go2rtcMounter.scopeKey, card);
   assert.equal(
-    optionsByFactory.go2rtcMounter.createStartupPlayback,
-    undefined,
-    "go2rtc must establish muted playback before applying selected audio",
+    typeof optionsByFactory.go2rtcMounter.createStartupPlayback,
+    "function",
+    "go2rtc must route selected cold-start playback through the audio owner",
   );
   assert.strictEqual(
     optionsByFactory.go2rtcMounter.attachVideoFit,
@@ -159,14 +159,14 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
   assert.equal(
-    optionsByFactory.haDirectMounter.createStartupPlayback,
-    undefined,
-    "HA must retain native muted autoplay before applying output audio",
+    typeof optionsByFactory.haDirectMounter.createStartupPlayback,
+    "function",
+    "HA Direct must use the same selected cold-start playback owner",
   );
   assert.equal(
-    optionsByFactory.haDirectMounter.onSelectedMediaAvailable,
-    undefined,
-    "HA output audio waits for committed ready media",
+    typeof optionsByFactory.haDirectMounter.onSelectedMediaAvailable,
+    "function",
+    "HA Direct reapplies the configured action when its final leaf appears",
   );
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
   assert.equal(optionsByFactory.haDirectMounter.isSelectedExternalReady(), false);

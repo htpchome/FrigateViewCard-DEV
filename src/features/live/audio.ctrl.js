@@ -87,10 +87,12 @@ export class LiveAudioController {
   createInitialPlayback(video, {
     entity,
     isCurrent = () => true,
+    onUnmuted = () => {},
     onMuted = () => {},
     onDispose = () => {},
     replaceExisting = false,
     waitForData = false,
+    deferLoadedReapplyUntilCommit = false,
   } = {}) {
     if (this.resolveStartupMuted(entity)) return null;
     const camera = this._cameraStartUnmuteCamera;
@@ -112,8 +114,20 @@ export class LiveAudioController {
       // ACC awaits its rendered provider, unmute action and controller return
       // before play(). Preserve those microtask boundaries on raw videos.
       settleAroundMute: true,
+      deferLoadedReapplyUntilCommit,
+      onCompleted: ({ muted }) => {
+        const attempt = this._cameraStartUnmuteAttempt;
+        if (
+          muted !== true &&
+          attempt?.video === video &&
+          this._isCurrentStartUnmuteAttempt(attempt)
+        ) {
+          this._handleCameraStartUnmuteSuccess(attempt);
+        }
+      },
       getMuted: () => {
         const muted = this.resolveStartupMuted(entity);
+        if (!muted) onUnmuted();
         if (this._resolveEngineVideo(this._host._engine) === video) {
           this._host._streamMuted = muted;
           this._setAutomaticOutputMuted(this._host._engine, video, muted);
@@ -140,6 +154,7 @@ export class LiveAudioController {
     return {
       state: playback.state,
       play: playback.play,
+      commit: playback.commit,
       dispose: () => {
         playback.dispose();
         if (this._initialPlaybackVideos.get(video) !== playback) return;
@@ -185,13 +200,15 @@ export class LiveAudioController {
       initial.state.blocked !== true &&
       video.muted === false,
     );
+    const initialLoadedActionStarted =
+      initial?.state.loadedReapplied === true;
     const attempt = {
       engine,
       video,
       inFlight: false,
       retries: 0,
       blocked: initial?.state.blocked === true,
-      loadedReapplied: initialLoadedActionAudible,
+      loadedReapplied: initialLoadedActionStarted,
       awaitingLoaded: Number(video.readyState) < 2,
       startupPlayback: initial || null,
     };
@@ -215,7 +232,7 @@ export class LiveAudioController {
     video.addEventListener?.("canplay", attempt.onReady);
     // A non-owner or retained engine may not have received the pre-source
     // action. Apply the selected action here when it is already usable.
-    if (!attempt.awaitingLoaded && !initialLoadedActionAudible) {
+    if (!attempt.awaitingLoaded && !initialLoadedActionStarted) {
       this._attemptCameraStartUnmute(attempt);
     }
     return true;
@@ -363,28 +380,6 @@ export class LiveAudioController {
     this._setAutomaticOutputMuted(engine, video, false);
     host._renderMuteButton?.();
     host._engineMountedMuted = false;
-
-    // Safari and WKWebView can reject a redundant play() after an already
-    // playing muted element is promoted to audible output. ACC does not reach
-    // that state because its selected player is started by its media action;
-    // our retained/raced player may already be running. Give WebKit one
-    // microtask to keep that playback running before asking it to play again.
-    if (
-      video?.paused === false &&
-      (host._isSafari?.() === true || host._isLikelyMobileClient?.() === true)
-    ) {
-      Promise.resolve().then(() => {
-        if (!this._isCurrentStartUnmuteAttempt(attempt) || !attempt.inFlight) {
-          return;
-        }
-        if (video.paused === false) {
-          this._handleCameraStartUnmuteSuccess(attempt);
-          return;
-        }
-        this._requestCameraStartPlayback(attempt);
-      });
-      return;
-    }
 
     this._requestCameraStartPlayback(attempt);
   }

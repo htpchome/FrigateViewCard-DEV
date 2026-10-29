@@ -103,6 +103,11 @@ export function createHaDirectSession({
           if (!active?.visible(entity) || active?.startupMuted?.(entity) !== false) return null;
           return active.createStartupPlayback?.(video, {
             ...options, entity,
+            onUnmuted: () => {
+              active?.setMuted?.(false);
+              record.provider?.fvcSetOutputMuted?.(false);
+              options.onUnmuted?.();
+            },
             isCurrent: () => !disposed && records.get(entity) === record &&
               active?.visible(entity) && options.isCurrent(),
           });

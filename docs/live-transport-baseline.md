@@ -1008,21 +1008,24 @@ one of those policies is the cause.
   Camera Card: unmute the selected media before requesting playback, without
   waiting for loaded data, then reapply that same sequence once on
   `loadeddata`. A denied audible request still falls back to muted playback.
-- `v1.1.10-dev.48` corrects that ordering after a complete comparison with
-  Advanced Camera Card. Both transports now establish playback with muted
-  speaker output first, then apply the selected camera's unmute preference only
-  after the committed live media is running. HA Direct still selects its
-  audio-capable native stream up front, but no longer disables Home Assistant's
-  native autoplay while waiting for an audible request. This avoids making the
-  cold-start play request audible—the request Safari and WKWebView reject.
-- `v1.1.10-dev.49` isolates first-interaction recovery from the automatic
-  startup attempt. No touch/click listener is installed before or after a
-  successful automatic unmute; it is installed only after an actual
-  `NotAllowedError`. Safari and WKWebView also avoid a redundant `play()` call
-  when the committed selected video is already playing muted. After the output
-  is unmuted, a microtask verifies that playback remained active; only a player
-  that paused is asked to play again and can enter the interaction fallback.
-  Other browsers and paused media retain the existing unmute-before-play path.
+- Physical Safari and iOS Companion testing rejected the `v1.1.10-dev.48` and
+  `v1.1.10-dev.49` post-playback promotion experiments. Those versions had
+  also removed the production startup-action wiring while their focused tests
+  continued to invoke it directly, so they did not exercise the same lifecycle
+  as Advanced Camera Card.
+- `v1.1.10-dev.50` treats startup audio as one selected-media lifecycle for
+  both configured transports. The configured preference is routed into the
+  production mounters before provider startup; native autoplay is held for the
+  selected HA leaf; audio-stream selection and speaker-output mute remain
+  separate; and unmute-before-play is repeated on the provider's media-loaded
+  event. A go2rtc race may use `loadeddata` as readiness evidence, but defers
+  that audible reapply until the winning candidate has been adopted; hidden
+  candidates never own loaded audio. HA Direct updates card, session, provider,
+  and leaf mute ownership in
+  the same action so a later provider reconciliation cannot silently remute
+  the cold-start request. Ordinary muted autoplay remains the fallback after
+  an actual `NotAllowedError`, and interaction recovery is installed only for
+  that denial.
 
 ## Validation Expectations
 
