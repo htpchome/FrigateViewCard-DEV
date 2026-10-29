@@ -157,6 +157,7 @@ export function createHaDirectCameraProvider({
     initialPlayback = createStartupPlayback?.(video, {
       isCurrent: current,
       replaceExisting: true,
+      waitForData: true,
       onDispose: () => restoreAutoplay(),
       onMuted: () => {
         intendedOutputMuted = true;

@@ -64,7 +64,7 @@ for (const action of ["manual-mute", "camera-change", "dispose"]) {
   });
 }
 
-test("selected startup candidates do not play until committed with loaded data", async () => {
+test("selected startup owner repeats ACC's early action when media loads", async () => {
   const camera = { entity: "camera.one", start_unmuted: true };
   const video = makeVideo();
   const host = { _activeCam: camera, _engine: null, _renderMuteButton() {},
@@ -78,19 +78,22 @@ test("selected startup candidates do not play until committed with loaded data",
   await playback.play();
   video.dispatchEvent(new Event("loadeddata"));
   await Promise.resolve();
-  assert.deepEqual(video.calls, [], "an audio-armed loading candidate must not start playback");
-  assert.equal(video.muted, false, "the selected audio owner is primed before source attachment");
+  await Promise.resolve();
+  assert.deepEqual(video.calls, [false, false],
+    "the selected owner receives the pre-source and loaded-media actions");
+  assert.equal(video.muted, false);
   host._engine = { video };
   assert.equal(controller.applyCameraStartPreference(), true);
   await Promise.resolve();
-  assert.deepEqual(video.calls, [false], "the committed visible player receives the first play request");
+  assert.deepEqual(video.calls, [false, false],
+    "adopting an already-audible owner must not request a third play");
   assert.equal(host._streamMuted, false);
   assert.equal(releases, 1);
   controller.dispose();
 });
 
 for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
-  test(`visible adoption waits for data, then respects ${action}`, async () => {
+  test(`early selected action respects ${action}`, async () => {
     const camera = { entity: "camera.one", start_unmuted: true };
     const video = Object.assign(makeVideo(), { readyState: 0 });
     const target = Object.assign(new EventTarget(), { visibilityState: "visible" });
@@ -101,7 +104,7 @@ for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispo
     await controller.createInitialPlayback(video, { entity: camera.entity }).play();
     host._engine = { video };
     controller.applyCameraStartPreference();
-    assert.deepEqual(video.calls, []);
+    assert.deepEqual(video.calls, [false]);
     if (action === "manual-mute") controller.applyMuteChange(true);
     if (action === "camera-change") controller.prepareCameraStart({ entity: "camera.two" });
     if (action === "hidden") target.visibilityState = "hidden";
@@ -110,7 +113,7 @@ for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispo
     video.dispatchEvent(new Event("loadeddata"));
     await Promise.resolve();
     assert.equal(video.muted, action !== "loaded");
-    assert.deepEqual(video.calls, action === "loaded" ? [false] : []);
+    assert.deepEqual(video.calls, action === "loaded" ? [false, false] : [false]);
     controller.dispose();
   });
 }
@@ -135,15 +138,16 @@ for (const denied of [false, true]) {
     const video = makeVideo(denied);
     const playback = controller.createInitialPlayback(video, { entity: camera.entity });
     await playback.play();
-    assert.deepEqual(video.calls, []);
+    assert.deepEqual(video.calls, denied ? [false, true] : [false]);
     host._engine = { video };
     assert.equal(controller.applyCameraStartPreference(), true);
     await Promise.resolve();
     assert.equal(host._streamMuted, denied);
-    assert.deepEqual(video.calls, denied ? [false, true] : [false]);
+    assert.deepEqual(video.calls, denied ? [false, true, false, true] : [false, false]);
     controller.applyCameraStartPreference();
     video.dispatchEvent(new Event("canplay"));
-    assert.equal(video.calls.length, denied ? 2 : 1, "repeated readiness cannot loop unmute");
+    assert.equal(video.calls.length, denied ? 4 : 2,
+      "repeated readiness cannot loop unmute");
     controller.dispose();
   });
 }
@@ -157,16 +161,16 @@ test("racing candidates, background cameras and cancelled starts cannot introduc
   const second = makeVideo();
   const a = controller.createInitialPlayback(first, { entity: camera.entity });
   const b = controller.createInitialPlayback(second, { entity: camera.entity });
+  assert.equal(b, null, "only one racing candidate may own startup audio");
   assert.equal(controller.createInitialPlayback(makeVideo(), { entity: "camera.two" }), null);
   await a.play();
-  await b.play();
-  assert.deepEqual(first.calls, []);
+  assert.deepEqual(first.calls, [false]);
   assert.deepEqual(second.calls, []);
   controller.prepareCameraStart({ entity: "camera.two", start_unmuted: false });
   assert.equal(first.muted, true);
   first.dispatchEvent(new Event("canplay"));
   await a.play();
-  assert.deepEqual(first.calls, []);
+  assert.deepEqual(first.calls, [false]);
   controller.dispose();
 });
 

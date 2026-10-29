@@ -222,7 +222,7 @@ test("go2rtc race candidates retain shared startup playback ownership", async ()
   }));
 });
 
-test("production go2rtc cold startup waits for visible commit before its first play", async () => {
+test("production go2rtc cold startup matches ACC's pre-source and loaded-media actions", async () => {
   await withFakeDocument(() => withFakeObjectUrl(async () => {
     const camera = { entity: "camera.front", start_unmuted: true };
     const host = {
@@ -259,9 +259,10 @@ test("production go2rtc cold startup waits for visible commit before its first p
         const video = slot.lastChild;
         assert.equal(video.autoplay, false);
         assert.equal(video.preload, "auto", "cold audio startup keeps media loading eager");
-        assert.equal(video.muted, false,
-          "the selected audio owner is primed before source attachment");
-        assert.deepEqual(requests, []);
+        assert.equal(video.muted, false);
+        assert.deepEqual(requests, [
+          { muted: false, defaultMuted: false, readyState: 0 },
+        ]);
         video.readyState = 2;
         video.dispatchEvent(new Event("loadeddata"));
         await Promise.resolve();
@@ -276,6 +277,7 @@ test("production go2rtc cold startup waits for visible commit before its first p
 
     assert.equal(mounted, true);
     assert.deepEqual(requests, [
+      { muted: false, defaultMuted: false, readyState: 0 },
       { muted: false, defaultMuted: false, readyState: 2 },
     ]);
     assert.equal(host._streamMuted, false);
@@ -285,7 +287,7 @@ test("production go2rtc cold startup waits for visible commit before its first p
 
 for (const transport of ["WebRtc", "Mse", "Hls"]) {
   for (const denied of transport === "WebRtc" ? [false, true, "cancel"] : [false, true]) {
-    test(`go2rtc ${transport} does not play a selected candidate before commit (denied=${denied})`, async () => {
+    test(`go2rtc ${transport} gives only its selected owner ACC startup actions (denied=${denied})`, async () => {
       await withFakeDocument(() => withFakeObjectUrl(async () => {
         const camera = { entity: "camera.front", start_unmuted: true };
         const host = { _activeCam: camera, _engine: null, _renderMuteButton() {} };
@@ -330,15 +332,15 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             if (transport === "WebRtc") {
               peer.dispatchEvent(Object.assign(new Event("track"), { track: videoTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, undefined);
-              assert.deepEqual(calls, [], "track arrival alone must not request playback");
+              assert.deepEqual(calls, [false],
+                "the early selected action precedes transport attachment");
               peer.connectionState = "connected";
               peer.dispatchEvent(new Event("connectionstatechange"));
               const stream = startupVideo.srcObject;
               assert.deepEqual(stream.getTracks(), [videoTrack]);
               await Promise.resolve();
               await Promise.resolve();
-              assert.deepEqual(calls, [],
-                "source attachment must not establish hidden muted playback");
+              assert.deepEqual(calls, denied === true ? [false, true] : [false]);
               peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
               assert.deepEqual(stream.getTracks(), [videoTrack, audioTrack]);
@@ -358,7 +360,10 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             await Promise.resolve();
             await Promise.resolve();
             await Promise.resolve();
-            assert.deepEqual(calls, []);
+            assert.deepEqual(calls,
+              denied === "cancel" ? [false]
+                : denied === true ? [false, true, false, true]
+                  : [false, false]);
             assert.equal(host._engine, null);
             return true;
           },
@@ -370,8 +375,8 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
           assert.equal(result.ok, true);
           assert.equal(slot.autoplayAtAppend[0], false,
             "selected-audio media must enter the document with native autoplay disabled");
-          assert.equal(slot.mutedAtAppend[0], false,
-            "selected-audio media must be primed unmuted before source attachment");
+          assert.equal(slot.mutedAtAppend[0], true,
+            "ACC's selected media enters the document muted before its early action");
           result.engine.destroy();
         } finally {
           audio.dispose();

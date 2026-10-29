@@ -177,6 +177,7 @@ export function createGo2RtcMounter({
         "live",
         {
           muted,
+          autoplay: false,
           controls: false,
         },
         { scopeKey },
@@ -194,7 +195,7 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    if (initialPlayback) video.autoplay = false;
+    video.autoplay = !initialPlayback;
     const mediaSource = new MediaSourceCtor();
     video.src = URL.createObjectURL(mediaSource);
 
@@ -417,12 +418,14 @@ export function createGo2RtcMounter({
         "live",
         {
           muted: options?.muted ?? getStreamMuted(),
+          autoplay: false,
           controls: false,
         },
         { scopeKey },
       ),
     );
 
+    let destroyed = false;
     const initialPlayback =
       options.muted == null
         ? createStartupPlayback?.(video, {
@@ -434,9 +437,10 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    if (initialPlayback) video.autoplay = false;
+    video.autoplay = !initialPlayback;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
+    if (initialPlayback) void initialPlayback.play();
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",
@@ -444,7 +448,6 @@ export function createGo2RtcMounter({
     });
     const ws = new WebSocket(wsUrl);
     let abortBound = false;
-    let destroyed = false;
     let streamStarted = false;
     let recoveryScheduled = false;
     let recoveryEnabled = commit;
@@ -778,6 +781,7 @@ export function createGo2RtcMounter({
         "live",
         {
           muted: options?.muted ?? getStreamMuted(),
+          autoplay: false,
           controls: false,
         },
         { scopeKey },
@@ -796,7 +800,7 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    if (initialPlayback) video.autoplay = false;
+    video.autoplay = !initialPlayback;
     video.src = hlsSource.url;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);

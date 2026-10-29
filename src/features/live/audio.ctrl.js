@@ -85,29 +85,32 @@ export class LiveAudioController {
     );
   }
 
-  createInitialPlayback(video, { entity, isCurrent = () => true, onMuted = () => {}, onDispose = () => {}, replaceExisting = false } = {}) {
+  createInitialPlayback(video, {
+    entity,
+    isCurrent = () => true,
+    onMuted = () => {},
+    onDispose = () => {},
+    replaceExisting = false,
+    waitForData = false,
+  } = {}) {
     if (this.resolveStartupMuted(entity)) return null;
     const camera = this._cameraStartUnmuteCamera;
     if (replaceExisting) this._clearInitialPlayback(video);
-    // ACC primes its selected video unmuted before the source is attached. Do
-    // the same for the single audio-owning candidate, without starting it.
-    // Native autoplay is held by the mounter until the visible owner commits.
+    // ACC gives only its selected media element the early unmute/play action.
+    // Racing alternatives remain normal muted-autoplay candidates.
     this._initialAudioOwner ??= video;
-    if (this._initialAudioOwner === video) {
-      video.preload = "auto";
-      video.muted = false;
-      if (typeof video.volume === "number") video.volume = 1;
-    }
+    if (this._initialAudioOwner !== video) return null;
+    video.preload = "auto";
+    video.muted = true;
     const playback = createInitialPlayback(video, {
-      deferUntilCommit: true,
       onDispose,
+      waitForData,
+      reapplyOnLoadedData: true,
       getMuted: () => {
-        const muted = this._initialAudioOwner !== video || this.resolveStartupMuted(entity);
-        if (this._initialAudioOwner === video) {
+        const muted = this.resolveStartupMuted(entity);
+        if (this._resolveEngineVideo(this._host._engine) === video) {
           this._host._streamMuted = muted;
-          if (this._resolveEngineVideo(this._host._engine) === video) {
-            this._setAutomaticOutputMuted(this._host._engine, video, muted);
-          }
+          this._setAutomaticOutputMuted(this._host._engine, video, muted);
           this._host._renderMuteButton?.();
         }
         return muted;
@@ -188,8 +191,14 @@ export class LiveAudioController {
       startupPlayback: initial || null,
     };
     this._cameraStartUnmuteAttempt = attempt;
-    // Keep the deferred startup owner until this visible player's first play
-    // resolves so a hidden candidate cannot independently start playback.
+    if (initialCompletedAudible) {
+      this._setAutomaticOutputMuted(engine, video, false);
+      host._renderMuteButton?.();
+      host._engineMountedMuted = false;
+      this._releaseStartupPlayback(attempt);
+    }
+    // Keep the single startup owner through adoption so another candidate
+    // cannot independently request audio.
     if (engine.catalystHls !== true) {
       attempt.stopAudioWatch = watchAudioAvailability(video,
         getHaCameraAudioPeer(engine) || engine.pc,
@@ -199,9 +208,8 @@ export class LiveAudioController {
     attempt.onReady = () => this._retryCameraStartUnmute(attempt);
     video.addEventListener?.("loadeddata", attempt.onLoaded);
     video.addEventListener?.("canplay", attempt.onReady);
-    // ACC's early selected action has no player to operate on until media is
-    // loaded. Our raw video exists sooner, so explicitly preserve that same
-    // boundary instead of making an audible request against an unready video.
+    // A non-owner or retained engine may not have received the pre-source
+    // action. Apply the selected action here when it is already usable.
     if (!attempt.awaitingLoaded && !initialCompletedAudible) {
       this._attemptCameraStartUnmute(attempt);
     }
@@ -245,6 +253,16 @@ export class LiveAudioController {
       this._interactionTarget?.visibilityState === "hidden"
     ) {
       return false;
+    }
+    // The pre-source owner registers its loadeddata reapply before adoption.
+    // Do not issue the same ACC loaded-media action a second time here.
+    if (attempt.startupPlayback?.state.loadedReapplied) {
+      attempt.loadedReapplied = true;
+      if (attempt.onLoaded) {
+        attempt.video.removeEventListener?.("loadeddata", attempt.onLoaded);
+        attempt.onLoaded = null;
+      }
+      return true;
     }
     attempt.loadedReapplied = true;
     if (attempt.onLoaded) {

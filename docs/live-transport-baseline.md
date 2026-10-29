@@ -2,16 +2,24 @@
 
 ## Current Baseline
 
-`v1.1.10-dev.43` carries ACC's selected-output state across the source-attachment
-boundary. ACC's go2rtc provider runs the selected unmute action while its video
-still has no source, so WebRTC later assigns `srcObject` to an already-unmuted,
-non-autoplaying element. FrigateView previously attached both go2rtc and native
-HA media to muted output and changed the property only after data loaded. The
-single selected go2rtc audio owner and the selected HA Direct output are now
-primed unmuted before source/child startup, with native autoplay still held and
-no early playback request. The first play remains at loaded data; denial still
-falls back to muted playback and interaction recovery. Preview, background HA
-providers and non-audio-owning race candidates remain muted.
+`v1.1.10-dev.44` follows the complete Advanced Camera Card 8.1.0 action trace
+rather than copying only its mute state. ACC creates its selected go2rtc video
+muted, then its carousel controller immediately calls `unmute()` followed by
+`play()` while transport negotiation is still underway and independently
+repeats that action on its media-loaded event. FrigateView now gives exactly one
+selected go2rtc race candidate the same pre-source and loaded-media actions.
+Other candidates retain ordinary muted autoplay, and adoption of an already
+audible owner does not add a third request. HA Direct keeps audio-capable stream
+selection separate from output: the child loads output-muted with autoplay
+held, then receives unmute-before-play at loaded data. Denial still falls back
+to muted playback and interaction recovery. No transport delay, reconnect,
+simulated gesture or Web Audio path is added.
+
+`v1.1.10-dev.43` attempted to carry ACC's selected-output state across the
+source-attachment boundary while deliberately omitting ACC's early `play()`
+request. Physical Safari and iOS Companion testing showed no improvement. Its
+premise that pre-source unmute alone was sufficient was therefore rejected;
+dev.44 replaces it with ACC's complete selected-media action sequence.
 
 `v1.1.10-dev.42` corrects the remaining ordering mismatch found through direct
 comparison with Advanced Camera Card 8.1.0. ACC invokes its selected action

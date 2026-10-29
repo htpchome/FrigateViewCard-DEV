@@ -10,11 +10,12 @@ const createHarness = () => {
     getAudioTracks: () => tracks.filter((track) => track.kind === "audio"),
     addTrack: (track) => tracks.push(track),
   };
-  const video = {
+  const video = Object.assign(new EventTarget(), {
     muted: true, defaultMuted: true, volume: 0, srcObject: stream,
+    readyState: 2,
     playCalls: 0,
     play() { this.playCalls += 1; return Promise.resolve(); },
-  };
+  });
   const peer = { getReceivers: () => [{ track: audio }], connectionState: "connected" };
   const player = {
     tagName: "HA-WEB-RTC-PLAYER", muted: true,
@@ -80,9 +81,18 @@ test("initial HA playback restores already received audio before requesting play
       volume: h.video.volume, playerMuted: h.player.muted });
     return Promise.resolve();
   };
-  const playback = h.controller.createInitialPlayback(h.video, { entity: "camera.one" });
+  h.video.readyState = 0;
+  const playback = h.controller.createInitialPlayback(h.video, {
+    entity: "camera.one",
+    waitForData: true,
+  });
   await playback.play();
   h.controller.applyCameraStartPreference();
+  assert.equal(h.video.playCalls, 0);
+  h.video.readyState = 2;
+  h.video.dispatchEvent(new Event("loadeddata"));
+  await Promise.resolve();
+  await Promise.resolve();
   assert.equal(h.video.playCalls, 1,
     "the selected player receives its first audible request after commitment");
   assert.deepEqual(requests, [

@@ -60,11 +60,7 @@ export function createHaDirectProviderMounter({
     selected: getSelectedEntity,
     context: getContext,
     identity: getIdentity,
-    muted: (entity) => tileFor(entity)
-      ? true
-      : getStartupMuted?.(entity) === false
-        ? false
-        : getStreamMuted?.(),
+    muted: (entity) => tileFor(entity) ? true : getStreamMuted?.(),
     startupMuted: (entity) => tileFor(entity) ? true : getStartupMuted?.(entity) !== false,
     createStartupPlayback,
     setMuted: setStreamMuted,

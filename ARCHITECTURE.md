@@ -34,6 +34,13 @@ Meaning of `frigate_go2rtc`:
 - the card may use Home Assistant-exposed Frigate/go2rtc surfaces to implement that behavior
 - the mode must not silently collapse into the Home Assistant camera-stream path
   on ordinary browser clients
+- configured startup audio follows the selected-media sequence used by Advanced
+  Camera Card 8.1.0. Exactly one selected transport candidate enters the DOM
+  muted with native autoplay held, then receives an immediate unmute/play
+  request while its transport is still connecting. Repeat that action once on
+  loaded data. All other race candidates remain muted autoplay players. Losing,
+  cancelled, hidden, background and Preview media must never inherit that audio
+  ownership
 
 Meaning of `ha_direct`:
 
@@ -146,10 +153,10 @@ Meaning of `ha_direct`:
 
   Selected HA Direct startup audio holds native autoplay while the child loads.
   The shared audio owner must not play that child before it is selected and
-  visibly projected. The selected output is primed unmuted before its source
-  starts, while native autoplay remains disabled. Source selection and decoding
-  stay eager, but the first play request waits until loaded data. A denied
-  audible request falls back to muted playback.
+  visibly projected. Request HA's audio-capable stream before child creation,
+  but keep its output muted while loading. Source selection and decoding stay
+  eager. At loaded data, unmute the selected output before its first play
+  request. A denied audible request falls back to muted playback.
 
   Companion background-return exception: outside Catalyst, the HA Direct
   session inspects its providers on a real hidden-to-visible or pagehide-to-
@@ -193,9 +200,8 @@ Meaning of `ha_direct`:
   before native child creation so HA chooses an audio-capable stream. For a
   selected camera configured to start unmuted, its public autoplay input may be
   held off while source creation, negotiation and decoding continue. The child
-  is primed output-unmuted while remaining paused until it is visibly selected
-  and has loaded data; the selected media action then reasserts unmute before
-  requesting its first play.
+  remains output-muted until it is visibly selected and has loaded data; the
+  selected media action then unmutes before requesting its first play.
   Fall back immediately to muted playback whenever audible autoplay is denied.
   Restore native autoplay after startup handoff, cancellation or replacement.
   Once audio has been selected, muting output must not downgrade or rebuild that
