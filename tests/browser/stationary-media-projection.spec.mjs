@@ -735,7 +735,7 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       const first = result.requests.filter((request) => request.entity === "camera.one" && !request.hidden);
       expect(first.length, JSON.stringify(result)).toBeGreaterThan(0);
       expect(first[0].muted, JSON.stringify(result)).toBe(false);
-      expect(first.some((request) => !request.muted && request.readyState < 2), JSON.stringify(result)).toBe(true);
+      expect(first.every((request) => request.readyState >= 2), JSON.stringify(result)).toBe(true);
       expect(result.muted).toBe(denied === true);
       expect(result.uiMuted).toBe(denied === true);
       if (denied === true) {

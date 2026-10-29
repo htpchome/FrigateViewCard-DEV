@@ -46,6 +46,18 @@ video.playsInline = true;
 video.preload = 'auto';
 document.body.append(video);
 window.audit = { mode, events: [], plays: [], initialActivation: navigator.userActivation?.hasBeenActive };
+if (mode === 'fvc-card-go2rtc') {
+  const nativePlay = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function() {
+    const record = {cardWide: true, muted: this.muted, ready: this.readyState,
+      activation: navigator.userActivation?.hasBeenActive};
+    audit.plays.push(record);
+    return nativePlay.call(this).then(() => {record.result = 'ok';}, error => {
+      record.result = error.name;
+      throw error;
+    });
+  };
+}
 const observeVideo = element => {
   for (const e of ['loadedmetadata','loadeddata','canplay','play','playing','pause','volumechange','error']) {
     element.addEventListener(e, () => audit.events.push({event: e, muted: element.muted, ready: element.readyState}));
@@ -74,7 +86,7 @@ if (mode.startsWith('acc')) {
   actions.setRoot(document.body);
   void actions.setTarget(0, true);
   video.addEventListener('loadeddata', () => {ready = true; player.dispatchEvent(new Event('advanced-camera-card:media:loaded'));});
-} else {
+} else if (mode !== 'fvc-card-go2rtc') {
   const controller = new LiveAudioController(host, {interactionTarget: document});
   fvcController = controller;
   controller.prepareCameraStart(host._activeCam);
@@ -88,7 +100,7 @@ if (mode.startsWith('acc')) {
   }
 }
 let pc;
-if (mode === 'fvc-go2rtc') {
+if (mode === 'fvc-go2rtc' || mode === 'fvc-card-go2rtc') {
   // Production mounter and frame-readiness code; only signaling is local.
   // Disable public STUN for this loopback experiment, not in production.
   const Peer = window.RTCPeerConnection;
@@ -108,19 +120,56 @@ if (mode === 'fvc-go2rtc') {
     }
     close() {this.readyState = 3;}
   };
-  const slot = document.createElement('div');document.body.append(slot);
-  const mounter = createGo2RtcMounter({
-    resolver: {resolveMountRequest: options => ({...options,commit:true}), websocketUrlForEntity: async () => 'ws://localhost/synthetic'},
-    getStreamMuted: () => host._streamMuted,
-    createStartupPlayback: (element, options) =>
-      fvcController.createInitialPlayback(element, options),
-    attachVideoFit: element => {video.remove(); video = element; observeVideo(video);},
-    assignCommittedEngine: engine => {host._engine = engine;},
-    onCommittedStream: () => fvcController.applyCameraStartPreference(),
-    scheduleResumeLive() {}, isFirefox: () => navigator.userAgent.includes('Firefox'),
-    waitForStreamStart: (element, timeout, options) => waitForMediaStart(element, timeout, {...options,resolveVideo: root => root.querySelector('video')}),
-  });
-  audit.mounted = await mounter.tryMountWebRtc(slot, {waitMs:12000}, {entity:'camera.test',negotiationTimeoutMs:12000});
+  if (mode === 'fvc-go2rtc') {
+    const slot = document.createElement('div');document.body.append(slot);
+    const mounter = createGo2RtcMounter({
+      resolver: {resolveMountRequest: options => ({...options,commit:true}), websocketUrlForEntity: async () => 'ws://localhost/synthetic'},
+      getStreamMuted: () => host._streamMuted,
+      createStartupPlayback: (element, options) =>
+        fvcController.createInitialPlayback(element, options),
+      attachVideoFit: element => {video.remove(); video = element; observeVideo(video);},
+      assignCommittedEngine: engine => {host._engine = engine;},
+      onCommittedStream: () => fvcController.applyCameraStartPreference(),
+      scheduleResumeLive() {}, isFirefox: () => navigator.userAgent.includes('Firefox'),
+      waitForStreamStart: (element, timeout, options) => waitForMediaStart(element, timeout, {...options,resolveVideo: root => root.querySelector('video')}),
+    });
+    audit.mounted = await mounter.tryMountWebRtc(slot, {waitMs:12000}, {entity:'camera.test',negotiationTimeoutMs:12000});
+  } else {
+    await import('/dist/frigate-view-card.js');
+    customElements.define('fvc-audio-diagnostic', class extends customElements.get('frigate-view-card') {
+      connectedCallback() {}
+      disconnectedCallback() {}
+    });
+    const card = document.createElement('fvc-audio-diagnostic');
+    card.setConfig({
+      cameras: [{entity: 'camera.test', connection_type: 'frigate_go2rtc', start_unmuted: true}],
+      mobile_view_page_enabled: true,
+    });
+    card._hass = {connection: {}, states: {'camera.test': {entity_id: 'camera.test', state: 'recording', attributes: {}}}};
+    card._activeCamIdx = 0;
+    card._started = true;
+    document.body.append(card);
+    card._go2rtcResolver.websocketUrlForEntity = async () => 'ws://localhost/synthetic';
+    card._pageNavigationController.preparePageRouteShell('mobile-view');
+    card._liveAudioController.prepareCameraStart(card._activeCam);
+    const mount = card._mountEngine.bind(card);
+    card._mountEngine = () => mount('webrtc');
+    card._pageNavigationController.navigateToPageRoute('mobile-view', {startup: true, source: 'diagnostic'});
+    window.cardProbe = card;
+    audit.mounted = await new Promise(resolve => {
+      const deadline = setTimeout(() => resolve(false), 12000);
+      const poll = () => {
+        if (card._engine?.video?.readyState >= 2) {
+          clearTimeout(deadline);
+          video = card._engine.video;
+          resolve(true);
+          return;
+        }
+        setTimeout(poll, 25);
+      };
+      poll();
+    });
+  }
 } else if (transport === 'webrtc') {
   pc = new RTCPeerConnection({iceServers:[]});
   pc.addTransceiver('video', {direction:'recvonly'});
@@ -150,6 +199,9 @@ setTimeout(async () => {audit.final = {muted: video.muted, paused: video.paused,
  audioTracks: video.audioTracks?.length, decodedAudio: video.webkitAudioDecodedByteCount, mozHasAudio: video.mozHasAudio,
  activation: navigator.userActivation?.hasBeenActive, width: video.videoWidth, readyState: video.readyState,
  peerState: pc?.connectionState, iceState: pc?.iceConnectionState};
+ if (window.cardProbe) audit.card = {streamMuted: cardProbe._streamMuted,
+   pageId: cardProbe._pageId, activeType: cardProbe._activeStreamType,
+   engineMuted: cardProbe._engine?.video?.muted};
  if(pc) audit.audioStats = [...(await pc.getStats()).values()].filter(s => s.type==='inbound-rtp' && (s.kind==='audio' || s.mediaType==='audio')).map(s => ({bytes:s.bytesReceived,energy:s.totalAudioEnergy,samples:s.totalSamplesReceived}));
  fetch('/report', {method:'POST', body:JSON.stringify(audit)});}, 3000);
 `;
@@ -181,7 +233,7 @@ const server = createServer(async (req,res) => {
    report(JSON.parse(body)); res.end();
  } else if (url.pathname === '/acc.js') {res.setHeader('Content-Type','text/javascript'); res.end(bundle.outputFiles[0].text);}
  else if (url.pathname === '/start.js') {res.setHeader('Content-Type','text/javascript'); res.end(script);}
- else if (url.pathname.startsWith('/src/')) {
+ else if (url.pathname.startsWith('/src/') || url.pathname.startsWith('/dist/')) {
    try {res.setHeader('Content-Type','text/javascript'); res.end(await readFile(root + url.pathname));}
    catch {res.statusCode=404;res.end();}
  } else if (url.pathname === '/media.mp4') {
@@ -205,7 +257,7 @@ try {
  ]) {
   if (browserFilter && name !== browserFilter) continue;
   const browser = await type.launch({headless:true,...options});
-  try {for (const mode of ['acc-ha','acc-go2rtc','fvc', ...(transport === 'webrtc' ? ['fvc-go2rtc'] : [])]) {
+  try {for (const mode of ['acc-ha','acc-go2rtc','fvc', ...(transport === 'webrtc' ? ['fvc-go2rtc', 'fvc-card-go2rtc'] : [])]) {
    const context = await browser.newContext();
    const page = await context.newPage();
    page.on('pageerror',e=>console.log(name,mode,'PAGEERROR',e.message));

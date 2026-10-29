@@ -332,19 +332,19 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             if (transport === "WebRtc") {
               peer.dispatchEvent(Object.assign(new Event("track"), { track: videoTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, undefined);
-              assert.deepEqual(calls, [true],
-                "the hidden race candidate starts through ordinary muted playback");
+              assert.deepEqual(calls, [],
+                "the hidden race candidate must not establish muted playback");
               peer.connectionState = "connected";
               peer.dispatchEvent(new Event("connectionstatechange"));
               const stream = startupVideo.srcObject;
               assert.deepEqual(stream.getTracks(), [videoTrack]);
               await flushMicrotasks();
-              assert.deepEqual(calls, [true]);
+              assert.deepEqual(calls, []);
               peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
               assert.deepEqual(stream.getTracks(), [videoTrack, audioTrack]);
               if (denied === "cancel") {
-                assert.equal(startupVideo.autoplay, true);
+                assert.equal(startupVideo.autoplay, false);
                 audio.cancelCameraStartPreference();
                 assert.equal(startupVideo.autoplay, true, "cancelled audio restores ordinary muted autoplay");
                 assert.equal(startupVideo.muted, true);
@@ -357,8 +357,8 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             }
             await flushMicrotasks();
             assert.deepEqual(calls,
-              [true],
-            "loaded readiness must not give a hidden race candidate audio");
+              [],
+            "loaded readiness must not start a hidden race candidate");
             assert.equal(host._engine, null);
             return true;
           },
@@ -368,16 +368,16 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
           const result = await withFakeWindow({ WebSocket: Socket, RTCPeerConnection: Peer, MediaSource: Source },
             () => mounter[`tryMount${transport}`](slot));
           assert.equal(result.ok, true);
-          assert.equal(slot.autoplayAtAppend[0], true,
-            "hidden race media must establish ordinary muted playback");
+          assert.equal(slot.autoplayAtAppend[0], false,
+            "the selected startup owner must hold native autoplay");
           assert.equal(slot.mutedAtAppend[0], true,
             "ACC's selected media enters the document muted before its early action");
           result.engine.commitStartupPlayback();
           await flushMicrotasks();
           assert.deepEqual(calls,
-            denied === "cancel" ? [true]
-              : denied === true ? [true, false, true]
-                : [true, false],
+            denied === "cancel" ? []
+              : denied === true ? [false, true]
+                : [false],
           "only the committed race winner receives the loaded-media action");
           result.engine.destroy();
         } finally {

@@ -181,7 +181,12 @@ export function createHaDirectCameraProvider({
         restored = true;
         restoreNativeAutoplay();
       };
-      void initialPlayback.play();
+      // HA may expose the selected child before or after loadeddata. Never
+      // establish muted autoplay first: the selected startup action owns the
+      // first play once media is usable, matching ACC's provider lifecycle.
+      if (Number(video.readyState) >= 2) {
+        queueMicrotask(() => void initialPlayback?.play?.({ loadedReapply: true }));
+      }
     }
     let ready = false;
     let waitingTime = video.currentTime;

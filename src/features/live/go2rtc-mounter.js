@@ -198,13 +198,13 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    video.autoplay = true;
+    video.autoplay = !initialPlayback;
     const mediaSource = new MediaSourceCtor();
     video.src = URL.createObjectURL(mediaSource);
 
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
-    startVideoPlayback(video);
+    if (!initialPlayback) startVideoPlayback(video);
 
     const ws = new WebSocketCtor(wsUrl);
     ws.binaryType = "arraybuffer";
@@ -444,10 +444,10 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    video.autoplay = true;
+    video.autoplay = !initialPlayback;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
-    startVideoPlayback(video);
+    if (!initialPlayback) startVideoPlayback(video);
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",
@@ -808,7 +808,7 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    video.autoplay = true;
+    video.autoplay = !initialPlayback;
     video.src = hlsSource.url;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
@@ -871,7 +871,8 @@ export function createGo2RtcMounter({
       },
     };
     if (commit) assignCommittedEngine(engine);
-    startVideoPlayback(video, { load: true });
+    if (initialPlayback) video.load?.();
+    else startVideoPlayback(video, { load: true });
 
     const started = await waitForStreamStart(slot, waitMs, {
       minCurrentTime: 0.05,

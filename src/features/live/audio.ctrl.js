@@ -98,7 +98,7 @@ export class LiveAudioController {
     if (this.resolveStartupMuted(entity)) return null;
     const camera = this._cameraStartUnmuteCamera;
     if (replaceExisting) this._clearInitialPlayback(video);
-    // Race candidates establish muted playback; the visible winner claims the
+    // Race candidates load without playing; the visible winner claims the
     // selected unmute/play action when its presentation is committed.
     if (!deferUntilCommit) {
       this._initialAudioOwner ??= video;
@@ -206,7 +206,7 @@ export class LiveAudioController {
     const initial = this._initialPlaybackVideos.get(video);
     const initialLoadedActionAudible = Boolean(
       initial?.state.requestedUnmuted &&
-      initial.state.loadedReapplied &&
+      initial.state.completed &&
       initial.state.blocked !== true &&
       video.muted === false,
     );
@@ -240,9 +240,10 @@ export class LiveAudioController {
     attempt.onReady = () => this._retryCameraStartUnmute(attempt);
     video.addEventListener?.("loadeddata", attempt.onLoaded);
     video.addEventListener?.("canplay", attempt.onReady);
-    // A non-owner or retained engine may not have received the pre-source
-    // action. Apply the selected action here when it is already usable.
-    if (!attempt.awaitingLoaded && !initialLoadedActionStarted) {
+    // The committed startup owner performs the selected-media action. A
+    // retained engine has no startup owner, so it must apply the preference
+    // here instead.
+    if (!initial && !attempt.awaitingLoaded && !initialLoadedActionStarted) {
       this._attemptCameraStartUnmute(attempt);
     }
     return true;

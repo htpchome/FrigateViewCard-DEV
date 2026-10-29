@@ -317,6 +317,9 @@ for (const denied of [false, true]) {
     assert.equal(controller.applyCameraStartPreference(), true);
     await Promise.resolve();
     assert.equal(host._streamMuted, denied);
+    assert.deepEqual(video.calls, denied ? [false, true] : [false]);
+    video.dispatchEvent(new Event("loadeddata"));
+    await flushMicrotasks();
     assert.deepEqual(video.calls, denied ? [false, true, false, true] : [false, false]);
     controller.applyCameraStartPreference();
     video.dispatchEvent(new Event("canplay"));
