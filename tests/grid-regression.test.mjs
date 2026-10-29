@@ -559,25 +559,6 @@ test("entering live Grid releases only duplicate go2rtc main-camera connections"
   );
 });
 
-test("a clicked live Grid camera transfers its existing transport into Single View", () => {
-  assert.match(
-    cardSource,
-    /gridSelectedLiveHandoff = wasGridMode[\s\S]*?takeGridLiveHandoff\?\.\([\s\S]*?nextMemberOverride \|\| newEnt/,
-  );
-  assert.match(
-    cardSource,
-    /adoptedGridSelectedLive[\s\S]*?_adoptLiveAttemptResult\([\s\S]*?gridSelectedLiveHandoff/,
-  );
-  assert.match(
-    cardSource,
-    /if \(!adoptedGridSelectedLive\) this\._mountEngine\(\);/,
-  );
-  assert.doesNotMatch(
-    cardSource,
-    /wasGridMode && gridAlertTakeover[\s\S]{0,120}takeGridLiveHandoff/,
-  );
-});
-
 test("Grid leaves HA Direct transport selection to Home Assistant", () => {
   const controller = new GridMediaController({
     _activeCam: { entity: "camera.ha_direct" },

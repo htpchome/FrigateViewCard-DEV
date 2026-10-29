@@ -2397,14 +2397,12 @@ export class FrigateViewCard extends HTMLElement {
     this._activeCamIdx = idx;
     const newEnt = this._activeCam?.entity;
     const newTransportEntity = nextMemberOverride || newEnt;
-    // A live Grid tile already owns the exact selected transport. Transfer it
-    // before Grid teardown so a manual tile click does not reconnect or fall
-    // back to the camera that was active before entering Grid.
-    const gridSelectedLiveHandoff = wasGridMode
-      ? this._gridMediaController?.takeGridLiveHandoff?.(
-          nextMemberOverride || newEnt,
-        ) || null
-      : null;
+    const gridAlertLiveHandoff =
+      wasGridMode && gridAlertTakeover
+        ? this._gridMediaController?.takeGridLiveHandoff?.(
+            nextMemberOverride || newEnt,
+          ) || null
+        : null;
     this._activeCameraAvailability = resolveCameraAvailabilitySnapshot({
       entity: newTransportEntity,
       state: this._hass?.states?.[newTransportEntity],
@@ -2484,17 +2482,17 @@ export class FrigateViewCard extends HTMLElement {
     this._frigateCameraRuntimeController.reconcileHass();
     const activeCameraRuntimeSuspended =
       this._frigateCameraRuntimeController.isSuspended(newTransportEntity);
-    const adoptedGridSelectedLive =
-      gridSelectedLiveHandoff && !activeCameraRuntimeSuspended
+    const adoptedGridAlertLive =
+      gridAlertLiveHandoff && !activeCameraRuntimeSuspended
       ? this._adoptLiveAttemptResult(
           this._$("#engine"),
-          gridSelectedLiveHandoff,
+          gridAlertLiveHandoff,
         )
       : false;
-    if (gridSelectedLiveHandoff && !adoptedGridSelectedLive) {
-      cleanupStaleWinnerResult(gridSelectedLiveHandoff);
+    if (gridAlertLiveHandoff && !adoptedGridAlertLive) {
+      cleanupStaleWinnerResult(gridAlertLiveHandoff);
     }
-    if (!adoptedGridSelectedLive) this._mountEngine();
+    if (!adoptedGridAlertLive) this._mountEngine();
     clearTimeout(this._switchLoadT);
     this._applyCalendarActivityCacheForActiveCamera();
     void this._prefetchCalendarActivityForActiveCamera();
