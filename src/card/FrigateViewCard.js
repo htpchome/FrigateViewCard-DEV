@@ -2441,7 +2441,11 @@ export class FrigateViewCard extends HTMLElement {
       }
     }
     this._viewMode = "single";
-    if (wasGridMode) this._gridPageController.restoreLiveAfterGrid();
+    if (wasGridMode) {
+      this._gridPageController.restoreLiveAfterGrid({
+        preserveActiveCamera: !gridAlertTakeover,
+      });
+    }
     if (popupOpen) this._popupLifecycleController.close();
     if (engWrap) engWrap.style.display = "";
     this.shadowRoot
@@ -3771,7 +3775,12 @@ export class FrigateViewCard extends HTMLElement {
       const idx = Number(gridCell.dataset.gridCamidx);
       if (Number.isInteger(idx) && idx >= 0) {
         this._slideshowPageController.pause();
-        this._switchCamera(idx);
+        const entity = String(gridCell.dataset.gridEntity || "").trim();
+        const groupMemberEntity =
+          entity && entity !== String(this._config?.cameras?.[idx]?.entity || "").trim()
+            ? entity
+            : "";
+        this._switchCamera(idx, { groupMemberEntity });
         return true;
       }
     }

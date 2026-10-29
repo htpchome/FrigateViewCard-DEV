@@ -82,6 +82,52 @@ test("cold startup Grid exits to the first configured camera", () => {
   assert.deepEqual(restoredTypes, ["--"]);
 });
 
+test("clicking a Grid camera preserves that selection instead of restoring the entry camera", () => {
+  const restoredTypes = [];
+  const host = {
+    _viewMode: "single",
+    _activeCamIdx: 0,
+    _activeGroupMemberOverride: "",
+    _activeStreamType: "webrtc",
+    _lastLiveStreamHint: "webrtc",
+    _engine: { id: "entry-camera-engine" },
+    _mountInProgress: false,
+    _config: {
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.driveway" },
+        { entity: "camera.back" },
+      ],
+    },
+    get _activeCam() {
+      return this._config.cameras[this._activeCamIdx];
+    },
+    _gridMediaController: {
+      shouldUseLive: () => true,
+    },
+    _shouldUseGo2RtcForEntity: () => true,
+    _setActiveStreamType: (type) => restoredTypes.push(type),
+  };
+  const controller = new GridPageController(host);
+
+  assert.deepEqual(controller.prepareLiveForGrid(), {
+    releaseMainLive: true,
+    returnEntity: "camera.front",
+  });
+  host._engine = null;
+  host._viewMode = "grid";
+  host._activeCamIdx = 2;
+  host._viewMode = "single";
+
+  assert.equal(
+    controller.restoreLiveAfterGrid({ preserveActiveCamera: true }),
+    false,
+  );
+  assert.equal(host._activeCamIdx, 2);
+  assert.equal(host._activeCam.entity, "camera.back");
+  assert.deepEqual(restoredTypes, ["--"]);
+});
+
 test("custom cold-start Grid exits through its first included physical camera", () => {
   const groupedCamera = {
     entity: "camera.doorbell",
