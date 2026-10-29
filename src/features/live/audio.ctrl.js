@@ -357,18 +357,40 @@ export class LiveAudioController {
     attempt.retryNeeded = false;
     attempt.readyWhilePending = false;
 
-    if (
-      host._isLikelyMobileClient?.() === true &&
-      cameraStartsUnmuted(this._cameraStartUnmuteCamera)
-    ) {
-      this._scheduleDeferredStartUnmute(engine);
-    }
     // Match ACC's selected-media action: change only the committed output,
     // then ask that already-started media element to play. Do not rewrite
     // defaultMuted or synchronize dormant/racing players during auto-unmute.
     this._setAutomaticOutputMuted(engine, video, false);
     host._renderMuteButton?.();
     host._engineMountedMuted = false;
+
+    // Safari and WKWebView can reject a redundant play() after an already
+    // playing muted element is promoted to audible output. ACC does not reach
+    // that state because its selected player is started by its media action;
+    // our retained/raced player may already be running. Give WebKit one
+    // microtask to keep that playback running before asking it to play again.
+    if (
+      video?.paused === false &&
+      (host._isSafari?.() === true || host._isLikelyMobileClient?.() === true)
+    ) {
+      Promise.resolve().then(() => {
+        if (!this._isCurrentStartUnmuteAttempt(attempt) || !attempt.inFlight) {
+          return;
+        }
+        if (video.paused === false) {
+          this._handleCameraStartUnmuteSuccess(attempt);
+          return;
+        }
+        this._requestCameraStartPlayback(attempt);
+      });
+      return;
+    }
+
+    this._requestCameraStartPlayback(attempt);
+  }
+
+  _requestCameraStartPlayback(attempt) {
+    const { video } = attempt;
 
     let playback = null;
     try {
@@ -401,16 +423,9 @@ export class LiveAudioController {
       this._retryCameraStartUnmuteForAudio(attempt);
       return;
     }
-    // iOS can resolve play() for muted autoplay without granting audible
-    // playback. Keep one real interaction armed even after apparent success.
-    if (
-      host._isLikelyMobileClient?.() === true &&
-      cameraStartsUnmuted(this._cameraStartUnmuteCamera)
-    ) {
-      this._scheduleDeferredStartUnmute(attempt.engine);
-      return;
-    }
-    // Retain the preference for a later player takeover until the user overrides it.
+    // Retain the preference for a later player takeover until the user overrides
+    // it, but install no interaction handler unless WebKit actually denies the
+    // audible request.
     this._clearDeferredStartUnmute();
   }
 

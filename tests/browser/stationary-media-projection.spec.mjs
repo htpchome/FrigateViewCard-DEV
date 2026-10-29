@@ -737,10 +737,16 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       expect(first[0].muted, JSON.stringify(result)).toBe(true);
       expect(first.some((request) => request.muted && request.readyState < 2), JSON.stringify(result)).toBe(true);
       expect(first.some((request) => !request.muted && request.readyState < 2), JSON.stringify(result)).toBe(false);
-      expect(first.some((request) => !request.muted && request.readyState >= 2), JSON.stringify(result)).toBe(true);
       expect(result.muted).toBe(denied === true);
       expect(result.uiMuted).toBe(denied === true);
-      if (denied === true) expect(first.some((request) => request.muted)).toBe(true);
+      if (denied === true) {
+        expect(first.some((request) => !request.muted && request.readyState >= 2), JSON.stringify(result)).toBe(true);
+        expect(first.some((request) => request.muted)).toBe(true);
+      } else {
+        // WebKit can keep an already-playing element running when its output is
+        // promoted. That successful path intentionally has no second play().
+        expect(result.muted, JSON.stringify(result)).toBe(false);
+      }
       const background = result.requests.filter((request) => request.entity === "camera.two");
       expect(background.length).toBeGreaterThan(0);
       expect(background.every((request) => request.muted)).toBe(true);

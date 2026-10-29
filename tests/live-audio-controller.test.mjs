@@ -471,7 +471,7 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   ]);
 });
 
-test("mobile startup audio keeps first-touch unmute armed after play resolves", async () => {
+test("mobile startup audio does not arm first-touch fallback after play resolves", async () => {
   const listeners = new Map();
   const interactionTarget = {
     addEventListener(type, handler) {
@@ -509,20 +509,108 @@ test("mobile startup audio keeps first-touch unmute armed after play resolves", 
 
   controller.prepareCameraStart({ start_unmuted: true });
   controller.applyCameraStartPreference();
-  assert.equal(listeners.has("touchend"), true);
+  assert.equal(listeners.has("touchend"), false);
   await new Promise((resolve) => setImmediate(resolve));
-
-  assert.equal(host._streamMuted, false);
-  assert.equal(listeners.has("touchend"), true);
-
-  interactionTarget.dispatch("touchend");
 
   assert.equal(host._streamMuted, false);
   assert.equal(video.muted, false);
   assert.equal(listeners.size, 0);
 });
 
-test("a late mobile autoplay rejection cannot undo first-touch unmute", async () => {
+test("Safari promotes already-playing muted media without a redundant play request", async () => {
+  const listeners = new Map();
+  const interactionTarget = {
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (listeners.get(type) === handler) listeners.delete(type);
+    },
+  };
+  const video = {
+    muted: true,
+    defaultMuted: false,
+    volume: 0,
+    paused: false,
+    playCalls: 0,
+    play() {
+      this.playCalls += 1;
+      return Promise.reject(new DOMException("Blocked", "NotAllowedError"));
+    },
+  };
+  const engine = { video };
+  const host = {
+    _streamMuted: true,
+    _cameraStartUnmutePending: false,
+    _engine: engine,
+    _isSafari: () => true,
+    _findVideoDeep: () => video,
+    _renderMuteButton: () => {},
+  };
+  const controller = new LiveAudioController(host, { interactionTarget });
+
+  controller.prepareCameraStart({ start_unmuted: true });
+  controller.applyCameraStartPreference();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(video.playCalls, 0);
+  assert.equal(video.muted, false);
+  assert.equal(host._streamMuted, false);
+  assert.equal(listeners.size, 0);
+  controller.dispose();
+});
+
+test("Safari requests playback and arms fallback if promotion pauses media", async () => {
+  const listeners = new Map();
+  const interactionTarget = {
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (listeners.get(type) === handler) listeners.delete(type);
+    },
+  };
+  let muted = true;
+  const video = {
+    defaultMuted: false,
+    volume: 0,
+    paused: false,
+    playCalls: 0,
+    get muted() {
+      return muted;
+    },
+    set muted(nextMuted) {
+      muted = nextMuted;
+      if (!nextMuted) this.paused = true;
+    },
+    play() {
+      this.playCalls += 1;
+      return Promise.reject(new DOMException("Blocked", "NotAllowedError"));
+    },
+  };
+  const engine = { video };
+  const host = {
+    _streamMuted: true,
+    _cameraStartUnmutePending: false,
+    _engine: engine,
+    _isSafari: () => true,
+    _findVideoDeep: () => video,
+    _renderMuteButton: () => {},
+  };
+  const controller = new LiveAudioController(host, { interactionTarget });
+
+  controller.prepareCameraStart({ start_unmuted: true });
+  controller.applyCameraStartPreference();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(video.playCalls, 2, "audible request plus muted fallback playback");
+  assert.equal(video.muted, true);
+  assert.equal(host._streamMuted, true);
+  assert.equal(listeners.has("touchend"), true);
+  controller.dispose();
+});
+
+test("mobile first-touch fallback is installed only after autoplay denial", async () => {
   const listeners = new Map();
   const interactionTarget = {
     addEventListener(type, handler) {
@@ -535,11 +623,15 @@ test("a late mobile autoplay rejection cannot undo first-touch unmute", async ()
       listeners.get(type)?.(event);
     },
   };
+  let allowPlayback = false;
   const video = {
     muted: true,
     defaultMuted: true,
     volume: 0,
-    play: () => Promise.reject(new DOMException("Blocked", "NotAllowedError")),
+    play: () =>
+      allowPlayback
+        ? Promise.resolve()
+        : Promise.reject(new DOMException("Blocked", "NotAllowedError")),
   };
   const engine = {
     type: "frigate_go2rtc",
@@ -560,6 +652,14 @@ test("a late mobile autoplay rejection cannot undo first-touch unmute", async ()
 
   controller.prepareCameraStart({ start_unmuted: true });
   controller.applyCameraStartPreference();
+  interactionTarget.dispatch("touchend");
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(host._streamMuted, true);
+  assert.equal(video.muted, true);
+  assert.equal(listeners.has("touchend"), true);
+
+  allowPlayback = true;
   interactionTarget.dispatch("touchend");
   await new Promise((resolve) => setImmediate(resolve));
 

@@ -1015,6 +1015,14 @@ one of those policies is the cause.
   audio-capable native stream up front, but no longer disables Home Assistant's
   native autoplay while waiting for an audible request. This avoids making the
   cold-start play request audible—the request Safari and WKWebView reject.
+- `v1.1.10-dev.49` isolates first-interaction recovery from the automatic
+  startup attempt. No touch/click listener is installed before or after a
+  successful automatic unmute; it is installed only after an actual
+  `NotAllowedError`. Safari and WKWebView also avoid a redundant `play()` call
+  when the committed selected video is already playing muted. After the output
+  is unmuted, a microtask verifies that playback remained active; only a player
+  that paused is asked to play again and can enter the interaction fallback.
+  Other browsers and paused media retain the existing unmute-before-play path.
 
 ## Validation Expectations
 

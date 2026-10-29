@@ -109,6 +109,26 @@ export function installHaCameraLifecycleFixture({
       this.video.style.cssText = "width:100%;height:100%";
       this.video.muted = true;
       if (auditStartupAudio) {
+        if (denyAudiblePlayback === true) {
+          const mutedDescriptor = Object.getOwnPropertyDescriptor(
+            HTMLMediaElement.prototype,
+            "muted",
+          );
+          Object.defineProperty(this.video, "muted", {
+            configurable: true,
+            get: () => mutedDescriptor.get.call(this.video),
+            set: (value) => {
+              const wasMuted = mutedDescriptor.get.call(this.video);
+              mutedDescriptor.set.call(this.video, value);
+              // Model WebKit's other permitted response to an automatic
+              // audible promotion: pause the already-playing element. The
+              // card must then request playback and observe NotAllowedError.
+              if (wasMuted && !value && !this.video.paused) {
+                this.video.pause();
+              }
+            },
+          });
+        }
         const play = this.video.play.bind(this.video);
         this.video.play = () => {
           audit.playbackRequests.push({ entity: this.entityid, player: this.localName,
