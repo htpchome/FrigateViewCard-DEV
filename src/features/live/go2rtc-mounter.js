@@ -423,9 +423,6 @@ export function createGo2RtcMounter({
       ),
     );
 
-    mountNodeIntoSlot(slot, video);
-    attachVideoFit(video);
-
     const initialPlayback =
       options.muted == null
         ? createStartupPlayback?.(video, {
@@ -438,6 +435,8 @@ export function createGo2RtcMounter({
           })
         : null;
     if (initialPlayback) video.autoplay = false;
+    mountNodeIntoSlot(slot, video);
+    attachVideoFit(video);
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",

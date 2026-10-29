@@ -198,9 +198,10 @@ export class LiveAudioController {
     attempt.onReady = () => this._retryCameraStartUnmute(attempt);
     video.addEventListener?.("loadeddata", attempt.onLoaded);
     video.addEventListener?.("canplay", attempt.onReady);
-    // ACC does not issue the visible player's first play request until it has
-    // loaded data. Adoption before that boundary must preserve the same rule.
-    if (!attempt.awaitingLoaded && !initialCompletedAudible) {
+    // Match ACC's selected-media lifecycle: act as soon as the selected output
+    // exists, then independently repeat the action when loadeddata arrives.
+    // Hidden transport candidates never reach this controller.
+    if (!initialCompletedAudible) {
       this._attemptCameraStartUnmute(attempt);
     }
     return true;

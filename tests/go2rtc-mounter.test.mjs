@@ -156,8 +156,10 @@ function createSlot() {
   return {
     innerHTML: "occupied",
     appended: [],
+    autoplayAtAppend: [],
     appendChild(node) {
       this.appended.push(node);
+      this.autoplayAtAppend.push(node.autoplay);
       this.lastChild = node;
     },
   };
@@ -359,9 +361,12 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
           },
         });
         try {
+          const slot = createSlot();
           const result = await withFakeWindow({ WebSocket: Socket, RTCPeerConnection: Peer, MediaSource: Source },
-            () => mounter[`tryMount${transport}`](createSlot()));
+            () => mounter[`tryMount${transport}`](slot));
           assert.equal(result.ok, true);
+          assert.equal(slot.autoplayAtAppend[0], false,
+            "selected-audio media must enter the document with native autoplay disabled");
           result.engine.destroy();
         } finally {
           audio.dispose();

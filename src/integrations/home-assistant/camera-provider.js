@@ -41,6 +41,8 @@ export function createHaDirectCameraProvider({
     stateObj, muted, defaultMuted: muted, controls: false, fitMode: "contain",
     styleText: "display:block;width:100%;height:100%",
   });
+  const providerAutoplay = provider.autoPlay;
+  if (startupUnmuted) provider.autoPlay = false;
   let selection = [];
   let hlsPending = false;
   let disposed = false;
@@ -71,6 +73,7 @@ export function createHaDirectCameraProvider({
   };
   const restoreNativeAutoplay = () => {
     holdStartupAutoplay = false;
+    if (startupUnmuted) provider.autoPlay = providerAutoplay;
     for (const [player, autoplay] of heldPlayerAutoplay) player.autoPlay = autoplay;
     for (const [video, autoplay] of heldVideoAutoplay) video.autoplay = autoplay;
     heldPlayerAutoplay.clear();

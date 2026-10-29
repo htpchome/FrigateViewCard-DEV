@@ -305,7 +305,7 @@ test("live audio changes do not remount either live transport", () => {
   assert.equal(frigateGo2rtc.host._engineMountedMuted, false);
 });
 
-test("camera start audio remains muted until ready, then applies the opt-in", async () => {
+test("camera start audio applies the opt-in to the selected output", async () => {
   const calls = [];
   const video = {
     muted: true,
@@ -345,6 +345,50 @@ test("camera start audio remains muted until ready, then applies the opt-in", as
   assert.equal(host._streamMuted, true);
   assert.equal(host._cameraStartUnmutePending, false);
   assert.equal(controller.applyCameraStartPreference(), false);
+});
+
+test("selected startup audio acts immediately and reapplies when media loads", async () => {
+  const video = new EventTarget();
+  Object.assign(video, {
+    muted: true,
+    defaultMuted: true,
+    volume: 0,
+    readyState: 0,
+    playCalls: [],
+    play() {
+      this.playCalls.push({ muted: this.muted, readyState: this.readyState });
+      return this.readyState < 2
+        ? Promise.reject(new DOMException("Source changed", "AbortError"))
+        : Promise.resolve();
+    },
+  });
+  const engine = { video };
+  const host = {
+    _activeCam: { entity: "camera.front", start_unmuted: true },
+    _streamMuted: true,
+    _engine: engine,
+    _findVideoDeep: () => video,
+    _renderMuteButton() {},
+  };
+  const controller = new LiveAudioController(host, {
+    interactionTarget: null,
+  });
+
+  controller.prepareCameraStart(host._activeCam);
+  assert.equal(controller.applyCameraStartPreference(), true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(video.playCalls, [{ muted: false, readyState: 0 }]);
+  assert.equal(video.muted, false, "an interrupted early request must keep audio intent");
+
+  video.readyState = 2;
+  video.dispatchEvent(new Event("loadeddata"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(video.playCalls, [
+    { muted: false, readyState: 0 },
+    { muted: false, readyState: 2 },
+  ]);
+  assert.equal(host._streamMuted, false);
+  controller.dispose();
 });
 
 test("camera start audio falls back to muted when audible autoplay is rejected", async () => {

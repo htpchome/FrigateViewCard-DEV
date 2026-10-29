@@ -2,6 +2,19 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.41` corrects two remaining differences from Advanced Camera Card
+8.1.0's selected-media lifecycle. A configured-unmuted go2rtc WebRTC video is
+now given its startup owner and has native autoplay disabled before it enters
+the document; previously it was inserted with autoplay enabled and only then
+disabled, allowing WebKit to establish an unintended muted playback session.
+HA Direct likewise holds the provider's public autoplay input before the
+provider is connected. Once the selected output exists, the shared audio owner
+performs ACC's immediate unmute-before-play action and independently repeats it
+when loaded data arrives. An interrupted source keeps the audio intent for that
+loaded-media action; an actual audible-autoplay denial still resumes muted
+playback and retains interaction recovery. Source connection, transport racing,
+decoding and muted-camera startup are not delayed.
+
 `v1.1.10-dev.36` corrects the actual first-play mismatch with Advanced Camera
 Card. ACC lets a selected provider load without playing; its media-loaded event
 first commits the visible surface, then the selected-media action unmutes and
