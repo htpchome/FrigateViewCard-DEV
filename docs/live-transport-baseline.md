@@ -1008,13 +1008,13 @@ one of those policies is the cause.
   Camera Card: unmute the selected media before requesting playback, without
   waiting for loaded data, then reapply that same sequence once on
   `loadeddata`. A denied audible request still falls back to muted playback.
-- `v1.1.10-dev.47` aligns first-camera construction with the connected media
-  lifecycle used by Advanced Camera Card. If Home Assistant assigns `hass`
-  while the custom card is detached, FrigateView records the pending startup
-  and creates the first live player only from `connectedCallback`; already
-  connected cards retain their existing immediate startup path. This keeps the
-  first WebKit audible-play request out of a detached shadow tree and applies
-  equally to HA Direct and Frigate go2rtc.
+- `v1.1.10-dev.48` corrects that ordering after a complete comparison with
+  Advanced Camera Card. Both transports now establish playback with muted
+  speaker output first, then apply the selected camera's unmute preference only
+  after the committed live media is running. HA Direct still selects its
+  audio-capable native stream up front, but no longer disables Home Assistant's
+  native autoplay while waiting for an audible request. This avoids making the
+  cold-start play request audible—the request Safari and WKWebView reject.
 
 ## Validation Expectations
 

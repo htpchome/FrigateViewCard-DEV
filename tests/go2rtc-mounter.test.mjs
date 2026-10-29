@@ -226,7 +226,7 @@ test("go2rtc race candidates retain shared startup playback ownership", async ()
   }));
 });
 
-test("production go2rtc cold startup matches ACC's pre-source and loaded-media actions", async () => {
+test("production go2rtc cold startup establishes muted playback before selected audio", async () => {
   await withFakeDocument(() => withFakeObjectUrl(async () => {
     const camera = { entity: "camera.front", start_unmuted: true };
     const host = {
@@ -243,8 +243,6 @@ test("production go2rtc cold startup matches ACC's pre-source and loaded-media a
         resolveMountRequest: () => ({ entity: camera.entity, commit: true }),
       },
       getStreamMuted: () => host._streamMuted,
-      createStartupPlayback: (video, options) =>
-        audio.createInitialPlayback(video, options),
       attachVideoFit: (video) => {
         video.readyState = 0;
         video.play = () => {
@@ -262,15 +260,12 @@ test("production go2rtc cold startup matches ACC's pre-source and loaded-media a
       waitForStreamStart: async (slot) => {
         const video = slot.lastChild;
         await flushMicrotasks();
-        assert.equal(video.autoplay, false);
-        assert.equal(video.preload, "auto", "cold audio startup keeps media loading eager");
-        assert.equal(video.muted, false);
+        assert.equal(video.autoplay, true);
+        assert.equal(video.muted, true);
         assert.deepEqual(requests, [
-          { muted: false, defaultMuted: false, readyState: 0 },
+          { muted: true, defaultMuted: false, readyState: 0 },
         ]);
         video.readyState = 2;
-        video.dispatchEvent(new Event("loadeddata"));
-        await flushMicrotasks();
         return true;
       },
       onCommittedStream: () => audio.applyCameraStartPreference(),
@@ -281,7 +276,7 @@ test("production go2rtc cold startup matches ACC's pre-source and loaded-media a
 
     assert.equal(mounted, true);
     assert.deepEqual(requests, [
-      { muted: false, defaultMuted: false, readyState: 0 },
+      { muted: true, defaultMuted: false, readyState: 0 },
       { muted: false, defaultMuted: false, readyState: 2 },
     ]);
     assert.equal(host._streamMuted, false);

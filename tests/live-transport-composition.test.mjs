@@ -144,6 +144,11 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     controllers._go2rtcMounter,
   );
   assert.strictEqual(optionsByFactory.go2rtcMounter.scopeKey, card);
+  assert.equal(
+    optionsByFactory.go2rtcMounter.createStartupPlayback,
+    undefined,
+    "go2rtc must establish muted playback before applying selected audio",
+  );
   assert.strictEqual(
     optionsByFactory.go2rtcMounter.attachVideoFit,
     attachContainedVideoFit,
@@ -153,6 +158,16 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     attachContainedVideoFit,
   );
   assert.strictEqual(optionsByFactory.haDirectMounter.scopeKey, card);
+  assert.equal(
+    optionsByFactory.haDirectMounter.createStartupPlayback,
+    undefined,
+    "HA must retain native muted autoplay before applying output audio",
+  );
+  assert.equal(
+    optionsByFactory.haDirectMounter.onSelectedMediaAvailable,
+    undefined,
+    "HA output audio waits for committed ready media",
+  );
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), false);
   assert.equal(optionsByFactory.haDirectMounter.isSelectedExternalReady(), false);
   card._activeStreamType = "webrtc";

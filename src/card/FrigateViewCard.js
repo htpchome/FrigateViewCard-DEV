@@ -603,17 +603,6 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._startEditorDialogCloseObserver();
     this._deepLinkController.connect();
-    if (
-      this._startupPendingConnection === true &&
-      this._config &&
-      this._hass &&
-      !this._started &&
-      !cardPickerDemoActive
-    ) {
-      this._startupPendingConnection = false;
-      this._started = true;
-      void this._start();
-    }
   }
 
   _cardStateClassNames() {
@@ -890,17 +879,8 @@ export class FrigateViewCard extends HTMLElement {
     if (linkedLightStateChanged) this._linkedLightController?.sync?.();
     this._frigateCameraRuntimeController.reconcileHass();
     if (!this._started) {
-      // Home Assistant may assign `hass` before inserting the custom card.
-      // WebKit does not preserve the first audible play request reliably when
-      // its media element is created in a detached shadow tree. ACC's reactive
-      // lifecycle starts media only after connection, so do the same here.
-      if (!this.isConnected) {
-        this._startupPendingConnection = true;
-        return;
-      }
-      this._startupPendingConnection = false;
       this._started = true;
-      void this._start();
+      this._start();
       return;
     }
     this._editorPreviewController.syncHassPreviewContext();
