@@ -817,6 +817,66 @@ test("camera connection settings explain transport capabilities", async ({ page 
   expect(state.horizontallyScrollable).toBe(true);
 });
 
+test("initial camera startup waits until the card is connected", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    card.setConfig({
+      cameras: [{ entity: "camera.front", start_unmuted: true }],
+    });
+    const starts = [];
+    card._start = () => {
+      starts.push({
+        connected: card.isConnected,
+        entity: card._activeCam?.entity,
+      });
+    };
+
+    card.hass = {
+      states: {
+        "camera.front": {
+          entity_id: "camera.front",
+          state: "streaming",
+          attributes: {},
+        },
+      },
+    };
+    card.hass = card._hass;
+    const detached = {
+      started: card._started,
+      pending: card._startupPendingConnection,
+      starts: [...starts],
+    };
+
+    document.body.append(card);
+    await Promise.resolve();
+    const connected = {
+      started: card._started,
+      pending: card._startupPendingConnection,
+      starts: [...starts],
+    };
+    card.remove();
+    return { detached, connected };
+  });
+
+  expect(state).toEqual({
+    detached: {
+      started: false,
+      pending: true,
+      starts: [],
+    },
+    connected: {
+      started: true,
+      pending: false,
+      starts: [{ connected: true, entity: "camera.front" }],
+    },
+  });
+});
+
 test("phone startup defers non-visible browse warming until delayed idle", async ({
   browser,
 }) => {

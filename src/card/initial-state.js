@@ -11,6 +11,7 @@ export const createInitialCardRuntimeState = ({ singleViewPageId }) => ({
   _pageId: singleViewPageId,
   _lastNonPreviewPageId: singleViewPageId,
   _started: false,
+  _startupPendingConnection: false,
   _activeCamIdx: 0,
   _activeGroupMemberOverride: "",
   _preservingLiveShell: false,
