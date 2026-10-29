@@ -2,6 +2,20 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.46` fixes a stale-denial handoff in the selected startup-audio
+owner. Physical iOS Companion testing of dev.45 showed that disabling the
+WKWebView audio user-action requirement allowed startup audio, while the normal
+setting still required a tap. The ACC comparison then exposed a state mismatch:
+after an early audible request was denied, the shared playback owner cleared
+its denial for ACC's later media-loaded action, but the adopted-camera attempt
+retained a second `blocked` value. `resolveStartupMuted()` therefore forced that
+later action back to muted even though it was specifically the retry that ACC
+permits after muted playback has started. The startup owner remains the source
+of truth for its denial and clears it only for the one loaded-media action;
+manual mute, hidden-page, camera-identity and cancellation guards remain
+unchanged. A regression reproduces early `NotAllowedError`, successful muted
+playback, adoption before data, and an unmuted loaded-media retry.
+
 `v1.1.10-dev.45` removes the remaining WebKit-visible differences from ACC
 8.1.0's selected-media startup sequence. Physical Safari and iOS Companion
 testing rejected dev.44: startup still required a tap. A corrected production

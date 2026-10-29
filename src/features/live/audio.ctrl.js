@@ -79,7 +79,6 @@ export class LiveAudioController {
     return !(
       cameraStartsUnmuted(this._cameraStartUnmuteCamera) &&
       !this._initialPlaybackVideos.get(this._initialAudioOwner)?.state.blocked &&
-      !this._cameraStartUnmuteAttempt?.blocked &&
       entity === (this._host._activeGroupMemberOverride || this._host._activeCam?.entity) &&
       this._interactionTarget?.visibilityState !== "hidden"
     );

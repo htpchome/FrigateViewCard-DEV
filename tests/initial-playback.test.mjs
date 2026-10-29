@@ -95,6 +95,46 @@ test("selected startup owner repeats ACC's early action when media loads", async
   controller.dispose();
 });
 
+test("adopting an early autoplay denial does not veto ACC's loaded-media retry", async () => {
+  const camera = { entity: "camera.one", start_unmuted: true };
+  const video = Object.assign(makeVideo(), { readyState: 0, loaded: false });
+  video.play = function () {
+    this.calls.push(this.muted);
+    return !this.muted && !this.loaded
+      ? Promise.reject(new DOMException("Denied", "NotAllowedError"))
+      : Promise.resolve();
+  };
+  const target = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  const host = {
+    _activeCam: camera,
+    _engine: null,
+    _renderMuteButton() {},
+    _findVideoDeep: (engine) => engine?.video,
+  };
+  const controller = new LiveAudioController(host, { interactionTarget: target });
+  controller.prepareCameraStart(camera);
+  const playback = controller.createInitialPlayback(video, { entity: camera.entity });
+
+  await playback.play();
+  assert.deepEqual(video.calls, [false, true]);
+  assert.equal(playback.state.blocked, true);
+
+  host._engine = { video };
+  assert.equal(controller.applyCameraStartPreference(), true);
+  assert.equal(host._streamMuted, true);
+
+  video.loaded = true;
+  video.readyState = 2;
+  video.dispatchEvent(new Event("loadeddata"));
+  await flushMicrotasks();
+
+  assert.deepEqual(video.calls, [false, true, false],
+    "the loaded-media action must retry audio after muted playback starts");
+  assert.equal(video.muted, false);
+  assert.equal(host._streamMuted, false);
+  controller.dispose();
+});
+
 test("selected startup owner ignores readiness events ACC does not act on", async () => {
   const camera = { entity: "camera.one", start_unmuted: true };
   const video = Object.assign(makeVideo(), { readyState: 0 });
