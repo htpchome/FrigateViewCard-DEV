@@ -59,3 +59,36 @@ export const resolveGridCameras = (cameras = [], value = null) => {
     .map((entity) => camerasByEntity.get(entity))
     .filter(Boolean);
 };
+
+export const resolveGridCameraSelection = (
+  cameras = [],
+  entity = "",
+  fallbackIndex = -1,
+) => {
+  const cameraList = Array.isArray(cameras) ? cameras : [];
+  const targetEntity = String(entity || "").trim();
+  const physicalCamera = flattenCameraMembers(cameraList).find(
+    (camera) => String(camera?.entity || "").trim() === targetEntity,
+  );
+  if (physicalCamera) {
+    return {
+      index: Number(physicalCamera.logical_camera_index),
+      entity: targetEntity,
+      memberEntity: physicalCamera.group_member ? targetEntity : "",
+    };
+  }
+
+  const safeFallbackIndex = Number(fallbackIndex);
+  if (
+    !Number.isInteger(safeFallbackIndex) ||
+    safeFallbackIndex < 0 ||
+    safeFallbackIndex >= cameraList.length
+  ) {
+    return null;
+  }
+  return {
+    index: safeFallbackIndex,
+    entity: String(cameraList[safeFallbackIndex]?.entity || "").trim(),
+    memberEntity: "",
+  };
+};

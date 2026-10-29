@@ -59,6 +59,7 @@ import {
   flattenCameraMembers,
   isCameraGroup,
 } from "../features/camera-groups/model.js";
+import { resolveGridCameraSelection } from "../features/grid/config.js";
 import { resolveCardViewMasonrySizeHint } from "../features/card-view/config.js";
 import { applyEditorPreviewDraftToCardConfig } from "../config/preview-mapper.js";
 import {
@@ -2396,13 +2397,17 @@ export class FrigateViewCard extends HTMLElement {
     }
     this._activeCamIdx = idx;
     const newEnt = this._activeCam?.entity;
-    const newTransportEntity = nextMemberOverride || newEnt;
+    const selectedGridEntity = wasGridMode
+      ? String(opts?.gridSelectionEntity || "").trim()
+      : "";
+    const newTransportEntity =
+      selectedGridEntity || nextMemberOverride || newEnt;
     // A live Grid tile already owns the exact selected transport. Transfer it
     // before Grid teardown so a manual tile click does not reconnect or fall
     // back to the camera that was active before entering Grid.
     const gridSelectedLiveHandoff = wasGridMode
       ? this._gridMediaController?.takeGridLiveHandoff?.(
-          nextMemberOverride || newEnt,
+          newTransportEntity,
         ) || null
       : null;
     this._activeCameraAvailability = resolveCameraAvailabilitySnapshot({
@@ -3774,15 +3779,17 @@ export class FrigateViewCard extends HTMLElement {
     }
     const gridCell = target.closest("[data-grid-camidx]");
     if (gridCell && this._viewMode === "grid") {
-      const idx = Number(gridCell.dataset.gridCamidx);
-      if (Number.isInteger(idx) && idx >= 0) {
+      const selection = resolveGridCameraSelection(
+        this._config?.cameras,
+        gridCell.dataset.gridEntity,
+        gridCell.dataset.gridCamidx,
+      );
+      if (selection) {
         this._slideshowPageController.pause();
-        const entity = String(gridCell.dataset.gridEntity || "").trim();
-        const groupMemberEntity =
-          entity && entity !== String(this._config?.cameras?.[idx]?.entity || "").trim()
-            ? entity
-            : "";
-        this._switchCamera(idx, { groupMemberEntity });
+        this._switchCamera(selection.index, {
+          groupMemberEntity: selection.memberEntity,
+          gridSelectionEntity: selection.entity,
+        });
         return true;
       }
     }
