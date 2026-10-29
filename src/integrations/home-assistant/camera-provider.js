@@ -91,12 +91,11 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
     const loading = () => onState({ status: "loading", streamType: "", video: null });
     if (!video) { loading(); return; }
     const current = () => !disposed && video === watchedVideo && findActiveHaCameraStreamVideo(provider) === video;
-    // HA still owns sources and peers. Selected audible startup owns play(),
-    // using loaded data rather than waiting for already-playing frames.
+    // HA still owns sources and peers. Selected startup audio follows the
+    // shared unmute-before-play policy, including its loaded-media reassertion.
     initialPlayback = createStartupPlayback?.(video, {
       isCurrent: current,
       replaceExisting: true,
-      waitForData: true,
       onDispose: () => restoreAutoplay(),
       onMuted: () => {
         provider.muted = true;

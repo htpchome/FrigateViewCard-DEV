@@ -83,14 +83,13 @@ export class LiveAudioController {
     );
   }
 
-  createInitialPlayback(video, { entity, isCurrent = () => true, onMuted = () => {}, onDispose = () => {}, replaceExisting = false, waitForData = false } = {}) {
+  createInitialPlayback(video, { entity, isCurrent = () => true, onMuted = () => {}, onDispose = () => {}, replaceExisting = false } = {}) {
     if (this.resolveStartupMuted(entity)) return null;
     const camera = this._cameraStartUnmuteCamera;
     if (replaceExisting) this._clearInitialPlayback(video);
     // Only one racing candidate may request audio before a winner is selected.
     this._initialAudioOwner ??= video;
     const playback = createInitialPlayback(video, {
-      waitForData,
       onDispose,
       getMuted: () => {
         const muted = this._initialAudioOwner !== video || this.resolveStartupMuted(entity);
@@ -155,10 +154,22 @@ export class LiveAudioController {
     // A takeover gets its own attempt and interaction targets, not the old player's.
     this._clearDeferredStartUnmute();
     this._clearStartUnmuteReadiness();
-    const attempt = { engine, video, inFlight: false, retries: 0, blocked: false };
-    this._cameraStartUnmuteAttempt = attempt;
     this._clearInitialPlayback(video);
     const initial = this._initialPlaybackVideos.get(video);
+    const attempt = {
+      engine,
+      video,
+      inFlight: false,
+      retries: 0,
+      blocked: initial?.state.blocked === true,
+      loadedReapplied: false,
+    };
+    this._cameraStartUnmuteAttempt = attempt;
+    const initialAudibleRequestStartedBeforeLoad = Boolean(
+      initial?.state.started &&
+      initial.state.requestedUnmuted &&
+      Number(video.readyState) < 2,
+    );
     // Selection is now usable. Retire early startup promises and reapply audio
     // to this loaded player, rather than latching its earlier autoplay denial.
     initial?.dispose();
@@ -168,11 +179,16 @@ export class LiveAudioController {
         getHaCameraAudioPeer(engine) || engine.pc,
         () => this._retryCameraStartUnmuteForAudio(attempt));
     }
+    attempt.onLoaded = () => this._reapplyCameraStartUnmuteOnLoad(attempt);
     attempt.onReady = () => this._retryCameraStartUnmute(attempt);
-    for (const type of ["loadeddata", "canplay"]) {
-      video.addEventListener?.(type, attempt.onReady);
+    video.addEventListener?.("loadeddata", attempt.onLoaded);
+    video.addEventListener?.("canplay", attempt.onReady);
+    // The transport-created media may already own the same early audible
+    // request. Let that promise settle, then mirror ACC's loaded-media
+    // reassertion instead of issuing a duplicate request before loadeddata.
+    if (!initialAudibleRequestStartedBeforeLoad) {
+      this._attemptCameraStartUnmute(attempt);
     }
-    this._attemptCameraStartUnmute(attempt);
     return true;
   }
 
@@ -182,11 +198,38 @@ export class LiveAudioController {
       attempt?.stopAudioWatch?.();
       if (attempt) attempt.stopAudioWatch = null;
     }
-    if (!attempt?.onReady) return;
-    for (const type of ["loadeddata", "canplay"]) {
-      attempt.video.removeEventListener?.(type, attempt.onReady);
+    if (!attempt) return;
+    if (attempt.onLoaded) {
+      attempt.video.removeEventListener?.("loadeddata", attempt.onLoaded);
+      attempt.onLoaded = null;
     }
+    if (!attempt.onReady) return;
+    attempt.video.removeEventListener?.("canplay", attempt.onReady);
     attempt.onReady = null;
+  }
+
+  _reapplyCameraStartUnmuteOnLoad(attempt) {
+    if (
+      !this._isCurrentStartUnmuteAttempt(attempt) ||
+      attempt.loadedReapplied ||
+      !cameraStartsUnmuted(this._cameraStartUnmuteCamera) ||
+      this._interactionTarget?.visibilityState === "hidden"
+    ) {
+      return false;
+    }
+    attempt.loadedReapplied = true;
+    if (attempt.onLoaded) {
+      attempt.video.removeEventListener?.("loadeddata", attempt.onLoaded);
+      attempt.onLoaded = null;
+    }
+    attempt.blocked = false;
+    attempt.retries = 0;
+    if (attempt.inFlight) {
+      attempt.loadedWhilePending = true;
+      return false;
+    }
+    this._attemptCameraStartUnmute(attempt);
+    return true;
   }
 
   _retryCameraStartUnmuteForAudio(attempt) {
@@ -244,13 +287,6 @@ export class LiveAudioController {
   _attemptCameraStartUnmute(attempt) {
     const host = this._host;
     const { engine, video } = attempt;
-    // Transport adoption can precede loadeddata (including WebKit source
-    // resets). Do not spend the loaded-player attempt on that early state.
-    if (Number(video.readyState) < 2) {
-      attempt.awaitingLoaded = true;
-      return;
-    }
-    attempt.awaitingLoaded = false;
     attempt.inFlight = true;
     attempt.retryNeeded = false;
     attempt.readyWhilePending = false;
@@ -289,6 +325,11 @@ export class LiveAudioController {
     attempt.inFlight = false;
     const host = this._host;
     if (!this._isCurrentStartUnmuteAttempt(attempt) || host._streamMuted !== false) return;
+    if (attempt.loadedWhilePending) {
+      attempt.loadedWhilePending = false;
+      this._attemptCameraStartUnmute(attempt);
+      return;
+    }
     if (attempt.audioReadyWhilePending) {
       this._retryCameraStartUnmuteForAudio(attempt);
       return;
@@ -320,12 +361,15 @@ export class LiveAudioController {
     // Retry only on readiness, never on a timer or an immediate rejection loop.
     if (error?.name !== "NotAllowedError") {
       attempt.retryNeeded = true;
-      if (attempt.audioReadyWhilePending) this._retryCameraStartUnmuteForAudio(attempt);
+      if (attempt.loadedWhilePending) {
+        attempt.loadedWhilePending = false;
+        attempt.retryNeeded = false;
+        this._attemptCameraStartUnmute(attempt);
+      } else if (attempt.audioReadyWhilePending) this._retryCameraStartUnmuteForAudio(attempt);
       else if (attempt.readyWhilePending) this._retryCameraStartUnmute(attempt);
       return;
     }
     attempt.blocked = true;
-    this._clearStartUnmuteReadiness({ keepAudioWatch: true });
     this.setMuted(true, { startPlayback: false, synchronizeLater: false });
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton?.();
@@ -334,7 +378,13 @@ export class LiveAudioController {
       video?.play?.()?.catch?.(() => {});
     } catch (_) {}
     this._scheduleDeferredStartUnmute(engine);
-    if (attempt.audioReadyWhilePending) this._retryCameraStartUnmuteForAudio(attempt);
+    if (attempt.loadedWhilePending) {
+      attempt.loadedWhilePending = false;
+      attempt.blocked = false;
+      this._attemptCameraStartUnmute(attempt);
+    } else if (attempt.audioReadyWhilePending) {
+      this._retryCameraStartUnmuteForAudio(attempt);
+    }
   }
 
   _scheduleDeferredStartUnmute(engine) {

@@ -847,6 +847,11 @@ one of those policies is the cause.
   candidates on muted autoplay. A candidate no longer consumes the selected
   camera's audible-start request before it wins and is presented; the adopted
   visible player remains the sole owner of `Start Camera Unmuted`.
+- `v1.1.10-dev.30` removes the rejected go2rtc-only startup experiment and
+  aligns the shared HA Direct/go2rtc startup-audio ordering with Advanced
+  Camera Card: unmute the selected media before requesting playback, without
+  waiting for loaded data, then reapply that same sequence once on
+  `loadeddata`. A denied audible request still falls back to muted playback.
 
 ## Validation Expectations
 

@@ -187,7 +187,7 @@ function createBaseMounter(overrides = {}) {
   });
 }
 
-test("hidden go2rtc race candidates use muted playback without consuming startup audio", async () => {
+test("go2rtc race candidates retain shared startup playback ownership", async () => {
   await withFakeDocument(() => withFakeObjectUrl(async () => {
     let startupPlaybackRequests = 0;
     const mounter = createBaseMounter({
@@ -212,7 +212,7 @@ test("hidden go2rtc race candidates use muted playback without consuming startup
     );
 
     assert.equal(result.ok, true);
-    assert.equal(startupPlaybackRequests, 0);
+    assert.equal(startupPlaybackRequests, 1);
     assert.equal(result.engine.video.muted, true);
     result.engine.destroy();
   }));
@@ -270,7 +270,11 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
               peer.dispatchEvent(new Event("connectionstatechange"));
               const stream = startupVideo.srcObject;
               assert.deepEqual(stream.getTracks(), [videoTrack]);
-              assert.deepEqual(calls, [], "connected media must still wait for loaded data");
+              assert.deepEqual(
+                calls,
+                [false],
+                "connected selected media requests audio before loaded data",
+              );
               peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
               assert.deepEqual(stream.getTracks(), [videoTrack, audioTrack]);
@@ -285,7 +289,7 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             }
             await Promise.resolve();
             await Promise.resolve();
-            assert.deepEqual(calls, denied === "cancel" ? [] : denied ? [false, true] : [false]);
+            assert.deepEqual(calls, denied === true ? [false, true] : [false]);
             assert.equal(host._engine, null);
             return true;
           },

@@ -64,6 +64,29 @@ for (const action of ["manual-mute", "camera-change", "dispose"]) {
   });
 }
 
+test("live startup playback requests audio before loadeddata", async () => {
+  const camera = { entity: "camera.one", start_unmuted: true };
+  const video = Object.assign(makeVideo(), { readyState: 0 });
+  const host = {
+    _activeCam: camera,
+    _engine: null,
+    _renderMuteButton() {},
+  };
+  const controller = new LiveAudioController(host, {
+    interactionTarget: new EventTarget(),
+  });
+  controller.prepareCameraStart(camera);
+
+  const playback = controller.createInitialPlayback(video, {
+    entity: camera.entity,
+  });
+  await playback.play();
+
+  assert.deepEqual(video.calls, [false]);
+  assert.equal(video.muted, false);
+  controller.dispose();
+});
+
 for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
   test(`transport adoption before loadeddata preserves the loaded audio attempt: ${action}`, async () => {
     const camera = { entity: "camera.one", start_unmuted: true };

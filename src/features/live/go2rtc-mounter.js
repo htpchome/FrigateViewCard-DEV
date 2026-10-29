@@ -184,11 +184,8 @@ export function createGo2RtcMounter({
     );
 
     let destroyed = false;
-    // Race candidates are intentionally mounted hidden. Keep them on ordinary
-    // muted autoplay and let only the adopted, visible winner own the camera's
-    // startup-audio preference.
     const initialPlayback =
-      options.muted == null && commit !== false
+      options.muted == null
         ? createStartupPlayback?.(video, {
             entity,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
@@ -425,14 +422,11 @@ export function createGo2RtcMounter({
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
 
-    // A hidden race candidate must not consume Safari's audible-autoplay
-    // decision before it is selected and presented by the card.
     const initialPlayback =
-      options.muted == null && commit !== false
+      options.muted == null
         ? createStartupPlayback?.(video, {
             entity,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
-            waitForData: !microphoneTrack,
             onDispose: () => {
               // Cancelling audio must not cancel ordinary muted autoplay.
               if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
@@ -788,9 +782,8 @@ export function createGo2RtcMounter({
 
     let abortBound = false;
     let destroyed = false;
-    // Selection audio is applied after a race winner becomes visible.
     const initialPlayback =
-      options.muted == null && commit !== false
+      options.muted == null
         ? createStartupPlayback?.(video, {
             entity,
             isCurrent: () => !destroyed && !abortSignal?.aborted,

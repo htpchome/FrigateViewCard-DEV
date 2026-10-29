@@ -364,9 +364,9 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         return { beforeLoadedMuted, firstMuted, takeoverBeforeLoadedMuted, takeoverMuted, afterOldTouch, afterNewTouch };
       }, { connectionType, blocked });
       expect(state).toEqual({
-        beforeLoadedMuted: true,
+        beforeLoadedMuted: blocked,
         firstMuted: blocked,
-        takeoverBeforeLoadedMuted: true,
+        takeoverBeforeLoadedMuted: blocked,
         takeoverMuted: blocked,
         afterOldTouch: blocked,
         afterNewTouch: false,

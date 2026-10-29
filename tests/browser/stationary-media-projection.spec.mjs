@@ -690,7 +690,7 @@ test.afterEach(async ({ page }, testInfo) => {
 
 for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
   for (const denied of [false, true, "before-loaded"]) {
-    test(`production HA Direct owns initial ${transport} audio at loaded data (denied=${denied})`, async ({ page }) => {
+    test(`production HA Direct owns initial ${transport} audio before and at loaded data (denied=${denied})`, async ({ page }) => {
       await page.goto(baseUrl);
       await page.evaluate(async ({ transport, denied }) => {
         const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
@@ -733,7 +733,7 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       expect(result.requests.filter((request) => request.hidden).every((request) => request.muted), JSON.stringify(result)).toBe(true);
       const first = result.requests.filter((request) => request.entity === "camera.one" && !request.hidden);
       expect(first[0].muted, JSON.stringify(result)).toBe(false);
-      expect(first[0].readyState).toBeGreaterThanOrEqual(2);
+      expect(first[0].readyState).toBeLessThan(2);
       expect(result.muted).toBe(denied === true);
       expect(result.uiMuted).toBe(denied === true);
       if (denied === true) expect(first.some((request) => request.muted)).toBe(true);
