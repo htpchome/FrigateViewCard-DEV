@@ -2,6 +2,18 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.42` corrects the remaining ordering mismatch found through direct
+comparison with Advanced Camera Card 8.1.0. ACC invokes its selected action
+early, but its provider exposes no media-player controller until media has
+loaded, so that early action cannot issue `play()`. Its first effective audible
+request is the `media:loaded` unmute-before-play action. FrigateView's raw video
+is available earlier, so dev.41 incorrectly made an effective audible request
+while `readyState < HAVE_CURRENT_DATA`; Safari can deny that request before the
+intended loaded-media action. Native autoplay remains held before attachment or
+provider connection, while the selected output now waits for loaded data before
+its first unmuted play request. Connection, negotiation and decoding remain
+eager and unchanged.
+
 `v1.1.10-dev.41` corrects two remaining differences from Advanced Camera Card
 8.1.0's selected-media lifecycle. A configured-unmuted go2rtc WebRTC video is
 now given its startup owner and has native autoplay disabled before it enters

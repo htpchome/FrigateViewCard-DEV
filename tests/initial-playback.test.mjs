@@ -64,7 +64,7 @@ for (const action of ["manual-mute", "camera-change", "dispose"]) {
   });
 }
 
-test("selected startup candidates do not play until their visible engine is committed", async () => {
+test("selected startup candidates do not play until committed with loaded data", async () => {
   const camera = { entity: "camera.one", start_unmuted: true };
   const video = makeVideo();
   const host = { _activeCam: camera, _engine: null, _renderMuteButton() {},
@@ -90,7 +90,7 @@ test("selected startup candidates do not play until their visible engine is comm
 });
 
 for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
-  test(`visible adoption acts immediately, then respects ${action}`, async () => {
+  test(`visible adoption waits for data, then respects ${action}`, async () => {
     const camera = { entity: "camera.one", start_unmuted: true };
     const video = Object.assign(makeVideo(), { readyState: 0 });
     const target = Object.assign(new EventTarget(), { visibilityState: "visible" });
@@ -101,7 +101,7 @@ for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispo
     await controller.createInitialPlayback(video, { entity: camera.entity }).play();
     host._engine = { video };
     controller.applyCameraStartPreference();
-    assert.deepEqual(video.calls, [false]);
+    assert.deepEqual(video.calls, []);
     if (action === "manual-mute") controller.applyMuteChange(true);
     if (action === "camera-change") controller.prepareCameraStart({ entity: "camera.two" });
     if (action === "hidden") target.visibilityState = "hidden";
@@ -110,7 +110,7 @@ for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispo
     video.dispatchEvent(new Event("loadeddata"));
     await Promise.resolve();
     assert.equal(video.muted, action !== "loaded");
-    assert.deepEqual(video.calls, action === "loaded" ? [false, false] : [false]);
+    assert.deepEqual(video.calls, action === "loaded" ? [false] : []);
     controller.dispose();
   });
 }

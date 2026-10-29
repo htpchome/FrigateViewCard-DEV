@@ -368,12 +368,11 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         return { beforeLoadedMuted, firstMuted, takeoverBeforeLoadedMuted, takeoverMuted, afterOldTouch, afterNewTouch };
       }, { connectionType, blocked });
       expect(state).toEqual({
-        // The selected output receives ACC's immediate audio action, followed
-        // by an independent loaded-media action. A real policy denial falls
-        // back to muted until the loaded reapply or trusted interaction.
-        beforeLoadedMuted: blocked,
+        // ACC's early selected action has no effective player until media is
+        // loaded. The first audible request therefore occurs at loaded media.
+        beforeLoadedMuted: true,
         firstMuted: blocked,
-        takeoverBeforeLoadedMuted: blocked,
+        takeoverBeforeLoadedMuted: true,
         takeoverMuted: blocked,
         afterOldTouch: blocked,
         afterNewTouch: false,

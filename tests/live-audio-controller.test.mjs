@@ -347,7 +347,7 @@ test("camera start audio applies the opt-in to the selected output", async () =>
   assert.equal(controller.applyCameraStartPreference(), false);
 });
 
-test("selected startup audio acts immediately and reapplies when media loads", async () => {
+test("selected startup audio waits for loaded media before its first play", async () => {
   const video = new EventTarget();
   Object.assign(video, {
     muted: true,
@@ -377,16 +377,13 @@ test("selected startup audio acts immediately and reapplies when media loads", a
   controller.prepareCameraStart(host._activeCam);
   assert.equal(controller.applyCameraStartPreference(), true);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(video.playCalls, [{ muted: false, readyState: 0 }]);
-  assert.equal(video.muted, false, "an interrupted early request must keep audio intent");
+  assert.deepEqual(video.playCalls, []);
+  assert.equal(video.muted, true, "an unready player must not establish an autoplay decision");
 
   video.readyState = 2;
   video.dispatchEvent(new Event("loadeddata"));
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(video.playCalls, [
-    { muted: false, readyState: 0 },
-    { muted: false, readyState: 2 },
-  ]);
+  assert.deepEqual(video.playCalls, [{ muted: false, readyState: 2 }]);
   assert.equal(host._streamMuted, false);
   controller.dispose();
 });
