@@ -92,6 +92,12 @@ export function createHaDirectSession({
       cleanup: () => {},
     };
     starting = record;
+    // The selected ACC provider is already in its visible carousel slide when
+    // its media subtree connects. Establish the equivalent projection before
+    // connecting HA's provider so WebKit never sees the startup audio owner as
+    // detached or hidden during its first playback decision.
+    records.set(entity, record);
+    present();
     try {
       const result = createProvider({
         hass: lastHass,
@@ -136,14 +142,12 @@ export function createHaDirectSession({
         type: "ha_direct", haDirectProvider: true, haDirectEntity: entity,
         haDirectSession: api, haDirectProviderSlot: slot,
       });
-      records.set(entity, record);
       slot.appendChild(record.provider);
     } catch (error) {
       starting = null;
       record.status = "failed";
       record.error = error;
       // Failed creation still settles this camera; it must not stall the queue.
-      records.set(entity, record);
       queueMicrotask(pump);
     }
     present();

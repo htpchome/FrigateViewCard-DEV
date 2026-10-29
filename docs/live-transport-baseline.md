@@ -1064,6 +1064,14 @@ one of those policies is the cause.
   the cold-start request. Ordinary muted autoplay remains the fallback after
   an actual `NotAllowedError`, and interaction recovery is installed only for
   that denial.
+- `v1.1.10-dev.55` aligns the selected provider's connection-time presentation
+  with Advanced Camera Card. A start-unmuted go2rtc camera exposes its primary
+  race surface before the provider connects, while losing candidates remain
+  hidden; HA Direct projects the selected permanent provider deck before
+  connecting `ha-camera-stream`. This changes no transport timing, winner
+  policy, retention, or muted-camera startup behavior. It prevents WebKit from
+  making the first audible-playback decision while the selected media owner is
+  still hidden or unprojected.
 
 ## Validation Expectations
 

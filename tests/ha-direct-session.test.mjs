@@ -86,6 +86,21 @@ test("selected HA Direct audio preference reaches provider construction before w
   f.session.dispose();
 });
 
+test("selected HA Direct projection is visible before provider construction", () => {
+  const f = fixture();
+  const owner = f.client();
+  owner.startupMuted = () => false;
+  f.session.attach(owner);
+
+  const projectIndex = f.calls.findIndex(([name]) => name === "project");
+  const createIndex = f.calls.findIndex(([name]) => name === "create");
+  assert.ok(projectIndex >= 0);
+  assert.ok(createIndex >= 0);
+  assert.ok(projectIndex < createIndex);
+  assert.equal(f.session.get("camera.one").slot.style.opacity, "1");
+  f.session.dispose();
+});
+
 test("selected HA Direct startup action updates card and provider mute ownership together", () => {
   const f = fixture();
   const owner = f.client();

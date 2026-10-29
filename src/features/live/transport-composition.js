@@ -261,6 +261,8 @@ export const createLiveTransportControllers = (
     mounter: go2rtcMounter,
     isMobile: deviceProfile.isMobile,
     resolveConnectionType: (entity) => card._cameraConnectionType(entity),
+    getStartupMuted: (entity) =>
+      getLiveAudioController(card).resolveStartupMuted(entity),
     getPendingMountDestroyers: () => card._pendingMountDestroyers || [],
     setPendingMountDestroyers: (pendingDestroyers) => {
       card._pendingMountDestroyers = pendingDestroyers;

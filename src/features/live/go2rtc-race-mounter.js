@@ -43,6 +43,7 @@ export function createGo2RtcRaceMounter({
   mounter,
   isMobile = false,
   resolveConnectionType,
+  getStartupMuted = () => true,
   getPendingMountDestroyers,
   setPendingMountDestroyers,
   isMountTokenCurrent,
@@ -359,7 +360,15 @@ export function createGo2RtcRaceMounter({
   ) => {
     const targetEntity = String(entity || "").trim();
     const connectionType = resolveConnectionType(targetEntity);
-    const hiddenSlot = () => createAttemptSlot(hostSlot);
+    let startupSurfaceClaimed = false;
+    const hiddenSlot = () => {
+      const exposeStartupSurface =
+        !startupSurfaceClaimed && getStartupMuted(targetEntity) === false;
+      if (exposeStartupSurface) startupSurfaceClaimed = true;
+      return createAttemptSlot(hostSlot, {
+        exposeStartupSurface,
+      });
+    };
     const builders = {
       webrtc: (attemptOptions = {}) =>
         mounter.tryMountWebRtc(
@@ -496,10 +505,13 @@ export function createGo2RtcRaceMounter({
     mountWithRace,
   };
 
-  function createAttemptSlot(host = null) {
+  function createAttemptSlot(
+    host = null,
+    { exposeStartupSurface = false } = {},
+  ) {
     const slot = document.createElement("div");
     slot.style.cssText =
-      "position:absolute;inset:0;opacity:0;pointer-events:none;overflow:hidden;";
+      `position:absolute;inset:0;opacity:${exposeStartupSurface ? "1" : "0"};pointer-events:none;overflow:hidden;`;
     if (host) host.appendChild(slot);
     return slot;
   }

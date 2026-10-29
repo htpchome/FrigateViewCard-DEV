@@ -311,6 +311,60 @@ test("go2rtc race mounter excludes HLS from automatic startup", () => {
   );
 });
 
+test("start-unmuted go2rtc exposes its primary attempt before transport startup", async () => {
+  const previousDocument = globalThis.document;
+  const created = [];
+  globalThis.document = {
+    createElement: () => {
+      const element = { style: {}, remove() {} };
+      created.push(element);
+      return element;
+    },
+  };
+  try {
+    let pendingDestroyers = [];
+    const raceMounter = createGo2RtcRaceMounter({
+      mounter: {
+        tryMountWebRtc: async (slot) => ({
+          ok: true,
+          type: "webrtc",
+          slot,
+          engine: { destroy() {} },
+        }),
+        tryMountMse: async () => false,
+      },
+      resolveConnectionType: () => "frigate_go2rtc",
+      getStartupMuted: () => false,
+      getPendingMountDestroyers: () => pendingDestroyers,
+      setPendingMountDestroyers: (next) => {
+        pendingDestroyers = next;
+      },
+      isMountTokenCurrent: () => true,
+      adoptMountedAttempt: () => {},
+      waitForStreamStart: async () => true,
+      isCurrentWinnerEngine: () => true,
+      getPendingWebRtcTakeoverTimer: () => null,
+      setPendingWebRtcTakeoverTimer: () => {},
+      preferredWebRtcWaitMs: 0,
+    });
+    const host = {
+      appendChild() {},
+      attachOrchestrator() {},
+      clearOrchestrator() {},
+    };
+
+    assert.equal(await raceMounter.mountWithRace({
+      slot: host,
+      entity: "camera.front",
+      forcedType: "webrtc",
+      mountToken: 1,
+    }), true);
+    assert.match(created[0].style.cssText, /opacity:1/);
+  } finally {
+    globalThis.document = previousDocument;
+  }
+});
+
 test("go2rtc race mounter adopts the fallback winner and retains deferred webrtc", async () => {
   const previousDocument = globalThis.document;
   globalThis.document = {
