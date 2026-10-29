@@ -218,7 +218,7 @@ test("go2rtc race candidates retain shared startup playback ownership", async ()
   }));
 });
 
-test("production go2rtc cold startup makes its first play request unmuted after loadeddata", async () => {
+test("production go2rtc cold startup requests audio immediately and reapplies it after loadeddata", async () => {
   await withFakeDocument(() => withFakeObjectUrl(async () => {
     const camera = { entity: "camera.front", start_unmuted: true };
     const host = {
@@ -255,8 +255,10 @@ test("production go2rtc cold startup makes its first play request unmuted after 
         const video = slot.lastChild;
         assert.equal(video.autoplay, false);
         assert.equal(video.preload, "auto", "cold audio startup keeps media loading eager");
-        assert.equal(video.muted, true, "selected output remains muted while media loads");
-        assert.deepEqual(requests, []);
+        assert.equal(video.muted, false, "selected output begins its immediate audible request");
+        assert.deepEqual(requests, [
+          { muted: false, defaultMuted: false, readyState: 0 },
+        ]);
         video.readyState = 2;
         video.dispatchEvent(new Event("loadeddata"));
         await Promise.resolve();
@@ -271,6 +273,7 @@ test("production go2rtc cold startup makes its first play request unmuted after 
 
     assert.equal(mounted, true);
     assert.deepEqual(requests, [
+      { muted: false, defaultMuted: false, readyState: 0 },
       { muted: false, defaultMuted: false, readyState: 2 },
     ]);
     assert.equal(host._streamMuted, false);
@@ -330,10 +333,12 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
               peer.dispatchEvent(new Event("connectionstatechange"));
               const stream = startupVideo.srcObject;
               assert.deepEqual(stream.getTracks(), [videoTrack]);
+              await Promise.resolve();
+              await Promise.resolve();
               assert.deepEqual(
                 calls,
-                [],
-                "source attachment must not create an early playback session",
+                denied === true ? [false, true] : [false],
+                "source attachment immediately applies the selected audio preference",
               );
               peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
@@ -352,9 +357,12 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             }
             await Promise.resolve();
             await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
             assert.deepEqual(
               calls,
-              denied === "cancel" ? [] : denied === true ? [false, true] : [false],
+              denied === "cancel" ? [false] :
+                denied === true ? [false, true, false, true] : [false, false],
             );
             assert.equal(host._engine, null);
             return true;

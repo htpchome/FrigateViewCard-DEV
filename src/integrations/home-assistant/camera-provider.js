@@ -135,8 +135,8 @@ export function createHaDirectCameraProvider({
       },
     });
     if (initialPlayback) {
-      // Keep the selected child output-muted while HA attaches media. The
-      // shared loaded-media action unmutes immediately before its first play.
+      // Keep HA autoplay from racing the selected-media action. The shared
+      // controller owns both the immediate request and loaded-media reapply.
       const player = findActiveHaCameraStreamPlayer(provider);
       const playerAutoplay = player?.autoPlay;
       const videoAutoplay = video.autoplay;
@@ -144,14 +144,12 @@ export function createHaDirectCameraProvider({
       restoreAutoplay = () => {
         if (restored) return;
         restored = true;
-        video.removeEventListener("playing", restoreAutoplay);
         if (player && playerAutoplay !== undefined) player.autoPlay = playerAutoplay;
         video.autoplay = videoAutoplay;
       };
       if (player) player.autoPlay = false;
       video.autoplay = false;
-      // Restore HA's ordinary retention/resume lifecycle once startup settles.
-      video.addEventListener("playing", restoreAutoplay, { once: true });
+      void initialPlayback.play();
     }
     let ready = false;
     let waitingTime = video.currentTime;

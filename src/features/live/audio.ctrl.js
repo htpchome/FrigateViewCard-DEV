@@ -92,13 +92,14 @@ export class LiveAudioController {
     // Only one racing candidate may request audio before a winner is selected.
     this._initialAudioOwner ??= video;
     if (this._initialAudioOwner === video) {
-      // Match ACC's selected-media action: load eagerly while output-muted,
-      // then unmute immediately before the first loaded-media play request.
+      // Match ACC's selected-media action: load eagerly while output-muted.
+      // The transport immediately requests selected playback, then repeats the
+      // audio preference at loadeddata even if WebKit resolved the first play.
       video.preload = "auto";
       video.muted = true;
     }
     const playback = createInitialPlayback(video, {
-      waitForData: true,
+      reapplyOnLoadedData: true,
       onDispose,
       getMuted: () => {
         const muted = this._initialAudioOwner !== video || this.resolveStartupMuted(entity);
@@ -111,7 +112,10 @@ export class LiveAudioController {
         }
         return muted;
       },
-      isCurrent: () => camera === this._cameraStartUnmuteCamera && isCurrent(),
+      isCurrent: () =>
+        camera === this._cameraStartUnmuteCamera &&
+        this._interactionTarget?.visibilityState !== "hidden" &&
+        isCurrent(),
       onMuted: () => {
         onMuted();
         if (this._initialAudioOwner === video) {
@@ -125,6 +129,7 @@ export class LiveAudioController {
     });
     this._initialPlaybackVideos.set(video, playback);
     return {
+      state: playback.state,
       play: playback.play,
       dispose: () => {
         playback.dispose();
@@ -168,6 +173,7 @@ export class LiveAudioController {
     const initialCompletedAudible = Boolean(
       initial?.state.completed &&
       initial.state.requestedUnmuted &&
+      initial.state.loadedReapplied &&
       initial.state.blocked !== true &&
       video.muted === false,
     );

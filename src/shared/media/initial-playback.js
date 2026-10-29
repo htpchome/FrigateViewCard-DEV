@@ -5,24 +5,40 @@ export function createInitialPlayback(video, {
   onMuted = () => {},
   onDispose = () => {},
   waitForData = false,
+  reapplyOnLoadedData = false,
 } = {}) {
   let disposed = false;
   let pending = false;
   let completed = false;
   let retries = 0;
   let readinessPending = false;
+  let loadedReapplyPending = false;
   const state = {
     started: false,
     completed: false,
     blocked: false,
     requestedUnmuted: false,
+    loadedReapplied: false,
   };
-  const play = async () => {
-    if (disposed || !isCurrent() || completed || retries >= 3) return;
+  const play = async ({ loadedReapply = false } = {}) => {
+    if (disposed || !isCurrent()) return;
+    if (loadedReapply && state.loadedReapplied) return;
+    if (!loadedReapply && (completed || retries >= 3)) return;
     // MediaStream/HLS can load while paused. Do not turn source attachment
     // into an audible-play request before the selected media is usable.
     if (waitForData && video.readyState < 2) return;
-    if (pending) { readinessPending = true; return; }
+    if (pending) {
+      readinessPending = true;
+      loadedReapplyPending ||= loadedReapply;
+      return;
+    }
+    if (loadedReapply) {
+      state.loadedReapplied = true;
+      state.blocked = false;
+      state.completed = false;
+      completed = false;
+      retries = 0;
+    }
     pending = true;
     readinessPending = false;
     retries += 1;
@@ -47,21 +63,29 @@ export function createInitialPlayback(video, {
       }
     } finally {
       pending = false;
+      if (loadedReapplyPending) {
+        loadedReapplyPending = false;
+        readinessPending = false;
+        void play({ loadedReapply: true });
+        return;
+      }
       if (readinessPending && !completed) void play();
     }
   };
-  for (const event of ["loadedmetadata", "loadeddata", "canplay"]) {
-    video.addEventListener?.(event, play);
-  }
+  const onReadiness = () => void play();
+  const onLoadedData = () => void play({ loadedReapply: reapplyOnLoadedData });
+  video.addEventListener?.("loadedmetadata", onReadiness);
+  video.addEventListener?.("loadeddata", onLoadedData);
+  video.addEventListener?.("canplay", onReadiness);
   return {
     state,
     play,
     dispose() {
       if (disposed) return;
       disposed = true;
-      for (const event of ["loadedmetadata", "loadeddata", "canplay"]) {
-        video.removeEventListener?.(event, play);
-      }
+      video.removeEventListener?.("loadedmetadata", onReadiness);
+      video.removeEventListener?.("loadeddata", onLoadedData);
+      video.removeEventListener?.("canplay", onReadiness);
       onDispose();
     },
   };

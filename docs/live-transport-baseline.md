@@ -2,15 +2,25 @@
 
 ## Current Baseline
 
-`v1.1.10-dev.33` follows the reliable loaded-media action found by tracing
-Advanced Camera Card. ACC does not synthesize a click or other user activation.
-Its target action can run before media is ready, then its media-loaded handler
-reasserts output unmute and immediately requests play on that same video.
-Frigate go2rtc and HA Direct now keep output muted during eager loading and
-perform that paired unmute/play operation at the loaded-data boundary. Source
-connection and decoding are not delayed. A denied audible request still retries
-muted immediately and retains first-interaction recovery. Physical Safari and
-Companion verification remains required.
+`v1.1.10-dev.34` corrects the two-phase selected-media lifecycle found by
+tracing Advanced Camera Card. ACC does not synthesize a click or user
+activation. It applies the selected target's audio/play action immediately and
+then independently repeats that action from its media-loaded handler. The
+previous FrigateView implementation marked a resolved immediate play complete,
+which suppressed its claimed loaded-media reapply; physical Safari and
+Companion testing therefore showed no change. Frigate go2rtc and HA Direct now
+make both requests even when WebKit resolves the first request. HA's native
+autoplay remains held until startup ownership is handed back so it cannot race
+between those two actions. Source connection and decoding are not delayed. A
+denied audible request still retries muted immediately and retains
+first-interaction recovery. Physical Safari and Companion verification remains
+required.
+
+`v1.1.10-dev.33` attempted only the loaded-media half of that lifecycle. It
+kept output muted during eager loading and performed the paired unmute/play
+operation at the loaded-data boundary. Physical Safari and Companion testing
+showed no improvement, so dev.34 restores the immediate target action and makes
+the loaded-media action genuinely independent of its result.
 
 `v1.1.10-dev.32` corrects the remaining cold-load difference from Advanced
 Camera Card. On a hard load, ACC marks the selected visible output unmuted
