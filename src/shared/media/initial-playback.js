@@ -11,7 +11,12 @@ export function createInitialPlayback(video, {
   let completed = false;
   let retries = 0;
   let readinessPending = false;
-  const state = { started: false, blocked: false, requestedUnmuted: false };
+  const state = {
+    started: false,
+    completed: false,
+    blocked: false,
+    requestedUnmuted: false,
+  };
   const play = async () => {
     if (disposed || !isCurrent() || completed || retries >= 3) return;
     // MediaStream/HLS can load while paused. Do not turn source attachment
@@ -22,22 +27,22 @@ export function createInitialPlayback(video, {
     readinessPending = false;
     retries += 1;
     video.muted = state.blocked || getMuted() !== false;
-    video.defaultMuted = video.muted;
     state.requestedUnmuted ||= !video.muted;
     state.started = true;
     try {
       await video.play();
       completed = true;
+      state.completed = true;
     } catch (error) {
       if (disposed || !isCurrent()) return;
       if (error?.name === "NotAllowedError" && !video.muted) {
         state.blocked = true;
         video.muted = true;
-        video.defaultMuted = true;
         onMuted();
         try {
           await video.play();
           completed = true;
+          state.completed = true;
         } catch (_) {}
       }
     } finally {

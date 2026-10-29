@@ -690,7 +690,7 @@ test.afterEach(async ({ page }, testInfo) => {
 
 for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
   for (const denied of [false, true, "before-loaded"]) {
-    test(`production HA Direct selects ${transport} audio but unmutes output only after loaded data (denied=${denied})`, async ({ page }) => {
+    test(`production HA Direct selects ${transport} audio and first plays unmuted after loaded data (denied=${denied})`, async ({ page }) => {
       await page.goto(baseUrl);
       await page.evaluate(async ({ transport, denied }) => {
         const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
@@ -728,14 +728,15 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
         return { requests: audit.playbackRequests,
           muted: card._engine.haDirectSession.get("camera.one").video.muted, uiMuted: card._streamMuted };
       });
-      // HA may preload a hidden WebRTC candidate before selecting it. Every
-      // candidate starts output-muted; only the loaded selected player is
-      // unmuted, matching ACC's stream-intent/output-mute split.
+      // HA may preload a hidden WebRTC candidate before selecting it. Hidden
+      // candidates stay muted. The selected player does not request playback
+      // before loadeddata, and its first request is already unmuted.
       expect(result.requests.filter((request) => request.hidden).every((request) => request.muted), JSON.stringify(result)).toBe(true);
       const first = result.requests.filter((request) => request.entity === "camera.one" && !request.hidden);
-      expect(first[0].muted, JSON.stringify(result)).toBe(true);
-      expect(first[0].readyState).toBeLessThan(2);
-      expect(first.some((request) => !request.muted && request.readyState >= 2), JSON.stringify(result)).toBe(true);
+      expect(first.length, JSON.stringify(result)).toBeGreaterThan(0);
+      expect(first[0].muted, JSON.stringify(result)).toBe(false);
+      expect(first[0].readyState).toBeGreaterThanOrEqual(2);
+      expect(first.some((request) => request.readyState < 2), JSON.stringify(result)).toBe(false);
       expect(result.muted).toBe(denied === true);
       expect(result.uiMuted).toBe(denied === true);
       if (denied === true) expect(first.some((request) => request.muted)).toBe(true);

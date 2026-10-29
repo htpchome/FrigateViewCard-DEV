@@ -2,8 +2,24 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.32` corrects the remaining cold-load difference from Advanced
+Camera Card. On a hard load, ACC marks the selected visible output unmuted
+before source attachment, leaves autoplay off, and makes its first play request
+only when that player reports loaded data. The previous implementation instead
+allowed muted autoplay to establish the first Safari playback session and tried
+to promote it later; physical Safari and Companion testing showed that this
+still required a tap even though later dashboard navigation could unmute. The
+selected Frigate go2rtc and HA Direct startup paths now use ACC's actual
+boundary: source connection and decoding begin immediately, the selected output
+uses eager preload, is unmuted before the source's first play, and `loadeddata`
+triggers that play.
+An audible-autoplay denial immediately retries muted and retains the existing
+first-interaction recovery. No timer, transport retry, extra connection,
+`defaultMuted` rewrite, dormant-player unmute, or Preview audio change is
+included. Physical Safari and Companion verification remains required.
+
 `v1.1.10-dev.31` replaces the card-owned audible-first startup sequence with
-the same selected-media lifecycle used by Advanced Camera Card. Frigate go2rtc
+an attempted selected-media lifecycle based on Advanced Camera Card. Frigate go2rtc
 now performs ordinary muted startup; only after the winning video is committed
 does the audio controller change that video's output mute and request play. It
 does not disable autoplay, rewrite `defaultMuted`, or synchronize racing and
@@ -12,12 +28,12 @@ visible output mute: a selected camera configured for startup audio asks HA for
 the audio-capable stream while its visible child starts output-muted, then the
 same selected-media action unmutes it after ready. Once HA audio has been
 selected, later output mute does not downgrade the provider to an audio-less
-stream. An audible-play denial still restores muted playback and retains the
+stream. However, it still allowed the visible player to establish muted autoplay
+before the unmute request. Physical Safari and Companion testing reported no
+improvement on a hard load, so dev.32 replaces that ordering. An audible-play
+denial still restores muted playback and retains the
 existing first-interaction fallback; registering that fallback does not cancel
-or replace automatic startup. Preview and hidden players remain muted. This
-matches ACC's ordering and state boundaries without patching HA prototypes or
-adding another sound control. Physical Safari and Companion verification is
-still required.
+or replace automatic startup. Preview and hidden players remain muted.
 
 `v1.1.10-dev.28` makes Preview an explicit muted-audio boundary. Entering
 Preview cancels any pending selected-camera audible startup and mutes the

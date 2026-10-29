@@ -183,14 +183,16 @@ Meaning of `ha_direct`:
 - HA Direct mute controls may synchronously update the selected native child's
   public `muted` input. Stream-selection intent and visible output mute are
   separate: selected startup audio may set the provider's public `muted` input
-  before native child creation so HA chooses an audio-capable stream, while the
-  visible child and video still begin output-muted. Once audio has been selected,
-  muting output must not downgrade or rebuild that stream. After the selected
-  media is ready through ordinary muted startup, auto-unmute changes only its
-  output mute and then requests play; denial restores muted output and leaves the
-  existing interaction fallback available. It must not disable native autoplay,
-  rewrite `defaultMuted`, synchronize dormant candidates, patch sources, patch
-  native methods, or change peer lifecycle;
+  before native child creation so HA chooses an audio-capable stream. For a
+  selected camera configured to start unmuted, the visible child's output is
+  also unmuted before its first playback request. Its public autoplay input may
+  be held off only until that same child reports loaded data; source creation,
+  negotiation and decoding continue immediately. The card then requests play
+  once, falling back immediately to muted playback only when audible autoplay is
+  denied. Restore native autoplay after playing, cancellation or replacement.
+  Once audio has been selected, muting output must not downgrade or rebuild that
+  stream. Do not rewrite `defaultMuted`, synchronize dormant candidates, patch
+  sources, patch native methods, or change peer lifecycle;
   background providers and hidden child players remain muted.
   A narrowly scoped received-audio compatibility adapter
   may read that WebRTC child's existing `_peerConnection` receivers and attach

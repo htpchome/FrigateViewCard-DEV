@@ -135,6 +135,10 @@ export function createHaDirectCameraProvider({
       },
     });
     if (initialPlayback) {
+      // Match ACC's cold-load ordering: the selected child is unmuted before
+      // its first media play, while source selection remains HA-owned.
+      intendedOutputMuted = false;
+      applyOutputMute();
       const player = findActiveHaCameraStreamPlayer(provider);
       const playerAutoplay = player?.autoPlay;
       const videoAutoplay = video.autoplay;
@@ -150,7 +154,6 @@ export function createHaDirectCameraProvider({
       video.autoplay = false;
       // Restore HA's ordinary retention/resume lifecycle once startup settles.
       video.addEventListener("playing", restoreAutoplay, { once: true });
-      void initialPlayback.play();
     }
     let ready = false;
     let waitingTime = video.currentTime;

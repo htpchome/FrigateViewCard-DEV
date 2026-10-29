@@ -51,6 +51,7 @@ export class LiveAudioController {
 
   prepareCameraStart(camera) {
     const host = this._host;
+    this._mutePendingStartUnmuteOutput();
     this._clearDeferredStartUnmute();
     this._clearStartUnmuteReadiness();
     this._clearInitialPlayback();
@@ -65,6 +66,7 @@ export class LiveAudioController {
   }
 
   cancelCameraStartPreference() {
+    this._mutePendingStartUnmuteOutput();
     this._host._cameraStartUnmutePending = false;
     this._cameraStartUnmuteCamera = null;
     this._clearStartUnmuteReadiness();
@@ -89,14 +91,26 @@ export class LiveAudioController {
     if (replaceExisting) this._clearInitialPlayback(video);
     // Only one racing candidate may request audio before a winner is selected.
     this._initialAudioOwner ??= video;
+    if (this._initialAudioOwner === video) {
+      // ACC establishes the selected output state before its provider attaches
+      // media. Safari treats that as a different first-play lifecycle from
+      // promoting an already-running muted autoplay session later.
+      // Keep source loading eager while autoplay itself is temporarily held.
+      video.preload = "auto";
+      this._host._streamMuted = false;
+      video.muted = false;
+      if (typeof video.volume === "number") video.volume = 1;
+      this._host._renderMuteButton?.();
+    }
     const playback = createInitialPlayback(video, {
+      waitForData: true,
       onDispose,
       getMuted: () => {
         const muted = this._initialAudioOwner !== video || this.resolveStartupMuted(entity);
         if (this._initialAudioOwner === video) {
           this._host._streamMuted = muted;
           if (this._resolveEngineVideo(this._host._engine) === video) {
-            this.setMuted(muted, { startPlayback: false, synchronizeLater: false });
+            this._setAutomaticOutputMuted(this._host._engine, video, muted);
           }
           this._host._renderMuteButton?.();
         }
@@ -129,8 +143,8 @@ export class LiveAudioController {
   _clearInitialPlayback(keepVideo = null) {
     for (const [video, playback] of this._initialPlaybackVideos) {
       if (video === keepVideo) continue;
-      playback.dispose();
       video.muted = true;
+      playback.dispose();
       this._initialPlaybackVideos.delete(video);
     }
     this._initialAudioOwner = keepVideo;
@@ -156,20 +170,22 @@ export class LiveAudioController {
     this._clearStartUnmuteReadiness();
     this._clearInitialPlayback(video);
     const initial = this._initialPlaybackVideos.get(video);
+    const initialCompletedAudible = Boolean(
+      initial?.state.completed &&
+      initial.state.requestedUnmuted &&
+      initial.state.blocked !== true &&
+      video.muted === false,
+    );
     const attempt = {
       engine,
       video,
       inFlight: false,
       retries: 0,
       blocked: initial?.state.blocked === true,
-      loadedReapplied: false,
+      loadedReapplied: initialCompletedAudible,
+      awaitingLoaded: Number(video.readyState) < 2,
     };
     this._cameraStartUnmuteAttempt = attempt;
-    const initialAudibleRequestStartedBeforeLoad = Boolean(
-      initial?.state.started &&
-      initial.state.requestedUnmuted &&
-      Number(video.readyState) < 2,
-    );
     // Selection is now usable. Retire early startup promises and reapply audio
     // to this loaded player, rather than latching its earlier autoplay denial.
     initial?.dispose();
@@ -183,10 +199,9 @@ export class LiveAudioController {
     attempt.onReady = () => this._retryCameraStartUnmute(attempt);
     video.addEventListener?.("loadeddata", attempt.onLoaded);
     video.addEventListener?.("canplay", attempt.onReady);
-    // The transport-created media may already own the same early audible
-    // request. Let that promise settle, then mirror ACC's loaded-media
-    // reassertion instead of issuing a duplicate request before loadeddata.
-    if (!initialAudibleRequestStartedBeforeLoad) {
+    // ACC does not issue the visible player's first play request until it has
+    // loaded data. Adoption before that boundary must preserve the same rule.
+    if (!attempt.awaitingLoaded && !initialCompletedAudible) {
       this._attemptCameraStartUnmute(attempt);
     }
     return true;
@@ -208,7 +223,20 @@ export class LiveAudioController {
     attempt.onReady = null;
   }
 
+  _mutePendingStartUnmuteOutput() {
+    const attempt = this._cameraStartUnmuteAttempt;
+    if (!attempt?.video || (!attempt.awaitingLoaded && !attempt.inFlight)) return;
+    this._setAutomaticOutputMuted(attempt.engine, attempt.video, true);
+  }
+
   _reapplyCameraStartUnmuteOnLoad(attempt) {
+    if (
+      this._isCurrentStartUnmuteAttempt(attempt) &&
+      this._interactionTarget?.visibilityState === "hidden"
+    ) {
+      this._setAutomaticOutputMuted(attempt.engine, attempt.video, true);
+      return false;
+    }
     if (
       !this._isCurrentStartUnmuteAttempt(attempt) ||
       attempt.loadedReapplied ||

@@ -368,9 +368,12 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         return { beforeLoadedMuted, firstMuted, takeoverBeforeLoadedMuted, takeoverMuted, afterOldTouch, afterNewTouch };
       }, { connectionType, blocked });
       expect(state).toEqual({
-        beforeLoadedMuted: blocked,
+        // A synthetic adopted replacement has no transport startup helper, so
+        // keep it muted until loadeddata. Its first actual play request still
+        // follows the configured audible-start preference.
+        beforeLoadedMuted: true,
         firstMuted: blocked,
-        takeoverBeforeLoadedMuted: blocked,
+        takeoverBeforeLoadedMuted: true,
         takeoverMuted: blocked,
         afterOldTouch: blocked,
         afterNewTouch: false,

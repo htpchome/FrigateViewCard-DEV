@@ -64,7 +64,7 @@ for (const action of ["manual-mute", "camera-change", "dispose"]) {
   });
 }
 
-test("live startup playback requests audio before loadeddata", async () => {
+test("live startup marks audio before media attachment and waits until loadeddata to play", async () => {
   const camera = { entity: "camera.one", start_unmuted: true };
   const video = Object.assign(makeVideo(), { readyState: 0 });
   const host = {
@@ -80,10 +80,15 @@ test("live startup playback requests audio before loadeddata", async () => {
   const playback = controller.createInitialPlayback(video, {
     entity: camera.entity,
   });
+  assert.equal(video.preload, "auto", "holding autoplay must not defer source loading");
+  assert.equal(video.muted, false, "selected output is unmuted before source readiness");
   await playback.play();
 
+  assert.deepEqual(video.calls, [], "cold startup does not create a muted autoplay session");
+  video.readyState = 2;
+  video.dispatchEvent(new Event("loadeddata"));
+  await Promise.resolve();
   assert.deepEqual(video.calls, [false]);
-  assert.equal(video.muted, false);
   controller.dispose();
 });
 
@@ -107,7 +112,7 @@ for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispo
     controller.applyCameraStartPreference();
     controller.applyCameraStartPreference();
     video.dispatchEvent(new Event("canplay"));
-    assert.deepEqual(video.calls, [{ muted: false, readyState: 0 }, { muted: true, readyState: 0 }]);
+    assert.deepEqual(video.calls, [], "adoption before loadeddata must not play early");
     if (action === "manual-mute") controller.applyMuteChange(true);
     if (action === "camera-change") controller.prepareCameraStart({ entity: "camera.two" });
     if (action === "hidden") target.visibilityState = "hidden";
@@ -116,7 +121,7 @@ for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispo
     video.dispatchEvent(new Event("loadeddata"));
     await Promise.resolve();
     assert.equal(video.muted, action !== "loaded");
-    assert.equal(video.calls.length, action === "loaded" ? 3 : 2);
+    assert.equal(video.calls.length, action === "loaded" ? 1 : 0);
     if (action === "loaded") assert.deepEqual(video.calls.at(-1), { muted: false, readyState: 2 });
     controller.dispose();
   });
@@ -150,10 +155,10 @@ for (const denied of [false, true]) {
     assert.equal(host._streamMuted, denied);
     assert.equal(controller.resolveStartupMuted(camera.entity), denied,
       "provider loading updates must preserve a loaded-playback denial");
-    assert.deepEqual(video.calls, denied ? [false, true, false, true] : [false, false]);
+    assert.deepEqual(video.calls, denied ? [false, true, false, true] : [false]);
     controller.applyCameraStartPreference();
     video.dispatchEvent(new Event("canplay"));
-    assert.equal(video.calls.length, denied ? 4 : 2, "repeated readiness cannot loop unmute");
+    assert.equal(video.calls.length, denied ? 4 : 1, "repeated readiness cannot loop unmute");
     controller.dispose();
   });
 }

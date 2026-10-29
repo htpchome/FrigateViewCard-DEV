@@ -83,8 +83,10 @@ test("initial HA playback restores already received audio before requesting play
   const playback = h.controller.createInitialPlayback(h.video, { entity: "camera.one" });
   await playback.play();
   h.controller.applyCameraStartPreference();
-  assert.equal(h.video.playCalls, 2, "initial playback followed by loaded selection");
-  assert.deepEqual(requests, Array(2).fill({ tracks: [h.audio], muted: false, volume: 1, playerMuted: false }));
+  assert.equal(h.video.playCalls, 1, "the loaded selected player keeps one audible play request");
+  assert.deepEqual(requests, [
+    { tracks: [h.audio], muted: false, volume: 1, playerMuted: false },
+  ]);
   assert.equal(h.hiddenVideo.muted, true);
   assert.equal(h.video.srcObject, h.stream);
   assert.equal(h.player._peerConnection, h.peer);

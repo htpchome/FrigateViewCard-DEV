@@ -189,6 +189,9 @@ export function createGo2RtcMounter({
         ? createStartupPlayback?.(video, {
             entity,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
+            onDispose: () => {
+              if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
+            },
           })
         : null;
     if (initialPlayback) video.autoplay = false;
@@ -787,6 +790,9 @@ export function createGo2RtcMounter({
         ? createStartupPlayback?.(video, {
             entity,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
+            onDispose: () => {
+              if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
+            },
           })
         : null;
     if (initialPlayback) video.autoplay = false;
