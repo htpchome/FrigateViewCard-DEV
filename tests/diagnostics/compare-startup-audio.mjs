@@ -112,7 +112,6 @@ if (mode === 'fvc-go2rtc') {
   const mounter = createGo2RtcMounter({
     resolver: {resolveMountRequest: options => ({...options,commit:true}), websocketUrlForEntity: async () => 'ws://localhost/synthetic'},
     getStreamMuted: () => host._streamMuted,
-    createStartupPlayback: (element, options) => fvcController.createInitialPlayback(element, options),
     attachVideoFit: element => {video.remove(); video = element; observeVideo(video);},
     assignCommittedEngine: engine => {host._engine = engine;},
     onCommittedStream: () => fvcController.applyCameraStartPreference(),

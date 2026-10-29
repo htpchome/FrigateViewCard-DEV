@@ -181,13 +181,16 @@ Meaning of `ha_direct`:
   native path. Tests must verify actual playlist/segment requests, including
   recovery, not just a mocked low-latency flag
 - HA Direct mute controls may synchronously update the selected native child's
-  public `muted` input. Selected startup audio may set the provider's public
-  `muted` input before native child creation and own a play promise after loaded
-  data, before first-frame readiness, retrying muted video only when audible
-  autoplay is denied. For that selected audible startup only, the provider may
-  temporarily disable the active child's public `autoPlay` input and its video's
-  `autoplay`. Restore both on playing, cancellation, replacement or disposal so
-  HA retains ordinary resume behavior. Do not patch sources, native methods or peer lifecycle;
+  public `muted` input. Stream-selection intent and visible output mute are
+  separate: selected startup audio may set the provider's public `muted` input
+  before native child creation so HA chooses an audio-capable stream, while the
+  visible child and video still begin output-muted. Once audio has been selected,
+  muting output must not downgrade or rebuild that stream. After the selected
+  media is ready through ordinary muted startup, auto-unmute changes only its
+  output mute and then requests play; denial restores muted output and leaves the
+  existing interaction fallback available. It must not disable native autoplay,
+  rewrite `defaultMuted`, synchronize dormant candidates, patch sources, patch
+  native methods, or change peer lifecycle;
   background providers and hidden child players remain muted.
   A narrowly scoped received-audio compatibility adapter
   may read that WebRTC child's existing `_peerConnection` receivers and attach

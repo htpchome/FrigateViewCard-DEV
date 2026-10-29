@@ -225,8 +225,12 @@ for (const startUnmuted of [false, true]) {
     await page.locator("#test-mute-control").click();
     expect(await page.evaluate(() => {
       const { video, player, provider } = window.haAudioTest;
-      return video.muted && player.muted && provider.muted;
-    })).toBe(true);
+      return {
+        videoMuted: video.muted,
+        playerMuted: player.muted,
+        providerMuted: provider.muted,
+      };
+    })).toEqual({ videoMuted: true, playerMuted: true, providerMuted: false });
     await page.locator("#test-mute-control").click();
     expect(await page.evaluate(() => {
       const { video, stream, receiver, player, audioTrack } = window.haAudioTest;

@@ -97,7 +97,7 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
     };
     h.start();
     await Promise.resolve();
-    assert.deepEqual(states, [{ muted: false, defaultMuted: false }]);
+    assert.deepEqual(states, [{ muted: false, defaultMuted: true }]);
     assert.equal(h.timers.length, 0);
     h.controller.dispose();
   });
@@ -339,7 +339,7 @@ test("camera start audio remains muted until ready, then applies the opt-in", as
   assert.equal(host._streamMuted, false);
   assert.equal(video.muted, false);
   assert.equal(host._engineMountedMuted, false);
-  assert.deepEqual(calls, ["sync", "render"]);
+  assert.deepEqual(calls, ["render"]);
 
   controller.prepareCameraStart({ start_unmuted: false });
   assert.equal(host._streamMuted, true);
@@ -405,7 +405,7 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
     capture: true,
     passive: true,
   });
-  assert.deepEqual(calls, ["sync", "render", "sync", "render"]);
+  assert.deepEqual(calls, ["render", "render"]);
 
   allowPlayback = true;
   interactionTarget.dispatch("pointerdown");
@@ -423,9 +423,7 @@ test("camera start audio falls back to muted when audible autoplay is rejected",
   assert.equal(video.volume, 1);
   assert.equal(listeners.size, 0);
   assert.deepEqual(calls, [
-    "sync",
     "render",
-    "sync",
     "render",
     "sync",
     "render",

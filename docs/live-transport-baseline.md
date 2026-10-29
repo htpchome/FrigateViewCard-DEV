@@ -2,6 +2,23 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.31` replaces the card-owned audible-first startup sequence with
+the same selected-media lifecycle used by Advanced Camera Card. Frigate go2rtc
+now performs ordinary muted startup; only after the winning video is committed
+does the audio controller change that video's output mute and request play. It
+does not disable autoplay, rewrite `defaultMuted`, or synchronize racing and
+dormant candidates. HA Direct now keeps stream-selection intent separate from
+visible output mute: a selected camera configured for startup audio asks HA for
+the audio-capable stream while its visible child starts output-muted, then the
+same selected-media action unmutes it after ready. Once HA audio has been
+selected, later output mute does not downgrade the provider to an audio-less
+stream. An audible-play denial still restores muted playback and retains the
+existing first-interaction fallback; registering that fallback does not cancel
+or replace automatic startup. Preview and hidden players remain muted. This
+matches ACC's ordering and state boundaries without patching HA prototypes or
+adding another sound control. Physical Safari and Companion verification is
+still required.
+
 `v1.1.10-dev.28` makes Preview an explicit muted-audio boundary. Entering
 Preview cancels any pending selected-camera audible startup and mutes the
 retained primary player before Preview snapshot or live tiles take ownership.

@@ -59,10 +59,14 @@ export function createHaDirectSession({
       const visible = Boolean(target && active?.visible(record.entity));
       record.slot.style.opacity = visible ? "1" : "0";
       record.slot.style.zIndex = visible ? "3" : "0";
-      if (record.provider) record.provider.muted = visible
-        ? (record.status === "loading" && !record.video && record.startupAudio &&
-          active.startupMuted?.(record.entity) === false ? false : Boolean(active.muted(record.entity)))
-        : true;
+      if (record.provider) {
+        const outputMuted = visible ? Boolean(active.muted(record.entity)) : true;
+        record.audioStreamPreferred ||= record.provider.fvcHaAudioStreamPreferred === true ||
+          (visible && active.startupMuted?.(record.entity) === false) || !outputMuted;
+        record.provider.fvcHaAudioStreamPreferred = record.audioStreamPreferred;
+        record.provider.muted = record.audioStreamPreferred ? false : true;
+        record.provider.fvcSetOutputMuted?.(outputMuted);
+      }
       active?.onState?.(record, true);
     }
   };
@@ -75,13 +79,25 @@ export function createHaDirectSession({
     slot.style.opacity = "0";
     slot.dataset.fvcHaDirectProvider = entity;
     const startupAudio = active?.visible(entity) && active?.startupMuted?.(entity) === false;
-    const record = { entity, slot, projection, startupAudio, provider: null, status: "loading", streamType: "", video: null, cleanup: () => {} };
+    const record = {
+      entity,
+      slot,
+      projection,
+      startupAudio,
+      audioStreamPreferred: startupAudio,
+      provider: null,
+      status: "loading",
+      streamType: "",
+      video: null,
+      cleanup: () => {},
+    };
     starting = record;
     try {
       const result = createProvider({
         hass: lastHass,
         stateObj,
         muted: !startupAudio,
+        outputMuted: true,
         createStartupPlayback: (video, options) => {
           if (!active?.visible(entity) || active?.startupMuted?.(entity) !== false) return null;
           return active.createStartupPlayback?.(video, {

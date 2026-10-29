@@ -217,5 +217,6 @@ test("missing HA media remains safe during child teardown", () => {
   h.provider.shadowRoot.querySelectorAll = () => [];
   assert.equal(synchronizeHaCameraAudio(h.provider, false), null);
   h.controller.applyMuteChange(true);
-  assert.equal(h.provider.muted, true);
+  assert.equal(h.provider.muted, false,
+    "once selected, the audio-capable HA stream remains latched while output is muted");
 });

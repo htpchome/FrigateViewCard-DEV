@@ -28,7 +28,14 @@ export function getHaCameraPresentationIdentity(element, config, sourceConfig) {
 
 // All normal HA Direct presentations share this provider. Catalyst and HA's
 // own cards keep their separate factories.
-export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = true, createStartupPlayback }) {
+export function createHaDirectCameraProvider({
+  hass,
+  stateObj,
+  onState,
+  muted = true,
+  outputMuted = muted,
+  createStartupPlayback,
+}) {
   const provider = createHaCameraStreamElement({
     stateObj, muted, defaultMuted: muted, controls: false, fitMode: "contain",
     styleText: "display:block;width:100%;height:100%",
@@ -44,6 +51,35 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
   let restoreAutoplay = () => {};
   let observer = null;
   let observedPlayerRoot;
+  let intendedOutputMuted = Boolean(outputMuted);
+  const applyOutputMute = () => {
+    const activePlayer = findActiveHaCameraStreamPlayer(provider);
+    for (const player of provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || []) {
+      player.muted = player === activePlayer ? intendedOutputMuted : true;
+    }
+    const video = findActiveHaCameraStreamVideo(provider);
+    if (video) video.muted = intendedOutputMuted;
+    return video;
+  };
+  provider.fvcSetOutputMuted = (nextMuted) => {
+    intendedOutputMuted = Boolean(nextMuted);
+    return applyOutputMute();
+  };
+  // Install this before the provider is connected. HA creates its native child
+  // asynchronously; the mutation microtask runs before its timer/autoplay task,
+  // so the selected audio stream can still begin with muted output.
+  if (provider.shadowRoot) {
+    observer = new MutationObserver(() => {
+      applyOutputMute();
+      void reconcile();
+    });
+    observer.observe(provider.shadowRoot, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "hidden"],
+    });
+  }
   const webRtcRetry = createHaCameraWebRtcRetry({ provider });
   const requestHls = () => hass.callWS({ type: "camera/stream", entity_id: stateObj.entity_id, format: "hls" });
   const hlsRecovery = createHaCameraHlsRecovery(provider, {
@@ -58,11 +94,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
     if (disposed) return;
     configureStandardHaHlsPlayer(provider.shadowRoot?.querySelector("ha-hls-player"));
     const activePlayer = findActiveHaCameraStreamPlayer(provider);
-    if (createStartupPlayback) {
-      for (const player of provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || []) {
-        player.muted = player === activePlayer ? provider.muted : true;
-      }
-    }
+    applyOutputMute();
     const playerRoot = findActiveHaCameraStreamPlayer(provider)?.shadowRoot;
     if (provider.shadowRoot && (!observer || observedPlayerRoot !== playerRoot)) {
       observer ??= new MutationObserver(reconcile);
@@ -98,9 +130,8 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
       replaceExisting: true,
       onDispose: () => restoreAutoplay(),
       onMuted: () => {
-        provider.muted = true;
-        const player = findActiveHaCameraStreamPlayer(provider);
-        if (player) player.muted = true;
+        intendedOutputMuted = true;
+        applyOutputMute();
       },
     });
     if (initialPlayback) {

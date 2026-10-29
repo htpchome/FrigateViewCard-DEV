@@ -218,6 +218,62 @@ test("go2rtc race candidates retain shared startup playback ownership", async ()
   }));
 });
 
+test("production go2rtc startup plays muted before selected-media auto-unmute", async () => {
+  await withFakeDocument(() => withFakeObjectUrl(async () => {
+    const camera = { entity: "camera.front", start_unmuted: true };
+    const host = {
+      _activeCam: camera,
+      _engine: null,
+      _renderMuteButton() {},
+      _findVideoDeep: (engine) => engine?.video,
+    };
+    const audio = new LiveAudioController(host, { interactionTarget: null });
+    audio.prepareCameraStart(camera);
+    const requests = [];
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({ entity: camera.entity, commit: true }),
+      },
+      getStreamMuted: () => host._streamMuted,
+      attachVideoFit: (video) => {
+        video.readyState = 0;
+        video.play = () => {
+          requests.push({
+            muted: video.muted,
+            defaultMuted: video.defaultMuted,
+            readyState: video.readyState,
+          });
+          return Promise.resolve();
+        };
+      },
+      assignCommittedEngine: (engine) => {
+        host._engine = engine;
+      },
+      waitForStreamStart: async (slot) => {
+        const video = slot.lastChild;
+        assert.equal(video.autoplay, true);
+        assert.deepEqual(requests, [
+          { muted: true, defaultMuted: false, readyState: 0 },
+        ]);
+        video.readyState = 2;
+        return true;
+      },
+      onCommittedStream: () => audio.applyCameraStartPreference(),
+    });
+
+    const mounted = await mounter.tryMountHls(createSlot());
+    await Promise.resolve();
+
+    assert.equal(mounted, true);
+    assert.deepEqual(requests, [
+      { muted: true, defaultMuted: false, readyState: 0 },
+      { muted: false, defaultMuted: false, readyState: 2 },
+    ]);
+    assert.equal(host._streamMuted, false);
+    audio.dispose();
+  }));
+});
+
 for (const transport of ["WebRtc", "Mse", "Hls"]) {
   for (const denied of transport === "WebRtc" ? [false, true, "cancel"] : [false, true]) {
     test(`go2rtc ${transport} applies selected audio at first playback, before commit (denied=${denied})`, async () => {

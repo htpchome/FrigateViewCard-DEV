@@ -10,12 +10,17 @@ const fixture = (options = {}) => {
   const element = () => ({ style: {}, dataset: {}, appendChild() {}, remove() {} });
   const createProjection = () => ({ deck: element(),
     project: (target) => calls.push(["project", target]), clear() {}, dispose: () => calls.push(["dispose"]) });
-  const session = createHaDirectSession({ ...options, createProjection, createProvider: ({ stateObj, onState, muted }) => {
+  const session = createHaDirectSession({ ...options, createProjection, createProvider: ({ stateObj, onState, muted, outputMuted }) => {
     const entity = stateObj.entity_id;
-    options.onCreate?.({ entity, muted });
+    options.onCreate?.({ entity, muted, outputMuted });
     calls.push(["create", entity]);
     callbacks.set(entity, onState);
-    return { provider: { stateObj }, dispose: () => calls.push(["release", entity]),
+    const provider = {
+      stateObj,
+      outputMuted,
+      fvcSetOutputMuted(nextMuted) { this.outputMuted = nextMuted; },
+    };
+    return { provider, dispose: () => calls.push(["release", entity]),
       checkResume: options.checkResume ? (onResult) => options.checkResume(entity, onResult) : undefined,
       onSelected: () => calls.push(["selected", entity]) };
   } });
@@ -51,20 +56,23 @@ test("selected HA Direct audio preference reaches provider construction before w
   const owner = f.client();
   owner.startupMuted = () => false;
   f.session.attach(owner);
-  assert.deepEqual(starts, [{ entity: "camera.one", muted: false }]);
+  assert.deepEqual(starts, [{ entity: "camera.one", muted: false, outputMuted: true }]);
   f.session.sync(owner);
   assert.equal(f.session.get("camera.one").provider.muted, false);
   owner.startupMuted = () => true; // Manual control cancels the startup preference.
   owner.muted = () => false;
   f.session.sync(owner);
   assert.equal(f.session.get("camera.one").provider.muted, false, "manual unmute wins while loading");
+  assert.equal(f.session.get("camera.one").provider.outputMuted, false);
   owner.muted = () => true;
   f.session.sync(owner);
-  assert.equal(f.session.get("camera.one").provider.muted, true, "manual mute also wins while loading");
+  assert.equal(f.session.get("camera.one").provider.muted, false,
+    "manual mute changes output without downgrading the selected audio stream");
+  assert.equal(f.session.get("camera.one").provider.outputMuted, true);
   await f.ready("camera.one");
   assert.deepEqual(starts, [
-    { entity: "camera.one", muted: false },
-    { entity: "camera.two", muted: true },
+    { entity: "camera.one", muted: false, outputMuted: true },
+    { entity: "camera.two", muted: true, outputMuted: true },
   ]);
   f.session.dispose();
 });

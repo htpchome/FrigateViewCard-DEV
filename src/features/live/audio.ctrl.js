@@ -297,10 +297,10 @@ export class LiveAudioController {
     ) {
       this._scheduleDeferredStartUnmute(engine);
     }
-    // Apply audio before the single tracked play request. Manual controls keep
-    // their existing playback and delayed-child synchronization behavior.
-    this.setMuted(false, { startPlayback: false, synchronizeLater: false });
-    host._cameraGroupLiveController?.syncAudio?.({ playbackOwner: video });
+    // Match ACC's selected-media action: change only the committed output,
+    // then ask that already-started media element to play. Do not rewrite
+    // defaultMuted or synchronize dormant/racing players during auto-unmute.
+    this._setAutomaticOutputMuted(engine, video, false);
     host._renderMuteButton?.();
     host._engineMountedMuted = false;
 
@@ -370,8 +370,7 @@ export class LiveAudioController {
       return;
     }
     attempt.blocked = true;
-    this.setMuted(true, { startPlayback: false, synchronizeLater: false });
-    host._cameraGroupLiveController?.syncAudio?.();
+    this._setAutomaticOutputMuted(attempt.engine, attempt.video, true);
     host._renderMuteButton?.();
     const { engine, video } = attempt;
     try {
@@ -384,6 +383,22 @@ export class LiveAudioController {
       this._attemptCameraStartUnmute(attempt);
     } else if (attempt.audioReadyWhilePending) {
       this._retryCameraStartUnmuteForAudio(attempt);
+    }
+  }
+
+  _setAutomaticOutputMuted(engine, video, muted) {
+    const host = this._host;
+    host._streamMuted = Boolean(muted);
+    host._twoWayTalkSession?.engine?.setIncomingAudioMuted?.(
+      host._streamMuted,
+    );
+    if (engine?.haDirectProvider === true) {
+      synchronizeHaCameraAudio(engine, host._streamMuted);
+    } else if (video && typeof video.muted === "boolean") {
+      video.muted = host._streamMuted;
+      if (!host._streamMuted && typeof video.volume === "number") {
+        video.volume = 1;
+      }
     }
   }
 

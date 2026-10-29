@@ -13,10 +13,22 @@ export function synchronizeHaCameraAudio(provider, muted) {
   if (provider?.haDirectProvider !== true) return null;
   const player = findActiveHaCameraStreamPlayer(provider);
   const video = findActiveHaCameraStreamVideo(provider);
-  provider.muted = muted;
-  provider.defaultMuted = muted;
+  // HA uses its public `muted` input both as an output setting and as a stream
+  // selector. Once audio is requested, keep the audio-capable stream selected
+  // and control only the visible player's output mute. This mirrors ACC's
+  // intended-stream/output-mute split and avoids rebuilding an audio-less
+  // stream when the user mutes it again.
+  provider.fvcHaAudioStreamPreferred ||= !muted;
+  provider.muted = provider.fvcHaAudioStreamPreferred ? false : muted;
+  const outputVideo = provider.fvcSetOutputMuted?.(muted) || video;
   // Propagate synchronously so a user gesture is not lost waiting for HA render.
   if (player) player.muted = muted;
+  if (outputVideo) {
+    outputVideo.muted = muted;
+    if (!muted && typeof outputVideo.volume === "number") {
+      outputVideo.volume = 1;
+    }
+  }
   if (!muted && player?.tagName?.toLowerCase() === "ha-web-rtc-player") {
     const stream = video?.srcObject;
     const peer = player._peerConnection;
@@ -38,5 +50,5 @@ export function synchronizeHaCameraAudio(provider, muted) {
       }
     }
   }
-  return video;
+  return outputVideo;
 }
