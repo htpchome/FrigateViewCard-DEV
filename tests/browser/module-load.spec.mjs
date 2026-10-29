@@ -1237,6 +1237,167 @@ test("mobile startup preloads enabled Preview and hydrates immediate navigation 
   expect(previewRequests).toBe(1);
 });
 
+test("start-unmuted Mobile and live Single mount before the shared preparation barrier", async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+
+    const run = async (
+      config,
+      connectionType = "frigate_go2rtc",
+      startUnmuted = true,
+    ) => {
+      const card = document.createElement("frigate-view-card");
+      document.body.append(card);
+      card.setConfig({
+        cameras: [{
+          entity: "camera.front",
+          connection_type: connectionType,
+          start_unmuted: startUnmuted,
+        }],
+        ...config,
+      });
+
+      let releaseDiscovery;
+      const discovery = new Promise((resolve) => {
+        releaseDiscovery = resolve;
+      });
+      let mounts = 0;
+      let navigations = 0;
+      const navigate = card._pageNavigationController
+        .navigateToConfiguredLandingPage.bind(card._pageNavigationController);
+      card._pageNavigationController.navigateToConfiguredLandingPage =
+        (routeContext) => {
+          navigations += 1;
+          return navigate(routeContext);
+        };
+      card._discoverAll = () => discovery;
+      card._browseWindowLoaderController.loadWindow = async () => {};
+      card._browseBackgroundWorkController.scheduleStartup = () => {};
+      card._mountEngine = () => {
+        mounts += 1;
+      };
+      card._renderAll = () => {};
+      card._subscribe = () => {};
+      card._startEditModeWatchdog = () => {};
+      card._startEditorDialogCloseObserver = () => {};
+      card._restartRealtimeHeadPollTimer = () => {};
+      card._setupResizeObserver = () => {};
+
+      const startup = card._start();
+      const beforeBarrier = {
+        mounts,
+        navigations,
+        pageId: card._pageId,
+      };
+      releaseDiscovery();
+      await startup;
+      const afterBarrier = {
+        mounts,
+        navigations,
+        pageId: card._pageId,
+      };
+      clearInterval(card._refresh);
+      card._refresh = null;
+      card.remove();
+      return { beforeBarrier, afterBarrier };
+    };
+
+    return {
+      mobile: await run({ mobile_page: "mobile-view" }),
+      single: await run({
+        mobile_page: "single-view",
+        single_view_start_mode: "live",
+      }, "ha_direct"),
+      singleGrid: await run({
+        mobile_page: "single-view",
+        single_view_start_mode: "grid",
+        grid_mode_enabled: true,
+      }),
+      preview: await run({
+        mobile_page: "preview-mobile-view",
+        preview_page_enabled: true,
+      }),
+      mutedSingle: await run({
+        mobile_page: "single-view",
+        single_view_start_mode: "live",
+      }, "frigate_go2rtc", false),
+    };
+  });
+
+  await context.close();
+  expect(state).toEqual({
+    mobile: {
+      beforeBarrier: {
+        mounts: 1,
+        navigations: 1,
+        pageId: "mobile-view",
+      },
+      afterBarrier: {
+        mounts: 1,
+        navigations: 1,
+        pageId: "mobile-view",
+      },
+    },
+    single: {
+      beforeBarrier: {
+        mounts: 1,
+        navigations: 1,
+        pageId: "single-view",
+      },
+      afterBarrier: {
+        mounts: 1,
+        navigations: 1,
+        pageId: "single-view",
+      },
+    },
+    singleGrid: {
+      beforeBarrier: {
+        mounts: 0,
+        navigations: 0,
+        pageId: "single-view",
+      },
+      afterBarrier: {
+        mounts: 1,
+        navigations: 1,
+        pageId: "single-view",
+      },
+    },
+    preview: {
+      beforeBarrier: {
+        mounts: 0,
+        navigations: 0,
+        pageId: "preview",
+      },
+      afterBarrier: {
+        mounts: 0,
+        navigations: 1,
+        pageId: "preview",
+      },
+    },
+    mutedSingle: {
+      beforeBarrier: {
+        mounts: 0,
+        navigations: 0,
+        pageId: "single-view",
+      },
+      afterBarrier: {
+        mounts: 1,
+        navigations: 1,
+        pageId: "single-view",
+      },
+    },
+  });
+});
+
 test("Recordings navigation stays dormant until the Recordings tab is requested", async ({
   page,
 }) => {

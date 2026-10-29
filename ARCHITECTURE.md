@@ -150,6 +150,14 @@ Meaning of `ha_direct`:
   action even if the immediate promise resolved. Source selection and decoding
   remain eager; a denied audible request falls back to muted playback.
 
+  A camera configured to start unmuted on standard Mobile View or live Single
+  View activates its selected live route before card-wide discovery and shared
+  playback preparation settle. Its selected transport may share those
+  in-flight preparation promises, but must not wait for the complete startup
+  barrier before mounting camera 1. Muted startup, Preview, Grid/Slideshow
+  startup, Wide View, Card View and deep-linked startup retain their existing
+  route-specific preparation barriers.
+
   Companion background-return exception: outside Catalyst, the HA Direct
   session inspects its providers on a real hidden-to-visible or pagehide-to-
   pageshow transition. Retire released/failed players before their native

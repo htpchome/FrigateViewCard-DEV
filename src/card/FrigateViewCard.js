@@ -42,6 +42,10 @@ import {
   PAGE_IDS,
   resolveDeviceRouteBucket,
 } from "../features/navigation/router.js";
+import {
+  normalizePageStartMode,
+  PAGE_START_MODES,
+} from "../features/navigation/start-mode.js";
 import { createPageNavigationController } from "../features/navigation/composition.js";
 import { createHomeAssistantDashboardControllers } from "../integrations/home-assistant/dashboard-composition.js";
 import {
@@ -126,6 +130,7 @@ import {
   buildLiveTakeSnapshotControlMarkup,
 } from "../features/live/view.tmpl.js";
 import {
+  cameraStartsUnmuted,
   getLiveAudioController,
   LiveAudioController,
 } from "../features/live/audio.ctrl.js";
@@ -1203,6 +1208,25 @@ export class FrigateViewCard extends HTMLElement {
         : this._haDirectMounter?.prepare?.()
       : Promise.resolve(false);
 
+    const activateAudibleLiveLandingEarly =
+      !this._deepLinkController.hasParsedDeepLinkTarget() &&
+      cameraStartsUnmuted(this._activeCam) &&
+      (preparedLandingPage === PAGE_IDS.mobileView ||
+        (preparedLandingPage === PAGE_IDS.singleView &&
+          normalizePageStartMode(this._config?.single_view_start_mode) ===
+            PAGE_START_MODES.live));
+    if (activateAudibleLiveLandingEarly) {
+      // Match selected-player startup: mount the visible live target while
+      // discovery and shared preparation continue in parallel. Waiting for
+      // the whole card barrier can outlive WebKit's initial navigation window.
+      getLiveAudioController(this).prepareCameraStart(this._activeCam);
+      this._pageNavigationController.navigateToConfiguredLandingPage({
+        source: "startup",
+        startup: true,
+        hasPendingDeepLinkTarget: false,
+      });
+    }
+
     await Promise.all([
       this._discoverAll(),
       landingPagePreparation,
@@ -1231,18 +1255,22 @@ export class FrigateViewCard extends HTMLElement {
     if (deepLinkHandlingEnabled) {
       await this._deepLinkController.prepareStartupCameraTarget();
     }
-    getLiveAudioController(this).prepareCameraStart(this._activeCam);
+    if (!activateAudibleLiveLandingEarly) {
+      getLiveAudioController(this).prepareCameraStart(this._activeCam);
+    }
 
     const initialLoad = this._browseWindowLoaderController.loadWindow(true);
     this._browseBackgroundWorkController.scheduleStartup({
       phone: this._isLikelyPhoneClient(),
       initialLoad,
     });
-    this._pageNavigationController.navigateToConfiguredLandingPage({
-      source: "startup",
-      startup: true,
-      hasPendingDeepLinkTarget,
-    });
+    if (!activateAudibleLiveLandingEarly) {
+      this._pageNavigationController.navigateToConfiguredLandingPage({
+        source: "startup",
+        startup: true,
+        hasPendingDeepLinkTarget,
+      });
+    }
     this._haDirectMounter?.schedulePreloadDeckAfterPaint?.();
     await initialLoad;
     this._subscribe();

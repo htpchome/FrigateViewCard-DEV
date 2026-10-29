@@ -2,6 +2,20 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.35` aligns the card-level cold-start lifecycle with Advanced
+Camera Card, rather than adding another media-element timing retry. A selected
+camera configured to start unmuted on standard Mobile View or live Single View
+now mounts immediately while discovery and shared transport preparation
+continue in parallel. The previous startup awaited the complete card
+preparation barrier before camera 1 was mounted, so Safari/Companion could lose
+the initial navigation opportunity before either HA Direct or Frigate go2rtc
+received the selected-media action. Muted startup is unchanged. Preview remains
+hard-muted, and Preview, Grid/Slideshow startup, Wide View, Card View and
+deep-linked startup retain their existing preparation barriers.
+The change does not delay source connection or add a timer, synthetic gesture,
+connection, fallback or transport-specific audio path. Physical Safari and
+Companion verification remains required.
+
 `v1.1.10-dev.34` corrects the two-phase selected-media lifecycle found by
 tracing Advanced Camera Card. ACC does not synthesize a click or user
 activation. It applies the selected target's audio/play action immediately and
