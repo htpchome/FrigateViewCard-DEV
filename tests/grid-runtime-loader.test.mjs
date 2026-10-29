@@ -9,6 +9,7 @@ import {
   LazyGridMediaController,
   LazyGridPageController,
 } from "../src/features/grid/runtime.loader.js";
+import { GridPageController } from "../src/features/grid/page.ctrl.js";
 
 const createHost = ({ mobile = false } = {}) => ({
   _config: {
@@ -170,4 +171,44 @@ test("desktop Grid activation loads once and preserves alert takeover", async ()
     ["realtime", { type: "new" }],
     ["takeover", "camera.back", "detection"],
   ]);
+});
+
+test("lazy Grid exit preserves a camera selected through the loaded runtime", () => {
+  const restoredTypes = [];
+  const host = createHost();
+  host._activeCamIdx = 0;
+  host._activeGroupMemberOverride = "";
+  host._activeStreamType = "webrtc";
+  host._lastLiveStreamHint = "webrtc";
+  host._engine = { id: "camera.front" };
+  host._mountInProgress = false;
+  host._gridMediaController = { shouldUseLive: () => true };
+  host._shouldUseGo2RtcForEntity = () => true;
+  host._setActiveStreamType = (type) => restoredTypes.push(type);
+  Object.defineProperty(host, "_activeCam", {
+    get: () => host._config.cameras[host._activeCamIdx],
+  });
+
+  const delegate = new GridPageController(host);
+  const feature = {
+    controller: (name) => (name === "page" ? delegate : null),
+    isSupported: () => true,
+  };
+  const page = new LazyGridPageController(host, feature);
+
+  assert.deepEqual(delegate.prepareLiveForGrid(), {
+    releaseMainLive: true,
+    returnEntity: "camera.front",
+  });
+  host._engine = null;
+  host._viewMode = "grid";
+  host._activeCamIdx = 1;
+
+  assert.equal(
+    page.restoreLiveAfterGrid({ preserveActiveCamera: true }),
+    false,
+  );
+  assert.equal(host._activeCamIdx, 1);
+  assert.equal(host._activeCam.entity, "camera.back");
+  assert.deepEqual(restoredTypes, ["--"]);
 });

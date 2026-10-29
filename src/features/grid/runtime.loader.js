@@ -207,8 +207,8 @@ export class LazyGridPageController {
     return this._delegate()?.retainedMainLiveEntity?.() || "";
   }
 
-  restoreLiveAfterGrid() {
-    return this._delegate()?.restoreLiveAfterGrid?.() === true;
+  restoreLiveAfterGrid(options = {}) {
+    return this._delegate()?.restoreLiveAfterGrid?.(options) === true;
   }
 
   scheduleGridRefresh(delayMs = 80) {
