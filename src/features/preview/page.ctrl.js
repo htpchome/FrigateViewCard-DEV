@@ -584,6 +584,9 @@ export class PreviewPageController {
   prepareRetainedCameraExit() {
     this._host._viewMode = "single";
     this.restoreCameraBrowseCache(this._host._activeCamIdx);
+    this._host._liveAudioController?.prepareCameraStart?.(
+      this._host._activeCam,
+    );
   }
 
   resumeRetainedCameraAfterExit() {
@@ -596,7 +599,12 @@ export class PreviewPageController {
     if (hasLiveVideo) {
       this._host._scheduleResumeLive?.("preview-retained-camera-exit");
     } else {
-      this._host._mountEngine?.();
+      const mount = this._host._mountEngine?.();
+      Promise.resolve(mount)
+        .then(() =>
+          this._host._liveAudioController?.applyCameraStartPreference?.(),
+        )
+        .catch(() => {});
     }
     void this._host._browseWindowLoaderController?.loadWindow?.(true);
     this._host._applyCalendarActivityCacheForActiveCamera?.();

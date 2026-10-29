@@ -20,8 +20,11 @@ export function activateStartupRoute(host, context = {}) {
     return;
   }
 
-  host._mountEngine();
+  const mount = host._mountEngine();
   host._renderAll({ renderWideTimeline: false });
+  Promise.resolve(mount)
+    .then(() => host._liveAudioController?.applyCameraStartPreference?.())
+    .catch(() => {});
 }
 
 export function mountEngineQuietly(host) {
@@ -34,6 +37,7 @@ export function syncStandardRouteShell(host) {
   }
   host._syncTabsShell();
   host._renderAll({ renderWideTimeline: false });
+  host._liveAudioController?.applyCameraStartPreference?.();
 }
 
 export function activateStandardPageRouteLifecycle({

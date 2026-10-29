@@ -1004,6 +1004,53 @@ test("exitPreviewPageToCamera preserves an existing active-camera live mount", (
   ]);
 });
 
+test("leaving Preview prepares the selected camera startup-audio preference", () => {
+  const { controller, host } = createHost({
+    previewEnabled: true,
+    pageId: "preview",
+  });
+  const prepared = [];
+  host._activeCam = {
+    entity: "camera.front_door",
+    start_unmuted: true,
+  };
+  host._liveAudioController = {
+    prepareCameraStart: (camera) => prepared.push(camera),
+  };
+
+  controller.prepareRetainedCameraExit();
+
+  assert.equal(host._viewMode, "single");
+  assert.deepEqual(prepared, [host._activeCam]);
+});
+
+test("leaving Preview reapplies startup audio after a fresh primary mount", async () => {
+  const { controller, host } = createHost({
+    previewEnabled: true,
+    pageId: "preview",
+  });
+  let finishMount;
+  const mounted = new Promise((resolve) => {
+    finishMount = resolve;
+  });
+  let applied = 0;
+  host._mountEngine = () => mounted;
+  host._liveAudioController = {
+    applyCameraStartPreference: () => {
+      applied += 1;
+    },
+  };
+
+  controller.resumeRetainedCameraAfterExit();
+  assert.equal(applied, 0);
+
+  finishMount();
+  await mounted;
+  await Promise.resolve();
+
+  assert.equal(applied, 1);
+});
+
 test("exitPreviewPageToCamera switches camera for non-active selection", () => {
   const { controller, calls, host } = createHost({
     previewEnabled: true,

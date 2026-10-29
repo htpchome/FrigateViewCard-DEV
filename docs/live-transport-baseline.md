@@ -2,6 +2,16 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.26` restores the per-camera startup-audio preference at page
+ownership boundaries. Mobile View and Card View now reapply the preference
+after their primary live mount settles, while ordinary page-shell handoffs
+reapply it to an already retained selected player. Leaving Preview explicitly
+prepares the selected camera before its retained-or-fresh primary player is
+resumed; Preview tiles themselves remain hardcoded muted. Single View, Wide
+View, and Mobile View can therefore honor the configured preference after a
+Preview exit. Manual mute state, Grid media, background players, and transport
+selection are unchanged.
+
 `v1.1.10-dev.25` defers the initial selected audible request until loaded data,
 not just the later selected-player retry. Receive-only go2rtc WebRTC gathers
 received tracks once the peer connects, assigns one stream, and adds late tracks

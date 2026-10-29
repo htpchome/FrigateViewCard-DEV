@@ -52,12 +52,22 @@ test("activateStandardPageRouteLifecycle skips outgoing DOM work on non-startup 
   ]);
 });
 
-test("activateStandardPageRouteLifecycle starts live and renders on startup routes", () => {
+test("activateStandardPageRouteLifecycle reapplies startup audio after a startup mount settles", async () => {
   const calls = [];
+  let finishMount;
+  const mounted = new Promise((resolve) => {
+    finishMount = resolve;
+  });
   const host = {
     _pageId: "mobile-view",
-    _mountEngine: () => calls.push(["mountEngine"]),
+    _mountEngine: () => {
+      calls.push(["mountEngine"]);
+      return mounted;
+    },
     _renderAll: (options) => calls.push(["renderAll", options]),
+    _liveAudioController: {
+      applyCameraStartPreference: () => calls.push(["applyStartupAudio"]),
+    },
   };
 
   activateStandardPageRouteLifecycle({
@@ -71,6 +81,33 @@ test("activateStandardPageRouteLifecycle starts live and renders on startup rout
     ["applyRouteFrame"],
     ["mountEngine"],
     ["renderAll", { renderWideTimeline: false }],
+  ]);
+
+  finishMount();
+  await mounted;
+  await Promise.resolve();
+
+  assert.deepEqual(calls.at(-1), ["applyStartupAudio"]);
+});
+
+test("syncStandardRouteShell reapplies startup audio to retained live media", () => {
+  const calls = [];
+  const host = {
+    _renderShellPreserveLive: () => calls.push(["renderShellPreserveLive"]),
+    _syncTabsShell: () => calls.push(["syncTabsShell"]),
+    _renderAll: (options) => calls.push(["renderAll", options]),
+    _liveAudioController: {
+      applyCameraStartPreference: () => calls.push(["applyStartupAudio"]),
+    },
+  };
+
+  syncStandardRouteShell(host);
+
+  assert.deepEqual(calls, [
+    ["renderShellPreserveLive"],
+    ["syncTabsShell"],
+    ["renderAll", { renderWideTimeline: false }],
+    ["applyStartupAudio"],
   ]);
 });
 
