@@ -187,6 +187,37 @@ function createBaseMounter(overrides = {}) {
   });
 }
 
+test("hidden go2rtc race candidates use muted playback without consuming startup audio", async () => {
+  await withFakeDocument(() => withFakeObjectUrl(async () => {
+    let startupPlaybackRequests = 0;
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: (options = {}) => ({
+          entity: "camera.front",
+          ...options,
+        }),
+      },
+      getStreamMuted: () => true,
+      createStartupPlayback: () => {
+        startupPlaybackRequests += 1;
+        return null;
+      },
+      waitForStreamStart: async () => true,
+    });
+
+    const result = await mounter.tryMountHls(
+      createSlot(),
+      { waitMs: 100 },
+      { commit: false },
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(startupPlaybackRequests, 0);
+    assert.equal(result.engine.video.muted, true);
+    result.engine.destroy();
+  }));
+});
+
 for (const transport of ["WebRtc", "Mse", "Hls"]) {
   for (const denied of transport === "WebRtc" ? [false, true, "cancel"] : [false, true]) {
     test(`go2rtc ${transport} applies selected audio at first playback, before commit (denied=${denied})`, async () => {

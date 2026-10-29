@@ -184,9 +184,16 @@ export function createGo2RtcMounter({
     );
 
     let destroyed = false;
-    const initialPlayback = options.muted == null ? createStartupPlayback?.(video, {
-      entity, isCurrent: () => !destroyed && !abortSignal?.aborted,
-    }) : null;
+    // Race candidates are intentionally mounted hidden. Keep them on ordinary
+    // muted autoplay and let only the adopted, visible winner own the camera's
+    // startup-audio preference.
+    const initialPlayback =
+      options.muted == null && commit !== false
+        ? createStartupPlayback?.(video, {
+            entity,
+            isCurrent: () => !destroyed && !abortSignal?.aborted,
+          })
+        : null;
     if (initialPlayback) video.autoplay = false;
     const mediaSource = new MediaSourceCtor();
     video.src = URL.createObjectURL(mediaSource);
@@ -418,14 +425,20 @@ export function createGo2RtcMounter({
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
 
-    const initialPlayback = options.muted == null ? createStartupPlayback?.(video, {
-      entity, isCurrent: () => !destroyed && !abortSignal?.aborted,
-      waitForData: !microphoneTrack,
-      onDispose: () => {
-        // Cancelling an audio preference must not cancel muted video startup.
-        if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
-      },
-    }) : null;
+    // A hidden race candidate must not consume Safari's audible-autoplay
+    // decision before it is selected and presented by the card.
+    const initialPlayback =
+      options.muted == null && commit !== false
+        ? createStartupPlayback?.(video, {
+            entity,
+            isCurrent: () => !destroyed && !abortSignal?.aborted,
+            waitForData: !microphoneTrack,
+            onDispose: () => {
+              // Cancelling audio must not cancel ordinary muted autoplay.
+              if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
+            },
+          })
+        : null;
     if (initialPlayback) video.autoplay = false;
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
@@ -775,9 +788,14 @@ export function createGo2RtcMounter({
 
     let abortBound = false;
     let destroyed = false;
-    const initialPlayback = options.muted == null ? createStartupPlayback?.(video, {
-      entity, isCurrent: () => !destroyed && !abortSignal?.aborted,
-    }) : null;
+    // Selection audio is applied after a race winner becomes visible.
+    const initialPlayback =
+      options.muted == null && commit !== false
+        ? createStartupPlayback?.(video, {
+            entity,
+            isCurrent: () => !destroyed && !abortSignal?.aborted,
+          })
+        : null;
     if (initialPlayback) video.autoplay = false;
     video.src = hlsSource.url;
     mountNodeIntoSlot(slot, video);

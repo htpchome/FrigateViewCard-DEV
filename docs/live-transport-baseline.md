@@ -843,6 +843,10 @@ one of those policies is the cause.
   rather than arbitrating child transport events. It therefore leaves HLS
   fallback under `ha-camera-stream` ownership when WebRTC is unavailable.
   Editor handoff also prefers the sole active provider over retained offers.
+- `v1.1.10-dev.29` keeps hidden Frigate go2rtc WebRTC, MSE, and HLS race
+  candidates on muted autoplay. A candidate no longer consumes the selected
+  camera's audible-start request before it wins and is presented; the adopted
+  visible player remains the sole owner of `Start Camera Unmuted`.
 
 ## Validation Expectations
 
