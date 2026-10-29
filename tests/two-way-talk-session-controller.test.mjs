@@ -122,6 +122,21 @@ test("two-way-talk availability rejects grid and alternate group members", () =>
   assert.equal(controller.shouldRenderButtonForActiveCamera(), false);
 });
 
+test("stopping without a two-way-talk session preserves selected live audio", async () => {
+  const { calls, controller } = createHost(true);
+
+  await controller.stopSession({ restoreLive: false });
+
+  assert.equal(
+    calls.some(([action]) => action === "live-audio"),
+    false,
+  );
+  assert.deepEqual(calls, [
+    ["soundwave", "stop"],
+    ["sync"],
+  ]);
+});
+
 for (const change of ["camera", "transport", "cancel"]) {
   test(`HA talk does not start a stale prepared connection after ${change} changes`, async () => {
     await withFakeMicrophone(async () => {

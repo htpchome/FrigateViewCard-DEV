@@ -2,6 +2,13 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.27` keeps defensive two-way-talk cleanup from muting live audio
+when no talk session exists. Mobile View and Card View perform that cleanup on
+route activation; treating the empty cleanup as a real talk shutdown canceled
+the selected camera's pending `start_unmuted` preference before transport
+startup. Active talk sessions still mute incoming audio when stopped. Preview
+tiles remain hardcoded muted.
+
 `v1.1.10-dev.26` restores the per-camera startup-audio preference at page
 ownership boundaries. Mobile View and Card View now reapply the preference
 after their primary live mount settles, while ordinary page-shell handoffs

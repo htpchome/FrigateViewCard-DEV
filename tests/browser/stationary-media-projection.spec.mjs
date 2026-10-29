@@ -753,6 +753,108 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
   }
 }
 
+for (const landingPage of [
+  "single-view",
+  "mobile-view",
+  "wide-view",
+  "card-view",
+]) {
+  test(`${landingPage} landing applies selected-camera startup audio`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (pageId) => {
+      const { installHaCameraLifecycleFixture } = await import(
+        "/tests/fixtures/ha-camera-lifecycle.mjs"
+      );
+      const audit = installHaCameraLifecycleFixture({
+        webRtc: true,
+        supportedTypes: ["web_rtc"],
+        auditStartupAudio: true,
+      });
+      await import("/dist/frigate-view-card.js");
+      const tagName = `startup-audio-${pageId}`;
+      customElements.define(
+        tagName,
+        class extends customElements.get("frigate-view-card") {
+          connectedCallback() {}
+          disconnectedCallback() {}
+        },
+      );
+      const anchor = document.createElement("home-assistant");
+      anchor.attachShadow({ mode: "open" });
+      document.body.append(anchor);
+      const card = document.createElement(tagName);
+      card.setConfig({
+        cameras: [
+          {
+            entity: "camera.one",
+            connection_type: "ha_direct",
+            start_unmuted: true,
+          },
+        ],
+        mobile_view_page_enabled: true,
+        wide_view_page_enabled: true,
+        card_view_page_enabled: true,
+      });
+      card._hass = {
+        connection: {},
+        callWS: audit.callWS,
+        states: {
+          "camera.one": {
+            entity_id: "camera.one",
+            state: "recording",
+            attributes: {},
+          },
+        },
+      };
+      card._activeCamIdx = 0;
+      card._started = true;
+      anchor.shadowRoot.append(card);
+      await card._haDirectMounter.prepare();
+      if (pageId === "wide-view") {
+        await card._wideViewPageController.prepare({ startup: true });
+      }
+      if (pageId === "card-view") {
+        await card._cardViewPageController.prepare({ startup: true });
+      }
+      card._pageNavigationController.preparePageRouteShell(pageId);
+      card._liveAudioController.prepareCameraStart(card._activeCam);
+      card._pageNavigationController.navigateToPageRoute(pageId, {
+        source: "startup-audio-page-test",
+        startup: true,
+      });
+      window.startupAudioPageProbe = { audit, card };
+    }, landingPage);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const { card } = window.startupAudioPageProbe;
+          const records = [
+            ...(card._engine?.haDirectSession?.records.values() || []),
+          ];
+          return records.find((record) => record.entity === "camera.one")
+            ?.status;
+        }),
+      )
+      .toBe("ready");
+    expect(
+      await page.evaluate(() => {
+        const { card } = window.startupAudioPageProbe;
+        const record = card._engine.haDirectSession.get("camera.one");
+        return {
+          pageId: card._pageId,
+          streamMuted: card._streamMuted,
+          videoMuted: record.video.muted,
+        };
+      }),
+    ).toEqual({
+      pageId: landingPage,
+      streamMuted: false,
+      videoMuted: false,
+    });
+  });
+}
+
 for (const scenario of scenarios.flatMap((scenario) => ["hui-card", "div"].map((dashboardHost) => ({ ...scenario, dashboardHost })))) {
   const { transport } = scenario;
   test(`production bundle starts and retains the HA Direct ${scenario.name} session (${scenario.dashboardHost})`, async ({ page }) => {

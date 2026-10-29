@@ -278,7 +278,10 @@ export class TwoWayTalkSessionController {
     host._twoWayTalkSoundwaveController?.stop();
     host._twoWayTalkSession = null;
     host._twoWayTalkEntity = "";
-    host._setTwoWayTalkLiveAudioActive(false);
+    // Mobile and Card routes call this defensively on every activation. A
+    // no-session cleanup must not override the selected camera's startup-audio
+    // preference before its live player mounts.
+    if (session) host._setTwoWayTalkLiveAudioActive(false);
     host._syncTwoWayTalkSoundwaveSurface?.();
     if (!session) {
       host._syncTwoWayTalkButton();
