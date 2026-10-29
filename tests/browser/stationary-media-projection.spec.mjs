@@ -721,8 +721,19 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
         card._liveAudioController.prepareCameraStart(card._activeCam);
         await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
       }, { transport, denied });
-      await expect.poll(() => page.evaluate(() => [...(window.startupAudioProbe.card._engine?.haDirectSession?.records.values() || [])]
-        .filter((record) => record.status === "ready").length)).toBe(2);
+      await expect.poll(() => page.evaluate(() =>
+        window.startupAudioProbe.audit.playbackRequests.filter(
+          (request) =>
+            request.entity === "camera.one" &&
+            !request.hidden &&
+            request.readyState >= 2,
+        ).length), {
+        timeout: 15000,
+      }).toBeGreaterThan(0);
+      await expect.poll(() => page.evaluate(() =>
+        window.startupAudioProbe.audit.playbackRequests.some(
+          (request) => request.entity === "camera.two",
+        )), { timeout: 15000 }).toBe(true);
       const result = await page.evaluate(() => {
         const { card, audit } = window.startupAudioProbe;
         return { requests: audit.playbackRequests,
@@ -735,7 +746,8 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       const first = result.requests.filter((request) => request.entity === "camera.one" && !request.hidden);
       expect(first.length, JSON.stringify(result)).toBeGreaterThan(0);
       expect(first[0].muted, JSON.stringify(result)).toBe(false);
-      expect(first.every((request) => request.readyState >= 2), JSON.stringify(result)).toBe(true);
+      expect(first.some((request) => request.readyState < 2), JSON.stringify(result)).toBe(true);
+      expect(first.some((request) => request.readyState >= 2), JSON.stringify(result)).toBe(true);
       expect(result.muted).toBe(denied === true);
       expect(result.uiMuted).toBe(denied === true);
       if (denied === true) {

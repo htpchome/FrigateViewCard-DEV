@@ -195,38 +195,7 @@ function createBaseMounter(overrides = {}) {
   });
 }
 
-test("go2rtc race candidates retain shared startup playback ownership", async () => {
-  await withFakeDocument(() => withFakeObjectUrl(async () => {
-    let startupPlaybackRequests = 0;
-    const mounter = createBaseMounter({
-      resolver: {
-        resolveMountRequest: (options = {}) => ({
-          entity: "camera.front",
-          ...options,
-        }),
-      },
-      getStreamMuted: () => true,
-      createStartupPlayback: () => {
-        startupPlaybackRequests += 1;
-        return null;
-      },
-      waitForStreamStart: async () => true,
-    });
-
-    const result = await mounter.tryMountHls(
-      createSlot(),
-      { waitMs: 100 },
-      { commit: false },
-    );
-
-    assert.equal(result.ok, true);
-    assert.equal(startupPlaybackRequests, 1);
-    assert.equal(result.engine.video.muted, true);
-    result.engine.destroy();
-  }));
-});
-
-test("go2rtc without a selected startup owner uses ordinary muted autoplay", async () => {
+test("go2rtc lets selected audio own the first play before media loads", async () => {
   await withFakeDocument(() => withFakeObjectUrl(async () => {
     const camera = { entity: "camera.front", start_unmuted: true };
     const host = {
@@ -243,6 +212,10 @@ test("go2rtc without a selected startup owner uses ordinary muted autoplay", asy
         resolveMountRequest: () => ({ entity: camera.entity, commit: true }),
       },
       getStreamMuted: () => host._streamMuted,
+      prepareSelectedPlayback: (video, options) =>
+        audio.prepareSelectedPlayback(video, options),
+      releasePreparedPlayback: (video) =>
+        audio.releasePreparedPlayback(video),
       attachVideoFit: (video) => {
         video.readyState = 0;
         video.play = () => {
@@ -260,12 +233,13 @@ test("go2rtc without a selected startup owner uses ordinary muted autoplay", asy
       waitForStreamStart: async (slot) => {
         const video = slot.lastChild;
         await flushMicrotasks();
-        assert.equal(video.autoplay, true);
-        assert.equal(video.muted, true);
+        assert.equal(video.autoplay, false);
+        assert.equal(video.muted, false);
         assert.deepEqual(requests, [
-          { muted: true, defaultMuted: false, readyState: 0 },
+          { muted: false, defaultMuted: false, readyState: 0 },
         ]);
         video.readyState = 2;
+        video.dispatchEvent(new Event("loadeddata"));
         return true;
       },
       onCommittedStream: () => audio.applyCameraStartPreference(),
@@ -276,122 +250,13 @@ test("go2rtc without a selected startup owner uses ordinary muted autoplay", asy
 
     assert.equal(mounted, true);
     assert.deepEqual(requests, [
-      { muted: true, defaultMuted: false, readyState: 0 },
+      { muted: false, defaultMuted: false, readyState: 0 },
       { muted: false, defaultMuted: false, readyState: 2 },
     ]);
     assert.equal(host._streamMuted, false);
     audio.dispose();
   }));
 });
-
-for (const transport of ["WebRtc", "Mse", "Hls"]) {
-  for (const denied of transport === "WebRtc" ? [false, true, "cancel"] : [false, true]) {
-    test(`go2rtc ${transport} applies the selected action before source readiness and defers its loaded reapply (denied=${denied})`, async () => {
-      await withFakeDocument(() => withFakeObjectUrl(async () => {
-        const camera = { entity: "camera.front", start_unmuted: true };
-        const host = { _activeCam: camera, _engine: null, _renderMuteButton() {} };
-        const audio = new LiveAudioController(host, { interactionTarget: null });
-        audio.prepareCameraStart(camera);
-        let peer;
-        let startupVideo;
-        const videoTrack = { kind: "video", readyState: "live", stop() {} };
-        const audioTrack = { kind: "audio", readyState: "live", stop() {} };
-        class Socket extends EventTarget { close() {} }
-        class Peer extends EventTarget {
-          constructor() { super(); peer = this; this.connectionState = "connecting"; }
-          addTransceiver() {}
-          getTransceivers() { return []; }
-          close() {}
-        }
-        class Source extends EventTarget { static isTypeSupported() { return true; } }
-        const previousSocket = globalThis.WebSocket;
-        const previousPeer = globalThis.RTCPeerConnection;
-        const previousStream = globalThis.MediaStream;
-        globalThis.MediaStream = class {
-          constructor(tracks = []) { this.tracks = [...tracks]; }
-          getTracks() { return this.tracks; }
-          addTrack(track) { this.tracks.push(track); }
-        };
-        globalThis.WebSocket = Socket;
-        globalThis.RTCPeerConnection = Peer;
-        const calls = [];
-        const mounter = createBaseMounter({
-          getStreamMuted: () => true,
-          createStartupPlayback(video, options) {
-            startupVideo = video;
-            video.readyState = 0;
-            video.play = () => {
-              calls.push(video.muted);
-              return denied === true && !video.muted
-                ? Promise.reject(new DOMException("Denied", "NotAllowedError")) : Promise.resolve();
-            };
-            return audio.createInitialPlayback(video, options);
-          },
-          waitForStreamStart: async () => {
-            await flushMicrotasks();
-            if (transport === "WebRtc") {
-              peer.dispatchEvent(Object.assign(new Event("track"), { track: videoTrack, streams: [] }));
-              assert.equal(startupVideo.srcObject, undefined);
-              assert.deepEqual(calls,
-                denied === true ? [false, true] : [false],
-                "the selected owner acts before its WebRTC source is attached");
-              peer.connectionState = "connected";
-              peer.dispatchEvent(new Event("connectionstatechange"));
-              const stream = startupVideo.srcObject;
-              assert.deepEqual(stream.getTracks(), [videoTrack]);
-              await flushMicrotasks();
-              assert.deepEqual(calls,
-                denied === true ? [false, true] : [false]);
-              peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
-              assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
-              assert.deepEqual(stream.getTracks(), [videoTrack, audioTrack]);
-              if (denied === "cancel") {
-                assert.equal(startupVideo.autoplay, false);
-                audio.cancelCameraStartPreference();
-                assert.equal(startupVideo.autoplay, true, "cancelled audio restores ordinary muted autoplay");
-                assert.equal(startupVideo.muted, true);
-              }
-              startupVideo.readyState = 2;
-              startupVideo.dispatchEvent(new Event("loadeddata"));
-            } else {
-              startupVideo.readyState = 2;
-              startupVideo.dispatchEvent(new Event("loadeddata"));
-            }
-            await flushMicrotasks();
-            assert.deepEqual(calls,
-              denied === true ? [false, true] : [false],
-              "loaded readiness is held until the race winner is committed");
-            assert.equal(host._engine, null);
-            return true;
-          },
-        });
-        try {
-          const slot = createSlot();
-          const result = await withFakeWindow({ WebSocket: Socket, RTCPeerConnection: Peer, MediaSource: Source },
-            () => mounter[`tryMount${transport}`](slot));
-          assert.equal(result.ok, true);
-          assert.equal(slot.autoplayAtAppend[0], false,
-            "the selected startup owner must hold native autoplay");
-          assert.equal(slot.mutedAtAppend[0], true,
-            "ACC's selected media enters the document muted before its early action");
-          result.engine.commitStartupPlayback();
-          await flushMicrotasks();
-          assert.deepEqual(calls,
-            denied === "cancel" ? [false]
-              : denied === true ? [false, true, false, true]
-                : [false, false],
-            "only the committed race winner receives the loaded-media reapply");
-          result.engine.destroy();
-        } finally {
-          audio.dispose();
-          globalThis.WebSocket = previousSocket;
-          globalThis.RTCPeerConnection = previousPeer;
-          globalThis.MediaStream = previousStream;
-        }
-      }));
-    });
-  }
-}
 
 test("go2rtc mounter MSE path exits when no mount entity resolves", async () => {
   const slot = createSlot();

@@ -107,20 +107,6 @@ export function createHaDirectSession({
         // player asks for audio while loading muted, then its selected-media
         // action unmutes and plays only after the child reports loaded media.
         outputMuted: true,
-        startupUnmuted: startupAudio,
-        createStartupPlayback: (video, options) => {
-          if (!active?.visible(entity) || active?.startupMuted?.(entity) !== false) return null;
-          return active.createStartupPlayback?.(video, {
-            ...options, entity,
-            onUnmuted: () => {
-              active?.setMuted?.(false);
-              record.provider?.fvcSetOutputMuted?.(false);
-              options.onUnmuted?.();
-            },
-            isCurrent: () => !disposed && records.get(entity) === record &&
-              active?.visible(entity) && options.isCurrent(),
-          });
-        },
         onState: (state) => {
           if (disposed || records.get(entity) !== record) return;
           Object.assign(record, state);

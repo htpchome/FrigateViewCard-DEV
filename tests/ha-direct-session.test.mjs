@@ -15,17 +15,14 @@ const fixture = (options = {}) => {
     onState,
     muted,
     outputMuted,
-    startupUnmuted,
-    createStartupPlayback,
   }) => {
     const entity = stateObj.entity_id;
-    options.onCreate?.({ entity, muted, outputMuted, startupUnmuted });
+    options.onCreate?.({ entity, muted, outputMuted });
     calls.push(["create", entity]);
     callbacks.set(entity, onState);
     const provider = {
       stateObj,
       outputMuted,
-      createStartupPlayback,
       fvcSetOutputMuted(nextMuted) { this.outputMuted = nextMuted; },
     };
     return { provider, dispose: () => calls.push(["release", entity]),
@@ -64,8 +61,7 @@ test("selected HA Direct audio preference reaches provider construction before w
   const owner = f.client();
   owner.startupMuted = () => false;
   f.session.attach(owner);
-  assert.deepEqual(starts, [{ entity: "camera.one", muted: false, outputMuted: true,
-    startupUnmuted: true }]);
+  assert.deepEqual(starts, [{ entity: "camera.one", muted: false, outputMuted: true }]);
   f.session.sync(owner);
   assert.equal(f.session.get("camera.one").provider.muted, false);
   owner.startupMuted = () => true; // Manual control cancels the startup preference.
@@ -80,8 +76,8 @@ test("selected HA Direct audio preference reaches provider construction before w
   assert.equal(f.session.get("camera.one").provider.outputMuted, true);
   await f.ready("camera.one");
   assert.deepEqual(starts, [
-    { entity: "camera.one", muted: false, outputMuted: true, startupUnmuted: true },
-    { entity: "camera.two", muted: true, outputMuted: true, startupUnmuted: false },
+    { entity: "camera.one", muted: false, outputMuted: true },
+    { entity: "camera.two", muted: true, outputMuted: true },
   ]);
   f.session.dispose();
 });
@@ -98,31 +94,6 @@ test("selected HA Direct projection is visible before provider construction", ()
   assert.ok(createIndex >= 0);
   assert.ok(projectIndex < createIndex);
   assert.equal(f.session.get("camera.one").slot.style.opacity, "1");
-  f.session.dispose();
-});
-
-test("selected HA Direct startup action updates card and provider mute ownership together", () => {
-  const f = fixture();
-  const owner = f.client();
-  const muted = [];
-  let startupOptions;
-  owner.startupMuted = () => false;
-  owner.setMuted = (value) => muted.push(value);
-  owner.createStartupPlayback = (_video, options) => {
-    startupOptions = options;
-    return { options };
-  };
-  f.session.attach(owner);
-  const provider = f.session.get("camera.one").provider;
-  const playback = provider.createStartupPlayback({}, {
-    isCurrent: () => true,
-    onUnmuted: () => muted.push("provider"),
-  });
-
-  assert.ok(playback);
-  startupOptions.onUnmuted();
-  assert.deepEqual(muted, [false, "provider"]);
-  assert.equal(provider.outputMuted, false);
   f.session.dispose();
 });
 

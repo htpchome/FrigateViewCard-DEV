@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/browser",
@@ -8,8 +8,28 @@ export default defineConfig({
     headless: true,
   },
   projects: [
-    { name: "chromium", use: { browserName: "chromium" } },
-    { name: "firefox", use: { browserName: "firefox" } },
-    { name: "webkit", use: { browserName: "webkit" } },
+    {
+      name: "chromium",
+      testIgnore: /iphone-start-unmuted\.spec\.mjs/,
+      use: { browserName: "chromium" },
+    },
+    {
+      name: "firefox",
+      testIgnore: /iphone-start-unmuted\.spec\.mjs/,
+      use: { browserName: "firefox" },
+    },
+    {
+      name: "webkit",
+      testIgnore: /iphone-start-unmuted\.spec\.mjs/,
+      use: { browserName: "webkit" },
+    },
+    {
+      name: "iphone-webkit",
+      testMatch: /iphone-start-unmuted\.spec\.mjs/,
+      use: {
+        ...devices["iPhone 15 Pro"],
+        browserName: "webkit",
+      },
+    },
   ],
 });

@@ -1072,6 +1072,17 @@ one of those policies is the cause.
   policy, retention, or muted-camera startup behavior. It prevents WebKit from
   making the first audible-playback decision while the selected media owner is
   still hidden or unprojected.
+- `v1.1.10-dev.56` removes the rejected multi-owner startup-audio machinery and
+  matches Advanced Camera Card v8.1.0's selected-media lifecycle directly.
+  The first selected go2rtc candidate is attached to its visible startup
+  surface before the one live-audio controller unmutes it and requests its
+  first playback; competing race candidates remain hidden and muted. The
+  selected action repeats on `loadeddata`, then follows the winning retained
+  engine without starting another transport. HA Direct uses the same action
+  while preserving its separate audio-capable stream-selection latch. A
+  rejected play promise does not install a page-wide tap retry; an actual
+  `NotAllowedError` resumes muted playback, matching Advanced Camera Card's
+  media-player fallback.
 
 ## Validation Expectations
 

@@ -34,16 +34,11 @@ export function createHaDirectCameraProvider({
   onState,
   muted = true,
   outputMuted = muted,
-  startupUnmuted = false,
-  createStartupPlayback,
 }) {
   const provider = createHaCameraStreamElement({
     stateObj, muted, defaultMuted: muted, controls: false, fitMode: "contain",
     styleText: "display:block;width:100%;height:100%",
   });
-  const providerAutoplay = provider.autoPlay;
-  if (startupUnmuted) provider.autoPlay = false;
-  provider.fvcStartupPlaybackOwned = startupUnmuted === true;
   let selection = [];
   let hlsPending = false;
   let disposed = false;
@@ -51,45 +46,9 @@ export function createHaDirectCameraProvider({
   let watchedVideo = null;
   let stopFrameWatch = () => {};
   let stopVideoEvents = () => {};
-  let initialPlayback = null;
-  let restoreAutoplay = () => {};
   let observer = null;
   let observedPlayerRoot;
   let intendedOutputMuted = Boolean(outputMuted);
-  let holdStartupAutoplay = startupUnmuted === true;
-  const heldPlayerAutoplay = new Map();
-  const heldVideoAutoplay = new Map();
-  const holdNativeAutoplay = () => {
-    if (!holdStartupAutoplay) return;
-    const players =
-      provider.shadowRoot?.querySelectorAll(
-        "ha-hls-player,ha-web-rtc-player",
-      ) || [];
-    for (const player of players) {
-      if (!heldPlayerAutoplay.has(player)) {
-        heldPlayerAutoplay.set(player, player.autoPlay);
-      }
-      const playerVideo = player.shadowRoot?.querySelector("video") || player.video;
-      if (playerVideo && !heldVideoAutoplay.has(playerVideo)) {
-        heldVideoAutoplay.set(playerVideo, playerVideo.autoplay);
-      }
-      player.autoPlay = false;
-      if (playerVideo) playerVideo.autoplay = false;
-    }
-  };
-  const restoreNativeAutoplay = () => {
-    holdStartupAutoplay = false;
-    if (startupUnmuted) provider.autoPlay = providerAutoplay;
-    for (const [player, autoplay] of heldPlayerAutoplay) {
-      player.autoPlay = autoplay;
-    }
-    for (const [video, autoplay] of heldVideoAutoplay) {
-      video.autoplay = autoplay;
-    }
-    heldPlayerAutoplay.clear();
-    heldVideoAutoplay.clear();
-  };
-  provider.fvcReleaseStartupAutoplay = restoreNativeAutoplay;
   const applyOutputMute = () => {
     const activePlayer = findActiveHaCameraStreamPlayer(provider);
     for (const player of provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || []) {
@@ -109,7 +68,6 @@ export function createHaDirectCameraProvider({
   if (provider.shadowRoot) {
     observer = new MutationObserver(() => {
       applyOutputMute();
-      holdNativeAutoplay();
       void reconcile();
     });
     observer.observe(provider.shadowRoot, {
@@ -149,9 +107,6 @@ export function createHaDirectCameraProvider({
     if (video === watchedVideo && video) return;
     stopFrameWatch();
     stopVideoEvents();
-    restoreAutoplay();
-    initialPlayback?.dispose();
-    initialPlayback = null;
     watchedVideo = video;
     const selected = selection.find((item) => item.visible);
     if (selected?.type === "mjpeg" && !hlsPending) {
@@ -161,34 +116,6 @@ export function createHaDirectCameraProvider({
     const loading = () => onState({ status: "loading", streamType: "", video: null });
     if (!video) { loading(); return; }
     const current = () => !disposed && video === watchedVideo && findActiveHaCameraStreamVideo(provider) === video;
-    initialPlayback = createStartupPlayback?.(video, {
-      isCurrent: current,
-      replaceExisting: true,
-      onUnmuted: () => {
-        intendedOutputMuted = false;
-        applyOutputMute();
-      },
-      onDispose: () => restoreAutoplay(),
-      onMuted: () => {
-        intendedOutputMuted = true;
-        applyOutputMute();
-      },
-    });
-    if (initialPlayback) {
-      holdNativeAutoplay();
-      let restored = false;
-      restoreAutoplay = () => {
-        if (restored) return;
-        restored = true;
-        restoreNativeAutoplay();
-      };
-      // HA may expose the selected child before or after loadeddata. Never
-      // establish muted autoplay first: the selected startup action owns the
-      // first play once media is usable, matching ACC's provider lifecycle.
-      if (Number(video.readyState) >= 2) {
-        queueMicrotask(() => void initialPlayback?.play?.({ loadedReapply: true }));
-      }
-    }
     let ready = false;
     let waitingTime = video.currentTime;
     const onReady = () => {
@@ -253,8 +180,6 @@ export function createHaDirectCameraProvider({
       hlsRecovery.dispose();
       stopFrameWatch();
       stopVideoEvents();
-      restoreAutoplay();
-      initialPlayback?.dispose();
       observer?.disconnect();
       provider.removeEventListener("streams", reconcile, true);
       provider.removeEventListener("load", reconcile, true);

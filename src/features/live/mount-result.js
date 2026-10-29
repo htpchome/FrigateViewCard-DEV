@@ -67,17 +67,14 @@ export const adoptMountedAttemptResult = ({
   });
   result.engine.activateRecovery?.();
   assignEngine?.(result.engine);
-  result.engine.commitStartupPlayback?.();
   setEngineMountedMuted?.(streamMuted);
   setActiveStreamType?.(result.type);
   setStreamLoading?.(false);
   setStreamFallbackVisible?.(false);
   if (rotateOverlayActive) setLiveNativeControls?.(true);
-  if (result.engine.startupPlaybackDeferred !== true) {
-    try {
-      void result.engine.video?.play?.()?.catch?.(() => {});
-    } catch (_) {}
-  }
+  try {
+    void result.engine.video?.play?.()?.catch?.(() => {});
+  } catch (_) {}
   return true;
 };
 

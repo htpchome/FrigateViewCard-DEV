@@ -1407,6 +1407,7 @@ export class FrigateViewCard extends HTMLElement {
 
   _assignLiveEngine(engine, options = {}) {
     getLiveMediaPresentationController(this).assignEngine(engine, options);
+    if (engine) getLiveAudioController(this).applyCameraStartPreference();
   }
 
   _attachMainLiveVideoZoom(
@@ -1508,14 +1509,7 @@ export class FrigateViewCard extends HTMLElement {
     });
     this._cameraGroupLiveController?.sync?.();
     const mounted = await mountPromise;
-    const startupPlaybackOwned =
-      this._engine?.startupPlaybackDeferred === true ||
-      this._engine?.fvcStartupPlaybackOwned === true;
-    this._cameraGroupLiveController?.sync?.({
-      playbackOwner: startupPlaybackOwned
-        ? this._cameraGroupLiveController?.activeVideo?.()
-        : null,
-    });
+    this._cameraGroupLiveController?.sync?.();
     return mounted;
   }
 

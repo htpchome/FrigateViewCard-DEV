@@ -311,7 +311,7 @@ test("go2rtc race mounter excludes HLS from automatic startup", () => {
   );
 });
 
-test("start-unmuted go2rtc exposes its primary attempt before transport startup", async () => {
+test("start-unmuted go2rtc keeps candidates hidden until a winner is selected", async () => {
   const previousDocument = globalThis.document;
   const created = [];
   globalThis.document = {
@@ -334,7 +334,6 @@ test("start-unmuted go2rtc exposes its primary attempt before transport startup"
         tryMountMse: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
-      getStartupMuted: () => false,
       getPendingMountDestroyers: () => pendingDestroyers,
       setPendingMountDestroyers: (next) => {
         pendingDestroyers = next;
@@ -359,7 +358,7 @@ test("start-unmuted go2rtc exposes its primary attempt before transport startup"
       forcedType: "webrtc",
       mountToken: 1,
     }), true);
-    assert.match(created[0].style.cssText, /opacity:1/);
+    assert.match(created[0].style.cssText, /opacity:0/);
   } finally {
     globalThis.document = previousDocument;
   }

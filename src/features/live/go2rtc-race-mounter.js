@@ -365,9 +365,7 @@ export function createGo2RtcRaceMounter({
       const exposeStartupSurface =
         !startupSurfaceClaimed && getStartupMuted(targetEntity) === false;
       if (exposeStartupSurface) startupSurfaceClaimed = true;
-      return createAttemptSlot(hostSlot, {
-        exposeStartupSurface,
-      });
+      return createAttemptSlot(hostSlot, { exposeStartupSurface });
     };
     const builders = {
       webrtc: (attemptOptions = {}) =>

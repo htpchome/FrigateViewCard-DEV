@@ -249,7 +249,7 @@ for (const startUnmuted of [false, true]) {
 }
 
 for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
-  test(`${connectionType} interrupted startup audio retries on readiness in the bundle`, async ({ page }) => {
+  test(`${connectionType} interrupted startup audio remains selected without readiness retries`, async ({ page }) => {
     await page.goto(baseUrl);
     const state = await page.evaluate(async (connectionType) => {
       await import("/frigate-view-card.js");
@@ -299,7 +299,7 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
     }, connectionType);
     expect(state).toEqual({
       afterInterruption: { muted: false, plays: 1 },
-      playStates: [false, false], retained: true, manualMutePreserved: true,
+      playStates: [false], retained: true, manualMutePreserved: true,
     });
   });
 
@@ -368,14 +368,15 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         return { beforeLoadedMuted, firstMuted, takeoverBeforeLoadedMuted, takeoverMuted, afterOldTouch, afterNewTouch };
       }, { connectionType, blocked });
       expect(state).toEqual({
-        // ACC's early selected action has no effective player until media is
-        // loaded. The first audible request therefore occurs at loaded media.
-        beforeLoadedMuted: true,
+        // ACC applies unmute/play as soon as the selected provider exists and
+        // repeats it when media loads. A denied request falls back to muted
+        // playback without adding a touch handler.
+        beforeLoadedMuted: blocked,
         firstMuted: blocked,
-        takeoverBeforeLoadedMuted: true,
+        takeoverBeforeLoadedMuted: blocked,
         takeoverMuted: blocked,
         afterOldTouch: blocked,
-        afterNewTouch: false,
+        afterNewTouch: blocked,
       });
     });
   }
@@ -2105,7 +2106,10 @@ test("keeps PTZ runtime and circle pad out of startup until Controls opens", asy
     card._renderControlsSection(list);
     card._renderControlsSection(list);
     await card._ptzFeatureController.prepare();
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Render once more after the lazy runtime promise resolves. A fixed timer
+    // races the dynamic chunk under the full parallel browser suite.
+    card._renderControlsSection(list);
+    await customElements.whenDefined("circle-pad-control-2");
     const pad = list.querySelector("circle-pad-control-2");
     await card._handleCirclePadPtzEvent(
       {

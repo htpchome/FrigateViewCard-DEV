@@ -96,7 +96,6 @@ test("adoptMountedAttemptResult commits engine and stream ui state", () => {
     activateRecovery: () => {
       recoveryActivated = true;
     },
-    commitStartupPlayback: () => calls.push(["commitStartupPlayback"]),
   };
   const target = {
     children: [winner],
@@ -128,7 +127,6 @@ test("adoptMountedAttemptResult commits engine and stream ui state", () => {
   assert.equal(recoveryActivated, true);
   assert.deepEqual(calls, [
     ["assignEngine", engine],
-    ["commitStartupPlayback"],
     ["setEngineMountedMuted", true],
     ["setActiveStreamType", "mse"],
     ["setStreamLoading", false],

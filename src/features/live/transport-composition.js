@@ -74,8 +74,10 @@ export const createLiveTransportControllers = (
   const go2rtcMounter = resolvedFactories.createGo2RtcMounter({
     resolver: go2rtcResolver,
     getStreamMuted: () => card._streamMuted,
-    createStartupPlayback: (video, options) =>
-      getLiveAudioController(card).createInitialPlayback(video, options),
+    prepareSelectedPlayback: (video, options) =>
+      getLiveAudioController(card).prepareSelectedPlayback(video, options),
+    releasePreparedPlayback: (video) =>
+      getLiveAudioController(card).releasePreparedPlayback(video),
     waitForStreamStart,
     attachVideoFit: attachContainedVideoFit,
     assignCommittedEngine: (engine) => card._assignLiveEngine(engine),
@@ -100,8 +102,6 @@ export const createLiveTransportControllers = (
   });
   const haDirectMounter = resolvedFactories.createHaDirectMounter({
     getStartupMuted: (entity) => getLiveAudioController(card).resolveStartupMuted(entity),
-    createStartupPlayback: (video, options) =>
-      getLiveAudioController(card).createInitialPlayback(video, options),
     onPendingStream: () => card._setActiveStreamType("--"),
     onPresentationLost: () => {
       card._liveMediaPresentationController?.clearVideoZoom?.();
