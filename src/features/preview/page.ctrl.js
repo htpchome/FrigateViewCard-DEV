@@ -530,6 +530,10 @@ export class PreviewPageController {
 
   activatePreviewPageRoute(context = {}) {
     const PAGE_IDS = this._constants.PAGE_IDS;
+    // Preview owns muted media, including a retained primary player hidden
+    // behind its snapshot or live tiles. Do not rely on unrelated route
+    // cleanup to silence that player.
+    this._host._liveAudioController?.applyMuteChange?.(true);
     if (context.previousPageId !== PAGE_IDS.preview) {
       if (this._host._$("#myPopup")?.classList.contains("is-open")) {
         this._host._popupLifecycleController?.close();

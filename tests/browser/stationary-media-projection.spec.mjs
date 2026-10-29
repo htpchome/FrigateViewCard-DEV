@@ -759,7 +759,7 @@ for (const landingPage of [
   "wide-view",
   "card-view",
 ]) {
-  test(`${landingPage} landing applies selected-camera startup audio`, async ({ page }) => {
+  test(`${landingPage} applies startup audio and Preview mutes its retained player`, async ({ page }) => {
     await page.goto(baseUrl);
     await page.evaluate(async (pageId) => {
       const { installHaCameraLifecycleFixture } = await import(
@@ -794,6 +794,8 @@ for (const landingPage of [
         mobile_view_page_enabled: true,
         wide_view_page_enabled: true,
         card_view_page_enabled: true,
+        preview_page_enabled: true,
+        preview_page_live_cameras: ["wide-view", "card-view"].includes(pageId),
       });
       card._hass = {
         connection: {},
@@ -851,6 +853,40 @@ for (const landingPage of [
       pageId: landingPage,
       streamMuted: false,
       videoMuted: false,
+    });
+
+    await page.evaluate(async () => {
+      const { card } = window.startupAudioPageProbe;
+      // Exercise both origins reported by users: Single/Wide carry their
+      // configured startup audio, while Mobile/Card first establish a manual
+      // unmute state before entering Preview.
+      if (["mobile-view", "card-view"].includes(card._pageId)) {
+        card._liveAudioController.applyMuteChange(true);
+        card._liveAudioController.applyMuteChange(false);
+      }
+      await card._previewPageController.prepare();
+      card._pageNavigationController.navigateToPageRoute("preview", {
+        source: "startup-audio-preview-test",
+      });
+    });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.startupAudioPageProbe.card._pageId),
+      )
+      .toBe("preview");
+    expect(
+      await page.evaluate(() => {
+        const { card } = window.startupAudioPageProbe;
+        const record = card._engine.haDirectSession.get("camera.one");
+        return {
+          streamMuted: card._streamMuted,
+          retainedVideoMuted: record.video.muted,
+        };
+      }),
+    ).toEqual({
+      streamMuted: true,
+      retainedVideoMuted: true,
     });
   });
 }

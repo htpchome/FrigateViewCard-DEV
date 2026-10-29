@@ -94,6 +94,9 @@ const createHost = ({
         host._camCache[entity]?.reviews?.length || 0,
     },
     _scheduleResumeLive: (reason) => calls.push(["scheduleResumeLive", reason]),
+    _liveAudioController: {
+      applyMuteChange: (muted) => calls.push(["applyMuteChange", muted]),
+    },
     _subtitleText: () => "Driveway",
     _haNavbarController: {
       isNavbarAtBottom: () => bottomNavbar,
@@ -528,6 +531,7 @@ test("activatePreviewPageRoute keeps preview path behavior intact", () => {
   controller.activatePreviewPageRoute({ previousPageId: "single-view" });
 
   assert.deepEqual(calls, [
+    ["applyMuteChange", true],
     ["renderShellPreserveLive"],
     ["applyPreviewShellVisibility"],
     ["applyCardStyle"],
@@ -543,6 +547,7 @@ test("activatePreviewPageRoute cancels pending mount only when active", () => {
   controller.activatePreviewPageRoute({ previousPageId: "single-view" });
 
   assert.deepEqual(calls, [
+    ["applyMuteChange", true],
     ["cancelPendingMount", "page-route-preview"],
     ["renderShellPreserveLive"],
     ["applyPreviewShellVisibility"],

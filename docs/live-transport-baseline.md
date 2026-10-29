@@ -2,6 +2,13 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.28` makes Preview an explicit muted-audio boundary. Entering
+Preview cancels any pending selected-camera audible startup and mutes the
+retained primary player before Preview snapshot or live tiles take ownership.
+This prevents configured or manually unmuted audio from continuing behind
+Preview. Preview live tiles remain muted, and leaving Preview can still prepare
+the selected camera's configured startup-audio preference for its destination.
+
 `v1.1.10-dev.27` keeps defensive two-way-talk cleanup from muting live audio
 when no talk session exists. Mobile View and Card View perform that cleanup on
 route activation; treating the empty cleanup as a real talk shutdown canceled
