@@ -70,7 +70,7 @@ for (const startUnmuted of [false, true]) {
   });
 }
 
-test("initial HA playback restores already received audio before requesting play", async () => {
+test("initial HA playback requests the leaf before publishing provider audio state", async () => {
   const h = createHarness();
   h.host._activeCam = { entity: "camera.one", start_unmuted: true };
   h.controller.prepareCameraStart(h.host._activeCam);
@@ -96,8 +96,12 @@ test("initial HA playback restores already received audio before requesting play
   assert.equal(h.video.playCalls, 1,
     "the selected player receives its first audible request after commitment");
   assert.deepEqual(requests, [
-    { tracks: [h.audio], muted: false, volume: 1, playerMuted: false },
+    { tracks: [], muted: false, volume: 0, playerMuted: true },
   ]);
+  assert.deepEqual(h.stream.getAudioTracks(), [h.audio],
+    "the request is followed immediately by ACC-style provider ownership");
+  assert.equal(h.video.volume, 1);
+  assert.equal(h.player.muted, false);
   assert.equal(h.hiddenVideo.muted, true);
   assert.equal(h.video.srcObject, h.stream);
   assert.equal(h.player._peerConnection, h.peer);

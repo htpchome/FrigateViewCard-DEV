@@ -190,6 +190,7 @@ export function createGo2RtcMounter({
       options.muted == null
           ? createStartupPlayback?.(video, {
             entity,
+            deferUntilCommit: true,
             deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
@@ -197,14 +198,13 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    video.autoplay = !initialPlayback;
+    video.autoplay = true;
     const mediaSource = new MediaSourceCtor();
     video.src = URL.createObjectURL(mediaSource);
 
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
-    if (initialPlayback) void initialPlayback.play();
-    else startVideoPlayback(video);
+    startVideoPlayback(video);
 
     const ws = new WebSocketCtor(wsUrl);
     ws.binaryType = "arraybuffer";
@@ -435,6 +435,7 @@ export function createGo2RtcMounter({
       options.muted == null
           ? createStartupPlayback?.(video, {
             entity,
+            deferUntilCommit: true,
             deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
@@ -443,10 +444,10 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    video.autoplay = !initialPlayback;
+    video.autoplay = true;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
-    if (initialPlayback) void initialPlayback.play();
+    startVideoPlayback(video);
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",
@@ -675,8 +676,7 @@ export function createGo2RtcMounter({
         mediaStream.addTrack(event.track);
         video.srcObject = mediaStream;
       }
-      if (initialPlayback) void initialPlayback.play();
-      else video.play().catch(() => {});
+      video.play().catch(() => {});
       watchFirstFrame();
     });
 
@@ -800,6 +800,7 @@ export function createGo2RtcMounter({
       options.muted == null
           ? createStartupPlayback?.(video, {
             entity,
+            deferUntilCommit: true,
             deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
@@ -807,7 +808,7 @@ export function createGo2RtcMounter({
             },
           })
         : null;
-    video.autoplay = !initialPlayback;
+    video.autoplay = true;
     video.src = hlsSource.url;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
@@ -870,10 +871,7 @@ export function createGo2RtcMounter({
       },
     };
     if (commit) assignCommittedEngine(engine);
-    if (initialPlayback) {
-      video.load?.();
-      void initialPlayback.play();
-    } else startVideoPlayback(video, { load: true });
+    startVideoPlayback(video, { load: true });
 
     const started = await waitForStreamStart(slot, waitMs, {
       minCurrentTime: 0.05,

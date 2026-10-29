@@ -286,7 +286,7 @@ test("go2rtc without a selected startup owner uses ordinary muted autoplay", asy
 
 for (const transport of ["WebRtc", "Mse", "Hls"]) {
   for (const denied of transport === "WebRtc" ? [false, true, "cancel"] : [false, true]) {
-    test(`go2rtc ${transport} gives only its selected owner ACC startup actions (denied=${denied})`, async () => {
+    test(`go2rtc ${transport} keeps race playback muted until visible commit (denied=${denied})`, async () => {
       await withFakeDocument(() => withFakeObjectUrl(async () => {
         const camera = { entity: "camera.front", start_unmuted: true };
         const host = { _activeCam: camera, _engine: null, _renderMuteButton() {} };
@@ -332,19 +332,19 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             if (transport === "WebRtc") {
               peer.dispatchEvent(Object.assign(new Event("track"), { track: videoTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, undefined);
-              assert.deepEqual(calls, denied === true ? [false, true] : [false],
-                "the early selected action precedes transport attachment");
+              assert.deepEqual(calls, [true],
+                "the hidden race candidate starts through ordinary muted playback");
               peer.connectionState = "connected";
               peer.dispatchEvent(new Event("connectionstatechange"));
               const stream = startupVideo.srcObject;
               assert.deepEqual(stream.getTracks(), [videoTrack]);
               await flushMicrotasks();
-              assert.deepEqual(calls, denied === true ? [false, true] : [false]);
+              assert.deepEqual(calls, [true]);
               peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
               assert.deepEqual(stream.getTracks(), [videoTrack, audioTrack]);
               if (denied === "cancel") {
-                assert.equal(startupVideo.autoplay, false);
+                assert.equal(startupVideo.autoplay, true);
                 audio.cancelCameraStartPreference();
                 assert.equal(startupVideo.autoplay, true, "cancelled audio restores ordinary muted autoplay");
                 assert.equal(startupVideo.muted, true);
@@ -357,9 +357,7 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             }
             await flushMicrotasks();
             assert.deepEqual(calls,
-              denied === "cancel" ? [false]
-                : denied === true ? [false, true]
-                  : [false],
+              [true],
             "loaded readiness must not give a hidden race candidate audio");
             assert.equal(host._engine, null);
             return true;
@@ -370,16 +368,16 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
           const result = await withFakeWindow({ WebSocket: Socket, RTCPeerConnection: Peer, MediaSource: Source },
             () => mounter[`tryMount${transport}`](slot));
           assert.equal(result.ok, true);
-          assert.equal(slot.autoplayAtAppend[0], false,
-            "selected-audio media must enter the document with native autoplay disabled");
+          assert.equal(slot.autoplayAtAppend[0], true,
+            "hidden race media must establish ordinary muted playback");
           assert.equal(slot.mutedAtAppend[0], true,
             "ACC's selected media enters the document muted before its early action");
           result.engine.commitStartupPlayback();
           await flushMicrotasks();
           assert.deepEqual(calls,
-            denied === "cancel" ? [false]
-              : denied === true ? [false, true, false, true]
-                : [false, false],
+            denied === "cancel" ? [true]
+              : denied === true ? [true, false, true]
+                : [true, false],
           "only the committed race winner receives the loaded-media action");
           result.engine.destroy();
         } finally {

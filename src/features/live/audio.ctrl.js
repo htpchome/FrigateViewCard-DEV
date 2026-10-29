@@ -92,20 +92,24 @@ export class LiveAudioController {
     onDispose = () => {},
     replaceExisting = false,
     waitForData = false,
+    deferUntilCommit = false,
     deferLoadedReapplyUntilCommit = false,
   } = {}) {
     if (this.resolveStartupMuted(entity)) return null;
     const camera = this._cameraStartUnmuteCamera;
     if (replaceExisting) this._clearInitialPlayback(video);
-    // ACC gives only its selected media element the early unmute/play action.
-    // Racing alternatives remain normal muted-autoplay candidates.
-    this._initialAudioOwner ??= video;
-    if (this._initialAudioOwner !== video) return null;
+    // Race candidates establish muted playback; the visible winner claims the
+    // selected unmute/play action when its presentation is committed.
+    if (!deferUntilCommit) {
+      this._initialAudioOwner ??= video;
+      if (this._initialAudioOwner !== video) return null;
+    }
     video.preload = "auto";
     video.muted = true;
     const playback = createInitialPlayback(video, {
       onDispose,
       waitForData,
+      deferUntilCommit,
       reapplyOnLoadedData: true,
       // ACC repeats selected audio only on its media-loaded event. Extra
       // metadata/canplay attempts can make WebKit classify and block audio
@@ -115,6 +119,15 @@ export class LiveAudioController {
       // before play(). Preserve those microtask boundaries on raw videos.
       settleAroundMute: true,
       deferLoadedReapplyUntilCommit,
+      onPlayRequested: ({ muted }) => {
+        if (muted) return;
+        onUnmuted();
+        if (this._resolveEngineVideo(this._host._engine) === video) {
+          this._host._streamMuted = false;
+          this._setAutomaticOutputMuted(this._host._engine, video, false);
+          this._host._renderMuteButton?.();
+        }
+      },
       onCompleted: ({ muted }) => {
         const attempt = this._cameraStartUnmuteAttempt;
         if (
@@ -127,12 +140,6 @@ export class LiveAudioController {
       },
       getMuted: () => {
         const muted = this.resolveStartupMuted(entity);
-        if (!muted) onUnmuted();
-        if (this._resolveEngineVideo(this._host._engine) === video) {
-          this._host._streamMuted = muted;
-          this._setAutomaticOutputMuted(this._host._engine, video, muted);
-          this._host._renderMuteButton?.();
-        }
         return muted;
       },
       isCurrent: () =>
@@ -154,7 +161,10 @@ export class LiveAudioController {
     return {
       state: playback.state,
       play: playback.play,
-      commit: playback.commit,
+      commit: () => {
+        this._initialAudioOwner ??= video;
+        playback.commit();
+      },
       dispose: () => {
         playback.dispose();
         if (this._initialPlaybackVideos.get(video) !== playback) return;

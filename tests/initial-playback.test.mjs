@@ -100,17 +100,18 @@ test("go2rtc repeats its loaded-media action only after the race winner is commi
   const playback = createInitialPlayback(video, {
     getMuted: () => false,
     reapplyOnLoadedData: true,
+    deferUntilCommit: true,
     deferLoadedReapplyUntilCommit: true,
   });
 
   await playback.play();
   video.dispatchEvent(new Event("loadeddata"));
   await flushMicrotasks();
-  assert.deepEqual(video.calls, [false], "hidden race readiness must not own loaded audio");
+  assert.deepEqual(video.calls, [], "hidden race readiness must not request audible playback");
 
   playback.commit();
   await flushMicrotasks();
-  assert.deepEqual(video.calls, [false, false], "the adopted winner receives media-loaded audio");
+  assert.deepEqual(video.calls, [false], "the adopted winner receives media-loaded audio");
   playback.dispose();
 });
 
@@ -130,6 +131,7 @@ test("adopting a go2rtc winner does not duplicate its committed loaded action", 
   let releases = 0;
   const playback = controller.createInitialPlayback(video, {
     entity: camera.entity,
+    deferUntilCommit: true,
     deferLoadedReapplyUntilCommit: true,
     onDispose: () => { releases += 1; },
   });
@@ -141,9 +143,30 @@ test("adopting a go2rtc winner does not duplicate its committed loaded action", 
   controller.applyCameraStartPreference();
   await flushMicrotasks();
 
-  assert.deepEqual(video.calls, [false, false]);
+  assert.deepEqual(video.calls, [false]);
   assert.equal(host._streamMuted, false);
   assert.equal(releases, 1);
+  controller.dispose();
+});
+
+test("each muted go2rtc race candidate may reserve a visible-commit action", () => {
+  const camera = { entity: "camera.one", start_unmuted: true };
+  const host = { _activeCam: camera, _engine: null, _renderMuteButton() {} };
+  const controller = new LiveAudioController(host, { interactionTarget: null });
+  controller.prepareCameraStart(camera);
+  const firstVideo = makeVideo();
+  const first = controller.createInitialPlayback(firstVideo, {
+    entity: camera.entity,
+    deferUntilCommit: true,
+  });
+  const second = controller.createInitialPlayback(makeVideo(), {
+    entity: camera.entity,
+    deferUntilCommit: true,
+  });
+  assert.ok(first);
+  assert.ok(second);
+  first.commit();
+  assert.equal(controller._initialAudioOwner, firstVideo);
   controller.dispose();
 });
 

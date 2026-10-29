@@ -3,6 +3,7 @@ export function createInitialPlayback(video, {
   getMuted = () => true,
   isCurrent = () => true,
   onCompleted = () => {},
+  onPlayRequested = () => {},
   onMuted = () => {},
   onDispose = () => {},
   waitForData = false,
@@ -18,7 +19,8 @@ export function createInitialPlayback(video, {
   let retries = 0;
   let readinessPending = false;
   let loadedReapplyPending = false;
-  let committed = !deferLoadedReapplyUntilCommit;
+  let deferredUntilCommit = deferUntilCommit;
+  let committed = !deferLoadedReapplyUntilCommit && !deferUntilCommit;
   const state = {
     started: false,
     completed: false,
@@ -30,7 +32,10 @@ export function createInitialPlayback(video, {
     if (disposed || !isCurrent()) return;
     // A selected live candidate can load while it is still in a hidden race
     // slot. Its visible owner performs the first play after adoption.
-    if (deferUntilCommit) return;
+    if (deferredUntilCommit) {
+      loadedReapplyPending ||= loadedReapply;
+      return;
+    }
     if (loadedReapply && state.loadedReapplied) return;
     if (!loadedReapply && (completed || retries >= 3)) return;
     // MediaStream/HLS can load while paused. Do not turn source attachment
@@ -59,7 +64,9 @@ export function createInitialPlayback(video, {
       state.started = true;
       if (settleAroundMute) await Promise.resolve();
       if (disposed || !isCurrent()) return;
-      await video.play();
+      const playResult = video.play();
+      onPlayRequested({ loadedReapply, muted: Boolean(video.muted) });
+      await playResult;
       completed = true;
       state.completed = true;
       onCompleted({ loadedReapply, muted: Boolean(video.muted) });
@@ -72,7 +79,9 @@ export function createInitialPlayback(video, {
         try {
           if (settleAroundMute) await Promise.resolve();
           if (disposed || !isCurrent()) return;
-          await video.play();
+          const playResult = video.play();
+          onPlayRequested({ loadedReapply, muted: true });
+          await playResult;
           completed = true;
           state.completed = true;
           onCompleted({ loadedReapply, muted: true });
@@ -97,31 +106,35 @@ export function createInitialPlayback(video, {
     }
     void play({ loadedReapply: reapplyOnLoadedData });
   };
-  if (!deferUntilCommit) {
-    if (retryOnReadiness) {
-      video.addEventListener?.("loadedmetadata", onReadiness);
-      video.addEventListener?.("canplay", onReadiness);
-    }
+  if (retryOnReadiness && !deferUntilCommit) {
+    video.addEventListener?.("loadedmetadata", onReadiness);
+    video.addEventListener?.("canplay", onReadiness);
+  }
+  if (!deferUntilCommit || reapplyOnLoadedData) {
     video.addEventListener?.("loadeddata", onLoadedData);
   }
   return {
     state,
     play,
     commit() {
-      if (disposed || committed) return;
+      if (disposed || (committed && !deferredUntilCommit)) return;
+      deferredUntilCommit = false;
       committed = true;
-      if (!loadedReapplyPending) return;
+      if (!loadedReapplyPending) {
+        void play({ loadedReapply: reapplyOnLoadedData });
+        return;
+      }
       loadedReapplyPending = false;
       void play({ loadedReapply: true });
     },
     dispose() {
       if (disposed) return;
       disposed = true;
-      if (!deferUntilCommit) {
-        if (retryOnReadiness) {
-          video.removeEventListener?.("loadedmetadata", onReadiness);
-          video.removeEventListener?.("canplay", onReadiness);
-        }
+      if (retryOnReadiness && !deferUntilCommit) {
+        video.removeEventListener?.("loadedmetadata", onReadiness);
+        video.removeEventListener?.("canplay", onReadiness);
+      }
+      if (!deferUntilCommit || reapplyOnLoadedData) {
         video.removeEventListener?.("loadeddata", onLoadedData);
       }
       onDispose();
