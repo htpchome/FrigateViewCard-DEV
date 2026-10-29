@@ -349,8 +349,10 @@ export function createGo2RtcMounter({
             sourceBuffer = mediaSource.addSourceBuffer(mime);
             sourceBuffer.mode = "segments";
             sourceBuffer.addEventListener("updateend", appendNext);
-            if (initialPlayback) void initialPlayback.play();
-            else startVideoPlayback(video);
+            // The selected startup owner already has its pre-source play
+            // request. Match ACC by waiting for loadeddata before acting
+            // again; source attachment is not a third playback action.
+            if (!initialPlayback) startVideoPlayback(video);
             appendNext();
           } catch (_) {}
         }
@@ -639,7 +641,6 @@ export function createGo2RtcMounter({
         // stream without resetting an in-flight audible playback request.
         video.srcObject = receiveStream;
         watchFirstFrame();
-        void initialPlayback.play();
       } else {
         for (const track of tracks) {
           if (!receiveStream.getTracks().includes(track)) receiveStream.addTrack(track);

@@ -12,6 +12,10 @@ const makeVideo = (denied = false) => Object.assign(new EventTarget(), {
   },
 });
 
+const flushMicrotasks = async (count = 8) => {
+  for (let index = 0; index < count; index += 1) await Promise.resolve();
+};
+
 for (const denied of [false, true]) {
   test(`data-gated initial playback waits without consuming attempts (denied=${denied})`, async () => {
     const video = Object.assign(makeVideo(denied), { readyState: 0 });
@@ -77,8 +81,7 @@ test("selected startup owner repeats ACC's early action when media loads", async
   assert.equal(video.preload, "auto", "holding autoplay must not defer source loading");
   await playback.play();
   video.dispatchEvent(new Event("loadeddata"));
-  await Promise.resolve();
-  await Promise.resolve();
+  await flushMicrotasks();
   assert.deepEqual(video.calls, [false, false],
     "the selected owner receives the pre-source and loaded-media actions");
   assert.equal(video.muted, false);
@@ -90,6 +93,62 @@ test("selected startup owner repeats ACC's early action when media loads", async
   assert.equal(host._streamMuted, false);
   assert.equal(releases, 1);
   controller.dispose();
+});
+
+test("selected startup owner ignores readiness events ACC does not act on", async () => {
+  const camera = { entity: "camera.one", start_unmuted: true };
+  const video = Object.assign(makeVideo(), { readyState: 0 });
+  video.play = function () {
+    this.calls.push(this.muted);
+    return this.calls.length === 1
+      ? Promise.reject(new DOMException("Interrupted", "AbortError"))
+      : Promise.resolve();
+  };
+  const host = {
+    _activeCam: camera,
+    _engine: null,
+    _renderMuteButton() {},
+    _findVideoDeep: (engine) => engine?.video,
+  };
+  const controller = new LiveAudioController(host, {
+    interactionTarget: new EventTarget(),
+  });
+  controller.prepareCameraStart(camera);
+  const playback = controller.createInitialPlayback(video, {
+    entity: camera.entity,
+  });
+
+  await playback.play();
+  video.dispatchEvent(new Event("loadedmetadata"));
+  video.dispatchEvent(new Event("canplay"));
+  await flushMicrotasks();
+  assert.deepEqual(video.calls, [false],
+    "metadata and canplay must not add playback requests between ACC's two actions");
+
+  video.readyState = 2;
+  video.dispatchEvent(new Event("loadeddata"));
+  await flushMicrotasks();
+  assert.deepEqual(video.calls, [false, false]);
+  assert.equal(video.muted, false);
+  controller.dispose();
+});
+
+test("selected startup preserves ACC's asynchronous unmute-before-play boundary", async () => {
+  const video = makeVideo();
+  const playback = createInitialPlayback(video, {
+    getMuted: () => false,
+    settleAroundMute: true,
+  });
+
+  const pending = playback.play();
+  assert.equal(video.muted, true);
+  assert.deepEqual(video.calls, []);
+  await Promise.resolve();
+  assert.equal(video.muted, false);
+  assert.deepEqual(video.calls, [], "play waits for the unmute controller action to settle");
+  await pending;
+  assert.deepEqual(video.calls, [false]);
+  playback.dispose();
 });
 
 for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
@@ -111,7 +170,7 @@ for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispo
     if (action === "dispose") controller.dispose();
     video.readyState = 2;
     video.dispatchEvent(new Event("loadeddata"));
-    await Promise.resolve();
+    await flushMicrotasks();
     assert.equal(video.muted, action !== "loaded");
     assert.deepEqual(video.calls, action === "loaded" ? [false, false] : [false]);
     controller.dispose();

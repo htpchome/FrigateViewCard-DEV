@@ -7,6 +7,8 @@ export function createInitialPlayback(video, {
   waitForData = false,
   reapplyOnLoadedData = false,
   deferUntilCommit = false,
+  retryOnReadiness = true,
+  settleAroundMute = false,
 } = {}) {
   let disposed = false;
   let pending = false;
@@ -46,10 +48,14 @@ export function createInitialPlayback(video, {
     pending = true;
     readinessPending = false;
     retries += 1;
-    video.muted = state.blocked || getMuted() !== false;
-    state.requestedUnmuted ||= !video.muted;
-    state.started = true;
     try {
+      if (settleAroundMute) await Promise.resolve();
+      if (disposed || !isCurrent()) return;
+      video.muted = state.blocked || getMuted() !== false;
+      state.requestedUnmuted ||= !video.muted;
+      state.started = true;
+      if (settleAroundMute) await Promise.resolve();
+      if (disposed || !isCurrent()) return;
       await video.play();
       completed = true;
       state.completed = true;
@@ -60,6 +66,8 @@ export function createInitialPlayback(video, {
         video.muted = true;
         onMuted();
         try {
+          if (settleAroundMute) await Promise.resolve();
+          if (disposed || !isCurrent()) return;
           await video.play();
           completed = true;
           state.completed = true;
@@ -79,9 +87,11 @@ export function createInitialPlayback(video, {
   const onReadiness = () => void play();
   const onLoadedData = () => void play({ loadedReapply: reapplyOnLoadedData });
   if (!deferUntilCommit) {
-    video.addEventListener?.("loadedmetadata", onReadiness);
+    if (retryOnReadiness) {
+      video.addEventListener?.("loadedmetadata", onReadiness);
+      video.addEventListener?.("canplay", onReadiness);
+    }
     video.addEventListener?.("loadeddata", onLoadedData);
-    video.addEventListener?.("canplay", onReadiness);
   }
   return {
     state,
@@ -90,9 +100,11 @@ export function createInitialPlayback(video, {
       if (disposed) return;
       disposed = true;
       if (!deferUntilCommit) {
-        video.removeEventListener?.("loadedmetadata", onReadiness);
+        if (retryOnReadiness) {
+          video.removeEventListener?.("loadedmetadata", onReadiness);
+          video.removeEventListener?.("canplay", onReadiness);
+        }
         video.removeEventListener?.("loadeddata", onLoadedData);
-        video.removeEventListener?.("canplay", onReadiness);
       }
       onDispose();
     },

@@ -2,6 +2,19 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.45` removes the remaining WebKit-visible differences from ACC
+8.1.0's selected-media startup sequence. Physical Safari and iOS Companion
+testing rejected dev.44: startup still required a tap. A corrected production
+call trace showed that ACC acts once after render and once on its media-loaded
+event, with asynchronous controller boundaries between unmute and play.
+FrigateView additionally acted at source attachment, `loadedmetadata`,
+`canplay`, and sometimes again during committed-player adoption. Its HA Direct
+path also suppressed ACC's first action until media data existed. Those extra
+actions and the HA data gate are removed. Both transports now retain ACC's
+pre-data unmute/play action and one loaded-data reassertion. The selected helper
+preserves ACC's asynchronous unmute/play boundaries; general playback recovery
+keeps its existing readiness retries.
+
 `v1.1.10-dev.44` follows the complete Advanced Camera Card 8.1.0 action trace
 rather than copying only its mute state. ACC creates its selected go2rtc video
 muted, then its carousel controller immediately calls `unmute()` followed by
@@ -14,6 +27,11 @@ selection separate from output: the child loads output-muted with autoplay
 held, then receives unmute-before-play at loaded data. Denial still falls back
 to muted playback and interaction recovery. No transport delay, reconnect,
 simulated gesture or Web Audio path is added.
+
+Physical Safari and iOS Companion testing later showed dev.44 still required a
+tap. Its remaining source/readiness/adoption playback actions and HA Direct
+data gate were not present in ACC and could alter WebKit's decision before the
+real loaded-data action; dev.45 removes those mismatches.
 
 `v1.1.10-dev.43` attempted to carry ACC's selected-output state across the
 source-attachment boundary while deliberately omitting ACC's early `play()`

@@ -167,6 +167,10 @@ function createSlot() {
   };
 }
 
+const flushMicrotasks = async (count = 8) => {
+  for (let index = 0; index < count; index += 1) await Promise.resolve();
+};
+
 function createBaseMounter(overrides = {}) {
   const resolver = {
     resolveMountRequest: () => ({ entity: "camera.front" }),
@@ -257,6 +261,7 @@ test("production go2rtc cold startup matches ACC's pre-source and loaded-media a
       },
       waitForStreamStart: async (slot) => {
         const video = slot.lastChild;
+        await flushMicrotasks();
         assert.equal(video.autoplay, false);
         assert.equal(video.preload, "auto", "cold audio startup keeps media loading eager");
         assert.equal(video.muted, false);
@@ -265,8 +270,7 @@ test("production go2rtc cold startup matches ACC's pre-source and loaded-media a
         ]);
         video.readyState = 2;
         video.dispatchEvent(new Event("loadeddata"));
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushMicrotasks();
         return true;
       },
       onCommittedStream: () => audio.applyCameraStartPreference(),
@@ -329,17 +333,17 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             return audio.createInitialPlayback(video, options);
           },
           waitForStreamStart: async () => {
+            await flushMicrotasks();
             if (transport === "WebRtc") {
               peer.dispatchEvent(Object.assign(new Event("track"), { track: videoTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, undefined);
-              assert.deepEqual(calls, [false],
+              assert.deepEqual(calls, denied === true ? [false, true] : [false],
                 "the early selected action precedes transport attachment");
               peer.connectionState = "connected";
               peer.dispatchEvent(new Event("connectionstatechange"));
               const stream = startupVideo.srcObject;
               assert.deepEqual(stream.getTracks(), [videoTrack]);
-              await Promise.resolve();
-              await Promise.resolve();
+              await flushMicrotasks();
               assert.deepEqual(calls, denied === true ? [false, true] : [false]);
               peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
@@ -356,10 +360,7 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
               startupVideo.readyState = 2;
               startupVideo.dispatchEvent(new Event("loadeddata"));
             }
-            await Promise.resolve();
-            await Promise.resolve();
-            await Promise.resolve();
-            await Promise.resolve();
+            await flushMicrotasks();
             assert.deepEqual(calls,
               denied === "cancel" ? [false]
                 : denied === true ? [false, true, false, true]

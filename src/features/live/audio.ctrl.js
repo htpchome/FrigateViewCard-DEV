@@ -106,6 +106,13 @@ export class LiveAudioController {
       onDispose,
       waitForData,
       reapplyOnLoadedData: true,
+      // ACC repeats selected audio only on its media-loaded event. Extra
+      // metadata/canplay attempts can make WebKit classify and block audio
+      // before that loaded action runs.
+      retryOnReadiness: false,
+      // ACC awaits its rendered provider, unmute action and controller return
+      // before play(). Preserve those microtask boundaries on raw videos.
+      settleAroundMute: true,
       getMuted: () => {
         const muted = this.resolveStartupMuted(entity);
         if (this._resolveEngineVideo(this._host._engine) === video) {
@@ -173,9 +180,8 @@ export class LiveAudioController {
     this._clearStartUnmuteReadiness();
     this._clearInitialPlayback(video);
     const initial = this._initialPlaybackVideos.get(video);
-    const initialCompletedAudible = Boolean(
-      initial?.state.completed &&
-      initial.state.requestedUnmuted &&
+    const initialLoadedActionAudible = Boolean(
+      initial?.state.requestedUnmuted &&
       initial.state.loadedReapplied &&
       initial.state.blocked !== true &&
       video.muted === false,
@@ -186,16 +192,16 @@ export class LiveAudioController {
       inFlight: false,
       retries: 0,
       blocked: initial?.state.blocked === true,
-      loadedReapplied: initialCompletedAudible,
+      loadedReapplied: initialLoadedActionAudible,
       awaitingLoaded: Number(video.readyState) < 2,
       startupPlayback: initial || null,
     };
     this._cameraStartUnmuteAttempt = attempt;
-    if (initialCompletedAudible) {
+    if (initialLoadedActionAudible) {
       this._setAutomaticOutputMuted(engine, video, false);
       host._renderMuteButton?.();
       host._engineMountedMuted = false;
-      this._releaseStartupPlayback(attempt);
+      if (initial.state.completed) this._releaseStartupPlayback(attempt);
     }
     // Keep the single startup owner through adoption so another candidate
     // cannot independently request audio.
@@ -210,7 +216,7 @@ export class LiveAudioController {
     video.addEventListener?.("canplay", attempt.onReady);
     // A non-owner or retained engine may not have received the pre-source
     // action. Apply the selected action here when it is already usable.
-    if (!attempt.awaitingLoaded && !initialCompletedAudible) {
+    if (!attempt.awaitingLoaded && !initialLoadedActionAudible) {
       this._attemptCameraStartUnmute(attempt);
     }
     return true;
