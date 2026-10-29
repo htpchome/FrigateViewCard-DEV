@@ -43,6 +43,7 @@ export function createHaDirectCameraProvider({
   });
   const providerAutoplay = provider.autoPlay;
   if (startupUnmuted) provider.autoPlay = false;
+  provider.fvcStartupPlaybackOwned = startupUnmuted === true;
   let selection = [];
   let hlsPending = false;
   let disposed = false;
@@ -104,7 +105,7 @@ export function createHaDirectCameraProvider({
   };
   // Install this before the provider is connected. HA creates its native child
   // asynchronously; the mutation microtask runs before its timer/autoplay task,
-  // so the selected audio stream can still begin with muted output.
+  // so the selected audio stream begins with muted output.
   if (provider.shadowRoot) {
     observer = new MutationObserver(() => {
       applyOutputMute();

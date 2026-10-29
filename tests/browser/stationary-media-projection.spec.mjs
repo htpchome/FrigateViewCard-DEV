@@ -861,9 +861,8 @@ for (const landingPage of [
 
     await page.evaluate(async () => {
       const { card } = window.startupAudioPageProbe;
-      // Exercise both origins reported by users: Single/Wide carry their
-      // configured startup audio, while Mobile/Card first establish a manual
-      // unmute state before entering Preview.
+      // Exercise both configured and manual audio state before entering the
+      // always-muted Preview route.
       if (["mobile-view", "card-view"].includes(card._pageId)) {
         card._liveAudioController.applyMuteChange(true);
         card._liveAudioController.applyMuteChange(false);

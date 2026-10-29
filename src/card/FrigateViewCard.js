@@ -1508,7 +1508,14 @@ export class FrigateViewCard extends HTMLElement {
     });
     this._cameraGroupLiveController?.sync?.();
     const mounted = await mountPromise;
-    this._cameraGroupLiveController?.sync?.();
+    const startupPlaybackOwned =
+      this._engine?.startupPlaybackDeferred === true ||
+      this._engine?.fvcStartupPlaybackOwned === true;
+    this._cameraGroupLiveController?.sync?.({
+      playbackOwner: startupPlaybackOwned
+        ? this._cameraGroupLiveController?.activeVideo?.()
+        : null,
+    });
     return mounted;
   }
 

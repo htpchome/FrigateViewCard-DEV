@@ -206,7 +206,7 @@ export class CameraGroupLiveController {
     });
   }
 
-  sync({ force = false } = {}) {
+  sync({ force = false, playbackOwner = null } = {}) {
     const wrap = this._host._$("#eng-wrap");
     const secondaryPane = this._host._$(
       '.camera-group-live-pane[data-camera-group-member="B"]',
@@ -220,7 +220,7 @@ export class CameraGroupLiveController {
       secondaryPane.hidden = true;
       this._activeAudioMember = "A";
       this._syncMobileMemberButton();
-      this.syncAudio();
+      this.syncAudio({ playbackOwner });
       return;
     }
 
@@ -251,7 +251,7 @@ export class CameraGroupLiveController {
     }
     if (!force && signature === this._signature && this._mediaState) {
       this._syncFocusedMember();
-      this.syncAudio();
+      this.syncAudio({ playbackOwner });
       return;
     }
     this._syncFocusedMember();

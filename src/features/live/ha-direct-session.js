@@ -97,7 +97,10 @@ export function createHaDirectSession({
         hass: lastHass,
         stateObj,
         muted: !startupAudio,
-        outputMuted: !startupAudio,
+        // Keep stream-selection intent separate from speaker output. ACC's HA
+        // player asks for audio while loading muted, then its selected-media
+        // action unmutes and plays only after the child reports loaded media.
+        outputMuted: true,
         startupUnmuted: startupAudio,
         createStartupPlayback: (video, options) => {
           if (!active?.visible(entity) || active?.startupMuted?.(entity) !== false) return null;

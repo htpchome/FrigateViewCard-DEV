@@ -50,6 +50,9 @@ if (mode === 'fvc-card-go2rtc') {
   const nativePlay = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function() {
     const record = {cardWide: true, muted: this.muted, ready: this.readyState,
+      hasSource: Boolean(this.currentSrc || this.src || this.srcObject),
+      audioTracks: this.srcObject?.getAudioTracks?.().length ?? null,
+      videoTracks: this.srcObject?.getVideoTracks?.().length ?? null,
       activation: navigator.userActivation?.hasBeenActive};
     audit.plays.push(record);
     return nativePlay.call(this).then(() => {record.result = 'ok';}, error => {
@@ -64,7 +67,11 @@ const observeVideo = element => {
   }
   const play = element.play.bind(element);
   element.play = () => {
-    const record = {muted: element.muted, ready: element.readyState, activation: navigator.userActivation?.hasBeenActive};
+    const record = {muted: element.muted, ready: element.readyState,
+      hasSource: Boolean(element.currentSrc || element.src || element.srcObject),
+      audioTracks: element.srcObject?.getAudioTracks?.().length ?? null,
+      videoTracks: element.srcObject?.getVideoTracks?.().length ?? null,
+      activation: navigator.userActivation?.hasBeenActive};
     audit.plays.push(record);
     return play().then(() => {record.result = 'ok';}, error => {record.result = error.name; throw error;});
   };

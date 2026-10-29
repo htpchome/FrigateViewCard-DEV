@@ -351,6 +351,28 @@ test("racing candidates, background cameras and cancelled starts cannot introduc
   controller.dispose();
 });
 
+test("committing a pre-source owner does not add an action before loaded media", async () => {
+  const video = makeVideo();
+  video.readyState = 0;
+  const playback = createInitialPlayback(video, {
+    getMuted: () => false,
+    reapplyOnLoadedData: true,
+    deferLoadedReapplyUntilCommit: true,
+  });
+
+  await playback.play();
+  assert.deepEqual(video.calls, [false]);
+  playback.commit();
+  await Promise.resolve();
+  assert.deepEqual(video.calls, [false]);
+
+  video.readyState = 2;
+  video.dispatchEvent(new Event("loadeddata"));
+  await Promise.resolve();
+  assert.deepEqual(video.calls, [false, false]);
+  playback.dispose();
+});
+
 test("an interrupted initial request retries at readiness without forcing mute", async () => {
   const video = makeVideo();
   video.play = function () {

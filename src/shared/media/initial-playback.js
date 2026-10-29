@@ -20,6 +20,7 @@ export function createInitialPlayback(video, {
   let readinessPending = false;
   let loadedReapplyPending = false;
   let deferredUntilCommit = deferUntilCommit;
+  const initialActionDeferred = deferUntilCommit;
   let committed = !deferLoadedReapplyUntilCommit && !deferUntilCommit;
   const state = {
     started: false,
@@ -121,7 +122,13 @@ export function createInitialPlayback(video, {
       deferredUntilCommit = false;
       committed = true;
       if (!loadedReapplyPending) {
-        void play({ loadedReapply: reapplyOnLoadedData });
+        // A selected element that already received its pre-source action has
+        // nothing to do at transport commit. ACC's second action belongs only
+        // to media-loaded; acting here can hit WebKit after an audio-bearing
+        // source is attached but before loadeddata and establish muted fallback.
+        if (initialActionDeferred) {
+          void play({ loadedReapply: reapplyOnLoadedData });
+        }
         return;
       }
       loadedReapplyPending = false;

@@ -2,6 +2,30 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.53` corrects the source-attachment boundary in the selected
+startup-audio sequence. A direct ACC 8.1.0 WebKit trace showed its go2rtc
+player receives the first selected unmute/play action with no source attached;
+that harmless request ends with `AbortError`. Its only subsequent request is
+the `media:loaded` action, after the audio/video source is usable. FrigateView
+was withholding the first action until its race winner had an audio-bearing
+source, and transport commit could issue another pre-loaded request. WebKit
+classified those requests as denied audible autoplay and established muted
+fallback before the intended loaded action. The selected go2rtc owner now
+receives its first action before source attachment, transport commit performs
+no playback action, and the loaded reapply remains held until that candidate
+wins. HA Direct now constructs the selected provider with audio-stream intent
+enabled but speaker output muted, matching ACC's separation of stream choice
+from its loaded-media unmute/play action. Background candidates, losing race
+candidates, Preview media, explicit-muted starts, and autoplay-denial fallback
+remain muted. No timer, synthesized interaction, Web Audio path, reconnect, or
+transport delay is added. Synthetic WebKit sequencing is not a substitute for
+physical Safari and Companion verification.
+
+This startup sequence is transport-level, not Mobile View- or phone-specific.
+It applies to the selected camera in Single, Mobile, Wide, and Card View on
+desktop, phone, and tablet clients. Preview and multi-camera background media
+remain intentionally muted.
+
 `v1.1.10-dev.46` fixes a stale-denial handoff in the selected startup-audio
 owner. Physical iOS Companion testing of dev.45 showed that disabling the
 WKWebView audio user-action requirement allowed startup audio, while the normal

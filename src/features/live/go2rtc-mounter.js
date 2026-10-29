@@ -190,7 +190,6 @@ export function createGo2RtcMounter({
       options.muted == null
           ? createStartupPlayback?.(video, {
             entity,
-            deferUntilCommit: true,
             deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
@@ -200,10 +199,10 @@ export function createGo2RtcMounter({
         : null;
     video.autoplay = !initialPlayback;
     const mediaSource = new MediaSourceCtor();
-    video.src = URL.createObjectURL(mediaSource);
-
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
+    if (initialPlayback) void initialPlayback.play();
+    video.src = URL.createObjectURL(mediaSource);
     if (!initialPlayback) startVideoPlayback(video);
 
     const ws = new WebSocketCtor(wsUrl);
@@ -435,7 +434,6 @@ export function createGo2RtcMounter({
       options.muted == null
           ? createStartupPlayback?.(video, {
             entity,
-            deferUntilCommit: true,
             deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
@@ -447,7 +445,8 @@ export function createGo2RtcMounter({
     video.autoplay = !initialPlayback;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
-    if (!initialPlayback) startVideoPlayback(video);
+    if (initialPlayback) void initialPlayback.play();
+    else startVideoPlayback(video);
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",
@@ -800,7 +799,6 @@ export function createGo2RtcMounter({
       options.muted == null
           ? createStartupPlayback?.(video, {
             entity,
-            deferUntilCommit: true,
             deferLoadedReapplyUntilCommit: true,
             isCurrent: () => !destroyed && !abortSignal?.aborted,
             onDispose: () => {
@@ -809,9 +807,10 @@ export function createGo2RtcMounter({
           })
         : null;
     video.autoplay = !initialPlayback;
-    video.src = hlsSource.url;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
+    if (initialPlayback) void initialPlayback.play();
+    video.src = hlsSource.url;
     let streamStarted = false;
     let recoveryScheduled = false;
     let recoveryEnabled = commit;
