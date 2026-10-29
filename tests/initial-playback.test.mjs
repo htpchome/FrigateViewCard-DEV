@@ -266,6 +266,23 @@ test("selected startup preserves ACC's asynchronous unmute-before-play boundary"
   playback.dispose();
 });
 
+test("selected startup publishes provider unmute before requesting playback", async () => {
+  const order = [];
+  const video = makeVideo();
+  video.play = () => {
+    order.push("play");
+    return Promise.resolve();
+  };
+  const playback = createInitialPlayback(video, {
+    getMuted: () => false,
+    onPlayRequested: () => order.push("unmute"),
+  });
+
+  await playback.play();
+  assert.deepEqual(order, ["unmute", "play"]);
+  playback.dispose();
+});
+
 for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
   test(`early selected action respects ${action}`, async () => {
     const camera = { entity: "camera.one", start_unmuted: true };

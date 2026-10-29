@@ -2,9 +2,23 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.54` corrects two ordering differences left after the dev.53
+physical Safari and Companion test still required a tap. ACC completes its
+selected provider's unmute action before calling the native `play()` method;
+FrigateView called `play()` first and only then published provider ownership.
+For HA Direct WebRTC this could make the request before the native HA player
+had restored its omitted audio track, causing WebKit to see audio appear only
+after playback began. Provider audio ownership and track restoration now finish
+before the request. ACC also constructs and connects its go2rtc provider before
+the carousel applies selected audio. FrigateView's go2rtc WebRTC path now
+constructs the peer and signaling socket first, then performs the still
+pre-source selected action. The behavior remains transport-level across Single,
+Mobile, Wide, and Card View; Preview and multi-camera background media remain
+muted. Physical Safari and Companion testing remains authoritative.
+
 `v1.1.10-dev.53` corrects the source-attachment boundary in the selected
-startup-audio sequence. A direct ACC 8.1.0 WebKit trace showed its go2rtc
-player receives the first selected unmute/play action with no source attached;
+startup-audio sequence. A controller-level ACC 8.1.0 WebKit comparison showed
+its go2rtc player receives the first selected unmute/play action with no source attached;
 that harmless request ends with `AbortError`. Its only subsequent request is
 the `media:loaded` action, after the audio/video source is usable. FrigateView
 was withholding the first action until its race winner had an audio-bearing

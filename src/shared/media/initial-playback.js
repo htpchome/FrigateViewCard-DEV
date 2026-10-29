@@ -65,8 +65,8 @@ export function createInitialPlayback(video, {
       state.started = true;
       if (settleAroundMute) await Promise.resolve();
       if (disposed || !isCurrent()) return;
-      const playResult = video.play();
       onPlayRequested({ loadedReapply, muted: Boolean(video.muted) });
+      const playResult = video.play();
       await playResult;
       completed = true;
       state.completed = true;
@@ -80,8 +80,8 @@ export function createInitialPlayback(video, {
         try {
           if (settleAroundMute) await Promise.resolve();
           if (disposed || !isCurrent()) return;
-          const playResult = video.play();
           onPlayRequested({ loadedReapply, muted: true });
+          const playResult = video.play();
           await playResult;
           completed = true;
           state.completed = true;

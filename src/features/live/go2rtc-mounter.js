@@ -445,8 +445,7 @@ export function createGo2RtcMounter({
     video.autoplay = !initialPlayback;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
-    if (initialPlayback) void initialPlayback.play();
-    else startVideoPlayback(video);
+    if (!initialPlayback) startVideoPlayback(video);
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
       sdpSemantics: "unified-plan",
@@ -737,6 +736,11 @@ export function createGo2RtcMounter({
         }
       } catch (_) {}
     });
+
+    // ACC connects its provider before the carousel applies the selected
+    // unmute/play action. Keep the action pre-source, but do not run it before
+    // the WebRTC peer and signaling socket exist.
+    if (initialPlayback) void initialPlayback.play();
 
     const started = await Promise.race([
       waitForStreamStart(slot, waitMs, {
