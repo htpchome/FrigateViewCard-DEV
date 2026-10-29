@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   GRID_ORDER_MODES,
   normalizeGridOrderConfig,
-  resolveGridCameraSelection,
   resolveGridCameras,
 } from "../src/features/grid/config.js";
 
@@ -89,32 +88,4 @@ test("Grid order reconciliation drops stale IDs and appends new cameras", () => 
     ],
     excluded: ["camera.deck"],
   });
-});
-
-test("Grid camera selection resolves the clicked physical entity to its configured camera", () => {
-  assert.deepEqual(
-    resolveGridCameraSelection(cameras, "camera.garage", 0),
-    {
-      index: 2,
-      entity: "camera.garage",
-      memberEntity: "",
-    },
-  );
-  assert.deepEqual(
-    resolveGridCameraSelection(cameras, "camera.package", 4),
-    {
-      index: 0,
-      entity: "camera.package",
-      memberEntity: "camera.package",
-    },
-  );
-});
-
-test("Grid camera selection uses the rendered index only when entity identity is unavailable", () => {
-  assert.deepEqual(resolveGridCameraSelection(cameras, "", 3), {
-    index: 3,
-    entity: "camera.deck",
-    memberEntity: "",
-  });
-  assert.equal(resolveGridCameraSelection(cameras, "camera.missing", 99), null);
 });

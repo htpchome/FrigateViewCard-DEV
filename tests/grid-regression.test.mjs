@@ -562,7 +562,7 @@ test("entering live Grid releases only duplicate go2rtc main-camera connections"
 test("a clicked live Grid camera transfers its existing transport into Single View", () => {
   assert.match(
     cardSource,
-    /gridSelectedLiveHandoff = wasGridMode[\s\S]*?takeGridLiveHandoff\?\.\([\s\S]*?newTransportEntity/,
+    /gridSelectedLiveHandoff = wasGridMode[\s\S]*?takeGridLiveHandoff\?\.\([\s\S]*?nextMemberOverride \|\| newEnt/,
   );
   assert.match(
     cardSource,
@@ -575,21 +575,6 @@ test("a clicked live Grid camera transfers its existing transport into Single Vi
   assert.doesNotMatch(
     cardSource,
     /wasGridMode && gridAlertTakeover[\s\S]{0,120}takeGridLiveHandoff/,
-  );
-});
-
-test("a Grid click commits one entity selection to live media and camera controls", () => {
-  assert.match(
-    cardSource,
-    /resolveGridCameraSelection\([\s\S]*?gridCell\.dataset\.gridEntity[\s\S]*?gridCell\.dataset\.gridCamidx/,
-  );
-  assert.match(
-    cardSource,
-    /this\._switchCamera\(selection\.index, \{[\s\S]*?groupMemberEntity: selection\.memberEntity,[\s\S]*?gridSelectionEntity: selection\.entity/,
-  );
-  assert.match(
-    cardSource,
-    /selectedGridEntity \|\| nextMemberOverride \|\| newEnt/,
   );
 });
 
