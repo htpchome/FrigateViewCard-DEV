@@ -270,6 +270,7 @@ export function createGo2RtcMounter({
       type: "frigate_go2rtc",
       streamType: "mse",
       video,
+      startupPlaybackDeferred: Boolean(initialPlayback),
       ws,
       destroy,
       activateRecovery: () => {
@@ -365,7 +366,7 @@ export function createGo2RtcMounter({
       minCurrentTime,
       minDecodedFrames,
       requireReadyState,
-      strict,
+      strict: initialPlayback ? false : strict,
       abortSignal: startupAbort.signal,
     });
     if (!started) {
@@ -536,6 +537,7 @@ export function createGo2RtcMounter({
       type: "frigate_go2rtc",
       streamType: "webrtc",
       video,
+      startupPlaybackDeferred: Boolean(initialPlayback),
       pc,
       ws,
       localStream: microphoneStream,
@@ -734,7 +736,7 @@ export function createGo2RtcMounter({
         minCurrentTime,
         minDecodedFrames,
         requireReadyState,
-        strict,
+        strict: initialPlayback ? false : strict,
         abortSignal,
       }),
       firstRenderedFramePromise,
@@ -846,6 +848,7 @@ export function createGo2RtcMounter({
 
     const engine = {
       video,
+      startupPlaybackDeferred: Boolean(initialPlayback),
       destroy,
       activateRecovery: () => {
         recoveryEnabled = true;

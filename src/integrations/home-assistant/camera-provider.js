@@ -34,6 +34,7 @@ export function createHaDirectCameraProvider({
   onState,
   muted = true,
   outputMuted = muted,
+  startupUnmuted = false,
   createStartupPlayback,
 }) {
   const provider = createHaCameraStreamElement({
@@ -52,6 +53,30 @@ export function createHaDirectCameraProvider({
   let observer = null;
   let observedPlayerRoot;
   let intendedOutputMuted = Boolean(outputMuted);
+  let holdStartupAutoplay = startupUnmuted === true;
+  const heldPlayerAutoplay = new Map();
+  const heldVideoAutoplay = new Map();
+  const holdNativeAutoplay = () => {
+    if (!holdStartupAutoplay) return;
+    const players = provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || [];
+    for (const player of players) {
+      if (!heldPlayerAutoplay.has(player)) heldPlayerAutoplay.set(player, player.autoPlay);
+      const playerVideo = player.shadowRoot?.querySelector("video") || player.video;
+      if (playerVideo && !heldVideoAutoplay.has(playerVideo)) {
+        heldVideoAutoplay.set(playerVideo, playerVideo.autoplay);
+      }
+      player.autoPlay = false;
+      if (playerVideo) playerVideo.autoplay = false;
+    }
+  };
+  const restoreNativeAutoplay = () => {
+    holdStartupAutoplay = false;
+    for (const [player, autoplay] of heldPlayerAutoplay) player.autoPlay = autoplay;
+    for (const [video, autoplay] of heldVideoAutoplay) video.autoplay = autoplay;
+    heldPlayerAutoplay.clear();
+    heldVideoAutoplay.clear();
+  };
+  provider.fvcReleaseStartupAutoplay = restoreNativeAutoplay;
   const applyOutputMute = () => {
     const activePlayer = findActiveHaCameraStreamPlayer(provider);
     for (const player of provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || []) {
@@ -71,6 +96,7 @@ export function createHaDirectCameraProvider({
   if (provider.shadowRoot) {
     observer = new MutationObserver(() => {
       applyOutputMute();
+      holdNativeAutoplay();
       void reconcile();
     });
     observer.observe(provider.shadowRoot, {
@@ -137,18 +163,13 @@ export function createHaDirectCameraProvider({
     if (initialPlayback) {
       // Keep HA autoplay from racing the selected-media action. The shared
       // controller owns both the immediate request and loaded-media reapply.
-      const player = findActiveHaCameraStreamPlayer(provider);
-      const playerAutoplay = player?.autoPlay;
-      const videoAutoplay = video.autoplay;
+      holdNativeAutoplay();
       let restored = false;
       restoreAutoplay = () => {
         if (restored) return;
         restored = true;
-        if (player && playerAutoplay !== undefined) player.autoPlay = playerAutoplay;
-        video.autoplay = videoAutoplay;
+        restoreNativeAutoplay();
       };
-      if (player) player.autoPlay = false;
-      video.autoplay = false;
       void initialPlayback.play();
     }
     let ready = false;
@@ -191,7 +212,7 @@ export function createHaDirectCameraProvider({
       onReady,
     });
     // A ready HA-to-HA takeover is not a new connection/loading phase.
-    if (!ready) loading();
+    if (!ready) onState({ status: "loading", streamType: "", video });
   };
   preserveHaCameraHlsFallback(provider, (streams, status) => {
     selection = streams;

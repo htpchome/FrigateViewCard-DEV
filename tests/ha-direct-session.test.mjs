@@ -10,9 +10,9 @@ const fixture = (options = {}) => {
   const element = () => ({ style: {}, dataset: {}, appendChild() {}, remove() {} });
   const createProjection = () => ({ deck: element(),
     project: (target) => calls.push(["project", target]), clear() {}, dispose: () => calls.push(["dispose"]) });
-  const session = createHaDirectSession({ ...options, createProjection, createProvider: ({ stateObj, onState, muted, outputMuted }) => {
+  const session = createHaDirectSession({ ...options, createProjection, createProvider: ({ stateObj, onState, muted, outputMuted, startupUnmuted }) => {
     const entity = stateObj.entity_id;
-    options.onCreate?.({ entity, muted, outputMuted });
+    options.onCreate?.({ entity, muted, outputMuted, startupUnmuted });
     calls.push(["create", entity]);
     callbacks.set(entity, onState);
     const provider = {
@@ -56,7 +56,8 @@ test("selected HA Direct audio preference reaches provider construction before w
   const owner = f.client();
   owner.startupMuted = () => false;
   f.session.attach(owner);
-  assert.deepEqual(starts, [{ entity: "camera.one", muted: false, outputMuted: true }]);
+  assert.deepEqual(starts, [{ entity: "camera.one", muted: false, outputMuted: true,
+    startupUnmuted: true }]);
   f.session.sync(owner);
   assert.equal(f.session.get("camera.one").provider.muted, false);
   owner.startupMuted = () => true; // Manual control cancels the startup preference.
@@ -71,8 +72,8 @@ test("selected HA Direct audio preference reaches provider construction before w
   assert.equal(f.session.get("camera.one").provider.outputMuted, true);
   await f.ready("camera.one");
   assert.deepEqual(starts, [
-    { entity: "camera.one", muted: false, outputMuted: true },
-    { entity: "camera.two", muted: true, outputMuted: true },
+    { entity: "camera.one", muted: false, outputMuted: true, startupUnmuted: true },
+    { entity: "camera.two", muted: true, outputMuted: true, startupUnmuted: false },
   ]);
   f.session.dispose();
 });

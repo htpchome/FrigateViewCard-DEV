@@ -690,7 +690,7 @@ test.afterEach(async ({ page }, testInfo) => {
 
 for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
   for (const denied of [false, true, "before-loaded"]) {
-    test(`production HA Direct immediately requests ${transport} audio and reapplies it after loaded data (denied=${denied})`, async ({ page }) => {
+    test(`production HA Direct makes its first audio request after loaded data for ${transport} (denied=${denied})`, async ({ page }) => {
       await page.goto(baseUrl);
       await page.evaluate(async ({ transport, denied }) => {
         const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
@@ -729,13 +729,13 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
           muted: card._engine.haDirectSession.get("camera.one").video.muted, uiMuted: card._streamMuted };
       });
       // HA may preload a hidden WebRTC candidate before selecting it. Hidden
-      // candidates stay muted. The selected player requests audio immediately
-      // and independently repeats that request after loadeddata.
+      // candidates stay muted. The selected player makes its first audible
+      // request only after loadeddata.
       expect(result.requests.filter((request) => request.hidden).every((request) => request.muted), JSON.stringify(result)).toBe(true);
       const first = result.requests.filter((request) => request.entity === "camera.one" && !request.hidden);
       expect(first.length, JSON.stringify(result)).toBeGreaterThan(0);
       expect(first[0].muted, JSON.stringify(result)).toBe(false);
-      expect(first.some((request) => !request.muted && request.readyState < 2), JSON.stringify(result)).toBe(true);
+      expect(first.some((request) => !request.muted && request.readyState < 2), JSON.stringify(result)).toBe(false);
       expect(first.some((request) => !request.muted && request.readyState >= 2), JSON.stringify(result)).toBe(true);
       expect(result.muted).toBe(denied === true);
       expect(result.uiMuted).toBe(denied === true);
@@ -746,9 +746,10 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       expect(await page.evaluate(() => [...window.startupAudioProbe.card._engine.haDirectSession.records.values()]
         .every((record) => [...record.provider.players.values()]
           .every((player) => !player.classList.contains("hidden") || player.video.muted)))).toBe(true);
-      expect(await page.evaluate(() => [...window.startupAudioProbe.card._engine.haDirectSession.records.values()]
-        .every((record) => [...record.provider.players.values()]
-          .every((player) => player.autoPlay && player.video.autoplay)))).toBe(true);
+      await expect.poll(() => page.evaluate(() =>
+        [...window.startupAudioProbe.card._engine.haDirectSession.records.values()].every((record) =>
+          [...record.provider.players.values()].every((player) =>
+            player.autoPlay && player.video.autoplay)))).toBe(true);
     });
   }
 }

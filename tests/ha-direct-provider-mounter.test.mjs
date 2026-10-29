@@ -31,6 +31,7 @@ const run = async (callback) => {
     assignCommittedEngine: (engine) => calls.push(["engine", engine]),
     onCommittedStream: (type) => calls.push(["stream", type]),
     onCommittedMediaReady: (engine, video) => calls.push(["media", engine, video]),
+    onSelectedMediaAvailable: (engine, video) => calls.push(["available", engine, video]),
   });
   try {
     await callback({ mounter, record, session, provider, calls,
@@ -48,6 +49,10 @@ test("shell paint does not start HA cameras before the foreground mount", async 
 
 test("mount and transport notifications bind to the session's selected provider", async () => run(async (f) => {
   assert.equal((await f.mounter.tryMount({}, null, { entity: "camera.one" })).ok, true);
+  const loadingVideo = {};
+  Object.assign(f.record, { status: "loading", video: loadingVideo });
+  f.publish();
+  assert.deepEqual(f.calls.at(-1), ["available", f.provider, loadingVideo]);
   Object.assign(f.record, { status: "ready", streamType: "hls", video: {} });
   f.publish();
   assert.deepEqual(f.calls.at(-1), ["stream", "hls"]);

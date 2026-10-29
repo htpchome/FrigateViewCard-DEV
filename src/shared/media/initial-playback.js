@@ -6,6 +6,7 @@ export function createInitialPlayback(video, {
   onDispose = () => {},
   waitForData = false,
   reapplyOnLoadedData = false,
+  deferUntilCommit = false,
 } = {}) {
   let disposed = false;
   let pending = false;
@@ -22,6 +23,9 @@ export function createInitialPlayback(video, {
   };
   const play = async ({ loadedReapply = false } = {}) => {
     if (disposed || !isCurrent()) return;
+    // A selected live candidate can load while it is still in a hidden race
+    // slot. Its visible owner performs the first play after adoption.
+    if (deferUntilCommit) return;
     if (loadedReapply && state.loadedReapplied) return;
     if (!loadedReapply && (completed || retries >= 3)) return;
     // MediaStream/HLS can load while paused. Do not turn source attachment
@@ -74,18 +78,22 @@ export function createInitialPlayback(video, {
   };
   const onReadiness = () => void play();
   const onLoadedData = () => void play({ loadedReapply: reapplyOnLoadedData });
-  video.addEventListener?.("loadedmetadata", onReadiness);
-  video.addEventListener?.("loadeddata", onLoadedData);
-  video.addEventListener?.("canplay", onReadiness);
+  if (!deferUntilCommit) {
+    video.addEventListener?.("loadedmetadata", onReadiness);
+    video.addEventListener?.("loadeddata", onLoadedData);
+    video.addEventListener?.("canplay", onReadiness);
+  }
   return {
     state,
     play,
     dispose() {
       if (disposed) return;
       disposed = true;
-      video.removeEventListener?.("loadedmetadata", onReadiness);
-      video.removeEventListener?.("loadeddata", onLoadedData);
-      video.removeEventListener?.("canplay", onReadiness);
+      if (!deferUntilCommit) {
+        video.removeEventListener?.("loadedmetadata", onReadiness);
+        video.removeEventListener?.("loadeddata", onLoadedData);
+        video.removeEventListener?.("canplay", onReadiness);
+      }
       onDispose();
     },
   };

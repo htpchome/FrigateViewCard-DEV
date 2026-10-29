@@ -72,9 +72,11 @@ export const adoptMountedAttemptResult = ({
   setStreamLoading?.(false);
   setStreamFallbackVisible?.(false);
   if (rotateOverlayActive) setLiveNativeControls?.(true);
-  try {
-    void result.engine.video?.play?.()?.catch?.(() => {});
-  } catch (_) {}
+  if (result.engine.startupPlaybackDeferred !== true) {
+    try {
+      void result.engine.video?.play?.()?.catch?.(() => {});
+    } catch (_) {}
+  }
   return true;
 };
 

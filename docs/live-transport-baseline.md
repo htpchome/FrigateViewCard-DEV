@@ -2,19 +2,30 @@
 
 ## Current Baseline
 
-`v1.1.10-dev.35` aligns the card-level cold-start lifecycle with Advanced
-Camera Card, rather than adding another media-element timing retry. A selected
-camera configured to start unmuted on standard Mobile View or live Single View
-now mounts immediately while discovery and shared transport preparation
-continue in parallel. The previous startup awaited the complete card
-preparation barrier before camera 1 was mounted, so Safari/Companion could lose
-the initial navigation opportunity before either HA Direct or Frigate go2rtc
-received the selected-media action. Muted startup is unchanged. Preview remains
-hard-muted, and Preview, Grid/Slideshow startup, Wide View, Card View and
-deep-linked startup retain their existing preparation barriers.
-The change does not delay source connection or add a timer, synthetic gesture,
-connection, fallback or transport-specific audio path. Physical Safari and
-Companion verification remains required.
+`v1.1.10-dev.36` corrects the actual first-play mismatch with Advanced Camera
+Card. ACC lets a selected provider load without playing; its media-loaded event
+first commits the visible surface, then the selected-media action unmutes and
+plays it. FrigateView previously made an audible request while go2rtc candidates
+were still in hidden race slots, and HA Direct could do the same before its
+selected child was handed to the visible audio owner. Safari rejected that
+hidden audible request, after which the card deliberately established muted
+playback. The later visible unmute therefore required a tap.
+
+Configured-unmuted go2rtc candidates now load without playing and use loaded
+media—not advancing muted playback—as their startup readiness boundary. After
+the winner is visibly adopted, its first play request is unmuted. HA Direct
+holds the selected native child's autoplay before its initial render, reports
+that loaded child to the visible audio owner, and follows the same first-play
+ordering. A real audible-autoplay denial still falls back to muted playback and
+the existing interaction recovery. Ordinary muted startup, Preview, stream
+selection, race preference, source negotiation and video loading remain eager
+and unchanged. The rejected dev.35 early-route activation has been removed.
+Physical Safari and Companion verification remains required.
+
+`v1.1.10-dev.35` moved configured-unmuted Mobile View and live Single View
+activation ahead of the shared preparation barrier. Physical Safari and
+Companion testing showed no improvement, disproving that startup-barrier theory;
+dev.36 removes the behavior and restores the established route startup order.
 
 `v1.1.10-dev.34` corrects the two-phase selected-media lifecycle found by
 tracing Advanced Camera Card. ACC does not synthesize a click or user

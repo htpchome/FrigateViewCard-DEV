@@ -98,6 +98,7 @@ export function createHaDirectSession({
         stateObj,
         muted: !startupAudio,
         outputMuted: true,
+        startupUnmuted: startupAudio,
         createStartupPlayback: (video, options) => {
           if (!active?.visible(entity) || active?.startupMuted?.(entity) !== false) return null;
           return active.createStartupPlayback?.(video, {

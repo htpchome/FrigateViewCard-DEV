@@ -1055,7 +1055,7 @@ test("live transport ownership is pulled out of the card shell", () => {
 test("live audio behavior is owned by its feature controller", () => {
   assert.equal(
     cardSource.includes(
-      'import {\n  cameraStartsUnmuted,\n  getLiveAudioController,\n  LiveAudioController,\n} from "../features/live/audio.ctrl.js";',
+      'import {\n  getLiveAudioController,\n  LiveAudioController,\n} from "../features/live/audio.ctrl.js";',
     ),
     true,
   );
@@ -1683,14 +1683,6 @@ test("startup resolves initial page through the navigation factory", () => {
     "await Promise.all([",
     gridPriorityPreparationIndex,
   );
-  const earlyActivationIndex = cardSource.indexOf(
-    "const activateAudibleLiveLandingEarly =",
-    gridPriorityPreparationIndex,
-  );
-  const earlyLandingPageIndex = cardSource.indexOf(
-    "this._pageNavigationController.navigateToConfiguredLandingPage({",
-    earlyActivationIndex,
-  );
   const finalShellIndex = cardSource.indexOf(
     "this._pageNavigationController.prepareConfiguredLandingPageShell({",
     provisionalShellIndex + 1,
@@ -1698,9 +1690,8 @@ test("startup resolves initial page through the navigation factory", () => {
   const initialLoadIndex = cardSource.indexOf(
     "const initialLoad = this._browseWindowLoaderController.loadWindow(true);",
   );
-  const deferredLandingPageIndex = cardSource.indexOf(
-    "this._pageNavigationController.navigateToConfiguredLandingPage({",
-    earlyLandingPageIndex + 1,
+  const landingPageIndex = cardSource.search(
+    /this\._pageNavigationController\.navigateToConfiguredLandingPage\([\s\S]*?source:\s*"startup"[\s\S]*?startup:\s*true[\s\S]*?hasPendingDeepLinkTarget,/,
   );
 
   assert.equal(
@@ -1713,10 +1704,6 @@ test("startup resolves initial page through the navigation factory", () => {
   assert.ok(discoverIndex > priorityPreparationIndex);
   assert.ok(discoverIndex > cardViewPriorityPreparationIndex);
   assert.ok(gridPriorityPreparationIndex > cardViewPriorityPreparationIndex);
-  assert.ok(earlyActivationIndex > gridPriorityPreparationIndex);
-  assert.ok(earlyActivationIndex < discoverIndex);
-  assert.ok(earlyLandingPageIndex > earlyActivationIndex);
-  assert.ok(earlyLandingPageIndex < discoverIndex);
   assert.ok(discoverIndex > gridPriorityPreparationIndex);
   assert.ok(finalShellIndex > discoverIndex);
   assert.equal(
@@ -1731,7 +1718,7 @@ test("startup resolves initial page through the navigation factory", () => {
   );
   assert.ok(initialLoadIndex >= 0);
   assert.ok(initialLoadIndex > finalShellIndex);
-  assert.ok(deferredLandingPageIndex > initialLoadIndex);
+  assert.ok(landingPageIndex > initialLoadIndex);
   assert.doesNotMatch(cardSource, /_shouldStartInGridMode/);
   assert.doesNotMatch(cardSource, /_applyStartInGridMode/);
   assert.equal(

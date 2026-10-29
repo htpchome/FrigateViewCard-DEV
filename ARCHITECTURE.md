@@ -144,19 +144,11 @@ Meaning of `ha_direct`:
   on replacement/disposal. Do not patch global handlers, create another player,
   change WebRTC retry/selection, or bypass HA's engine cleanup and construction.
 
-  Selected HA Direct startup audio holds native autoplay while the shared audio
-  owner immediately applies the selected output preference and requests play.
-  At the loaded-data boundary it independently reapplies that same unmute/play
-  action even if the immediate promise resolved. Source selection and decoding
-  remain eager; a denied audible request falls back to muted playback.
-
-  A camera configured to start unmuted on standard Mobile View or live Single
-  View activates its selected live route before card-wide discovery and shared
-  playback preparation settle. Its selected transport may share those
-  in-flight preparation promises, but must not wait for the complete startup
-  barrier before mounting camera 1. Muted startup, Preview, Grid/Slideshow
-  startup, Wide View, Card View and deep-linked startup retain their existing
-  route-specific preparation barriers.
+  Selected HA Direct startup audio holds native autoplay while the child loads.
+  The shared audio owner must not play that child before it is selected and
+  visibly projected. Once the visible child has loaded data, apply unmute and
+  make its first play request in that order. Source selection and decoding stay
+  eager; a denied audible request falls back to muted playback.
 
   Companion background-return exception: outside Catalyst, the HA Direct
   session inspects its providers on a real hidden-to-visible or pagehide-to-
@@ -198,13 +190,12 @@ Meaning of `ha_direct`:
   public `muted` input. Stream-selection intent and visible output mute are
   separate: selected startup audio may set the provider's public `muted` input
   before native child creation so HA chooses an audio-capable stream. For a
-  selected camera configured to start unmuted, the visible child's output is
-  also unmuted for an immediate playback request. Its public autoplay input may
-  be held off while the card owns startup playback; source creation, negotiation
-  and decoding continue immediately. At loaded data the card independently
-  repeats the selected unmute/play action, falling back immediately to muted
-  playback whenever audible autoplay is denied. Restore native autoplay after
-  startup handoff, cancellation or replacement.
+  selected camera configured to start unmuted, its public autoplay input may be
+  held off while source creation, negotiation and decoding continue. The child
+  remains output-muted and paused until it is visibly selected and has loaded
+  data; only then does the card unmute it and make its first play request.
+  Fall back immediately to muted playback whenever audible autoplay is denied.
+  Restore native autoplay after startup handoff, cancellation or replacement.
   Once audio has been selected, muting output must not downgrade or rebuild that
   stream. Do not rewrite `defaultMuted`, synchronize dormant candidates, patch
   sources, patch native methods, or change peer lifecycle;

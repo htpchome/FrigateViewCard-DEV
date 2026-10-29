@@ -23,6 +23,7 @@ export function createHaDirectProviderMounter({
   isMountAttemptCurrent = () => true,
   assignCommittedEngine,
   onCommittedMediaReady,
+  onSelectedMediaAvailable,
   onCommittedStream,
   onPendingStream,
   onPresentationLost,
@@ -90,6 +91,9 @@ export function createHaDirectProviderMounter({
       if (lastPresentation?.every((value, index) => value === identity[index])) return;
       lastPresentation = identity;
       if (record.provider) assignCommittedEngine?.(record.provider, { retainPrevious: true });
+      if (record.provider && record.video) {
+        onSelectedMediaAvailable?.(record.provider, record.video);
+      }
       if (record.status === "ready") {
         stopLoading();
         onCommittedMediaReady?.(record.provider, record.video);

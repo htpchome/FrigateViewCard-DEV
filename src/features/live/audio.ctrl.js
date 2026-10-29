@@ -92,14 +92,13 @@ export class LiveAudioController {
     // Only one racing candidate may request audio before a winner is selected.
     this._initialAudioOwner ??= video;
     if (this._initialAudioOwner === video) {
-      // Match ACC's selected-media action: load eagerly while output-muted.
-      // The transport immediately requests selected playback, then repeats the
-      // audio preference at loadeddata even if WebKit resolved the first play.
+      // Match ACC's selected-media action: let the candidate load while muted,
+      // but leave its first play request to the visible committed owner.
       video.preload = "auto";
       video.muted = true;
     }
     const playback = createInitialPlayback(video, {
-      reapplyOnLoadedData: true,
+      deferUntilCommit: true,
       onDispose,
       getMuted: () => {
         const muted = this._initialAudioOwner !== video || this.resolveStartupMuted(entity);
@@ -185,12 +184,11 @@ export class LiveAudioController {
       blocked: initial?.state.blocked === true,
       loadedReapplied: initialCompletedAudible,
       awaitingLoaded: Number(video.readyState) < 2,
+      startupPlayback: initial || null,
     };
     this._cameraStartUnmuteAttempt = attempt;
-    // Selection is now usable. Retire early startup promises and reapply audio
-    // to this loaded player, rather than latching its earlier autoplay denial.
-    initial?.dispose();
-    this._initialPlaybackVideos.delete(video);
+    // Keep the deferred startup owner until this visible player's first play
+    // resolves so a hidden candidate cannot independently start playback.
     if (engine.catalystHls !== true) {
       attempt.stopAudioWatch = watchAudioAvailability(video,
         getHaCameraAudioPeer(engine) || engine.pc,
@@ -313,6 +311,20 @@ export class LiveAudioController {
     );
   }
 
+  _releaseStartupPlayback(attempt) {
+    attempt?.engine?.fvcReleaseStartupAutoplay?.();
+    const playback = attempt?.startupPlayback;
+    if (!playback) return;
+    attempt.startupPlayback = null;
+    playback.dispose();
+    if (this._initialPlaybackVideos.get(attempt.video) === playback) {
+      this._initialPlaybackVideos.delete(attempt.video);
+    }
+    if (this._initialAudioOwner === attempt.video) {
+      this._initialAudioOwner = null;
+    }
+  }
+
   _attemptCameraStartUnmute(attempt) {
     const host = this._host;
     const { engine, video } = attempt;
@@ -352,6 +364,7 @@ export class LiveAudioController {
 
   _handleCameraStartUnmuteSuccess(attempt) {
     attempt.inFlight = false;
+    this._releaseStartupPlayback(attempt);
     const host = this._host;
     if (!this._isCurrentStartUnmuteAttempt(attempt) || host._streamMuted !== false) return;
     if (attempt.loadedWhilePending) {
@@ -400,6 +413,7 @@ export class LiveAudioController {
     }
     attempt.blocked = true;
     this._setAutomaticOutputMuted(attempt.engine, attempt.video, true);
+    this._releaseStartupPlayback(attempt);
     host._renderMuteButton?.();
     const { engine, video } = attempt;
     try {

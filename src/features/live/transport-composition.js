@@ -125,6 +125,9 @@ export const createLiveTransportControllers = (
         interactionTarget: video,
       });
     },
+    onSelectedMediaAvailable: () => {
+      getLiveAudioController(card).applyCameraStartPreference();
+    },
     onCommittedStream: (type) => {
       card._setActiveStreamType(type);
       card._setStreamLoading(false);

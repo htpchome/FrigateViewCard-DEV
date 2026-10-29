@@ -218,7 +218,7 @@ test("go2rtc race candidates retain shared startup playback ownership", async ()
   }));
 });
 
-test("production go2rtc cold startup requests audio immediately and reapplies it after loadeddata", async () => {
+test("production go2rtc cold startup waits for visible commit before its first play", async () => {
   await withFakeDocument(() => withFakeObjectUrl(async () => {
     const camera = { entity: "camera.front", start_unmuted: true };
     const host = {
@@ -255,10 +255,8 @@ test("production go2rtc cold startup requests audio immediately and reapplies it
         const video = slot.lastChild;
         assert.equal(video.autoplay, false);
         assert.equal(video.preload, "auto", "cold audio startup keeps media loading eager");
-        assert.equal(video.muted, false, "selected output begins its immediate audible request");
-        assert.deepEqual(requests, [
-          { muted: false, defaultMuted: false, readyState: 0 },
-        ]);
+        assert.equal(video.muted, true, "the hidden candidate stays output-muted");
+        assert.deepEqual(requests, []);
         video.readyState = 2;
         video.dispatchEvent(new Event("loadeddata"));
         await Promise.resolve();
@@ -273,7 +271,6 @@ test("production go2rtc cold startup requests audio immediately and reapplies it
 
     assert.equal(mounted, true);
     assert.deepEqual(requests, [
-      { muted: false, defaultMuted: false, readyState: 0 },
       { muted: false, defaultMuted: false, readyState: 2 },
     ]);
     assert.equal(host._streamMuted, false);
@@ -283,7 +280,7 @@ test("production go2rtc cold startup requests audio immediately and reapplies it
 
 for (const transport of ["WebRtc", "Mse", "Hls"]) {
   for (const denied of transport === "WebRtc" ? [false, true, "cancel"] : [false, true]) {
-    test(`go2rtc ${transport} applies selected audio at first playback, before commit (denied=${denied})`, async () => {
+    test(`go2rtc ${transport} does not play a selected candidate before commit (denied=${denied})`, async () => {
       await withFakeDocument(() => withFakeObjectUrl(async () => {
         const camera = { entity: "camera.front", start_unmuted: true };
         const host = { _activeCam: camera, _engine: null, _renderMuteButton() {} };
@@ -335,11 +332,8 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
               assert.deepEqual(stream.getTracks(), [videoTrack]);
               await Promise.resolve();
               await Promise.resolve();
-              assert.deepEqual(
-                calls,
-                denied === true ? [false, true] : [false],
-                "source attachment immediately applies the selected audio preference",
-              );
+              assert.deepEqual(calls, [],
+                "source attachment must not establish hidden muted playback");
               peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
               assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
               assert.deepEqual(stream.getTracks(), [videoTrack, audioTrack]);
@@ -359,11 +353,7 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
             await Promise.resolve();
             await Promise.resolve();
             await Promise.resolve();
-            assert.deepEqual(
-              calls,
-              denied === "cancel" ? [false] :
-                denied === true ? [false, true, false, true] : [false, false],
-            );
+            assert.deepEqual(calls, []);
             assert.equal(host._engine, null);
             return true;
           },
