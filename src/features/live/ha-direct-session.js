@@ -97,7 +97,7 @@ export function createHaDirectSession({
         hass: lastHass,
         stateObj,
         muted: !startupAudio,
-        outputMuted: true,
+        outputMuted: !startupAudio,
         startupUnmuted: startupAudio,
         createStartupPlayback: (video, options) => {
           if (!active?.visible(entity) || active?.startupMuted?.(entity) !== false) return null;

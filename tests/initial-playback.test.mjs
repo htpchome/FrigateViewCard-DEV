@@ -78,8 +78,8 @@ test("selected startup candidates do not play until committed with loaded data",
   await playback.play();
   video.dispatchEvent(new Event("loadeddata"));
   await Promise.resolve();
-  assert.deepEqual(video.calls, [], "a hidden loading candidate must not establish muted autoplay");
-  assert.equal(video.muted, true);
+  assert.deepEqual(video.calls, [], "an audio-armed loading candidate must not start playback");
+  assert.equal(video.muted, false, "the selected audio owner is primed before source attachment");
   host._engine = { video };
   assert.equal(controller.applyCameraStartPreference(), true);
   await Promise.resolve();

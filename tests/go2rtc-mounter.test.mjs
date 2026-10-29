@@ -157,9 +157,11 @@ function createSlot() {
     innerHTML: "occupied",
     appended: [],
     autoplayAtAppend: [],
+    mutedAtAppend: [],
     appendChild(node) {
       this.appended.push(node);
       this.autoplayAtAppend.push(node.autoplay);
+      this.mutedAtAppend.push(node.muted);
       this.lastChild = node;
     },
   };
@@ -257,7 +259,8 @@ test("production go2rtc cold startup waits for visible commit before its first p
         const video = slot.lastChild;
         assert.equal(video.autoplay, false);
         assert.equal(video.preload, "auto", "cold audio startup keeps media loading eager");
-        assert.equal(video.muted, true, "the hidden candidate stays output-muted");
+        assert.equal(video.muted, false,
+          "the selected audio owner is primed before source attachment");
         assert.deepEqual(requests, []);
         video.readyState = 2;
         video.dispatchEvent(new Event("loadeddata"));
@@ -367,6 +370,8 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
           assert.equal(result.ok, true);
           assert.equal(slot.autoplayAtAppend[0], false,
             "selected-audio media must enter the document with native autoplay disabled");
+          assert.equal(slot.mutedAtAppend[0], false,
+            "selected-audio media must be primed unmuted before source attachment");
           result.engine.destroy();
         } finally {
           audio.dispose();

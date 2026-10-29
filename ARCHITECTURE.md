@@ -146,10 +146,10 @@ Meaning of `ha_direct`:
 
   Selected HA Direct startup audio holds native autoplay while the child loads.
   The shared audio owner must not play that child before it is selected and
-  visibly projected. Source selection and decoding stay eager, but the selected
-  output's first play request waits until it has loaded data. At that boundary,
-  apply unmute and request play in that order. A denied audible request falls
-  back to muted playback.
+  visibly projected. The selected output is primed unmuted before its source
+  starts, while native autoplay remains disabled. Source selection and decoding
+  stay eager, but the first play request waits until loaded data. A denied
+  audible request falls back to muted playback.
 
   Companion background-return exception: outside Catalyst, the HA Direct
   session inspects its providers on a real hidden-to-visible or pagehide-to-
@@ -193,8 +193,9 @@ Meaning of `ha_direct`:
   before native child creation so HA chooses an audio-capable stream. For a
   selected camera configured to start unmuted, its public autoplay input may be
   held off while source creation, negotiation and decoding continue. The child
-  remains output-muted and paused until it is visibly selected and has loaded
-  data; the selected media action then unmutes before requesting its first play.
+  is primed output-unmuted while remaining paused until it is visibly selected
+  and has loaded data; the selected media action then reasserts unmute before
+  requesting its first play.
   Fall back immediately to muted playback whenever audible autoplay is denied.
   Restore native autoplay after startup handoff, cancellation or replacement.
   Once audio has been selected, muting output must not downgrade or rebuild that

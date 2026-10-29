@@ -2,6 +2,17 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.43` carries ACC's selected-output state across the source-attachment
+boundary. ACC's go2rtc provider runs the selected unmute action while its video
+still has no source, so WebRTC later assigns `srcObject` to an already-unmuted,
+non-autoplaying element. FrigateView previously attached both go2rtc and native
+HA media to muted output and changed the property only after data loaded. The
+single selected go2rtc audio owner and the selected HA Direct output are now
+primed unmuted before source/child startup, with native autoplay still held and
+no early playback request. The first play remains at loaded data; denial still
+falls back to muted playback and interaction recovery. Preview, background HA
+providers and non-audio-owning race candidates remain muted.
+
 `v1.1.10-dev.42` corrects the remaining ordering mismatch found through direct
 comparison with Advanced Camera Card 8.1.0. ACC invokes its selected action
 early, but its provider exposes no media-player controller until media has

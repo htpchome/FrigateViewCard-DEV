@@ -89,13 +89,14 @@ export class LiveAudioController {
     if (this.resolveStartupMuted(entity)) return null;
     const camera = this._cameraStartUnmuteCamera;
     if (replaceExisting) this._clearInitialPlayback(video);
-    // Only one racing candidate may request audio before a winner is selected.
+    // ACC primes its selected video unmuted before the source is attached. Do
+    // the same for the single audio-owning candidate, without starting it.
+    // Native autoplay is held by the mounter until the visible owner commits.
     this._initialAudioOwner ??= video;
     if (this._initialAudioOwner === video) {
-      // Match ACC's selected-media action: let the candidate load while muted,
-      // but leave its first play request to the visible committed owner.
       video.preload = "auto";
-      video.muted = true;
+      video.muted = false;
+      if (typeof video.volume === "number") video.volume = 1;
     }
     const playback = createInitialPlayback(video, {
       deferUntilCommit: true,
