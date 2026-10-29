@@ -2,6 +2,20 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.57` preserves ACC's required unmute-before-play order and fixes
+the larger selected-media pipeline around it. The configured player receives
+one action after selection and one action after loaded media; a go2rtc race
+candidate holds the loaded action until it is the retained engine, and attempt
+adoption no longer issues an unrelated third `play()` request. The unmute and
+play operations retain ACC's asynchronous host-update boundary. HA Direct now
+holds the native HA HLS/WebRTC player's autoplay property false, matching
+ACC's patched HA leaves, so muted native autoplay cannot establish a different
+WebKit playback session before the selected-media action. Stream selection
+continues to request an audio-capable HA stream separately from speaker mute.
+Preview and background media remain muted. Physical Safari and iOS Companion
+testing remains authoritative because headless iPhone WebKit does not enforce
+the same audible-autoplay policy.
+
 `v1.1.10-dev.54` corrects two ordering differences left after the dev.53
 physical Safari and Companion test still required a tap. ACC completes its
 selected provider's unmute action before calling the native `play()` method;

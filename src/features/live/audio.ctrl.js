@@ -20,6 +20,8 @@ export class LiveAudioController {
     this._cameraStartUnmuteCamera = null;
     this._autoUnmuteVideo = null;
     this._onAutoUnmuteLoaded = null;
+    this._autoUnmuteMediaLoaded = false;
+    this._autoUnmuteMediaActionApplied = false;
   }
 
   resolveMuted() {
@@ -56,8 +58,7 @@ export class LiveAudioController {
     if (!video || this.resolveStartupMuted(entity)) return false;
     if (this._autoUnmuteVideo) return this._autoUnmuteVideo === video;
     this._autoUnmuteVideo = video;
-    this._installAutoUnmuteLoadedListener(video, () =>
-      this._applyCandidateUnmute(video, entity, isCurrent));
+    this._installAutoUnmuteLoadedListener(video);
     this._applyCandidateUnmute(video, entity, isCurrent);
     return true;
   }
@@ -68,7 +69,7 @@ export class LiveAudioController {
     return true;
   }
 
-  applyCameraStartPreference() {
+  applyCameraStartPreference({ mediaLoaded = false } = {}) {
     const host = this._host;
     if (!cameraStartsUnmuted(this._cameraStartUnmuteCamera) || !host._engine) {
       return false;
@@ -78,24 +79,30 @@ export class LiveAudioController {
     if (!video || this._interactionTarget?.visibilityState === "hidden") {
       return false;
     }
-    if (this._autoUnmuteVideo === video && video.muted === false) {
-      this._setAutomaticOutputMuted(engine, video, false);
-      return true;
+    if (this._autoUnmuteVideo !== video) {
+      this._clearAutoUnmuteLoadedListener();
+      this._autoUnmuteVideo = video;
+      this._installAutoUnmuteLoadedListener(video);
+      this._applySelectedUnmute(engine, video);
     }
-    this._clearAutoUnmuteLoadedListener();
-    this._autoUnmuteVideo = video;
-    this._installAutoUnmuteLoadedListener(video, () => {
-      if (video !== this._resolveEngineVideo(host._engine)) return;
-      this._applySelectedUnmute(host._engine, video);
-    });
-    return this._applySelectedUnmute(engine, video);
+    if (mediaLoaded) this._autoUnmuteMediaLoaded = true;
+    if (
+      this._autoUnmuteMediaLoaded &&
+      !this._autoUnmuteMediaActionApplied
+    ) {
+      this._autoUnmuteMediaActionApplied = true;
+      return this._applySelectedUnmute(engine, video);
+    }
+    return true;
   }
 
-  _installAutoUnmuteLoadedListener(video, apply) {
-    if (Number(video.readyState) >= 2) return;
+  _installAutoUnmuteLoadedListener(video) {
     this._onAutoUnmuteLoaded = () => {
       this._onAutoUnmuteLoaded = null;
-      apply();
+      if (video !== this._autoUnmuteVideo) return;
+      this._autoUnmuteMediaLoaded = true;
+      if (video !== this._resolveEngineVideo(this._host._engine)) return;
+      this.applyCameraStartPreference({ mediaLoaded: true });
     };
     video.addEventListener?.("loadeddata", this._onAutoUnmuteLoaded, { once: true });
   }
@@ -123,23 +130,7 @@ export class LiveAudioController {
     // If the browser denies audible autoplay, resume muted without installing
     // a page-wide interaction retry.
     this._setAutomaticOutputMuted(engine, video, false);
-    try {
-      const playback = video.play?.();
-      playback?.catch?.((error) => {
-        if (
-          error?.name !== "NotAllowedError" ||
-          camera !== this._cameraStartUnmuteCamera ||
-          engine !== host._engine ||
-          video !== this._resolveEngineVideo(engine) ||
-          video.muted === true
-        ) return;
-        this._setAutomaticOutputMuted(engine, video, true);
-        host._renderMuteButton?.();
-        try {
-          void video.play?.()?.catch?.(() => {});
-        } catch (_) {}
-      });
-    } catch (_) {}
+    void this._requestUnmutedPlayback({ camera, engine, video });
     host._cameraStartUnmutePending = false;
     host._engineMountedMuted = false;
     host._renderMuteButton?.();
@@ -162,25 +153,48 @@ export class LiveAudioController {
     host._cameraStartUnmutePending = false;
     host._engineMountedMuted = false;
     host._renderMuteButton?.();
-    try {
-      const playback = video.play?.();
-      playback?.catch?.((error) => {
-        if (
-          error?.name !== "NotAllowedError" ||
-          camera !== this._cameraStartUnmuteCamera ||
-          video !== this._autoUnmuteVideo ||
-          !isCurrent() ||
-          video.muted === true
-        ) return;
-        video.muted = true;
-        host._streamMuted = true;
-        host._renderMuteButton?.();
-        try {
-          void video.play?.()?.catch?.(() => {});
-        } catch (_) {}
-      });
-    } catch (_) {}
+    void this._requestUnmutedPlayback({
+      camera,
+      engine: null,
+      video,
+      isCurrent,
+    });
     return true;
+  }
+
+  async _requestUnmutedPlayback({ camera, engine, video, isCurrent } = {}) {
+    // ACC awaits its media host update after unmuting and before play. The raw
+    // FrigateView video has no updateComplete promise, so preserve the same
+    // asynchronous boundary with one microtask.
+    await Promise.resolve();
+    const current = engine
+      ? engine === this._host._engine &&
+        video === this._resolveEngineVideo(engine)
+      : video === this._autoUnmuteVideo && isCurrent?.();
+    if (
+      !current ||
+      camera !== this._cameraStartUnmuteCamera ||
+      video.muted === true ||
+      this._interactionTarget?.visibilityState === "hidden"
+    ) return;
+    try {
+      await video.play?.();
+    } catch (error) {
+      if (
+        error?.name !== "NotAllowedError" ||
+        camera !== this._cameraStartUnmuteCamera ||
+        video.muted === true
+      ) return;
+      if (engine) this._setAutomaticOutputMuted(engine, video, true);
+      else {
+        video.muted = true;
+        this._host._streamMuted = true;
+      }
+      this._host._renderMuteButton?.();
+      try {
+        await video.play?.();
+      } catch (_) {}
+    }
   }
 
   _setAutomaticOutputMuted(engine, video, muted) {
@@ -201,6 +215,8 @@ export class LiveAudioController {
     }
     this._onAutoUnmuteLoaded = null;
     this._autoUnmuteVideo = null;
+    this._autoUnmuteMediaLoaded = false;
+    this._autoUnmuteMediaActionApplied = false;
   }
 
   dispose() {

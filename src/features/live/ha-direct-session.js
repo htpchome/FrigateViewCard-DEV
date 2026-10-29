@@ -61,6 +61,8 @@ export function createHaDirectSession({
       record.slot.style.zIndex = visible ? "3" : "0";
       if (record.provider) {
         const outputMuted = visible ? Boolean(active.muted(record.entity)) : true;
+        record.provider.fvcStartupPlaybackOwned =
+          visible && active.startupMuted?.(record.entity) === false;
         record.audioStreamPreferred ||= record.provider.fvcHaAudioStreamPreferred === true ||
           (visible && active.startupMuted?.(record.entity) === false) || !outputMuted;
         record.provider.fvcHaAudioStreamPreferred = record.audioStreamPreferred;
@@ -127,6 +129,7 @@ export function createHaDirectSession({
       Object.assign(record.provider, {
         type: "ha_direct", haDirectProvider: true, haDirectEntity: entity,
         haDirectSession: api, haDirectProviderSlot: slot,
+        fvcStartupPlaybackOwned: startupAudio,
       });
       slot.appendChild(record.provider);
     } catch (error) {

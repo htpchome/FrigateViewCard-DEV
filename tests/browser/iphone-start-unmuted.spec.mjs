@@ -162,6 +162,7 @@ test("iPhone WebKit repeats the selected action when go2rtc media loads", async 
     const controller = new LiveAudioController(host);
     controller.prepareCameraStart(host._activeCam);
     controller.applyCameraStartPreference();
+    await Promise.resolve();
     Object.defineProperty(video, "readyState", { configurable: true, value: 2 });
     video.dispatchEvent(new Event("loadeddata"));
     await Promise.resolve();

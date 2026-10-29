@@ -764,7 +764,9 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       await expect.poll(() => page.evaluate(() =>
         [...window.startupAudioProbe.card._engine.haDirectSession.records.values()].every((record) =>
           [...record.provider.players.values()].every((player) =>
-            player.autoPlay && player.video.autoplay)))).toBe(true);
+            record.entity === "camera.one"
+              ? !player.autoPlay && !player.video.autoplay
+              : player.autoPlay && player.video.autoplay)))).toBe(true);
     });
   }
 }

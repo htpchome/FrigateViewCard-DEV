@@ -654,7 +654,7 @@ export function createGo2RtcMounter({
         mediaStream.addTrack(event.track);
         video.srcObject = mediaStream;
       }
-      video.play().catch(() => {});
+      if (!selectedPlayback) video.play().catch(() => {});
       watchFirstFrame();
     });
 

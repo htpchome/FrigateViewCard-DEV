@@ -51,11 +51,18 @@ export function createHaDirectCameraProvider({
   let intendedOutputMuted = Boolean(outputMuted);
   const applyOutputMute = () => {
     const activePlayer = findActiveHaCameraStreamPlayer(provider);
+    const selectedPlaybackOwned = provider.fvcStartupPlaybackOwned === true;
     for (const player of provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || []) {
+      // Match ACC: selected-media actions own startup playback. Native muted
+      // autoplay must not run first and establish a different WebKit session.
+      player.autoPlay = !selectedPlaybackOwned;
       player.muted = player === activePlayer ? intendedOutputMuted : true;
     }
     const video = findActiveHaCameraStreamVideo(provider);
-    if (video) video.muted = intendedOutputMuted;
+    if (video) {
+      video.autoplay = !selectedPlaybackOwned;
+      video.muted = intendedOutputMuted;
+    }
     return video;
   };
   provider.fvcSetOutputMuted = (nextMuted) => {

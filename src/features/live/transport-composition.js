@@ -118,6 +118,9 @@ export const createLiveTransportControllers = (
     assignCommittedEngine: (engine, options) =>
       card._assignLiveEngine(engine, options),
     onCommittedMediaReady: (engine, video) => {
+      getLiveAudioController(card).applyCameraStartPreference({
+        mediaLoaded: true,
+      });
       const liveEngineHost = card._$("#engine");
       card._attachMainLiveVideoZoom(engine, video, {
         host: liveEngineHost,

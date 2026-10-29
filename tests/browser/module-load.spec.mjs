@@ -281,10 +281,10 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         engine.haDirectProvider = true;
         engine.attachShadow({ mode: "open" }).append(player);
       }
-      card._engine = engine;
       card._liveAudioController.prepareCameraStart(card._config.cameras[0]);
+      card._assignLiveEngine(engine);
       card._setActiveStreamType("webrtc");
-      await Promise.resolve();
+      for (let index = 0; index < 4; index += 1) await Promise.resolve();
       const afterInterruption = { muted: video.muted, plays: playStates.length };
       video.dispatchEvent(new Event("canplay"));
       await Promise.resolve();
@@ -336,26 +336,27 @@ for (const connectionType of ["frigate_go2rtc", "ha_direct"]) {
         const second = createResult("webrtc");
         const target = card.shadowRoot.querySelector("#engine");
         card._adoptLiveAttemptResult(target, first);
-        await Promise.resolve();
+        for (let index = 0; index < 4; index += 1) await Promise.resolve();
         const beforeLoadedMuted = first.engine.video.muted;
         Object.defineProperty(first.engine.video, "readyState", { value: 2 });
         first.engine.video.dispatchEvent(new Event("loadeddata"));
-        await Promise.resolve();
+        for (let index = 0; index < 4; index += 1) await Promise.resolve();
         const firstMuted = first.engine.video.muted;
         const oldVideo = first.engine.video;
         if (connectionType === "ha_direct") {
           // HA keeps its provider while replacing the selected child video.
           first.engine.video = second.engine.video;
           target.replaceChildren(second.slot);
+          card._liveAudioController.applyCameraStartPreference();
           card._setActiveStreamType("webrtc");
         } else {
           card._adoptLiveAttemptResult(target, second);
         }
-        await Promise.resolve();
+        for (let index = 0; index < 4; index += 1) await Promise.resolve();
         const takeoverBeforeLoadedMuted = second.engine.video.muted;
         Object.defineProperty(second.engine.video, "readyState", { value: 2 });
         second.engine.video.dispatchEvent(new Event("loadeddata"));
-        await Promise.resolve();
+        for (let index = 0; index < 4; index += 1) await Promise.resolve();
         const takeoverMuted = second.engine.video.muted;
         allowAudio = true;
         oldVideo.dispatchEvent(new Event("touchend"));

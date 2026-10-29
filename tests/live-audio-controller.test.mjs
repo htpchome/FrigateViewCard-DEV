@@ -53,6 +53,7 @@ test("selected action runs on assignment and repeats when media loads", async ()
   const h = createHarness({ readyState: 0 });
   h.controller.prepareCameraStart(h.host._activeCam);
   assert.equal(h.controller.applyCameraStartPreference(), true);
+  await Promise.resolve();
   assert.deepEqual(h.video.playStates, [{ muted: false, readyState: 0 }]);
   assert.equal(h.video.muted, false);
   h.video.readyState = 2;
@@ -112,17 +113,42 @@ test("a denied audible play resumes muted without adding a tap fallback", async 
   assert.equal(pageInteractions, 0);
 });
 
-test("manual mute cancels a pending configured unmute", () => {
+test("manual mute cancels a pending configured unmute", async () => {
   const h = createHarness({ readyState: 0 });
   h.controller.prepareCameraStart(h.host._activeCam);
   h.controller.applyCameraStartPreference();
   h.controller.applyMuteChange(true);
   h.video.readyState = 2;
   h.video.dispatchEvent(new Event("loadeddata"));
+  await Promise.resolve();
   assert.equal(h.video.muted, true);
   assert.equal(h.host._streamMuted, true);
+  assert.deepEqual(h.video.playStates, []);
+});
+
+test("a loaded race candidate waits for selected-engine adoption", async () => {
+  const h = createHarness({ readyState: 0 });
+  h.host._engine = null;
+  h.controller.prepareCameraStart(h.host._activeCam);
+  assert.equal(h.controller.prepareSelectedPlayback(h.video, {
+    entity: "camera.front",
+  }), true);
+  await Promise.resolve();
   assert.deepEqual(h.video.playStates, [
     { muted: false, readyState: 0 },
+  ]);
+
+  h.video.readyState = 2;
+  h.video.dispatchEvent(new Event("loadeddata"));
+  await Promise.resolve();
+  assert.equal(h.video.playStates.length, 1);
+
+  h.host._engine = h.engine;
+  assert.equal(h.controller.applyCameraStartPreference(), true);
+  await Promise.resolve();
+  assert.deepEqual(h.video.playStates, [
+    { muted: false, readyState: 0 },
+    { muted: false, readyState: 2 },
   ]);
 });
 
