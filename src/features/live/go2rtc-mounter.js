@@ -420,6 +420,11 @@ export function createGo2RtcMounter({
 
     const initialPlayback = options.muted == null ? createStartupPlayback?.(video, {
       entity, isCurrent: () => !destroyed && !abortSignal?.aborted,
+      waitForData: !microphoneTrack,
+      onDispose: () => {
+        // Cancelling an audio preference must not cancel muted video startup.
+        if (!destroyed && !abortSignal?.aborted) video.autoplay = true;
+      },
     }) : null;
     if (initialPlayback) video.autoplay = false;
     const pc = new RTCPeerConnection({
@@ -573,6 +578,7 @@ export function createGo2RtcMounter({
       if (pc.connectionState === "connected") {
         clearNegotiationTimer();
         completeSignaling();
+        attachConnectedReceiveStream();
       }
       if (["disconnected", "failed"].includes(pc.connectionState)) {
         scheduleRecovery("webrtc-connection-lost");
@@ -596,11 +602,50 @@ export function createGo2RtcMounter({
       resolveFirstRenderedFrame = resolve;
     });
 
+    const receiveTracks = new Set();
+    let receiveStream = null;
+    const watchFirstFrame = () => {
+      video.requestVideoFrameCallback?.(() => {
+        if (!resolveFirstRenderedFrame) return;
+        resolveFirstRenderedFrame(true);
+        resolveFirstRenderedFrame = null;
+      });
+    };
+    const attachConnectedReceiveStream = () => {
+      if (!initialPlayback || microphoneTrack || destroyed ||
+          abortSignal?.aborted || pc.connectionState !== "connected") return;
+      for (const receiver of pc.getReceivers?.() || []) {
+        if (receiver.track) receiveTracks.add(receiver.track);
+      }
+      const tracks = [...receiveTracks].filter((track) => track.readyState !== "ended");
+      if (!tracks.length) return;
+      if (!receiveStream) {
+        receiveStream = new MediaStream(tracks);
+        // Assign once after connection. A later audio track joins the same
+        // stream without resetting an in-flight audible playback request.
+        video.srcObject = receiveStream;
+        watchFirstFrame();
+        void initialPlayback.play();
+      } else {
+        for (const track of tracks) {
+          if (!receiveStream.getTracks().includes(track)) receiveStream.addTrack(track);
+        }
+      }
+    };
+
     pc.addEventListener("track", (event) => {
       if (destroyed) {
         try {
           event.track?.stop?.();
         } catch (_) {}
+        return;
+      }
+      if (initialPlayback && !microphoneTrack) {
+        if (event.track) receiveTracks.add(event.track);
+        for (const stream of event.streams || []) {
+          for (const track of stream.getTracks()) receiveTracks.add(track);
+        }
+        attachConnectedReceiveStream();
         return;
       }
       if (event.streams && event.streams[0]) {
@@ -612,13 +657,7 @@ export function createGo2RtcMounter({
       }
       if (initialPlayback) void initialPlayback.play();
       else video.play().catch(() => {});
-      if (video.requestVideoFrameCallback) {
-        video.requestVideoFrameCallback(() => {
-          if (!resolveFirstRenderedFrame) return;
-          resolveFirstRenderedFrame(true);
-          resolveFirstRenderedFrame = null;
-        });
-      }
+      watchFirstFrame();
     });
 
     pc.addEventListener("icecandidate", (event) => {

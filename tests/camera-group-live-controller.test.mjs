@@ -288,6 +288,34 @@ test("startup owns primary playback without changing group audio selection", () 
   assert.deepEqual(plays, ["A", "B"], "secondary playback keeps its owner");
 });
 
+for (const transport of ["frigate_go2rtc", "ha_direct"]) {
+  test(`startup audio ignores a hidden DOM-first ${transport} candidate without a group`, () => {
+    const { host, primaryVideo } = createHost();
+    host._activeCam = { entity: "camera.main", connection_type: transport };
+    const plays = [];
+    primaryVideo.play = () => { plays.push("hidden"); return Promise.resolve(); };
+    const selectedVideo = { muted: true, play: () => { plays.push("selected"); return Promise.resolve(); } };
+    const players = [primaryVideo, selectedVideo].map((video, index) => ({
+      classList: { contains: () => index === 0 },
+      shadowRoot: { querySelector: () => video },
+    }));
+    host._engine = transport === "ha_direct"
+      ? { haDirectProvider: true, shadowRoot: { querySelectorAll: () => players } }
+      : { video: selectedVideo };
+    const controller = new CameraGroupLiveController(host);
+    controller.syncAudio({ playbackOwner: selectedVideo });
+    assert.equal(selectedVideo.muted, false);
+    assert.equal(primaryVideo.muted, true);
+    assert.deepEqual(plays, [], "startup owns the selected play promise, hidden candidates never play audibly");
+    controller.syncAudio();
+    assert.deepEqual(plays, ["selected"]);
+    host._streamMuted = true;
+    controller.syncAudio();
+    assert.equal(selectedVideo.muted, true);
+    assert.equal(primaryVideo.muted, true);
+  });
+}
+
 test("A/B audio selection keeps exactly one pane audible and follows mute", () => {
   const { host, primaryVideo, secondaryVideo } = createHost();
   const controller = new CameraGroupLiveController(host);

@@ -188,7 +188,7 @@ function createBaseMounter(overrides = {}) {
 }
 
 for (const transport of ["WebRtc", "Mse", "Hls"]) {
-  for (const denied of [false, true]) {
+  for (const denied of transport === "WebRtc" ? [false, true, "cancel"] : [false, true]) {
     test(`go2rtc ${transport} applies selected audio at first playback, before commit (denied=${denied})`, async () => {
       await withFakeDocument(() => withFakeObjectUrl(async () => {
         const camera = { entity: "camera.front", start_unmuted: true };
@@ -196,9 +196,12 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
         const audio = new LiveAudioController(host, { interactionTarget: null });
         audio.prepareCameraStart(camera);
         let peer;
+        let startupVideo;
+        const videoTrack = { kind: "video", readyState: "live", stop() {} };
+        const audioTrack = { kind: "audio", readyState: "live", stop() {} };
         class Socket extends EventTarget { close() {} }
         class Peer extends EventTarget {
-          constructor() { super(); peer = this; }
+          constructor() { super(); peer = this; this.connectionState = "connecting"; }
           addTransceiver() {}
           getTransceivers() { return []; }
           close() {}
@@ -206,26 +209,52 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
         class Source extends EventTarget { static isTypeSupported() { return true; } }
         const previousSocket = globalThis.WebSocket;
         const previousPeer = globalThis.RTCPeerConnection;
+        const previousStream = globalThis.MediaStream;
+        globalThis.MediaStream = class {
+          constructor(tracks = []) { this.tracks = [...tracks]; }
+          getTracks() { return this.tracks; }
+          addTrack(track) { this.tracks.push(track); }
+        };
         globalThis.WebSocket = Socket;
         globalThis.RTCPeerConnection = Peer;
         const calls = [];
         const mounter = createBaseMounter({
           getStreamMuted: () => true,
           createStartupPlayback(video, options) {
+            startupVideo = video;
+            video.readyState = 0;
             video.play = () => {
               calls.push(video.muted);
-              return denied && !video.muted
+              return denied === true && !video.muted
                 ? Promise.reject(new DOMException("Denied", "NotAllowedError")) : Promise.resolve();
             };
             return audio.createInitialPlayback(video, options);
           },
           waitForStreamStart: async () => {
             if (transport === "WebRtc") {
-              peer.dispatchEvent(Object.assign(new Event("track"), { streams: [{ getTracks: () => [] }] }));
+              peer.dispatchEvent(Object.assign(new Event("track"), { track: videoTrack, streams: [] }));
+              assert.equal(startupVideo.srcObject, undefined);
+              assert.deepEqual(calls, [], "track arrival alone must not request playback");
+              peer.connectionState = "connected";
+              peer.dispatchEvent(new Event("connectionstatechange"));
+              const stream = startupVideo.srcObject;
+              assert.deepEqual(stream.getTracks(), [videoTrack]);
+              assert.deepEqual(calls, [], "connected media must still wait for loaded data");
+              peer.dispatchEvent(Object.assign(new Event("track"), { track: audioTrack, streams: [] }));
+              assert.equal(startupVideo.srcObject, stream, "late audio must not replace the assigned stream");
+              assert.deepEqual(stream.getTracks(), [videoTrack, audioTrack]);
+              if (denied === "cancel") {
+                assert.equal(startupVideo.autoplay, false);
+                audio.cancelCameraStartPreference();
+                assert.equal(startupVideo.autoplay, true, "cancelled audio restores ordinary muted autoplay");
+                assert.equal(startupVideo.muted, true);
+              }
+              startupVideo.readyState = 2;
+              startupVideo.dispatchEvent(new Event("loadeddata"));
             }
             await Promise.resolve();
             await Promise.resolve();
-            assert.deepEqual(calls, denied ? [false, true] : [false]);
+            assert.deepEqual(calls, denied === "cancel" ? [] : denied ? [false, true] : [false]);
             assert.equal(host._engine, null);
             return true;
           },
@@ -239,6 +268,7 @@ for (const transport of ["WebRtc", "Mse", "Hls"]) {
           audio.dispose();
           globalThis.WebSocket = previousSocket;
           globalThis.RTCPeerConnection = previousPeer;
+          globalThis.MediaStream = previousStream;
         }
       }));
     });

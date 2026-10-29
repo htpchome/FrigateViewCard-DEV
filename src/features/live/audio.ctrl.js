@@ -83,13 +83,15 @@ export class LiveAudioController {
     );
   }
 
-  createInitialPlayback(video, { entity, isCurrent = () => true, onMuted = () => {}, replaceExisting = false } = {}) {
+  createInitialPlayback(video, { entity, isCurrent = () => true, onMuted = () => {}, onDispose = () => {}, replaceExisting = false, waitForData = false } = {}) {
     if (this.resolveStartupMuted(entity)) return null;
     const camera = this._cameraStartUnmuteCamera;
     if (replaceExisting) this._clearInitialPlayback(video);
     // Only one racing candidate may request audio before a winner is selected.
     this._initialAudioOwner ??= video;
     const playback = createInitialPlayback(video, {
+      waitForData,
+      onDispose,
       getMuted: () => {
         const muted = this._initialAudioOwner !== video || this.resolveStartupMuted(entity);
         if (this._initialAudioOwner === video) {

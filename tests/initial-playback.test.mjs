@@ -12,6 +12,58 @@ const makeVideo = (denied = false) => Object.assign(new EventTarget(), {
   },
 });
 
+for (const denied of [false, true]) {
+  test(`data-gated initial playback waits without consuming attempts (denied=${denied})`, async () => {
+    const video = Object.assign(makeVideo(denied), { readyState: 0 });
+    const playback = createInitialPlayback(video, { getMuted: () => false, waitForData: true });
+    for (let i = 0; i < 5; i += 1) {
+      await playback.play();
+      video.dispatchEvent(new Event("loadedmetadata"));
+    }
+    assert.deepEqual(video.calls, []);
+    assert.equal(playback.state.started, false);
+    video.readyState = 2;
+    video.dispatchEvent(new Event("loadeddata"));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.deepEqual(video.calls, denied ? [false, true] : [false]);
+    video.dispatchEvent(new Event("canplay"));
+    assert.deepEqual(video.calls, denied ? [false, true] : [false]);
+    playback.dispose();
+  });
+}
+
+test("disposing a data-gated initial request prevents later loaded audio", async () => {
+  const video = Object.assign(makeVideo(), { readyState: 0 });
+  const playback = createInitialPlayback(video, { getMuted: () => false, waitForData: true });
+  await playback.play();
+  playback.dispose();
+  video.readyState = 2;
+  video.dispatchEvent(new Event("loadeddata"));
+  await playback.play();
+  assert.deepEqual(video.calls, []);
+});
+
+for (const action of ["manual-mute", "camera-change", "dispose"]) {
+  test(`startup cancellation releases provider playback ownership once: ${action}`, () => {
+    const camera = { entity: "camera.one", start_unmuted: true };
+    const host = { _activeCam: camera, _engine: null, _renderMuteButton() {}, _setLiveMuted() {} };
+    const controller = new LiveAudioController(host, { interactionTarget: new EventTarget() });
+    controller.prepareCameraStart(camera);
+    let releases = 0;
+    const playback = controller.createInitialPlayback(makeVideo(), {
+      entity: camera.entity, onDispose: () => { releases += 1; }, waitForData: true,
+    });
+    if (action === "manual-mute") controller.applyMuteChange(true);
+    if (action === "camera-change") controller.prepareCameraStart({ entity: "camera.two" });
+    if (action === "dispose") controller.dispose();
+    assert.equal(releases, 1);
+    playback.dispose();
+    controller.dispose();
+    assert.equal(releases, 1);
+  });
+}
+
 for (const action of ["loaded", "manual-mute", "camera-change", "hidden", "dispose"]) {
   test(`transport adoption before loadeddata preserves the loaded audio attempt: ${action}`, async () => {
     const camera = { entity: "camera.one", start_unmuted: true };

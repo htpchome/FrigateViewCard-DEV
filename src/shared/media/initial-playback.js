@@ -3,6 +3,8 @@ export function createInitialPlayback(video, {
   getMuted = () => true,
   isCurrent = () => true,
   onMuted = () => {},
+  onDispose = () => {},
+  waitForData = false,
 } = {}) {
   let disposed = false;
   let pending = false;
@@ -12,6 +14,9 @@ export function createInitialPlayback(video, {
   const state = { started: false, blocked: false, requestedUnmuted: false };
   const play = async () => {
     if (disposed || !isCurrent() || completed || retries >= 3) return;
+    // MediaStream/HLS can load while paused. Do not turn source attachment
+    // into an audible-play request before the selected media is usable.
+    if (waitForData && video.readyState < 2) return;
     if (pending) { readinessPending = true; return; }
     pending = true;
     readinessPending = false;
@@ -47,10 +52,12 @@ export function createInitialPlayback(video, {
     state,
     play,
     dispose() {
+      if (disposed) return;
       disposed = true;
       for (const event of ["loadedmetadata", "loadeddata", "canplay"]) {
         video.removeEventListener?.(event, play);
       }
+      onDispose();
     },
   };
 }

@@ -41,6 +41,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
   let stopFrameWatch = () => {};
   let stopVideoEvents = () => {};
   let initialPlayback = null;
+  let restoreAutoplay = () => {};
   let observer = null;
   let observedPlayerRoot;
   const webRtcRetry = createHaCameraWebRtcRetry({ provider });
@@ -78,6 +79,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
     if (video === watchedVideo && video) return;
     stopFrameWatch();
     stopVideoEvents();
+    restoreAutoplay();
     initialPlayback?.dispose();
     initialPlayback = null;
     watchedVideo = video;
@@ -89,19 +91,37 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
     const loading = () => onState({ status: "loading", streamType: "", video: null });
     if (!video) { loading(); return; }
     const current = () => !disposed && video === watchedVideo && findActiveHaCameraStreamVideo(provider) === video;
-    // The public provider mute input is set before HA constructs its children.
-    // Handle denial before waiting for a first frame, which denied autoplay
-    // cannot produce. HA still owns the source, peer and native autoplay.
+    // HA still owns sources and peers. Selected audible startup owns play(),
+    // using loaded data rather than waiting for already-playing frames.
     initialPlayback = createStartupPlayback?.(video, {
       isCurrent: current,
       replaceExisting: true,
+      waitForData: true,
+      onDispose: () => restoreAutoplay(),
       onMuted: () => {
         provider.muted = true;
         const player = findActiveHaCameraStreamPlayer(provider);
         if (player) player.muted = true;
       },
     });
-    if (initialPlayback) void initialPlayback.play();
+    if (initialPlayback) {
+      const player = findActiveHaCameraStreamPlayer(provider);
+      const playerAutoplay = player?.autoPlay;
+      const videoAutoplay = video.autoplay;
+      let restored = false;
+      restoreAutoplay = () => {
+        if (restored) return;
+        restored = true;
+        video.removeEventListener("playing", restoreAutoplay);
+        if (player && playerAutoplay !== undefined) player.autoPlay = playerAutoplay;
+        video.autoplay = videoAutoplay;
+      };
+      if (player) player.autoPlay = false;
+      video.autoplay = false;
+      // Restore HA's ordinary retention/resume lifecycle once startup settles.
+      video.addEventListener("playing", restoreAutoplay, { once: true });
+      void initialPlayback.play();
+    }
     let ready = false;
     let waitingTime = video.currentTime;
     const onReady = () => {
@@ -166,6 +186,7 @@ export function createHaDirectCameraProvider({ hass, stateObj, onState, muted = 
       hlsRecovery.dispose();
       stopFrameWatch();
       stopVideoEvents();
+      restoreAutoplay();
       initialPlayback?.dispose();
       observer?.disconnect();
       provider.removeEventListener("streams", reconcile, true);

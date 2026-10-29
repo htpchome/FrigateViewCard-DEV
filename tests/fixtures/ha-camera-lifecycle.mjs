@@ -112,6 +112,7 @@ export function installHaCameraLifecycleFixture({
         const play = this.video.play.bind(this.video);
         this.video.play = () => {
           audit.playbackRequests.push({ entity: this.entityid, player: this.localName,
+            hidden: this.classList.contains("hidden"),
             muted: this.video.muted, readyState: this.video.readyState });
           const denied = denyAudiblePlayback === "before-loaded"
             ? this.video.readyState < 2 : denyAudiblePlayback;
@@ -134,6 +135,8 @@ export function installHaCameraLifecycleFixture({
     }
     set muted(value) { if (auditStartupAudio) this.video.muted = value; }
     get muted() { return this.video.muted; }
+    set autoPlay(value) { this.video.autoplay = value; }
+    get autoPlay() { return this.video.autoplay; }
     connectedCallback() {
       if (observeVisibility) {
         this.onVisibility = () => {
@@ -201,7 +204,10 @@ export function installHaCameraLifecycleFixture({
         })));
         return;
       }
-      this.startMedia();
+      // Native HA awaits URL/signaling before attaching media. Let the
+      // provider configure the selected child's public inputs first.
+      if (auditStartupAudio) this.startTimer = setTimeout(() => this.startMedia(), 0);
+      else this.startMedia();
     }
     startMedia() {
       if (outages.has(this.entityid) || this.video.hasAttribute("src")) return;
@@ -212,12 +218,13 @@ export function installHaCameraLifecycleFixture({
         }));
       }, { once: true });
       this.video.src = `/media.mp4?entity=${this.entityid}&type=${this.localName}`;
-      void this.video.play().catch(() => {});
+      if (this.autoPlay) void this.video.play().catch(() => {});
     }
     disconnectedCallback() {
       if (this.onVisibility) document.removeEventListener("visibilitychange", this.onVisibility);
       audit.stops.push(`${this.localName}:${this.entityid}`);
       clearTimeout(this.retryTimer);
+      clearTimeout(this.startTimer);
       if (this._peerConnection) {
         this._peerConnection.iceConnectionState = "closed";
         audit.closedPeers.push(this.entityid);

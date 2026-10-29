@@ -2,6 +2,27 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.25` defers the initial selected audible request until loaded data,
+not just the later selected-player retry. Receive-only go2rtc WebRTC gathers
+received tracks once the peer connects, assigns one stream, and adds late tracks
+without replacing that stream. Explicit-muted, microphone/talk, MSE and go2rtc
+HLS startup paths retain their existing sequencing. Normal HA Direct temporarily
+disables the active child's public autoplay inputs while its initial audible
+request is owned by the card; playing, cancellation, replacement and disposal
+restore HA's original inputs. Hidden candidates continue preloading muted.
+Native HA source selection, signaling and teardown remain HA-owned.
+
+The group audio synchronizer previously searched the engine container before
+the committed player, including when no group was active. A browser test caught
+it requesting audible playback on a hidden HLS candidate during WebRTC startup.
+Primary audio synchronization now targets the selected HA child or committed
+go2rtc video. Background candidates cannot steal that startup request. No layout,
+retention identity, manual mute control, microphone permission or Catalyst
+lifecycle change is included. Navigation still retains a manually chosen mute
+state; it is not equivalent to a cold start. Automated sequencing checks and
+synthetic-audio comparisons do not establish physical Safari/Companion success;
+this version still requires real-client confirmation.
+
 `v1.1.10-dev.24` gates the selected-player auto-unmute attempt on actual media
 readiness (`readyState >= HAVE_CURRENT_DATA`). Transport adoption is not that
 boundary: a synthetic-audio WebRTC comparison reproduced the production go2rtc
@@ -12,8 +33,8 @@ unmuted successfully. The controller now keeps that attempt pending until
 loaded data/canplay readiness; early notifications do not consume its retry
 budget. Manual mute, camera changes, hidden documents and disposal still guard
 the pending work. This does not alter transport adoption, peers, source
-assignment, native HA autoplay, the mute button, or layout. Physical iPhone
-Safari/Companion confirmation is still required.
+assignment, native HA autoplay, the mute button, or layout. Physical Safari
+(desktop and iPhone) and Companion testing reported no improvement.
 
 `v1.1.10-dev.23` reapplies the configured audio preference when the selected
 player becomes usable, even after an early startup autoplay denial. It retires
@@ -681,7 +702,8 @@ Preserve all of these behaviors together:
     timeout-based recovery and is the only provider-retention exception here.
     Only the instance-local verified-HLS capability, muted-HLS selector,
     failed-WebRTC retry, retryable-HLS recovery (including the scoped foreground
-    visibility adapter), documented standard-HLS configuration, and scoped
+    visibility adapter), selected-startup public autoplay ownership,
+    documented standard-HLS configuration, and scoped
     received-audio restoration corrections above are allowed;
     none affects HA's global
     components. Read-only native-peer observation may drive the bounded retry

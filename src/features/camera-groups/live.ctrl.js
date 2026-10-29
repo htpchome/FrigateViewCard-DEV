@@ -1,4 +1,4 @@
-import { buildHaCameraStreamState } from "../../integrations/home-assistant/playback.js";
+import { buildHaCameraStreamState, findActiveHaCameraStreamVideo } from "../../integrations/home-assistant/playback.js";
 import { attachVideoZoom } from "../../shared/media/video-zoom.ctrl.js";
 import {
   CAMERA_GROUP_LAYOUTS,
@@ -152,11 +152,13 @@ export class CameraGroupLiveController {
     const secondaryPane = this._host._$(
       '.camera-group-live-pane[data-camera-group-member="B"]',
     );
-    const primaryVideo =
-      this._host._findVideoDeep?.(this._host._$("#engine")) ||
-      this._host._findVideoDeep?.(this._host._engine) ||
-      this._host._engine?.video ||
-      null;
+    // DOM order can select a hidden HA child or a losing go2rtc candidate.
+    // Synchronize the same committed player that owns the startup request.
+    const engine = this._host._engine;
+    const primaryVideo = engine?.haDirectProvider === true
+      ? findActiveHaCameraStreamVideo(engine)
+      : engine?.video || this._host._findVideoDeep?.(engine) ||
+        this._host._findVideoDeep?.(this._host._$("#engine")) || null;
     const secondaryVideo =
       this._host._findVideoDeep?.(
         this._host._$("#camera-group-secondary-engine"),
