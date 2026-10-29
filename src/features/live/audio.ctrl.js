@@ -92,15 +92,10 @@ export class LiveAudioController {
     // Only one racing candidate may request audio before a winner is selected.
     this._initialAudioOwner ??= video;
     if (this._initialAudioOwner === video) {
-      // ACC establishes the selected output state before its provider attaches
-      // media. Safari treats that as a different first-play lifecycle from
-      // promoting an already-running muted autoplay session later.
-      // Keep source loading eager while autoplay itself is temporarily held.
+      // Match ACC's selected-media action: load eagerly while output-muted,
+      // then unmute immediately before the first loaded-media play request.
       video.preload = "auto";
-      this._host._streamMuted = false;
-      video.muted = false;
-      if (typeof video.volume === "number") video.volume = 1;
-      this._host._renderMuteButton?.();
+      video.muted = true;
     }
     const playback = createInitialPlayback(video, {
       waitForData: true,

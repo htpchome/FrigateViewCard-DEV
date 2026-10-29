@@ -144,6 +144,12 @@ Meaning of `ha_direct`:
   on replacement/disposal. Do not patch global handlers, create another player,
   change WebRTC retry/selection, or bypass HA's engine cleanup and construction.
 
+  Selected HA Direct startup audio remains output-muted while its source loads
+  with autoplay held. At the loaded-data boundary, the audio owner unmutes that
+  same visible video immediately before its first play request. Source selection
+  and decoding remain eager; a denied audible request falls back to muted
+  playback.
+
   Companion background-return exception: outside Catalyst, the HA Direct
   session inspects its providers on a real hidden-to-visible or pagehide-to-
   pageshow transition. Retire released/failed players before their native

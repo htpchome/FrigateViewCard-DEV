@@ -64,7 +64,7 @@ for (const action of ["manual-mute", "camera-change", "dispose"]) {
   });
 }
 
-test("live startup marks audio before media attachment and waits until loadeddata to play", async () => {
+test("live startup loads muted then unmutes immediately before its first loadeddata play", async () => {
   const camera = { entity: "camera.one", start_unmuted: true };
   const video = Object.assign(makeVideo(), { readyState: 0 });
   const host = {
@@ -81,14 +81,14 @@ test("live startup marks audio before media attachment and waits until loadeddat
     entity: camera.entity,
   });
   assert.equal(video.preload, "auto", "holding autoplay must not defer source loading");
-  assert.equal(video.muted, false, "selected output is unmuted before source readiness");
+  assert.equal(video.muted, true, "selected output remains muted while media loads");
   await playback.play();
 
   assert.deepEqual(video.calls, [], "cold startup does not create a muted autoplay session");
   video.readyState = 2;
   video.dispatchEvent(new Event("loadeddata"));
   await Promise.resolve();
-  assert.deepEqual(video.calls, [false]);
+  assert.deepEqual(video.calls, [false], "loaded media is unmuted immediately before first play");
   controller.dispose();
 });
 

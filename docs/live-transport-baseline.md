@@ -2,6 +2,16 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.33` follows the reliable loaded-media action found by tracing
+Advanced Camera Card. ACC does not synthesize a click or other user activation.
+Its target action can run before media is ready, then its media-loaded handler
+reasserts output unmute and immediately requests play on that same video.
+Frigate go2rtc and HA Direct now keep output muted during eager loading and
+perform that paired unmute/play operation at the loaded-data boundary. Source
+connection and decoding are not delayed. A denied audible request still retries
+muted immediately and retains first-interaction recovery. Physical Safari and
+Companion verification remains required.
+
 `v1.1.10-dev.32` corrects the remaining cold-load difference from Advanced
 Camera Card. On a hard load, ACC marks the selected visible output unmuted
 before source attachment, leaves autoplay off, and makes its first play request
@@ -16,7 +26,9 @@ triggers that play.
 An audible-autoplay denial immediately retries muted and retains the existing
 first-interaction recovery. No timer, transport retry, extra connection,
 `defaultMuted` rewrite, dormant-player unmute, or Preview audio change is
-included. Physical Safari and Companion verification remains required.
+included. Physical Safari and Companion testing still required a tap because
+this revision unmuted during loading rather than at ACC's loaded-media action;
+dev.33 replaces that ordering.
 
 `v1.1.10-dev.31` replaces the card-owned audible-first startup sequence with
 an attempted selected-media lifecycle based on Advanced Camera Card. Frigate go2rtc

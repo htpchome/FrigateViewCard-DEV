@@ -135,10 +135,8 @@ export function createHaDirectCameraProvider({
       },
     });
     if (initialPlayback) {
-      // Match ACC's cold-load ordering: the selected child is unmuted before
-      // its first media play, while source selection remains HA-owned.
-      intendedOutputMuted = false;
-      applyOutputMute();
+      // Keep the selected child output-muted while HA attaches media. The
+      // shared loaded-media action unmutes immediately before its first play.
       const player = findActiveHaCameraStreamPlayer(provider);
       const playerAutoplay = player?.autoPlay;
       const videoAutoplay = video.autoplay;

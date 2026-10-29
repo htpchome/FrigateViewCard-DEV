@@ -255,7 +255,7 @@ test("production go2rtc cold startup makes its first play request unmuted after 
         const video = slot.lastChild;
         assert.equal(video.autoplay, false);
         assert.equal(video.preload, "auto", "cold audio startup keeps media loading eager");
-        assert.equal(video.muted, false, "selected output is unmuted before source readiness");
+        assert.equal(video.muted, true, "selected output remains muted while media loads");
         assert.deepEqual(requests, []);
         video.readyState = 2;
         video.dispatchEvent(new Event("loadeddata"));
