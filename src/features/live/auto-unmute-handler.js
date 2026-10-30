@@ -90,9 +90,14 @@ export class AutoUnmuteHandler {
       if (target !== this._target) return;
       target.loaded = true;
       const engine = this._host._engine;
-      if (!engine || video !== this._resolveVideo(engine)) return;
       if (target.loadedActionApplied) return;
-      const applied = this._applySelected(engine, video);
+      // A go2rtc race candidate reports loadeddata before it becomes the
+      // committed engine. ACC's experimental provider applies its selected
+      // unmute/play action at this source-ready boundary, so do not discard the
+      // event merely because the candidate has not won the race yet.
+      const applied = engine && video === this._resolveVideo(engine)
+        ? this._applySelected(engine, video)
+        : this._applyCandidate(video, target.entity, target.isCurrent);
       if (applied) target.loadedActionApplied = true;
     };
     this._target = target;

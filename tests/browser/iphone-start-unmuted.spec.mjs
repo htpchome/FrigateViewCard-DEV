@@ -139,7 +139,7 @@ test("iPhone WebKit applies the same selected action to HA Direct", async ({ pag
   });
 });
 
-test("iPhone WebKit repeats the selected action when go2rtc media loads", async ({ page }) => {
+test("iPhone WebKit repeats the selected action when an uncommitted go2rtc candidate loads", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
     const { LiveAudioController } = await import("/src/features/live/audio.ctrl.js");
@@ -151,17 +151,18 @@ test("iPhone WebKit repeats the selected action when go2rtc media loads", async 
       return Promise.resolve();
     };
     video.muted = true;
-    const engine = { type: "frigate_go2rtc", video };
     const host = {
       _activeCam: { entity: "camera.front", start_unmuted: true },
-      _engine: engine,
+      // Race candidates are not assigned as the engine until after startup
+      // readiness. loadeddata must still receive ACC's source-ready action.
+      _engine: null,
       _streamMuted: true,
       _findVideoDeep: () => video,
       _renderMuteButton() {},
     };
     const controller = new LiveAudioController(host);
     controller.prepareCameraStart(host._activeCam);
-    controller.applyCameraStartPreference();
+    controller.prepareSelectedPlayback(video, { entity: "camera.front" });
     await Promise.resolve();
     Object.defineProperty(video, "readyState", { configurable: true, value: 2 });
     video.dispatchEvent(new Event("loadeddata"));

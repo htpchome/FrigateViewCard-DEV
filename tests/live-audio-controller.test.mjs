@@ -126,7 +126,7 @@ test("manual mute cancels a pending configured unmute", async () => {
   assert.deepEqual(h.video.playStates, []);
 });
 
-test("a loaded race candidate waits for selected-engine adoption", async () => {
+test("a loaded race candidate receives the source-ready action before adoption", async () => {
   const h = createHarness({ readyState: 0 });
   h.host._engine = null;
   h.controller.prepareCameraStart(h.host._activeCam);
@@ -141,11 +141,13 @@ test("a loaded race candidate waits for selected-engine adoption", async () => {
   h.video.readyState = 2;
   h.video.dispatchEvent(new Event("loadeddata"));
   await Promise.resolve();
-  assert.equal(h.video.playStates.length, 1);
+  assert.deepEqual(h.video.playStates, [
+    { muted: false, readyState: 0 },
+    { muted: false, readyState: 2 },
+  ]);
 
   h.host._engine = h.engine;
   assert.equal(h.controller.applyCameraStartPreference(), true);
-  await Promise.resolve();
   await Promise.resolve();
   assert.deepEqual(h.video.playStates, [
     { muted: false, readyState: 0 },
