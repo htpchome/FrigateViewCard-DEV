@@ -95,7 +95,8 @@ const createHost = ({
     },
     _scheduleResumeLive: (reason) => calls.push(["scheduleResumeLive", reason]),
     _liveAudioController: {
-      applyMuteChange: (muted) => calls.push(["applyMuteChange", muted]),
+      applyMuteChange: (muted, options) =>
+        calls.push(["applyMuteChange", muted, options]),
     },
     _subtitleText: () => "Driveway",
     _haNavbarController: {
@@ -531,7 +532,7 @@ test("activatePreviewPageRoute keeps preview path behavior intact", () => {
   controller.activatePreviewPageRoute({ previousPageId: "single-view" });
 
   assert.deepEqual(calls, [
-    ["applyMuteChange", true],
+    ["applyMuteChange", true, { source: "preview", remember: false }],
     ["renderShellPreserveLive"],
     ["applyPreviewShellVisibility"],
     ["applyCardStyle"],
@@ -547,7 +548,7 @@ test("activatePreviewPageRoute cancels pending mount only when active", () => {
   controller.activatePreviewPageRoute({ previousPageId: "single-view" });
 
   assert.deepEqual(calls, [
-    ["applyMuteChange", true],
+    ["applyMuteChange", true, { source: "preview", remember: false }],
     ["cancelPendingMount", "page-route-preview"],
     ["renderShellPreserveLive"],
     ["applyPreviewShellVisibility"],

@@ -1,18 +1,26 @@
 import { AutoUnmuteHandler } from "./auto-unmute-handler.js";
 import { MuteHandler } from "./mute-handler.js";
+import { MuteStateManager } from "./mute-state-manager.js";
 
 export { cameraStartsUnmuted } from "./auto-unmute-handler.js";
 
 export class LiveAudioController {
   constructor(host, options = {}) {
+    const muteStateManager = options.muteStateManager || new MuteStateManager();
+    const resolveEntity = (camera = host?._activeCam) =>
+      host?._activeGroupMemberOverride || camera?.entity || "";
     this._autoUnmute = new AutoUnmuteHandler(host, {
       interactionTarget: options.interactionTarget,
       isMobilePhone: options.isMobilePhone,
+      muteStateManager,
+      resolveEntity,
     });
     this._mute = new MuteHandler(host, {
       icons: options.icons,
       setTimer: options.setTimer,
       cancelAutoUnmute: () => this._autoUnmute.cancel(),
+      muteStateManager,
+      resolveEntity,
     });
   }
 
@@ -64,8 +72,8 @@ export class LiveAudioController {
     this._mute.syncButtons();
   }
 
-  applyMuteChange(nextMuted) {
-    this._mute.applyChange(nextMuted);
+  applyMuteChange(nextMuted, options = {}) {
+    this._mute.applyChange(nextMuted, options);
   }
 
   toggleMute() {

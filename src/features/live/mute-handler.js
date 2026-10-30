@@ -3,16 +3,27 @@ import { ICONS } from "../../icons.js";
 import { normalizePageRoute, PAGE_IDS } from "../navigation/router.js";
 import { buildLiveMuteControlMarkup } from "./view.tmpl.js";
 
+const REMEMBERED_MUTE_SOURCES = new Set([
+  "button",
+  "native-controls",
+  "native-fullscreen",
+]);
+
 export class MuteHandler {
   constructor(host, {
     icons = ICONS,
     setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
     cancelAutoUnmute = () => {},
+    muteStateManager = null,
+    resolveEntity = () =>
+      host?._activeGroupMemberOverride || host?._activeCam?.entity || "",
   } = {}) {
     this._host = host;
     this._icons = icons;
     this._setTimer = (callback, delay) => setTimer(callback, delay);
     this._cancelAutoUnmute = cancelAutoUnmute;
+    this._muteStateManager = muteStateManager;
+    this._resolveEntity = resolveEntity;
   }
 
   resolveMuted() {
@@ -147,9 +158,16 @@ export class MuteHandler {
     });
   }
 
-  applyChange(nextMuted) {
+  applyChange(nextMuted, { source = "button", remember } = {}) {
     const host = this._host;
     this._cancelAutoUnmute();
+    const shouldRemember = remember ?? REMEMBERED_MUTE_SOURCES.has(source);
+    if (shouldRemember) {
+      this._muteStateManager?.remember?.(
+        this._resolveEntity(),
+        nextMuted === true,
+      );
+    }
     host._setLiveMuted(nextMuted);
     host._cameraGroupLiveController?.syncAudio?.();
     host._renderMuteButton();

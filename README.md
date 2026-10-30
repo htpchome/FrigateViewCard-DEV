@@ -446,6 +446,8 @@ HLS remains available for explicit compatibility paths and HLS-backed media, but
 
 **Start Camera Unmuted on PC/Tablet** and **Start Camera Unmuted on Mobile Phone** independently request audible playback for those device classes. Tablets use the PC/tablet setting. The browser or app's autoplay policy remains authoritative, and some browsers require the Home Assistant site's autoplay permission to explicitly allow audio.
 
+These settings are startup defaults. A manual mute or unmute choice is remembered for that camera during the current browser-tab session, including camera changes, dashboard navigation, and opening the card editor. Grid and Preview remain muted without changing that remembered choice.
+
 For Frigate go2rtc, this hidden setting should only be needed when playback falls back to MSE; WebRTC works regardless of this setting. If an MSE stream remains muted in the iOS Companion App, use:
 
 1. Open **Settings → Companion App → Debugging**.

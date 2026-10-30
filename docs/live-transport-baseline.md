@@ -2,6 +2,15 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.75` treats configured startup audio as a default until the user
+explicitly changes that camera's mute state. Manual mute and unmute choices are
+remembered per camera for the browser-tab session and survive camera changes,
+dashboard navigation, and dashboard/editor card replacement. Preview and Grid
+remain forced-muted and do not overwrite the remembered choice; popup cover,
+background, autoplay-denial, and two-way-talk safety changes are likewise not
+recorded as user intent. Transport startup, retention, and stream ownership are
+unchanged.
+
 `v1.1.10-dev.72` restores Safari's `ManagedMediaSource` preference and classic
 MSE object-URL release at `sourceopen`, matching the browser-resource lifecycle
 used by ACC's go2rtc experimental provider. This supersedes dev.68's classic

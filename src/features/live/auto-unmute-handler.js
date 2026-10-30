@@ -10,10 +10,15 @@ export class AutoUnmuteHandler {
   constructor(host, {
     interactionTarget = globalThis.document,
     isMobilePhone = () => host?._isLikelyPhoneClient?.() === true,
+    muteStateManager = null,
+    resolveEntity = (camera) =>
+      host?._activeGroupMemberOverride || camera?.entity || "",
   } = {}) {
     this._host = host;
     this._interactionTarget = interactionTarget;
     this._isMobilePhone = isMobilePhone;
+    this._muteStateManager = muteStateManager;
+    this._resolveEntity = resolveEntity;
     this._camera = null;
     this._target = null;
   }
@@ -229,6 +234,10 @@ export class AutoUnmuteHandler {
   }
 
   _cameraStartsUnmuted(camera) {
+    const rememberedMuted = this._muteStateManager?.resolve?.(
+      this._resolveEntity(camera),
+    );
+    if (typeof rememberedMuted === "boolean") return !rememberedMuted;
     return cameraStartsUnmuted(camera, this._isMobilePhone());
   }
 

@@ -2,11 +2,22 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { LiveAudioController } from "../src/features/live/audio.ctrl.js";
+import { MuteStateManager } from "../src/features/live/mute-state-manager.js";
+
+const createStorage = () => {
+  const values = new Map();
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+  };
+};
 
 const createHarness = ({
   readyState = 2,
   playError = null,
   isMobilePhone = false,
+  muteStateManager = null,
+  activeCam = { entity: "camera.front", start_unmuted: true },
 } = {}) => {
   const video = Object.assign(new EventTarget(), {
     muted: true,
@@ -25,7 +36,7 @@ const createHarness = ({
     visibilityState: "visible",
   });
   const host = {
-    _activeCam: { entity: "camera.front", start_unmuted: true },
+    _activeCam: activeCam,
     _isLikelyPhoneClient: () => isMobilePhone,
     _engine: engine,
     _streamMuted: true,
@@ -35,6 +46,7 @@ const createHarness = ({
   };
   const controller = new LiveAudioController(host, {
     interactionTarget,
+    muteStateManager,
     setTimer: (callback) => timers.push(callback),
   });
   host._setLiveMuted = (muted) => controller.setMuted(muted);
@@ -229,4 +241,92 @@ test("manual audio changes do not remount the live transport", () => {
   h.controller.applyMuteChange(false);
   h.controller.applyMuteChange(true);
   assert.equal(h.host._engine, originalEngine);
+});
+
+test("manual mute overrides configured unmute after camera navigation", async () => {
+  const h = createHarness();
+  h.controller.prepareCameraStart(h.host._activeCam);
+  assert.equal(h.controller.applyCameraStartPreference(), true);
+  await Promise.resolve();
+
+  h.controller.applyMuteChange(true, { source: "button" });
+  h.host._activeCam = { entity: "camera.second", start_unmuted: false };
+  h.controller.prepareCameraStart(h.host._activeCam);
+  h.host._activeCam = { entity: "camera.front", start_unmuted: true };
+  h.controller.prepareCameraStart(h.host._activeCam);
+
+  assert.equal(h.controller.applyCameraStartPreference(), false);
+  assert.equal(h.host._streamMuted, true);
+  assert.equal(h.video.muted, true);
+});
+
+test("manual unmute survives a replacement card or editor controller", async () => {
+  const storage = createStorage();
+  const camera = { entity: "camera.front", start_unmuted: false };
+  const first = createHarness({
+    activeCam: camera,
+    muteStateManager: new MuteStateManager({ storage }),
+  });
+  first.controller.applyMuteChange(false, { source: "button" });
+
+  const replacement = createHarness({
+    activeCam: camera,
+    muteStateManager: new MuteStateManager({ storage }),
+  });
+  replacement.controller.prepareCameraStart(camera);
+  assert.equal(replacement.controller.applyCameraStartPreference(), true);
+  await Promise.resolve();
+
+  assert.equal(replacement.host._streamMuted, false);
+  assert.equal(replacement.video.muted, false);
+});
+
+test("manual mute survives a replacement card or editor controller", () => {
+  const storage = createStorage();
+  const camera = { entity: "camera.front", start_unmuted: true };
+  const first = createHarness({
+    activeCam: camera,
+    muteStateManager: new MuteStateManager({ storage }),
+  });
+  first.controller.applyMuteChange(true, { source: "button" });
+
+  const replacement = createHarness({
+    activeCam: camera,
+    muteStateManager: new MuteStateManager({ storage }),
+  });
+  replacement.controller.prepareCameraStart(camera);
+
+  assert.equal(replacement.controller.applyCameraStartPreference(), false);
+  assert.equal(replacement.host._streamMuted, true);
+  assert.equal(replacement.video.muted, true);
+});
+
+test("Preview and Grid safety mutes do not replace user intent", async () => {
+  const storage = createStorage();
+  const camera = { entity: "camera.front", start_unmuted: false };
+  const manager = new MuteStateManager({ storage });
+  const h = createHarness({ activeCam: camera, muteStateManager: manager });
+  h.controller.applyMuteChange(false, { source: "button" });
+
+  h.controller.applyMuteChange(true, {
+    source: "preview",
+    remember: false,
+  });
+  assert.equal(manager.resolve(camera.entity), false);
+  h.controller.setMuted(true);
+  assert.equal(manager.resolve(camera.entity), false);
+
+  h.controller.prepareCameraStart(camera);
+  assert.equal(h.controller.applyCameraStartPreference(), true);
+  await Promise.resolve();
+  assert.equal(h.video.muted, false);
+});
+
+test("two-way-talk audio changes do not replace user intent", () => {
+  const manager = new MuteStateManager({ storage: createStorage() });
+  const h = createHarness({ muteStateManager: manager });
+  h.controller.applyMuteChange(true, { source: "button" });
+  h.controller.applyMuteChange(false, { source: "two-way-talk" });
+
+  assert.equal(manager.resolve("camera.front"), true);
 });
