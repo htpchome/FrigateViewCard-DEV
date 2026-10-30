@@ -812,7 +812,7 @@
       "showAllReviews": "Mostrar todas as revisões em Alertas",
       "showAllReviewsHelp": "O Frigate agrupa a atividade em revisões que podem conter alertas, deteções ou ambos. Ative para mostrar todas as revisões no separador Alertas; desative para mostrar apenas alertas.",
       "startCameraUnmuted": "Iniciar câmara com som",
-      "startCameraUnmutedHelp": "Inicia esta câmara com áudio quando o navegador permite a reprodução com som. Se a reprodução automática for bloqueada, o vídeo em direto permanece sem som até interagir com a página.",
+      "startCameraUnmutedHelp": "Inicia esta câmara com áudio quando o navegador permite a reprodução com som. Alguns navegadores exigem que a definição de reprodução automática do site permita áudio. Se a reprodução automática for bloqueada, o vídeo em direto permanece sem som até interagir com a página.",
       "muted": "Sem som",
       "unmuted": "Com som",
       "enablePtz": "Ativar controlos PTZ",

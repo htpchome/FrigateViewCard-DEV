@@ -812,7 +812,7 @@
       "showAllReviews": "Mostra tutte le revisioni negli Avvisi",
       "showAllReviewsHelp": "Frigate raggruppa l'attività in revisioni che possono contenere avvisi, rilevamenti o entrambi. Attiva per mostrare tutte le revisioni nella scheda Avvisi; disattiva per mostrare solo gli avvisi.",
       "startCameraUnmuted": "Avvia la telecamera con audio",
-      "startCameraUnmutedHelp": "Avvia questa telecamera con l'audio quando il browser consente la riproduzione sonora. Se la riproduzione automatica è bloccata, il video in diretta rimane silenziato finché non interagisci con la pagina.",
+      "startCameraUnmutedHelp": "Avvia questa telecamera con l'audio quando il browser consente la riproduzione sonora. Alcuni browser richiedono che l'audio sia consentito nelle impostazioni di riproduzione automatica del sito. Se la riproduzione automatica è bloccata, il video in diretta rimane silenziato finché non interagisci con la pagina.",
       "muted": "Audio disattivato",
       "unmuted": "Audio attivato",
       "enablePtz": "Attiva controlli PTZ",

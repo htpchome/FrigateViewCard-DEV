@@ -285,6 +285,9 @@ test("development deployment keeps every lazy page asset beside the card", () =>
   ]) {
     assert.match(readme, new RegExp(assetName.replaceAll(".", "\\.")));
   }
+  assert.match(readme, /WKWebView Media Playback/);
+  assert.match(readme, /Tap the house icon at the bottom 10 times/);
+  assert.match(readme, /Uncheck \*\*Audio\*\*/);
   const postCreate = fs.readFileSync(
     repositoryFile(".devcontainer/post-create.sh"),
     "utf8",

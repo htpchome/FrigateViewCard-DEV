@@ -240,6 +240,10 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
   );
   assert.match(
     source,
+    /Some browsers require the site's autoplay setting to allow audio/,
+  );
+  assert.match(
+    source,
     /<ha-input id="camera-modal-name" label="Camera Name"[^>]*maxlength="\$\{DISPLAY_TEXT_MAX_LENGTH\}"[^>]*placeholder="Display name \(optional\)"/,
   );
   assert.match(source, /A light can be linked to multiple cameras/);

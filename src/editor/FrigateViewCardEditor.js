@@ -4837,7 +4837,7 @@ export class FrigateViewCardEditor extends HTMLElement {
             <div class="layout-row cam-modal-toggle-row">
               <div class="cam-modal-toggle-copy">
                 <span class="cam-modal-label" data-fvc-i18n="editor.cameraModal.startCameraUnmuted">Start Camera Unmuted</span>
-                <div class="field-helper" data-fvc-i18n="editor.cameraModal.startCameraUnmutedHelp">Starts this camera with audio when the browser allows audible playback. If autoplay is blocked, live video remains muted until you interact with the page.</div>
+                <div class="field-helper" data-fvc-i18n="editor.cameraModal.startCameraUnmutedHelp">Starts this camera with audio when the browser allows audible playback. Some browsers require the site's autoplay setting to allow audio. If autoplay is blocked, live video remains muted until you interact with the page.</div>
               </div>
               <ha-switch id="camera-modal-start-unmuted"></ha-switch>
             </div>
