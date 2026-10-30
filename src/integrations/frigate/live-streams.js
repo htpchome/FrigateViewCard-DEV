@@ -6,52 +6,33 @@ export const normalizeFrigateGo2RtcStream = (value) => {
   return stream.slice(0, 512);
 };
 
-const resolveCameraConfig = (config, cameraName) => {
-  const cameras = config?.cameras || config?.config?.cameras;
-  if (!cameras || typeof cameras !== "object" || Array.isArray(cameras)) {
-    return null;
-  }
-  return cameras[normalizeText(cameraName)] || null;
-};
-
-export const resolveFrigateLiveStreamOptions = (config, cameraName) => {
+export const resolveFrigateLiveStreamOptions = (streams, cameraName) => {
   const normalizedCameraName = normalizeText(cameraName);
-  const streams = resolveCameraConfig(config, normalizedCameraName)?.live
-    ?.streams;
   if (!streams || typeof streams !== "object" || Array.isArray(streams)) {
     return [];
   }
+  const cameraPrefix = normalizedCameraName.toLowerCase();
+  const relatedPrefix = `${cameraPrefix}_`;
+  const isRelated = (value) => {
+    const candidate = value.toLowerCase();
+    return (
+      candidate.startsWith(relatedPrefix) ||
+      candidate.startsWith(`${cameraPrefix}-`) ||
+      candidate.startsWith(`${cameraPrefix}.`)
+    );
+  };
+  const compare = (left, right) => {
+    const leftRelated = isRelated(left.value);
+    const rightRelated = isRelated(right.value);
+    if (leftRelated !== rightRelated) return leftRelated ? -1 : 1;
+    return left.value < right.value ? -1 : left.value > right.value ? 1 : 0;
+  };
 
-  const entries = Object.entries(streams)
-    .map(([label, value]) => ({
-      label: normalizeText(label),
-      value: normalizeFrigateGo2RtcStream(value),
-    }))
-    .filter(({ value }) => !!value);
-  const explicitMainIndex = entries.findIndex(
-    ({ value }) => value === normalizedCameraName,
-  );
-  const labeledMainIndex = entries.findIndex(
-    ({ label }) => label.toLowerCase() === "main stream",
-  );
-  const mainIndex =
-    explicitMainIndex >= 0
-      ? explicitMainIndex
-      : labeledMainIndex >= 0
-        ? labeledMainIndex
-        : entries.length
-          ? 0
-          : -1;
-  const seen = new Set();
-
-  return entries
-    .filter((_, index) => index !== mainIndex)
-    .filter(({ value }) => {
-      if (seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    })
-    .map(({ label, value }) => ({ label: label || value, value }));
+  return Object.keys(streams)
+    .map((value) => normalizeFrigateGo2RtcStream(value))
+    .filter((value) => value && value !== normalizedCameraName)
+    .map((value) => ({ label: value, value }))
+    .sort(compare);
 };
 
 export const fetchFrigateLiveStreamOptions = async ({
@@ -62,13 +43,13 @@ export const fetchFrigateLiveStreamOptions = async ({
   origin = globalThis.location?.origin || "",
 }) => {
   if (!hass?.callWS || typeof fetchImpl !== "function") {
-    throw new Error("Frigate configuration access is unavailable");
+    throw new Error("Frigate go2rtc stream discovery is unavailable");
   }
   const targetInstance = normalizeText(instanceId);
   const targetCamera = normalizeText(cameraName);
   if (!targetInstance || !targetCamera) return [];
 
-  const path = `/api/frigate/${encodeURIComponent(targetInstance)}/api/config`;
+  const path = `/api/frigate/${encodeURIComponent(targetInstance)}/go2rtc/api/streams`;
   const signed = await hass.callWS({
     type: "auth/sign_path",
     path,
@@ -83,7 +64,7 @@ export const fetchFrigateLiveStreamOptions = async ({
     },
   );
   if (!response?.ok) {
-    throw new Error(`Frigate configuration request failed (${response?.status || "unknown"})`);
+    throw new Error(`Frigate go2rtc stream request failed (${response?.status || "unknown"})`);
   }
   return resolveFrigateLiveStreamOptions(await response.json(), targetCamera);
 };

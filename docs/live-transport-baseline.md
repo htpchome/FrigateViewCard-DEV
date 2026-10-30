@@ -2,6 +2,14 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.78` replaces the rejected Frigate configuration request with the
+official integration's supported go2rtc stream-list proxy. The editor lists
+the actual stream names reported by `/go2rtc/api/streams`, excludes the current
+camera's main stream, and orders names matching that camera first. This also
+keeps custom aliases selectable without claiming that the official integration
+exposes Frigate's `live.streams` configuration. The saved live-only override
+and all transport ownership boundaries from dev.76 are unchanged.
+
 `v1.1.10-dev.77` corrects Frigate live-stream discovery to request Frigate's
 `/api/config` endpoint through the authenticated Home Assistant Frigate proxy.
 The earlier dev.76 route omitted Frigate's `/api` prefix and returned 404, so

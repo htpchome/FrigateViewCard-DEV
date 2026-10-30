@@ -8,45 +8,26 @@ import {
   resolveFrigateLiveStreamOptions,
 } from "../src/integrations/frigate/live-streams.js";
 
-test("Frigate live stream discovery excludes main and preserves configured labels", () => {
+test("Frigate live stream discovery excludes main and lists matching names first", () => {
   const options = resolveFrigateLiveStreamOptions({
-    cameras: {
-      driveway: {
-        live: {
-          streams: {
-            "Main Stream": "driveway",
-            "Low Resolution": "driveway_sub",
-            "Mobile Portrait": "driveway_vertical",
-            "Duplicate Sub": "driveway_sub",
-          },
-        },
-      },
-    },
+    driveway: {},
+    garage: {},
+    driveway_sub: {},
+    "driveway-low": {},
+    alternate: {},
   }, "driveway");
 
   assert.deepEqual(options, [
-    { label: "Low Resolution", value: "driveway_sub" },
-    { label: "Mobile Portrait", value: "driveway_vertical" },
+    { label: "driveway-low", value: "driveway-low" },
+    { label: "driveway_sub", value: "driveway_sub" },
+    { label: "alternate", value: "alternate" },
+    { label: "garage", value: "garage" },
   ]);
 });
 
-test("Frigate live stream discovery treats the first configured stream as main when unnamed", () => {
-  assert.deepEqual(resolveFrigateLiveStreamOptions({
-    config: {
-      cameras: {
-        deck: {
-          live: {
-            streams: {
-              Primary: "deck_high",
-              Secondary: "deck_low",
-            },
-          },
-        },
-      },
-    },
-  }, "deck"), [
-    { label: "Secondary", value: "deck_low" },
-  ]);
+test("Frigate live stream discovery rejects malformed response bodies", () => {
+  assert.deepEqual(resolveFrigateLiveStreamOptions([], "deck"), []);
+  assert.deepEqual(resolveFrigateLiveStreamOptions(null, "deck"), []);
 });
 
 test("configured go2rtc stream applies only to the primary camera entity", () => {
@@ -90,32 +71,24 @@ test("Frigate live stream discovery uses the authenticated HA proxy", async () =
       return {
         ok: true,
         json: async () => ({
-          cameras: {
-            garage: {
-              live: {
-                streams: {
-                  "Main Stream": "garage",
-                  "Sub Stream": "garage_sub",
-                },
-              },
-            },
-          },
+          garage: {},
+          garage_sub: {},
         }),
       };
     },
   });
 
   assert.deepEqual(options, [
-    { label: "Sub Stream", value: "garage_sub" },
+    { label: "garage_sub", value: "garage_sub" },
   ]);
   assert.deepEqual(calls[0], {
     type: "auth/sign_path",
-    path: "/api/frigate/frigate-main/api/config",
+    path: "/api/frigate/frigate-main/go2rtc/api/streams",
     expires: 3600,
   });
   assert.equal(
     calls[1].url,
-    "https://ha.local/api/frigate/frigate-main/api/config?authSig=test",
+    "https://ha.local/api/frigate/frigate-main/go2rtc/api/streams?authSig=test",
   );
   assert.equal(calls[1].init.credentials, "same-origin");
 });

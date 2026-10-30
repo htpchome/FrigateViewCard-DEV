@@ -347,7 +347,7 @@ Each item in `cameras` supports:
 | `entity` | string | required | Home Assistant camera entity, such as `camera.front_door`. |
 | `name` | string | entity-derived | Camera display name. |
 | `connection_type` | string | `frigate_go2rtc` | Live playback owner. Values: `frigate_go2rtc`, `ha_direct`. The visual editor labels these “Frigate go2rtc (default)” and “Home Assistant.” In the Home Assistant Mac Catalyst app, both settings use the dedicated HA Direct HLS path. |
-| `frigate_go2rtc_stream` | string | main stream | Optional Frigate go2rtc stream used only for live playback. The visual editor discovers configured substreams from Frigate. Home Assistant playback and the Mac Catalyst HA Direct compatibility path ignore this option. |
+| `frigate_go2rtc_stream` | string | main stream | Optional Frigate go2rtc stream used only for live playback. The visual editor lists streams reported by the Frigate integration's go2rtc proxy. Home Assistant playback and the Mac Catalyst HA Direct compatibility path ignore this option. |
 | `start_unmuted` | boolean | `false` | Requests audio when this camera starts on a PC or tablet. Some browsers require the site's autoplay setting to allow audio. |
 | `start_unmuted_mobile` | boolean | `false` | Requests audio when this camera starts on a mobile phone. Some browsers require the site's autoplay setting to allow audio. |
 | `alerts_content` | string | `alerts_only` | Qualifying review content. Values: `alerts_only`, `all_reviews`. |
@@ -378,7 +378,7 @@ mobile_page: preview-mobile-view
 
 Camera order is preserved by camera switchers, Preview, and Wide View Companion Cameras. Grid follows that order in its Default mode or its independent `grid_order` in Custom mode. The selected `connection_type` is also respected by the live tiles on those pages, except that Mac Catalyst always uses the HA Direct HLS compatibility path.
 
-For Frigate go2rtc cameras, the visual editor can select a stream from that camera's Frigate `live.streams` configuration. “Main Stream” remains the default. A selected substream changes only live video and audio playback; events, snapshots, recordings, favorites, PTZ, and two-way talk continue using the configured main camera. The selector is disabled for Home Assistant playback because HA Direct requires a separate Home Assistant camera entity for the substream.
+For Frigate go2rtc cameras, the visual editor can select from the stream names reported by go2rtc, with names matching the selected camera listed first. “Main Stream” remains the default. A selected substream changes only live video and audio playback; events, snapshots, recordings, favorites, PTZ, and two-way talk continue using the configured main camera. The selector is disabled for Home Assistant playback because HA Direct requires a separate Home Assistant camera entity for the substream.
 
 ### Two-camera groups
 
