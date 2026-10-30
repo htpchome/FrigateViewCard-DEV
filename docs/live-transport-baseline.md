@@ -2,6 +2,12 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.77` corrects Frigate live-stream discovery to request Frigate's
+`/api/config` endpoint through the authenticated Home Assistant Frigate proxy.
+The earlier dev.76 route omitted Frigate's `/api` prefix and returned 404, so
+its editor dropdown could not populate configured substreams. Live transport
+ownership and the go2rtc-only stream override are otherwise unchanged.
+
 `v1.1.10-dev.76` adds an optional live-only Frigate go2rtc stream selection.
 The camera editor discovers substreams from the selected camera's Frigate
 `live.streams` configuration and keeps “Main Stream” as the default. The

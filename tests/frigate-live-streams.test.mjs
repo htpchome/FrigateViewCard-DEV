@@ -110,12 +110,12 @@ test("Frigate live stream discovery uses the authenticated HA proxy", async () =
   ]);
   assert.deepEqual(calls[0], {
     type: "auth/sign_path",
-    path: "/api/frigate/frigate-main/config",
+    path: "/api/frigate/frigate-main/api/config",
     expires: 3600,
   });
   assert.equal(
     calls[1].url,
-    "https://ha.local/api/frigate/frigate-main/config?authSig=test",
+    "https://ha.local/api/frigate/frigate-main/api/config?authSig=test",
   );
   assert.equal(calls[1].init.credentials, "same-origin");
 });

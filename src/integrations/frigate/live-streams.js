@@ -68,7 +68,7 @@ export const fetchFrigateLiveStreamOptions = async ({
   const targetCamera = normalizeText(cameraName);
   if (!targetInstance || !targetCamera) return [];
 
-  const path = `/api/frigate/${encodeURIComponent(targetInstance)}/config`;
+  const path = `/api/frigate/${encodeURIComponent(targetInstance)}/api/config`;
   const signed = await hass.callWS({
     type: "auth/sign_path",
     path,
