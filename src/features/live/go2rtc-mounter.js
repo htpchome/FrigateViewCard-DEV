@@ -50,7 +50,7 @@ function normalizeGo2RtcCodecs(value) {
 
 function resolveMediaSourceCapability(browserWindow = globalThis.window) {
   const MediaSourceCtor =
-    browserWindow?.MediaSource || browserWindow?.ManagedMediaSource || null;
+    browserWindow?.ManagedMediaSource || browserWindow?.MediaSource || null;
   if (!MediaSourceCtor) return null;
 
   const isTypeSupportedImpl = MediaSourceCtor.isTypeSupported;
@@ -58,6 +58,7 @@ function resolveMediaSourceCapability(browserWindow = globalThis.window) {
 
   return {
     MediaSourceCtor,
+    managed: MediaSourceCtor === browserWindow?.ManagedMediaSource,
     isTypeSupported: (mime) => {
       try {
         return isTypeSupportedImpl.call(MediaSourceCtor, mime) === true;
@@ -139,6 +140,7 @@ export function createGo2RtcMounter({
   resolver,
   getStreamMuted,
   prepareSelectedPlayback,
+  notifySelectedPlaybackReady,
   releasePreparedPlayback,
   waitForStreamStart,
   attachVideoFit,
@@ -167,7 +169,8 @@ export function createGo2RtcMounter({
     const WebSocketCtor = window?.WebSocket;
     const mediaSourceCapability = resolveMediaSourceCapability(window);
     if (!WebSocketCtor || !mediaSourceCapability) return false;
-    const { MediaSourceCtor, isTypeSupported } = mediaSourceCapability;
+    const { MediaSourceCtor, isTypeSupported, managed } =
+      mediaSourceCapability;
 
     const video = createVideoElement(
       buildVideoOptionsForView(
@@ -209,7 +212,24 @@ export function createGo2RtcMounter({
     }
 
     const mediaSource = new MediaSourceCtor();
-    video.src = URL.createObjectURL(mediaSource);
+    let mediaSourceObjectUrl = "";
+    if (managed) {
+      video.disableRemotePlayback = true;
+      video.srcObject = mediaSource;
+    } else {
+      mediaSourceObjectUrl = URL.createObjectURL(mediaSource);
+      video.src = mediaSourceObjectUrl;
+      video.srcObject = null;
+      mediaSource.addEventListener(
+        "sourceopen",
+        () => {
+          if (!mediaSourceObjectUrl) return;
+          URL.revokeObjectURL(mediaSourceObjectUrl);
+          mediaSourceObjectUrl = "";
+        },
+        { once: true },
+      );
+    }
     if (!selectedPlayback) startVideoPlayback(video);
 
     const ws = new WebSocketCtor(wsUrl);
@@ -259,7 +279,15 @@ export function createGo2RtcMounter({
         stopCatchup();
       } catch (_) {}
       try {
-        if (video.src) URL.revokeObjectURL(video.src);
+        if (managed) {
+          video.srcObject = null;
+        } else {
+          video.removeAttribute?.("src");
+          if (mediaSourceObjectUrl) {
+            URL.revokeObjectURL(mediaSourceObjectUrl);
+            mediaSourceObjectUrl = "";
+          }
+        }
       } catch (_) {}
       if (abortSignal && abortBound) {
         abortSignal.removeEventListener("abort", onAbort);
@@ -418,6 +446,8 @@ export function createGo2RtcMounter({
     if (microphoneStream && !microphoneTrack) return false;
     const onMicrophoneSessionEnded =
       options?.onEnded || options?.onMicrophoneSessionEnded;
+    const preloadOffscreen =
+      options?.preloadOffscreen === true && !microphoneTrack;
 
     const muted = options?.muted ?? getStreamMuted();
     const video = createVideoElement(
@@ -435,6 +465,9 @@ export function createGo2RtcMounter({
     );
 
     let destroyed = false;
+    const decodeVideo = preloadOffscreen
+      ? document.createElement("video")
+      : video;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
     const selectedPlayback = prepareSelectedPlayback?.(video, {
@@ -523,10 +556,15 @@ export function createGo2RtcMounter({
         video.pause?.();
       } catch (_) {}
       try {
-        for (const track of video.srcObject?.getTracks?.() || []) {
+        const activeStream = video.srcObject || decodeVideo.srcObject;
+        for (const track of activeStream?.getTracks?.() || []) {
           track.stop?.();
         }
         video.srcObject = null;
+        if (decodeVideo !== video) {
+          decodeVideo.removeAttribute?.("src");
+          decodeVideo.srcObject = null;
+        }
       } catch (_) {}
       try {
         for (const transceiver of pc.getTransceivers?.() || []) {
@@ -633,12 +671,31 @@ export function createGo2RtcMounter({
 
     const receiveTracks = new Set();
     let receiveStream = null;
-    const watchFirstFrame = () => {
-      video.requestVideoFrameCallback?.(() => {
+    const watchFirstFrame = (targetVideo = video) => {
+      targetVideo.requestVideoFrameCallback?.(() => {
         if (!resolveFirstRenderedFrame) return;
         resolveFirstRenderedFrame(true);
         resolveFirstRenderedFrame = null;
       });
+    };
+    const transferDecodedStream = () => {
+      if (
+        !preloadOffscreen ||
+        destroyed ||
+        abortSignal?.aborted ||
+        !receiveStream
+      ) return;
+      video.srcObject = receiveStream;
+      if (selectedPlayback) {
+        notifySelectedPlaybackReady?.(video);
+      } else {
+        startVideoPlayback(video);
+      }
+      if (resolveFirstRenderedFrame) {
+        resolveFirstRenderedFrame(true);
+        resolveFirstRenderedFrame = null;
+      }
+      decodeVideo.srcObject = null;
     };
     const attachConnectedReceiveStream = () => {
       if (microphoneTrack || destroyed ||
@@ -650,10 +707,23 @@ export function createGo2RtcMounter({
       if (!tracks.length) return;
       if (!receiveStream) {
         receiveStream = new MediaStream(tracks);
-        // Assign once after connection. A later audio track joins the same
-        // stream without resetting an in-flight audible playback request.
-        video.srcObject = receiveStream;
-        watchFirstFrame();
+        if (preloadOffscreen) {
+          // ACC experimental decodes the WebRTC lane offscreen while it races
+          // the binary lane. Once loaded, it transfers that already-live
+          // MediaStream to the persistent selected video before re-applying
+          // selected unmute/play.
+          decodeVideo.addEventListener(
+            "loadeddata",
+            transferDecodedStream,
+            { once: true },
+          );
+          decodeVideo.srcObject = receiveStream;
+        } else {
+          // Assign once after connection. A later audio track joins the same
+          // stream without resetting an in-flight audible playback request.
+          video.srcObject = receiveStream;
+          watchFirstFrame();
+        }
       } else {
         for (const track of tracks) {
           if (!receiveStream.getTracks().includes(track)) receiveStream.addTrack(track);

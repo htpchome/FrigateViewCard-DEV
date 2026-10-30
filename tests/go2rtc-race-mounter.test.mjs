@@ -286,10 +286,21 @@ test("failure history is isolated by camera and owner and never affects HA Direc
   });
 });
 
-test("go2rtc race mounter excludes HLS from automatic startup", () => {
+test("go2rtc race mounter excludes HLS from automatic startup", (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createElement: () => ({ style: {}, remove() {} }),
+  };
+  t.after(() => {
+    globalThis.document = previousDocument;
+  });
+  const webRtcOptions = [];
   const raceMounter = createGo2RtcRaceMounter({
     mounter: {
-      tryMountWebRtc: () => ({ ok: true }),
+      tryMountWebRtc: (_slot, _startup, options) => {
+        webRtcOptions.push(options);
+        return { ok: true };
+      },
       tryMountMse: () => ({ ok: true }),
     },
     resolveConnectionType: () => "frigate_go2rtc",
@@ -308,6 +319,8 @@ test("go2rtc race mounter excludes HLS from automatic startup", () => {
     attempts.map((attempt) => attempt.type),
     ["webrtc", "mse"],
   );
+  void attempts[0].start({});
+  assert.equal(webRtcOptions[0].preloadOffscreen, true);
 });
 
 test("start-unmuted go2rtc keeps candidates hidden until a winner is selected", async () => {

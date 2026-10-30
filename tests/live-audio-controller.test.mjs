@@ -155,6 +155,25 @@ test("a loaded race candidate receives the source-ready action before adoption",
   ]);
 });
 
+test("an offscreen-ready stream re-applies selected audio before visible load", async () => {
+  const h = createHarness({ readyState: 0 });
+  h.host._engine = null;
+  h.controller.prepareCameraStart(h.host._activeCam);
+  assert.equal(h.controller.prepareSelectedPlayback(h.video, {
+    entity: "camera.front",
+  }), true);
+  await Promise.resolve();
+
+  h.video.muted = true;
+  assert.equal(h.controller.notifySelectedPlaybackReady(h.video), true);
+  await Promise.resolve();
+  assert.deepEqual(h.video.playStates, [
+    { muted: false, readyState: 0 },
+    { muted: false, readyState: 0 },
+  ]);
+  assert.equal(h.video.muted, false);
+});
+
 test("camera without the option remains muted", () => {
   const h = createHarness();
   h.controller.prepareCameraStart({ entity: "camera.front", start_unmuted: false });

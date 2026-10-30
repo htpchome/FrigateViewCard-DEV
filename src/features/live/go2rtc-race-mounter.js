@@ -374,6 +374,10 @@ export function createGo2RtcRaceMounter({
           { waitMs: 7000 },
           {
             ...(webRtcOptions || {}),
+            // Match ACC experimental: while the binary lane races, WebRTC
+            // first decodes offscreen and transfers the ready stream to the
+            // selected video only if it wins.
+            preloadOffscreen: !forcedType,
             commit: false,
             ...attemptOptions,
           },

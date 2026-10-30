@@ -43,6 +43,20 @@ export class AutoUnmuteHandler {
     return true;
   }
 
+  notifyCandidateReady(video) {
+    const target = this._target;
+    if (!target || target.video !== video) return false;
+    target.loaded = true;
+    target.loadedActionApplied = false;
+    const applied = this._applyCandidate(
+      video,
+      target.entity,
+      target.isCurrent,
+    );
+    if (applied) target.loadedActionApplied = true;
+    return applied;
+  }
+
   releaseCandidate(video) {
     if (video !== this._target?.video) return false;
     this._clearTarget();
@@ -88,7 +102,6 @@ export class AutoUnmuteHandler {
     target.onLoaded = () => {
       target.onLoaded = null;
       if (target !== this._target) return;
-      target.loaded = true;
       const engine = this._host._engine;
       if (target.loadedActionApplied) return;
       // A go2rtc race candidate reports loadeddata before it becomes the
@@ -97,7 +110,7 @@ export class AutoUnmuteHandler {
       // event merely because the candidate has not won the race yet.
       const applied = engine && video === this._resolveVideo(engine)
         ? this._applySelected(engine, video)
-        : this._applyCandidate(video, target.entity, target.isCurrent);
+        : this.notifyCandidateReady(video);
       if (applied) target.loadedActionApplied = true;
     };
     this._target = target;

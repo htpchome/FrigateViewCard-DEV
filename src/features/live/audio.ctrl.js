@@ -35,6 +35,10 @@ export class LiveAudioController {
     return this._autoUnmute.prepareCandidate(video, options);
   }
 
+  notifySelectedPlaybackReady(video) {
+    return this._autoUnmute.notifyCandidateReady(video);
+  }
+
   releasePreparedPlayback(video) {
     return this._autoUnmute.releaseCandidate(video);
   }

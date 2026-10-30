@@ -626,7 +626,7 @@ test("go2rtc mounter force-closes WebRTC signaling that never connects", async (
   });
 });
 
-test("go2rtc mounter MSE path supports ManagedMediaSource and starts playback", async () => {
+test("go2rtc mounter prefers ManagedMediaSource and attaches it through srcObject", async () => {
   await withFakeDocument(async () => {
     await withFakeObjectUrl(async (revoked) => {
       const mediaSources = [];
@@ -768,6 +768,8 @@ test("go2rtc mounter MSE path supports ManagedMediaSource and starts playback", 
       assert.equal(result.engine.type, "frigate_go2rtc");
       assert.equal(result.engine.streamType, "mse");
       assert.equal(slot.lastChild.playCalls >= 2, true);
+      assert.equal(slot.lastChild.disableRemotePlayback, true);
+      assert.equal(slot.lastChild.srcObject, mediaSources[0]);
       assert.equal(mediaSources[0].sourceBuffers.length, 1);
       assert.equal(mediaSources[0].sourceBuffers[0].appended.length, 1);
       assert.equal(markedChunks, 1);
@@ -795,9 +797,159 @@ test("go2rtc mounter MSE path supports ManagedMediaSource and starts playback", 
         true,
       );
       result.engine.destroy();
-      assert.deepEqual(revoked, ["blob:managed-media-source"]);
+      assert.equal(slot.lastChild.srcObject, null);
+      assert.deepEqual(revoked, []);
     });
   });
+});
+
+test("go2rtc WebRTC preloads offscreen then transfers the ready stream", async () => {
+  const previousDocument = globalThis.document;
+  const previousMediaStream = globalThis.MediaStream;
+  const previousWebSocket = globalThis.WebSocket;
+  const previousRtcPeerConnection = globalThis.RTCPeerConnection;
+  const videos = [];
+  const tracks = [
+    { kind: "video", readyState: "live", stop() {} },
+    { kind: "audio", readyState: "live", stop() {} },
+  ];
+  let peer = null;
+  let readyNotifications = 0;
+
+  class FakeMediaStream {
+    constructor(initialTracks = []) {
+      this._tracks = [...initialTracks];
+    }
+
+    getTracks() {
+      return [...this._tracks];
+    }
+
+    addTrack(track) {
+      this._tracks.push(track);
+    }
+  }
+
+  class FakeWebSocket {
+    static OPEN = 1;
+
+    constructor() {
+      this.readyState = FakeWebSocket.OPEN;
+      this._listeners = new Map();
+    }
+
+    addEventListener(type, handler) {
+      this._listeners.set(type, handler);
+    }
+
+    send() {}
+
+    close() {
+      this.readyState = 3;
+      this._listeners.get("close")?.({ type: "close" });
+    }
+  }
+
+  class FakePeerConnection {
+    constructor() {
+      this.connectionState = "connecting";
+      this.iceConnectionState = "checking";
+      this._listeners = new Map();
+      peer = this;
+    }
+
+    addTransceiver() {
+      return { stop() {} };
+    }
+
+    addEventListener(type, handler) {
+      this._listeners.set(type, handler);
+    }
+
+    getReceivers() {
+      return tracks.map((track) => ({ track }));
+    }
+
+    getTransceivers() {
+      return [];
+    }
+
+    emit(type) {
+      this._listeners.get(type)?.({ type });
+    }
+
+    async createOffer() {
+      return { sdp: "sdp" };
+    }
+
+    async setLocalDescription() {}
+
+    close() {}
+  }
+
+  globalThis.document = {
+    createElement: () => {
+      const video = createFakeVideoElement();
+      videos.push(video);
+      return video;
+    },
+  };
+  globalThis.MediaStream = FakeMediaStream;
+  globalThis.WebSocket = FakeWebSocket;
+  globalThis.RTCPeerConnection = FakePeerConnection;
+
+  try {
+    const slot = createSlot();
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({
+          entity: "camera.front",
+          commit: false,
+        }),
+      },
+      prepareSelectedPlayback: () => true,
+      waitForStreamStart: async () => await new Promise(() => {}),
+      notifySelectedPlaybackReady: (video) => {
+        readyNotifications += 1;
+        assert.equal(video, slot.lastChild);
+        assert.ok(video.srcObject instanceof FakeMediaStream);
+      },
+    });
+
+    const mount = withFakeWindow(
+      {
+        WebSocket: FakeWebSocket,
+        RTCPeerConnection: FakePeerConnection,
+      },
+      () => mounter.tryMountWebRtc(slot, null, {
+        commit: false,
+        preloadOffscreen: true,
+      }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(videos.length, 2);
+    const [visibleVideo, decodeVideo] = videos;
+    assert.equal(visibleVideo.srcObject, undefined);
+    peer.connectionState = "connected";
+    peer.emit("connectionstatechange");
+    assert.ok(decodeVideo.srcObject instanceof FakeMediaStream);
+    assert.equal(visibleVideo.srcObject, undefined);
+
+    decodeVideo.dispatchEvent({ type: "loadeddata" });
+    const result = await mount;
+    assert.equal(result.ok, true);
+    assert.equal(result.type, "webrtc");
+    assert.equal(visibleVideo.srcObject, result.engine.video.srcObject);
+    assert.equal(decodeVideo.srcObject, null);
+    assert.equal(readyNotifications, 1);
+    result.engine.destroy();
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.MediaStream = previousMediaStream;
+    globalThis.WebSocket = previousWebSocket;
+    globalThis.RTCPeerConnection = previousRtcPeerConnection;
+  }
 });
 
 test("go2rtc mounter WebRTC releases completed signaling without remounting", async () => {
