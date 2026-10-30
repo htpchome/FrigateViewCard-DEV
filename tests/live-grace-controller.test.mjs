@@ -64,13 +64,24 @@ const createMseEngine = (entity) => {
     reusable: true,
     resumeCalls: 0,
     destroyCalls: 0,
+    activityHandler: null,
+    activityState: {
+      connectedAt: 100,
+      lastChunkAt: 125,
+      chunkCount: 3,
+    },
     destroy() {
       this.destroyCalls += 1;
     },
     activateRecovery() {},
     deactivateRecovery() {},
     setRecoveryHandler() {},
-    setActivityHandler() {},
+    setActivityHandler(handler) {
+      this.activityHandler = handler;
+    },
+    getActivityState() {
+      return { ...this.activityState };
+    },
     isReusable() {
       return this.reusable;
     },
@@ -151,6 +162,47 @@ test("MSE grace reuse preserves exact camera identity across three retained swit
   assert.equal(second.destroyCalls, 0);
   assert.equal(third.destroyCalls, 0);
 
+  controller.clearGracePool();
+});
+
+test("MSE grace retention bounds media nodes and disposes the evicted engine", (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => createNode() };
+  t.after(() => {
+    globalThis.document = previousDocument;
+  });
+
+  const root = createNode();
+  let activeEngine = null;
+  const controller = createLiveGraceController({
+    graceMs: 20000,
+    graceMax: 3,
+    getShadowRoot: () => root,
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    getEngine: () => activeEngine,
+    setEngine: (engine) => {
+      activeEngine = engine;
+    },
+    getActiveStreamType: () => "mse",
+    clearMseDiagnostics: () => {},
+  });
+  const engines = ["one", "two", "three", "four"].map((suffix) =>
+    createMseEngine(`camera.${suffix}`));
+
+  for (const engine of engines) {
+    activeEngine = engine;
+    engine.activityHandler = () => {};
+    controller.cleanupEngine({ preserveLiveEntity: engine.entity });
+    assert.equal(engine.activityHandler, null);
+  }
+
+  assert.equal(engines[0].destroyCalls, 1);
+  assert.equal(engines[0].video.parentNode, null);
+  assert.equal(controller.takeGraceMseEntry("camera.one"), null);
+  assert.ok(controller.takeGraceMseEntry("camera.two")?.engine);
+  assert.ok(controller.takeGraceMseEntry("camera.three")?.engine);
+  assert.ok(controller.takeGraceMseEntry("camera.four")?.engine);
   controller.clearGracePool();
 });
 

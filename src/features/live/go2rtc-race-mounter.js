@@ -55,6 +55,7 @@ export function createGo2RtcRaceMounter({
   preferredWebRtcWaitMs = 0,
   webRtcRetryBackoffMs = WEBRTC_RETRY_BACKOFF_MS,
   getNowMs = () => Date.now(),
+  activateMseDiagnostics,
 }) {
   const strategyHintsByEntity = new Map();
   const pendingWebRtcMounts = new Set();
@@ -312,6 +313,7 @@ export function createGo2RtcRaceMounter({
       adoptMountedAttempt(slot, winner, {
         preservePendingSlots: deferredPreferredType === "webrtc",
       });
+      if (winner.type === "mse") activateMseDiagnostics?.(winner.engine);
       markHintSuccess(entity, winner.type);
       if (winner.type === "mse") {
         probe.mseEngine = winner.engine;

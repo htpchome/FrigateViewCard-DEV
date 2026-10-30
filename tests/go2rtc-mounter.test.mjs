@@ -190,8 +190,6 @@ function createBaseMounter(overrides = {}) {
     scheduleResumeLive: () => {},
     isFirefox: () => false,
     scopeKey: {},
-    resetMseDiagnostics: () => {},
-    markMseChunk: () => {},
     ...overrides,
     resolver,
   });
@@ -636,7 +634,6 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
       const sockets = [];
       const supportedTypeContexts = [];
       let releaseStartup = null;
-      let markedChunks = 0;
       const recoveryReasons = [];
 
       class FakeSourceBuffer {
@@ -739,10 +736,8 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
             releaseStartup = resolve;
           });
         },
-        markMseChunk: () => {
-          markedChunks += 1;
-        },
         scheduleResumeLive: (reason) => recoveryReasons.push(reason),
+        nowMs: () => 500,
       });
 
       const result = await withFakeWindow(
@@ -781,7 +776,11 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
       assert.equal(slot.lastChild.srcObject, mediaSources[0]);
       assert.equal(mediaSources[0].sourceBuffers.length, 1);
       assert.equal(mediaSources[0].sourceBuffers[0].appended.length, 1);
-      assert.equal(markedChunks, 1);
+      assert.deepEqual(result.engine.getActivityState(), {
+        connectedAt: 500,
+        lastChunkAt: 500,
+        chunkCount: 1,
+      });
       assert.equal(result.engine.isReusable(), true);
       result.engine.resumeAtLiveEdge();
       assert.equal(slot.lastChild.currentTime, 19.25);
@@ -797,7 +796,6 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
         reboundChunks += 1;
       });
       sockets[0].message(new ArrayBuffer(4));
-      assert.equal(markedChunks, 1);
       assert.equal(reboundChunks, 1);
       result.engine.activateRecovery();
       sockets[0].closeFromServer();

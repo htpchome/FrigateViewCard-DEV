@@ -42,8 +42,8 @@ export function createLiveGraceController({
   adoptCatalystHlsEngine,
   releaseCatalystHlsEngine,
   scheduleResumeLive,
-  resetMseDiagnostics,
-  markMseChunk,
+  activateMseDiagnostics,
+  clearMseDiagnostics,
 }) {
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
@@ -85,6 +85,18 @@ export function createLiveGraceController({
   let mseGraceHost = null;
   let catalystHlsDeckHost = null;
 
+  const disposeGraceEngine = (engine) => {
+    try {
+      engine?.setActivityHandler?.(null);
+    } catch (_) {}
+    try {
+      engine?.destroy?.();
+    } catch (_) {}
+    try {
+      engine?.video?.remove?.();
+    } catch (_) {}
+  };
+
   const evictGraceMseEntry = (entity) => {
     const key = normalizeGraceEntityKey(entity);
     if (!key) return;
@@ -93,9 +105,7 @@ export function createLiveGraceController({
     entry.cancelled = true;
     if (entry.timer) clearTimeout(entry.timer);
     mseGracePool.delete(key);
-    try {
-      entry.engine?.destroy?.();
-    } catch (_) {}
+    disposeGraceEngine(entry.engine);
   };
 
   const evictGraceWebRtcEntry = (entity) => {
@@ -106,9 +116,7 @@ export function createLiveGraceController({
     entry.cancelled = true;
     if (entry.timer) clearTimeout(entry.timer);
     webRtcGracePool.delete(key);
-    try {
-      entry.engine?.destroy?.();
-    } catch (_) {}
+    disposeGraceEngine(entry.engine);
   };
 
   const evictRetainedCatalystHlsEntry = (entity) => {
@@ -195,6 +203,7 @@ export function createLiveGraceController({
     if (!key || !isMseEngineReusable(engine, key)) return false;
     evictGraceMseEntry(key);
     engine.deactivateRecovery?.();
+    engine.setActivityHandler?.(null);
     ensureMseGraceHost().appendChild(engine.video);
     prepareEngineVideoForGraceHost(engine.video);
     const entry = createGraceEngineEntry({
@@ -269,9 +278,7 @@ export function createLiveGraceController({
       try {
         const result = await promise;
         if (entry.cancelled) {
-          try {
-            result?.engine?.destroy?.();
-          } catch (_) {}
+          disposeGraceEngine(result?.engine);
           return null;
         }
         if (
@@ -279,9 +286,7 @@ export function createLiveGraceController({
           result.type !== "mse" ||
           !isMseEngineReusable(result.engine, key)
         ) {
-          try {
-            result?.engine?.destroy?.();
-          } catch (_) {}
+          disposeGraceEngine(result?.engine);
           evictGraceMseEntry(key);
           return null;
         }
@@ -350,9 +355,7 @@ export function createLiveGraceController({
 
   const adoptGraceMseEngine = (slot, engine, expectedEntity = "") => {
     if (!slot || !isMseEngineReusable(engine, expectedEntity)) {
-      try {
-        engine?.destroy?.();
-      } catch (_) {}
+      disposeGraceEngine(engine);
       return false;
     }
     configureVideoElement(
@@ -368,11 +371,10 @@ export function createLiveGraceController({
     );
     mountNodeIntoSlot(slot, engine.video);
     attachVideoFit?.(engine.video);
-    resetMseDiagnostics?.(Date.now());
     engine.setRecoveryHandler?.((reason) => scheduleResumeLive?.(reason));
-    engine.setActivityHandler?.((chunkAt) => markMseChunk?.(chunkAt));
     engine.activateRecovery?.();
     setEngine?.(engine);
+    activateMseDiagnostics?.(engine);
     setEngineMountedMuted?.(getStreamMuted?.());
     setActiveStreamType?.("mse");
     setStreamLoading?.(false);
@@ -387,9 +389,7 @@ export function createLiveGraceController({
   };
   const adoptGraceWebRtcEngine = (slot, engine) => {
     if (!slot || !isWebRtcEngineReusable(engine)) {
-      try {
-        engine?.destroy?.();
-      } catch (_) {}
+      disposeGraceEngine(engine);
       return false;
     }
     configureVideoElement(
@@ -467,6 +467,10 @@ export function createLiveGraceController({
     const activeStreamType = String(getActiveStreamType?.() || "")
       .trim()
       .toLowerCase();
+    if (activeStreamType === "mse") {
+      engine.setActivityHandler?.(null);
+      clearMseDiagnostics?.();
+    }
     if (
       preserveLiveEntity &&
       engine?.catalystHls === true &&

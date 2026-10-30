@@ -72,14 +72,21 @@ export const createLiveLifecycleControllers = (
     releaseCatalystHlsEngine: (engine) =>
       card._catalystHlsMounter?.release?.(engine),
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
-    resetMseDiagnostics: (connectedAt) => {
-      card._mseConnectAt = connectedAt;
+    clearMseDiagnostics: () => {
+      card._mseConnectAt = 0;
       card._mseLastChunkAt = 0;
       card._mseChunkCount = 0;
     },
-    markMseChunk: (chunkAt) => {
-      card._mseLastChunkAt = chunkAt;
-      card._mseChunkCount += 1;
+    activateMseDiagnostics: (engine) => {
+      const activity = engine?.getActivityState?.() || {};
+      card._mseConnectAt = Number(activity.connectedAt) || Date.now();
+      card._mseLastChunkAt = Number(activity.lastChunkAt) || 0;
+      card._mseChunkCount = Number(activity.chunkCount) || 0;
+      engine?.setActivityHandler?.((chunkAt) => {
+        if (card._engine !== engine) return;
+        card._mseLastChunkAt = chunkAt;
+        card._mseChunkCount += 1;
+      });
     },
   });
   const editorLiveHandoffController =

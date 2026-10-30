@@ -155,8 +155,6 @@ export function createGo2RtcMounter({
   scheduleResumeLive,
   isFirefox,
   scopeKey,
-  resetMseDiagnostics,
-  markMseChunk,
   nowMs = () => Date.now(),
 }) {
   const tryMountMse = async (slot, startup = null, options = {}) => {
@@ -237,8 +235,12 @@ export function createGo2RtcMounter({
     let recoveryEnabled = commit;
     let recoveryScheduled = false;
     let recoveryHandler = scheduleResumeLive;
-    let activityHandler = markMseChunk;
-    resetMseDiagnostics(nowMs());
+    let activityHandler = null;
+    const activityState = {
+      connectedAt: nowMs(),
+      lastChunkAt: 0,
+      chunkCount: 0,
+    };
 
     let sourceBuffer = null;
     let mseRequested = false;
@@ -373,6 +375,7 @@ export function createGo2RtcMounter({
       setActivityHandler: (handler) => {
         activityHandler = typeof handler === "function" ? handler : null;
       },
+      getActivityState: () => ({ ...activityState }),
       isReusable: () => {
         if (destroyed || unhealthy || video.error) return false;
         if (Number(ws.readyState) !== Number(WebSocketCtor.OPEN)) return false;
@@ -460,7 +463,9 @@ export function createGo2RtcMounter({
       }
 
       if (!(event.data instanceof ArrayBuffer)) return;
-      activityHandler?.(nowMs());
+      activityState.lastChunkAt = nowMs();
+      activityState.chunkCount += 1;
+      activityHandler?.(activityState.lastChunkAt);
       if (
         sourceBuffer?.updating ||
         queue.length

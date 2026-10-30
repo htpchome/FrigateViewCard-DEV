@@ -91,15 +91,6 @@ export const createLiveTransportControllers = (
     scheduleResumeLive: (reason) => card._scheduleResumeLive(reason),
     isFirefox: () => card._isFirefox(),
     scopeKey: card,
-    resetMseDiagnostics: (connectedAt) => {
-      card._mseConnectAt = connectedAt;
-      card._mseLastChunkAt = 0;
-      card._mseChunkCount = 0;
-    },
-    markMseChunk: (chunkAt) => {
-      card._mseLastChunkAt = chunkAt;
-      card._mseChunkCount += 1;
-    },
   });
   const haDirectMounter = resolvedFactories.createHaDirectMounter({
     getStartupMuted: (entity) => getLiveAudioController(card).resolveStartupMuted(entity),
@@ -294,6 +285,17 @@ export const createLiveTransportControllers = (
         setLiveNativeControls: (enabled) =>
           card._setLiveNativeControls(enabled),
       }),
+    activateMseDiagnostics: (engine) => {
+      const activity = engine?.getActivityState?.() || {};
+      card._mseConnectAt = Number(activity.connectedAt) || Date.now();
+      card._mseLastChunkAt = Number(activity.lastChunkAt) || 0;
+      card._mseChunkCount = Number(activity.chunkCount) || 0;
+      engine?.setActivityHandler?.((chunkAt) => {
+        if (card._engine !== engine) return;
+        card._mseLastChunkAt = chunkAt;
+        card._mseChunkCount += 1;
+      });
+    },
     waitForStreamStart,
     isCurrentWinnerEngine: (engine) => card._engine === engine,
     getPendingWebRtcTakeoverTimer: () => card._pendingWebRTCTakeoverTimer,

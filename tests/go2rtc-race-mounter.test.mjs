@@ -140,6 +140,18 @@ for (const isMobile of [false, true]) {
   });
 }
 
+test("only an adopted MSE winner activates card diagnostics", async (t) => {
+  const activated = [];
+  const { state, mount } = createRetryHarness(t, {
+    isMobile: true,
+    activateMseDiagnostics: (engine) => activated.push(engine),
+  });
+
+  assert.equal(await mount(), true);
+  assert.equal(state.adopted.at(-1), "mse");
+  assert.deepEqual(activated, [state.winner]);
+});
+
 test("a previously working WebRTC camera retries once before the 2-minute cooldown", async (t) => {
   const { state, mount, count } = createRetryHarness(t);
   state.webRtc = "ready";

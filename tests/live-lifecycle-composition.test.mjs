@@ -349,11 +349,31 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     "frigate_go2rtc",
   ]);
 
-  optionsByFactory.liveGrace.resetMseDiagnostics(200);
-  optionsByFactory.liveGrace.markMseChunk(225);
-  assert.equal(card._mseConnectAt, 200);
-  assert.equal(card._mseLastChunkAt, 225);
-  assert.equal(card._mseChunkCount, 1);
+  let activeMseHandler = null;
+  const activeMseEngine = {
+    getActivityState: () => ({
+      connectedAt: 300,
+      lastChunkAt: 325,
+      chunkCount: 2,
+    }),
+    setActivityHandler: (handler) => {
+      activeMseHandler = handler;
+    },
+  };
+  card._engine = activeMseEngine;
+  optionsByFactory.liveGrace.activateMseDiagnostics(activeMseEngine);
+  assert.equal(card._mseConnectAt, 300);
+  assert.equal(card._mseLastChunkAt, 325);
+  assert.equal(card._mseChunkCount, 2);
+  activeMseHandler(350);
+  assert.equal(card._mseLastChunkAt, 350);
+  card._engine = {};
+  activeMseHandler(375);
+  assert.equal(card._mseLastChunkAt, 350);
+  optionsByFactory.liveGrace.clearMseDiagnostics();
+  assert.equal(card._mseConnectAt, 0);
+  assert.equal(card._mseLastChunkAt, 0);
+  assert.equal(card._mseChunkCount, 0);
   optionsByFactory.liveGrace.setStreamFallbackVisible(true, true);
   assert.deepEqual(calls.at(-1), ["fallback", true, true]);
   optionsByFactory.liveGrace.releaseHaDirectEngine(haProviderEngine);

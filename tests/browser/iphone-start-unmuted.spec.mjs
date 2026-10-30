@@ -236,8 +236,6 @@ test("iPhone WebKit targets go2rtc WebRTC before websocket URL resolution", asyn
       scheduleResumeLive: () => {},
       isFirefox: () => false,
       scopeKey: {},
-      resetMseDiagnostics: () => {},
-      markMseChunk: () => {},
     });
 
     const mount = mounter.tryMountWebRtc(slot);
@@ -322,8 +320,6 @@ test("iPhone WebKit prefers ManagedMediaSource and rejects an unready retained e
         scheduleResumeLive: () => {},
         isFirefox: () => false,
         scopeKey: {},
-        resetMseDiagnostics: () => {},
-        markMseChunk: () => {},
       });
       const result = await mounter.tryMountMse(firstSlot);
       activeEngine = result.engine;
@@ -386,5 +382,134 @@ test("iPhone WebKit prefers ManagedMediaSource and rejects an unready retained e
     rejectedUnready: true,
     restoredVideo: false,
     usesManagedMediaSource: true,
+  });
+});
+
+test("iPhone WebKit reuses the exact MSE camera through repeated mobile switches", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    const { createLiveGraceController } = await import(
+      "/src/features/live/live-grace-controller.js"
+    );
+    const root = document.createElement("div");
+    const slot = document.createElement("div");
+    const engineAnchor = document.createElement("div");
+    engineAnchor.id = "engine";
+    root.append(engineAnchor, slot);
+    document.body.append(root);
+
+    const createdByEntity = new Map();
+    const createEngine = (entity) => {
+      const video = document.createElement("video");
+      video.play = () => Promise.resolve();
+      const engine = {
+        entity,
+        video,
+        ws: { readyState: 1 },
+        destroyCalls: 0,
+        activityHandler: null,
+        destroy() {
+          this.destroyCalls += 1;
+        },
+        isReusable: () => true,
+        activateRecovery() {},
+        deactivateRecovery() {},
+        setRecoveryHandler() {},
+        setActivityHandler(handler) {
+          this.activityHandler = handler;
+        },
+        getActivityState: () => ({
+          connectedAt: 100,
+          lastChunkAt: 125,
+          chunkCount: 2,
+        }),
+        resumeAtLiveEdge() {},
+      };
+      const engines = createdByEntity.get(entity) || [];
+      engines.push(engine);
+      createdByEntity.set(entity, engines);
+      return engine;
+    };
+
+    let activeEngine = createEngine("camera.one");
+    slot.append(activeEngine.video);
+    const controller = createLiveGraceController({
+      graceMs: 60000,
+      graceMax: 3,
+      getShadowRoot: () => root,
+      getScopeKey: () => ({}),
+      getPendingMountDestroyers: () => [],
+      setPendingMountDestroyers: () => {},
+      getEngine: () => activeEngine,
+      setEngine: (engine) => {
+        activeEngine = engine;
+      },
+      getActiveStreamType: () => "mse",
+      getStreamMuted: () => true,
+      setActiveStreamType: () => {},
+      setEngineMountedMuted: () => {},
+      setStreamLoading: () => {},
+      setStreamFallbackVisible: () => {},
+      attachVideoFit: () => {},
+      clearMseDiagnostics: () => {},
+      activateMseDiagnostics: (engine) => {
+        engine.setActivityHandler(() => {});
+      },
+    });
+
+    const sequence = Array.from(
+      { length: 24 },
+      (_, index) => `camera.${["one", "two", "three"][index % 3]}`,
+    );
+    const observed = [];
+    for (const entity of sequence) {
+      if (activeEngine?.entity !== entity) {
+        controller.cleanupEngine({ preserveLiveEntity: activeEngine.entity });
+        const retained = controller.takeGraceMseEntry(entity)?.engine || null;
+        if (retained) {
+          controller.adoptGraceMseEngine(slot, retained, entity);
+        } else {
+          activeEngine = createEngine(entity);
+          slot.append(activeEngine.video);
+        }
+      }
+      const retainedHost = root.querySelector(
+        "[data-fvc-go2rtc-retained-deck]",
+      );
+      observed.push({
+        active: activeEngine?.entity || "",
+        requested: entity,
+        retainedVideos: retainedHost?.querySelectorAll("video").length || 0,
+      });
+    }
+
+    const answer = {
+      created: Object.fromEntries(
+        [...createdByEntity].map(([entity, engines]) => [entity, engines.length]),
+      ),
+      destroyedBeforeClear: [...createdByEntity.values()]
+        .flat()
+        .reduce((sum, engine) => sum + engine.destroyCalls, 0),
+      exactSelections: observed.every(
+        ({ active, requested }) => active === requested,
+      ),
+      maxRetainedVideos: Math.max(
+        ...observed.map(({ retainedVideos }) => retainedVideos),
+      ),
+    };
+    controller.clearGracePool();
+    root.remove();
+    return answer;
+  });
+
+  expect(state).toEqual({
+    created: {
+      "camera.one": 1,
+      "camera.two": 1,
+      "camera.three": 1,
+    },
+    destroyedBeforeClear: 0,
+    exactSelections: true,
+    maxRetainedVideos: 2,
   });
 });

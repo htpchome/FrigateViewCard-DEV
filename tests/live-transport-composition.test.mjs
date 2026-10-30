@@ -266,11 +266,29 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   optionsByFactory.catalystHlsMounter.onForeground();
   assert.deepEqual(calls.slice(-2), [["prepare-audio", card._activeCam], ["render-mute"]]);
 
-  optionsByFactory.go2rtcMounter.resetMseDiagnostics(100);
-  optionsByFactory.go2rtcMounter.markMseChunk(125);
-  assert.equal(card._mseConnectAt, 100);
-  assert.equal(card._mseLastChunkAt, 125);
-  assert.equal(card._mseChunkCount, 1);
+  let activeMseHandler = null;
+  const activeMseEngine = {
+    getActivityState: () => ({
+      connectedAt: 200,
+      lastChunkAt: 225,
+      chunkCount: 4,
+    }),
+    setActivityHandler: (handler) => {
+      activeMseHandler = handler;
+    },
+  };
+  card._engine = activeMseEngine;
+  optionsByFactory.go2rtcRaceMounter.activateMseDiagnostics(activeMseEngine);
+  assert.equal(card._mseConnectAt, 200);
+  assert.equal(card._mseLastChunkAt, 225);
+  assert.equal(card._mseChunkCount, 4);
+  activeMseHandler(250);
+  assert.equal(card._mseLastChunkAt, 250);
+  assert.equal(card._mseChunkCount, 5);
+  card._engine = {};
+  activeMseHandler(275);
+  assert.equal(card._mseLastChunkAt, 250);
+  assert.equal(card._mseChunkCount, 5);
 
   await optionsByFactory.go2rtcResolver.discoverEntity("camera.front");
   assert.deepEqual(calls.at(-1), ["discover", "camera.front"]);
