@@ -211,7 +211,7 @@ test("runFallbackRefreshCycle writes once when source resolves", async () => {
   assert.equal(imgEl.dataset.fallbackEntity, "camera.front");
 });
 
-test("fallback refresh preserves the previous camera image until the new source is ready", async () => {
+test("fallback refresh immediately replaces another camera with the selected entity picture", async () => {
   let resolvePrimary;
   const imgEl = {
     dataset: { fallbackEntity: "camera.primary" },
@@ -231,23 +231,24 @@ test("fallback refresh preserves the previous camera image until the new source 
       await new Promise((resolve) => {
         resolvePrimary = resolve;
       }),
-    loadAlt: () => "",
+    loadAlt: () => "https://ha.local/secondary-alt.jpg",
     applyHandlers: () => {},
     applySource: (entry) => writes.push(entry),
   });
 
   assert.equal(imgEl.hidden, false);
-  assert.equal(imgEl.dataset.fallbackEntity, "camera.primary");
+  assert.equal(imgEl.dataset.fallbackEntity, "camera.secondary");
+  assert.equal(writes[0].src, "https://ha.local/secondary-alt.jpg");
 
   resolvePrimary("https://ha.local/secondary.jpg");
   const result = await refresh;
   assert.equal(result.didWrite, true);
   assert.equal(imgEl.hidden, false);
   assert.equal(imgEl.dataset.fallbackEntity, "camera.secondary");
-  assert.equal(writes[0].src, "https://ha.local/secondary.jpg");
+  assert.equal(writes[1].src, "https://ha.local/secondary.jpg");
 });
 
-test("fallback refresh swaps only after the replacement snapshot is decoded", async () => {
+test("fallback refresh keeps the selected entity picture while its signed snapshot decodes", async () => {
   let resolvePreload;
   let signalPreloadStarted;
   const preloadStarted = new Promise((resolve) => {
@@ -269,7 +270,7 @@ test("fallback refresh swaps only after the replacement snapshot is decoded", as
     setActiveRequestId: () => {},
     readActiveRequestId: () => 1,
     loadPrimary: async () => "https://ha.local/secondary.jpg",
-    loadAlt: () => "",
+    loadAlt: () => "https://ha.local/secondary-alt.jpg",
     preloadSource: async () => {
       signalPreloadStarted();
       return await new Promise((resolve) => {
@@ -282,15 +283,15 @@ test("fallback refresh swaps only after the replacement snapshot is decoded", as
 
   await preloadStarted;
   assert.equal(imgEl.hidden, false);
-  assert.equal(imgEl.src, "https://ha.local/primary.jpg");
-  assert.equal(imgEl.dataset.fallbackEntity, "camera.primary");
-  assert.equal(writes.length, 0);
+  assert.equal(imgEl.dataset.fallbackEntity, "camera.secondary");
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].src, "https://ha.local/secondary-alt.jpg");
 
   resolvePreload(true);
   const result = await refresh;
   assert.equal(result.didWrite, true);
   assert.equal(imgEl.dataset.fallbackEntity, "camera.secondary");
-  assert.equal(writes[0].src, "https://ha.local/secondary.jpg");
+  assert.equal(writes[1].src, "https://ha.local/secondary.jpg");
 });
 
 test("loading fallback atomically replaces the decoded image", async () => {

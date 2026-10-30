@@ -15,7 +15,6 @@ const WEBRTC_REPEAT_COOLDOWN_MS = 300000;
 const STRATEGY_HINT_MAX_ENTRIES = 64;
 const DEFERRED_WEBRTC_MAX_HOLD_MS = 4000;
 const PREFERRED_WEBRTC_WAIT_MS = 500;
-const MOBILE_FALLBACK_HEDGE_MS = 1250;
 const MOBILE_DEFERRED_WEBRTC_MAX_HOLD_MS = 8500;
 const WEBRTC_RETRY_BACKOFF_MS = 2000;
 
@@ -55,7 +54,6 @@ export function createGo2RtcRaceMounter({
   deferredWebRtcMaxHoldMs = DEFERRED_WEBRTC_MAX_HOLD_MS,
   mobileDeferredWebRtcMaxHoldMs = MOBILE_DEFERRED_WEBRTC_MAX_HOLD_MS,
   preferredWebRtcWaitMs = PREFERRED_WEBRTC_WAIT_MS,
-  mobileFallbackHedgeMs = MOBILE_FALLBACK_HEDGE_MS,
   webRtcRetryBackoffMs = WEBRTC_RETRY_BACKOFF_MS,
   getNowMs = () => Date.now(),
 }) {
@@ -195,16 +193,6 @@ export function createGo2RtcRaceMounter({
     return attempts.some((attempt) => attempt.type === hint.type)
       ? hint.type
       : null;
-  };
-
-  const resolveMobileAttemptDelays = (attempts = [], hintedType = null) => {
-    const availableTypes = new Set(attempts.map((attempt) => attempt.type));
-    const delays = {};
-    if (availableTypes.has("webrtc")) delays.webrtc = 0;
-    if (availableTypes.has("mse")) {
-      delays.mse = hintedType === "mse" ? 0 : mobileFallbackHedgeMs;
-    }
-    return delays;
   };
 
   const mountWithOrchestrator = async ({
@@ -443,7 +431,6 @@ export function createGo2RtcRaceMounter({
         attempts,
         preferredType: "webrtc",
         preferredWaitMs: 0,
-        attemptDelayByType: resolveMobileAttemptDelays(attempts, hintedType),
       });
     }
     // Only a working WebRTC winner gets the existing single-transport shortcut.

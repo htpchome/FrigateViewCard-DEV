@@ -28,6 +28,9 @@ function createFakeVideoElement() {
     style,
     dataset,
     paused: false,
+    readyState: 4,
+    currentTime: 0,
+    playbackRate: 1,
     playCalls: 0,
     loadCalls: 0,
     get className() {
@@ -642,6 +645,11 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
           this.updating = false;
           this.appended = [];
           this._listeners = new Map();
+          this.buffered = {
+            length: 1,
+            start: () => 0,
+            end: () => 20,
+          };
         }
 
         addEventListener(type, handler) {
@@ -774,7 +782,11 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
       assert.equal(mediaSources[0].sourceBuffers.length, 1);
       assert.equal(mediaSources[0].sourceBuffers[0].appended.length, 1);
       assert.equal(markedChunks, 1);
+      assert.equal(result.engine.isReusable(), true);
+      result.engine.resumeAtLiveEdge();
+      assert.equal(slot.lastChild.currentTime, 19.25);
       sockets[0].closeFromServer();
+      assert.equal(result.engine.isReusable(), false);
       assert.deepEqual(recoveryReasons, []);
       const reboundRecoveryReasons = [];
       let reboundChunks = 0;
@@ -804,7 +816,7 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
   });
 });
 
-test("go2rtc mounter preserves classic MediaSource across retained-player moves", async () => {
+test("go2rtc mounter prefers ManagedMediaSource when Safari exposes both flavors", async () => {
   await withFakeDocument(async () => {
     await withFakeObjectUrl(async (revoked) => {
       let classicInstances = 0;
@@ -865,17 +877,14 @@ test("go2rtc mounter preserves classic MediaSource across retained-player moves"
       );
 
       assert.equal(result.ok, true);
-      assert.equal(classicInstances, 1);
-      assert.equal(managedInstances, 0);
-      assert.equal(slot.lastChild.src, "blob:managed-media-source");
-      assert.equal(slot.lastChild.srcObject, null);
+      assert.equal(classicInstances, 0);
+      assert.equal(managedInstances, 1);
+      assert.equal(slot.lastChild.srcObject instanceof FakeManagedMediaSource, true);
       assert.deepEqual(revoked, []);
 
-      // The same video can move between the live slot and grace host while its
-      // object URL remains valid. Only engine destruction releases it.
       result.engine.destroy();
-      assert.equal(slot.lastChild.src, "");
-      assert.deepEqual(revoked, ["blob:managed-media-source"]);
+      assert.equal(slot.lastChild.srcObject, null);
+      assert.deepEqual(revoked, []);
     });
   });
 });

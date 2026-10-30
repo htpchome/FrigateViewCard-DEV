@@ -268,7 +268,7 @@ test("iPhone WebKit targets go2rtc WebRTC before websocket URL resolution", asyn
   });
 });
 
-test("iPhone WebKit retains classic MSE across an offscreen camera switch", async ({ page }) => {
+test("iPhone WebKit prefers ManagedMediaSource and rejects an unready retained engine", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
     const [{ createGo2RtcMounter }, { createLiveGraceController }] =
@@ -328,7 +328,9 @@ test("iPhone WebKit retains classic MSE across an offscreen camera switch", asyn
       const result = await mounter.tryMountMse(firstSlot);
       activeEngine = result.engine;
       const originalVideo = result.engine.video;
-      const originalSource = originalVideo.currentSrc || originalVideo.src;
+      const usesManagedMediaSource =
+        typeof window.ManagedMediaSource === "function" &&
+        originalVideo.srcObject instanceof window.ManagedMediaSource;
 
       const grace = createLiveGraceController({
         graceMs: 20000,
@@ -360,19 +362,14 @@ test("iPhone WebKit retains classic MSE across an offscreen camera switch", asyn
         "camera.front",
       );
       const restoredVideo = restoredSlot.querySelector("video");
-      const restoredSource = restoredVideo?.currentSrc || restoredVideo?.src;
       const answer = {
         adopted,
         bothApisAvailable:
           typeof window.MediaSource === "function" &&
           typeof window.ManagedMediaSource === "function",
-        entity: activeEngine?.entity,
-        sameVideo: restoredVideo === originalVideo,
-        sourcePreserved:
-          Boolean(originalSource) && restoredSource === originalSource,
-        usesClassicObjectUrl:
-          restoredVideo?.srcObject == null &&
-          String(restoredSource || "").startsWith("blob:"),
+        rejectedUnready: !entry && activeEngine == null,
+        restoredVideo: Boolean(restoredVideo),
+        usesManagedMediaSource,
       };
       grace.clearGracePool();
       activeEngine?.destroy?.();
@@ -385,10 +382,9 @@ test("iPhone WebKit retains classic MSE across an offscreen camera switch", asyn
 
   expect(state.bothApisAvailable).toBe(true);
   expect(state).toMatchObject({
-    adopted: true,
-    entity: "camera.front",
-    sameVideo: true,
-    sourcePreserved: true,
-    usesClassicObjectUrl: true,
+    adopted: false,
+    rejectedUnready: true,
+    restoredVideo: false,
+    usesManagedMediaSource: true,
   });
 });

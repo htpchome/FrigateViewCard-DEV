@@ -58,6 +58,10 @@ export function createLiveGraceController({
       expectedKey &&
       normalizeGraceEntityKey(engine.entity) !== expectedKey
     ) return false;
+    if (
+      typeof engine.isReusable === "function" &&
+      engine.isReusable() !== true
+    ) return false;
     const wsState = Number(engine.ws.readyState);
     return !Number.isFinite(wsState) || wsState <= 1;
   };
@@ -154,9 +158,17 @@ export function createLiveGraceController({
     if (mseGraceHost?.isConnected) return mseGraceHost;
     const host = document.createElement("div");
     host.setAttribute("aria-hidden", "true");
+    host.setAttribute("data-fvc-go2rtc-retained-deck", "");
     host.style.cssText =
-      "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px;top:-9999px";
-    getShadowRoot?.()?.appendChild?.(host);
+      "position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:0";
+    const shadowRoot = getShadowRoot?.();
+    const engine = shadowRoot?.querySelector?.("#engine") || null;
+    const parent = engine?.parentElement || shadowRoot;
+    if (engine && parent?.insertBefore) {
+      parent.insertBefore(host, engine);
+    } else {
+      parent?.appendChild?.(host);
+    }
     mseGraceHost = host;
     return host;
   };
@@ -366,7 +378,11 @@ export function createLiveGraceController({
     setStreamLoading?.(false);
     setStreamFallbackVisible?.(false);
     if (getRotateOverlayActive?.()) setLiveNativeControls?.(true);
-    void engine.video.play?.().catch?.(() => {});
+    if (typeof engine.resumeAtLiveEdge === "function") {
+      engine.resumeAtLiveEdge();
+    } else {
+      void engine.video.play?.().catch?.(() => {});
+    }
     return true;
   };
   const adoptGraceWebRtcEngine = (slot, engine) => {

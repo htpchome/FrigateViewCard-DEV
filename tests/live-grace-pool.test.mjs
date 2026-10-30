@@ -41,7 +41,7 @@ test("createGracePendingEntry initializes pending shape", () => {
   clearTimeout(entry.timer);
 });
 
-test("prepareEngineVideoForGraceHost applies offscreen muted state", () => {
+test("prepareEngineVideoForGraceHost keeps retained media in the stationary deck", () => {
   const video = {
     muted: false,
     controls: true,
@@ -53,7 +53,8 @@ test("prepareEngineVideoForGraceHost applies offscreen muted state", () => {
 
   assert.equal(video.muted, true);
   assert.equal(video.controls, false);
-  assert.equal(video.style.cssText.includes("left:-9999px"), true);
+  assert.equal(video.style.cssText.includes("position:absolute;inset:0"), true);
+  assert.equal(video.style.cssText.includes("opacity:0"), false);
 });
 
 test("prepareEngineVideoForLiveDeck keeps Catalyst media full-sized and playing", () => {

@@ -401,6 +401,42 @@ export const runFallbackRefreshCycle = async ({
   setActiveRequestId?.(token.nextRequestId);
 
   const entity = resolveFallbackRefreshEntity(activeCam);
+  const renderedEntity = String(
+    imgEl?.dataset?.fallbackEntity || "",
+  ).trim();
+  const changedEntity = Boolean(
+    renderedEntity && entity && renderedEntity !== entity,
+  );
+
+  // Never hold another camera's frame over the selected camera while its
+  // signed snapshot URL resolves. The entity-picture URL is synchronous and
+  // normally browser-cached, so install it immediately as the loading surface.
+  if (changedEntity) {
+    const alternateContext = buildFallbackRefreshContext({
+      entity,
+      primarySrc: "",
+      loadAlt,
+      cacheBustValue,
+      preferAlternate: true,
+    });
+    const alternateWrite = buildFallbackImageWriteInput({
+      context: alternateContext,
+      imgEl,
+      statusEl,
+    });
+    if (alternateWrite.src) {
+      executeFallbackRefreshWrite({
+        writeInput: alternateWrite,
+        applyHandlers,
+        applySource,
+      });
+    } else {
+      imgEl?.removeAttribute?.("src");
+      if (imgEl?.dataset) imgEl.dataset.fallbackEntity = entity;
+      if (imgEl) imgEl.hidden = true;
+    }
+  }
+
   const primaryPhase = await loadPrimaryWithStaleGate({
     entity,
     token,
@@ -434,7 +470,9 @@ export const runFallbackRefreshCycle = async ({
 
   const writeTarget = prepareFallbackImageWriteTarget({
     imgEl,
-    preserveRenderedFrame,
+    preserveRenderedFrame:
+      preserveRenderedFrame &&
+      String(imgEl?.dataset?.fallbackEntity || "").trim() === entity,
   });
   const alternateSource = writePlan.context?.sources?.altSrc || "";
   let readySource = writePlan.writeInput.src;

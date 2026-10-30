@@ -38,7 +38,7 @@ export const prepareEngineVideoForGraceHost = (video) => {
   if (!video) return;
   video.muted = true;
   video.controls = false;
-  video.style.cssText = OFFSCREEN_VIDEO_STYLE;
+  video.style.cssText = LIVE_DECK_VIDEO_STYLE;
   void video.play?.().catch?.(() => {});
 };
 

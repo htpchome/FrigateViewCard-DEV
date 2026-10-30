@@ -61,6 +61,8 @@ const createMseEngine = (entity) => {
     streamType: "mse",
     video,
     ws: { readyState: 1 },
+    reusable: true,
+    resumeCalls: 0,
     destroyCalls: 0,
     destroy() {
       this.destroyCalls += 1;
@@ -69,6 +71,12 @@ const createMseEngine = (entity) => {
     deactivateRecovery() {},
     setRecoveryHandler() {},
     setActivityHandler() {},
+    isReusable() {
+      return this.reusable;
+    },
+    resumeAtLiveEdge() {
+      this.resumeCalls += 1;
+    },
   };
 };
 
@@ -121,6 +129,7 @@ test("MSE grace reuse preserves exact camera identity across three retained swit
     true,
   );
   assert.equal(activeEngine, first);
+  assert.equal(first.resumeCalls, 1);
 
   controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
   const secondEntry = controller.takeGraceMseEntry("camera.two");
@@ -171,5 +180,35 @@ test("MSE grace cache rejects an engine bound to another camera", (t) => {
 
   assert.equal(controller.takeGraceMseEntry("camera.one"), null);
   assert.equal(wrongEngine.destroyCalls, 1);
+  assert.equal(activeEngine, null);
+});
+
+test("MSE grace cache rejects a retained engine whose media pipeline closed", (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => createNode() };
+  t.after(() => {
+    globalThis.document = previousDocument;
+  });
+
+  const unhealthyEngine = createMseEngine("camera.one");
+  unhealthyEngine.reusable = false;
+  let activeEngine = unhealthyEngine;
+  const controller = createLiveGraceController({
+    graceMs: 20000,
+    graceMax: 3,
+    getShadowRoot: () => createNode(),
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    getEngine: () => activeEngine,
+    setEngine: (engine) => {
+      activeEngine = engine;
+    },
+    getActiveStreamType: () => "mse",
+  });
+
+  controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
+
+  assert.equal(controller.takeGraceMseEntry("camera.one"), null);
+  assert.equal(unhealthyEngine.destroyCalls, 1);
   assert.equal(activeEngine, null);
 });

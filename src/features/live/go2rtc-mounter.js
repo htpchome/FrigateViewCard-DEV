@@ -10,6 +10,10 @@ import {
 import { HOME_ASSISTANT_STUN_SERVER } from "../../constants.js";
 
 const WEBRTC_NEGOTIATION_TIMEOUT_MS = 4000;
+const MSE_RETAINED_BUFFER_SECONDS = 15;
+const MSE_LIVE_EDGE_RESUME_LAG_SECONDS = 1;
+const MSE_LIVE_EDGE_OFFSET_SECONDS = 0.75;
+const MSE_MAX_PENDING_BUFFER_BYTES = 2 * 1024 * 1024;
 
 function stopMediaStream(stream) {
   stream?.getTracks?.().forEach((track) => {
@@ -49,12 +53,10 @@ function normalizeGo2RtcCodecs(value) {
 }
 
 function resolveMediaSourceCapability(browserWindow = globalThis.window) {
-  // Prefer classic MediaSource when both flavors exist. FrigateView retains
-  // camera players offscreen for quick switch-back reuse; ManagedMediaSource
-  // may throttle that hidden player, while ACC's single active surface does
-  // not exercise this lifecycle.
+  // Safari exposes both constructors. Match ACC's experimental provider by
+  // preferring ManagedMediaSource there and falling back to classic MSE.
   const MediaSourceCtor =
-    browserWindow?.MediaSource || browserWindow?.ManagedMediaSource || null;
+    browserWindow?.ManagedMediaSource || browserWindow?.MediaSource || null;
   if (!MediaSourceCtor) return null;
 
   const isTypeSupportedImpl = MediaSourceCtor.isTypeSupported;
@@ -241,14 +243,67 @@ export function createGo2RtcMounter({
     let sourceBuffer = null;
     let mseRequested = false;
     let queue = [];
+    let queuedBytes = 0;
+    let unhealthy = false;
+
+    const bufferedEnd = () => {
+      const buffered = sourceBuffer?.buffered || video?.buffered;
+      if (!buffered?.length) return null;
+      try {
+        return buffered.end(buffered.length - 1);
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const resumeAtLiveEdge = () => {
+      const end = bufferedEnd();
+      const current = Number(video.currentTime) || 0;
+      if (
+        Number.isFinite(end) &&
+        end - current > MSE_LIVE_EDGE_RESUME_LAG_SECONDS
+      ) {
+        video.currentTime = Math.max(
+          0,
+          end - MSE_LIVE_EDGE_OFFSET_SECONDS,
+        );
+      }
+      video.playbackRate = 1;
+      startVideoPlayback(video);
+    };
+
+    const trimBufferedHistory = () => {
+      if (!sourceBuffer || sourceBuffer.updating) return;
+      const buffered = sourceBuffer.buffered;
+      if (!buffered?.length) return;
+      try {
+        const start = buffered.start(0);
+        const end = buffered.end(buffered.length - 1);
+        const retainedStart = end - MSE_RETAINED_BUFFER_SECONDS;
+        if (retainedStart <= start) return;
+        sourceBuffer.remove(start, retainedStart);
+        mediaSource.setLiveSeekableRange?.(retainedStart, end);
+      } catch (_) {}
+    };
 
     const appendNext = () => {
       if (!sourceBuffer || sourceBuffer.updating || !queue.length) return;
       try {
-        sourceBuffer.appendBuffer(queue.shift());
+        const next = queue.shift();
+        queuedBytes = Math.max(0, queuedBytes - (next?.byteLength || 0));
+        sourceBuffer.appendBuffer(next);
       } catch (_) {
         queue = [];
+        queuedBytes = 0;
       }
+    };
+
+    const handleSourceBufferUpdateEnd = () => {
+      if (queue.length) {
+        appendNext();
+        return;
+      }
+      trimBufferedHistory();
     };
 
     const stopCatchup = startFirefoxLiveCatchup(video, isFirefox);
@@ -318,12 +373,23 @@ export function createGo2RtcMounter({
       setActivityHandler: (handler) => {
         activityHandler = typeof handler === "function" ? handler : null;
       },
+      isReusable: () => {
+        if (destroyed || unhealthy || video.error) return false;
+        if (Number(ws.readyState) !== Number(WebSocketCtor.OPEN)) return false;
+        if (mediaSource.readyState !== "open" || !sourceBuffer) return false;
+        return Number(video.readyState) >= 2 && bufferedEnd() !== null;
+      },
+      resumeAtLiveEdge,
     };
     if (commit) assignCommittedEngine(engine);
 
     mediaSource.addEventListener(
       "sourceopen",
       () => {
+        if (!managed && mediaSourceObjectUrl) {
+          URL.revokeObjectURL(mediaSourceObjectUrl);
+          mediaSourceObjectUrl = "";
+        }
         requestMse();
       },
       { once: true },
@@ -379,7 +445,10 @@ export function createGo2RtcMounter({
             if (!isTypeSupported(mime)) return;
             sourceBuffer = mediaSource.addSourceBuffer(mime);
             sourceBuffer.mode = "segments";
-            sourceBuffer.addEventListener("updateend", appendNext);
+            sourceBuffer.addEventListener(
+              "updateend",
+              handleSourceBufferUpdateEnd,
+            );
             // The selected startup owner already has its pre-source play
             // request. Match ACC by waiting for loadeddata before acting
             // again; source attachment is not a third playback action.
@@ -392,7 +461,28 @@ export function createGo2RtcMounter({
 
       if (!(event.data instanceof ArrayBuffer)) return;
       activityHandler?.(nowMs());
+      if (
+        sourceBuffer?.updating ||
+        queue.length
+      ) {
+        if (
+          queuedBytes + event.data.byteLength >
+          MSE_MAX_PENDING_BUFFER_BYTES
+        ) {
+          unhealthy = true;
+          queue = [];
+          queuedBytes = 0;
+          try {
+            ws.close();
+          } catch (_) {}
+          return;
+        }
+        queue.push(event.data);
+        queuedBytes += event.data.byteLength;
+        return;
+      }
       queue.push(event.data);
+      queuedBytes += event.data.byteLength;
       appendNext();
     });
 

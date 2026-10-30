@@ -54,7 +54,6 @@ const createRetryHarness = (t, options = {}) => {
     getPendingWebRtcTakeoverTimer: () => state.timer,
     setPendingWebRtcTakeoverTimer: (timer) => { state.timer = timer; },
     preferredWebRtcWaitMs: 0,
-    mobileFallbackHedgeMs: 0,
     webRtcRetryBackoffMs: 0,
     getNowMs: () => state.now,
     ...options,
@@ -1141,7 +1140,7 @@ test("forced WebRTC bypasses retry backoff after a genuine timeout", async () =>
   }
 });
 
-test("mobile fast path does not start fallbacks when webrtc renders before the hedge", async () => {
+test("mobile starts MSE immediately while WebRTC races", async () => {
   const previousDocument = globalThis.document;
   globalThis.document = {
     createElement: () => ({ style: {}, remove() {} }),
@@ -1178,7 +1177,6 @@ test("mobile fast path does not start fallbacks when webrtc renders before the h
       isCurrentWinnerEngine: () => true,
       getPendingWebRtcTakeoverTimer: () => null,
       setPendingWebRtcTakeoverTimer: () => {},
-      mobileFallbackHedgeMs: 20,
     });
 
     const result = await raceMounter.mountWithRace({
@@ -1191,13 +1189,13 @@ test("mobile fast path does not start fallbacks when webrtc renders before the h
     assert.equal(result, true);
     assert.equal(adoptedType, "webrtc");
     assert.equal(webrtcCalls, 1);
-    assert.equal(mseCalls, 0);
+    assert.equal(mseCalls, 1);
   } finally {
     globalThis.document = previousDocument;
   }
 });
 
-test("mobile hedges unreachable webrtc to MSE before the webrtc timeout", async () => {
+test("mobile uses immediate MSE while unreachable WebRTC remains pending", async () => {
   const previousDocument = globalThis.document;
   globalThis.document = {
     createElement: () => ({ style: {}, remove() {} }),
@@ -1232,7 +1230,6 @@ test("mobile hedges unreachable webrtc to MSE before the webrtc timeout", async 
       getPendingWebRtcTakeoverTimer: () => null,
       setPendingWebRtcTakeoverTimer: () => {},
       preferredWebRtcWaitMs: 0,
-      mobileFallbackHedgeMs: 20,
       mobileDeferredWebRtcMaxHoldMs: 120,
     });
 
@@ -1300,7 +1297,6 @@ test("mobile starts a remembered fallback immediately and upgrades to healthy we
       setPendingWebRtcTakeoverTimer: (timer) => {
         pendingTimer = timer;
       },
-      mobileFallbackHedgeMs: 20,
       mobileDeferredWebRtcMaxHoldMs: 100,
     });
     const slot = { appendChild() {} };
