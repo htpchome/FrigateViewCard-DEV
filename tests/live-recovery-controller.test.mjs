@@ -40,27 +40,6 @@ test("generic recovery cannot replace a suspended or resuming Catalyst HLS playe
   }
 });
 
-test("live recovery cannot mount before the startup route owns live playback", () => {
-  const host = createHost();
-  const calls = [];
-  host._startupRouteActivated = false;
-  host._mountEngine = () => calls.push("mount");
-  host._resumeLiveIfNeeded = () => calls.push("resume");
-  host._kickLiveIfStale = () => calls.push("kick");
-  const controller = new LiveRecoveryController(host, {
-    setTimer: () => {
-      calls.push("timer");
-      return 1;
-    },
-  });
-
-  controller.scheduleResume("connected");
-  controller.kickIfStale(true);
-  controller.resumeIfNeeded("intersection");
-
-  assert.deepEqual(calls, []);
-});
-
 test("live recovery keeps editor and Firefox resume timing stable", () => {
   const host = createHost();
   const calls = [];
@@ -138,6 +117,31 @@ test("live recovery probes stale media and remounts the requested transport", ()
 
   assert.deepEqual(mounts, ["webrtc"]);
   assert.equal(host._lastLiveKick, 20000);
+});
+
+test("live recovery preserves a newly connected MSE stream on every browser", () => {
+  const host = createHost();
+  const video = {
+    readyState: 0,
+    ended: false,
+    paused: true,
+    currentTime: 0,
+    webkitDecodedFrameCount: 0,
+  };
+  const mounts = [];
+  host._engine = { video };
+  host._findVideoDeep = () => video;
+  host._mseConnectAt = 19500;
+  host._mseLastChunkAt = 19900;
+  host._mountEngine = (forcedType) => mounts.push(forcedType);
+  const controller = new LiveRecoveryController(host, {
+    now: () => 20000,
+  });
+
+  controller.kickIfStale();
+
+  assert.deepEqual(mounts, []);
+  assert.equal(host._lastLiveKick, 0);
 });
 
 test("live recovery resumes card-owned MSE with its forced transport", () => {

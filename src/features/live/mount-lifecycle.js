@@ -274,7 +274,6 @@ export const resolveLiveKickIfStaleAction = ({
   streamLoadingVisible = false,
   lastLiveKick = 0,
   nowMs = Date.now(),
-  isFirefox = false,
   mseConnectAt = 0,
   mseLastChunkAt = 0,
   hasVideo = false,
@@ -296,13 +295,14 @@ export const resolveLiveKickIfStaleAction = ({
     return { shouldKick: false, nextLastLiveKick: lastLiveKick };
   }
 
+  const connectedAt = Number(mseConnectAt || 0);
+  const lastChunkAt = Number(mseLastChunkAt || 0);
   const recentMseTraffic =
-    isFirefox &&
-    (nowMs - Number(mseConnectAt || 0) < mseConnectGraceMs ||
-      nowMs - Number(mseLastChunkAt || 0) < mseChunkGraceMs);
+    (connectedAt > 0 && nowMs - connectedAt < mseConnectGraceMs) ||
+    (lastChunkAt > 0 && nowMs - lastChunkAt < mseChunkGraceMs);
   // A lifecycle resume must be allowed to rebuild an engine that was
   // deliberately cleared, even if diagnostics from that old MSE connection
-  // are still inside Firefox's traffic grace window.
+  // are still inside the transport's traffic grace window.
   if (!forceRemount && recentMseTraffic && !(force && !hasVideo)) {
     return { shouldKick: false, nextLastLiveKick: lastLiveKick };
   }

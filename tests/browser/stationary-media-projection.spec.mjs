@@ -715,11 +715,19 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
         card._started = true;
         anchor.shadowRoot.append(card);
         card._renderShell();
-        window.startupAudioProbe = { card, audit };
         // Mirror _start's audio preparation; this fixture skips browse startup.
         card._setLiveMuted(true);
         card._liveAudioController.prepareCameraStart(card._activeCam);
-        await card._haDirectMounter.tryMount(card.shadowRoot.querySelector("#engine"), null, { entity: "camera.one" });
+        const mounted = await card._haDirectMounter.tryMount(
+          card.shadowRoot.querySelector("#engine"),
+          null,
+          { entity: "camera.one" },
+        );
+        window.startupAudioProbe = {
+          card,
+          audit,
+          session: mounted?.engine?.haDirectSession || null,
+        };
       }, { transport, denied });
       await expect.poll(() => page.evaluate(() =>
         window.startupAudioProbe.audit.playbackRequests.filter(
@@ -734,10 +742,13 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
         window.startupAudioProbe.audit.playbackRequests.some(
           (request) => request.entity === "camera.two",
         )), { timeout: 15000 }).toBe(true);
+      await expect.poll(() => page.evaluate(() => Boolean(
+        window.startupAudioProbe.session?.get("camera.one")?.video,
+      )), { timeout: 15000 }).toBe(true);
       const result = await page.evaluate(() => {
-        const { card, audit } = window.startupAudioProbe;
+        const { card, audit, session } = window.startupAudioProbe;
         return { requests: audit.playbackRequests,
-          muted: card._engine.haDirectSession.get("camera.one").video.muted, uiMuted: card._streamMuted };
+          muted: session.get("camera.one").video.muted, uiMuted: card._streamMuted };
       });
       // HA may preload a hidden WebRTC candidate before selecting it. Dormant
       // candidates remain muted; the selected provider owns ACC's
@@ -758,11 +769,11 @@ for (const transport of ["hls", "web_rtc", "hls+web_rtc"]) {
       const background = result.requests.filter((request) => request.entity === "camera.two");
       expect(background.length).toBeGreaterThan(0);
       expect(background.every((request) => request.muted)).toBe(true);
-      expect(await page.evaluate(() => [...window.startupAudioProbe.card._engine.haDirectSession.records.values()]
+      expect(await page.evaluate(() => [...window.startupAudioProbe.session.records.values()]
         .every((record) => [...record.provider.players.values()]
           .every((player) => !player.classList.contains("hidden") || player.video.muted)))).toBe(true);
       await expect.poll(() => page.evaluate(() =>
-        [...window.startupAudioProbe.card._engine.haDirectSession.records.values()].every((record) =>
+        [...window.startupAudioProbe.session.records.values()].every((record) =>
           [...record.provider.players.values()].every((player) =>
             record.entity === "camera.one"
               ? !player.autoPlay && !player.video.autoplay

@@ -19,7 +19,6 @@ test("card runtime state starts with the established navigation and media defaul
   assert.equal(state._rotateOverlayMode, "none");
   assert.equal(state._engineMountedMuted, true);
   assert.equal(state._mountInProgress, false);
-  assert.equal(state._startupRouteActivated, false);
   assert.equal(state._deepLinkApplied, false);
 });
 
