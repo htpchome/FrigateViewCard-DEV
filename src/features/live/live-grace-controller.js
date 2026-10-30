@@ -205,7 +205,12 @@ export function createLiveGraceController({
     engine.deactivateRecovery?.();
     engine.setActivityHandler?.(null);
     ensureMseGraceHost().appendChild(engine.video);
-    prepareEngineVideoForGraceHost(engine.video);
+    // Keep the MSE connection and bounded buffer alive, but release the
+    // hidden decoder while another camera is selected. Mobile WebKit is
+    // unstable when every retained video keeps decoding concurrently.
+    prepareEngineVideoForGraceHost(engine.video, {
+      continuePlayback: false,
+    });
     const entry = createGraceEngineEntry({
       engine,
       graceMs,
@@ -291,7 +296,9 @@ export function createLiveGraceController({
           return null;
         }
         ensureMseGraceHost().appendChild(result.engine.video);
-        prepareEngineVideoForGraceHost(result.engine.video);
+        prepareEngineVideoForGraceHost(result.engine.video, {
+          continuePlayback: false,
+        });
         entry.engine = result.engine;
         entry.promise = null;
         return result.engine;

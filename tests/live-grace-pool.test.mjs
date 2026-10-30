@@ -42,19 +42,55 @@ test("createGracePendingEntry initializes pending shape", () => {
 });
 
 test("prepareEngineVideoForGraceHost keeps retained media in the stationary deck", () => {
+  let playCalls = 0;
   const video = {
+    autoplay: false,
     muted: false,
     controls: true,
     style: { cssText: "" },
-    play: () => Promise.resolve(),
+    play: () => {
+      playCalls += 1;
+      return Promise.resolve();
+    },
   };
 
   prepareEngineVideoForGraceHost(video);
 
+  assert.equal(video.autoplay, true);
   assert.equal(video.muted, true);
   assert.equal(video.controls, false);
   assert.equal(video.style.cssText.includes("position:absolute;inset:0"), true);
   assert.equal(video.style.cssText.includes("opacity:0"), false);
+  assert.equal(playCalls, 1);
+});
+
+test("prepareEngineVideoForGraceHost suspends hidden MSE decoding without detaching it", () => {
+  let pauseCalls = 0;
+  let playCalls = 0;
+  const video = {
+    autoplay: true,
+    muted: false,
+    controls: true,
+    paused: false,
+    style: { cssText: "" },
+    pause: () => {
+      pauseCalls += 1;
+      video.paused = true;
+    },
+    play: () => {
+      playCalls += 1;
+      return Promise.resolve();
+    },
+  };
+
+  prepareEngineVideoForGraceHost(video, { continuePlayback: false });
+
+  assert.equal(video.autoplay, false);
+  assert.equal(video.muted, true);
+  assert.equal(video.controls, false);
+  assert.equal(video.style.cssText.includes("position:absolute;inset:0"), true);
+  assert.equal(pauseCalls, 1);
+  assert.equal(playCalls, 0);
 });
 
 test("prepareEngineVideoForLiveDeck keeps Catalyst media full-sized and playing", () => {

@@ -2,6 +2,13 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.71` retains the same three MSE WebSocket/MediaSource connections
+and continues appending their bounded live buffers, but pauses each hidden
+retained video. Only the selected MSE camera therefore consumes an active
+decoder on mobile WebKit. Re-adoption moves the exact retained video back to
+the live slot, seeks to the live edge, and resumes it. WebRTC, HA Direct,
+Catalyst, retention duration, and the retained-camera limit are unchanged.
+
 `v1.1.10-dev.70` bounds native transport churn during rapid MSE camera
 switching. When MSE has already won and a camera change cancels its pending
 WebRTC upgrade, that camera enters the existing bounded WebRTC retry cooldown

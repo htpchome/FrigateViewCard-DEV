@@ -411,6 +411,7 @@ test("iPhone WebKit reuses exact MSE cameras from Single into Mobile View", asyn
     const createdByEntity = new Map();
     const createEngine = (entity) => {
       const video = document.createElement("video");
+      video.autoplay = true;
       video.play = () => Promise.resolve();
       const engine = {
         entity,
@@ -493,9 +494,12 @@ test("iPhone WebKit reuses exact MSE cameras from Single into Mobile View", asyn
       );
       observed.push({
         active: activeEngine?.entity || "",
+        activeAutoplay: activeEngine?.video?.autoplay === true,
         activeVideoConnected: activeEngine?.video?.isConnected === true,
         pageId: card._pageId,
         requested: entity,
+        retainedAutoplayDisabled: [...(retainedHost?.querySelectorAll("video") || [])]
+          .every((video) => video.autoplay === false),
         retainedVideos: retainedHost?.querySelectorAll("video").length || 0,
       });
     }
@@ -509,6 +513,10 @@ test("iPhone WebKit reuses exact MSE cameras from Single into Mobile View", asyn
         .reduce((sum, engine) => sum + engine.destroyCalls, 0),
       exactSelections: observed.every(
         ({ active, requested }) => active === requested,
+      ),
+      decoderOwnership: observed.every(
+        ({ activeAutoplay, retainedAutoplayDisabled }) =>
+          activeAutoplay && retainedAutoplayDisabled,
       ),
       routePreserved: observed.every(
         ({ activeVideoConnected, pageId }, index) =>
@@ -531,6 +539,7 @@ test("iPhone WebKit reuses exact MSE cameras from Single into Mobile View", asyn
       "camera.three": 1,
     },
     destroyedBeforeClear: 0,
+    decoderOwnership: true,
     exactSelections: true,
     routePreserved: true,
     maxRetainedVideos: 2,
