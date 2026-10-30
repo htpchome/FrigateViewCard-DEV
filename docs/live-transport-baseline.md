@@ -2,6 +2,16 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.68` restores the retained-MSE requirements documented in dev.62:
+classic `MediaSource` is preferred when mobile WebKit exposes both MSE APIs,
+and its object URL remains valid until engine destruction. Managed MSE remains
+the fallback only when classic MSE is unavailable. Page-layout replacement now
+also keeps the live wrapper connected while moving between Mobile, Single,
+Preview, Card, and Wide View instead of first moving it through a detached
+template. These changes preserve retained iOS MSE players and prevent Chrome
+from losing a live rendered surface during page navigation. Camera selection,
+transport order, and the retained-camera limit are unchanged.
+
 `v1.1.10-dev.62` keeps the dev.61 WebRTC offscreen decode and ready-stream
 transfer that enables configured startup audio in physical Safari and iOS
 Companion testing. It restores classic `MediaSource` preference when a browser

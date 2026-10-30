@@ -7902,6 +7902,8 @@ test("page routes replace only their layout while preserving live and popup shel
     document.body.append(card);
     card.setConfig({
       cameras: [{ entity: "camera.front", name: "Front" }],
+      mobile_view_page_enabled: true,
+      preview_page_enabled: true,
       wide_view_page_enabled: true,
       card_view_page_enabled: true,
     });
@@ -7922,38 +7924,100 @@ test("page routes replace only their layout while preserving live and popup shel
     };
     let previousLayout = root.querySelector("#layout");
     const routeResults = [];
+    const nativeReplaceWith = Element.prototype.replaceWith;
+    let liveConnectedDuringTransfer = null;
+    Element.prototype.replaceWith = function (...nodes) {
+      nativeReplaceWith.apply(this, nodes);
+      if (nodes.includes(outer.live)) {
+        liveConnectedDuringTransfer = outer.live.isConnected;
+      }
+    };
 
-    for (const [pageId, layoutClass] of [
-      ["wide-view", "layout--wide-view"],
-      ["card-view", "layout--card-view"],
-    ]) {
-      card._pageId = pageId;
-      card._renderShellPreserveLive();
-      const nextLayout = root.querySelector("#layout");
-      routeResults.push({
-        pageId,
-        layoutChanged: nextLayout !== previousLayout,
-        hasExpectedLayout: nextLayout.classList.contains(layoutClass),
-        stylePreserved: root.querySelector("style") === outer.style,
-        cardPreserved: root.querySelector("#card") === outer.card,
-        toastPreserved: root.querySelector("#toast") === outer.toast,
-        popupPreserved: root.querySelector("#myPopup") === outer.popup,
-        popupBindingPreserved:
-          card._popupLifecycleController._dragController === outer.popupDrag,
-        livePreserved: root.querySelector("#eng-wrap") === outer.live,
-        enginePreserved: root.querySelector("#engine") === outer.engine,
-        layoutCount: root.querySelectorAll("#layout").length,
-        footerCount: nextLayout.querySelectorAll(
-          '[data-fvc-region="footer"]',
-        ).length,
-      });
-      previousLayout = nextLayout;
+    try {
+      for (const [pageId, layoutClass] of [
+        ["mobile-view", "layout--mobile-view"],
+        ["preview", "layout--preview-view"],
+        ["single-view", "layout--single-view"],
+        ["wide-view", "layout--wide-view"],
+        ["card-view", "layout--card-view"],
+      ]) {
+        liveConnectedDuringTransfer = null;
+        card._pageId = pageId;
+        card._renderShellPreserveLive();
+        const nextLayout = root.querySelector("#layout");
+        routeResults.push({
+          pageId,
+          layoutChanged: nextLayout !== previousLayout,
+          hasExpectedLayout: nextLayout.classList.contains(layoutClass),
+          stylePreserved: root.querySelector("style") === outer.style,
+          cardPreserved: root.querySelector("#card") === outer.card,
+          toastPreserved: root.querySelector("#toast") === outer.toast,
+          popupPreserved: root.querySelector("#myPopup") === outer.popup,
+          popupBindingPreserved:
+            card._popupLifecycleController._dragController === outer.popupDrag,
+          livePreserved: root.querySelector("#eng-wrap") === outer.live,
+          liveConnectedDuringTransfer,
+          enginePreserved: root.querySelector("#engine") === outer.engine,
+          layoutCount: root.querySelectorAll("#layout").length,
+          footerCount: nextLayout.querySelectorAll(
+            '[data-fvc-region="footer"]',
+          ).length,
+        });
+        previousLayout = nextLayout;
+      }
+    } finally {
+      Element.prototype.replaceWith = nativeReplaceWith;
     }
 
     return routeResults;
   });
 
   expect(result).toEqual([
+    {
+      pageId: "mobile-view",
+      layoutChanged: true,
+      hasExpectedLayout: true,
+      stylePreserved: true,
+      cardPreserved: true,
+      toastPreserved: true,
+      popupPreserved: true,
+      popupBindingPreserved: true,
+      livePreserved: true,
+      liveConnectedDuringTransfer: true,
+      enginePreserved: true,
+      layoutCount: 1,
+      footerCount: 1,
+    },
+    {
+      pageId: "preview",
+      layoutChanged: true,
+      hasExpectedLayout: true,
+      stylePreserved: true,
+      cardPreserved: true,
+      toastPreserved: true,
+      popupPreserved: true,
+      popupBindingPreserved: true,
+      livePreserved: true,
+      liveConnectedDuringTransfer: true,
+      enginePreserved: true,
+      layoutCount: 1,
+      footerCount: 1,
+    },
+    {
+      pageId: "single-view",
+      layoutChanged: true,
+      hasExpectedLayout: true,
+      stylePreserved: true,
+      cardPreserved: true,
+      toastPreserved: true,
+      popupPreserved: true,
+      popupBindingPreserved: true,
+      livePreserved: true,
+      liveConnectedDuringTransfer: true,
+      enginePreserved: true,
+      layoutCount: 1,
+      footerCount: 1,
+    },
     {
       pageId: "wide-view",
       layoutChanged: true,
@@ -7964,6 +8028,7 @@ test("page routes replace only their layout while preserving live and popup shel
       popupPreserved: true,
       popupBindingPreserved: true,
       livePreserved: true,
+      liveConnectedDuringTransfer: true,
       enginePreserved: true,
       layoutCount: 1,
       footerCount: 1,
@@ -7978,6 +8043,7 @@ test("page routes replace only their layout while preserving live and popup shel
       popupPreserved: true,
       popupBindingPreserved: true,
       livePreserved: true,
+      liveConnectedDuringTransfer: true,
       enginePreserved: true,
       layoutCount: 1,
       footerCount: 1,

@@ -266,7 +266,7 @@ test("iPhone WebKit targets go2rtc WebRTC before websocket URL resolution", asyn
   });
 });
 
-test("iPhone WebKit prefers ManagedMediaSource and rejects an unready retained engine", async ({ page }) => {
+test("iPhone WebKit prefers classic MediaSource and rejects an unready retained engine", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
     const [{ createGo2RtcMounter }, { createLiveGraceController }] =
@@ -324,9 +324,9 @@ test("iPhone WebKit prefers ManagedMediaSource and rejects an unready retained e
       const result = await mounter.tryMountMse(firstSlot);
       activeEngine = result.engine;
       const originalVideo = result.engine.video;
-      const usesManagedMediaSource =
-        typeof window.ManagedMediaSource === "function" &&
-        originalVideo.srcObject instanceof window.ManagedMediaSource;
+      const usesClassicMediaSource =
+        originalVideo.srcObject == null &&
+        originalVideo.src.startsWith("blob:");
 
       const grace = createLiveGraceController({
         graceMs: 20000,
@@ -365,7 +365,7 @@ test("iPhone WebKit prefers ManagedMediaSource and rejects an unready retained e
           typeof window.ManagedMediaSource === "function",
         rejectedUnready: !entry && activeEngine == null,
         restoredVideo: Boolean(restoredVideo),
-        usesManagedMediaSource,
+        usesClassicMediaSource,
       };
       grace.clearGracePool();
       activeEngine?.destroy?.();
@@ -381,7 +381,7 @@ test("iPhone WebKit prefers ManagedMediaSource and rejects an unready retained e
     adopted: false,
     rejectedUnready: true,
     restoredVideo: false,
-    usesManagedMediaSource: true,
+    usesClassicMediaSource: true,
   });
 });
 

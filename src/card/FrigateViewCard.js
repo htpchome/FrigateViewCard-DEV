@@ -3091,8 +3091,12 @@ export class FrigateViewCard extends HTMLElement {
     this._preservingLiveShell = true;
     try {
       this._preparePageLayoutReplacement({ preserveLive: true });
-      nextEngWrap.replaceWith(preservedEngWrap);
+      // Keep active and retained media in the connected document throughout
+      // page replacement. Chrome can lose the rendered surface when a live
+      // video is first moved into the detached template tree.
+      currentLayout.before(preservedEngWrap);
       currentLayout.replaceWith(nextLayout);
+      nextEngWrap.replaceWith(preservedEngWrap);
       this._domCache = {};
       this._domCache["#eng-wrap"] = preservedEngWrap;
       const preservedEngine = preservedEngWrap.querySelector("#engine");

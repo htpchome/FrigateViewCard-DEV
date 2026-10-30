@@ -814,7 +814,7 @@ test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavail
   });
 });
 
-test("go2rtc mounter prefers ManagedMediaSource when Safari exposes both flavors", async () => {
+test("go2rtc mounter preserves classic MediaSource when both flavors exist", async () => {
   await withFakeDocument(async () => {
     await withFakeObjectUrl(async (revoked) => {
       let classicInstances = 0;
@@ -875,14 +875,15 @@ test("go2rtc mounter prefers ManagedMediaSource when Safari exposes both flavors
       );
 
       assert.equal(result.ok, true);
-      assert.equal(classicInstances, 0);
-      assert.equal(managedInstances, 1);
-      assert.equal(slot.lastChild.srcObject instanceof FakeManagedMediaSource, true);
+      assert.equal(classicInstances, 1);
+      assert.equal(managedInstances, 0);
+      assert.equal(slot.lastChild.src, "blob:managed-media-source");
+      assert.equal(slot.lastChild.srcObject, null);
       assert.deepEqual(revoked, []);
 
       result.engine.destroy();
       assert.equal(slot.lastChild.srcObject, null);
-      assert.deepEqual(revoked, []);
+      assert.deepEqual(revoked, ["blob:managed-media-source"]);
     });
   });
 });

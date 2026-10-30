@@ -4255,13 +4255,17 @@ test("page route shell replacement preserves the outer shell and live wrapper", 
   const restoreIndex = preserveSource.indexOf(
     "nextEngWrap.replaceWith(preservedEngWrap);",
   );
+  const connectedParkingIndex = preserveSource.indexOf(
+    "currentLayout.before(preservedEngWrap);",
+  );
   const layoutCommitIndex = preserveSource.indexOf(
     "currentLayout.replaceWith(nextLayout);",
   );
 
   assert.ok(buildIndex >= 0);
-  assert.ok(restoreIndex > buildIndex);
-  assert.ok(layoutCommitIndex > restoreIndex);
+  assert.ok(connectedParkingIndex > buildIndex);
+  assert.ok(layoutCommitIndex > connectedParkingIndex);
+  assert.ok(restoreIndex > layoutCommitIndex);
   assert.equal(
     preserveSource.includes(
       "this._catalystHlsMounter?.beginLayoutTransfer?.()",
