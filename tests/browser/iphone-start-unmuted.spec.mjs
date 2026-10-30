@@ -536,3 +536,83 @@ test("iPhone WebKit reuses exact MSE cameras from Single into Mobile View", asyn
     maxRetainedVideos: 2,
   });
 });
+
+test("iPhone WebKit bounds WebRTC peer creation while cameras remain on MSE", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    const { createGo2RtcRaceMounter } = await import(
+      "/src/features/live/go2rtc-race-mounter.js"
+    );
+    const calls = new Map();
+    let pendingDestroyers = [];
+    let pendingTimer = null;
+    let mountToken = 0;
+    let currentWinner = null;
+    const race = createGo2RtcRaceMounter({
+      isMobile: true,
+      mounter: {
+        tryMountWebRtc: async (_slot, _startup, options) => {
+          calls.set(options.entity, (calls.get(options.entity) || 0) + 1);
+          return await new Promise((resolve) => {
+            options.abortSignal.addEventListener(
+              "abort",
+              () => resolve(false),
+              { once: true },
+            );
+          });
+        },
+        tryMountMse: async (slot, _startup, options) => ({
+          ok: true,
+          type: "mse",
+          slot,
+          engine: {
+            entity: options.entity,
+            destroy() {},
+          },
+        }),
+      },
+      resolveConnectionType: () => "frigate_go2rtc",
+      getPendingMountDestroyers: () => pendingDestroyers,
+      setPendingMountDestroyers: (next) => {
+        pendingDestroyers = next;
+      },
+      isMountTokenCurrent: (token) => token === mountToken,
+      adoptMountedAttempt: (_slot, result) => {
+        currentWinner = result.engine;
+      },
+      waitForStreamStart: async () => true,
+      isCurrentWinnerEngine: (engine) => engine === currentWinner,
+      getPendingWebRtcTakeoverTimer: () => pendingTimer,
+      setPendingWebRtcTakeoverTimer: (timer) => {
+        pendingTimer = timer;
+      },
+      mobileDeferredWebRtcMaxHoldMs: 500,
+      webRtcRetryBackoffMs: 0,
+      getNowMs: () => 1000,
+    });
+    const target = document.createElement("div");
+    document.body.append(target);
+    const cameras = ["one", "two", "three", "four"];
+    for (let index = 0; index < 24; index += 1) {
+      if (index) race.cancelPendingWebRtcAttempts();
+      mountToken += 1;
+      await race.mountWithRace({
+        slot: target,
+        entity: `camera.${cameras[index % cameras.length]}`,
+        mountToken,
+      });
+      await Promise.resolve();
+    }
+    race.cancelPendingWebRtcAttempts();
+    if (pendingTimer) clearTimeout(pendingTimer);
+    target.remove();
+    return Object.fromEntries(calls);
+  });
+
+  expect(state).toEqual({
+    "camera.one": 1,
+    "camera.two": 1,
+    "camera.three": 1,
+    "camera.four": 1,
+  });
+});

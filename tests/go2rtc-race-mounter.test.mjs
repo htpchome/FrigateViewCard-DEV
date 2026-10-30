@@ -200,14 +200,13 @@ test("an offline camera does not teach WebRTC suppression without working MSE", 
   assert.equal(count("webrtc"), 2);
 });
 
-for (const cancellation of ["camera switch", "pending destroyer", "stale token"]) {
+for (const cancellation of ["pending destroyer", "stale token"]) {
   test(`${cancellation} does not count as a WebRTC failure`, async (t) => {
     const { state, mount, race, count } = createRetryHarness(t);
     state.webRtc = "pending";
     // Cancellation during pending takeover must not exhaust a camera's retries.
     for (let index = 0; index < 3; index += 1) {
       await mount();
-      if (cancellation === "camera switch") race.cancelPendingWebRtcAttempts();
       if (cancellation === "pending destroyer") {
         state.pending.find((entry) => entry.type === "webrtc").destroy();
       }
@@ -833,6 +832,33 @@ test("go2rtc race mounter clears deferred webrtc after max hold window", async (
   } finally {
     globalThis.document = previousDocument;
   }
+});
+
+test("cancelled WebRTC upgrade does not allocate another peer when MSE already won", async (t) => {
+  const { state, race, mount, count } = createRetryHarness(t, {
+    isMobile: true,
+    mobileDeferredWebRtcMaxHoldMs: 500,
+  });
+  state.webRtc = "pending";
+
+  assert.equal(await mount("camera.front"), true);
+  assert.equal(state.adopted.at(-1), "mse");
+  assert.equal(count("webrtc"), 1);
+
+  race.cancelPendingWebRtcAttempts();
+  await delay(0);
+
+  assert.equal(await mount("camera.front"), true);
+  assert.equal(state.adopted.at(-1), "mse");
+  assert.equal(
+    count("webrtc"),
+    1,
+    "revisiting the MSE camera must not churn another native peer",
+  );
+
+  state.now += 120000;
+  await mount("camera.front");
+  assert.equal(count("webrtc"), 2, "the bounded retry remains available");
 });
 
 test("settling an old deferred attempt cannot clear a newer camera mount", async () => {

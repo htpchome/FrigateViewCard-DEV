@@ -624,6 +624,10 @@ export function createGo2RtcMounter({
     );
     let negotiationTimer = null;
     let resolveNegotiationGuard = null;
+    let firstFrameCallbackVideo = null;
+    let firstFrameCallbackId = null;
+    const receiveTracks = new Set();
+    let receiveStream = null;
     const negotiationGuardPromise = new Promise((resolve) => {
       resolveNegotiationGuard = resolve;
     });
@@ -670,8 +674,24 @@ export function createGo2RtcMounter({
       settleNegotiationGuard(false);
       try {
         video.pause?.();
+        decodeVideo.pause?.();
       } catch (_) {}
+      if (
+        firstFrameCallbackVideo &&
+        firstFrameCallbackId != null &&
+        typeof firstFrameCallbackVideo.cancelVideoFrameCallback === "function"
+      ) {
+        try {
+          firstFrameCallbackVideo.cancelVideoFrameCallback(
+            firstFrameCallbackId,
+          );
+        } catch (_) {}
+      }
+      firstFrameCallbackVideo = null;
+      firstFrameCallbackId = null;
       try {
+        for (const track of receiveTracks) track.stop?.();
+        receiveTracks.clear();
         const activeStream = video.srcObject || decodeVideo.srcObject;
         for (const track of activeStream?.getTracks?.() || []) {
           track.stop?.();
@@ -680,7 +700,10 @@ export function createGo2RtcMounter({
         if (decodeVideo !== video) {
           decodeVideo.removeAttribute?.("src");
           decodeVideo.srcObject = null;
+          decodeVideo.load?.();
         }
+        video.removeAttribute?.("src");
+        video.load?.();
       } catch (_) {}
       try {
         for (const transceiver of pc.getTransceivers?.() || []) {
@@ -785,10 +808,12 @@ export function createGo2RtcMounter({
       resolveFirstRenderedFrame = resolve;
     });
 
-    const receiveTracks = new Set();
-    let receiveStream = null;
     const watchFirstFrame = (targetVideo = video) => {
-      targetVideo.requestVideoFrameCallback?.(() => {
+      if (typeof targetVideo.requestVideoFrameCallback !== "function") return;
+      firstFrameCallbackVideo = targetVideo;
+      firstFrameCallbackId = targetVideo.requestVideoFrameCallback(() => {
+        firstFrameCallbackVideo = null;
+        firstFrameCallbackId = null;
         if (!resolveFirstRenderedFrame) return;
         resolveFirstRenderedFrame(true);
         resolveFirstRenderedFrame = null;

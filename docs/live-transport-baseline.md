@@ -2,6 +2,14 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.70` bounds native transport churn during rapid MSE camera
+switching. When MSE has already won and a camera change cancels its pending
+WebRTC upgrade, that camera enters the existing bounded WebRTC retry cooldown
+instead of allocating another peer on every revisit. Failed race surfaces are
+removed immediately, and destroyed WebRTC attempts explicitly cancel pending
+frame callbacks and reset both playback elements. The three-camera live cache,
+fresh-camera WebRTC-first policy, and later bounded WebRTC retry remain intact.
+
 `v1.1.10-dev.69` bounds MSE memory during continuous camera traffic. Buffer
 trimming now preempts the next queued append once the retained window exceeds
 its limit; it no longer waits for a continuously fed append queue to become

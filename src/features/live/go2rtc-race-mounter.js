@@ -105,11 +105,27 @@ export function createGo2RtcRaceMounter({
   const resolveWebRtcRetryDelayMs = () =>
     Math.max(0, Number(webRtcRetryAfterMs) - getNowMs());
 
+  const deferCancelledWebRtcProbe = (probe) => {
+    if (!probe?.mseEngine || probe.failed) return;
+    const current = getHintState(probe.entity);
+    setHintState(probe.entity, {
+      ...current,
+      type: "mse",
+      failureCount: current?.failureCount || 0,
+      cooldownUntilMs: Math.max(
+        Number(current?.cooldownUntilMs) || 0,
+        getNowMs() + WEBRTC_INITIAL_COOLDOWN_MS,
+      ),
+    });
+  };
+
   const cancelPendingWebRtcAttempts = () => {
     if (pendingWebRtcMounts.size) deferWebRtcRetry();
     for (const entry of [...pendingWebRtcMounts]) {
       pendingWebRtcMounts.delete(entry);
-      // Avoid replacing an incomplete WebRTC probe on every rapid switch.
+      // Once MSE has won, do not allocate another native peer every time a
+      // rapid camera switch cancels the still-pending WebRTC upgrade.
+      deferCancelledWebRtcProbe(entry.probe);
       entry.probe.cancelled = true;
       void entry.strategy?.disconnect?.();
     }
@@ -356,10 +372,21 @@ export function createGo2RtcRaceMounter({
       if (exposeStartupSurface) startupSurfaceClaimed = true;
       return createAttemptSlot(hostSlot, { exposeStartupSurface });
     };
+    const mountAttempt = async (mount, ...args) => {
+      const attemptSlot = hiddenSlot();
+      try {
+        const result = await mount(attemptSlot, ...args);
+        if (!result?.ok) attemptSlot.remove?.();
+        return result;
+      } catch (error) {
+        attemptSlot.remove?.();
+        throw error;
+      }
+    };
     const builders = {
       webrtc: (attemptOptions = {}) =>
-        mounter.tryMountWebRtc(
-          hiddenSlot(),
+        mountAttempt(
+          mounter.tryMountWebRtc.bind(mounter),
           { waitMs: 7000 },
           {
             ...(webRtcOptions || {}),
@@ -372,8 +399,8 @@ export function createGo2RtcRaceMounter({
           },
         ),
       mse: (attemptOptions = {}) =>
-        mounter.tryMountMse(
-          hiddenSlot(),
+        mountAttempt(
+          mounter.tryMountMse.bind(mounter),
           {
             waitMs: 4000,
             minCurrentTime: 0.05,
