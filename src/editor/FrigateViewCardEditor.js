@@ -73,6 +73,10 @@ import { hasHaCameraWebRtcPlaybackCapability } from "../integrations/home-assist
 import { resolveFrigateViewCardUpdateStatus } from "../integrations/home-assistant/card-update-status.js";
 import { fetchFrigatePtzInfo } from "../integrations/frigate/ptz-info.js";
 import {
+  fetchFrigateLiveStreamOptions,
+  normalizeFrigateGo2RtcStream,
+} from "../integrations/frigate/live-streams.js";
+import {
   findHomeAssistantLovelacePanel,
   resolveCurrentHomeAssistantViewName,
   resolveDashboardSwipeNavigationOwnership,
@@ -173,12 +177,15 @@ const CAMERA_MODAL_SELECTOR_IDS = Object.freeze(
     "camera-modal-light-entity-2",
     "camera-modal-light-icon-2",
     "camera-modal-connection-type",
+    "camera-modal-live-stream",
   ]),
 );
 
 const HOME_ASSISTANT_DIRTY_STATE_CONTEXT = "dirtyState";
 const EDITOR_TEXT_PREVIEW_DELAY_MS = 200;
 const EDITOR_GO2RTC_METADATA_CACHE_TTL_MS = 30_000;
+const EDITOR_FRIGATE_LIVE_STREAM_CACHE_TTL_MS = 30_000;
+const CAMERA_MODAL_MAIN_STREAM_VALUE = "__frigate_main_stream__";
 const SETTINGS_PANEL_CONFIG_KEYS = Object.freeze({
   camera: ["cameras", "camera_suspend_access"],
   general: [
@@ -431,6 +438,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     this._syncLocalizedPageSelectors();
     this._syncOwnershipNotices();
     this._syncCameraConnectionTypeOptions();
+    this._syncCameraModalLiveStreamSelector();
     this._syncCameraModalGroupFields();
     this._syncConfigSaveReminder();
     this._syncCameraDeleteConfirmationMessage();
@@ -815,6 +823,12 @@ export class FrigateViewCardEditor extends HTMLElement {
     }
   }
 
+  _ensureFrigateLiveStreamCache() {
+    if (!(this._frigateLiveStreamCache instanceof Map)) {
+      this._frigateLiveStreamCache = new Map();
+    }
+  }
+
   _ensureHaCameraCapabilityCache() {
     if (!(this._haCameraCapabilityCache instanceof Map)) {
       this._haCameraCapabilityCache = new Map();
@@ -864,6 +878,10 @@ export class FrigateViewCardEditor extends HTMLElement {
     );
     this._pruneChangedCapabilityCacheEntries(
       this._go2rtcMetadataCache,
+      (entity) => this._frigateCapabilityCacheKey(entity),
+    );
+    this._pruneChangedCapabilityCacheEntries(
+      this._frigateLiveStreamCache,
       (entity) => this._frigateCapabilityCacheKey(entity),
     );
     this._pruneChangedCapabilityCacheEntries(
@@ -993,6 +1011,49 @@ export class FrigateViewCardEditor extends HTMLElement {
     })();
 
     this._go2rtcMetadataCache.set(cacheKey, entry);
+    return entry.promise;
+  }
+
+  async _fetchFrigateLiveStreamsForEntity(entity) {
+    const targetEntity = String(entity || "").trim();
+    if (!targetEntity || !this._hass?.callWS) return null;
+    this._ensureFrigateLiveStreamCache();
+    const cacheKey = this._frigateCapabilityCacheKey(targetEntity);
+    const cached = this._frigateLiveStreamCache.get(cacheKey);
+    const now = this._editorCapabilityCacheNow();
+    if (cached?.resolved && cached.expiresAt > now) return cached.options;
+    if (cached?.promise) return cached.promise;
+    if (cached) this._frigateLiveStreamCache.delete(cacheKey);
+
+    const context = this._cameraEntityCapabilityLookupContext(targetEntity);
+    if (!context) return null;
+    const entry = {
+      entity: targetEntity,
+      resolved: false,
+      options: null,
+      promise: null,
+      expiresAt: 0,
+    };
+    entry.promise = (async () => {
+      try {
+        entry.options = await fetchFrigateLiveStreamOptions({
+          hass: this._hass,
+          instanceId: context.instanceId,
+          cameraName: context.cameraName,
+        });
+      } catch (error) {
+        console.warn("[Frigate] Editor live-stream discovery failed", error);
+        entry.options = null;
+      } finally {
+        entry.resolved = true;
+        entry.promise = null;
+        entry.expiresAt =
+          this._editorCapabilityCacheNow() +
+          EDITOR_FRIGATE_LIVE_STREAM_CACHE_TTL_MS;
+      }
+      return entry.options;
+    })();
+    this._frigateLiveStreamCache.set(cacheKey, entry);
     return entry.promise;
   }
 
@@ -2034,6 +2095,109 @@ export class FrigateViewCardEditor extends HTMLElement {
     };
   }
 
+  _cameraModalLiveStreamValue() {
+    const selector = this.querySelector("#camera-modal-live-stream");
+    const value = String(
+      selector?.dataset?.value ?? selector?.value ?? "",
+    ).trim();
+    return value === CAMERA_MODAL_MAIN_STREAM_VALUE
+      ? ""
+      : normalizeFrigateGo2RtcStream(value);
+  }
+
+  _setCameraModalLiveStreamValue(value) {
+    const selector = this.querySelector("#camera-modal-live-stream");
+    if (!selector) return;
+    const stream = normalizeFrigateGo2RtcStream(value);
+    const selected = stream || CAMERA_MODAL_MAIN_STREAM_VALUE;
+    selector.value = selected;
+    selector.dataset.value = selected;
+  }
+
+  _syncCameraModalLiveStreamSelector() {
+    const selector = this.querySelector("#camera-modal-live-stream");
+    const helper = this.querySelector("#camera-modal-live-stream-helper");
+    if (!selector) return;
+    const selected = this._cameraModalLiveStreamValue();
+    const options = [
+      {
+        value: CAMERA_MODAL_MAIN_STREAM_VALUE,
+        label: this._t("editor.cameraModal.mainStream"),
+      },
+      ...(Array.isArray(this._cameraModalLiveStreamOptions)
+        ? this._cameraModalLiveStreamOptions
+        : []),
+    ];
+    const selectedAvailable =
+      !selected || options.some((option) => option.value === selected);
+    if (selected && !selectedAvailable) {
+      options.push({
+        value: selected,
+        label: `${selected} (${this._t("editor.cameraModal.configuredStream")})`,
+      });
+    }
+    selector.selector = {
+      ...selector.selector,
+      select: {
+        ...selector.selector?.select,
+        mode: "dropdown",
+        options,
+      },
+    };
+    this._setCameraModalLiveStreamValue(selected);
+
+    const isHaDirect = this._cameraModalConnectionTypeValue() === "ha_direct";
+    const entity = this._cameraModalEntityValue();
+    selector.disabled =
+      isHaDirect || !entity || this._cameraModalLiveStreamLoading === true;
+    const key = isHaDirect
+      ? "editor.cameraModal.liveStreamGo2RtcOnly"
+      : !entity
+        ? "editor.cameraModal.liveStreamSelectCamera"
+        : this._cameraModalLiveStreamLoading
+          ? "editor.cameraModal.liveStreamChecking"
+          : this._cameraModalLiveStreamFailed
+            ? "editor.cameraModal.liveStreamDiscoveryFailed"
+            : !selectedAvailable
+              ? "editor.cameraModal.liveStreamUnavailable"
+              : options.length === 1
+                ? "editor.cameraModal.liveStreamNoneConfigured"
+                : "editor.cameraModal.liveStreamHelp";
+    this._setLocalizedMessage(helper, key);
+  }
+
+  async _refreshCameraModalLiveStreams() {
+    const entity = this._cameraModalEntityValue();
+    const isHaDirect = this._cameraModalConnectionTypeValue() === "ha_direct";
+    const token = (this._cameraModalLiveStreamToken || 0) + 1;
+    this._cameraModalLiveStreamToken = token;
+    if (!entity || isHaDirect) {
+      this._cameraModalLiveStreamLoading = false;
+      this._syncCameraModalLiveStreamSelector();
+      return;
+    }
+
+    if (this._cameraModalLiveStreamEntity !== entity) {
+      this._cameraModalLiveStreamEntity = entity;
+      this._cameraModalLiveStreamOptions = [];
+    }
+    this._cameraModalLiveStreamLoading = true;
+    this._cameraModalLiveStreamFailed = false;
+    this._syncCameraModalLiveStreamSelector();
+    const options = await this._fetchFrigateLiveStreamsForEntity(entity);
+    if (
+      this._cameraModalLiveStreamToken !== token ||
+      this._cameraModalEntityValue() !== entity ||
+      this._cameraModalConnectionTypeValue() === "ha_direct"
+    ) {
+      return;
+    }
+    this._cameraModalLiveStreamLoading = false;
+    this._cameraModalLiveStreamFailed = !Array.isArray(options);
+    this._cameraModalLiveStreamOptions = Array.isArray(options) ? options : [];
+    this._syncCameraModalLiveStreamSelector();
+  }
+
   _syncCameraModalAccordionSummaries() {
     this._setCameraModalAccordionSummary(
       "connection",
@@ -2188,6 +2352,12 @@ export class FrigateViewCardEditor extends HTMLElement {
       connectionType.value = nextType;
       connectionType.dataset.value = nextType;
     }
+    this._cameraModalLiveStreamEntity = String(cam?.entity || "").trim();
+    this._cameraModalLiveStreamOptions = [];
+    this._cameraModalLiveStreamLoading = false;
+    this._cameraModalLiveStreamFailed = false;
+    this._setCameraModalLiveStreamValue(cam?.frigate_go2rtc_stream);
+    this._syncCameraModalLiveStreamSelector();
     if (alertsContentAllReviews) {
       alertsContentAllReviews.checked =
         normalizeAlertsAreaContent(cam?.alerts_content) === "all_reviews";
@@ -2247,6 +2417,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     this._syncCameraModalAccordionSummaries();
     void this._refreshCameraModalPtzSupport();
     void this._refreshCameraModalTwoWayTalkSupport();
+    void this._refreshCameraModalLiveStreams();
   }
 
   _closeCameraModal() {
@@ -2727,6 +2898,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         this.querySelector("#camera-modal-connection-type")?.value ||
         DEFAULT_CAMERA_CONNECTION_TYPE,
     );
+    const frigateGo2RtcStream = this._cameraModalLiveStreamValue();
     const alertsContentToggle = this.querySelector("#camera-modal-all-reviews");
     const startUnmutedToggle = this.querySelector(
       "#camera-modal-start-unmuted",
@@ -2816,6 +2988,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       entity,
       name,
       connection_type: connectionType,
+      ...(frigateGo2RtcStream
+        ? { frigate_go2rtc_stream: frigateGo2RtcStream }
+        : {}),
       alerts_content: alertsContent,
       ptz,
       ...(startUnmuted ? { start_unmuted: true } : {}),
@@ -4656,6 +4831,13 @@ export class FrigateViewCardEditor extends HTMLElement {
                 </div>
                 <div class="field-helper" data-fvc-i18n="editor.cameraModal.frigateIntegrationRequired">Requires the Home Assistant Frigate integration.</div>
               </div>
+              <div class="cam-modal-field">
+                <div class="camera-modal-floating-field">
+                  <span class="camera-modal-floating-label" aria-hidden="true" data-fvc-i18n="editor.cameraModal.liveStream">Live Stream</span>
+                  <ha-selector id="camera-modal-live-stream" aria-label="Live Stream" data-fvc-i18n-aria-label="editor.cameraModal.liveStream"></ha-selector>
+                </div>
+                <div class="field-helper" id="camera-modal-live-stream-helper"></div>
+              </div>
               <details id="camera-modal-connection-help" class="camera-group-help camera-connection-help">
                 <summary data-fvc-i18n="editor.cameraModal.connectionGuideTitle">Which connection should I use?</summary>
                 <div class="camera-connection-help-copy">
@@ -5099,7 +5281,25 @@ export class FrigateViewCardEditor extends HTMLElement {
       initialValue: DEFAULT_CAMERA_CONNECTION_TYPE,
       fallbackValue: DEFAULT_CAMERA_CONNECTION_TYPE,
       normalize: (value) => normalizeCameraConnectionType(value),
-      onChange: () => this._syncCameraModalAccordionSummaries(),
+      onChange: () => {
+        this._syncCameraModalAccordionSummaries();
+        void this._refreshCameraModalLiveStreams();
+      },
+    });
+
+    setupSelectSelector({
+      element: this.querySelector("#camera-modal-live-stream"),
+      hass: this._hass,
+      options: [
+        {
+          value: CAMERA_MODAL_MAIN_STREAM_VALUE,
+          label: this._t("editor.cameraModal.mainStream"),
+        },
+      ],
+      initialValue: CAMERA_MODAL_MAIN_STREAM_VALUE,
+      fallbackValue: CAMERA_MODAL_MAIN_STREAM_VALUE,
+      normalize: (value) =>
+        normalizeFrigateGo2RtcStream(value) || CAMERA_MODAL_MAIN_STREAM_VALUE,
     });
 
     bindClickHandlers(this, [
@@ -5236,6 +5436,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       () => {
         void this._refreshCameraModalPtzSupport();
         void this._refreshCameraModalTwoWayTalkSupport();
+        void this._refreshCameraModalLiveStreams();
       },
     );
     this.querySelector("#camera-modal-entity")?.addEventListener(
@@ -5243,6 +5444,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       () => {
         void this._refreshCameraModalPtzSupport();
         void this._refreshCameraModalTwoWayTalkSupport();
+        void this._refreshCameraModalLiveStreams();
       },
     );
     this.querySelector("#camera-modal-connection-type")?.addEventListener(
@@ -5250,6 +5452,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       () => {
         void this._refreshCameraModalPtzSupport();
         void this._refreshCameraModalTwoWayTalkSupport();
+        void this._refreshCameraModalLiveStreams();
       },
     );
     this.querySelector("#camera-modal-connection-type")?.addEventListener(
@@ -5257,6 +5460,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       () => {
         void this._refreshCameraModalPtzSupport();
         void this._refreshCameraModalTwoWayTalkSupport();
+        void this._refreshCameraModalLiveStreams();
       },
     );
     this.querySelector("#camera-modal-ptz-enabled")?.addEventListener(

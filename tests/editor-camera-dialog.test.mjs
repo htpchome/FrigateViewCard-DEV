@@ -97,6 +97,46 @@ test("camera summaries only show configured capabilities with friendly light nam
   );
 });
 
+test("camera live-stream selector is disabled for HA Direct without losing its selection", () => {
+  const editor = new FrigateViewCardEditor();
+  const selector = {
+    dataset: { value: "driveway_sub" },
+    value: "driveway_sub",
+    selector: { select: { mode: "dropdown", options: [] } },
+    disabled: false,
+  };
+  const helper = {};
+  editor.querySelector = (query) => ({
+    "#camera-modal-live-stream": selector,
+    "#camera-modal-live-stream-helper": helper,
+  })[query] || null;
+  editor._cameraModalConnectionTypeValue = () => "ha_direct";
+  editor._cameraModalEntityValue = () => "camera.driveway";
+  editor._cameraModalLiveStreamOptions = [
+    { label: "Sub Stream", value: "driveway_sub" },
+  ];
+  editor._t = (key) => ({
+    "editor.cameraModal.mainStream": "Main Stream",
+    "editor.cameraModal.configuredStream": "configured",
+  })[key] || key;
+  editor._setLocalizedMessage = (element, key) => {
+    element.key = key;
+  };
+
+  editor._syncCameraModalLiveStreamSelector();
+
+  assert.equal(selector.disabled, true);
+  assert.equal(selector.dataset.value, "driveway_sub");
+  assert.equal(
+    helper.key,
+    "editor.cameraModal.liveStreamGo2RtcOnly",
+  );
+  assert.deepEqual(selector.selector.select.options, [
+    { value: "__frigate_main_stream__", label: "Main Stream" },
+    { label: "Sub Stream", value: "driveway_sub" },
+  ]);
+});
+
 test("camera deletion cancellation leaves the camera untouched", () => {
   const editor = new FrigateViewCardEditor();
   let removed = false;
@@ -203,6 +243,10 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
   assert.match(source, /id="camera-modal-add-light-2"/);
   assert.match(source, /id="camera-modal-light-entity-2"/);
   assert.match(source, /id="camera-modal-light-icon-2"/);
+  assert.match(source, /id="camera-modal-live-stream"/);
+  assert.match(source, /liveStreamGo2RtcOnly/);
+  assert.match(source, /_refreshCameraModalLiveStreams\(\)/);
+  assert.match(source, /frigate_go2rtc_stream: frigateGo2RtcStream/);
   assert.match(source, /name: "camera-modal-light-position"/);
   assert.match(source, /name: "camera-modal-light-position-2"/);
   assert.match(source, /value: LINKED_LIGHT_POSITIONS\.left/);
@@ -221,6 +265,10 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
   );
   assert.ok(
     source.indexOf('id="camera-modal-connection-type"') <
+      source.indexOf('id="camera-modal-live-stream"'),
+  );
+  assert.ok(
+    source.indexOf('id="camera-modal-live-stream"') <
       source.indexOf('id="camera-modal-add-secondary"'),
   );
   assert.ok(

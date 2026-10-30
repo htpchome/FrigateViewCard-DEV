@@ -564,6 +564,9 @@ const cameraTopologyChanged = (previousConfig, nextConfig) => {
     previousCameras.some(
       (camera, index) =>
         camera?.entity !== nextCameras[index]?.entity ||
+        camera?.connection_type !== nextCameras[index]?.connection_type ||
+        camera?.frigate_go2rtc_stream !==
+          nextCameras[index]?.frigate_go2rtc_stream ||
         camera?.group?.secondary_entity !==
           nextCameras[index]?.group?.secondary_entity ||
         camera?.group?.layout !== nextCameras[index]?.group?.layout,

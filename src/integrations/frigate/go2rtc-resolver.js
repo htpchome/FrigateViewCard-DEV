@@ -51,11 +51,14 @@ export function createGo2RtcResolver({
     };
   };
 
-  const resolveTransportStateForEntity = async (entity) => {
+  const resolveTransportStateForEntity = async (
+    entity,
+    { useConfiguredStream = true } = {},
+  ) => {
     const targetEntity = resolveEntity(entity);
     if (!targetEntity) return null;
     await discoverEntity(targetEntity);
-    return buildGo2RtcTransportState({
+    const state = buildGo2RtcTransportState({
       entity,
       activeEntity: getActiveEntity(),
       config: getConfig(),
@@ -66,10 +69,19 @@ export function createGo2RtcResolver({
       makeGo2rtcCacheKey,
       nowMs: getNowMs(),
     });
+    if (!state || useConfiguredStream) return state;
+    return {
+      ...state,
+      cam: state.cameraName,
+      cacheKey: makeGo2rtcCacheKey({
+        clientId: state.clientId,
+        cam: state.cameraName,
+      }),
+    };
   };
 
-  const websocketUrlForEntity = async (entity) => {
-    const state = await resolveTransportStateForEntity(entity);
+  const websocketUrlForEntity = async (entity, options = {}) => {
+    const state = await resolveTransportStateForEntity(entity, options);
     if (!state) return null;
 
     const { clientId, cam, cacheKey, nowMs } = state;

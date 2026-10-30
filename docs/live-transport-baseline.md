@@ -2,6 +2,15 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.76` adds an optional live-only Frigate go2rtc stream selection.
+The camera editor discovers substreams from the selected camera's Frigate
+`live.streams` configuration and keeps “Main Stream” as the default. The
+override changes only the go2rtc live playback source: the configured Home
+Assistant camera remains authoritative for events, snapshots, recordings,
+favorites, PTZ, and two-way talk. HA Direct and the Mac Catalyst HA Direct
+compatibility path ignore the override, and the editor disables the selector
+for HA Direct cameras.
+
 `v1.1.10-dev.75` treats configured startup audio as a default until the user
 explicitly changes that camera's mute state. Manual mute and unmute choices are
 remembered per camera for the browser-tab session and survive camera changes,

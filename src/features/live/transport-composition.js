@@ -68,7 +68,9 @@ export const createLiveTransportControllers = (
   const go2rtcTwoWayTalkBackchannel =
     resolvedFactories.createGo2RtcTwoWayTalkBackchannel({
       resolveWebSocketUrl: (entity) =>
-        go2rtcResolver.websocketUrlForEntity(entity),
+        go2rtcResolver.websocketUrlForEntity(entity, {
+          useConfiguredStream: false,
+        }),
     });
   const go2rtcMounter = resolvedFactories.createGo2RtcMounter({
     resolver: go2rtcResolver,

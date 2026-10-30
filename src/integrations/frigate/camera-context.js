@@ -1,4 +1,5 @@
 import { cameraMemberEntities } from "../../features/camera-groups/model.js";
+import { resolveConfiguredFrigateGo2RtcStream } from "./live-streams.js";
 
 function findCameraConfig(config, entity) {
   return (
@@ -117,7 +118,18 @@ export function buildGo2RtcUrlContext({
     makeGo2rtcCacheKey,
   });
   if (!ctx) return null;
-  return { targetEntity, ...ctx };
+  const selectedStream =
+    resolveConfiguredFrigateGo2RtcStream({
+      config,
+      entity: targetEntity,
+    }) || ctx.cam;
+  return {
+    targetEntity,
+    ...ctx,
+    cameraName: ctx.cam,
+    cam: selectedStream,
+    cacheKey: makeGo2rtcCacheKey({ clientId: ctx.clientId, cam: selectedStream }),
+  };
 }
 
 export function buildGo2RtcTransportState({

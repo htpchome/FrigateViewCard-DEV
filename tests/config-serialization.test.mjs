@@ -1236,6 +1236,43 @@ test("camera connection type normalizes HA aliases to ha_direct", () => {
   });
 });
 
+test("Frigate go2rtc live-stream override persists without changing camera identity", () => {
+  const normalized = normalizeRuntimeCardConfig({
+    cameras: [{
+      entity: "camera.garage",
+      frigate_go2rtc_stream: "garage_sub",
+    }],
+  });
+  const compact = compactEditorConfigForYaml(normalized);
+
+  assert.equal(normalized.cameras[0].entity, "camera.garage");
+  assert.equal(
+    normalized.cameras[0].frigate_go2rtc_stream,
+    "garage_sub",
+  );
+  assert.deepEqual(compact.cameras, [{
+    entity: "camera.garage",
+    frigate_go2rtc_stream: "garage_sub",
+  }]);
+});
+
+test("changing a Frigate go2rtc live stream requires only a live engine remount", () => {
+  const previous = normalizeRuntimeCardConfig({
+    cameras: [{ entity: "camera.garage" }],
+  });
+  const next = normalizeRuntimeCardConfig({
+    cameras: [{
+      entity: "camera.garage",
+      frigate_go2rtc_stream: "garage_sub",
+    }],
+  });
+  const plan = resolveRuntimeCardConfigChangePlan(previous, next);
+
+  assert.equal(plan.camerasChanged, true);
+  assert.equal(plan.needsEngineRemount, true);
+  assert.equal(plan.needsShellRerender, false);
+});
+
 test("compact YAML discards legacy per-camera PTZ motion tuning", () => {
   const config = compactEditorConfigForYaml({
     cameras: [

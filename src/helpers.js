@@ -60,6 +60,7 @@ import {
 import { resolveAvailablePageStartMode } from "./features/navigation/start-mode.js";
 import { normalizeCameraSuspendAccess } from "./features/live/camera-suspension-policy.js";
 import { sanitizeDisplayText } from "./shared/page-text.js";
+import { normalizeFrigateGo2RtcStream } from "./integrations/frigate/live-streams.js";
 
 export function detectDeviceProfile() {
   const nav = typeof navigator !== "undefined" ? navigator : {};
@@ -1272,6 +1273,13 @@ export function normalizeCameraConfig(camera, { fallbackName = null } = {}) {
       name:
         rawName == null ? null : sanitizeDisplayText(rawName).trim(),
       connection_type: normalizeCameraConnectionType(camera.connection_type),
+      ...(normalizeFrigateGo2RtcStream(camera.frigate_go2rtc_stream)
+        ? {
+            frigate_go2rtc_stream: normalizeFrigateGo2RtcStream(
+              camera.frigate_go2rtc_stream,
+            ),
+          }
+        : {}),
       alerts_content: normalizeAlertsAreaContent(camera.alerts_content),
       ptz: normalizeCameraPtzConfig(camera.ptz),
       ...(camera.start_unmuted === true ? { start_unmuted: true } : {}),

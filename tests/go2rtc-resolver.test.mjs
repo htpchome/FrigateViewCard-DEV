@@ -7,10 +7,12 @@ function createResolverHarness(options = {}) {
   const camCache = options.camCache || {};
   const calls = {
     signPath: 0,
+    messages: [],
   };
   const hass = {
     callWS: async (msg) => {
       calls.signPath += 1;
+      calls.messages.push(msg);
       return options.callWSResult?.(msg) || { path: msg.path };
     },
   };
@@ -73,4 +75,44 @@ test("go2rtc resolver caches websocket URLs per camera", async () => {
   );
   assert.equal(second, first);
   assert.equal(calls.signPath, 1);
+});
+
+test("go2rtc resolver uses the configured live-only stream", async () => {
+  const { resolver, calls } = createResolverHarness({
+    config: {
+      cameras: [{
+        entity: "camera.front",
+        connection_type: "frigate_go2rtc",
+        frigate_go2rtc_stream: "front_sub",
+      }],
+    },
+  });
+
+  const url = await resolver.websocketUrlForEntity("camera.front");
+
+  assert.equal(
+    url,
+    "wss://ha.local/api/frigate/frigate/mse/api/ws?src=front_sub",
+  );
+  assert.equal(calls.messages[0].path.includes("src=front_sub"), true);
+});
+
+test("go2rtc resolver keeps the main camera stream for non-live backchannels", async () => {
+  const { resolver } = createResolverHarness({
+    config: {
+      cameras: [{
+        entity: "camera.front",
+        connection_type: "frigate_go2rtc",
+        frigate_go2rtc_stream: "front_sub",
+      }],
+    },
+  });
+
+  const live = await resolver.websocketUrlForEntity("camera.front");
+  const backchannel = await resolver.websocketUrlForEntity("camera.front", {
+    useConfiguredStream: false,
+  });
+
+  assert.match(live, /src=front_sub$/);
+  assert.match(backchannel, /src=front$/);
 });
