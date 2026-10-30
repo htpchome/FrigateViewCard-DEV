@@ -31,12 +31,11 @@ export class LiveFallbackController {
     return this._host._fallbackOrigin;
   }
 
-  async loadPrimary(entity, { requestHeight = 0 } = {}) {
+  async loadPrimary(entity) {
     return await loadFallbackPrimaryForCard({
       card: this._host,
       entity,
       origin: this.originForAdapters(),
-      requestHeight,
     });
   }
 

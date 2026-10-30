@@ -14,7 +14,6 @@ const WEBRTC_INITIAL_COOLDOWN_MS = 120000;
 const WEBRTC_REPEAT_COOLDOWN_MS = 300000;
 const STRATEGY_HINT_MAX_ENTRIES = 64;
 const DEFERRED_WEBRTC_MAX_HOLD_MS = 4000;
-const PREFERRED_WEBRTC_WAIT_MS = 500;
 const MOBILE_DEFERRED_WEBRTC_MAX_HOLD_MS = 8500;
 const WEBRTC_RETRY_BACKOFF_MS = 2000;
 
@@ -53,7 +52,7 @@ export function createGo2RtcRaceMounter({
   setPendingWebRtcTakeoverTimer,
   deferredWebRtcMaxHoldMs = DEFERRED_WEBRTC_MAX_HOLD_MS,
   mobileDeferredWebRtcMaxHoldMs = MOBILE_DEFERRED_WEBRTC_MAX_HOLD_MS,
-  preferredWebRtcWaitMs = PREFERRED_WEBRTC_WAIT_MS,
+  preferredWebRtcWaitMs = 0,
   webRtcRetryBackoffMs = WEBRTC_RETRY_BACKOFF_MS,
   getNowMs = () => Date.now(),
 }) {

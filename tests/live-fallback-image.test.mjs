@@ -34,7 +34,7 @@ test("resolveFallbackDisplaySource prefers primary then alt", () => {
   );
 });
 
-test("resolveFallbackObjectFit returns cover for near-16:9 in matching panel", () => {
+test("resolveFallbackObjectFit always preserves the complete snapshot", () => {
   assert.equal(
     resolveFallbackObjectFit({
       naturalWidth: 1920,
@@ -42,7 +42,7 @@ test("resolveFallbackObjectFit returns cover for near-16:9 in matching panel", (
       containerWidth: 1600,
       containerHeight: 900,
     }),
-    "cover",
+    "contain",
   );
 
   assert.equal(
@@ -93,7 +93,7 @@ test("applyFallbackImageHandlers assigns callbacks, status, and alt", () => {
 
   img.onload();
   assert.equal(statusEl.hidden, true);
-  assert.equal(img.style.objectFit, "cover");
+  assert.equal(img.style.objectFit, "contain");
 });
 
 test("fallback snapshot alt uses a localizable camera-aware label", () => {

@@ -3,22 +3,6 @@ export const isAbsoluteOrDataUrl = (url) =>
 
 export const FALLBACK_SIGNED_URL_TTL_MS = 55 * 60 * 1000;
 
-export const normalizeFallbackRequestHeight = (height) => {
-  const value = Math.ceil(Number(height) || 0);
-  return value > 0 ? value : 0;
-};
-
-export const buildFallbackCacheKey = ({ entity, requestHeight = 0 }) => {
-  const height = normalizeFallbackRequestHeight(requestHeight);
-  return height > 0 ? `${entity}|height=${height}` : entity;
-};
-
-export const buildCameraProxyPath = ({ entity, requestHeight = 0 }) => {
-  const height = normalizeFallbackRequestHeight(requestHeight);
-  const basePath = `/api/camera_proxy/${entity}`;
-  return height > 0 ? `${basePath}?height=${height}` : basePath;
-};
-
 export const toAbsoluteLocalUrl = ({ url, origin }) => {
   if (!url) return "";
   return isAbsoluteOrDataUrl(url) ? url : `${origin}${url}`;
@@ -43,10 +27,8 @@ export const getCachedEntityUrl = ({
   cacheMap,
   entity,
   nowMs,
-  requestHeight = 0,
 }) => {
-  const cacheKey = buildFallbackCacheKey({ entity, requestHeight });
-  const cached = cacheMap?.get?.(cacheKey);
+  const cached = cacheMap?.get?.(entity);
   if (cached && cached.url && cached.exp > nowMs) return cached.url;
   return "";
 };
@@ -57,11 +39,9 @@ export const setCachedEntityUrl = ({
   url,
   ttlMs,
   nowMs,
-  requestHeight = 0,
 }) => {
   if (!cacheMap || !entity || !url) return;
-  const cacheKey = buildFallbackCacheKey({ entity, requestHeight });
-  cacheMap.set(cacheKey, {
+  cacheMap.set(entity, {
     url,
     exp: nowMs + ttlMs,
   });
@@ -75,7 +55,6 @@ export const resolveSignedFallbackUrl = async ({
   nowMs,
   origin,
   ttlMs = FALLBACK_SIGNED_URL_TTL_MS,
-  requestHeight = 0,
 }) => {
   if (!entity) return "";
   if (!canCallWs) return "";
@@ -84,11 +63,10 @@ export const resolveSignedFallbackUrl = async ({
     cacheMap,
     entity,
     nowMs,
-    requestHeight,
   });
   if (cached) return cached;
 
-  const basePath = buildCameraProxyPath({ entity, requestHeight });
+  const basePath = `/api/camera_proxy/${entity}`;
   const signedPath = await signedPathResolver(basePath);
   const abs = toAbsoluteLocalUrl({
     url: signedPath,
@@ -101,7 +79,6 @@ export const resolveSignedFallbackUrl = async ({
     url: abs,
     ttlMs,
     nowMs,
-    requestHeight,
   });
 
   return abs;
@@ -131,7 +108,7 @@ export const createFallbackSourceResolvers = ({
   ttlMs = FALLBACK_SIGNED_URL_TTL_MS,
   nowMsProvider = () => Date.now(),
 }) => ({
-  loadPrimary: async (entity, { requestHeight = 0 } = {}) =>
+  loadPrimary: async (entity) =>
     await resolveSignedFallbackUrl({
       entity,
       canCallWs,
@@ -140,7 +117,6 @@ export const createFallbackSourceResolvers = ({
       nowMs: nowMsProvider(),
       origin,
       ttlMs,
-      requestHeight,
     }),
   loadAlt: (entity) =>
     resolveEntityPictureFallbackUrl({
@@ -192,13 +168,11 @@ export const loadFallbackPrimaryForCard = async ({
   card,
   entity,
   origin,
-  requestHeight = 0,
 }) => {
   return withFallbackSourceResolversForCard({
     card,
     origin,
-    run: async (resolvers) =>
-      resolvers.loadPrimary(entity, { requestHeight }),
+    run: async (resolvers) => resolvers.loadPrimary(entity),
   });
 };
 

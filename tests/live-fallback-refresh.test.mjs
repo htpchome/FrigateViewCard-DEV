@@ -19,7 +19,6 @@ import {
   prioritizeFallbackImageRequest,
   resolveAltFallbackSource,
   resolveFallbackRefreshEntity,
-  resolveFallbackRequestHeight,
   resolveFallbackRefreshSources,
   runFallbackRefreshCycle,
   runFallbackRefreshCycleForCard,
@@ -40,25 +39,6 @@ test("fallback image requests are eager and high priority", () => {
   assert.equal(image.decoding, "async");
   assert.equal(image.fetchPriority, "high");
   assert.equal(attributes.get("fetchpriority"), "high");
-});
-
-test("fallback request height follows the rendered surface and device pixel ratio", () => {
-  const imgEl = {
-    parentElement: {
-      getBoundingClientRect: () => ({ height: 223.2 }),
-      clientHeight: 223,
-    },
-  };
-
-  assert.equal(
-    resolveFallbackRequestHeight({ imgEl, devicePixelRatio: 1.75 }),
-    391,
-  );
-  assert.equal(
-    resolveFallbackRequestHeight({ imgEl, devicePixelRatio: 4 }),
-    670,
-  );
-  assert.equal(resolveFallbackRequestHeight({ imgEl: {} }), 0);
 });
 
 test("nextFallbackRequestId increments from current id", () => {
@@ -415,7 +395,7 @@ test("snapshot preloader resolves after decode without mutating the displayed im
   assert.equal(preloadImage.fetchPriority, "high");
 });
 
-test("fallback refresh requests a snapshot sized for the rendered surface", async () => {
+test("fallback refresh requests the camera's native snapshot dimensions", async () => {
   let requestedOptions = null;
   const imgEl = {
     dataset: {},
@@ -439,11 +419,10 @@ test("fallback refresh requests a snapshot sized for the rendered surface", asyn
     applyHandlers: () => {},
     applySource: () => {},
     preloadSource: async () => true,
-    devicePixelRatio: 2,
   });
 
   assert.equal(result.didWrite, true);
-  assert.deepEqual(requestedOptions, { requestHeight: 480 });
+  assert.equal(requestedOptions, undefined);
   assert.equal(imgEl.loading, "eager");
   assert.equal(imgEl.decoding, "async");
   assert.equal(imgEl.fetchPriority, "high");

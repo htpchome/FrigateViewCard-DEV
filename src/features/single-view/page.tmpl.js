@@ -47,7 +47,7 @@ export function buildSingleViewCamSwitcherMarkup({
       const name = getCameraName(camera);
       const active = isSingleView && index === activeCamIdx;
       const available = !includeStatus || isCameraAvailable(camera);
-      return `<button class="cam-tab shadow-small ${active ? "active" : ""}" data-camidx="${index}"><span class="cam-dot" style="color:${available ? "#4ade80" : "#ef4444"}">●</span> ${escapeHtml(name)}</button>`;
+      return `<button class="cam-tab shadow-small ${active ? "active" : ""}" data-camidx="${index}"><span class="cam-dot" style="color:${available ? "#4ade80" : "#ef4444"}">●</span><span class="cam-tab__label">${escapeHtml(name)}</span></button>`;
     })
     .join("");
 }

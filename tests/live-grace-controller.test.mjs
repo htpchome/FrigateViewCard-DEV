@@ -154,6 +154,66 @@ test("MSE grace reuse preserves exact camera identity across three retained swit
   controller.clearGracePool();
 });
 
+test("rapid camera switches retain an in-progress MSE connection by entity", async (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => createNode() };
+  t.after(() => {
+    globalThis.document = previousDocument;
+  });
+
+  const root = createNode();
+  const liveSlot = createNode();
+  const pendingEngine = createMseEngine("camera.one");
+  const pending = [{
+    type: "mse",
+    entity: "camera.one",
+    promise: Promise.resolve({
+      ok: true,
+      type: "mse",
+      engine: pendingEngine,
+    }),
+    destroy() {
+      throw new Error("retained pending MSE must not be destroyed");
+    },
+  }];
+  let activeEngine = null;
+  let remainingPending = pending;
+  const controller = createLiveGraceController({
+    graceMs: 20000,
+    graceMax: 3,
+    getShadowRoot: () => root,
+    getPendingMountDestroyers: () => remainingPending,
+    setPendingMountDestroyers: (value) => {
+      remainingPending = value;
+    },
+    getEngine: () => activeEngine,
+    setEngine: (engine) => {
+      activeEngine = engine;
+    },
+    getActiveStreamType: () => "mse",
+    getStreamMuted: () => true,
+    setActiveStreamType: () => {},
+    setEngineMountedMuted: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    attachVideoFit: () => {},
+  });
+
+  controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
+  assert.deepEqual(remainingPending, []);
+  const entry = controller.takeGraceMseEntry("camera.one");
+  assert.ok(entry?.promise);
+  assert.equal(await entry.promise, pendingEngine);
+  assert.equal(
+    controller.adoptGraceMseEngine(liveSlot, pendingEngine, "camera.one"),
+    true,
+  );
+  assert.equal(activeEngine, pendingEngine);
+  assert.equal(pendingEngine.destroyCalls, 0);
+
+  controller.clearGracePool();
+});
+
 test("MSE grace cache rejects an engine bound to another camera", (t) => {
   const previousDocument = globalThis.document;
   globalThis.document = { createElement: () => createNode() };

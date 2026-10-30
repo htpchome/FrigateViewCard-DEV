@@ -2,15 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildCameraProxyPath,
-  buildFallbackCacheKey,
   createFallbackSourceResolversForCard,
   createFallbackSourceResolvers,
   getCachedEntityUrl,
   isAbsoluteOrDataUrl,
   loadFallbackAltForCard,
   loadFallbackPrimaryForCard,
-  normalizeFallbackRequestHeight,
   resolveFallbackOrigin,
   resolveFallbackOriginForCard,
   resolveFallbackSourceResolversForCard,
@@ -20,29 +17,6 @@ import {
   setCachedEntityUrl,
   toAbsoluteLocalUrl,
 } from "../src/features/live/fallbacks/fallback-url.js";
-
-test("fallback request heights normalize into sized proxy paths and cache keys", () => {
-  assert.equal(normalizeFallbackRequestHeight(222.2), 223);
-  assert.equal(normalizeFallbackRequestHeight(-1), 0);
-  assert.equal(
-    buildCameraProxyPath({
-      entity: "camera.front",
-      requestHeight: 223,
-    }),
-    "/api/camera_proxy/camera.front?height=223",
-  );
-  assert.equal(
-    buildFallbackCacheKey({
-      entity: "camera.front",
-      requestHeight: 223,
-    }),
-    "camera.front|height=223",
-  );
-  assert.equal(
-    buildFallbackCacheKey({ entity: "camera.front" }),
-    "camera.front",
-  );
-});
 
 test("isAbsoluteOrDataUrl detects absolute and data URLs", () => {
   assert.equal(isAbsoluteOrDataUrl("https://example.com/a.jpg"), true);
@@ -137,15 +111,15 @@ test("resolveSignedFallbackUrl signs, absolutizes, and caches", async () => {
   assert.equal(cacheMap.get("camera.front")?.exp, 1100);
 });
 
-test("resolveSignedFallbackUrl signs and caches each requested image height separately", async () => {
+test("resolveSignedFallbackUrl requests and caches the native camera frame", async () => {
   const cacheMap = new Map();
   const signedPaths = [];
   const signedPathResolver = async (path) => {
     signedPaths.push(path);
-    return `${path}&authSig=abc`;
+    return `${path}?authSig=abc`;
   };
 
-  const sized = await resolveSignedFallbackUrl({
+  const first = await resolveSignedFallbackUrl({
     entity: "camera.front",
     canCallWs: true,
     signedPathResolver,
@@ -153,7 +127,6 @@ test("resolveSignedFallbackUrl signs and caches each requested image height sepa
     nowMs: 100,
     origin: "https://ha.local",
     ttlMs: 1000,
-    requestHeight: 391,
   });
   const cached = await resolveSignedFallbackUrl({
     entity: "camera.front",
@@ -163,35 +136,15 @@ test("resolveSignedFallbackUrl signs and caches each requested image height sepa
     nowMs: 200,
     origin: "https://ha.local",
     ttlMs: 1000,
-    requestHeight: 391,
-  });
-  const unsized = await resolveSignedFallbackUrl({
-    entity: "camera.front",
-    canCallWs: true,
-    signedPathResolver: async (path) => `${path}?authSig=full`,
-    cacheMap,
-    nowMs: 200,
-    origin: "https://ha.local",
-    ttlMs: 1000,
   });
 
   assert.equal(
-    sized,
-    "https://ha.local/api/camera_proxy/camera.front?height=391&authSig=abc",
+    first,
+    "https://ha.local/api/camera_proxy/camera.front?authSig=abc",
   );
-  assert.equal(cached, sized);
-  assert.deepEqual(signedPaths, [
-    "/api/camera_proxy/camera.front?height=391",
-  ]);
-  assert.equal(
-    cacheMap.get("camera.front|height=391")?.url,
-    sized,
-  );
-  assert.equal(
-    unsized,
-    "https://ha.local/api/camera_proxy/camera.front?authSig=full",
-  );
-  assert.equal(cacheMap.get("camera.front")?.url, unsized);
+  assert.equal(cached, first);
+  assert.deepEqual(signedPaths, ["/api/camera_proxy/camera.front"]);
+  assert.equal(cacheMap.get("camera.front")?.url, first);
 });
 
 test("resolveSignedFallbackUrl returns empty when entity/callWS unavailable", async () => {

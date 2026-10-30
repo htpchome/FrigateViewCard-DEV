@@ -132,7 +132,7 @@ test("switch-camera cleanup keeps shell grace coordination and live race takeove
   assert.equal(cardSource.includes("resolveCameraSwitchCleanupOptions"), true);
   assert.match(
     cardSource,
-    /resolveCameraSwitchCleanupOptions\(\{[\s\S]*?previousEntity:\s*previousTransportEntity,[\s\S]*?mountInProgress:\s*this\._mountInProgress/,
+    /resolveCameraSwitchCleanupOptions\(\{[\s\S]*?previousEntity:\s*previousTransportEntity/,
   );
   assert.match(
     cardSource,
@@ -140,7 +140,7 @@ test("switch-camera cleanup keeps shell grace coordination and live race takeove
   );
   assert.match(
     mountLifecycleSource,
-    /if \(!entity \|\| mountInProgress === true\) return \{\};[\s\S]*?return \{ preserveLiveEntity: entity \};/,
+    /if \(!entity\) return \{\};[\s\S]*?return \{ preserveLiveEntity: entity \};/,
   );
   assert.equal(cardSource.includes("cleanupEngine(options)"), true);
   assert.match(

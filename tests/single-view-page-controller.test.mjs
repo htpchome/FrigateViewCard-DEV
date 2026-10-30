@@ -923,11 +923,11 @@ test("single-view status and camera button use committed live availability", () 
   assert.equal(nodes["#on-lbl"].textContent, "Online");
   assert.match(
     markup,
-    /color:#4ade80[^>]*>●<\/span> Front Door/,
+    /color:#4ade80[^>]*>●<\/span><span class="cam-tab__label">Front Door<\/span>/,
   );
   assert.match(
     markup,
-    /color:#ef4444[^>]*>●<\/span> Driveway/,
+    /color:#ef4444[^>]*>●<\/span><span class="cam-tab__label">Driveway<\/span>/,
   );
 });
 

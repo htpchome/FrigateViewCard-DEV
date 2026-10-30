@@ -568,11 +568,12 @@ export const STYLES_BEFORE_CARD_VIEW = `
 
 
   .sv.stream-type{text-transform:uppercase;font-size:0.95rem;}
-  .cam-tab{font-size: 1rem;padding:0.25em 0.5em 0.25em 0.25em;line-height: 1.1rem;font-weight:600;white-space:nowrap;border-radius: calc(var(--fvc-border-radius, 0px) / 2);align-items: center;justify-content: center;background:var(--c-bg-cam-btn);border:1px solid var(--c-border);color:var(--c-text);cursor:pointer}
+  .cam-tab{display:inline-flex;box-sizing:border-box;gap:.2em;font-size:1rem;padding:0.25em 0.5em 0.25em 0.25em;line-height:1.1rem;font-weight:600;white-space:nowrap;border-radius:calc(var(--fvc-border-radius, 0px) / 2);align-items:center;justify-content:center;background:var(--c-bg-cam-btn);border:1px solid var(--c-border);color:var(--c-text);cursor:pointer}
   .cam-tab:hover{color:var(--c-primary-d);}
   .cam-tab.active{background:var(--c-primary-d);color:var(--c-text-rev);}
   .cam-tab svg{width:14.4px;height:14.4px;flex-shrink:0;}
-  .cam-dot{font-size:0.7rem;vertical-align:middle;}
+  .cam-dot{display:inline-flex;align-items:center;align-self:center;font-size:0.7rem;line-height:1;}
+  .cam-tab__label{display:block;line-height:1.1rem;}
 
   .overlay-controls::after {content: "";position: absolute;top: 0;left: 0;}
   .overlay-controls[hidden]{display:none !important;}

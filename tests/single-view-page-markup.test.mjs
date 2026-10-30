@@ -207,4 +207,5 @@ test("single view camera switcher markup preserves active and availability state
   );
   assert.equal(markup.includes("style=\"color:#ef4444\""), true);
   assert.equal(markup.includes("style=\"color:#4ade80\""), true);
+  assert.equal(markup.includes("class=\"cam-tab__label\">Driveway</span>"), true);
 });

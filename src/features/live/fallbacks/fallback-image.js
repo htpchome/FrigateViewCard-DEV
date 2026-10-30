@@ -3,22 +3,7 @@ import { hideFallbackStatus, showFallbackStatus } from "./fallback-status.js";
 export const resolveFallbackDisplaySource = ({ primarySrc, altSrc }) =>
   primarySrc || altSrc || "";
 
-export const resolveFallbackObjectFit = ({
-  naturalWidth,
-  naturalHeight,
-  containerWidth,
-  containerHeight,
-}) => {
-  const w = Number(naturalWidth) || 0;
-  const h = Number(naturalHeight) || 0;
-  const ar = h > 0 ? w / h : 0;
-  const cw = Number(containerWidth) || 0;
-  const ch = Number(containerHeight) || 0;
-  const car = ch > 0 ? cw / ch : 0;
-  const near169 = ar > 0 && Math.abs(ar - 16 / 9) < 0.08;
-  const nearPanel = ar > 0 && car > 0 && Math.abs(ar - car) < 0.06;
-  return near169 && nearPanel ? "cover" : "contain";
-};
+export const resolveFallbackObjectFit = () => "contain";
 
 export const applyFallbackImageHandlers = ({
   img,

@@ -95,8 +95,7 @@ test("live fallback controller refreshes the active snapshot surface", async () 
   const controller = new LiveFallbackController(host, {
     getOrigin: () => "https://ha.local",
   });
-  host._streamFallbackUrl = (entity, options) =>
-    controller.loadPrimary(entity, options);
+  host._streamFallbackUrl = (entity) => controller.loadPrimary(entity);
   host._streamFallbackAltUrl = (entity) => controller.loadAlternate(entity);
 
   const result = await controller.refreshImage();
@@ -106,7 +105,7 @@ test("live fallback controller refreshes the active snapshot surface", async () 
   assert.equal(image.hidden, false);
   assert.equal(
     image.src,
-    "https://ha.local/api/camera_proxy/camera.front?height=360&token=abc",
+    "https://ha.local/api/camera_proxy/camera.front?token=abc",
   );
   assert.equal(image.dataset.fallbackEntity, "camera.front");
   assert.equal(image.alt, "camera.front localized snapshot");

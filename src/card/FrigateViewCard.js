@@ -1470,8 +1470,8 @@ export class FrigateViewCard extends HTMLElement {
     );
   }
 
-  async _streamFallbackUrl(entity, options = {}) {
-    return await getLiveFallbackController(this).loadPrimary(entity, options);
+  async _streamFallbackUrl(entity) {
+    return await getLiveFallbackController(this).loadPrimary(entity);
   }
 
   _streamFallbackAltUrl(entity) {
@@ -2476,7 +2476,6 @@ export class FrigateViewCard extends HTMLElement {
       "switch-camera",
       resolveCameraSwitchCleanupOptions({
         previousEntity: previousTransportEntity,
-        mountInProgress: this._mountInProgress,
       }),
     );
     this._frigateCameraRuntimeController.reconcileHass();

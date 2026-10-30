@@ -64,10 +64,9 @@ export const invalidateMountTrackingIfActive = ({
 
 export const resolveCameraSwitchCleanupOptions = ({
   previousEntity,
-  mountInProgress,
 } = {}) => {
   const entity = String(previousEntity || "").trim();
-  if (!entity || mountInProgress === true) return {};
+  if (!entity) return {};
   return { preserveLiveEntity: entity };
 };
 

@@ -26,7 +26,7 @@ import {
   shouldRunMountWatchdog,
 } from "../src/features/live/mount-lifecycle.js";
 
-test("camera switches preserve only completed live connections", () => {
+test("camera switches preserve completed and pending live connections", () => {
   assert.deepEqual(
     resolveCameraSwitchCleanupOptions({
       previousEntity: "camera.front",
@@ -39,7 +39,7 @@ test("camera switches preserve only completed live connections", () => {
       previousEntity: "camera.front",
       mountInProgress: true,
     }),
-    {},
+    { preserveLiveEntity: "camera.front" },
   );
 });
 

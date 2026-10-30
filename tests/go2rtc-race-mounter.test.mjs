@@ -432,7 +432,6 @@ test("go2rtc race mounter adopts the fallback winner and retains deferred webrtc
       setPendingWebRtcTakeoverTimer: (timer) => {
         pendingTimer = timer;
       },
-      preferredWebRtcWaitMs: 5,
     });
 
     const slot = {

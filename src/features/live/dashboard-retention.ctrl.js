@@ -53,7 +53,6 @@ export class LiveDashboardRetentionController {
 
     const cleanupOptions = resolveCameraSwitchCleanupOptions({
       previousEntity: entity,
-      mountInProgress: host._mountInProgress,
     });
     if (!cleanupOptions.preserveLiveEntity) return false;
 
