@@ -888,6 +888,178 @@ test("go2rtc mounter preserves classic MediaSource when both flavors exist", asy
   });
 });
 
+test("go2rtc MSE trims a continuously queued stream and releases media resources", async () => {
+  await withFakeDocument(async () => {
+    await withFakeObjectUrl(async (revoked) => {
+      let mediaSource = null;
+      let socket = null;
+
+      class FakeSourceBuffer {
+        constructor() {
+          this.mode = "";
+          this.updating = false;
+          this.appended = [];
+          this.removed = [];
+          this.abortCalls = 0;
+          this._listeners = new Map();
+          this._start = 0;
+          this._end = 0;
+          this.buffered = {
+            length: 1,
+            start: () => this._start,
+            end: () => this._end,
+          };
+        }
+
+        addEventListener(type, handler) {
+          this._listeners.set(type, handler);
+        }
+
+        removeEventListener(type, handler) {
+          if (this._listeners.get(type) === handler) {
+            this._listeners.delete(type);
+          }
+        }
+
+        appendBuffer(buffer) {
+          this.appended.push(buffer);
+          this.updating = true;
+        }
+
+        remove(start, end) {
+          this.removed.push([start, end]);
+          this._start = end;
+          this.updating = true;
+        }
+
+        abort() {
+          this.abortCalls += 1;
+          this.updating = false;
+        }
+
+        finishUpdate(end = this._end) {
+          this._end = end;
+          this.updating = false;
+          this._listeners.get("updateend")?.({ type: "updateend" });
+        }
+      }
+
+      class FakeMediaSource {
+        static isTypeSupported() {
+          return true;
+        }
+
+        constructor() {
+          this.readyState = "closed";
+          this._listeners = new Map();
+          this.sourceBuffers = [];
+          this.removedSourceBuffers = [];
+          this.endOfStreamCalls = 0;
+          mediaSource = this;
+        }
+
+        addEventListener(type, handler) {
+          this._listeners.set(type, handler);
+        }
+
+        open() {
+          this.readyState = "open";
+          this._listeners.get("sourceopen")?.({ type: "sourceopen" });
+        }
+
+        addSourceBuffer() {
+          const sourceBuffer = new FakeSourceBuffer();
+          this.sourceBuffers.push(sourceBuffer);
+          return sourceBuffer;
+        }
+
+        removeSourceBuffer(sourceBuffer) {
+          this.removedSourceBuffers.push(sourceBuffer);
+          this.sourceBuffers = this.sourceBuffers.filter(
+            (candidate) => candidate !== sourceBuffer,
+          );
+        }
+
+        setLiveSeekableRange() {
+          throw new Error("classic MSE may reject a live seekable range");
+        }
+
+        endOfStream() {
+          this.endOfStreamCalls += 1;
+          this.readyState = "ended";
+        }
+      }
+
+      class FakeWebSocket {
+        static OPEN = 1;
+
+        constructor() {
+          this.readyState = 0;
+          this._listeners = new Map();
+          this.closeCalls = 0;
+          socket = this;
+        }
+
+        addEventListener(type, handler) {
+          this._listeners.set(type, handler);
+        }
+
+        send() {}
+
+        open() {
+          this.readyState = FakeWebSocket.OPEN;
+          this._listeners.get("open")?.({ type: "open" });
+        }
+
+        message(data) {
+          this._listeners.get("message")?.({ type: "message", data });
+        }
+
+        close() {
+          this.closeCalls += 1;
+          this.readyState = 3;
+        }
+      }
+
+      const slot = createSlot();
+      const mounter = createBaseMounter();
+      const result = await withFakeWindow(
+        {
+          MediaSource: FakeMediaSource,
+          WebSocket: FakeWebSocket,
+        },
+        () => mounter.tryMountMse(slot),
+      );
+
+      mediaSource.open();
+      socket.open();
+      socket.message(JSON.stringify({ type: "mse", value: "avc1.640029" }));
+      const sourceBuffer = mediaSource.sourceBuffers[0];
+      socket.message(new ArrayBuffer(8));
+      socket.message(new ArrayBuffer(8));
+      socket.message(new ArrayBuffer(8));
+
+      assert.equal(sourceBuffer.appended.length, 1);
+      sourceBuffer.finishUpdate(30);
+      assert.deepEqual(sourceBuffer.removed, [[0, 15]]);
+      assert.equal(sourceBuffer.appended.length, 1);
+
+      sourceBuffer.finishUpdate();
+      assert.equal(sourceBuffer.appended.length, 2);
+
+      result.engine.destroy();
+      result.engine.destroy();
+      assert.equal(socket.closeCalls, 1);
+      assert.equal(sourceBuffer.abortCalls, 1);
+      assert.deepEqual(mediaSource.removedSourceBuffers, [sourceBuffer]);
+      assert.equal(mediaSource.endOfStreamCalls, 1);
+      assert.equal(slot.lastChild.paused, true);
+      assert.equal(slot.lastChild.loadCalls, 1);
+      assert.deepEqual(revoked, ["blob:managed-media-source"]);
+    });
+  });
+});
+
 test("go2rtc WebRTC preloads offscreen then transfers the ready stream", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;

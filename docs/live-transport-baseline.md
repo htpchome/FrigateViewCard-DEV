@@ -2,6 +2,15 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.69` bounds MSE memory during continuous camera traffic. Buffer
+trimming now preempts the next queued append once the retained window exceeds
+its limit; it no longer waits for a continuously fed append queue to become
+empty. Destroyed MSE engines also clear their pending byte queue, detach the
+`SourceBuffer` listener, abort and remove the source buffer, close the media
+source, and reset the video element so mobile WebKit releases decoder memory
+immediately. The retained camera count, retention duration, transport order,
+and connected stationary media deck are unchanged.
+
 `v1.1.10-dev.68` restores the retained-MSE requirements documented in dev.62:
 classic `MediaSource` is preferred when mobile WebKit exposes both MSE APIs,
 and its object URL remains valid until engine destruction. Managed MSE remains

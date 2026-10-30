@@ -11,6 +11,7 @@ import { HOME_ASSISTANT_STUN_SERVER } from "../../constants.js";
 
 const WEBRTC_NEGOTIATION_TIMEOUT_MS = 4000;
 const MSE_RETAINED_BUFFER_SECONDS = 15;
+const MSE_BUFFER_TRIM_THRESHOLD_SECONDS = 20;
 const MSE_LIVE_EDGE_RESUME_LAG_SECONDS = 1;
 const MSE_LIVE_EDGE_OFFSET_SECONDS = 0.75;
 const MSE_MAX_PENDING_BUFFER_BYTES = 2 * 1024 * 1024;
@@ -275,17 +276,23 @@ export function createGo2RtcMounter({
     };
 
     const trimBufferedHistory = () => {
-      if (!sourceBuffer || sourceBuffer.updating) return;
+      if (!sourceBuffer || sourceBuffer.updating) return false;
       const buffered = sourceBuffer.buffered;
-      if (!buffered?.length) return;
+      if (!buffered?.length) return false;
       try {
         const start = buffered.start(0);
         const end = buffered.end(buffered.length - 1);
+        if (end - start <= MSE_BUFFER_TRIM_THRESHOLD_SECONDS) return false;
         const retainedStart = end - MSE_RETAINED_BUFFER_SECONDS;
-        if (retainedStart <= start) return;
+        if (retainedStart <= start) return false;
+        try {
+          mediaSource.setLiveSeekableRange?.(retainedStart, end);
+        } catch (_) {}
         sourceBuffer.remove(start, retainedStart);
-        mediaSource.setLiveSeekableRange?.(retainedStart, end);
-      } catch (_) {}
+        return true;
+      } catch (_) {
+        return false;
+      }
     };
 
     const appendNext = () => {
@@ -301,11 +308,10 @@ export function createGo2RtcMounter({
     };
 
     const handleSourceBufferUpdateEnd = () => {
-      if (queue.length) {
-        appendNext();
-        return;
-      }
-      trimBufferedHistory();
+      // Continuous streams commonly keep at least one append queued. Trim
+      // before the next append so retained cameras cannot grow forever.
+      if (trimBufferedHistory()) return;
+      appendNext();
     };
 
     const stopCatchup = startFirefoxLiveCatchup(video, isFirefox);
@@ -319,8 +325,13 @@ export function createGo2RtcMounter({
     };
 
     const destroy = () => {
+      if (destroyed) return;
       destroyed = true;
       releasePreparedPlayback?.(video);
+      activityHandler = null;
+      recoveryHandler = null;
+      queue = [];
+      queuedBytes = 0;
       try {
         if (!startupAbort.signal.aborted) startupAbort.abort();
       } catch (_) {}
@@ -329,6 +340,23 @@ export function createGo2RtcMounter({
       } catch (_) {}
       try {
         stopCatchup();
+      } catch (_) {}
+      try {
+        video.pause?.();
+      } catch (_) {}
+      try {
+        sourceBuffer?.removeEventListener?.(
+          "updateend",
+          handleSourceBufferUpdateEnd,
+        );
+        sourceBuffer?.abort?.();
+      } catch (_) {}
+      try {
+        if (sourceBuffer) mediaSource.removeSourceBuffer?.(sourceBuffer);
+      } catch (_) {}
+      sourceBuffer = null;
+      try {
+        if (mediaSource.readyState === "open") mediaSource.endOfStream?.();
       } catch (_) {}
       try {
         if (managed) {
@@ -340,6 +368,7 @@ export function createGo2RtcMounter({
             mediaSourceObjectUrl = "";
           }
         }
+        video.load?.();
       } catch (_) {}
       if (abortSignal && abortBound) {
         abortSignal.removeEventListener("abort", onAbort);

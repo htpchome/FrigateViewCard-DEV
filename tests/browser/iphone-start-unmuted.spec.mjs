@@ -385,18 +385,28 @@ test("iPhone WebKit prefers classic MediaSource and rejects an unready retained 
   });
 });
 
-test("iPhone WebKit reuses the exact MSE camera through repeated mobile switches", async ({ page }) => {
+test("iPhone WebKit reuses exact MSE cameras from Single into Mobile View", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
-    const { createLiveGraceController } = await import(
-      "/src/features/live/live-grace-controller.js"
-    );
-    const root = document.createElement("div");
-    const slot = document.createElement("div");
-    const engineAnchor = document.createElement("div");
-    engineAnchor.id = "engine";
-    root.append(engineAnchor, slot);
-    document.body.append(root);
+    const [, { createLiveGraceController }] = await Promise.all([
+      import("/src/features/live/go2rtc-mounter.js"),
+      import("/src/features/live/live-grace-controller.js"),
+    ]);
+    await import("/dist/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [
+        { entity: "camera.one", name: "One" },
+        { entity: "camera.two", name: "Two" },
+        { entity: "camera.three", name: "Three" },
+      ],
+      mobile_view_page_enabled: true,
+    });
+    card._pageId = "single-view";
+    card._renderShell();
+    const root = card.shadowRoot;
+    let slot = root.querySelector("#engine");
 
     const createdByEntity = new Map();
     const createEngine = (entity) => {
@@ -437,7 +447,7 @@ test("iPhone WebKit reuses the exact MSE camera through repeated mobile switches
       graceMs: 60000,
       graceMax: 3,
       getShadowRoot: () => root,
-      getScopeKey: () => ({}),
+      getScopeKey: () => card,
       getPendingMountDestroyers: () => [],
       setPendingMountDestroyers: () => {},
       getEngine: () => activeEngine,
@@ -462,7 +472,12 @@ test("iPhone WebKit reuses the exact MSE camera through repeated mobile switches
       (_, index) => `camera.${["one", "two", "three"][index % 3]}`,
     );
     const observed = [];
-    for (const entity of sequence) {
+    for (const [index, entity] of sequence.entries()) {
+      if (index === 6) {
+        card._pageId = "mobile-view";
+        card._renderShellPreserveLive();
+        slot = root.querySelector("#engine");
+      }
       if (activeEngine?.entity !== entity) {
         controller.cleanupEngine({ preserveLiveEntity: activeEngine.entity });
         const retained = controller.takeGraceMseEntry(entity)?.engine || null;
@@ -478,6 +493,8 @@ test("iPhone WebKit reuses the exact MSE camera through repeated mobile switches
       );
       observed.push({
         active: activeEngine?.entity || "",
+        activeVideoConnected: activeEngine?.video?.isConnected === true,
+        pageId: card._pageId,
         requested: entity,
         retainedVideos: retainedHost?.querySelectorAll("video").length || 0,
       });
@@ -493,12 +510,17 @@ test("iPhone WebKit reuses the exact MSE camera through repeated mobile switches
       exactSelections: observed.every(
         ({ active, requested }) => active === requested,
       ),
+      routePreserved: observed.every(
+        ({ activeVideoConnected, pageId }, index) =>
+          activeVideoConnected &&
+          pageId === (index < 6 ? "single-view" : "mobile-view"),
+      ),
       maxRetainedVideos: Math.max(
         ...observed.map(({ retainedVideos }) => retainedVideos),
       ),
     };
     controller.clearGracePool();
-    root.remove();
+    card.remove();
     return answer;
   });
 
@@ -510,6 +532,7 @@ test("iPhone WebKit reuses the exact MSE camera through repeated mobile switches
     },
     destroyedBeforeClear: 0,
     exactSelections: true,
+    routePreserved: true,
     maxRetainedVideos: 2,
   });
 });
