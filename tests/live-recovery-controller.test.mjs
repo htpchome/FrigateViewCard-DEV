@@ -40,6 +40,27 @@ test("generic recovery cannot replace a suspended or resuming Catalyst HLS playe
   }
 });
 
+test("live recovery cannot mount before the startup route owns live playback", () => {
+  const host = createHost();
+  const calls = [];
+  host._startupRouteActivated = false;
+  host._mountEngine = () => calls.push("mount");
+  host._resumeLiveIfNeeded = () => calls.push("resume");
+  host._kickLiveIfStale = () => calls.push("kick");
+  const controller = new LiveRecoveryController(host, {
+    setTimer: () => {
+      calls.push("timer");
+      return 1;
+    },
+  });
+
+  controller.scheduleResume("connected");
+  controller.kickIfStale(true);
+  controller.resumeIfNeeded("intersection");
+
+  assert.deepEqual(calls, []);
+});
+
 test("live recovery keeps editor and Firefox resume timing stable", () => {
   const host = createHost();
   const calls = [];

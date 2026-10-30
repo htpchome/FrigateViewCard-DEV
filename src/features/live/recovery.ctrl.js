@@ -47,6 +47,7 @@ export class LiveRecoveryController {
 
   scheduleResume(reason = "") {
     const host = this._host;
+    if (host._startupRouteActivated === false) return;
     if (host._isPreviewPageActive()) {
       host._renderPreviewPage();
       return;
@@ -79,6 +80,7 @@ export class LiveRecoveryController {
     forcedType = null,
   ) {
     const host = this._host;
+    if (host._startupRouteActivated === false) return;
     if (host._editorLiveHandoffController?.isSuspended?.()) return;
     if (host._engine?.haDirectProvider === true) return;
     if (host._engine?.catalystHls &&
@@ -130,6 +132,7 @@ export class LiveRecoveryController {
 
   resumeIfNeeded(reason = "") {
     const host = this._host;
+    if (host._startupRouteActivated === false) return;
     if (host._editorLiveHandoffController?.isSuspended?.()) return;
     if (host._engine?.catalystHls &&
         (host._engine.hlsBackgroundSuspended || host._engine.hlsResumePending || host._engine.hlsRecovering)) return;

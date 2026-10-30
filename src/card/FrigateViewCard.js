@@ -1238,6 +1238,8 @@ export class FrigateViewCard extends HTMLElement {
       phone: this._isLikelyPhoneClient(),
       initialLoad,
     });
+    // Recovery must not race the landing route's first transport mount.
+    this._startupRouteActivated = true;
     this._pageNavigationController.navigateToConfiguredLandingPage({
       source: "startup",
       startup: true,
