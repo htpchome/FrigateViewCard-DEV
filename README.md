@@ -347,7 +347,8 @@ Each item in `cameras` supports:
 | `entity` | string | required | Home Assistant camera entity, such as `camera.front_door`. |
 | `name` | string | entity-derived | Camera display name. |
 | `connection_type` | string | `frigate_go2rtc` | Live playback owner. Values: `frigate_go2rtc`, `ha_direct`. The visual editor labels these “Frigate go2rtc (default)” and “Home Assistant.” In the Home Assistant Mac Catalyst app, both settings use the dedicated HA Direct HLS path. |
-| `start_unmuted` | boolean | `false` | Requests audio when this camera starts. Some browsers require the site's autoplay setting to allow audio. |
+| `start_unmuted` | boolean | `false` | Requests audio when this camera starts on a PC or tablet. Some browsers require the site's autoplay setting to allow audio. |
+| `start_unmuted_mobile` | boolean | `false` | Requests audio when this camera starts on a mobile phone. Some browsers require the site's autoplay setting to allow audio. |
 | `alerts_content` | string | `alerts_only` | Qualifying review content. Values: `alerts_only`, `all_reviews`. |
 | `ptz` | boolean or map | disabled | Enables PTZ pan/tilt controls after Frigate reports compatible PTZ support. A map may include `enabled` and `rotation` (`0`, `90`, `180`, or `270`) to remap directional controls for a rotated image. |
 | `two_way_talk` | boolean | `false` | Enables the microphone control. Frigate mode requires a detected backchannel; Home Assistant mode requires WebRTC playback and remains an experimental talkback path. On Catalyst, either connection setting follows the Home Assistant requirement. |
@@ -443,7 +444,7 @@ HLS remains available for explicit compatibility paths and HLS-backed media, but
 
 ### Start Camera Unmuted and autoplay
 
-**Start Camera Unmuted** requests audible playback, but the browser or app's autoplay policy remains authoritative. Some browsers require the Home Assistant site's autoplay permission to explicitly allow audio.
+**Start Camera Unmuted on PC/Tablet** and **Start Camera Unmuted on Mobile Phone** independently request audible playback for those device classes. Tablets use the PC/tablet setting. The browser or app's autoplay policy remains authoritative, and some browsers require the Home Assistant site's autoplay permission to explicitly allow audio.
 
 For Frigate go2rtc, this hidden setting should only be needed when playback falls back to MSE; WebRTC works regardless of this setting. If an MSE stream remains muted in the iOS Companion App, use:
 

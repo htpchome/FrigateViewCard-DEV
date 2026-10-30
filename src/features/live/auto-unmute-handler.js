@@ -1,22 +1,26 @@
 import { synchronizeHaCameraAudio } from "../../integrations/home-assistant/camera-audio.js";
 import { findActiveHaCameraStreamVideo } from "../../integrations/home-assistant/playback.js";
 
-export const cameraStartsUnmuted = (camera) =>
-  camera?.start_unmuted === true;
+export const cameraStartsUnmuted = (camera, isMobilePhone = false) =>
+  isMobilePhone
+    ? camera?.start_unmuted_mobile === true
+    : camera?.start_unmuted === true;
 
 export class AutoUnmuteHandler {
   constructor(host, {
     interactionTarget = globalThis.document,
+    isMobilePhone = () => host?._isLikelyPhoneClient?.() === true,
   } = {}) {
     this._host = host;
     this._interactionTarget = interactionTarget;
+    this._isMobilePhone = isMobilePhone;
     this._camera = null;
     this._target = null;
   }
 
   prepare(camera) {
     this._clearTarget();
-    this._camera = cameraStartsUnmuted(camera) ? camera : null;
+    this._camera = this._cameraStartsUnmuted(camera) ? camera : null;
     this._host._cameraStartUnmutePending = Boolean(this._camera);
     this._host._streamMuted = true;
   }
@@ -29,7 +33,7 @@ export class AutoUnmuteHandler {
 
   resolveStartupMuted(entity) {
     return !(
-      cameraStartsUnmuted(this._camera) &&
+      this._cameraStartsUnmuted(this._camera) &&
       entity === this._selectedEntity() &&
       this._isVisible()
     );
@@ -65,7 +69,7 @@ export class AutoUnmuteHandler {
 
   applySelected({ mediaLoaded = false } = {}) {
     const engine = this._host._engine;
-    if (!cameraStartsUnmuted(this._camera) || !engine) return false;
+    if (!this._cameraStartsUnmuted(this._camera) || !engine) return false;
     const video = this._resolveVideo(engine);
     if (!video || !this._isVisible()) return false;
 
@@ -133,7 +137,7 @@ export class AutoUnmuteHandler {
     if (
       engine !== this._host._engine ||
       video !== this._resolveVideo(engine) ||
-      !cameraStartsUnmuted(this._camera) ||
+      !this._cameraStartsUnmuted(this._camera) ||
       !this._isVisible()
     ) return false;
 
@@ -222,6 +226,10 @@ export class AutoUnmuteHandler {
     return this._host._activeGroupMemberOverride ||
       this._host._activeCam?.entity ||
       "";
+  }
+
+  _cameraStartsUnmuted(camera) {
+    return cameraStartsUnmuted(camera, this._isMobilePhone());
   }
 
   _isVisible() {

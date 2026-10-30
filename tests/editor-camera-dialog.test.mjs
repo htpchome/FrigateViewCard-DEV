@@ -88,11 +88,12 @@ test("camera summaries only show configured capabilities with friendly light nam
       connection_type: "frigate_go2rtc",
       alerts_content: "alerts_only",
       start_unmuted: true,
+      start_unmuted_mobile: true,
       ptz: { enabled: true },
       two_way_talk: true,
       linked_entities: [{ entity: "light.porch_light" }],
     }),
-    "Frigate go2rtc · Alerts only · Unmuted · PTZ on · Two-Way Talk on · Light: Porch Light",
+    "Frigate go2rtc · Alerts only · Unmuted: PC/Tablet, Mobile Phone · PTZ on · Two-Way Talk on · Light: Porch Light",
   );
 });
 
@@ -236,6 +237,10 @@ test("camera light editor is reusable and uses HA light and icon selectors", () 
   );
   assert.ok(
     source.indexOf('id="camera-modal-start-unmuted"') <
+      source.indexOf('id="camera-modal-start-unmuted-mobile"'),
+  );
+  assert.ok(
+    source.indexOf('id="camera-modal-start-unmuted-mobile"') <
       source.indexOf('id="camera-modal-ptz-toggle-row"'),
   );
   assert.match(
@@ -427,6 +432,7 @@ test("editing a camera restores its linked light and icon", () => {
     "#camera-modal-connection-type": node(),
     "#camera-modal-all-reviews": node(),
     "#camera-modal-start-unmuted": node(),
+    "#camera-modal-start-unmuted-mobile": node(),
     "#camera-modal-ptz-enabled": node(),
     "#camera-modal-two-way-talk-enabled": node(),
     "#camera-modal-light-entity": node(),
@@ -439,6 +445,7 @@ test("editing a camera restores its linked light and icon", () => {
     {
       entity: "camera.front",
       start_unmuted: true,
+      start_unmuted_mobile: true,
       linked_entities: [
         { entity: "light.porch", icon: "mdi:coach-lamp" },
         {
@@ -466,6 +473,7 @@ test("editing a camera restores its linked light and icon", () => {
   assert.equal(nodes["#camera-modal-light-entity"].value, "light.porch");
   assert.equal(nodes["#camera-modal-light-icon"].value, "mdi:coach-lamp");
   assert.equal(nodes["#camera-modal-start-unmuted"].checked, true);
+  assert.equal(nodes["#camera-modal-start-unmuted-mobile"].checked, true);
   assert.equal(nodes["#camera-modal-light-entity-2"].value, "light.driveway");
   assert.equal(
     nodes["#camera-modal-light-icon-2"].value,
@@ -775,6 +783,7 @@ test("camera modal accordion summaries reflect only configured values", () => {
     },
     "#camera-modal-light-entity-2": { value: "", dataset: { value: "" } },
     "#camera-modal-start-unmuted": { checked: true },
+    "#camera-modal-start-unmuted-mobile": { checked: true },
     "#camera-modal-ptz-enabled": { checked: true },
     "#camera-modal-two-way-talk-enabled": { checked: true },
     "#camera-modal-connection-summary": summary(),
@@ -802,13 +811,14 @@ test("camera modal accordion summaries reflect only configured values", () => {
   assert.equal(nodes["#camera-modal-lights-summary"].textContent, "Porch Light");
   assert.equal(
     nodes["#camera-modal-options-summary"].textContent,
-    "Unmuted · PTZ · Two-Way Talk",
+    "Unmuted: PC/Tablet, Mobile Phone · PTZ · Two-Way Talk",
   );
   assert.equal(nodes["#camera-modal-options-summary"].hidden, false);
 
   editor._cameraModalGroupEnabled = false;
   editor._cameraModalLightEnabled = false;
   nodes["#camera-modal-start-unmuted"].checked = false;
+  nodes["#camera-modal-start-unmuted-mobile"].checked = false;
   nodes["#camera-modal-ptz-enabled"].checked = false;
   nodes["#camera-modal-two-way-talk-enabled"].checked = false;
   editor._syncCameraModalAccordionSummaries();

@@ -813,19 +813,37 @@ test("a fully normalized default config saves no redundant YAML options", () => 
   );
 });
 
-test("camera start audio defaults muted and only saves the unmuted opt-in", () => {
+test("camera start audio saves independent PC/tablet and phone opt-ins", () => {
   const normalized = normalizeCardConfig({
     cameras: [
-      { entity: "camera.muted", start_unmuted: false },
-      { entity: "camera.audible", start_unmuted: true },
+      {
+        entity: "camera.muted",
+        start_unmuted: false,
+        start_unmuted_mobile: false,
+      },
+      { entity: "camera.desktop", start_unmuted: true },
+      { entity: "camera.phone", start_unmuted_mobile: true },
+      {
+        entity: "camera.everywhere",
+        start_unmuted: true,
+        start_unmuted_mobile: true,
+      },
     ],
   });
 
   assert.equal(normalized.cameras[0].start_unmuted, undefined);
+  assert.equal(normalized.cameras[0].start_unmuted_mobile, undefined);
   assert.equal(normalized.cameras[1].start_unmuted, true);
+  assert.equal(normalized.cameras[2].start_unmuted_mobile, true);
   assert.deepEqual(compactEditorConfigForYaml(normalized).cameras, [
     { entity: "camera.muted" },
-    { entity: "camera.audible", start_unmuted: true },
+    { entity: "camera.desktop", start_unmuted: true },
+    { entity: "camera.phone", start_unmuted_mobile: true },
+    {
+      entity: "camera.everywhere",
+      start_unmuted: true,
+      start_unmuted_mobile: true,
+    },
   ]);
 });
 

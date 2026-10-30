@@ -7,6 +7,7 @@ export class LiveAudioController {
   constructor(host, options = {}) {
     this._autoUnmute = new AutoUnmuteHandler(host, {
       interactionTarget: options.interactionTarget,
+      isMobilePhone: options.isMobilePhone,
     });
     this._mute = new MuteHandler(host, {
       icons: options.icons,

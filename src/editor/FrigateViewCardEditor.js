@@ -1901,9 +1901,17 @@ export class FrigateViewCardEditor extends HTMLElement {
     return value === true ? "Two-Way Talk on" : "";
   }
 
-  _cameraStartAudioLabel(value) {
-    return value === true
-      ? this._t("editor.cameraModal.unmuted")
+  _cameraStartAudioLabel(camera = {}) {
+    const targets = [
+      ...(camera?.start_unmuted === true
+        ? [this._t("editor.cameraModal.pcTablet")]
+        : []),
+      ...(camera?.start_unmuted_mobile === true
+        ? [this._t("editor.cameraModal.mobilePhone")]
+        : []),
+    ];
+    return targets.length
+      ? `${this._t("editor.cameraModal.unmuted")}: ${targets.join(", ")}`
       : this._t("editor.cameraModal.muted");
   }
 
@@ -1928,7 +1936,7 @@ export class FrigateViewCardEditor extends HTMLElement {
         : []),
       this._cameraConnectionLabel(camera?.connection_type),
       this._cameraAlertsContentLabel(camera?.alerts_content),
-      this._cameraStartAudioLabel(camera?.start_unmuted),
+      this._cameraStartAudioLabel(camera),
       this._cameraPtzLabel(camera?.ptz),
       this._cameraTwoWayTalkLabel(camera?.two_way_talk),
       this._cameraLinkedLightLabel(camera),
@@ -2055,13 +2063,14 @@ export class FrigateViewCardEditor extends HTMLElement {
       lights.join(", ") || this._t("editor.cameraModal.noneConfigured"),
     );
 
-    const options = [
-      this._cameraStartAudioLabel(
-        resolveSwitchChecked(
-          this.querySelector("#camera-modal-start-unmuted"),
-        ),
+    const options = [this._cameraStartAudioLabel({
+      start_unmuted: resolveSwitchChecked(
+        this.querySelector("#camera-modal-start-unmuted"),
       ),
-    ];
+      start_unmuted_mobile: resolveSwitchChecked(
+        this.querySelector("#camera-modal-start-unmuted-mobile"),
+      ),
+    })];
     if (resolveSwitchChecked(this.querySelector("#camera-modal-ptz-enabled"))) {
       options.push("PTZ");
     }
@@ -2132,6 +2141,9 @@ export class FrigateViewCardEditor extends HTMLElement {
       "#camera-modal-all-reviews",
     );
     const startUnmuted = this.querySelector("#camera-modal-start-unmuted");
+    const startUnmutedMobile = this.querySelector(
+      "#camera-modal-start-unmuted-mobile",
+    );
     const ptzEnabled = this.querySelector("#camera-modal-ptz-enabled");
     const twoWayTalkEnabled = this.querySelector(
       "#camera-modal-two-way-talk-enabled",
@@ -2182,6 +2194,9 @@ export class FrigateViewCardEditor extends HTMLElement {
     }
     if (startUnmuted) {
       startUnmuted.checked = cam?.start_unmuted === true;
+    }
+    if (startUnmutedMobile) {
+      startUnmutedMobile.checked = cam?.start_unmuted_mobile === true;
     }
     if (ptzEnabled) {
       ptzEnabled.checked = hasCameraPtz(cam);
@@ -2716,6 +2731,9 @@ export class FrigateViewCardEditor extends HTMLElement {
     const startUnmutedToggle = this.querySelector(
       "#camera-modal-start-unmuted",
     );
+    const startUnmutedMobileToggle = this.querySelector(
+      "#camera-modal-start-unmuted-mobile",
+    );
     const ptzEnabledToggle = this.querySelector("#camera-modal-ptz-enabled");
     const twoWayTalkToggle = this.querySelector(
       "#camera-modal-two-way-talk-enabled",
@@ -2725,6 +2743,8 @@ export class FrigateViewCardEditor extends HTMLElement {
         ? "all_reviews"
         : "alerts_only";
     const startUnmuted = resolveSwitchChecked(startUnmutedToggle) === true;
+    const startUnmutedMobile =
+      resolveSwitchChecked(startUnmutedMobileToggle) === true;
     const ptzSupported = ptzEnabledToggle?.dataset?.supported === "true";
     const ptzEnabled = ptzSupported && resolveSwitchChecked(ptzEnabledToggle);
     const twoWayTalkSupported =
@@ -2799,6 +2819,7 @@ export class FrigateViewCardEditor extends HTMLElement {
       alerts_content: alertsContent,
       ptz,
       ...(startUnmuted ? { start_unmuted: true } : {}),
+      ...(startUnmutedMobile ? { start_unmuted_mobile: true } : {}),
       ...(twoWayTalkEnabled ? { two_way_talk: true } : {}),
       ...(group ? { group } : {}),
       ...(linkedEntities.length ? { linked_entities: linkedEntities } : {}),
@@ -4836,10 +4857,19 @@ export class FrigateViewCardEditor extends HTMLElement {
           <div class="cam-modal-field">
             <div class="layout-row cam-modal-toggle-row">
               <div class="cam-modal-toggle-copy">
-                <span class="cam-modal-label" data-fvc-i18n="editor.cameraModal.startCameraUnmuted">Start Camera Unmuted</span>
+                <span class="cam-modal-label" data-fvc-i18n="editor.cameraModal.startCameraUnmuted">Start Camera Unmuted on PC/Tablet</span>
                 <div class="field-helper" data-fvc-i18n="editor.cameraModal.startCameraUnmutedHelp">Starts this camera with audio when the browser allows audible playback. Some browsers require the site's autoplay setting to allow audio. If autoplay is blocked, live video remains muted until you interact with the page.</div>
               </div>
               <ha-switch id="camera-modal-start-unmuted"></ha-switch>
+            </div>
+          </div>
+          <div class="cam-modal-field">
+            <div class="layout-row cam-modal-toggle-row">
+              <div class="cam-modal-toggle-copy">
+                <span class="cam-modal-label" data-fvc-i18n="editor.cameraModal.startCameraUnmutedMobile">Start Camera Unmuted on Mobile Phone</span>
+                <div class="field-helper" data-fvc-i18n="editor.cameraModal.startCameraUnmutedMobileHelp">Starts this camera with audio when the browser allows audible playback. Some browsers require the site's autoplay setting to allow audio. If autoplay is blocked, live video remains muted until you interact with the page.</div>
+              </div>
+              <ha-switch id="camera-modal-start-unmuted-mobile"></ha-switch>
             </div>
           </div>
           <div class="cam-modal-field">
@@ -5243,6 +5273,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     ["value-changed", "change"].forEach((eventName) => {
       [
         "#camera-modal-start-unmuted",
+        "#camera-modal-start-unmuted-mobile",
         "#camera-modal-two-way-talk-enabled",
       ].forEach((selector) => {
         this.querySelector(selector)?.addEventListener(eventName, () =>

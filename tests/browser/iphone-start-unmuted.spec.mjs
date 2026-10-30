@@ -53,7 +53,8 @@ test("iPhone WebKit gives the connected go2rtc candidate the first unmute/play a
     document.body.append(video);
     const engine = { type: "frigate_go2rtc", video };
     const host = {
-      _activeCam: { entity: "camera.front", start_unmuted: true },
+      _activeCam: { entity: "camera.front", start_unmuted_mobile: true },
+      _isLikelyPhoneClient: () => true,
       _engine: null,
       _streamMuted: true,
       _findVideoDeep: () => video,
@@ -110,7 +111,8 @@ test("iPhone WebKit applies the same selected action to HA Direct", async ({ pag
       return video;
     };
     const host = {
-      _activeCam: { entity: "camera.front", start_unmuted: true },
+      _activeCam: { entity: "camera.front", start_unmuted_mobile: true },
+      _isLikelyPhoneClient: () => true,
       _engine: provider,
       _streamMuted: true,
       _findVideoDeep: () => video,
@@ -152,7 +154,8 @@ test("iPhone WebKit repeats the selected action when an uncommitted go2rtc candi
     };
     video.muted = true;
     const host = {
-      _activeCam: { entity: "camera.front", start_unmuted: true },
+      _activeCam: { entity: "camera.front", start_unmuted_mobile: true },
+      _isLikelyPhoneClient: () => true,
       // Race candidates are not assigned as the engine until after startup
       // readiness. loadeddata must still receive ACC's source-ready action.
       _engine: null,
@@ -185,8 +188,9 @@ test("iPhone WebKit targets go2rtc WebRTC before websocket URL resolution", asyn
       import("/src/features/live/audio.ctrl.js"),
       import("/src/features/live/go2rtc-mounter.js"),
     ]);
-    const camera = { entity: "camera.front", start_unmuted: true };
+    const camera = { entity: "camera.front", start_unmuted_mobile: true };
     const host = {
+      _isLikelyPhoneClient: () => true,
       _activeCam: camera,
       _engine: null,
       _streamMuted: true,

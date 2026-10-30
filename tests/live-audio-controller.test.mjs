@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 
 import { LiveAudioController } from "../src/features/live/audio.ctrl.js";
 
-const createHarness = ({ readyState = 2, playError = null } = {}) => {
+const createHarness = ({
+  readyState = 2,
+  playError = null,
+  isMobilePhone = false,
+} = {}) => {
   const video = Object.assign(new EventTarget(), {
     muted: true,
     defaultMuted: true,
@@ -22,6 +26,7 @@ const createHarness = ({ readyState = 2, playError = null } = {}) => {
   });
   const host = {
     _activeCam: { entity: "camera.front", start_unmuted: true },
+    _isLikelyPhoneClient: () => isMobilePhone,
     _engine: engine,
     _streamMuted: true,
     _engineMountedMuted: true,
@@ -180,6 +185,34 @@ test("camera without the option remains muted", () => {
   assert.equal(h.controller.applyCameraStartPreference(), false);
   assert.equal(h.video.muted, true);
   assert.deepEqual(h.video.playStates, []);
+});
+
+test("PC/tablet startup audio ignores the mobile-phone preference", () => {
+  const h = createHarness();
+  h.controller.prepareCameraStart({
+    entity: "camera.front",
+    start_unmuted_mobile: true,
+  });
+  assert.equal(h.controller.applyCameraStartPreference(), false);
+  assert.equal(h.video.muted, true);
+});
+
+test("mobile-phone startup audio uses only the mobile-phone preference", async () => {
+  const h = createHarness({ isMobilePhone: true });
+  h.controller.prepareCameraStart({
+    entity: "camera.front",
+    start_unmuted: true,
+  });
+  assert.equal(h.controller.applyCameraStartPreference(), false);
+
+  h.controller.prepareCameraStart({
+    entity: "camera.front",
+    start_unmuted_mobile: true,
+  });
+  assert.equal(h.controller.applyCameraStartPreference(), true);
+  await Promise.resolve();
+  assert.equal(h.video.muted, false);
+  assert.deepEqual(h.video.playStates, [{ muted: false, readyState: 2 }]);
 });
 
 test("hidden documents do not apply configured audio", () => {
