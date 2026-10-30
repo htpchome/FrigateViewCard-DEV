@@ -1,5 +1,4 @@
 import {
-  resolveHlsStartup,
   resolveMseStartup,
   resolveWebRtcStartup,
 } from "./startup-policy.js";
@@ -170,15 +169,12 @@ export function createGo2RtcMounter({
     if (!WebSocketCtor || !mediaSourceCapability) return false;
     const { MediaSourceCtor, isTypeSupported } = mediaSourceCapability;
 
-    const wsUrl = await resolver.websocketUrlForEntity(entity);
-    if (!wsUrl || abortSignal?.aborted) return false;
-
     const video = createVideoElement(
       buildVideoOptionsForView(
         "live",
         {
           muted,
-          autoplay: false,
+          autoplay: true,
           controls: false,
         },
         { scopeKey },
@@ -192,7 +188,18 @@ export function createGo2RtcMounter({
       entity,
       isCurrent: () => !destroyed && !abortSignal?.aborted,
     }) === true;
-    video.autoplay = !selectedPlayback;
+
+    // ACC renders and targets the selected media element while its signed URL
+    // is still resolving. Preserve that lifecycle: the configured unmute/play
+    // action must reach the actual candidate before this first async boundary.
+    const wsUrl = await resolver.websocketUrlForEntity(entity);
+    if (!wsUrl || abortSignal?.aborted) {
+      destroyed = true;
+      releasePreparedPlayback?.(video);
+      video.remove?.();
+      return false;
+    }
+
     const mediaSource = new MediaSourceCtor();
     video.src = URL.createObjectURL(mediaSource);
     if (!selectedPlayback) startVideoPlayback(video);
@@ -398,9 +405,6 @@ export function createGo2RtcMounter({
     }
     if (!entity) return false;
 
-    const wsUrl = await resolver.websocketUrlForEntity(entity);
-    if (!wsUrl || abortSignal?.aborted) return false;
-
     const microphoneStream = options?.microphoneStream || null;
     const microphoneTrack = resolveMicrophoneTrack(microphoneStream);
     if (microphoneStream && !microphoneTrack) return false;
@@ -412,7 +416,7 @@ export function createGo2RtcMounter({
         "live",
         {
           muted: options?.muted ?? getStreamMuted(),
-          autoplay: false,
+          autoplay: true,
           controls: false,
         },
         { scopeKey },
@@ -426,7 +430,17 @@ export function createGo2RtcMounter({
       entity,
       isCurrent: () => !destroyed && !abortSignal?.aborted,
     }) === true;
-    video.autoplay = !selectedPlayback;
+
+    // Keep selected-media ownership on the element created during the initial
+    // mount turn, before signed websocket resolution yields control.
+    const wsUrl = await resolver.websocketUrlForEntity(entity);
+    if (!wsUrl || abortSignal?.aborted) {
+      destroyed = true;
+      releasePreparedPlayback?.(video);
+      video.remove?.();
+      return false;
+    }
+
     if (!selectedPlayback) startVideoPlayback(video);
     const pc = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
@@ -745,128 +759,8 @@ export function createGo2RtcMounter({
     });
   };
 
-  const tryMountHls = async (slot, startup = null, options = {}) => {
-    const { waitMs } = resolveHlsStartup(startup || {});
-    const { entity, abortSignal, commit } =
-      resolver.resolveMountRequest(options);
-    if (abortSignal?.aborted) return false;
-    if (!entity) return false;
-
-    const hlsSource = await resolver.hlsUrlForEntity(entity);
-    if (!hlsSource?.url || abortSignal?.aborted) {
-      try {
-        hlsSource?.destroy?.();
-      } catch (_) {}
-      return false;
-    }
-
-    const video = createVideoElement(
-      buildVideoOptionsForView(
-        "live",
-        {
-          muted: options?.muted ?? getStreamMuted(),
-          autoplay: false,
-          controls: false,
-        },
-        { scopeKey },
-      ),
-    );
-
-    let abortBound = false;
-    let destroyed = false;
-    mountNodeIntoSlot(slot, video);
-    attachVideoFit(video);
-    const selectedPlayback = prepareSelectedPlayback?.(video, {
-      entity,
-      isCurrent: () => !destroyed && !abortSignal?.aborted,
-    }) === true;
-    video.autoplay = !selectedPlayback;
-    video.src = hlsSource.url;
-    let streamStarted = false;
-    let recoveryScheduled = false;
-    let recoveryEnabled = commit;
-    const scheduleRecovery = (reason) => {
-      if (
-        destroyed ||
-        !streamStarted ||
-        !recoveryEnabled ||
-        recoveryScheduled
-      ) {
-        return;
-      }
-      recoveryScheduled = true;
-      scheduleResumeLive(reason);
-    };
-    video.addEventListener("error", () => scheduleRecovery("hls-error"));
-    video.addEventListener("ended", () => scheduleRecovery("hls-ended"));
-    const destroy = () => {
-      destroyed = true;
-      releasePreparedPlayback?.(video);
-      try {
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
-      } catch (_) {}
-      try {
-        hlsSource.destroy?.();
-      } catch (_) {}
-      try {
-        if (video.src?.startsWith("blob:")) URL.revokeObjectURL(video.src);
-      } catch (_) {}
-      if (abortSignal && abortBound) {
-        abortSignal.removeEventListener("abort", onAbort);
-        abortBound = false;
-      }
-    };
-
-    const onAbort = () => {
-      destroy();
-    };
-    if (abortSignal) {
-      abortSignal.addEventListener("abort", onAbort, { once: true });
-      abortBound = true;
-    }
-
-    const engine = {
-      video,
-      destroy,
-      activateRecovery: () => {
-        recoveryEnabled = true;
-        recoveryScheduled = false;
-      },
-      deactivateRecovery: () => {
-        recoveryEnabled = false;
-      },
-    };
-    if (commit) assignCommittedEngine(engine);
-    if (selectedPlayback) video.load?.();
-    else startVideoPlayback(video, { load: true });
-
-    const started = await waitForStreamStart(slot, waitMs, {
-      minCurrentTime: 0.05,
-      minDecodedFrames: 1,
-      requireReadyState: 2,
-      strict: false,
-      abortSignal,
-    });
-    if (!started) {
-      destroy();
-      return false;
-    }
-    streamStarted = true;
-
-    return resolveCommittedResult({
-      commit,
-      type: "hls",
-      engine,
-      slot,
-      onCommittedStream,
-    });
-  };
-
   return {
     tryMountMse,
     tryMountWebRtc,
-    tryMountHls,
   };
 }

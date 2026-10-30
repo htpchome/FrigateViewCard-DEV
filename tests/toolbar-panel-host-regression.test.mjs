@@ -49,6 +49,10 @@ const liveAudioControllerSource = fs.readFileSync(
   new URL("../src/features/live/audio.ctrl.js", import.meta.url),
   "utf8",
 );
+const muteHandlerSource = fs.readFileSync(
+  new URL("../src/features/live/mute-handler.js", import.meta.url),
+  "utf8",
+);
 const liveOverlayPresentationSource = fs.readFileSync(
   new URL(
     "../src/features/live/overlay-presentation.ctrl.js",
@@ -312,7 +316,7 @@ test("live controls keep a shared overlay including Mobile View mute", () => {
     true,
   );
   assert.equal(
-    liveAudioControllerSource.includes(
+    muteHandlerSource.includes(
       'button.classList.toggle("active", audioEnabled);',
     ),
     true,

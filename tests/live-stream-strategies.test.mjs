@@ -5,7 +5,6 @@ import {
   StreamStrategy,
   WebRtcStrategy,
   MseStrategy,
-  HlsStrategy,
   createStrategyForType,
 } from "../src/features/live/stream.strategies.js";
 
@@ -21,12 +20,6 @@ test("createStrategyForType returns protocol strategy classes", () => {
       type: "mse",
       connect: async () => ({ ok: true }),
     }) instanceof MseStrategy,
-  );
-  assert.ok(
-    createStrategyForType({
-      type: "hls",
-      connect: async () => ({ ok: true }),
-    }) instanceof HlsStrategy,
   );
   assert.ok(
     createStrategyForType({

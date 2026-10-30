@@ -175,7 +175,6 @@ function createBaseMounter(overrides = {}) {
   const resolver = {
     resolveMountRequest: () => ({ entity: "camera.front" }),
     websocketUrlForEntity: async () => "ws://example.test/api/ws",
-    hlsUrlForEntity: async () => ({ url: "https://example.test/live.m3u8" }),
     ...(overrides.resolver || {}),
   };
   return createGo2RtcMounter({
@@ -195,69 +194,6 @@ function createBaseMounter(overrides = {}) {
   });
 }
 
-test("go2rtc lets selected audio own the first play before media loads", async () => {
-  await withFakeDocument(() => withFakeObjectUrl(async () => {
-    const camera = { entity: "camera.front", start_unmuted: true };
-    const host = {
-      _activeCam: camera,
-      _engine: null,
-      _renderMuteButton() {},
-      _findVideoDeep: (engine) => engine?.video,
-    };
-    const audio = new LiveAudioController(host, { interactionTarget: null });
-    audio.prepareCameraStart(camera);
-    const requests = [];
-    const mounter = createBaseMounter({
-      resolver: {
-        resolveMountRequest: () => ({ entity: camera.entity, commit: true }),
-      },
-      getStreamMuted: () => host._streamMuted,
-      prepareSelectedPlayback: (video, options) =>
-        audio.prepareSelectedPlayback(video, options),
-      releasePreparedPlayback: (video) =>
-        audio.releasePreparedPlayback(video),
-      attachVideoFit: (video) => {
-        video.readyState = 0;
-        video.play = () => {
-          requests.push({
-            muted: video.muted,
-            defaultMuted: video.defaultMuted,
-            readyState: video.readyState,
-          });
-          return Promise.resolve();
-        };
-      },
-      assignCommittedEngine: (engine) => {
-        host._engine = engine;
-      },
-      waitForStreamStart: async (slot) => {
-        const video = slot.lastChild;
-        await flushMicrotasks();
-        assert.equal(video.autoplay, false);
-        assert.equal(video.muted, false);
-        assert.deepEqual(requests, [
-          { muted: false, defaultMuted: false, readyState: 0 },
-        ]);
-        video.readyState = 2;
-        video.dispatchEvent(new Event("loadeddata"));
-        return true;
-      },
-      onCommittedStream: () => audio.applyCameraStartPreference(),
-    });
-
-    const mounted = await mounter.tryMountHls(createSlot());
-    await Promise.resolve();
-
-    assert.equal(mounted, true);
-    assert.deepEqual(requests, [
-      { muted: false, defaultMuted: false, readyState: 0 },
-      { muted: false, defaultMuted: false, readyState: 2 },
-    ]);
-    assert.equal(host._streamMuted, false);
-    audio.dispose();
-  }));
-});
-
 test("go2rtc mounter MSE path exits when no mount entity resolves", async () => {
   const slot = createSlot();
   let wsLookups = 0;
@@ -274,6 +210,75 @@ test("go2rtc mounter MSE path exits when no mount entity resolves", async () => 
   const result = await withFakeWindow({}, () => mounter.tryMountMse(slot));
   assert.equal(result, false);
   assert.equal(wsLookups, 0);
+});
+
+test("go2rtc targets selected MSE media before websocket URL resolution", async () => {
+  await withFakeDocument(async () => {
+    const abortController = new AbortController();
+    let resolveWebSocketUrl;
+    const pendingWebSocketUrl = new Promise((resolve) => {
+      resolveWebSocketUrl = resolve;
+    });
+    const camera = { entity: "camera.front", start_unmuted: true };
+    const host = {
+      _activeCam: camera,
+      _engine: null,
+      _renderMuteButton() {},
+      _findVideoDeep: (engine) => engine?.video,
+    };
+    const audio = new LiveAudioController(host, { interactionTarget: null });
+    audio.prepareCameraStart(camera);
+    const requests = [];
+    const slot = createSlot();
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({
+          entity: camera.entity,
+          abortSignal: abortController.signal,
+          commit: false,
+        }),
+        websocketUrlForEntity: () => pendingWebSocketUrl,
+      },
+      getStreamMuted: () => host._streamMuted,
+      prepareSelectedPlayback: (video, options) =>
+        audio.prepareSelectedPlayback(video, options),
+      releasePreparedPlayback: (video) =>
+        audio.releasePreparedPlayback(video),
+      attachVideoFit: (video) => {
+        video.readyState = 0;
+        video.play = () => {
+          requests.push({ muted: video.muted, src: video.src });
+          return Promise.resolve();
+        };
+      },
+    });
+    class FakeMediaSource {
+      static isTypeSupported() {
+        return true;
+      }
+    }
+
+    const mount = withFakeWindow(
+      {
+        WebSocket: class {},
+        MediaSource: FakeMediaSource,
+      },
+      () => mounter.tryMountMse(slot),
+    );
+    await flushMicrotasks();
+
+    assert.equal(slot.appended.length, 1);
+    assert.equal(slot.autoplayAtAppend[0], true);
+    assert.equal(slot.mutedAtAppend[0], true);
+    assert.equal(slot.lastChild.muted, false);
+    assert.equal(slot.lastChild.autoplay, true);
+    assert.deepEqual(requests, [{ muted: false, src: "" }]);
+
+    abortController.abort();
+    resolveWebSocketUrl("ws://example.test/api/ws");
+    assert.equal(await mount, false);
+    audio.dispose();
+  });
 });
 
 test("go2rtc mounter WebRTC path exits when browser support is unavailable", async () => {
@@ -293,50 +298,117 @@ test("go2rtc mounter WebRTC path exits when browser support is unavailable", asy
   assert.equal(wsLookups, 0);
 });
 
-test("go2rtc mounter does not open WebRTC signaling after URL resolution was cancelled", async () => {
-  const abortController = new AbortController();
-  let releaseUrl;
-  let socketConstructions = 0;
-  let peerConstructions = 0;
-  class FakeWebSocket {
-    constructor() {
-      socketConstructions += 1;
-    }
-  }
-  class FakePeerConnection {
-    constructor() {
-      peerConstructions += 1;
-    }
-  }
-  const mounter = createBaseMounter({
-    resolver: {
-      resolveMountRequest: () => ({
-        entity: "camera.front",
-        abortSignal: abortController.signal,
-      }),
-      websocketUrlForEntity: async () =>
-        await new Promise((resolve) => {
-          releaseUrl = resolve;
+test("go2rtc targets selected WebRTC media before websocket URL resolution", async () => {
+  await withFakeDocument(async () => {
+    const abortController = new AbortController();
+    let resolveWebSocketUrl;
+    const pendingWebSocketUrl = new Promise((resolve) => {
+      resolveWebSocketUrl = resolve;
+    });
+    const camera = { entity: "camera.front", start_unmuted: true };
+    const host = {
+      _activeCam: camera,
+      _engine: null,
+      _renderMuteButton() {},
+      _findVideoDeep: (engine) => engine?.video,
+    };
+    const audio = new LiveAudioController(host, { interactionTarget: null });
+    audio.prepareCameraStart(camera);
+    const requests = [];
+    const slot = createSlot();
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({
+          entity: camera.entity,
+          abortSignal: abortController.signal,
+          commit: false,
         }),
-    },
+        websocketUrlForEntity: () => pendingWebSocketUrl,
+      },
+      getStreamMuted: () => host._streamMuted,
+      prepareSelectedPlayback: (video, options) =>
+        audio.prepareSelectedPlayback(video, options),
+      releasePreparedPlayback: (video) =>
+        audio.releasePreparedPlayback(video),
+      attachVideoFit: (video) => {
+        video.readyState = 0;
+        video.play = () => {
+          requests.push({ muted: video.muted, srcObject: video.srcObject });
+          return Promise.resolve();
+        };
+      },
+    });
+
+    const mount = withFakeWindow(
+      {
+        WebSocket: class {},
+        RTCPeerConnection: class {},
+      },
+      () => mounter.tryMountWebRtc(slot),
+    );
+    await flushMicrotasks();
+
+    assert.equal(slot.appended.length, 1);
+    assert.equal(slot.autoplayAtAppend[0], true);
+    assert.equal(slot.mutedAtAppend[0], true);
+    assert.equal(slot.lastChild.muted, false);
+    assert.equal(slot.lastChild.autoplay, true);
+    assert.deepEqual(requests, [{ muted: false, srcObject: undefined }]);
+
+    abortController.abort();
+    resolveWebSocketUrl("ws://example.test/api/ws");
+    assert.equal(await mount, false);
+    audio.dispose();
   });
+});
 
-  const result = await withFakeWindow(
-    {
-      WebSocket: FakeWebSocket,
-      RTCPeerConnection: FakePeerConnection,
-    },
-    async () => {
-      const mount = mounter.tryMountWebRtc(createSlot());
-      abortController.abort();
-      releaseUrl("ws://example.test/api/ws");
-      return await mount;
-    },
-  );
+test("go2rtc mounter does not open WebRTC signaling after URL resolution was cancelled", async () => {
+  await withFakeDocument(async () => {
+    const abortController = new AbortController();
+    let releaseUrl;
+    let socketConstructions = 0;
+    let peerConstructions = 0;
+    class FakeWebSocket {
+      constructor() {
+        socketConstructions += 1;
+      }
+    }
+    class FakePeerConnection {
+      constructor() {
+        peerConstructions += 1;
+      }
+    }
+    const mounter = createBaseMounter({
+      resolver: {
+        resolveMountRequest: () => ({
+          entity: "camera.front",
+          abortSignal: abortController.signal,
+        }),
+        websocketUrlForEntity: async () =>
+          await new Promise((resolve) => {
+            releaseUrl = resolve;
+          }),
+      },
+    });
 
-  assert.equal(result, false);
-  assert.equal(socketConstructions, 0);
-  assert.equal(peerConstructions, 0);
+    const result = await withFakeWindow(
+      {
+        WebSocket: FakeWebSocket,
+        RTCPeerConnection: FakePeerConnection,
+      },
+      async () => {
+        const mount = mounter.tryMountWebRtc(createSlot());
+        await flushMicrotasks();
+        abortController.abort();
+        releaseUrl("ws://example.test/api/ws");
+        return await mount;
+      },
+    );
+
+    assert.equal(result, false);
+    assert.equal(socketConstructions, 0);
+    assert.equal(peerConstructions, 0);
+  });
 });
 
 test("go2rtc mounter closes an in-flight WebRTC socket when cancelled", async () => {
@@ -725,60 +797,6 @@ test("go2rtc mounter MSE path supports ManagedMediaSource and starts playback", 
       result.engine.destroy();
       assert.deepEqual(revoked, ["blob:managed-media-source"]);
     });
-  });
-});
-
-test("go2rtc mounter HLS path commits the mounted engine on success", async () => {
-  await withFakeDocument(async () => {
-    const slot = createSlot();
-    let attached = 0;
-    let committedType = "";
-    let assignedEngine = null;
-    const recoveryReasons = [];
-    const mounter = createBaseMounter({
-      resolver: {
-        resolveMountRequest: () => ({ entity: "camera.front", commit: true }),
-        hlsUrlForEntity: async () => ({
-          url: "https://example.test/live.m3u8",
-          destroy: () => {},
-        }),
-      },
-      attachVideoFit: () => {
-        attached += 1;
-      },
-      assignCommittedEngine: (engine) => {
-        assignedEngine = engine;
-      },
-      onCommittedStream: (type) => {
-        committedType = type;
-      },
-      scheduleResumeLive: (reason) => recoveryReasons.push(reason),
-      waitForStreamStart: async (target, waitMs, opts) => {
-        assert.equal(target, slot);
-        assert.equal(
-          target.lastChild.src,
-          "https://example.test/live.m3u8",
-        );
-        assert.equal(waitMs, 5000);
-        assert.equal(opts.requireReadyState, 2);
-        return true;
-      },
-    });
-
-    const result = await withFakeWindow({}, () => mounter.tryMountHls(slot));
-    assert.equal(result, true);
-    assert.equal(attached, 1);
-    assert.equal(committedType, "hls");
-    assert.equal(slot.innerHTML, "");
-    assert.ok(assignedEngine);
-    assert.equal(assignedEngine.video, slot.lastChild);
-    assert.equal(assignedEngine.video.loadCalls, 1);
-    assert.equal(assignedEngine.video.playCalls, 1);
-    assignedEngine.video.dispatchEvent({ type: "error" });
-    assert.deepEqual(recoveryReasons, ["hls-error"]);
-    assignedEngine.destroy();
-    assignedEngine.video.dispatchEvent({ type: "ended" });
-    assert.deepEqual(recoveryReasons, ["hls-error"]);
   });
 });
 

@@ -151,7 +151,10 @@ export class WideViewCompanionController {
     const useGo2Rtc = this._host._shouldUseGo2RtcForEntity?.(entity);
     const connectionType = this._host._cameraConnectionType?.(entity);
     if (useGo2Rtc !== false && connectionType !== "ha_direct") {
-      return this.liveStreamHint();
+      const hint = this.liveStreamHint();
+      return hint === "hls"
+        ? (DEVICE_PROFILE.isIOS ? "webrtc" : "mse")
+        : hint;
     }
     if (this._host._isCatalyst?.() === true) return "hls";
     return "ha";

@@ -210,7 +210,7 @@ test("grid mode toolbar and runtime hooks are present", () => {
     true,
   );
   assert.equal(
-    ["tryMountWebRtc", "tryMountMse", "tryMountHls"].every((method) =>
+    ["tryMountWebRtc", "tryMountMse"].every((method) =>
       gridMediaControllerSource.includes(method),
     ),
     true,

@@ -5,7 +5,6 @@ import {
   resolveHaDirectMountUnavailableState,
   resolveHaDirectFailedState,
   resolveHaDirectReadyState,
-  resolveHlsStartup,
   resolveMseStartup,
   resolveWebRtcStartup,
 } from "../src/features/live/startup-policy.js";
@@ -26,11 +25,6 @@ test("resolveWebRtcStartup applies browser-agnostic defaults", () => {
   assert.equal(policy.minDecodedFrames, 1);
   assert.equal(policy.requireReadyState, 0);
   assert.equal(policy.strict, true);
-});
-
-test("resolveHlsStartup applies default wait and floor", () => {
-  assert.equal(resolveHlsStartup({}).waitMs, 5000);
-  assert.equal(resolveHlsStartup({ waitMs: 1 }).waitMs, 500);
 });
 
 test("resolveHaDirectMountUnavailableState clears loading and fallback", () => {

@@ -191,7 +191,7 @@ test("switch-camera cleanup keeps shell grace coordination and live race takeove
   );
   assert.match(
     attemptPlannerSource,
-    /const\s+DEFAULT_LIVE_ORDER\s*=\s*Object\.freeze\(\["webrtc",\s*"mse"\]\)[\s\S]*?const\s+order\s*=\s*forcedType\s*\?\s*\[forcedType\]\s*:\s*DEFAULT_LIVE_ORDER/,
+    /const\s+DEFAULT_LIVE_ORDER\s*=\s*Object\.freeze\(\["webrtc",\s*"mse"\]\)[\s\S]*?DEFAULT_LIVE_ORDER\.includes\(requestedType\)[\s\S]*?\?\s*\[requestedType\]/,
   );
 });
 

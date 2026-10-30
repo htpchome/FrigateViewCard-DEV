@@ -19,7 +19,7 @@ test("buildLiveAttemptPlan excludes HLS from automatic live startup", () => {
   );
 });
 
-test("buildLiveAttemptPlan keeps HLS available when explicitly forced", () => {
+test("buildLiveAttemptPlan rejects unsupported forced transports", () => {
   const attempts = buildLiveAttemptPlan({
     connectionType: "frigate_go2rtc",
     forcedType: "hls",
@@ -32,7 +32,7 @@ test("buildLiveAttemptPlan keeps HLS available when explicitly forced", () => {
 
   assert.deepEqual(
     attempts.map((attempt) => attempt.type),
-    ["hls"],
+    [],
   );
 });
 

@@ -176,3 +176,93 @@ test("iPhone WebKit repeats the selected action when go2rtc media loads", async 
     ],
   });
 });
+
+test("iPhone WebKit targets go2rtc WebRTC before websocket URL resolution", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    const [{ LiveAudioController }, { createGo2RtcMounter }] = await Promise.all([
+      import("/src/features/live/audio.ctrl.js"),
+      import("/src/features/live/go2rtc-mounter.js"),
+    ]);
+    const camera = { entity: "camera.front", start_unmuted: true };
+    const host = {
+      _activeCam: camera,
+      _engine: null,
+      _streamMuted: true,
+      _findVideoDeep: (engine) => engine?.video,
+      _renderMuteButton() {},
+    };
+    const controller = new LiveAudioController(host);
+    controller.prepareCameraStart(camera);
+    const abortController = new AbortController();
+    let resolveWebSocketUrl;
+    const pendingWebSocketUrl = new Promise((resolve) => {
+      resolveWebSocketUrl = resolve;
+    });
+    const playStates = [];
+    const slot = document.createElement("div");
+    document.body.append(slot);
+    const mounter = createGo2RtcMounter({
+      resolver: {
+        resolveMountRequest: () => ({
+          entity: camera.entity,
+          abortSignal: abortController.signal,
+          commit: false,
+        }),
+        websocketUrlForEntity: () => pendingWebSocketUrl,
+      },
+      getStreamMuted: () => host._streamMuted,
+      prepareSelectedPlayback: (video, options) =>
+        controller.prepareSelectedPlayback(video, options),
+      releasePreparedPlayback: (video) =>
+        controller.releasePreparedPlayback(video),
+      waitForStreamStart: async () => true,
+      attachVideoFit: (video) => {
+        Object.defineProperty(video, "readyState", {
+          configurable: true,
+          value: 0,
+        });
+        video.play = () => {
+          playStates.push({
+            muted: video.muted,
+            hasSource: Boolean(video.srcObject),
+          });
+          return Promise.resolve();
+        };
+      },
+      assignCommittedEngine: () => {},
+      onCommittedStream: () => {},
+      scheduleResumeLive: () => {},
+      isFirefox: () => false,
+      scopeKey: {},
+      resetMseDiagnostics: () => {},
+      markMseChunk: () => {},
+    });
+
+    const mount = mounter.tryMountWebRtc(slot);
+    for (let index = 0; index < 8; index += 1) await Promise.resolve();
+    const video = slot.querySelector("video");
+    const beforeResolution = {
+      hasVideo: Boolean(video),
+      muted: video?.muted,
+      autoplay: video?.autoplay,
+      playStates: [...playStates],
+    };
+    abortController.abort();
+    resolveWebSocketUrl("ws://example.test/api/ws");
+    const mounted = await mount;
+    controller.dispose();
+    slot.remove();
+    return { beforeResolution, mounted };
+  });
+
+  expect(state).toEqual({
+    beforeResolution: {
+      hasVideo: true,
+      muted: false,
+      autoplay: true,
+      playStates: [{ muted: false, hasSource: false }],
+    },
+    mounted: false,
+  });
+});

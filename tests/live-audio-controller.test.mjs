@@ -146,6 +146,7 @@ test("a loaded race candidate waits for selected-engine adoption", async () => {
   h.host._engine = h.engine;
   assert.equal(h.controller.applyCameraStartPreference(), true);
   await Promise.resolve();
+  await Promise.resolve();
   assert.deepEqual(h.video.playStates, [
     { muted: false, readyState: 0 },
     { muted: false, readyState: 2 },

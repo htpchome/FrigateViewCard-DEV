@@ -1,5 +1,4 @@
 import {
-  requiresNestedSignedHlsRequests,
   toAbsoluteSignedUrl,
   toWebSocketUrl,
 } from "../../shared/media/url-utils.js";
@@ -30,19 +29,4 @@ export async function buildSignedGo2RtcWebSocketUrl({
   const signedPath = await signHomeAssistantPath({ hass, path, expires });
   const abs = resolveAbsoluteSignedPath({ signedPath, origin });
   return toWebSocketUrl(abs);
-}
-
-export async function buildGo2RtcHlsProbeResult({
-  rawPath,
-  signedPath,
-  manifestUrl,
-  requiresNestedSignedHlsRequestsImpl = requiresNestedSignedHlsRequests,
-}) {
-  if (!requiresNestedSignedHlsRequestsImpl({ rawPath, signedPath })) {
-    return { url: manifestUrl, cacheable: true, destroy: null };
-  }
-  // Native HLS reloads changing playlists and segments itself. Home Assistant
-  // signs each HTTP path independently, so a frontend-only manifest cannot
-  // keep those future requests authenticated.
-  return null;
 }

@@ -390,15 +390,6 @@ export function createGo2RtcRaceMounter({
           },
           { commit: false, ...attemptOptions },
         ),
-      hls: (attemptOptions = {}) =>
-        mounter.tryMountHls(
-          hiddenSlot(),
-          { waitMs: 5000 },
-          {
-            commit: false,
-            ...attemptOptions,
-          },
-        ),
     };
 
     return buildLiveAttemptPlan({
@@ -527,7 +518,7 @@ export function createGo2RtcRaceMounter({
     probe,
   }) {
     if (!slot || !deferredAttempt || deferredAttempt.type !== "webrtc") return;
-    if (winnerType !== "mse" && winnerType !== "hls") return;
+    if (winnerType !== "mse") return;
     const pendingTimer = getPendingWebRtcTakeoverTimer?.();
     if (pendingTimer) {
       clearTimeout(pendingTimer);

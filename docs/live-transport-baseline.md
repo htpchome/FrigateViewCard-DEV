@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.58` keeps the ACC-aligned selected-media actions from dev.57 and
+aligns the earlier Frigate go2rtc lifecycle as well. WebRTC and MSE now create,
+mount, and target their selected `<video>` with `autoplay` already enabled
+before awaiting the signed go2rtc websocket URL. The element is mounted muted,
+then the selected-camera action unmutes it before requesting playback, matching
+ACC's rendered-provider order without delaying URL resolution or transport
+negotiation. Automatic startup audio and user mute actions now have separate
+`AutoUnmuteHandler` and `MuteHandler` owners behind the existing compatibility
+facade. The obsolete Frigate/go2rtc-native HLS
+probe and mounter are removed; the supported go2rtc plan is explicitly WebRTC
+and MSE. This does not change the Mac Catalyst exception: a configured
+`frigate_go2rtc` camera still resolves to the dedicated HA Direct native HLS
+path before transport startup. Physical Safari and iOS Companion testing
+remains authoritative for audible autoplay.
+
 `v1.1.10-dev.57` preserves ACC's required unmute-before-play order and fixes
 the larger selected-media pipeline around it. The configured player receives
 one action after selection and one action after loaded media; a go2rtc race

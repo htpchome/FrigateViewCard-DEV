@@ -791,9 +791,6 @@ test("Grid go2rtc media uses only the selected transport", async () => {
         tryMountWebRtc: async () => {
           throw new Error("unexpected WebRTC attempt");
         },
-        tryMountHls: async () => {
-          throw new Error("unexpected HLS attempt");
-        },
       },
     });
 

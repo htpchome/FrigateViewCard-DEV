@@ -2,15 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildGo2rtcHlsCandidates,
   buildGo2rtcWsPath,
   makeGo2rtcCacheKey,
 } from "../src/integrations/frigate/url.js";
 import {
   getFreshCachedValue,
-  isM3u8Response,
   isM3u8Url,
-  requiresNestedSignedHlsRequests,
   setCachedValue,
   toAbsoluteSignedUrl,
   toWebSocketUrl,
@@ -28,14 +25,6 @@ test("buildGo2rtcWsPath URL-encodes client and camera", () => {
   assert.equal(path, "/api/frigate/frig%20ate/mse/api/ws?src=front%2Fdoor");
 });
 
-test("buildGo2rtcHlsCandidates returns the supported HA go2rtc HLS candidate", () => {
-  const candidates = buildGo2rtcHlsCandidates({ clientId: "c", cam: "x" });
-  assert.deepEqual(candidates, [
-    "/api/frigate/c/go2rtc/api/stream.m3u8?src=x&mp4",
-  ]);
-});
-
-
 test("URL helpers convert signed and websocket URLs", () => {
   assert.equal(
     toAbsoluteSignedUrl({ signedPath: "/api/a", origin: "https://ha.local" }),
@@ -49,24 +38,6 @@ test("URL helpers convert signed and websocket URLs", () => {
     "https://edge/a",
   );
   assert.equal(toWebSocketUrl("https://ha.local/a"), "wss://ha.local/a");
-});
-
-test("requiresNestedSignedHlsRequests detects signed HA manifest paths", () => {
-  assert.equal(
-    requiresNestedSignedHlsRequests({
-      rawPath: "/api/frigate/frigate/go2rtc/api/stream.m3u8?src=front&mp4",
-      signedPath:
-        "/api/frigate/frigate/go2rtc/api/stream.m3u8?src=front&mp4&authSig=abc",
-    }),
-    true,
-  );
-  assert.equal(
-    requiresNestedSignedHlsRequests({
-      rawPath: "/api/frigate/frigate/go2rtc/api/stream.m3u8?src=front&mp4",
-      signedPath: "/api/frigate/frigate/go2rtc/api/stream.m3u8?src=front&mp4",
-    }),
-    false,
-  );
 });
 
 test("isM3u8Url recognizes playlist URLs", () => {
@@ -90,20 +61,5 @@ test("cache helpers read and write with expiry", () => {
   assert.equal(
     getFreshCachedValue({ cacheMap: map, cacheKey: "k", nowMs: 7001 }),
     undefined,
-  );
-});
-
-test("isM3u8Response recognizes playlist responses", () => {
-  assert.equal(
-    isM3u8Response({ contentType: "application/vnd.apple.mpegurl", url: "" }),
-    true,
-  );
-  assert.equal(
-    isM3u8Response({ contentType: "text/plain", url: "https://x/index.m3u8" }),
-    true,
-  );
-  assert.equal(
-    isM3u8Response({ contentType: "text/plain", url: "https://x/index.mp4" }),
-    false,
   );
 });

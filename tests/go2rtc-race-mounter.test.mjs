@@ -291,7 +291,6 @@ test("go2rtc race mounter excludes HLS from automatic startup", () => {
     mounter: {
       tryMountWebRtc: () => ({ ok: true }),
       tryMountMse: () => ({ ok: true }),
-      tryMountHls: () => ({ ok: true }),
     },
     resolveConnectionType: () => "frigate_go2rtc",
     getPendingMountDestroyers: () => [],
@@ -403,7 +402,6 @@ test("go2rtc race mounter adopts the fallback winner and retains deferred webrtc
             },
           };
         },
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
@@ -498,7 +496,6 @@ test("remembered MSE still plays when a fresh WebRTC attempt fails", async () =>
           mseCalls += 1;
           return { ok: true, type: "mse", slot, engine: { destroy() {} } };
         },
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => [],
@@ -554,7 +551,6 @@ test("WebRTC succeeds even when remembered MSE fails", async () => {
           }
           return false;
         },
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => [],
@@ -610,7 +606,6 @@ test("go2rtc race mounter evicts oldest strategy hints when cache is full", asyn
           mseCalls += 1;
           return { ok: true, type: "mse", slot, engine: { destroy() {} } };
         },
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => [],
@@ -776,7 +771,6 @@ test("go2rtc race mounter clears deferred webrtc after max hold window", async (
           slot,
           engine: { destroy() {} },
         }),
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
@@ -839,7 +833,6 @@ test("settling an old deferred attempt cannot clear a newer camera mount", async
           slot,
           engine: { destroy() {} },
         }),
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
@@ -920,7 +913,6 @@ test("race mounter can abort deferred WebRTC after shared cleanup handles are lo
           slot,
           engine: { destroy() {} },
         }),
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
@@ -993,7 +985,6 @@ test("race mounter delays a replacement WebRTC probe after a cancelled switch", 
           slot,
           engine: { destroy() {} },
         }),
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
@@ -1086,7 +1077,6 @@ test("forced WebRTC bypasses retry backoff after a genuine timeout", async () =>
           slot,
           engine: { destroy() {} },
         }),
-        tryMountHls: async () => false,
       },
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
@@ -1145,7 +1135,6 @@ test("mobile fast path does not start fallbacks when webrtc renders before the h
   };
   let webrtcCalls = 0;
   let mseCalls = 0;
-  let hlsCalls = 0;
   let adoptedType = "";
   try {
     const raceMounter = createGo2RtcRaceMounter({
@@ -1163,13 +1152,8 @@ test("mobile fast path does not start fallbacks when webrtc renders before the h
           mseCalls += 1;
           return false;
         },
-        tryMountHls: async () => {
-          hlsCalls += 1;
-          return false;
-        },
       },
       isMobile: true,
-      supportsNativeHlsPlayback: () => false,
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => [],
       setPendingMountDestroyers: () => {},
@@ -1195,7 +1179,6 @@ test("mobile fast path does not start fallbacks when webrtc renders before the h
     assert.equal(adoptedType, "webrtc");
     assert.equal(webrtcCalls, 1);
     assert.equal(mseCalls, 0);
-    assert.equal(hlsCalls, 0);
   } finally {
     globalThis.document = previousDocument;
   }
@@ -1208,7 +1191,6 @@ test("mobile hedges unreachable webrtc to MSE before the webrtc timeout", async 
   };
   let pendingDestroyers = [];
   let mseCalls = 0;
-  let hlsCalls = 0;
   let adoptedType = "";
   try {
     const raceMounter = createGo2RtcRaceMounter({
@@ -1221,13 +1203,8 @@ test("mobile hedges unreachable webrtc to MSE before the webrtc timeout", async 
           mseCalls += 1;
           return { ok: true, type: "mse", slot, engine: { destroy() {} } };
         },
-        tryMountHls: async () => {
-          hlsCalls += 1;
-          return false;
-        },
       },
       isMobile: true,
-      supportsNativeHlsPlayback: () => false,
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
       setPendingMountDestroyers: (next) => {
@@ -1257,69 +1234,7 @@ test("mobile hedges unreachable webrtc to MSE before the webrtc timeout", async 
     assert.equal(result, true);
     assert.equal(adoptedType, "mse");
     assert.equal(mseCalls, 1);
-    assert.equal(hlsCalls, 0);
     assert.ok(elapsedMs < 70);
-    await delay(90);
-  } finally {
-    globalThis.document = previousDocument;
-  }
-});
-
-test("mobile does not start HLS even when native HLS is available", async () => {
-  const previousDocument = globalThis.document;
-  globalThis.document = {
-    createElement: () => ({ style: {}, remove() {} }),
-  };
-  let pendingDestroyers = [];
-  let mseCalls = 0;
-  let hlsCalls = 0;
-  let adoptedType = "";
-  try {
-    const raceMounter = createGo2RtcRaceMounter({
-      mounter: {
-        tryMountWebRtc: async (slot) => {
-          await delay(80);
-          return { ok: false, type: "webrtc", slot, engine: { destroy() {} } };
-        },
-        tryMountMse: async (slot) => {
-          mseCalls += 1;
-          return { ok: true, type: "mse", slot, engine: { destroy() {} } };
-        },
-        tryMountHls: async (slot) => {
-          hlsCalls += 1;
-          return { ok: true, type: "hls", slot, engine: { destroy() {} } };
-        },
-      },
-      isMobile: true,
-      supportsNativeHlsPlayback: () => true,
-      resolveConnectionType: () => "frigate_go2rtc",
-      getPendingMountDestroyers: () => pendingDestroyers,
-      setPendingMountDestroyers: (next) => {
-        pendingDestroyers = next;
-      },
-      isMountTokenCurrent: () => true,
-      adoptMountedAttempt: (_slot, winner) => {
-        adoptedType = winner?.type || "";
-      },
-      waitForStreamStart: async () => true,
-      isCurrentWinnerEngine: () => true,
-      getPendingWebRtcTakeoverTimer: () => null,
-      setPendingWebRtcTakeoverTimer: () => {},
-      preferredWebRtcWaitMs: 0,
-      mobileFallbackHedgeMs: 20,
-      mobileDeferredWebRtcMaxHoldMs: 120,
-    });
-
-    const result = await raceMounter.mountWithRace({
-      slot: { appendChild() {} },
-      entity: "camera.mobile",
-      mountToken: 1,
-    });
-
-    assert.equal(result, true);
-    assert.equal(adoptedType, "mse");
-    assert.equal(mseCalls, 1);
-    assert.equal(hlsCalls, 0);
     await delay(90);
   } finally {
     globalThis.document = previousDocument;
@@ -1354,10 +1269,8 @@ test("mobile starts a remembered fallback immediately and upgrades to healthy we
           mseCalls += 1;
           return { ok: true, type: "mse", slot, engine: { destroy() {} } };
         },
-        tryMountHls: async () => false,
       },
       isMobile: true,
-      supportsNativeHlsPlayback: () => false,
       resolveConnectionType: () => "frigate_go2rtc",
       getPendingMountDestroyers: () => pendingDestroyers,
       setPendingMountDestroyers: (next) => {

@@ -3,14 +3,6 @@ export const toAbsoluteSignedUrl = ({ signedPath, origin }) =>
 
 export const toWebSocketUrl = (httpUrl) => httpUrl.replace(/^http/i, "ws");
 
-export const requiresNestedSignedHlsRequests = ({ rawPath, signedPath }) => {
-  const raw = String(rawPath || "").trim();
-  const signed = String(signedPath || "").trim();
-  if (!raw || !signed) return false;
-  if (raw === signed) return false;
-  return signed.includes("authSig=");
-};
-
 export const isM3u8Url = (url = "") =>
   String(url || "")
     .toLowerCase()
@@ -27,18 +19,6 @@ export const setCachedValue = ({ cacheMap, cacheKey, url, ttlMs, nowMs }) => {
     url,
     exp: nowMs + ttlMs,
   });
-};
-
-export const isM3u8Response = ({ contentType, url }) => {
-  const ct = String(contentType || "").toLowerCase();
-  return (
-    ct.includes("application/vnd.apple.mpegurl") ||
-    ct.includes("application/x-mpegurl") ||
-    ct.includes("audio/mpegurl") ||
-    String(url || "")
-      .toLowerCase()
-      .includes(".m3u8")
-  );
 };
 
 export const buildPopupMediaUrl = ({ baseUrl = "", cacheKey }) => {

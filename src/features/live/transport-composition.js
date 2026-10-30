@@ -64,7 +64,6 @@ export const createLiveTransportControllers = (
     discoverEntity: async (entity) => {
       await card._discoverOne(entity);
     },
-    supportsNativeHlsPlayback: () => card._supportsNativeHlsPlayback(),
   });
   const go2rtcTwoWayTalkBackchannel =
     resolvedFactories.createGo2RtcTwoWayTalkBackchannel({

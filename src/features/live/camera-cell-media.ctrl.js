@@ -15,7 +15,6 @@ const GRID_WEBRTC_PREFERRED_WAIT_MS = 500;
 
 const gridLiveAttemptStartup = (type) => {
   if (type === "webrtc") return { waitMs: 7000 };
-  if (type === "hls") return { waitMs: 5000 };
   return {
     waitMs: 4000,
     minCurrentTime: 0.05,
@@ -308,9 +307,7 @@ export class CameraCellMediaController {
       const mountMethod =
         liveStreamHint === "webrtc"
           ? "tryMountWebRtc"
-          : liveStreamHint === "hls"
-            ? "tryMountHls"
-            : "tryMountMse";
+          : "tryMountMse";
       const mount = this._host._go2rtcMounter?.[mountMethod];
       let result = false;
       try {
@@ -389,9 +386,7 @@ export class CameraCellMediaController {
         const mountMethod =
           type === "webrtc"
             ? "tryMountWebRtc"
-            : type === "hls"
-              ? "tryMountHls"
-              : "tryMountMse";
+            : "tryMountMse";
         return createStrategyForType({
           type,
           connect: async ({ abortSignal }) => {

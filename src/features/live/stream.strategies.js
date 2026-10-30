@@ -66,18 +66,11 @@ export class MseStrategy extends StreamStrategy {
   }
 }
 
-export class HlsStrategy extends StreamStrategy {
-  constructor(connect) {
-    super({ type: "hls", connect });
-  }
-}
-
 export const createStrategyForType = ({ type, connect }) => {
   const key = String(type || "")
     .trim()
     .toLowerCase();
   if (key === "webrtc") return new WebRtcStrategy(connect);
   if (key === "mse") return new MseStrategy(connect);
-  if (key === "hls") return new HlsStrategy(connect);
   return new StreamStrategy({ type: key || "unknown", connect });
 };

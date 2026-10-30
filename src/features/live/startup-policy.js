@@ -21,10 +21,6 @@ export const resolveWebRtcStartup = ({ startup = {} }) => ({
   strict: startup.strict !== false,
 });
 
-export const resolveHlsStartup = (startup = {}) => ({
-  waitMs: normalizeWaitMs(startup.waitMs, 5000),
-});
-
 export const resolveHaDirectMountUnavailableState = () => ({
   loading: false,
   fallbackVisible: false,

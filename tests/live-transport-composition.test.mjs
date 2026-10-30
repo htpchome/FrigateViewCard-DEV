@@ -101,7 +101,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     },
     _$: (selector) => (selector === "#engine" ? engineHost : null),
     _discoverOne: async (entity) => calls.push(["discover", entity]),
-    _supportsNativeHlsPlayback: () => true,
     _preferredStreamType: () => "webrtc",
     _findVideoDeep: () => null,
     _assignLiveEngine: (...args) => calls.push(["assign-engine", ...args]),

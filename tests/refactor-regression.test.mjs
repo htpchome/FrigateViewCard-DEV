@@ -280,6 +280,14 @@ const liveAudioControllerSource = fs.readFileSync(
   new URL("../src/features/live/audio.ctrl.js", import.meta.url),
   "utf8",
 );
+const autoUnmuteHandlerSource = fs.readFileSync(
+  new URL("../src/features/live/auto-unmute-handler.js", import.meta.url),
+  "utf8",
+);
+const muteHandlerSource = fs.readFileSync(
+  new URL("../src/features/live/mute-handler.js", import.meta.url),
+  "utf8",
+);
 const liveMediaPresentationControllerSource = fs.readFileSync(
   new URL(
     "../src/features/live/media-presentation.ctrl.js",
@@ -763,10 +771,10 @@ test("live transport ownership is pulled out of the card shell", () => {
   );
   assert.equal(
     go2rtcResolverSource.includes("buildGo2RtcHlsProbeResult"),
-    true,
+    false,
   );
   assert.equal(go2rtcResolverSource.includes("buildGo2rtcWsPath"), true);
-  assert.equal(go2rtcResolverSource.includes("buildGo2rtcHlsCandidates"), true);
+  assert.equal(go2rtcResolverSource.includes("buildGo2rtcHlsCandidates"), false);
   assert.equal(
     frigateBootstrapSource.includes("../../features/live/url-provider.js"),
     false,
@@ -785,7 +793,7 @@ test("live transport ownership is pulled out of the card shell", () => {
   );
   assert.equal(
     go2rtcMounterSource.includes("resolver.hlsUrlForEntity(entity)"),
-    true,
+    false,
   );
   assert.equal(
     haDirectMounterSource.includes(
@@ -1052,7 +1060,7 @@ test("live transport ownership is pulled out of the card shell", () => {
   );
 });
 
-test("live audio behavior is owned by its feature controller", () => {
+test("live audio behavior has explicit mute and auto-unmute owners", () => {
   assert.equal(
     cardSource.includes(
       'import {\n  getLiveAudioController,\n  LiveAudioController,\n} from "../features/live/audio.ctrl.js";',
@@ -1075,7 +1083,14 @@ test("live audio behavior is owned by its feature controller", () => {
   }
   assert.equal(cardSource.includes("setIncomingAudioMuted"), false);
   assert.equal(cardSource.includes("needsHaDirectRecovery"), false);
-  assert.equal(liveAudioControllerSource.includes("setIncomingAudioMuted"), true);
+  assert.equal(
+    liveAudioControllerSource.includes("new AutoUnmuteHandler(host"),
+    true,
+  );
+  assert.equal(liveAudioControllerSource.includes("new MuteHandler(host"), true);
+  assert.equal(liveAudioControllerSource.includes("setIncomingAudioMuted"), false);
+  assert.equal(autoUnmuteHandlerSource.includes("setIncomingAudioMuted"), true);
+  assert.equal(muteHandlerSource.includes("setIncomingAudioMuted"), true);
   assert.equal(
     liveAudioControllerSource.includes("needsHaDirectRecovery"),
     false,
@@ -1091,7 +1106,7 @@ test("live audio behavior is owned by its feature controller", () => {
     false,
   );
   assert.equal(
-    liveAudioControllerSource.includes("[120, 400, 900].forEach"),
+    muteHandlerSource.includes("[120, 400, 900].forEach"),
     true,
   );
 });
