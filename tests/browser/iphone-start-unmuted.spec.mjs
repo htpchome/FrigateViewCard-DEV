@@ -267,3 +267,128 @@ test("iPhone WebKit targets go2rtc WebRTC before websocket URL resolution", asyn
     mounted: false,
   });
 });
+
+test("iPhone WebKit retains classic MSE across an offscreen camera switch", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    const [{ createGo2RtcMounter }, { createLiveGraceController }] =
+      await Promise.all([
+        import("/src/features/live/go2rtc-mounter.js"),
+        import("/src/features/live/live-grace-controller.js"),
+      ]);
+
+    const OriginalWebSocket = window.WebSocket;
+    class FakeWebSocket extends EventTarget {
+      static OPEN = 1;
+
+      constructor() {
+        super();
+        this.readyState = FakeWebSocket.OPEN;
+      }
+
+      send() {}
+
+      close() {
+        this.readyState = 3;
+      }
+    }
+    window.WebSocket = FakeWebSocket;
+
+    const root = document.createElement("div");
+    const firstSlot = document.createElement("div");
+    const restoredSlot = document.createElement("div");
+    root.append(firstSlot, restoredSlot);
+    document.body.append(root);
+
+    let activeEngine = null;
+    let activeType = "mse";
+    try {
+      const mounter = createGo2RtcMounter({
+        resolver: {
+          resolveMountRequest: () => ({
+            entity: "camera.front",
+            abortSignal: null,
+            commit: false,
+          }),
+          websocketUrlForEntity: async () => "ws://example.test/api/ws",
+        },
+        getStreamMuted: () => true,
+        prepareSelectedPlayback: () => false,
+        releasePreparedPlayback: () => {},
+        waitForStreamStart: async () => true,
+        attachVideoFit: () => {},
+        assignCommittedEngine: () => {},
+        onCommittedStream: () => {},
+        scheduleResumeLive: () => {},
+        isFirefox: () => false,
+        scopeKey: {},
+        resetMseDiagnostics: () => {},
+        markMseChunk: () => {},
+      });
+      const result = await mounter.tryMountMse(firstSlot);
+      activeEngine = result.engine;
+      const originalVideo = result.engine.video;
+      const originalSource = originalVideo.currentSrc || originalVideo.src;
+
+      const grace = createLiveGraceController({
+        graceMs: 20000,
+        graceMax: 3,
+        getShadowRoot: () => root,
+        getScopeKey: () => ({}),
+        getPendingMountDestroyers: () => [],
+        setPendingMountDestroyers: () => {},
+        getEngine: () => activeEngine,
+        setEngine: (engine) => {
+          activeEngine = engine;
+        },
+        getActiveStreamType: () => activeType,
+        getStreamMuted: () => true,
+        setActiveStreamType: (type) => {
+          activeType = type;
+        },
+        setEngineMountedMuted: () => {},
+        attachVideoFit: () => {},
+        setStreamLoading: () => {},
+        setStreamFallbackVisible: () => {},
+      });
+
+      grace.cleanupEngine({ preserveLiveEntity: "camera.front" });
+      const entry = grace.takeGraceMseEntry("camera.front");
+      const adopted = grace.adoptGraceMseEngine(
+        restoredSlot,
+        entry?.engine,
+        "camera.front",
+      );
+      const restoredVideo = restoredSlot.querySelector("video");
+      const restoredSource = restoredVideo?.currentSrc || restoredVideo?.src;
+      const answer = {
+        adopted,
+        bothApisAvailable:
+          typeof window.MediaSource === "function" &&
+          typeof window.ManagedMediaSource === "function",
+        entity: activeEngine?.entity,
+        sameVideo: restoredVideo === originalVideo,
+        sourcePreserved:
+          Boolean(originalSource) && restoredSource === originalSource,
+        usesClassicObjectUrl:
+          restoredVideo?.srcObject == null &&
+          String(restoredSource || "").startsWith("blob:"),
+      };
+      grace.clearGracePool();
+      activeEngine?.destroy?.();
+      return answer;
+    } finally {
+      window.WebSocket = OriginalWebSocket;
+      root.remove();
+    }
+  });
+
+  expect(state.bothApisAvailable).toBe(true);
+  expect(state).toMatchObject({
+    adopted: true,
+    entity: "camera.front",
+    sameVideo: true,
+    sourcePreserved: true,
+    usesClassicObjectUrl: true,
+  });
+});

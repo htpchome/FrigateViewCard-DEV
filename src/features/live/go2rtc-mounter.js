@@ -49,8 +49,12 @@ function normalizeGo2RtcCodecs(value) {
 }
 
 function resolveMediaSourceCapability(browserWindow = globalThis.window) {
+  // Prefer classic MediaSource when both flavors exist. FrigateView retains
+  // camera players offscreen for quick switch-back reuse; ManagedMediaSource
+  // may throttle that hidden player, while ACC's single active surface does
+  // not exercise this lifecycle.
   const MediaSourceCtor =
-    browserWindow?.ManagedMediaSource || browserWindow?.MediaSource || null;
+    browserWindow?.MediaSource || browserWindow?.ManagedMediaSource || null;
   if (!MediaSourceCtor) return null;
 
   const isTypeSupportedImpl = MediaSourceCtor.isTypeSupported;
@@ -220,15 +224,6 @@ export function createGo2RtcMounter({
       mediaSourceObjectUrl = URL.createObjectURL(mediaSource);
       video.src = mediaSourceObjectUrl;
       video.srcObject = null;
-      mediaSource.addEventListener(
-        "sourceopen",
-        () => {
-          if (!mediaSourceObjectUrl) return;
-          URL.revokeObjectURL(mediaSourceObjectUrl);
-          mediaSourceObjectUrl = "";
-        },
-        { once: true },
-      );
     }
     if (!selectedPlayback) startVideoPlayback(video);
 
@@ -306,6 +301,7 @@ export function createGo2RtcMounter({
     const engine = {
       type: "frigate_go2rtc",
       streamType: "mse",
+      entity,
       video,
       ws,
       destroy,

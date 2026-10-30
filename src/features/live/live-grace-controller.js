@@ -51,8 +51,13 @@ export function createLiveGraceController({
   const terminalWebRtcStates = new Set(["closed", "failed", "disconnected"]);
   let graceEntrySequence = 0;
 
-  const isMseEngineReusable = (engine) => {
+  const isMseEngineReusable = (engine, expectedEntity = "") => {
     if (!engine?.video || !engine?.ws) return false;
+    const expectedKey = normalizeGraceEntityKey(expectedEntity);
+    if (
+      expectedKey &&
+      normalizeGraceEntityKey(engine.entity) !== expectedKey
+    ) return false;
     const wsState = Number(engine.ws.readyState);
     return !Number.isFinite(wsState) || wsState <= 1;
   };
@@ -175,7 +180,7 @@ export function createLiveGraceController({
   };
   const stashMseEngineForGrace = (entity, engine) => {
     const key = normalizeGraceEntityKey(entity);
-    if (!key || !engine?.video || !engine?.ws) return false;
+    if (!key || !isMseEngineReusable(engine, key)) return false;
     evictGraceMseEntry(key);
     engine.deactivateRecovery?.();
     ensureMseGraceHost().appendChild(engine.video);
@@ -257,7 +262,14 @@ export function createLiveGraceController({
           } catch (_) {}
           return null;
         }
-        if (!result?.ok || result.type !== "mse" || !result.engine) {
+        if (
+          !result?.ok ||
+          result.type !== "mse" ||
+          !isMseEngineReusable(result.engine, key)
+        ) {
+          try {
+            result?.engine?.destroy?.();
+          } catch (_) {}
           evictGraceMseEntry(key);
           return null;
         }
@@ -324,8 +336,8 @@ export function createLiveGraceController({
   const retainCatalystHlsEngine = (entity, engine) =>
     stashCatalystHlsEngineForRetention(entity, engine);
 
-  const adoptGraceMseEngine = (slot, engine) => {
-    if (!slot || !isMseEngineReusable(engine)) {
+  const adoptGraceMseEngine = (slot, engine, expectedEntity = "") => {
+    if (!slot || !isMseEngineReusable(engine, expectedEntity)) {
       try {
         engine?.destroy?.();
       } catch (_) {}

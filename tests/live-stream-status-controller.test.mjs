@@ -40,7 +40,8 @@ const createHost = () => {
     },
     _preferredStreamType: () => "webrtc",
     _shouldUseGo2RtcForEntity: () => true,
-    _refreshStreamFallbackImage: () => calls.push(["refresh-fallback"]),
+    _refreshStreamFallbackImage: (options) =>
+      calls.push(["refresh-fallback", options]),
     _renderCamSwitcher: () => calls.push(["render-camera-switcher"]),
     _renderStats: () => calls.push(["render-stats"]),
     _setLiveNativeControls: (enabled) =>
@@ -133,7 +134,10 @@ test("stream status applies fallback and resolved transport presentation", () =>
 
   controller.setFallbackVisible(true, true);
   assert.equal(fallback.hidden, false);
-  assert.deepEqual(calls, [["refresh-fallback"], ["resize"]]);
+  assert.deepEqual(calls, [
+    ["refresh-fallback", { preserveRenderedFrame: true }],
+    ["resize"],
+  ]);
 
   controller.applyResolvedState({
     loading: false,

@@ -2,6 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.62` keeps the dev.61 WebRTC offscreen decode and ready-stream
+transfer that enables configured startup audio in physical Safari and iOS
+Companion testing. It restores classic `MediaSource` preference when a browser
+exposes both classic and managed MSE. FrigateView retains camera players
+offscreen for short switch-back reuse, unlike ACC's single active surface;
+`ManagedMediaSource` can throttle that hidden lifecycle and must therefore be
+used only when classic `MediaSource` is unavailable. The classic object URL
+stays valid for the engine lifetime so moving the same video between its live
+slot and grace host cannot invalidate its source. Managed-only clients retain
+the required `srcObject` attachment and remote-playback restriction. This does
+not change transport order, WebRTC startup audio, HA Direct, or Catalyst.
+Snapshot fallback refreshes also preserve the rendered frame until the newly
+selected camera snapshot has decoded. Transport startup continues in parallel,
+avoiding a black or gray WebKit lead-in without delaying live playback.
+
 `v1.1.10-dev.58` keeps the ACC-aligned selected-media actions from dev.57 and
 aligns the earlier Frigate go2rtc lifecycle as well. WebRTC and MSE now create,
 mount, and target their selected `<video>` with `autoplay` already enabled

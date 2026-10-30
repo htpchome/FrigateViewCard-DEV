@@ -240,7 +240,7 @@ test("applyStreamFallbackVisibility wires refresh callback for fallback image", 
 test("applyStreamFallbackVisibilityForCard maps card runtime and triggers refresh", () => {
   const statusEl = { hidden: false };
   const fallbackEl = { hidden: true };
-  let refreshCalls = 0;
+  const refreshCalls = [];
   const card = {
     shadowRoot: {
       querySelector: (selector) => {
@@ -249,9 +249,7 @@ test("applyStreamFallbackVisibilityForCard maps card runtime and triggers refres
         return null;
       },
     },
-    _refreshStreamFallbackImage: () => {
-      refreshCalls += 1;
-    },
+    _refreshStreamFallbackImage: (options) => refreshCalls.push(options),
   };
 
   applyStreamFallbackVisibilityForCard({
@@ -261,13 +259,14 @@ test("applyStreamFallbackVisibilityForCard maps card runtime and triggers refres
   });
 
   assert.equal(fallbackEl.hidden, false);
-  assert.equal(refreshCalls, 1);
+  assert.deepEqual(refreshCalls, [{ preserveRenderedFrame: true }]);
 
   applyStreamFallbackVisibilityForCard({
     card: null,
     visible: true,
     refreshImage: true,
   });
+  assert.equal(refreshCalls.length, 1);
 });
 
 test("resolveSnapshotFallbackState shapes snapshot UI state", () => {

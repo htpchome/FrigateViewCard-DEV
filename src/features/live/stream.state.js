@@ -103,7 +103,10 @@ export const applyStreamFallbackVisibilityForCard = ({
     shadowRoot: card.shadowRoot,
     visible,
     refreshImage,
-    refreshFallbackImage: () => card._refreshStreamFallbackImage?.(),
+    // Keep the rendered snapshot in place while its replacement decodes.
+    // WebKit otherwise exposes the dark live stage during camera switches.
+    refreshFallbackImage: () =>
+      card._refreshStreamFallbackImage?.({ preserveRenderedFrame: true }),
   });
 };
 

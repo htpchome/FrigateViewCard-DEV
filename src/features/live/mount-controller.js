@@ -490,6 +490,7 @@ export function createLiveMountController({
           liveGraceController.adoptGraceMseEngine(
             slot,
             graceMseAction.graceMseEntry.engine,
+            targetEntity,
           )
         ) {
           return;
@@ -527,6 +528,7 @@ export function createLiveMountController({
                 liveGraceController.adoptGraceMseEngine(
                   slot,
                   pendingOutcome.engine,
+                  targetEntity,
                 )
               ) {
                 clearMountState();
@@ -557,6 +559,7 @@ export function createLiveMountController({
           liveGraceController.adoptGraceMseEngine?.(
             slot,
             editorHandoff.engine,
+            targetEntity,
           )
         ) {
           editorHandoff.commit?.();

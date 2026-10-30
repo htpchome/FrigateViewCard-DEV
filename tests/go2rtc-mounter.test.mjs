@@ -626,7 +626,7 @@ test("go2rtc mounter force-closes WebRTC signaling that never connects", async (
   });
 });
 
-test("go2rtc mounter prefers ManagedMediaSource and attaches it through srcObject", async () => {
+test("go2rtc mounter uses ManagedMediaSource when classic MediaSource is unavailable", async () => {
   await withFakeDocument(async () => {
     await withFakeObjectUrl(async (revoked) => {
       const mediaSources = [];
@@ -767,6 +767,7 @@ test("go2rtc mounter prefers ManagedMediaSource and attaches it through srcObjec
       assert.equal(result.type, "mse");
       assert.equal(result.engine.type, "frigate_go2rtc");
       assert.equal(result.engine.streamType, "mse");
+      assert.equal(result.engine.entity, "camera.front");
       assert.equal(slot.lastChild.playCalls >= 2, true);
       assert.equal(slot.lastChild.disableRemotePlayback, true);
       assert.equal(slot.lastChild.srcObject, mediaSources[0]);
@@ -799,6 +800,82 @@ test("go2rtc mounter prefers ManagedMediaSource and attaches it through srcObjec
       result.engine.destroy();
       assert.equal(slot.lastChild.srcObject, null);
       assert.deepEqual(revoked, []);
+    });
+  });
+});
+
+test("go2rtc mounter preserves classic MediaSource across retained-player moves", async () => {
+  await withFakeDocument(async () => {
+    await withFakeObjectUrl(async (revoked) => {
+      let classicInstances = 0;
+      let managedInstances = 0;
+
+      class FakeMediaSource {
+        static isTypeSupported() {
+          return true;
+        }
+
+        constructor() {
+          classicInstances += 1;
+          this.readyState = "closed";
+          this._listeners = new Map();
+        }
+
+        addEventListener(type, handler) {
+          this._listeners.set(type, handler);
+        }
+      }
+
+      class FakeManagedMediaSource extends FakeMediaSource {
+        constructor() {
+          super();
+          classicInstances -= 1;
+          managedInstances += 1;
+        }
+      }
+
+      class FakeWebSocket {
+        static OPEN = 1;
+
+        constructor() {
+          this.readyState = FakeWebSocket.OPEN;
+          this._listeners = new Map();
+        }
+
+        addEventListener(type, handler) {
+          this._listeners.set(type, handler);
+        }
+
+        send() {}
+
+        close() {
+          this.readyState = 3;
+        }
+      }
+
+      const slot = createSlot();
+      const mounter = createBaseMounter();
+      const result = await withFakeWindow(
+        {
+          MediaSource: FakeMediaSource,
+          ManagedMediaSource: FakeManagedMediaSource,
+          WebSocket: FakeWebSocket,
+        },
+        () => mounter.tryMountMse(slot),
+      );
+
+      assert.equal(result.ok, true);
+      assert.equal(classicInstances, 1);
+      assert.equal(managedInstances, 0);
+      assert.equal(slot.lastChild.src, "blob:managed-media-source");
+      assert.equal(slot.lastChild.srcObject, null);
+      assert.deepEqual(revoked, []);
+
+      // The same video can move between the live slot and grace host while its
+      // object URL remains valid. Only engine destruction releases it.
+      result.engine.destroy();
+      assert.equal(slot.lastChild.src, "");
+      assert.deepEqual(revoked, ["blob:managed-media-source"]);
     });
   });
 });

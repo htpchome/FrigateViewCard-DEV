@@ -1478,8 +1478,8 @@ export class FrigateViewCard extends HTMLElement {
     return getLiveFallbackController(this).loadAlternate(entity);
   }
 
-  async _refreshStreamFallbackImage() {
-    return await getLiveFallbackController(this).refreshImage();
+  async _refreshStreamFallbackImage(options = {}) {
+    return await getLiveFallbackController(this).refreshImage(options);
   }
 
   _startStreamFallbackLoadingRefresh(options = {}) {
