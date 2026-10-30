@@ -2,6 +2,15 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.72` restores Safari's `ManagedMediaSource` preference and classic
+MSE object-URL release at `sourceopen`, matching the browser-resource lifecycle
+used by ACC's go2rtc experimental provider. This supersedes dev.68's classic
+MSE override and dev.71's hidden-video pause experiment: retained cameras stay
+connected in the stationary deck with bounded buffers, while WebKit owns native
+buffer and decoder throttling. Exact-camera reuse, the three-entry retention
+limit, WebRTC startup, HA Direct, Catalyst, and snapshot aspect handling are
+unchanged.
+
 `v1.1.10-dev.71` retains the same three MSE WebSocket/MediaSource connections
 and continues appending their bounded live buffers, but pauses each hidden
 retained video. Only the selected MSE camera therefore consumes an active

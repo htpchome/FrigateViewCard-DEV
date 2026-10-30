@@ -34,22 +34,12 @@ export const createGracePendingEntry = ({ onExpire, graceMs }) => {
   return entry;
 };
 
-export const prepareEngineVideoForGraceHost = (
-  video,
-  { continuePlayback = true } = {},
-) => {
+export const prepareEngineVideoForGraceHost = (video) => {
   if (!video) return;
-  video.autoplay = continuePlayback;
   video.muted = true;
   video.controls = false;
   video.style.cssText = LIVE_DECK_VIDEO_STYLE;
-  if (continuePlayback) {
-    void video.play?.().catch?.(() => {});
-    return;
-  }
-  try {
-    if (video.paused !== true) video.pause?.();
-  } catch (_) {}
+  void video.play?.().catch?.(() => {});
 };
 
 export const prepareEngineVideoForLiveDeck = (video) => {

@@ -54,10 +54,10 @@ function normalizeGo2RtcCodecs(value) {
 }
 
 function resolveMediaSourceCapability(browserWindow = globalThis.window) {
-  // Retained players can be throttled when ManagedMediaSource is hidden on
-  // mobile WebKit. Prefer classic MSE when both implementations are present.
+  // Safari exposes both constructors. Prefer its managed implementation so
+  // WebKit can bound native decoder/buffer resources across retained players.
   const MediaSourceCtor =
-    browserWindow?.MediaSource || browserWindow?.ManagedMediaSource || null;
+    browserWindow?.ManagedMediaSource || browserWindow?.MediaSource || null;
   if (!MediaSourceCtor) return null;
 
   const isTypeSupportedImpl = MediaSourceCtor.isTypeSupported;
@@ -418,6 +418,10 @@ export function createGo2RtcMounter({
     mediaSource.addEventListener(
       "sourceopen",
       () => {
+        if (!managed && mediaSourceObjectUrl) {
+          URL.revokeObjectURL(mediaSourceObjectUrl);
+          mediaSourceObjectUrl = "";
+        }
         requestMse();
       },
       { once: true },

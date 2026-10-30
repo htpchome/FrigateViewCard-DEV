@@ -52,13 +52,6 @@ const createNode = () => ({
 
 const createMseEngine = (entity) => {
   const video = createNode();
-  video.autoplay = true;
-  video.paused = false;
-  video.pauseCalls = 0;
-  video.pause = () => {
-    video.pauseCalls += 1;
-    video.paused = true;
-  };
   video.play = () => Promise.resolve();
   video.setAttribute = () => {};
   video.removeAttribute = () => {};
@@ -133,8 +126,6 @@ test("MSE grace reuse preserves exact camera identity across three retained swit
   const first = activeEngine;
 
   controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
-  assert.equal(first.video.pauseCalls, 1);
-  assert.equal(first.video.autoplay, false);
   activeEngine = createMseEngine("camera.two");
   const second = activeEngine;
   controller.cleanupEngine({ preserveLiveEntity: "camera.two" });
@@ -265,8 +256,6 @@ test("rapid camera switches retain an in-progress MSE connection by entity", asy
   const entry = controller.takeGraceMseEntry("camera.one");
   assert.ok(entry?.promise);
   assert.equal(await entry.promise, pendingEngine);
-  assert.equal(pendingEngine.video.pauseCalls, 1);
-  assert.equal(pendingEngine.video.autoplay, false);
   assert.equal(
     controller.adoptGraceMseEngine(liveSlot, pendingEngine, "camera.one"),
     true,
