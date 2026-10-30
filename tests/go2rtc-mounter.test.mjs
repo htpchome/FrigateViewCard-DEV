@@ -268,10 +268,10 @@ test("go2rtc targets selected MSE media before websocket URL resolution", async 
     await flushMicrotasks();
 
     assert.equal(slot.appended.length, 1);
-    assert.equal(slot.autoplayAtAppend[0], true);
+    assert.equal(slot.autoplayAtAppend[0], false);
     assert.equal(slot.mutedAtAppend[0], true);
     assert.equal(slot.lastChild.muted, false);
-    assert.equal(slot.lastChild.autoplay, true);
+    assert.equal(slot.lastChild.autoplay, false);
     assert.deepEqual(requests, [{ muted: false, src: "" }]);
 
     abortController.abort();
@@ -349,10 +349,10 @@ test("go2rtc targets selected WebRTC media before websocket URL resolution", asy
     await flushMicrotasks();
 
     assert.equal(slot.appended.length, 1);
-    assert.equal(slot.autoplayAtAppend[0], true);
+    assert.equal(slot.autoplayAtAppend[0], false);
     assert.equal(slot.mutedAtAppend[0], true);
     assert.equal(slot.lastChild.muted, false);
-    assert.equal(slot.lastChild.autoplay, true);
+    assert.equal(slot.lastChild.autoplay, false);
     assert.deepEqual(requests, [{ muted: false, srcObject: undefined }]);
 
     abortController.abort();

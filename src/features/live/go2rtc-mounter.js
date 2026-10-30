@@ -173,8 +173,12 @@ export function createGo2RtcMounter({
       buildVideoOptionsForView(
         "live",
         {
-          muted,
-          autoplay: true,
+          // Match ACC's selected-media lifecycle: the element is born muted
+          // without native autoplay, then the mounted controller owns the
+          // unmute/play order. WebKit makes its autoplay decision from this
+          // initial state, before a source exists.
+          muted: true,
+          autoplay: false,
           controls: false,
         },
         { scopeKey },
@@ -188,6 +192,10 @@ export function createGo2RtcMounter({
       entity,
       isCurrent: () => !destroyed && !abortSignal?.aborted,
     }) === true;
+    if (!selectedPlayback) {
+      video.muted = Boolean(muted);
+      startVideoPlayback(video);
+    }
 
     // ACC renders and targets the selected media element while its signed URL
     // is still resolving. Preserve that lifecycle: the configured unmute/play
@@ -411,12 +419,15 @@ export function createGo2RtcMounter({
     const onMicrophoneSessionEnded =
       options?.onEnded || options?.onMicrophoneSessionEnded;
 
+    const muted = options?.muted ?? getStreamMuted();
     const video = createVideoElement(
       buildVideoOptionsForView(
         "live",
         {
-          muted: options?.muted ?? getStreamMuted(),
-          autoplay: true,
+          // Keep WebKit's initial element state identical to ACC: muted and
+          // explicitly controlled, never native-autoplay owned.
+          muted: true,
+          autoplay: false,
           controls: false,
         },
         { scopeKey },
@@ -430,6 +441,10 @@ export function createGo2RtcMounter({
       entity,
       isCurrent: () => !destroyed && !abortSignal?.aborted,
     }) === true;
+    if (!selectedPlayback) {
+      video.muted = Boolean(muted);
+      startVideoPlayback(video);
+    }
 
     // Keep selected-media ownership on the element created during the initial
     // mount turn, before signed websocket resolution yields control.

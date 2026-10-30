@@ -260,7 +260,7 @@ test("iPhone WebKit targets go2rtc WebRTC before websocket URL resolution", asyn
     beforeResolution: {
       hasVideo: true,
       muted: false,
-      autoplay: true,
+      autoplay: false,
       playStates: [{ muted: false, hasSource: false }],
     },
     mounted: false,
