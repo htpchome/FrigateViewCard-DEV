@@ -457,6 +457,8 @@ export class FrigateViewCard extends HTMLElement {
           this._findVideoDeep(this._engine),
         scheduleResumeLive: (reason) => this._scheduleResumeLive(reason),
         onFullscreenExit: () => this._scheduleRotateOverlayUpdate(),
+        resumeRetainedPlayback: (video) =>
+          getLiveAudioController(this).resumeRetainedPlayback(video),
       });
     bindCardGlobalEvents(this);
   }

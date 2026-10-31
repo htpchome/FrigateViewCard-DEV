@@ -119,6 +119,28 @@ export class MuteHandler {
     });
   }
 
+  resumeRetainedPlayback(preferredVideo = null) {
+    const host = this._host;
+    const engine = host._engine;
+    if (!engine) return false;
+
+    const currentVideo = engine.haDirectProvider === true
+      ? synchronizeHaCameraAudio(engine, host._streamMuted)
+      : host._findVideoDeep(engine) || engine.video || null;
+    const video = preferredVideo && preferredVideo.isConnected !== false
+      ? preferredVideo
+      : currentVideo;
+    if (!video?.play) return false;
+    if (typeof video.muted === "boolean") video.muted = host._streamMuted;
+    if (typeof video.defaultMuted === "boolean") {
+      video.defaultMuted = host._streamMuted;
+    }
+    if (!host._streamMuted && typeof video.volume === "number") {
+      video.volume = 1;
+    }
+    return video.play();
+  }
+
   syncButtons() {
     const host = this._host;
     const buttons = [

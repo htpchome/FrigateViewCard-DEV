@@ -322,6 +322,23 @@ test("Preview and Grid safety mutes do not replace user intent", async () => {
   assert.equal(h.video.muted, false);
 });
 
+test("retained fullscreen playback resumes without changing its mute state", async () => {
+  for (const muted of [true, false]) {
+    const h = createHarness();
+    h.host._streamMuted = muted;
+    h.video.muted = muted;
+    h.video.defaultMuted = muted;
+    h.video.volume = muted ? 0 : 1;
+
+    assert.equal(h.controller.resumeRetainedPlayback(h.video) instanceof Promise, true);
+    await Promise.resolve();
+    assert.equal(h.video.playStates.length, 1);
+    assert.equal(h.video.playStates[0].muted, muted);
+    assert.equal(h.video.muted, muted);
+    assert.equal(h.video.defaultMuted, muted);
+  }
+});
+
 test("two-way-talk audio changes do not replace user intent", () => {
   const manager = new MuteStateManager({ storage: createStorage() });
   const h = createHarness({ muteStateManager: manager });

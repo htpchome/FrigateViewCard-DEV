@@ -83,6 +83,22 @@ test("startup preference restores audio on the active HA child, not a hidden can
   h.controller.dispose();
 });
 
+test("retained HA Direct fullscreen playback resumes muted without replacing media", async () => {
+  const h = createHarness();
+  const provider = h.provider;
+  const player = h.player;
+  const stream = h.stream;
+
+  await h.controller.resumeRetainedPlayback(h.video);
+
+  assert.equal(h.video.playCalls, 1);
+  assert.equal(h.video.muted, true);
+  assert.equal(h.video.defaultMuted, true);
+  assert.equal(h.provider, provider);
+  assert.equal(h.player, player);
+  assert.equal(h.video.srcObject, stream);
+});
+
 test("pending HA audio sync ignores a previously selected provider", () => {
   const h = createHarness();
   h.controller.applyMuteChange(false);

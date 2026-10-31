@@ -68,6 +68,10 @@ export class LiveAudioController {
     this._mute.setMuted(muted, options);
   }
 
+  resumeRetainedPlayback(video) {
+    return this._mute.resumeRetainedPlayback(video);
+  }
+
   syncMuteButtons() {
     this._mute.syncButtons();
   }

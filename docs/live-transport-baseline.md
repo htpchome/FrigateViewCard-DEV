@@ -2,6 +2,16 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.85` keeps native iOS fullscreen exit recovery on the retained
+media element and its existing transport. The controller waits for inline
+presentation restoration and, during a bounded exit window, catches WebKit's
+final post-fullscreen `pause` in the next task through the existing live-audio
+owner. This preserves the selected mute state and resumes both go2rtc and HA
+Direct without remounting or reconnecting either transport. A later fullscreen
+button press also wakes that retained element inside the new entry gesture
+before WebKit opens its native player, so re-entry cannot inherit a paused
+inline presentation.
+
 `v1.1.10-dev.84` makes the retained HA Direct provider, its active HA player,
 and the nested video follow the projected presentation bounds. Fullscreen no
 longer leaves HA Direct at its pre-fullscreen card dimensions with the snapshot

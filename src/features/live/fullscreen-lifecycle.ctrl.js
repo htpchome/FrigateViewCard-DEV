@@ -5,6 +5,7 @@ export class LiveFullscreenLifecycleController {
     getCurrentVideo = () => null,
     scheduleResumeLive = () => {},
     onFullscreenExit = () => {},
+    resumeRetainedPlayback = (video) => video?.play?.(),
     requestFrame = (callback) =>
       typeof globalThis.requestAnimationFrame === "function"
         ? globalThis.requestAnimationFrame(callback)
@@ -16,17 +17,28 @@ export class LiveFullscreenLifecycleController {
       }
       globalThis.clearTimeout?.(frame);
     },
+    setTimer = (callback, delay) => globalThis.setTimeout?.(callback, delay),
+    clearTimer = (timer) => globalThis.clearTimeout?.(timer),
+    nativeExitRecoveryMs = 1500,
   } = {}) {
     this._getCurrentVideo = getCurrentVideo;
     this._scheduleResumeLive = scheduleResumeLive;
     this._onFullscreenExit = onFullscreenExit;
+    this._resumeRetainedPlayback = resumeRetainedPlayback;
     this._requestFrame = requestFrame;
     this._cancelFrame = cancelFrame;
+    this._setTimer = setTimer;
+    this._clearTimer = clearTimer;
+    this._nativeExitRecoveryMs = nativeExitRecoveryMs;
     this._sessionVideo = null;
     this._usesDocumentFullscreen = false;
     this._enteredDocumentFullscreen = false;
     this._nativeCleanup = new CleanupController();
+    this._exitCleanup = new CleanupController();
     this._resumeFrames = [];
+    this._exitRecoveryTimer = null;
+    this._pauseRecoveryTimer = null;
+    this._exitRecoveryVideo = null;
   }
 
   get active() {
@@ -46,6 +58,9 @@ export class LiveFullscreenLifecycleController {
   beginNativeVideoFullscreen(video = null) {
     this.cancel();
     this._sessionVideo = video;
+    // A previous native exit can leave the retained element paused. Wake it
+    // inside this fullscreen-button gesture before WebKit opens its player.
+    this._resumeVideo(video);
     this._nativeCleanup.addEventListener(
       video,
       "webkitendfullscreen",
@@ -74,6 +89,7 @@ export class LiveFullscreenLifecycleController {
     this._resumeFrames = [];
     this._nativeCleanup.dispose();
     this._nativeCleanup = new CleanupController();
+    this._stopExitRecovery();
     this._sessionVideo = null;
     this._usesDocumentFullscreen = false;
     this._enteredDocumentFullscreen = false;
@@ -92,6 +108,40 @@ export class LiveFullscreenLifecycleController {
     this._recoverAfterExit();
   };
 
+  _stopExitRecovery() {
+    this._exitCleanup.dispose();
+    this._exitCleanup = new CleanupController();
+    if (this._exitRecoveryTimer != null) {
+      this._clearTimer?.(this._exitRecoveryTimer);
+    }
+    if (this._pauseRecoveryTimer != null) {
+      this._clearTimer?.(this._pauseRecoveryTimer);
+    }
+    this._exitRecoveryTimer = null;
+    this._pauseRecoveryTimer = null;
+    this._exitRecoveryVideo = null;
+  }
+
+  _resumeVideo(video) {
+    if (!video?.play) return;
+    try {
+      const playResult = this._resumeRetainedPlayback?.(video);
+      playResult?.catch?.(() => {});
+    } catch (_) {}
+  }
+
+  _onNativeExitPause = () => {
+    const video = this._exitRecoveryVideo;
+    if (!video || this._pauseRecoveryTimer != null) return;
+    // WebKit dispatches its final pause while native fullscreen is still
+    // unwinding. Resume in the next task, after that native action completes.
+    this._pauseRecoveryTimer = this._setTimer?.(() => {
+      this._pauseRecoveryTimer = null;
+      if (video !== this._exitRecoveryVideo) return;
+      this._resumeVideo(video);
+    }, 0);
+  };
+
   _recoverAfterExit() {
     const sessionVideo = this._sessionVideo;
     const nativeVideoFullscreen = !this._usesDocumentFullscreen;
@@ -108,15 +158,12 @@ export class LiveFullscreenLifecycleController {
     }
 
     if (nativeVideoFullscreen) {
-      // iOS can report the retained video as playing while its native
-      // fullscreen presentation has actually left inline playback suspended.
-      // Restart the same media element while the exit gesture is still active;
-      // this does not recreate its WebRTC, MSE, or HA Direct transport.
-      try {
-        video.pause?.();
-        const playResult = video.play();
-        playResult?.catch?.(() => {});
-      } catch (_) {}
+      this._exitRecoveryVideo = video;
+      this._exitCleanup.addEventListener(video, "pause", this._onNativeExitPause);
+      this._exitRecoveryTimer = this._setTimer?.(
+        () => this._stopExitRecovery(),
+        this._nativeExitRecoveryMs,
+      );
     }
 
     // WebKit reports fullscreen exit before inline presentation is completely
@@ -124,10 +171,7 @@ export class LiveFullscreenLifecycleController {
     // of sending it through the general remount recovery path.
     const resume = () => {
       this._resumeFrames = [];
-      try {
-        const playResult = video.play();
-        playResult?.catch?.(() => {});
-      } catch (_) {}
+      this._resumeVideo(video);
     };
     const secondFrame = () => {
       const frame = this._requestFrame?.(resume);
