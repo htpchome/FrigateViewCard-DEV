@@ -617,6 +617,16 @@ export const STYLES_BEFORE_CARD_VIEW = `
   #live-stage:-webkit-full-screen{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#000;}
   #live-stage:fullscreen #eng-wrap,
   #live-stage:-webkit-full-screen #eng-wrap{width:100%;height:100%;max-height:none;aspect-ratio:auto;}
+  #live-stage:fullscreen #stream-fallback[hidden],
+  #live-stage:-webkit-full-screen #stream-fallback[hidden]{display:none !important;}
+  #live-stage:fullscreen :is(.camera-group-live-layout,.camera-group-live-pane--primary,#engine),
+  #live-stage:-webkit-full-screen :is(.camera-group-live-layout,.camera-group-live-pane--primary,#engine){width:100%;height:100%;max-width:none;max-height:none;}
+  #live-stage:fullscreen #engine > *,
+  #live-stage:-webkit-full-screen #engine > *{position:absolute;inset:0;width:100% !important;height:100% !important;max-width:none !important;max-height:none !important;}
+  #live-stage:fullscreen slot[name="fvc-ha-direct-provider-deck"],
+  #live-stage:-webkit-full-screen slot[name="fvc-ha-direct-provider-deck"]{position:absolute;inset:0;display:block;width:100%;height:100%;}
+  #live-stage:fullscreen slot[name="fvc-ha-direct-provider-deck"]::slotted(*),
+  #live-stage:-webkit-full-screen slot[name="fvc-ha-direct-provider-deck"]::slotted(*){position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;max-width:none !important;max-height:none !important;}
   #live-stage:fullscreen .live-resize-grip,
   #live-stage:-webkit-full-screen .live-resize-grip{display:none !important;}
   #viewer:fullscreen,

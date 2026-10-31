@@ -386,6 +386,14 @@ test("live markup and styles provide one unobtrusive unified resize grip", () =>
   assert.match(STYLES, /#live-stage:fullscreen \.live-resize-grip/);
   assert.match(
     STYLES,
+    /#live-stage:fullscreen #stream-fallback\[hidden\],[\s\S]*?display:none !important;/,
+  );
+  assert.match(
+    STYLES,
+    /slot\[name="fvc-ha-direct-provider-deck"\]::slotted\(\*\)[\s\S]*?width:100% !important;[\s\S]*?height:100% !important;/,
+  );
+  assert.match(
+    STYLES,
     /\.live-resize-grip\{[^}]*width:224px;height:44px;/,
   );
   assert.match(

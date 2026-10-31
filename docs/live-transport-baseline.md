@@ -2,6 +2,14 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.83` keeps the selected live player retained across fullscreen
+entry and exit. WebKit native-video exit waits for inline presentation to
+settle, then resumes the exact video that entered fullscreen; it no longer
+sends healthy go2rtc media through general stale-player recovery, which could
+force a reconnect. HA Direct resumes its same stationary player. Document
+fullscreen hides the inactive snapshot fallback and expands both card-owned
+and projected HA Direct live surfaces to the fullscreen stage.
+
 `v1.1.10-dev.81` restores the camera editor's Live Stream selector to full
 width and clarifies that selecting a live stream leaves events, snapshots,
 recordings, two-way talk, and PTZ on the main camera. The Two-Way Talk option

@@ -5,14 +5,28 @@ export class LiveFullscreenLifecycleController {
     getCurrentVideo = () => null,
     scheduleResumeLive = () => {},
     onFullscreenExit = () => {},
+    requestFrame = (callback) =>
+      typeof globalThis.requestAnimationFrame === "function"
+        ? globalThis.requestAnimationFrame(callback)
+        : globalThis.setTimeout?.(callback, 0),
+    cancelFrame = (frame) => {
+      if (typeof globalThis.cancelAnimationFrame === "function") {
+        globalThis.cancelAnimationFrame(frame);
+        return;
+      }
+      globalThis.clearTimeout?.(frame);
+    },
   } = {}) {
     this._getCurrentVideo = getCurrentVideo;
     this._scheduleResumeLive = scheduleResumeLive;
     this._onFullscreenExit = onFullscreenExit;
+    this._requestFrame = requestFrame;
+    this._cancelFrame = cancelFrame;
     this._sessionVideo = null;
     this._usesDocumentFullscreen = false;
     this._enteredDocumentFullscreen = false;
     this._nativeCleanup = new CleanupController();
+    this._resumeFrames = [];
   }
 
   get active() {
@@ -56,6 +70,8 @@ export class LiveFullscreenLifecycleController {
   }
 
   cancel() {
+    for (const frame of this._resumeFrames) this._cancelFrame?.(frame);
+    this._resumeFrames = [];
     this._nativeCleanup.dispose();
     this._nativeCleanup = new CleanupController();
     this._sessionVideo = null;
@@ -79,14 +95,32 @@ export class LiveFullscreenLifecycleController {
   _recoverAfterExit() {
     const sessionVideo = this._sessionVideo;
     this.cancel();
-
-    const currentVideo = this._getCurrentVideo?.() || sessionVideo;
-    try {
-      const playResult = currentVideo?.play?.();
-      if (playResult?.catch) playResult.catch(() => {});
-    } catch (_) {}
-
-    this._scheduleResumeLive?.("live-fullscreen-exit");
     this._onFullscreenExit?.();
+
+    const currentVideo = this._getCurrentVideo?.();
+    const video = sessionVideo?.isConnected !== false
+      ? sessionVideo
+      : currentVideo;
+    if (!video?.play) {
+      this._scheduleResumeLive?.("live-fullscreen-media-missing");
+      return;
+    }
+
+    // WebKit reports fullscreen exit before inline presentation is completely
+    // restored. Resume the exact retained player after that transition instead
+    // of sending it through the general remount recovery path.
+    const resume = () => {
+      this._resumeFrames = [];
+      try {
+        const playResult = video.play();
+        playResult?.catch?.(() => {});
+      } catch (_) {}
+    };
+    const secondFrame = () => {
+      const frame = this._requestFrame?.(resume);
+      if (frame != null) this._resumeFrames.push(frame);
+    };
+    const frame = this._requestFrame?.(secondFrame);
+    if (frame != null) this._resumeFrames.push(frame);
   }
 }
