@@ -109,6 +109,7 @@ test("camera live-stream selector is disabled for HA Direct without losing its s
   editor.querySelector = (query) => ({
     "#camera-modal-live-stream": selector,
     "#camera-modal-live-stream-helper": helper,
+    "#camera-modal-name": { value: "Driveway" },
   })[query] || null;
   editor._cameraModalConnectionTypeValue = () => "ha_direct";
   editor._cameraModalEntityValue = () => "camera.driveway";
@@ -132,9 +133,25 @@ test("camera live-stream selector is disabled for HA Direct without losing its s
     "editor.cameraModal.liveStreamGo2RtcOnly",
   );
   assert.deepEqual(selector.selector.select.options, [
-    { value: "__frigate_main_stream__", label: "Main Stream" },
+    { value: "__frigate_main_stream__", label: "Driveway (Main Stream)" },
     { label: "Sub Stream", value: "driveway_sub" },
   ]);
+});
+
+test("camera live-stream selector uses the entity name when no custom name exists", () => {
+  const editor = new FrigateViewCardEditor();
+  editor._hass = {
+    states: {
+      "camera.hall": { attributes: { friendly_name: "Hall" } },
+    },
+  };
+  editor.querySelector = (query) => ({
+    "#camera-modal-name": { value: "" },
+  })[query] || null;
+  editor._cameraModalEntityValue = () => "camera.hall";
+  editor._t = () => "Main Stream";
+
+  assert.equal(editor._cameraModalMainStreamLabel(), "Hall (Main Stream)");
 });
 
 test("camera deletion cancellation leaves the camera untouched", () => {

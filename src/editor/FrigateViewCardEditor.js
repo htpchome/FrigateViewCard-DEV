@@ -2114,6 +2114,17 @@ export class FrigateViewCardEditor extends HTMLElement {
     selector.dataset.value = selected;
   }
 
+  _cameraModalMainStreamLabel() {
+    const customName = String(
+      this.querySelector("#camera-modal-name")?.value || "",
+    ).trim();
+    const cameraName =
+      customName ||
+      this._cameraModalEntityLabel(this._cameraModalEntityValue());
+    const mainStream = this._t("editor.cameraModal.mainStream");
+    return cameraName ? `${cameraName} (${mainStream})` : mainStream;
+  }
+
   _syncCameraModalLiveStreamSelector() {
     const selector = this.querySelector("#camera-modal-live-stream");
     const helper = this.querySelector("#camera-modal-live-stream-helper");
@@ -2122,7 +2133,7 @@ export class FrigateViewCardEditor extends HTMLElement {
     const options = [
       {
         value: CAMERA_MODAL_MAIN_STREAM_VALUE,
-        label: this._t("editor.cameraModal.mainStream"),
+        label: this._cameraModalMainStreamLabel(),
       },
       ...(Array.isArray(this._cameraModalLiveStreamOptions)
         ? this._cameraModalLiveStreamOptions
@@ -5430,6 +5441,12 @@ export class FrigateViewCardEditor extends HTMLElement {
           this._saveCameraModal();
         }
       },
+    );
+    const cameraNameInput = this.querySelector("#camera-modal-name");
+    ["input", "value-changed", "change"].forEach((eventName) =>
+      cameraNameInput?.addEventListener(eventName, () => {
+        this._syncCameraModalLiveStreamSelector();
+      }),
     );
     this.querySelector("#camera-modal-entity")?.addEventListener(
       "value-changed",

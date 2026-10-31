@@ -8,26 +8,51 @@ import {
   resolveFrigateLiveStreamOptions,
 } from "../src/integrations/frigate/live-streams.js";
 
-test("Frigate live stream discovery excludes main and lists matching names first", () => {
+test("Frigate live stream discovery lists only the selected camera's suffixed streams", () => {
   const options = resolveFrigateLiveStreamOptions({
     driveway: {},
     garage: {},
     driveway_sub: {},
-    "driveway-low": {},
+    driveway_audio: {},
+    driveway_sky: {},
+    drivewaycustom: {},
+    driveway2_sub: {},
     alternate: {},
   }, "driveway");
 
   assert.deepEqual(options, [
-    { label: "driveway-low", value: "driveway-low" },
+    { label: "driveway_sky", value: "driveway_sky" },
     { label: "driveway_sub", value: "driveway_sub" },
-    { label: "alternate", value: "alternate" },
-    { label: "garage", value: "garage" },
+  ]);
+});
+
+test("Frigate live stream discovery does not confuse cameras with common name prefixes", () => {
+  assert.deepEqual(resolveFrigateLiveStreamOptions({
+    hall: {},
+    hall_sub: {},
+    hall_audio: {},
+    hallway_sub: {},
+    backyard: {},
+  }, "hall"), [
+    { label: "hall_sub", value: "hall_sub" },
+  ]);
+});
+
+test("Frigate live stream discovery excludes the camera's audio-only stream", () => {
+  assert.deepEqual(resolveFrigateLiveStreamOptions({
+    porch_audio: {},
+    porch_alt: {},
+    porch_audio_backup: {},
+  }, "porch"), [
+    { label: "porch_alt", value: "porch_alt" },
+    { label: "porch_audio_backup", value: "porch_audio_backup" },
   ]);
 });
 
 test("Frigate live stream discovery rejects malformed response bodies", () => {
   assert.deepEqual(resolveFrigateLiveStreamOptions([], "deck"), []);
   assert.deepEqual(resolveFrigateLiveStreamOptions(null, "deck"), []);
+  assert.deepEqual(resolveFrigateLiveStreamOptions({ _sub: {} }, ""), []);
 });
 
 test("configured go2rtc stream applies only to the primary camera entity", () => {

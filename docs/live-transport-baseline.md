@@ -2,13 +2,21 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.79` limits go2rtc stream discovery to the selected Frigate
+camera's suffixed streams. A camera named `hall` can list `hall_sub`,
+and custom names such as `hall_alt`, while the audio-only `hall_audio`,
+unrelated cameras, and prefix collisions such as `hallway_sub` are excluded.
+Main Stream remains the default and the live-only transport boundaries from
+dev.78 are unchanged. The default option uses the camera's display name, such
+as `Hall (Main Stream)`, so it remains unambiguous in the editor.
+
 `v1.1.10-dev.78` replaces the rejected Frigate configuration request with the
 official integration's supported go2rtc stream-list proxy. The editor lists
 the actual stream names reported by `/go2rtc/api/streams`, excludes the current
-camera's main stream, and orders names matching that camera first. This also
-keeps custom aliases selectable without claiming that the official integration
-exposes Frigate's `live.streams` configuration. The saved live-only override
-and all transport ownership boundaries from dev.76 are unchanged.
+camera's main stream, and uses matching names to identify selectable substreams.
+This avoids claiming that the official integration exposes Frigate's
+`live.streams` configuration. The saved live-only override and all transport
+ownership boundaries from dev.76 are unchanged.
 
 `v1.1.10-dev.77` corrects Frigate live-stream discovery to request Frigate's
 `/api/config` endpoint through the authenticated Home Assistant Frigate proxy.

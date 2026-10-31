@@ -778,7 +778,7 @@
       "liveStreamDiscoveryFailed": "Could not load streams from Frigate go2rtc. A saved selection is preserved.",
       "liveStreamUnavailable": "The saved live stream is not currently reported by go2rtc. Choose Main Stream or another available stream to replace it.",
       "liveStreamNoneConfigured": "No additional go2rtc streams are available.",
-      "liveStreamHelp": "Choose this camera's configured substream; matching stream names are listed first. Only live playback changes. Events, snapshots, recordings, and PTZ continue using the main camera.",
+      "liveStreamHelp": "Choose this camera's configured substream. Only suffixed video streams belonging to this camera are listed; its audio-only stream is excluded. Only live playback changes. Events, snapshots, recordings, and PTZ continue using the main camera.",
       "connectionGuideTitle": "Which connection should I use?",
       "connectionGuideIntro": "Frigate go2rtc starts each camera on demand when you select it or display it in a live multi-camera view, using card-managed WebRTC and MSE through the Home Assistant Frigate integration. Home Assistant (HA Direct) starts all cameras configured for that mode one at a time when the card loads, beginning with the selected camera, and retains their live connections.",
       "connectionComparison": "Connection capability comparison",

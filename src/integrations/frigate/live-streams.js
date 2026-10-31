@@ -8,31 +8,28 @@ export const normalizeFrigateGo2RtcStream = (value) => {
 
 export const resolveFrigateLiveStreamOptions = (streams, cameraName) => {
   const normalizedCameraName = normalizeText(cameraName);
-  if (!streams || typeof streams !== "object" || Array.isArray(streams)) {
+  if (
+    !normalizedCameraName ||
+    !streams ||
+    typeof streams !== "object" ||
+    Array.isArray(streams)
+  ) {
     return [];
   }
-  const cameraPrefix = normalizedCameraName.toLowerCase();
-  const relatedPrefix = `${cameraPrefix}_`;
-  const isRelated = (value) => {
-    const candidate = value.toLowerCase();
-    return (
-      candidate.startsWith(relatedPrefix) ||
-      candidate.startsWith(`${cameraPrefix}-`) ||
-      candidate.startsWith(`${cameraPrefix}.`)
-    );
-  };
-  const compare = (left, right) => {
-    const leftRelated = isRelated(left.value);
-    const rightRelated = isRelated(right.value);
-    if (leftRelated !== rightRelated) return leftRelated ? -1 : 1;
-    return left.value < right.value ? -1 : left.value > right.value ? 1 : 0;
-  };
+  const relatedPrefix = `${normalizedCameraName.toLowerCase()}_`;
+  const audioStream = `${normalizedCameraName.toLowerCase()}_audio`;
 
   return Object.keys(streams)
     .map((value) => normalizeFrigateGo2RtcStream(value))
-    .filter((value) => value && value !== normalizedCameraName)
+    .filter((value) => {
+      const normalizedValue = value.toLowerCase();
+      return (
+        normalizedValue.startsWith(relatedPrefix) &&
+        normalizedValue !== audioStream
+      );
+    })
     .map((value) => ({ label: value, value }))
-    .sort(compare);
+    .sort((left, right) => left.value.localeCompare(right.value));
 };
 
 export const fetchFrigateLiveStreamOptions = async ({
