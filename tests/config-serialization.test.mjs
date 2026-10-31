@@ -3284,6 +3284,8 @@ test("editor presents general, layout, and Mobile View controls in their request
     mobileSource,
     /mobile_view_rotate_to_fullscreen === true \? "checked" : ""/,
   );
+  assert.match(mobileSource, /Rotate to Fullscreen in Mobile App/);
+  assert.match(mobileSource, /Mobile browsers, tablets, editing, and card preview are excluded\./);
   assert.doesNotMatch(mobileSource, /id="ha_dashboard_swipe_navigation"/);
   const swipeStart = editorSource.indexOf("const swipeNavigationPanelContent");
   const swipeEnd = editorSource.indexOf("const cardViewPanelContent", swipeStart);

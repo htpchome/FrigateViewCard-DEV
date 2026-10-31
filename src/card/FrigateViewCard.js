@@ -1274,6 +1274,10 @@ export class FrigateViewCard extends HTMLElement {
     return DEVICE_PROFILE.isPhone;
   }
 
+  _isCompanionApp() {
+    return DEVICE_PROFILE.isCompanionApp === true;
+  }
+
   _isCatalyst() {
     return DEVICE_PROFILE.isCatalyst === true;
   }

@@ -694,8 +694,8 @@
     "mobileView": {
       "enable": "Seite „Mobile Ansicht“ aktivieren",
       "enableHelp": "Fügt die Mobile Ansicht auf allen Geräten zur Navigation und zu den Startseitenoptionen hinzu.",
-      "rotateToFullscreen": "Beim Drehen im Vollbild anzeigen",
-      "rotateToFullscreenHelp": "Auf Smartphones werden Livebild und Popup-Medien beim Drehen ins Querformat auf Vollbild erweitert. Beim Bearbeiten oder in der Kartenvorschau deaktiviert.",
+      "rotateToFullscreen": "In der mobilen App beim Drehen im Vollbild anzeigen",
+      "rotateToFullscreenHelp": "Auf Smartphones in der Home Assistant Companion App werden Livebild und Popup-Medien beim Drehen ins Querformat auf Vollbild erweitert. Mobile Browser, Tablets, Bearbeitung und Kartenvorschau sind ausgeschlossen.",
       "batterySaver": "Akkusparmodus für Mobilgeräte",
       "batterySaverHelp": "Prüft auf Mobilgeräten alle 60 Sekunden auf neue Alarme und Reviews, um Akku und Datenvolumen zu sparen.",
       "moveNavbarBottom": "HA-Navigationsleiste nach unten verschieben",

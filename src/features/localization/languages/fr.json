@@ -694,8 +694,8 @@
     "mobileView": {
       "enable": "Activer la page Vue mobile",
       "enableHelp": "Ajoute la Vue mobile à la navigation et aux options de page d'accueil sur tous les appareils.",
-      "rotateToFullscreen": "Plein écran lors de la rotation",
-      "rotateToFullscreenHelp": "Sur les téléphones, le passage en mode paysage agrandit la vidéo en direct et les médias des fenêtres contextuelles en plein écran. Désactivé pendant la modification ou l'aperçu de la carte.",
+      "rotateToFullscreen": "Plein écran lors de la rotation dans l’application mobile",
+      "rotateToFullscreenHelp": "Sur les téléphones utilisant l’application Companion Home Assistant pour iOS ou Android, le passage en mode paysage agrandit la vidéo en direct et les médias des fenêtres contextuelles en plein écran. Les navigateurs mobiles, les tablettes, la modification et l’aperçu de la carte sont exclus.",
       "batterySaver": "Économie de batterie sur mobile",
       "batterySaverHelp": "Recherche les nouvelles alertes et revues toutes les 60 secondes sur mobile afin d'économiser la batterie et les données.",
       "moveNavbarBottom": "Déplacer la barre de navigation HA en bas",

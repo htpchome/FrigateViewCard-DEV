@@ -245,9 +245,10 @@ test("mobile-device detection disables takeover before page defaults", () => {
   assert.equal(enabled, false);
 });
 
-test("rotate-to-fullscreen is limited to opted-in phones outside editor contexts", () => {
+test("rotate-to-fullscreen is limited to opted-in Companion App phones outside editor contexts", () => {
   const context = {
     _config: { mobile_view_rotate_to_fullscreen: true },
+    _isCompanionApp: () => true,
     _isLikelyPhoneClient: () => true,
     _isPreviewContext: () => false,
     _isDashboardEditMode: () => false,
@@ -264,6 +265,10 @@ test("rotate-to-fullscreen is limited to opted-in phones outside editor contexts
   assert.equal(enabled(), false);
 
   context._config.mobile_view_rotate_to_fullscreen = true;
+  context._isCompanionApp = () => false;
+  assert.equal(enabled(), false);
+
+  context._isCompanionApp = () => true;
   context._isLikelyPhoneClient = () => false;
   assert.equal(enabled(), false);
 

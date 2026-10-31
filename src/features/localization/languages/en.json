@@ -694,8 +694,8 @@
     "mobileView": {
       "enable": "Enable Mobile View Page",
       "enableHelp": "Adds Mobile View to navigation and landing-page options on all devices.",
-      "rotateToFullscreen": "Rotate to Fullscreen",
-      "rotateToFullscreenHelp": "On phones, landscape rotation expands live and popup media to fullscreen. Disabled while editing or previewing the card.",
+      "rotateToFullscreen": "Rotate to Fullscreen in Mobile App",
+      "rotateToFullscreenHelp": "On mobile phones in the iOS or Android Home Assistant Companion App, landscape rotation expands live and popup media to fullscreen. Mobile browsers, tablets, editing, and card preview are excluded.",
       "batterySaver": "Mobile Battery Saver",
       "batterySaverHelp": "Checks for new alerts and reviews every 60 seconds on mobile to reduce battery and data use.",
       "moveNavbarBottom": "Move HA Navbar to Bottom",

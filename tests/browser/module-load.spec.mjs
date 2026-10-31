@@ -1912,6 +1912,7 @@ test("rotated Mobile View inside Bubble fills the viewport above its backdrop", 
     const card = document.createElement("frigate-view-card");
     card._isLikelyMobileClient = () => true;
     card._isLikelyPhoneClient = () => true;
+    card._isCompanionApp = () => true;
     card.setConfig({
       cameras: [{ entity: "camera.front", name: "Front" }],
       mobile_view_page_enabled: true,
@@ -10510,6 +10511,7 @@ test.describe("touch input", () => {
         mobile_view_page_enabled: true,
         mobile_view_rotate_to_fullscreen: true,
       });
+      card._isCompanionApp = () => true;
       bubble.append(card);
       document.body.append(bubble);
       const backdrop = document.createElement("div");

@@ -297,6 +297,7 @@ export class LiveRotateOverlayController {
     const host = this._host;
     return (
       host._config?.mobile_view_rotate_to_fullscreen === true &&
+      host._isCompanionApp?.() === true &&
       host._isLikelyPhoneClient() &&
       !host._isPreviewContext() &&
       !host._isDashboardEditMode() &&

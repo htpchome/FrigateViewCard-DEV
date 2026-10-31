@@ -694,8 +694,8 @@
     "mobileView": {
       "enable": "Attiva pagina Vista mobile",
       "enableHelp": "Aggiunge Vista mobile alla navigazione e alle opzioni della pagina iniziale su tutti i dispositivi.",
-      "rotateToFullscreen": "Ruota a schermo intero",
-      "rotateToFullscreenHelp": "Sui telefoni, la rotazione in orizzontale espande la diretta e i contenuti dei popup a schermo intero. Disattivata durante la modifica o l'anteprima della scheda.",
+      "rotateToFullscreen": "Ruota a schermo intero nell’app mobile",
+      "rotateToFullscreenHelp": "Sui telefoni con l’app Companion di Home Assistant per iOS o Android, la rotazione in orizzontale espande la diretta e i contenuti dei popup a schermo intero. Sono esclusi browser mobili, tablet, modifica e anteprima della scheda.",
       "batterySaver": "Risparmio batteria su mobile",
       "batterySaverHelp": "Controlla nuovi avvisi e revisioni ogni 60 secondi sui dispositivi mobili per ridurre il consumo di batteria e dati.",
       "moveNavbarBottom": "Sposta barra di navigazione HA in basso",

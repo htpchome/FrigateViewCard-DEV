@@ -146,6 +146,7 @@ test("navbar activation recognizes local, rotation, and dashboard-wide needs", (
     cardNeedsNavbarModule({
       _config: { mobile_view_rotate_to_fullscreen: true },
       _isLikelyMobileClient: () => true,
+      _isCompanionApp: () => true,
       _isLikelyPhoneClient: () => true,
     }),
     true,
@@ -154,7 +155,17 @@ test("navbar activation recognizes local, rotation, and dashboard-wide needs", (
     cardNeedsNavbarModule({
       _config: { mobile_view_rotate_to_fullscreen: true },
       _isLikelyMobileClient: () => true,
+      _isCompanionApp: () => true,
       _isLikelyPhoneClient: () => false,
+    }),
+    false,
+  );
+  assert.equal(
+    cardNeedsNavbarModule({
+      _config: { mobile_view_rotate_to_fullscreen: true },
+      _isLikelyMobileClient: () => true,
+      _isCompanionApp: () => false,
+      _isLikelyPhoneClient: () => true,
     }),
     false,
   );

@@ -694,8 +694,8 @@
     "mobileView": {
       "enable": "Activa la pàgina de vista mòbil",
       "enableHelp": "Afegeix la vista mòbil a la navegació i a les opcions de pàgina inicial en tots els dispositius.",
-      "rotateToFullscreen": "Pantalla completa en girar",
-      "rotateToFullscreenHelp": "Als telèfons, en girar a horitzontal, el directe i el contingut de la finestra emergent passen a pantalla completa. Desactivat durant l'edició o la vista prèvia de la targeta.",
+      "rotateToFullscreen": "Pantalla completa en girar a l’aplicació mòbil",
+      "rotateToFullscreenHelp": "Als telèfons amb l’aplicació Companion de Home Assistant per a iOS o Android, en girar a horitzontal, el directe i el contingut de la finestra emergent passen a pantalla completa. S’exclouen els navegadors mòbils, les tauletes, l’edició i la vista prèvia de la targeta.",
       "batterySaver": "Estalvi de bateria al mòbil",
       "batterySaverHelp": "Comprova si hi ha alertes i revisions noves cada 60 segons al mòbil per estalviar bateria i dades.",
       "moveNavbarBottom": "Mou la barra de navegació de HA a baix",

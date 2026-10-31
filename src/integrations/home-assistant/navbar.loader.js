@@ -33,11 +33,19 @@ const hostIsPhone = (host, options) => {
     : options?.isPhone === true;
 };
 
+const hostIsCompanionApp = (host, options) => {
+  const detected = host?._isCompanionApp?.();
+  return typeof detected === "boolean"
+    ? detected
+    : options?.isCompanionApp === true;
+};
+
 export const cardNeedsNavbarModule = (host, options = {}) => {
   if (!hostIsMobile(host, options)) return false;
   if (host?._config?.mobile_view_ha_navbar_bottom === true) return true;
   if (
     host?._config?.mobile_view_rotate_to_fullscreen === true &&
+    hostIsCompanionApp(host, options) &&
     hostIsPhone(host, options)
   ) {
     return true;

@@ -295,8 +295,8 @@
       "mobile": "Celular"
     },
     "mobileView": {
-      "rotateToFullscreen": "Girar para tela cheia",
-      "rotateToFullscreenHelp": "Nos celulares, girar o aparelho para a horizontal expande o vídeo ao vivo e a mídia das janelas para tela cheia. Desativado durante a edição ou prévia do cartão.",
+      "rotateToFullscreen": "Girar para tela cheia no aplicativo móvel",
+      "rotateToFullscreenHelp": "Nos celulares com o aplicativo Companion do Home Assistant para iOS ou Android, girar o aparelho para a horizontal expande o vídeo ao vivo e a mídia das janelas para tela cheia. Navegadores móveis, tablets, edição e prévia do cartão são excluídos.",
       "batterySaver": "Economia de bateria no celular",
       "batterySaverHelp": "Verifica novos alertas e revisões a cada 60 segundos no celular para poupar bateria e dados.",
       "moveNavbarBottomHelp": "Move a barra de navegação do painel do Home Assistant para a parte inferior nos celulares.",

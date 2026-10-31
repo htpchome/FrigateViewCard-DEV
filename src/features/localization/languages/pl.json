@@ -694,8 +694,8 @@
     "mobileView": {
       "enable": "Włącz stronę widoku mobilnego",
       "enableHelp": "Dodaje widok mobilny do nawigacji i opcji strony startowej na wszystkich urządzeniach.",
-      "rotateToFullscreen": "Pełny ekran po obróceniu",
-      "rotateToFullscreenHelp": "Na telefonach obrót do poziomu rozszerza obraz na żywo i multimedia w oknie na pełny ekran. Wyłączone podczas edycji lub podglądu karty.",
+      "rotateToFullscreen": "Pełny ekran po obróceniu w aplikacji mobilnej",
+      "rotateToFullscreenHelp": "Na telefonach z aplikacją Companion Home Assistant dla iOS lub Android obrót do poziomu rozszerza obraz na żywo i multimedia w oknie na pełny ekran. Przeglądarki mobilne, tablety, edycja i podgląd karty są wykluczone.",
       "batterySaver": "Oszczędzanie baterii na urządzeniach mobilnych",
       "batterySaverHelp": "Na urządzeniach mobilnych sprawdza nowe alerty i przeglądy co 60 sekund, aby ograniczyć zużycie baterii i danych.",
       "moveNavbarBottom": "Przenieś pasek nawigacji HA na dół",
