@@ -1099,10 +1099,8 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
     connectionSection.indexOf('id="camera-modal-connection-help"') <
       connectionSection.indexOf('id="camera-modal-live-stream"'),
   );
-  assert.match(
-    editorStylesSource,
-    /\.camera-modal-live-stream-control\{[^}]*width:50%;[^}]*margin-inline-start:auto;/,
-  );
+  assert.doesNotMatch(connectionSection, /camera-modal-live-stream-control/);
+  assert.doesNotMatch(editorStylesSource, /camera-modal-live-stream-control/);
   assert.match(connectionSection, /<table class="camera-connection-table">/);
   for (const feature of [
     "WebRTC",
@@ -1117,6 +1115,36 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
   assert.match(connectionSection, /camera-connection-capability--yes/);
   assert.match(connectionSection, /camera-connection-capability--limited/);
   assert.match(connectionSection, /camera-connection-capability--no/);
+  assert.match(
+    source,
+    /id="camera-modal-two-way-talk-toggle-row"[^>]*>[\s\S]*?class="layout-row cam-modal-toggle-row"[\s\S]*?class="cam-modal-toggle-copy"[\s\S]*?id="camera-modal-two-way-talk-enabled"/,
+  );
+  assert.doesNotMatch(
+    source,
+    /id="camera-modal-two-way-talk-toggle-row"[^>]*>[\s\S]*?justify-content:flex-start;gap:8px/,
+  );
+  assert.match(
+    source,
+    /class="general-toggle-field">[\s\S]*?class="layout-row">[\s\S]*?id="event_pre_post_roll_enabled"/,
+  );
+  assert.match(
+    source,
+    /class="general-toggle-field">[\s\S]*?class="layout-row">[\s\S]*?id="favorites_mixed_cameras"/,
+  );
+  assert.match(
+    editorStylesSource,
+    /\.general-toggle-field\{[^}]*width:100%;[^}]*flex-direction:column;/,
+  );
+  for (const toggleId of [
+    "slideshow_rotation_enabled",
+    "grid_mode_enabled",
+    "grid_live_view_enabled",
+  ]) {
+    assert.match(
+      source,
+      new RegExp(`class="general-toggle-field"[^>]*>[\\s\\S]*?class="layout-row"[^>]*>[\\s\\S]*?id="${toggleId}"`),
+    );
+  }
   assert.match(
     connectionSection,
     /Frigate go2rtc starts each camera on demand when you select it or display it in a live multi-camera view/,

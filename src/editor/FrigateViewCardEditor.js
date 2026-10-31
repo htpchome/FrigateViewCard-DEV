@@ -4130,23 +4130,19 @@ export class FrigateViewCardEditor extends HTMLElement {
             <div class="field-helper" id="alerts_reviews_days-helper"></div>
           </div>
         </div>
-        <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px">
-          <div style="display:flex;flex-direction:column;gap:6px;max-width:460px">
-            <div class="layout-row" style="justify-content:flex-start;gap:8px">
+        <div class="general-toggle-field">
+            <div class="layout-row">
               <span class="field-label" style="margin:0" data-fvc-i18n="editor.general.enablePrePostRoll">Enable Pre-Roll/Post-Roll</span>
               <ha-switch id="event_pre_post_roll_enabled" ${this._config?.event_pre_post_roll_enabled ? "checked" : ""}></ha-switch>
             </div>
             <div class="field-helper" data-fvc-i18n="editor.general.prePostRollHelp" data-fvc-i18n-values="${escapeHtmlAttribute(JSON.stringify({ seconds: EVENT_PRE_POST_ROLL_SECONDS }))}">Adds ${EVENT_PRE_POST_ROLL_SECONDS} seconds before and after alert and clip playback or downloads. Requires Frigate recordings.</div>
-          </div>
         </div>
-        <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px">
-          <div style="display:flex;flex-direction:column;gap:6px;max-width:460px">
-            <div class="layout-row" style="justify-content:flex-start;gap:8px">
+        <div class="general-toggle-field">
+            <div class="layout-row">
               <span class="field-label" style="margin:0" data-fvc-i18n="editor.general.favoritesAllCameras">Favorites from All Cameras</span>
               <ha-switch id="favorites_mixed_cameras" ${this._config?.favorites_mixed_cameras !== false ? "checked" : ""}></ha-switch>
             </div>
             <div class="field-helper" data-fvc-i18n="editor.general.favoritesAllCamerasHelp">Shows favorites from all configured cameras. Turn off to show only the active camera.</div>
-          </div>
         </div>
       </div>
       <div class="section">
@@ -4366,8 +4362,8 @@ export class FrigateViewCardEditor extends HTMLElement {
     const slideshowPanelContent = `
       <div class="section">
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
-          <div style="display:flex;flex-direction:column;gap:6px;max-width:420px">
-            <div class="layout-row" style="justify-content:flex-start;gap:8px">
+          <div class="general-toggle-field">
+            <div class="layout-row">
               <span class="field-label" style="margin:0" data-fvc-i18n="editor.slideshow.enable">Enable Slideshow Mode</span>
               <ha-switch id="slideshow_rotation_enabled" ${this._config?.slideshow_rotation_enabled ? "checked" : ""}></ha-switch>
             </div>
@@ -4723,8 +4719,8 @@ export class FrigateViewCardEditor extends HTMLElement {
     const gridviewPanelContent = `
       <div class="section">
         <div class="layout-row" style="align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-start">
-          <div style="display:flex;flex-direction:column;gap:6px;max-width:420px">
-            <div class="layout-row" style="justify-content:flex-start;gap:8px">
+          <div class="general-toggle-field">
+            <div class="layout-row">
               <span class="field-label" style="margin:0" data-fvc-i18n="editor.grid.enable">Enable Grid Mode</span>
               <ha-switch id="grid_mode_enabled" ${this._config?.grid_mode_enabled ? "checked" : ""}></ha-switch>
             </div>
@@ -4739,8 +4735,8 @@ export class FrigateViewCardEditor extends HTMLElement {
             <div class="field-helper" data-fvc-i18n="editor.grid.orderHelp">Default follows Camera Settings. Custom reorders or excludes cameras only in Grid mode.</div>
             ${gridOrderCustomMarkup}
           </div>
-          <div id="grid_live_row" style="min-width:210px;display:${this._config?.grid_mode_enabled ? "flex" : "none"};flex-direction:column;gap:6px">
-            <div class="layout-row" style="justify-content:flex-start;gap:8px">
+          <div id="grid_live_row" class="general-toggle-field" style="display:${this._config?.grid_mode_enabled ? "flex" : "none"}">
+            <div class="layout-row">
               <span class="field-label" style="margin:0" data-fvc-i18n="editor.grid.liveView">Live View in Grid</span>
               <ha-switch id="grid_live_view_enabled" ${this._config?.grid_live_view_enabled !== false ? "checked" : ""}></ha-switch>
             </div>
@@ -4901,7 +4897,7 @@ export class FrigateViewCardEditor extends HTMLElement {
                 </div>
               </details>
               <div class="cam-modal-field">
-                <div class="camera-modal-floating-field camera-modal-live-stream-control">
+                <div class="camera-modal-floating-field">
                   <span class="camera-modal-floating-label" aria-hidden="true" data-fvc-i18n="editor.cameraModal.liveStream">Live Stream</span>
                   <ha-selector id="camera-modal-live-stream" aria-label="Live Stream" data-fvc-i18n-aria-label="editor.cameraModal.liveStream"></ha-selector>
                 </div>
@@ -5099,11 +5095,13 @@ export class FrigateViewCardEditor extends HTMLElement {
             <div class="field-helper camera-capability-status" id="camera-modal-ptz-state" style="display:none"></div>
           </div>
           <div class="cam-modal-field" id="camera-modal-two-way-talk-toggle-row" style="display:none">
-            <div class="layout-row" style="justify-content:flex-start;gap:8px">
-              <span class="cam-modal-label" style="margin:0" data-fvc-i18n="editor.cameraModal.enableTwoWayTalk">Enable Two-Way Talk</span>
+            <div class="layout-row cam-modal-toggle-row">
+              <div class="cam-modal-toggle-copy">
+                <span class="cam-modal-label" data-fvc-i18n="editor.cameraModal.enableTwoWayTalk">Enable Two-Way Talk</span>
+                <div class="field-helper" data-fvc-i18n="editor.cameraModal.twoWayTalkHelp">Frigate requires a WebRTC backchannel. Home Assistant is experimental and requires HA WebRTC playback.</div>
+              </div>
               <ha-switch id="camera-modal-two-way-talk-enabled"></ha-switch>
             </div>
-            <div class="field-helper" data-fvc-i18n="editor.cameraModal.twoWayTalkHelp">Frigate requires a WebRTC backchannel. Home Assistant is experimental and requires HA WebRTC playback.</div>
           </div>
           <div class="field-helper camera-capability-status" id="camera-modal-two-way-talk-state" style="display:none"></div>
             </div>

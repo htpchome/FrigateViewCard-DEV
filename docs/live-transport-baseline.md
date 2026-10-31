@@ -2,6 +2,16 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.81` restores the camera editor's Live Stream selector to full
+width and clarifies that selecting a live stream leaves events, snapshots,
+recordings, two-way talk, and PTZ on the main camera. The Two-Way Talk option
+now uses the same right-aligned toggle row as the other camera options. The
+General Settings Pre-Roll/Post-Roll and Favorites switches are likewise aligned
+to the right edge of their full-width rows, along with the Slideshow enable and
+Grid enable/live switches. The
+Connection Settings ordering and disclosure-reset behavior from dev.80 are
+unchanged.
+
 `v1.1.10-dev.80` refines the camera editor's Connection Settings layout. The
 Connection Type label now sits above its selector like the Camera label, the
 connection guide appears before the right-aligned half-width Live Stream
