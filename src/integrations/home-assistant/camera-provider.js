@@ -10,6 +10,49 @@ import { configureStandardHaHlsPlayer } from "./camera-hls-policy.js";
 import { checkHaCameraResume } from "./camera-resume-health.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
+const FULL_PRESENTATION_STYLE = Object.freeze({
+  width: "100%",
+  height: "100%",
+  "max-width": "none",
+  "max-height": "none",
+});
+
+const applyImportantStyles = (element, styles) => {
+  if (!element?.style?.setProperty) return;
+  for (const [property, value] of Object.entries(styles)) {
+    element.style.setProperty(property, value, "important");
+  }
+};
+
+// HA Direct lives in nested HA shadow roots, so card-level fullscreen CSS
+// cannot size its player or video. Keep every retained presentation surface
+// tied to the projected provider bounds instead of its pre-fullscreen size.
+export function applyHaDirectPresentationSizing(provider) {
+  if (!provider) return;
+  applyImportantStyles(provider, {
+    display: "block",
+    position: "relative",
+    width: "100%",
+    height: "100%",
+    "max-width": "none",
+    "max-height": "none",
+  });
+  const players = provider.shadowRoot?.querySelectorAll?.(
+    "ha-hls-player,ha-web-rtc-player",
+  ) || [];
+  for (const player of players) {
+    applyImportantStyles(player, FULL_PRESENTATION_STYLE);
+    const video =
+      player.shadowRoot?.querySelector?.("video") ||
+      player.querySelector?.("video");
+    applyImportantStyles(video, {
+      display: "block",
+      ...FULL_PRESENTATION_STYLE,
+      "object-fit": "contain",
+    });
+  }
+}
+
 export function findHaCameraContextHost(element) {
   let node = element;
   while (node) {
@@ -37,8 +80,9 @@ export function createHaDirectCameraProvider({
 }) {
   const provider = createHaCameraStreamElement({
     stateObj, muted, defaultMuted: muted, controls: false, fitMode: "contain",
-    styleText: "display:block;width:100%;height:100%",
+    styleText: "display:block;position:relative;width:100%;height:100%;overflow:hidden",
   });
+  applyHaDirectPresentationSizing(provider);
   let selection = [];
   let hlsPending = false;
   let disposed = false;
@@ -50,6 +94,7 @@ export function createHaDirectCameraProvider({
   let observedPlayerRoot;
   let intendedOutputMuted = Boolean(outputMuted);
   const applyOutputMute = () => {
+    applyHaDirectPresentationSizing(provider);
     const activePlayer = findActiveHaCameraStreamPlayer(provider);
     const selectedPlaybackOwned = provider.fvcStartupPlaybackOwned === true;
     for (const player of provider.shadowRoot?.querySelectorAll("ha-hls-player,ha-web-rtc-player") || []) {
@@ -97,6 +142,7 @@ export function createHaDirectCameraProvider({
     scheduled = false;
     if (disposed) return;
     configureStandardHaHlsPlayer(provider.shadowRoot?.querySelector("ha-hls-player"));
+    applyHaDirectPresentationSizing(provider);
     applyOutputMute();
     const playerRoot = findActiveHaCameraStreamPlayer(provider)?.shadowRoot;
     if (provider.shadowRoot && (!observer || observedPlayerRoot !== playerRoot)) {

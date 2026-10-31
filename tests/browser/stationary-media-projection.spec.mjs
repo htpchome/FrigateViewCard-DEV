@@ -72,6 +72,48 @@ test("synthetic media serves valid byte ranges for native playback", async ({ re
   expect(invalid.headers()["content-range"]).toBe(`bytes */${movie.length}`);
 });
 
+test("HA Direct nested media follows expanded presentation bounds", async ({ page }) => {
+  await page.goto(baseUrl);
+  const bounds = await page.evaluate(async () => {
+    const { applyHaDirectPresentationSizing } = await import(
+      "/src/integrations/home-assistant/camera-provider.js"
+    );
+    const stage = document.createElement("div");
+    stage.style.cssText = "position:relative;width:640px;height:360px";
+    const provider = document.createElement("ha-camera-stream");
+    provider.style.cssText = "display:block;width:320px;height:180px";
+    provider.attachShadow({ mode: "open" });
+    const player = document.createElement("ha-hls-player");
+    player.style.cssText = "display:block;width:320px;height:180px";
+    player.attachShadow({ mode: "open" });
+    const video = document.createElement("video");
+    video.style.cssText = "display:block;width:320px;height:180px;max-width:320px;max-height:180px";
+    player.shadowRoot.append(video);
+    provider.shadowRoot.append(player);
+    stage.append(provider);
+    document.body.append(stage);
+
+    applyHaDirectPresentationSizing(provider);
+
+    const dimensions = (element) => {
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    };
+    return {
+      stage: dimensions(stage),
+      provider: dimensions(provider),
+      player: dimensions(player),
+      video: dimensions(video),
+      objectFit: getComputedStyle(video).objectFit,
+    };
+  });
+
+  expect(bounds.provider).toEqual(bounds.stage);
+  expect(bounds.player).toEqual(bounds.stage);
+  expect(bounds.video).toEqual(bounds.stage);
+  expect(bounds.objectFit).toBe("contain");
+});
+
 const scenarios = [
   { name: "hls", transport: "hls", webRtc: false },
   { name: "webrtc", transport: "webrtc", webRtc: true },

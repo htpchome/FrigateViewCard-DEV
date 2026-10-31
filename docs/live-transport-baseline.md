@@ -2,6 +2,15 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.84` makes the retained HA Direct provider, its active HA player,
+and the nested video follow the projected presentation bounds. Fullscreen no
+longer leaves HA Direct at its pre-fullscreen card dimensions with the snapshot
+fallback visible around it; 4:3 media remains contained against the fullscreen
+background while 16:9 media uses the complete stage. Native iOS fullscreen
+exit restarts playback on that same retained media element while the exit
+gesture is active, then confirms playback again after inline presentation is
+restored; it does not remount either go2rtc or HA Direct.
+
 `v1.1.10-dev.83` keeps the selected live player retained across fullscreen
 entry and exit. WebKit native-video exit waits for inline presentation to
 settle, then resumes the exact video that entered fullscreen; it no longer

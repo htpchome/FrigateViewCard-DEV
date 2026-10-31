@@ -94,6 +94,7 @@ export class LiveFullscreenLifecycleController {
 
   _recoverAfterExit() {
     const sessionVideo = this._sessionVideo;
+    const nativeVideoFullscreen = !this._usesDocumentFullscreen;
     this.cancel();
     this._onFullscreenExit?.();
 
@@ -104,6 +105,18 @@ export class LiveFullscreenLifecycleController {
     if (!video?.play) {
       this._scheduleResumeLive?.("live-fullscreen-media-missing");
       return;
+    }
+
+    if (nativeVideoFullscreen) {
+      // iOS can report the retained video as playing while its native
+      // fullscreen presentation has actually left inline playback suspended.
+      // Restart the same media element while the exit gesture is still active;
+      // this does not recreate its WebRTC, MSE, or HA Direct transport.
+      try {
+        video.pause?.();
+        const playResult = video.play();
+        playResult?.catch?.(() => {});
+      } catch (_) {}
     }
 
     // WebKit reports fullscreen exit before inline presentation is completely

@@ -5,11 +5,16 @@ import { LiveFullscreenLifecycleController } from "../src/features/live/fullscre
 
 class FakeTarget extends EventTarget {
   playCalls = 0;
+  pauseCalls = 0;
   isConnected = true;
 
   play() {
     this.playCalls += 1;
     return Promise.resolve();
+  }
+
+  pause() {
+    this.pauseCalls += 1;
   }
 }
 
@@ -78,6 +83,7 @@ test("document fullscreen request cancellation does not trigger recovery", () =>
   fixture.controller.handleDocumentFullscreenChange(null);
 
   assert.equal(fixture.initialVideo.playCalls, 0);
+  assert.equal(fixture.initialVideo.pauseCalls, 0);
   assert.deepEqual(fixture.resumeReasons, []);
   assert.equal(fixture.getExitCount(), 0);
 });
@@ -96,7 +102,9 @@ test("native video fullscreen exit uses the current video only when its session 
 
   assert.equal(fixture.controller.active, false);
   assert.equal(fixture.initialVideo.playCalls, 0);
-  assert.equal(replacementVideo.playCalls, 1);
+  assert.equal(fixture.initialVideo.pauseCalls, 0);
+  assert.equal(replacementVideo.playCalls, 2);
+  assert.equal(replacementVideo.pauseCalls, 1);
   assert.deepEqual(fixture.resumeReasons, []);
 });
 
@@ -109,7 +117,8 @@ test("native fullscreen recovery retains its exact connected session video", () 
   fixture.initialVideo.dispatchEvent(new Event("webkitendfullscreen"));
   fixture.flushInlineRestore();
 
-  assert.equal(fixture.initialVideo.playCalls, 1);
+  assert.equal(fixture.initialVideo.playCalls, 2);
+  assert.equal(fixture.initialVideo.pauseCalls, 1);
   assert.equal(unrelatedCurrentVideo.playCalls, 0);
   assert.deepEqual(fixture.resumeReasons, []);
 });
@@ -132,7 +141,8 @@ test("native presentation-mode exit resumes live once", () => {
   fixture.flushInlineRestore();
 
   assert.equal(fixture.controller.active, false);
-  assert.equal(fixture.initialVideo.playCalls, 1);
+  assert.equal(fixture.initialVideo.playCalls, 2);
+  assert.equal(fixture.initialVideo.pauseCalls, 1);
   assert.deepEqual(fixture.resumeReasons, []);
 });
 
@@ -155,6 +165,7 @@ test("a new fullscreen session cancels a deferred exit resume", () => {
   fixture.controller.beginDocumentFullscreen(fixture.initialVideo);
   fixture.flushInlineRestore();
 
-  assert.equal(fixture.initialVideo.playCalls, 0);
+  assert.equal(fixture.initialVideo.playCalls, 1);
+  assert.equal(fixture.initialVideo.pauseCalls, 1);
   assert.equal(fixture.controller.active, true);
 });
