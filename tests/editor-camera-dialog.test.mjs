@@ -806,19 +806,31 @@ test("camera modal advanced accordions keep at most one section open", () => {
     };
   };
   const sections = [makeSection("connection"), makeSection("lights")];
+  const connectionHelp = { open: false };
   editor.querySelectorAll = () => sections;
-  editor.querySelector = (selector) =>
-    sections.find((section) =>
+  editor.querySelector = (selector) => {
+    if (selector === "#camera-modal-connection-help") return connectionHelp;
+    return sections.find((section) =>
       selector.includes(`data-camera-modal-section="${section.dataset.cameraModalSection}"`),
     ) || null;
+  };
 
   editor._toggleCameraModalAccordion("connection");
   assert.equal(sections[0].classList.contains("active"), true);
   assert.equal(sections[0].content.hidden, false);
   assert.equal(sections[0].trigger.attributes["aria-expanded"], "true");
   assert.equal(sections[1].content.hidden, true);
+  connectionHelp.open = true;
+
+  editor._toggleCameraModalAccordion("connection");
+  assert.equal(connectionHelp.open, false);
+  assert.equal(sections[0].classList.contains("active"), false);
+
+  editor._toggleCameraModalAccordion("connection");
+  connectionHelp.open = true;
 
   editor._toggleCameraModalAccordion("lights");
+  assert.equal(connectionHelp.open, false);
   assert.equal(sections[0].classList.contains("active"), false);
   assert.equal(sections[0].content.hidden, true);
   assert.equal(sections[1].classList.contains("active"), true);
@@ -1021,7 +1033,7 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
   );
   assert.match(
     source,
-    /class="camera-modal-floating-label"[^>]*>Connection Type<\/span>[\s\S]*?<ha-selector id="camera-modal-connection-type" aria-label="Connection Type"[^>]*>/,
+    /class="camera-modal-selector-label"[^>]*>Connection Type<\/span>[\s\S]*?<ha-selector id="camera-modal-connection-type" aria-label="Connection Type"[^>]*>/,
   );
   assert.match(
     source,
@@ -1078,6 +1090,18 @@ test("camera modal uses a compact ordered accordion around its controls", () => 
   assert.match(
     connectionSection,
     /<details id="camera-modal-connection-help" class="camera-group-help camera-connection-help">[\s\S]*?Which connection should I use\?/,
+  );
+  assert.ok(
+    connectionSection.indexOf('id="camera-modal-connection-type"') <
+      connectionSection.indexOf('id="camera-modal-connection-help"'),
+  );
+  assert.ok(
+    connectionSection.indexOf('id="camera-modal-connection-help"') <
+      connectionSection.indexOf('id="camera-modal-live-stream"'),
+  );
+  assert.match(
+    editorStylesSource,
+    /\.camera-modal-live-stream-control\{[^}]*width:50%;[^}]*margin-inline-start:auto;/,
   );
   assert.match(connectionSection, /<table class="camera-connection-table">/);
   for (const feature of [

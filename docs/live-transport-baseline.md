@@ -2,6 +2,12 @@
 
 ## Current Baseline
 
+`v1.1.10-dev.80` refines the camera editor's Connection Settings layout. The
+Connection Type label now sits above its selector like the Camera label, the
+connection guide appears before the right-aligned half-width Live Stream
+selector, and collapsing Connection Settings closes that nested guide. Live
+stream discovery and transport behavior from dev.79 are unchanged.
+
 `v1.1.10-dev.79` limits go2rtc stream discovery to the selected Frigate
 camera's suffixed streams. A camera named `hall` can list `hall_sub`,
 and custom names such as `hall_alt`, while the audio-only `hall_audio`,

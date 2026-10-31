@@ -377,6 +377,7 @@ export const EDITOR_STYLES = `
             .camera-modal-floating-field{position:relative;display:block;min-width:0;}
             .camera-modal-floating-field ha-selector{display:block;width:100%;min-width:0;}
             .camera-modal-floating-label{position:absolute;top:6px;left:12px;z-index:2;color:var(--c-text2, var(--editor-muted));font-size:10px;font-weight:400;line-height:1;pointer-events:none;}
+            .camera-modal-live-stream-control{width:50%;margin-inline-start:auto;}
             .camera-modal-accordion-content > .cam-modal-field:last-child{margin-bottom:0;}
             .camera-modal-accordion-content > .camera-group-add-row{padding-inline-start:0;}
             .camera-modal-accordion-content > .camera-group-help,

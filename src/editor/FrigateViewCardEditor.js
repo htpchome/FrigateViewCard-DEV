@@ -2021,6 +2021,12 @@ export class FrigateViewCardEditor extends HTMLElement {
 
   _setCameraModalAccordionActive(sectionId = null) {
     const requestedId = String(sectionId || "");
+    if (requestedId !== "connection") {
+      const connectionHelp = this.querySelector(
+        "#camera-modal-connection-help",
+      );
+      if (connectionHelp) connectionHelp.open = false;
+    }
     this.querySelectorAll(
       ".camera-modal-accordion[data-camera-modal-section]",
     ).forEach((section) => {
@@ -4836,18 +4842,11 @@ export class FrigateViewCardEditor extends HTMLElement {
             </button>
             <div class="camera-modal-accordion-content" id="camera-modal-connection-content" hidden>
               <div class="cam-modal-field">
-                <div class="camera-modal-floating-field">
-                  <span class="camera-modal-floating-label" aria-hidden="true" data-fvc-i18n="editor.cameraModal.connectionType">Connection Type</span>
+                <div class="camera-modal-selector-field">
+                  <span class="camera-modal-selector-label" aria-hidden="true" data-fvc-i18n="editor.cameraModal.connectionType">Connection Type</span>
                   <ha-selector id="camera-modal-connection-type" aria-label="Connection Type" data-fvc-i18n-aria-label="editor.cameraModal.connectionType"></ha-selector>
                 </div>
                 <div class="field-helper" data-fvc-i18n="editor.cameraModal.frigateIntegrationRequired">Requires the Home Assistant Frigate integration.</div>
-              </div>
-              <div class="cam-modal-field">
-                <div class="camera-modal-floating-field">
-                  <span class="camera-modal-floating-label" aria-hidden="true" data-fvc-i18n="editor.cameraModal.liveStream">Live Stream</span>
-                  <ha-selector id="camera-modal-live-stream" aria-label="Live Stream" data-fvc-i18n-aria-label="editor.cameraModal.liveStream"></ha-selector>
-                </div>
-                <div class="field-helper" id="camera-modal-live-stream-helper"></div>
               </div>
               <details id="camera-modal-connection-help" class="camera-group-help camera-connection-help">
                 <summary data-fvc-i18n="editor.cameraModal.connectionGuideTitle">Which connection should I use?</summary>
@@ -4901,6 +4900,13 @@ export class FrigateViewCardEditor extends HTMLElement {
                   <p class="camera-connection-note" data-fvc-i18n="editor.cameraModal.connectionGuideFootnote">Actual availability depends on browser support, camera codecs, Home Assistant, and Frigate/go2rtc configuration. PTZ uses the Frigate integration in either mode; PTZ and two-way talk must also be enabled and supported by the camera.</p>
                 </div>
               </details>
+              <div class="cam-modal-field">
+                <div class="camera-modal-floating-field camera-modal-live-stream-control">
+                  <span class="camera-modal-floating-label" aria-hidden="true" data-fvc-i18n="editor.cameraModal.liveStream">Live Stream</span>
+                  <ha-selector id="camera-modal-live-stream" aria-label="Live Stream" data-fvc-i18n-aria-label="editor.cameraModal.liveStream"></ha-selector>
+                </div>
+                <div class="field-helper" id="camera-modal-live-stream-helper"></div>
+              </div>
             </div>
           </section>
           <section class="camera-modal-accordion" data-camera-modal-section="additional">
