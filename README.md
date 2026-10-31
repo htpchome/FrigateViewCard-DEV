@@ -58,10 +58,9 @@ On Home Assistant OS, Frigate itself may be installed as a Home Assistant add-on
 ### HACS (recommended)
 
 1. Open HACS in Home Assistant.
-2. Open the three-dot menu and select **Custom repositories**.
-3. Add `https://github.com/htpchome/FrigateViewCard` as a **Dashboard** repository.
-4. Find **FrigateView Card** in HACS and install it.
-5. Refresh the browser after installation or upgrade.
+2. Search for **FrigateView Card** in the Dashboard category.
+3. Open it and select **Download**.
+4. Refresh the browser after installation or upgrade.
 
 HACS installs the generated assets from `dist/`. The main resource remains
 `frigate-view-card.js`; the editor is loaded when the visual editor opens, and
