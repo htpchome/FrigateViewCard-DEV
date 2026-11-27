@@ -147,6 +147,7 @@ export function createGo2RtcMounter({
   resolver,
   getStreamMuted,
   prepareSelectedPlayback,
+  notifySelectedPlaybackReady,
   releasePreparedPlayback,
   waitForStreamStart,
   attachVideoFit,
@@ -825,6 +826,11 @@ export function createGo2RtcMounter({
         // not reliably start MediaStream decoding in Android Companion
         // WebViews, which can reject an otherwise connected WebRTC stream.
         video.srcObject = receiveStream;
+        if (selectedPlayback) {
+          notifySelectedPlaybackReady?.(video);
+        } else {
+          startVideoPlayback(video);
+        }
         watchFirstFrame();
       } else {
         for (const track of tracks) {

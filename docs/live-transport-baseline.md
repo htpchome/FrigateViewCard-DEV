@@ -2,6 +2,12 @@
 
 ## Current Baseline
 
+`v1.1.12-dev.4` starts the existing selected-playback owner again immediately
+after the connected WebRTC `MediaStream` is attached to the visible video.
+Android Companion WebViews therefore receive their playback request against a
+video that already owns its source, without restoring the detached decoder
+removed in dev.3. Other transport and retention behavior is unchanged.
+
 `v1.1.12-dev.3` attaches a connected go2rtc WebRTC `MediaStream` directly to
 the persistent selected video. The normal WebRTC/MSE race no longer depends on
 a detached offscreen video reaching `loadeddata`, because Android Companion

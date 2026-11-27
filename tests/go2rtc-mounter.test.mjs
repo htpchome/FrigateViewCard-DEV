@@ -1072,6 +1072,7 @@ test("go2rtc WebRTC decodes directly on the persistent selected video", async ()
   ];
   let peer = null;
   let resolveReady;
+  let readyNotifications = 0;
 
   class FakeMediaStream {
     constructor(initialTracks = []) {
@@ -1168,6 +1169,11 @@ test("go2rtc WebRTC decodes directly on the persistent selected video", async ()
       waitForStreamStart: async () => await new Promise((resolve) => {
         resolveReady = resolve;
       }),
+      notifySelectedPlaybackReady: (video) => {
+        readyNotifications += 1;
+        assert.equal(video, slot.lastChild);
+        assert.ok(video.srcObject instanceof FakeMediaStream);
+      },
     });
 
     const mount = withFakeWindow(
@@ -1187,6 +1193,7 @@ test("go2rtc WebRTC decodes directly on the persistent selected video", async ()
     peer.connectionState = "connected";
     peer.emit("connectionstatechange");
     assert.ok(visibleVideo.srcObject instanceof FakeMediaStream);
+    assert.equal(readyNotifications, 1);
 
     resolveReady(true);
     const result = await mount;

@@ -77,6 +77,8 @@ export const createLiveTransportControllers = (
     getStreamMuted: () => card._streamMuted,
     prepareSelectedPlayback: (video, options) =>
       getLiveAudioController(card).prepareSelectedPlayback(video, options),
+    notifySelectedPlaybackReady: (video) =>
+      getLiveAudioController(card).notifySelectedPlaybackReady(video),
     releasePreparedPlayback: (video) =>
       getLiveAudioController(card).releasePreparedPlayback(video),
     waitForStreamStart,
