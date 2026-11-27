@@ -330,7 +330,7 @@ test("go2rtc race mounter excludes HLS from automatic startup", (t) => {
     ["webrtc", "mse"],
   );
   void attempts[0].start({});
-  assert.equal(webRtcOptions[0].preloadOffscreen, true);
+  assert.equal("preloadOffscreen" in webRtcOptions[0], false);
 });
 
 test("start-unmuted go2rtc keeps candidates hidden until a winner is selected", async () => {

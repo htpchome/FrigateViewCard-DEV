@@ -147,7 +147,6 @@ export function createGo2RtcMounter({
   resolver,
   getStreamMuted,
   prepareSelectedPlayback,
-  notifySelectedPlaybackReady,
   releasePreparedPlayback,
   waitForStreamStart,
   attachVideoFit,
@@ -566,8 +565,6 @@ export function createGo2RtcMounter({
     if (microphoneStream && !microphoneTrack) return false;
     const onMicrophoneSessionEnded =
       options?.onEnded || options?.onMicrophoneSessionEnded;
-    const preloadOffscreen =
-      options?.preloadOffscreen === true && !microphoneTrack;
 
     const muted = options?.muted ?? getStreamMuted();
     const video = createVideoElement(
@@ -585,9 +582,6 @@ export function createGo2RtcMounter({
     );
 
     let destroyed = false;
-    const decodeVideo = preloadOffscreen
-      ? document.createElement("video")
-      : video;
     mountNodeIntoSlot(slot, video);
     attachVideoFit(video);
     const selectedPlayback = prepareSelectedPlayback?.(video, {
@@ -678,7 +672,6 @@ export function createGo2RtcMounter({
       settleNegotiationGuard(false);
       try {
         video.pause?.();
-        decodeVideo.pause?.();
       } catch (_) {}
       if (
         firstFrameCallbackVideo &&
@@ -696,16 +689,11 @@ export function createGo2RtcMounter({
       try {
         for (const track of receiveTracks) track.stop?.();
         receiveTracks.clear();
-        const activeStream = video.srcObject || decodeVideo.srcObject;
+        const activeStream = video.srcObject;
         for (const track of activeStream?.getTracks?.() || []) {
           track.stop?.();
         }
         video.srcObject = null;
-        if (decodeVideo !== video) {
-          decodeVideo.removeAttribute?.("src");
-          decodeVideo.srcObject = null;
-          decodeVideo.load?.();
-        }
         video.removeAttribute?.("src");
         video.load?.();
       } catch (_) {}
@@ -823,25 +811,6 @@ export function createGo2RtcMounter({
         resolveFirstRenderedFrame = null;
       });
     };
-    const transferDecodedStream = () => {
-      if (
-        !preloadOffscreen ||
-        destroyed ||
-        abortSignal?.aborted ||
-        !receiveStream
-      ) return;
-      video.srcObject = receiveStream;
-      if (selectedPlayback) {
-        notifySelectedPlaybackReady?.(video);
-      } else {
-        startVideoPlayback(video);
-      }
-      if (resolveFirstRenderedFrame) {
-        resolveFirstRenderedFrame(true);
-        resolveFirstRenderedFrame = null;
-      }
-      decodeVideo.srcObject = null;
-    };
     const attachConnectedReceiveStream = () => {
       if (microphoneTrack || destroyed ||
           abortSignal?.aborted || pc.connectionState !== "connected") return;
@@ -852,23 +821,11 @@ export function createGo2RtcMounter({
       if (!tracks.length) return;
       if (!receiveStream) {
         receiveStream = new MediaStream(tracks);
-        if (preloadOffscreen) {
-          // ACC experimental decodes the WebRTC lane offscreen while it races
-          // the binary lane. Once loaded, it transfers that already-live
-          // MediaStream to the persistent selected video before re-applying
-          // selected unmute/play.
-          decodeVideo.addEventListener(
-            "loadeddata",
-            transferDecodedStream,
-            { once: true },
-          );
-          decodeVideo.srcObject = receiveStream;
-        } else {
-          // Assign once after connection. A later audio track joins the same
-          // stream without resetting an in-flight audible playback request.
-          video.srcObject = receiveStream;
-          watchFirstFrame();
-        }
+        // Decode on the persistent selected video. Detached video elements do
+        // not reliably start MediaStream decoding in Android Companion
+        // WebViews, which can reject an otherwise connected WebRTC stream.
+        video.srcObject = receiveStream;
+        watchFirstFrame();
       } else {
         for (const track of tracks) {
           if (!receiveStream.getTracks().includes(track)) receiveStream.addTrack(track);

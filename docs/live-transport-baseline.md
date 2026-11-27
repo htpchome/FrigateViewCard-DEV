@@ -2,6 +2,13 @@
 
 ## Current Baseline
 
+`v1.1.12-dev.3` attaches a connected go2rtc WebRTC `MediaStream` directly to
+the persistent selected video. The normal WebRTC/MSE race no longer depends on
+a detached offscreen video reaching `loadeddata`, because Android Companion
+WebViews can deliver live WebRTC tracks without starting that detached decoder.
+Transport selection, connection retention, two-way talk, and MSE behavior are
+unchanged.
+
 `v1.1.12-dev.2` adds an Android Companion-only retained-playback policy. Hidden
 go2rtc grace players and dormant HA Direct providers keep their existing
 transport objects and retention limits, but pause their media elements until

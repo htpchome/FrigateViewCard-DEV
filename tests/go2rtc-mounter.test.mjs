@@ -1060,7 +1060,7 @@ test("go2rtc MSE trims a continuously queued stream and releases media resources
   });
 });
 
-test("go2rtc WebRTC preloads offscreen then transfers the ready stream", async () => {
+test("go2rtc WebRTC decodes directly on the persistent selected video", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
   const previousWebSocket = globalThis.WebSocket;
@@ -1071,7 +1071,7 @@ test("go2rtc WebRTC preloads offscreen then transfers the ready stream", async (
     { kind: "audio", readyState: "live", stop() {} },
   ];
   let peer = null;
-  let readyNotifications = 0;
+  let resolveReady;
 
   class FakeMediaStream {
     constructor(initialTracks = []) {
@@ -1165,12 +1165,9 @@ test("go2rtc WebRTC preloads offscreen then transfers the ready stream", async (
         }),
       },
       prepareSelectedPlayback: () => true,
-      waitForStreamStart: async () => await new Promise(() => {}),
-      notifySelectedPlaybackReady: (video) => {
-        readyNotifications += 1;
-        assert.equal(video, slot.lastChild);
-        assert.ok(video.srcObject instanceof FakeMediaStream);
-      },
+      waitForStreamStart: async () => await new Promise((resolve) => {
+        resolveReady = resolve;
+      }),
     });
 
     const mount = withFakeWindow(
@@ -1180,26 +1177,22 @@ test("go2rtc WebRTC preloads offscreen then transfers the ready stream", async (
       },
       () => mounter.tryMountWebRtc(slot, null, {
         commit: false,
-        preloadOffscreen: true,
       }),
     );
     await new Promise((resolve) => setImmediate(resolve));
 
-    assert.equal(videos.length, 2);
-    const [visibleVideo, decodeVideo] = videos;
+    assert.equal(videos.length, 1);
+    const [visibleVideo] = videos;
     assert.equal(visibleVideo.srcObject, undefined);
     peer.connectionState = "connected";
     peer.emit("connectionstatechange");
-    assert.ok(decodeVideo.srcObject instanceof FakeMediaStream);
-    assert.equal(visibleVideo.srcObject, undefined);
+    assert.ok(visibleVideo.srcObject instanceof FakeMediaStream);
 
-    decodeVideo.dispatchEvent({ type: "loadeddata" });
+    resolveReady(true);
     const result = await mount;
     assert.equal(result.ok, true);
     assert.equal(result.type, "webrtc");
     assert.equal(visibleVideo.srcObject, result.engine.video.srcObject);
-    assert.equal(decodeVideo.srcObject, null);
-    assert.equal(readyNotifications, 1);
     result.engine.destroy();
   } finally {
     globalThis.document = previousDocument;
