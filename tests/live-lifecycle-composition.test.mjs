@@ -173,6 +173,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   const controllers = createLiveLifecycleControllers(card, {
     factories,
     windowTarget: { location: { pathname: "/lovelace/cameras" } },
+    pauseRetainedPlayback: true,
   });
 
   assert.deepEqual(controllers, {
@@ -184,6 +185,7 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.equal(optionsByFactory.liveGrace.graceMax, LIVE_SWITCH_GRACE_MAX);
   assert.equal(optionsByFactory.liveGrace.haDirectRetainedMax, undefined);
   assert.equal(optionsByFactory.liveGrace.catalystRetainedMax, MAX_CAMERAS);
+  assert.equal(optionsByFactory.liveGrace.pauseRetainedPlayback, true);
   assert.strictEqual(
     optionsByFactory.liveGrace.attachVideoFit,
     attachContainedVideoFit,

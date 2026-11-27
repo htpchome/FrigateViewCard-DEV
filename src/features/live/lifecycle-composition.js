@@ -10,6 +10,7 @@ import {
   createLiveMountController,
 } from "./mount-controller.js";
 import { createLiveGraceController } from "./live-grace-controller.js";
+import { DEVICE_PROFILE } from "../../helpers.js";
 
 const DEFAULT_FACTORIES = Object.freeze({
   createLiveGraceController,
@@ -22,6 +23,9 @@ export const createLiveLifecycleControllers = (
   {
     factories = DEFAULT_FACTORIES,
     windowTarget = window,
+    pauseRetainedPlayback =
+      DEVICE_PROFILE.isAndroid === true &&
+      DEVICE_PROFILE.isCompanionApp === true,
   } = {},
 ) => {
   const resolvedFactories = { ...DEFAULT_FACTORIES, ...factories };
@@ -29,6 +33,7 @@ export const createLiveLifecycleControllers = (
     graceMs: LIVE_SWITCH_GRACE_MS,
     graceMax: LIVE_SWITCH_GRACE_MAX,
     catalystRetainedMax: MAX_CAMERAS,
+    pauseRetainedPlayback,
     getShadowRoot: () => card.shadowRoot,
     getScopeKey: () => card,
     getPendingMountDestroyers: () => card._pendingMountDestroyers || [],

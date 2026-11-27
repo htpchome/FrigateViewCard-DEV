@@ -40,6 +40,7 @@ const waitForAttemptDelay = async (delayMs = 0, abortSignal = null) => {
 export function createGo2RtcRaceMounter({
   mounter,
   isMobile = false,
+  avoidOffscreenDecode = false,
   resolveConnectionType,
   getStartupMuted = () => true,
   getPendingMountDestroyers,
@@ -367,8 +368,10 @@ export function createGo2RtcRaceMounter({
     const connectionType = resolveConnectionType(targetEntity);
     let startupSurfaceClaimed = false;
     const hiddenSlot = () => {
-      const exposeStartupSurface =
-        !startupSurfaceClaimed && getStartupMuted(targetEntity) === false;
+      // Older Android Companion WebViews need selected media to remain on a
+      // compositor-visible surface while the fallback covers startup.
+      const exposeStartupSurface = !startupSurfaceClaimed &&
+        (avoidOffscreenDecode || getStartupMuted(targetEntity) === false);
       if (exposeStartupSurface) startupSurfaceClaimed = true;
       return createAttemptSlot(hostSlot, { exposeStartupSurface });
     };
@@ -393,7 +396,7 @@ export function createGo2RtcRaceMounter({
             // Match ACC experimental: while the binary lane races, WebRTC
             // first decodes offscreen and transfers the ready stream to the
             // selected video only if it wins.
-            preloadOffscreen: !forcedType,
+            preloadOffscreen: !avoidOffscreenDecode && !forcedType,
             commit: false,
             ...attemptOptions,
           },

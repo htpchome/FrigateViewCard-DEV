@@ -333,7 +333,42 @@ test("go2rtc race mounter excludes HLS from automatic startup", (t) => {
   assert.equal(webRtcOptions[0].preloadOffscreen, true);
 });
 
-test("start-unmuted go2rtc keeps candidates hidden until a winner is selected", async () => {
+test("mobile go2rtc decodes WebRTC on the selected surface", (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createElement: () => ({ style: {}, remove() {} }),
+  };
+  t.after(() => {
+    globalThis.document = previousDocument;
+  });
+  const webRtcOptions = [];
+  const raceMounter = createGo2RtcRaceMounter({
+    isMobile: true,
+    avoidOffscreenDecode: true,
+    mounter: {
+      tryMountWebRtc: (_slot, _startup, options) => {
+        webRtcOptions.push(options);
+        return { ok: true };
+      },
+      tryMountMse: () => ({ ok: true }),
+    },
+    resolveConnectionType: () => "frigate_go2rtc",
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    isMountTokenCurrent: () => true,
+    adoptMountedAttempt: () => {},
+    waitForStreamStart: async () => true,
+    isCurrentWinnerEngine: () => true,
+    getPendingWebRtcTakeoverTimer: () => null,
+    setPendingWebRtcTakeoverTimer: () => {},
+  });
+
+  const attempts = raceMounter.buildAttempts("camera.front");
+  void attempts[0].start({});
+  assert.equal(webRtcOptions[0].preloadOffscreen, false);
+});
+
+test("Android Companion startup surface remains visible under the fallback", async () => {
   const previousDocument = globalThis.document;
   const created = [];
   globalThis.document = {
@@ -346,6 +381,7 @@ test("start-unmuted go2rtc keeps candidates hidden until a winner is selected", 
   try {
     let pendingDestroyers = [];
     const raceMounter = createGo2RtcRaceMounter({
+      avoidOffscreenDecode: true,
       mounter: {
         tryMountWebRtc: async (slot) => ({
           ok: true,
@@ -380,7 +416,7 @@ test("start-unmuted go2rtc keeps candidates hidden until a winner is selected", 
       forcedType: "webrtc",
       mountToken: 1,
     }), true);
-    assert.match(created[0].style.cssText, /opacity:0/);
+    assert.match(created[0].style.cssText, /opacity:1/);
   } finally {
     globalThis.document = previousDocument;
   }

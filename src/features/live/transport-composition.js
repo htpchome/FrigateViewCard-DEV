@@ -152,6 +152,9 @@ export const createLiveTransportControllers = (
     getContext: () => card._editorPreviewController?.liveHandoffContext?.() || "dashboard",
     getIdentity: () => getHaCameraPresentationIdentity(card, card._config, card._sourceConfig),
     restartOnResume: deviceProfile.isCompanionApp === true && deviceProfile.isCatalyst !== true,
+    limitInactivePlayback:
+      deviceProfile.isAndroid === true &&
+      deviceProfile.isCompanionApp === true,
     isSelectedExternalReady: () =>
       card._shouldUseGo2RtcForEntity(card._activeGroupMemberOverride || card._activeCam?.entity) &&
       ["webrtc", "mse"].includes(card._activeStreamType),
@@ -257,6 +260,9 @@ export const createLiveTransportControllers = (
   const go2rtcRaceMounter = resolvedFactories.createGo2RtcRaceMounter({
     mounter: go2rtcMounter,
     isMobile: deviceProfile.isMobile,
+    avoidOffscreenDecode:
+      deviceProfile.isAndroid === true &&
+      deviceProfile.isCompanionApp === true,
     resolveConnectionType: (entity) => card._cameraConnectionType(entity),
     getStartupMuted: (entity) =>
       getLiveAudioController(card).resolveStartupMuted(entity),

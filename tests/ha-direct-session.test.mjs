@@ -24,6 +24,8 @@ const fixture = (options = {}) => {
       stateObj,
       outputMuted,
       fvcSetOutputMuted(nextMuted) { this.outputMuted = nextMuted; },
+      playbackActive: null,
+      fvcSetPlaybackActive(active) { this.playbackActive = active; },
     };
     return { provider, dispose: () => calls.push(["release", entity]),
       checkResume: options.checkResume ? (onResult) => options.checkResume(entity, onResult) : undefined,
@@ -94,6 +96,23 @@ test("selected HA Direct projection is visible before provider construction", ()
   assert.ok(createIndex >= 0);
   assert.ok(projectIndex < createIndex);
   assert.equal(f.session.get("camera.one").slot.style.opacity, "1");
+  f.session.dispose();
+});
+
+test("HA Direct retains inactive providers without retaining decoder playback", async () => {
+  const f = fixture({ limitInactivePlayback: true });
+  const owner = f.client();
+  f.session.attach(owner);
+  await f.ready("camera.one");
+  await f.ready("camera.two");
+
+  assert.equal(f.session.get("camera.one").provider.playbackActive, true);
+  assert.equal(f.session.get("camera.two").provider.playbackActive, false);
+
+  owner.value.selected = "camera.two";
+  f.session.sync(owner);
+  assert.equal(f.session.get("camera.one").provider.playbackActive, false);
+  assert.equal(f.session.get("camera.two").provider.playbackActive, true);
   f.session.dispose();
 });
 
