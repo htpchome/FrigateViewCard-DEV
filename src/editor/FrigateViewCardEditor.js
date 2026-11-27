@@ -4758,7 +4758,7 @@ export class FrigateViewCardEditor extends HTMLElement {
               <span class="field-label" style="margin:0" data-fvc-i18n="editor.grid.enable">Enable Grid Mode</span>
               <ha-switch id="grid_mode_enabled" ${this._config?.grid_mode_enabled ? "checked" : ""}></ha-switch>
             </div>
-            <div class="field-helper" data-fvc-i18n="editor.grid.enableHelp">Adds a 2×2 grid for at least two cameras. Unavailable on mobile devices.</div>
+            <div class="field-helper" data-fvc-i18n="editor.grid.enableHelp">Adds a 2×2 grid for at least two cameras. Unavailable on mobile phones.</div>
           </div>
           <div id="grid_order_row" class="grid-order-config" style="display:${this._config?.grid_mode_enabled ? "flex" : "none"}">
             <span class="field-label" style="margin:0" data-fvc-i18n="editor.grid.order">Grid Order</span>

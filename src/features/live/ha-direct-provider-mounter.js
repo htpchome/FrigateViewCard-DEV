@@ -84,8 +84,8 @@ export function createHaDirectProviderMounter({
         return;
       }
       if (!presenting || record.entity !== getSelectedEntity?.()) return;
-      const identity = [record.provider, record.status, record.video, client.target(),
-        getHass()?.states?.[record.entity]?.state];
+      const identity = [record.provider, record.status, record.video, record.streamType,
+        client.target(), getHass()?.states?.[record.entity]?.state];
       if (lastPresentation?.every((value, index) => value === identity[index])) return;
       lastPresentation = identity;
       if (record.provider) assignCommittedEngine?.(record.provider, { retainPrevious: true });
@@ -143,15 +143,21 @@ export function createHaDirectProviderMounter({
   };
   const tryMount = async (_slot, _startup, { entity, mountToken } = {}) => {
     disposed = false;
-    if (!entity || !(await ensureSession())) return false;
+    if (!entity) return false;
+    // A retained provider is already ready and may be projected by the session
+    // before the surrounding mount controller finishes its UI reset. Keep the
+    // retained remount synchronous so its ready stream state wins in the same
+    // task instead of exposing a transient pending state.
+    const activeSession = session || await ensureSession();
+    if (!activeSession) return false;
     if (mountToken != null && !isMountAttemptCurrent(mountToken, entity)) return false;
     foregroundRequested = true;
     presenting = true;
     lastPresentation = null;
     stopFallback();
     stopFallback = startLoadingFallbackRefresh?.() || (() => {});
-    session.sync(client, { activate: true });
-    return { ok: true, engine: session.get(entity)?.provider || null };
+    activeSession.sync(client, { activate: true });
+    return { ok: true, engine: activeSession.get(entity)?.provider || null };
   };
   const release = (provider) => {
     if (provider?.haDirectSession !== session || provider?.haDirectProvider !== true) return false;

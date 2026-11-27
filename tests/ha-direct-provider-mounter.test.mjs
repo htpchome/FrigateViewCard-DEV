@@ -74,6 +74,17 @@ test("a replaced page rebinds presentation without replacing the provider", asyn
   assert.deepEqual(f.calls.at(-1), ["stream", "hls"]);
 }));
 
+test("a retained remount republishes its ready stream state without an async gap", async () => run(async (f) => {
+  await f.mounter.tryMount({}, null, { entity: "camera.one" });
+  Object.assign(f.record, { status: "ready", streamType: "webrtc", video: {} });
+  f.publish();
+  f.calls.length = 0;
+
+  const remount = f.mounter.tryMount({}, null, { entity: "camera.one" });
+  assert.deepEqual(f.calls.at(-1), ["stream", "webrtc"]);
+  assert.equal((await remount).ok, true);
+}));
+
 test("inactive and released clients cannot present late provider results", async () => run(async (f) => {
   await f.mounter.tryMount({}, null, { entity: "camera.one" });
   Object.assign(f.record, { status: "ready", streamType: "hls", video: {} });
