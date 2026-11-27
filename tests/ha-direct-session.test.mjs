@@ -187,14 +187,13 @@ test("Companion keeps healthy providers and queues only released or unverified c
   f.session.dispose();
 });
 
-test("Android Companion suspends only dormant playback while retaining every ready provider", async () => {
+test("Companion retains muted playback and verifies every ready provider on resume", async () => {
   const life = lifecycle();
   const checked = [];
   const checks = new Map();
   const f = fixture({
     ...life,
     restartOnResume: true,
-    suspendDormantPlayback: true,
     checkResume: (entity, onResult) => {
       checked.push(entity);
       checks.set(entity, onResult);
@@ -211,21 +210,21 @@ test("Android Companion suspends only dormant playback while retaining every rea
   );
 
   assert.equal(firstVideo.paused, false);
-  assert.equal(secondVideo.paused, true);
-  assert.equal(thirdVideo.paused, true);
+  assert.equal(secondVideo.paused, false);
+  assert.equal(thirdVideo.paused, false);
 
   owner.value.selected = "camera.two";
   f.session.sync(owner, { activate: true });
-  assert.equal(secondVideo.playCalls, 1);
+  assert.equal(secondVideo.playCalls, 0);
   assert.equal(secondVideo.paused, false);
-  assert.equal(firstVideo.paused, true);
+  assert.equal(firstVideo.paused, false);
   assert.equal(f.session.get("camera.two").provider, providers.get("camera.two"));
 
   life.visibility(true);
   life.visibility(false);
-  assert.deepEqual(checked, ["camera.two"]);
+  assert.deepEqual(checked, ["camera.two", "camera.one", "camera.three"]);
   assert.equal(f.session.records.size, 3);
-  checks.get("camera.two")(true);
+  for (const complete of checks.values()) complete(true);
   await flush();
   assert.equal(f.session.records.size, 3);
   for (const [entity, provider] of providers) {

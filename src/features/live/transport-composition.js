@@ -152,10 +152,6 @@ export const createLiveTransportControllers = (
     getContext: () => card._editorPreviewController?.liveHandoffContext?.() || "dashboard",
     getIdentity: () => getHaCameraPresentationIdentity(card, card._config, card._sourceConfig),
     restartOnResume: deviceProfile.isCompanionApp === true && deviceProfile.isCatalyst !== true,
-    suspendDormantPlayback:
-      deviceProfile.isAndroid === true &&
-      deviceProfile.isCompanionApp === true &&
-      deviceProfile.isCatalyst !== true,
     isSelectedExternalReady: () =>
       card._shouldUseGo2RtcForEntity(card._activeGroupMemberOverride || card._activeCam?.entity) &&
       ["webrtc", "mse"].includes(card._activeStreamType),

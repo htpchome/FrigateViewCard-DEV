@@ -103,7 +103,7 @@ const createMseEngine = (entity) => {
   };
 };
 
-test("Android Companion grace retention pauses playback without releasing MSE", (t) => {
+test("grace retention keeps MSE playback active without releasing its transport", (t) => {
   const previousDocument = globalThis.document;
   globalThis.document = { createElement: () => createNode() };
   t.after(() => {
@@ -117,7 +117,6 @@ test("Android Companion grace retention pauses playback without releasing MSE", 
   const controller = createLiveGraceController({
     graceMs: 20000,
     graceMax: 3,
-    suspendRetainedPlayback: true,
     getShadowRoot: () => root,
     getPendingMountDestroyers: () => [],
     setPendingMountDestroyers: () => {},
@@ -135,8 +134,9 @@ test("Android Companion grace retention pauses playback without releasing MSE", 
   });
 
   controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
-  assert.equal(retainedEngine.video.pauseCalls, 1);
-  assert.equal(retainedEngine.video.paused, true);
+  assert.equal(retainedEngine.video.pauseCalls, 0);
+  assert.equal(retainedEngine.video.paused, false);
+  assert.equal(retainedEngine.video.playCalls, 1);
   assert.equal(retainedEngine.destroyCalls, 0);
   assert.equal(retainedEngine.ws.readyState, 1);
 

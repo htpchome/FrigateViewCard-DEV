@@ -3,7 +3,6 @@ import {
   LIVE_SWITCH_GRACE_MS,
   MAX_CAMERAS,
 } from "../../constants.js";
-import { DEVICE_PROFILE } from "../../helpers.js";
 import { buildEditorLiveHandoffKey } from "../editor-preview/context.ctrl.js";
 import { attachContainedVideoFit } from "../../shared/media/video-fit.js";
 import {
@@ -21,7 +20,6 @@ const DEFAULT_FACTORIES = Object.freeze({
 export const createLiveLifecycleControllers = (
   card,
   {
-    deviceProfile = DEVICE_PROFILE,
     factories = DEFAULT_FACTORIES,
     windowTarget = window,
   } = {},
@@ -31,10 +29,6 @@ export const createLiveLifecycleControllers = (
     graceMs: LIVE_SWITCH_GRACE_MS,
     graceMax: LIVE_SWITCH_GRACE_MAX,
     catalystRetainedMax: MAX_CAMERAS,
-    suspendRetainedPlayback:
-      deviceProfile.isAndroid === true &&
-      deviceProfile.isCompanionApp === true &&
-      deviceProfile.isCatalyst !== true,
     getShadowRoot: () => card.shadowRoot,
     getScopeKey: () => card,
     getPendingMountDestroyers: () => card._pendingMountDestroyers || [],

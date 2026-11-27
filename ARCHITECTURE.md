@@ -178,15 +178,6 @@ Meaning of `ha_direct`:
   layout handoffs retain their existing lifecycles. HA owns native teardown
   and negotiation; no direct peer manipulation or global patch is permitted.
 
-  Android Companion resource exception: ready dormant HA Direct providers
-  remain connected and mounted, but their media elements are paused while
-  hidden. Only the selected provider receives the bounded foreground health
-  verification; a dormant provider is resumed and verified when selected.
-  Frigate go2rtc grace retention follows the same presentation policy without
-  closing its retained WebRTC, MSE, or HLS transport. This exception must not
-  change the retention limit, force a reconnect on camera selection, or alter
-  the existing MSE/HLS-to-WebRTC upgrade path.
-
   Other selector results are unchanged. Never patch HA's global components or
   their prototypes. Tests must cover WebRTC-only capabilities with indefinitely
   pending ICE, explicit failure, repeated native ICE failure, bounded retries,

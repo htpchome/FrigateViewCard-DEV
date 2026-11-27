@@ -3,7 +3,6 @@ import {
   createGracePendingEntry,
   normalizeGraceEntityKey,
   prepareEngineVideoForGraceHost,
-  prepareEngineVideoForSuspendedGraceHost,
   prepareEngineVideoForLiveDeck,
 } from "./grace-pool.js";
 import { splitPendingDestroyersByGraceMse } from "./pending-destroyers.js";
@@ -17,7 +16,6 @@ export function createLiveGraceController({
   graceMs,
   graceMax,
   catalystRetainedMax = graceMax,
-  suspendRetainedPlayback = false,
   getShadowRoot,
   getScopeKey,
   getPendingMountDestroyers,
@@ -86,14 +84,6 @@ export function createLiveGraceController({
   };
   let mseGraceHost = null;
   let catalystHlsDeckHost = null;
-
-  const prepareRetainedVideo = (video) => {
-    if (suspendRetainedPlayback) {
-      prepareEngineVideoForSuspendedGraceHost(video);
-      return;
-    }
-    prepareEngineVideoForGraceHost(video);
-  };
 
   const disposeGraceEngine = (engine) => {
     try {
@@ -215,7 +205,7 @@ export function createLiveGraceController({
     engine.deactivateRecovery?.();
     engine.setActivityHandler?.(null);
     ensureMseGraceHost().appendChild(engine.video);
-    prepareRetainedVideo(engine.video);
+    prepareEngineVideoForGraceHost(engine.video);
     const entry = createGraceEngineEntry({
       engine,
       graceMs,
@@ -235,7 +225,7 @@ export function createLiveGraceController({
     evictGraceWebRtcEntry(key);
     engine.deactivateRecovery?.();
     ensureMseGraceHost().appendChild(engine.video);
-    prepareRetainedVideo(engine.video);
+    prepareEngineVideoForGraceHost(engine.video);
     const entry = createGraceEngineEntry({
       engine,
       graceMs,
@@ -301,7 +291,7 @@ export function createLiveGraceController({
           return null;
         }
         ensureMseGraceHost().appendChild(result.engine.video);
-        prepareRetainedVideo(result.engine.video);
+        prepareEngineVideoForGraceHost(result.engine.video);
         entry.engine = result.engine;
         entry.promise = null;
         return result.engine;

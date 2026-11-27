@@ -5,12 +5,12 @@ import { createLiveTransportControllers } from "../src/features/live/transport-c
 import { attachContainedVideoFit } from "../src/shared/media/video-fit.js";
 
 test("fresh HA Direct resume is Companion-only and excludes Catalyst", () => {
-  for (const [deviceProfile, expectedResume, expectedSuspend] of [
-    [{ isAndroid: true, isCompanionApp: true, isCatalyst: false }, true, true],
-    [{ isAndroid: false, isCompanionApp: true, isCatalyst: false }, true, false],
-    [{ isAndroid: true, isCompanionApp: true, isCatalyst: true }, false, false],
-    [{ isIOS: true, isCompanionApp: false }, false, false],
-    [{}, false, false],
+  for (const [deviceProfile, expectedResume] of [
+    [{ isAndroid: true, isCompanionApp: true, isCatalyst: false }, true],
+    [{ isAndroid: false, isCompanionApp: true, isCatalyst: false }, true],
+    [{ isAndroid: true, isCompanionApp: true, isCatalyst: true }, false],
+    [{ isIOS: true, isCompanionApp: false }, false],
+    [{}, false],
   ]) {
     let options;
     const factories = Object.fromEntries([
@@ -21,7 +21,7 @@ test("fresh HA Direct resume is Companion-only and excludes Catalyst", () => {
     factories.createHaDirectMounter = (value) => { options = value; return {}; };
     createLiveTransportControllers({}, { deviceProfile, factories });
     assert.equal(options.restartOnResume, expectedResume);
-    assert.equal(options.suspendDormantPlayback, expectedSuspend);
+    assert.equal("suspendDormantPlayback" in options, false);
   }
 });
 

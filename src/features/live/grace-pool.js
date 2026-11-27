@@ -42,18 +42,6 @@ export const prepareEngineVideoForGraceHost = (video) => {
   void video.play?.().catch?.(() => {});
 };
 
-export const prepareEngineVideoForSuspendedGraceHost = (video) => {
-  if (!video) return;
-  video.autoplay = false;
-  video.muted = true;
-  video.controls = false;
-  video.preload = "auto";
-  video.style.cssText = LIVE_DECK_VIDEO_STYLE;
-  try {
-    if (video.paused !== true) video.pause?.();
-  } catch (_) {}
-};
-
 export const prepareEngineVideoForLiveDeck = (video) => {
   if (!video) return;
   video.autoplay = true;

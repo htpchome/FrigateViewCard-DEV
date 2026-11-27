@@ -17,7 +17,6 @@ export function createHaDirectProviderMounter({
   getContext = () => "dashboard",
   getIdentity,
   restartOnResume = false,
-  suspendDormantPlayback = false,
   shouldPreload,
   isSelectedExternalReady = () => false,
   isMountAttemptCurrent = () => true,
@@ -132,7 +131,6 @@ export function createHaDirectProviderMounter({
         identity: getIdentity(),
         connection: getHass()?.connection,
         restartOnResume,
-        suspendDormantPlayback,
       });
       target = client.target();
       observer = new MutationObserver(() => {
