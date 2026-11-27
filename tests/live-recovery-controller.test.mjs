@@ -196,3 +196,22 @@ test("live recovery preserves forced-remount reasons while visibility settles", 
   scheduled[0].callback();
   assert.deepEqual(calls, ["webrtc-connection-lost"]);
 });
+
+test("HA Direct recovery reactivates its selected nested video without remounting", () => {
+  const host = createHost();
+  const calls = [];
+  host._engine = { haDirectProvider: true };
+  host._liveMediaPresentationController = {
+    activateSelectedPlayback: (engine) => calls.push(engine),
+  };
+  host._mountEngine = () => assert.fail("healthy HA Direct must not remount");
+  host._$ = (selector) => selector === "#eng-wrap"
+    ? { style: { display: "none" } }
+    : null;
+  const controller = new LiveRecoveryController(host);
+
+  controller.kickIfStale(true, true);
+  controller.resumeIfNeeded("doc-visible");
+
+  assert.deepEqual(calls, [host._engine, host._engine]);
+});
