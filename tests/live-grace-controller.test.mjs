@@ -52,7 +52,18 @@ const createNode = () => ({
 
 const createMseEngine = (entity) => {
   const video = createNode();
-  video.play = () => Promise.resolve();
+  video.paused = false;
+  video.pauseCalls = 0;
+  video.playCalls = 0;
+  video.pause = () => {
+    video.pauseCalls += 1;
+    video.paused = true;
+  };
+  video.play = () => {
+    video.playCalls += 1;
+    video.paused = false;
+    return Promise.resolve();
+  };
   video.setAttribute = () => {};
   video.removeAttribute = () => {};
   return {
@@ -87,9 +98,58 @@ const createMseEngine = (entity) => {
     },
     resumeAtLiveEdge() {
       this.resumeCalls += 1;
+      this.video.paused = false;
     },
   };
 };
+
+test("Android Companion grace retention pauses playback without releasing MSE", (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => createNode() };
+  t.after(() => {
+    globalThis.document = previousDocument;
+  });
+
+  const root = createNode();
+  const liveSlot = createNode();
+  let activeEngine = createMseEngine("camera.one");
+  const retainedEngine = activeEngine;
+  const controller = createLiveGraceController({
+    graceMs: 20000,
+    graceMax: 3,
+    suspendRetainedPlayback: true,
+    getShadowRoot: () => root,
+    getPendingMountDestroyers: () => [],
+    setPendingMountDestroyers: () => {},
+    getEngine: () => activeEngine,
+    setEngine: (engine) => {
+      activeEngine = engine;
+    },
+    getActiveStreamType: () => "mse",
+    getStreamMuted: () => true,
+    setActiveStreamType: () => {},
+    setEngineMountedMuted: () => {},
+    setStreamLoading: () => {},
+    setStreamFallbackVisible: () => {},
+    attachVideoFit: () => {},
+  });
+
+  controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
+  assert.equal(retainedEngine.video.pauseCalls, 1);
+  assert.equal(retainedEngine.video.paused, true);
+  assert.equal(retainedEngine.destroyCalls, 0);
+  assert.equal(retainedEngine.ws.readyState, 1);
+
+  const entry = controller.takeGraceMseEntry("camera.one");
+  assert.equal(
+    controller.adoptGraceMseEngine(liveSlot, entry.engine, "camera.one"),
+    true,
+  );
+  assert.equal(retainedEngine.resumeCalls, 1);
+  assert.equal(retainedEngine.video.paused, false);
+  assert.equal(retainedEngine.destroyCalls, 0);
+  controller.clearGracePool();
+});
 
 test("MSE grace reuse preserves exact camera identity across three retained switches", (t) => {
   const previousDocument = globalThis.document;

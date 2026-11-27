@@ -2,6 +2,15 @@
 
 ## Current Baseline
 
+`v1.1.12-dev.2` adds an Android Companion-only retained-playback policy. Hidden
+go2rtc grace players and dormant HA Direct providers keep their existing
+transport objects and retention limits, but pause their media elements until
+selected. Selecting a camera resumes the exact retained player instead of
+starting a new connection. Foreground HA Direct verification is limited to the
+selected provider on this client, avoiding a simultaneous decoder burst while
+leaving dormant providers available for later selection. Existing WebRTC/MSE
+racing and MSE/HLS-to-WebRTC upgrade behavior are unchanged.
+
 `v1.1.10-dev.85` keeps native iOS fullscreen exit recovery on the retained
 media element and its existing transport. The controller waits for inline
 presentation restoration and, during a bounded exit window, catches WebKit's

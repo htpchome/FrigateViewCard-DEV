@@ -41,8 +41,24 @@ const fixture = (options = {}) => {
       } };
   };
   const ready = async (entity, streamType = "hls") => {
-    callbacks.get(entity)({ status: "ready", streamType, video: { entity } });
+    const video = {
+      entity,
+      paused: false,
+      pauseCalls: 0,
+      playCalls: 0,
+      pause() {
+        this.pauseCalls += 1;
+        this.paused = true;
+      },
+      play() {
+        this.playCalls += 1;
+        this.paused = false;
+        return Promise.resolve();
+      },
+    };
+    callbacks.get(entity)({ status: "ready", streamType, video });
     await flush();
+    return video;
   };
   return { session, calls, callbacks, client, ready };
 };
@@ -168,6 +184,53 @@ test("Companion keeps healthy providers and queues only released or unverified c
   await f.ready("camera.three");
   life.visibility(false);
   assert.equal(f.calls.filter(([name]) => name === "create").length, 5);
+  f.session.dispose();
+});
+
+test("Android Companion suspends only dormant playback while retaining every ready provider", async () => {
+  const life = lifecycle();
+  const checked = [];
+  const checks = new Map();
+  const f = fixture({
+    ...life,
+    restartOnResume: true,
+    suspendDormantPlayback: true,
+    checkResume: (entity, onResult) => {
+      checked.push(entity);
+      checks.set(entity, onResult);
+      return () => {};
+    },
+  });
+  const owner = f.client();
+  f.session.attach(owner);
+  const firstVideo = await f.ready("camera.one", "webrtc");
+  const secondVideo = await f.ready("camera.two", "hls");
+  const thirdVideo = await f.ready("camera.three", "webrtc");
+  const providers = new Map(
+    [...f.session.records].map(([entity, record]) => [entity, record.provider]),
+  );
+
+  assert.equal(firstVideo.paused, false);
+  assert.equal(secondVideo.paused, true);
+  assert.equal(thirdVideo.paused, true);
+
+  owner.value.selected = "camera.two";
+  f.session.sync(owner, { activate: true });
+  assert.equal(secondVideo.playCalls, 1);
+  assert.equal(secondVideo.paused, false);
+  assert.equal(firstVideo.paused, true);
+  assert.equal(f.session.get("camera.two").provider, providers.get("camera.two"));
+
+  life.visibility(true);
+  life.visibility(false);
+  assert.deepEqual(checked, ["camera.two"]);
+  assert.equal(f.session.records.size, 3);
+  checks.get("camera.two")(true);
+  await flush();
+  assert.equal(f.session.records.size, 3);
+  for (const [entity, provider] of providers) {
+    assert.equal(f.session.get(entity).provider, provider);
+  }
   f.session.dispose();
 });
 

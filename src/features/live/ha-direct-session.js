@@ -12,6 +12,7 @@ export function createHaDirectSession({
   onDispose = () => {},
   releaseDelayMs = 20000,
   restartOnResume = false,
+  suspendDormantPlayback = false,
   documentRef,
 }) {
   const records = new Map();
@@ -28,6 +29,22 @@ export function createHaDirectSession({
   const windowRef = documentRef?.defaultView;
   const inPictureInPicture = () => Boolean(documentRef?.pictureInPictureElement) ||
     [...records.values()].some(({ video }) => video?.webkitPresentationMode === "picture-in-picture");
+
+  const pauseDormantPlayback = (record, visible) => {
+    if (!suspendDormantPlayback || visible || !record?.video) return;
+    try {
+      if (record.video.paused !== true) record.video.pause?.();
+    } catch (_) {}
+  };
+
+  const resumeSelectedPlayback = (record) => {
+    if (!suspendDormantPlayback || !record?.video || record.video.paused !== true) {
+      return;
+    }
+    try {
+      void record.video.play?.().catch?.(() => {});
+    } catch (_) {}
+  };
 
   const notify = (record) => {
     if (record.provider) {
@@ -48,7 +65,10 @@ export function createHaDirectSession({
       active?.onPresentationChange?.(true);
     }
     const selectedEntity = active?.selected();
-    if (selectedEntity && selectedEntity !== lastSelectedEntity) {
+    const selectedChanged = Boolean(
+      selectedEntity && selectedEntity !== lastSelectedEntity,
+    );
+    if (selectedChanged) {
       lastSelectedEntity = selectedEntity;
       records.get(selectedEntity)?.onSelected?.();
     }
@@ -69,8 +89,10 @@ export function createHaDirectSession({
         record.provider.muted = record.audioStreamPreferred ? false : true;
         record.provider.fvcSetOutputMuted?.(outputMuted);
       }
+      pauseDormantPlayback(record, visible);
       active?.onState?.(record, true);
     }
+    if (selectedChanged) resumeSelectedPlayback(records.get(selectedEntity));
   };
   const requestedEntities = () => [...new Set([...clients.keys()].flatMap((client) => client.entities()))];
   const start = (entity) => {
@@ -112,6 +134,10 @@ export function createHaDirectSession({
         onState: (state) => {
           if (disposed || records.get(entity) !== record) return;
           Object.assign(record, state);
+          const visible = Boolean(
+            active?.target(record.entity) && active?.visible(record.entity),
+          );
+          pauseDormantPlayback(record, visible);
           if (state.status === "ready") {
             record.provider.haDirectReadyState = record.provider.stateObj;
           }
@@ -188,8 +214,19 @@ export function createHaDirectSession({
     if (inPictureInPicture()) { pump(); return; }
     const epoch = ++resumeEpoch;
     const selected = active?.selected();
-    const candidates = [...records.values()].sort((a, b) =>
+    const allCandidates = [...records.values()].sort((a, b) =>
       Number(b.entity === selected) - Number(a.entity === selected));
+    if (suspendDormantPlayback) {
+      for (const record of allCandidates) {
+        if (record.entity === selected) continue;
+        if (!record.provider?.haDirectReadyState || !record.checkResume) {
+          removeRecord(record.entity);
+        }
+      }
+    }
+    const candidates = suspendDormantPlayback
+      ? allCandidates.filter((record) => record.entity === selected)
+      : allCandidates;
     for (const record of candidates) {
       // Never turn an interrupted cold startup into an unbounded retained wait.
       if (!record.provider?.haDirectReadyState || !record.checkResume) {
@@ -260,7 +297,14 @@ export function createHaDirectSession({
 // A registry is scoped to one HA application root and websocket connection.
 // It retains sessions, not movable video nodes. Independent visible cards do
 // not share sessions merely because they contain the same camera entities.
-export function acquireHaDirectSession({ anchor, client, identity, connection, restartOnResume = false }) {
+export function acquireHaDirectSession({
+  anchor,
+  client,
+  identity,
+  connection,
+  restartOnResume = false,
+  suspendDormantPlayback = false,
+}) {
   let registry = registries.get(anchor);
   if (!registry) {
     registry = { sessions: new Set(), editorSession: null };
@@ -321,6 +365,7 @@ export function acquireHaDirectSession({ anchor, client, identity, connection, r
     entry = { connection, baselineIdentity: identity, lastIdentity: identity, savedConfig: null, session: null };
     entry.session = createHaDirectSession({
       restartOnResume,
+      suspendDormantPlayback,
       documentRef: anchor.ownerDocument,
       createProjection: () => createStationaryMediaProjection({ anchor, name: `fvc-ha-camera-${++sessionSequence}` }),
       onDispose: () => {

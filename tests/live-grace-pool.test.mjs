@@ -7,6 +7,7 @@ import {
   normalizeGraceEntityKey,
   prepareEngineVideoForDormantHost,
   prepareEngineVideoForGraceHost,
+  prepareEngineVideoForSuspendedGraceHost,
   prepareEngineVideoForLiveDeck,
 } from "../src/features/live/grace-pool.js";
 
@@ -82,6 +83,32 @@ test("prepareEngineVideoForLiveDeck keeps Catalyst media full-sized and playing"
   assert.equal(video.style.cssText.includes("opacity:0"), false);
   assert.equal(video.style.cssText.includes("left:-9999px"), false);
   assert.equal(playCalls, 1);
+});
+
+test("prepareEngineVideoForSuspendedGraceHost retains a full-sized paused surface", () => {
+  let pauseCalls = 0;
+  const video = {
+    autoplay: true,
+    muted: false,
+    controls: true,
+    preload: "none",
+    paused: false,
+    style: { cssText: "" },
+    pause: () => {
+      pauseCalls += 1;
+      video.paused = true;
+    },
+  };
+
+  prepareEngineVideoForSuspendedGraceHost(video);
+
+  assert.equal(video.autoplay, false);
+  assert.equal(video.muted, true);
+  assert.equal(video.controls, false);
+  assert.equal(video.preload, "auto");
+  assert.equal(video.style.cssText.includes("width:100%"), true);
+  assert.equal(video.style.cssText.includes("left:-9999px"), false);
+  assert.equal(pauseCalls, 1);
 });
 
 test("prepareEngineVideoForDormantHost pauses offscreen media demand", () => {
