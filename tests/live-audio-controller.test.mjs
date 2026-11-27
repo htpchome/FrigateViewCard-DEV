@@ -83,6 +83,35 @@ test("selected action runs on assignment and repeats when media loads", async ()
   assert.equal(h.video.muted, false);
 });
 
+test("selected action retries at metadata after source attachment aborts its first play", async () => {
+  const h = createHarness({ readyState: 0 });
+  let playCalls = 0;
+  h.video.play = function () {
+    playCalls += 1;
+    this.playStates.push({ muted: this.muted, readyState: this.readyState });
+    return playCalls === 1
+      ? Promise.reject(new DOMException("Source changed", "AbortError"))
+      : Promise.resolve();
+  };
+  h.host._engine = null;
+  h.controller.prepareCameraStart(h.host._activeCam);
+
+  assert.equal(h.controller.prepareSelectedPlayback(h.video, {
+    entity: "camera.front",
+  }), true);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  h.video.readyState = 1;
+  h.video.dispatchEvent(new Event("loadedmetadata"));
+  await Promise.resolve();
+
+  assert.deepEqual(h.video.playStates, [
+    { muted: false, readyState: 0 },
+    { muted: false, readyState: 1 },
+  ]);
+});
+
 test("only one connected startup candidate owns selected audio", async () => {
   const h = createHarness({ readyState: 0 });
   const second = Object.assign(new EventTarget(), {

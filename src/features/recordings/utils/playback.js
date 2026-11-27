@@ -1,5 +1,7 @@
-export function shouldPreferRecordingHls() {
-  return true;
+export function shouldPreferRecordingHls({
+  isAndroidCompanion = false,
+} = {}) {
+  return isAndroidCompanion !== true;
 }
 
 export function buildRecordingPlaybackPlan({

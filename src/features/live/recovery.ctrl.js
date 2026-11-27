@@ -80,12 +80,7 @@ export class LiveRecoveryController {
   ) {
     const host = this._host;
     if (host._editorLiveHandoffController?.isSuspended?.()) return;
-    if (host._engine?.haDirectProvider === true) {
-      host._liveMediaPresentationController?.activateSelectedPlayback?.(
-        host._engine,
-      );
-      return;
-    }
+    if (host._engine?.haDirectProvider === true) return;
     if (host._engine?.catalystHls &&
         (host._engine.hlsBackgroundSuspended || host._engine.hlsResumePending || host._engine.hlsRecovering)) return;
     const nowMs = this._now();
@@ -140,14 +135,8 @@ export class LiveRecoveryController {
     if (host._engine?.haDirectProvider === true) {
       const engineWrap = host._$("#eng-wrap");
       if (engineWrap) engineWrap.style.display = "";
-      host._liveMediaPresentationController?.activateSelectedPlayback?.(
-        host._engine,
-      );
       return;
     }
-    host._liveMediaPresentationController?.activateSelectedPlayback?.(
-      host._engine,
-    );
     const liveStreamHint = host._currentLiveStreamHint();
     const forceRemount = shouldForceLiveRemountForReason(reason, {
       activeStreamType: liveStreamHint,

@@ -54,6 +54,16 @@ export const createPopupControllers = (
   let popupLifecycleController;
   let popupMediaLoaderController;
   let popupPlaybackTargetController;
+  const preferRecordingHls = () =>
+    shouldPreferRecordingHls({
+      isIOS: deviceProfile.isIOS,
+      isFirefox: card._isFirefox(),
+      isEdge: card._isEdge(),
+      isSafari: card._isSafari(),
+      isAndroidCompanion:
+        deviceProfile.isAndroid === true &&
+        deviceProfile.isCompanionApp === true,
+    });
 
   const popupMediaPresentationController =
     resolvedFactories.createMediaPresentationController({
@@ -121,12 +131,7 @@ export const createPopupControllers = (
           camera: context.cam,
           start,
           end,
-          preferHls: shouldPreferRecordingHls({
-            isIOS: deviceProfile.isIOS,
-            isFirefox: card._isFirefox(),
-            isEdge: card._isEdge(),
-            isSafari: card._isSafari(),
-          }),
+          preferHls: preferRecordingHls(),
           maxChunkSeconds: Math.max(1, Number(end) - Number(start)),
         });
         return await Promise.all(
@@ -316,6 +321,7 @@ export const createPopupControllers = (
       mediaPresentationController: popupMediaPresentationController,
       recordingScrubController: popupRecordingScrubController,
       lifecycleController: popupLifecycleController,
+      preferRecordingHls,
     },
   );
 
