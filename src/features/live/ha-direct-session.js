@@ -188,9 +188,9 @@ export function createHaDirectSession({
     if (inPictureInPicture()) { pump(); return; }
     const epoch = ++resumeEpoch;
     const selected = active?.selected();
-    const allCandidates = [...records.values()].sort((a, b) =>
+    const candidates = [...records.values()].sort((a, b) =>
       Number(b.entity === selected) - Number(a.entity === selected));
-    for (const record of allCandidates) {
+    for (const record of candidates) {
       // Never turn an interrupted cold startup into an unbounded retained wait.
       if (!record.provider?.haDirectReadyState || !record.checkResume) {
         removeRecord(record.entity);
@@ -260,13 +260,7 @@ export function createHaDirectSession({
 // A registry is scoped to one HA application root and websocket connection.
 // It retains sessions, not movable video nodes. Independent visible cards do
 // not share sessions merely because they contain the same camera entities.
-export function acquireHaDirectSession({
-  anchor,
-  client,
-  identity,
-  connection,
-  restartOnResume = false,
-}) {
+export function acquireHaDirectSession({ anchor, client, identity, connection, restartOnResume = false }) {
   let registry = registries.get(anchor);
   if (!registry) {
     registry = { sessions: new Set(), editorSession: null };

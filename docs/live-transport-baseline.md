@@ -2,37 +2,6 @@
 
 ## Current Baseline
 
-`v1.1.12-dev.5` restores the shared retained-media lifecycle on Android
-Companion. Hidden go2rtc grace players and dormant HA Direct providers remain
-mounted and playing muted, matching other clients, instead of pausing their
-media elements behind an Android-only policy. This preserves the existing
-retention limits, sequential HA Direct startup, foreground health checks,
-transport selection, and MSE/HLS-to-WebRTC upgrade path. The direct visible
-WebRTC attachment and post-attachment playback request from dev.3 and dev.4
-remain in place.
-
-`v1.1.12-dev.4` starts the existing selected-playback owner again immediately
-after the connected WebRTC `MediaStream` is attached to the visible video.
-Android Companion WebViews therefore receive their playback request against a
-video that already owns its source, without restoring the detached decoder
-removed in dev.3. Other transport and retention behavior is unchanged.
-
-`v1.1.12-dev.3` attaches a connected go2rtc WebRTC `MediaStream` directly to
-the persistent selected video. The normal WebRTC/MSE race no longer depends on
-a detached offscreen video reaching `loadeddata`, because Android Companion
-WebViews can deliver live WebRTC tracks without starting that detached decoder.
-Transport selection, connection retention, two-way talk, and MSE behavior are
-unchanged.
-
-`v1.1.12-dev.2` adds an Android Companion-only retained-playback policy. Hidden
-go2rtc grace players and dormant HA Direct providers keep their existing
-transport objects and retention limits, but pause their media elements until
-selected. Selecting a camera resumes the exact retained player instead of
-starting a new connection. Foreground HA Direct verification is limited to the
-selected provider on this client, avoiding a simultaneous decoder burst while
-leaving dormant providers available for later selection. Existing WebRTC/MSE
-racing and MSE/HLS-to-WebRTC upgrade behavior are unchanged.
-
 `v1.1.10-dev.85` keeps native iOS fullscreen exit recovery on the retained
 media element and its existing transport. The controller waits for inline
 presentation restoration and, during a bounded exit window, catches WebKit's

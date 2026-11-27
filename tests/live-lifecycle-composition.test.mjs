@@ -171,11 +171,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   };
 
   const controllers = createLiveLifecycleControllers(card, {
-    deviceProfile: {
-      isAndroid: true,
-      isCompanionApp: true,
-      isCatalyst: false,
-    },
     factories,
     windowTarget: { location: { pathname: "/lovelace/cameras" } },
   });
@@ -189,7 +184,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.equal(optionsByFactory.liveGrace.graceMax, LIVE_SWITCH_GRACE_MAX);
   assert.equal(optionsByFactory.liveGrace.haDirectRetainedMax, undefined);
   assert.equal(optionsByFactory.liveGrace.catalystRetainedMax, MAX_CAMERAS);
-  assert.equal("suspendRetainedPlayback" in optionsByFactory.liveGrace, false);
   assert.strictEqual(
     optionsByFactory.liveGrace.attachVideoFit,
     attachContainedVideoFit,

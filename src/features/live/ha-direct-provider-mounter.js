@@ -125,13 +125,7 @@ export function createHaDirectProviderMounter({
       if (!(await prepare()) || disposed) return null;
       const anchor = findHaCameraContextHost(card);
       if (!anchor) return null;
-      session = acquireSession({
-        anchor,
-        client,
-        identity: getIdentity(),
-        connection: getHass()?.connection,
-        restartOnResume,
-      });
+      session = acquireSession({ anchor, client, identity: getIdentity(), connection: getHass()?.connection, restartOnResume });
       target = client.target();
       observer = new MutationObserver(() => {
         const nextTarget = client.target();
