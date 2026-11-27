@@ -85,6 +85,13 @@ function startVideoPlayback(video, { load = false } = {}) {
   } catch (_) {}
 }
 
+function isPeerConnectionReady(peerConnection) {
+  return (
+    peerConnection?.connectionState === "connected" ||
+    ["connected", "completed"].includes(peerConnection?.iceConnectionState)
+  );
+}
+
 function startFirefoxLiveCatchup(video, isFirefox) {
   if (!video || !isFirefox()) return () => {};
   let firstFrameAt = 0;
@@ -774,7 +781,7 @@ export function createGo2RtcMounter({
     });
 
     pc.addEventListener("connectionstatechange", () => {
-      if (pc.connectionState === "connected") {
+      if (isPeerConnectionReady(pc)) {
         clearNegotiationTimer();
         completeSignaling();
         attachConnectedReceiveStream();
@@ -786,6 +793,8 @@ export function createGo2RtcMounter({
     pc.addEventListener("iceconnectionstatechange", () => {
       if (["connected", "completed"].includes(pc.iceConnectionState)) {
         clearNegotiationTimer();
+        completeSignaling();
+        attachConnectedReceiveStream();
       }
       if (["disconnected", "failed"].includes(pc.iceConnectionState)) {
         scheduleRecovery("webrtc-connection-lost");
@@ -814,7 +823,7 @@ export function createGo2RtcMounter({
     };
     const attachConnectedReceiveStream = () => {
       if (microphoneTrack || destroyed ||
-          abortSignal?.aborted || pc.connectionState !== "connected") return;
+          abortSignal?.aborted || !isPeerConnectionReady(pc)) return;
       for (const receiver of pc.getReceivers?.() || []) {
         if (receiver.track) receiveTracks.add(receiver.track);
       }

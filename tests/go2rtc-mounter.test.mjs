@@ -1060,7 +1060,7 @@ test("go2rtc MSE trims a continuously queued stream and releases media resources
   });
 });
 
-test("go2rtc WebRTC decodes directly on the persistent selected video", async () => {
+test("go2rtc WebRTC accepts connected ICE when Android leaves connectionState connecting", async () => {
   const previousDocument = globalThis.document;
   const previousMediaStream = globalThis.MediaStream;
   const previousWebSocket = globalThis.WebSocket;
@@ -1190,8 +1190,8 @@ test("go2rtc WebRTC decodes directly on the persistent selected video", async ()
     assert.equal(videos.length, 1);
     const [visibleVideo] = videos;
     assert.equal(visibleVideo.srcObject, undefined);
-    peer.connectionState = "connected";
-    peer.emit("connectionstatechange");
+    peer.iceConnectionState = "connected";
+    peer.emit("iceconnectionstatechange");
     assert.ok(visibleVideo.srcObject instanceof FakeMediaStream);
     assert.equal(readyNotifications, 1);
 
