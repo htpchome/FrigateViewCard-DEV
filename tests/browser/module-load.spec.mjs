@@ -997,6 +997,54 @@ test("phone clients never request the Grid runtime", async ({ browser }) => {
   });
 });
 
+test("Android tablet clients can request the Grid runtime", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 16; KFTUWI Build/BTU2.250101.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    viewport: { width: 1280, height: 800 },
+  });
+  const page = await context.newPage();
+  let gridRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/frigate-view-card-grid.js") {
+      gridRequests += 1;
+    }
+  });
+  await page.goto(baseUrl);
+
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [
+        { entity: "camera.front" },
+        { entity: "camera.back" },
+      ],
+      grid_mode_enabled: true,
+      landing_page: "single-view",
+      single_view_start_mode: "grid",
+    });
+    const prepared = await card._gridFeatureController.prepare();
+    return {
+      available: card._isGridModeAvailable(),
+      loaded: card._gridFeatureController.isLoaded(),
+      prepared: Boolean(prepared),
+    };
+  });
+
+  await context.close();
+  expect(gridRequests).toBe(1);
+  expect(state).toEqual({
+    available: true,
+    loaded: true,
+    prepared: true,
+  });
+});
+
 test("Slideshow runtime stays dormant until enabled Slideshow is requested", async ({
   page,
 }) => {

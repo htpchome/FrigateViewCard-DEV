@@ -584,7 +584,7 @@ test("Grid, Card View, and Slideshow controls explain their behavior", () => {
   );
   assert.match(
     editorSource,
-    /Adds a 2×2 grid for at least two cameras\. Unavailable on mobile devices\./,
+    /Adds a 2×2 grid for at least two cameras\. Unavailable on mobile phones\./,
   );
   assert.doesNotMatch(
     editorSource,

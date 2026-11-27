@@ -585,7 +585,7 @@
     },
     "grid": {
       "enable": "Enable Grid Mode",
-      "enableHelp": "Adds a 2×2 grid for at least two cameras. Unavailable on mobile devices.",
+      "enableHelp": "Adds a 2×2 grid for at least two cameras. Unavailable on mobile phones.",
       "order": "Grid Order",
       "orderAria": "Grid order",
       "default": "Default",

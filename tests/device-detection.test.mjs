@@ -181,6 +181,34 @@ test("detects Android as mobile with touch", () => {
   assert.equal(profile.hasTouch, true);
 });
 
+test("detects an Android tablet as mobile but not a phone", () => {
+  const detectDeviceProfile = loadDetector({
+    navigator: {
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 16; KFTUWI Build/BTU2.250101.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      userAgentData: { platform: "Android", mobile: false },
+      maxTouchPoints: 10,
+    },
+    window: {
+      innerWidth: 1280,
+      innerHeight: 800,
+      matchMedia: createMatchMedia({
+        pointerCoarse: true,
+        anyPointerCoarse: true,
+        hoverNone: true,
+      }),
+    },
+  });
+
+  const profile = detectDeviceProfile();
+  assert.equal(profile.os, "Android");
+  assert.equal(profile.isAndroid, true);
+  assert.equal(profile.isTablet, true);
+  assert.equal(profile.isPhone, false);
+  assert.equal(profile.isMobile, true);
+  assert.equal(profile.hasTouch, true);
+});
+
 test("detects iPadOS Mac spoof as tablet", () => {
   const detectDeviceProfile = loadDetector({
     navigator: {
