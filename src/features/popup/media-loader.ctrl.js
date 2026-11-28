@@ -33,7 +33,7 @@ import {
   resolveFrigateEventPrePostRollRange,
   resolveFrigateEventRecordingRange,
 } from "../../integrations/frigate/event-media.js";
-import { createSignedFrigateHlsLoader } from "../../integrations/frigate/recording-hls-loader.js";
+import { openSignedFrigateRequest } from "../../integrations/frigate/bootstrap.js";
 import {
   POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
   POPUP_VIEW_MAX_HEIGHT_DVH,
@@ -180,6 +180,8 @@ export class PopupMediaLoaderController {
           isEdge: host._isEdge?.() === true,
           isSafari: host._isSafari?.() === true,
         }),
+      useNativeRecordingHls: () =>
+        isIOS || host._isSafari?.() === true,
       signRecordingHlsPath: (path) => host._signed?.(path) || path,
       isEventPrePostRollEnabled: () =>
         host._config?.event_pre_post_roll_enabled === true,
@@ -696,9 +698,9 @@ export class PopupMediaLoaderController {
             return;
           }
 
-          const canNativeHls = !!video.canPlayType(
-            "application/vnd.apple.mpegurl",
-          );
+          const canNativeHls =
+            this._deps.useNativeRecordingHls() &&
+            !!video.canPlayType("application/vnd.apple.mpegurl");
           if (canNativeHls) {
             video.src = src;
             video.load();
@@ -711,21 +713,17 @@ export class PopupMediaLoaderController {
             return;
           }
 
-          const BaseLoader = HlsCtor.DefaultConfig?.loader;
-          const SignedLoader = createSignedFrigateHlsLoader(BaseLoader, {
-            signPath: this._deps.signRecordingHlsPath,
-          });
           const hls = new HlsCtor({
             enableWorker: true,
             maxBufferLength: 60,
             backBufferLength: 90,
-            ...(SignedLoader
-              ? {
-                  loader: SignedLoader,
-                  pLoader: SignedLoader,
-                  fLoader: SignedLoader,
-                }
-              : {}),
+            xhrSetup: async (xhr, url) => {
+              await openSignedFrigateRequest({
+                xhr,
+                url,
+                signPath: this._deps.signRecordingHlsPath,
+              });
+            },
           });
           this._recordingHls = hls;
           hls.on(HlsCtor.Events.ERROR, (_evt, data) => {

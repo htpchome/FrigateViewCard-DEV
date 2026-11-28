@@ -1105,7 +1105,9 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
       listeners.get("loadedmetadata")?.();
     },
   };
-  const controller = new PopupMediaLoaderController({});
+  const controller = new PopupMediaLoaderController({}, {
+    useNativeRecordingHls: () => true,
+  });
   controller._getHlsJsCtor = async () => {
     hlsJsLoads += 1;
     return null;
@@ -1123,16 +1125,10 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
   assert.equal(hlsJsLoads, 0);
 });
 
-test("HLS.js recording playback authenticates playlists and fragments", async () => {
+test("Android-style native HLS claims still use authenticated HLS.js", async () => {
   const videoListeners = new Map();
   let hlsConfig = null;
-  class BaseLoader {
-    load() {}
-    abort() {}
-    destroy() {}
-  }
   class HlsCtor {
-    static DefaultConfig = { loader: BaseLoader };
     static Events = { ERROR: "error", MEDIA_ATTACHED: "media-attached" };
     static isSupported = () => true;
 
@@ -1155,13 +1151,14 @@ test("HLS.js recording playback authenticates playlists and fragments", async ()
     }
   }
   const video = {
-    canPlayType: () => "",
+    canPlayType: () => "probably",
     addEventListener: (type, listener) => videoListeners.set(type, listener),
     removeEventListener: (type, listener) => {
       if (videoListeners.get(type) === listener) videoListeners.delete(type);
     },
   };
   const controller = new PopupMediaLoaderController({}, {
+    useNativeRecordingHls: () => false,
     signRecordingHlsPath: async (path) => `${path}?authSig=exact`,
   });
 
@@ -1172,9 +1169,20 @@ test("HLS.js recording playback authenticates playlists and fragments", async ()
   );
 
   assert.equal(loaded, true);
-  assert.notEqual(hlsConfig.loader, BaseLoader);
-  assert.equal(hlsConfig.pLoader, hlsConfig.loader);
-  assert.equal(hlsConfig.fLoader, hlsConfig.loader);
+  const requests = [];
+  await hlsConfig.xhrSetup(
+    {
+      open: (...args) => requests.push(args),
+    },
+    "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=master",
+  );
+  assert.deepEqual(requests, [
+    [
+      "GET",
+      "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=exact",
+      true,
+    ],
+  ]);
 });
 
 test("carousel selections preserve alert and snapshot popup media types", () => {

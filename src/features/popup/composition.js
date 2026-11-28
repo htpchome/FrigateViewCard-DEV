@@ -322,6 +322,8 @@ export const createPopupControllers = (
       recordingScrubController: popupRecordingScrubController,
       lifecycleController: popupLifecycleController,
       preferRecordingHls,
+      useNativeRecordingHls: () =>
+        deviceProfile.isIOS === true || card._isSafari(),
     },
   );
 

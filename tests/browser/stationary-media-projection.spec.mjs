@@ -927,7 +927,9 @@ for (const landingPage of [
     });
 
     await page.evaluate(async () => {
-      const { card } = window.startupAudioPageProbe;
+      const probe = window.startupAudioPageProbe;
+      const { card } = probe;
+      probe.retainedRecord = card._engine.haDirectSession.get("camera.one");
       // Exercise both configured and manual audio state before entering the
       // always-muted Preview route.
       if (["mobile-view", "card-view"].includes(card._pageId)) {
@@ -942,22 +944,23 @@ for (const landingPage of [
 
     await expect
       .poll(() =>
-        page.evaluate(() => window.startupAudioPageProbe.card._pageId),
+        page.evaluate(() => {
+          const { card, retainedRecord } = window.startupAudioPageProbe;
+          const record = card._engine.haDirectSession.get("camera.one");
+          return {
+            pageId: card._pageId,
+            recordRetained: record === retainedRecord,
+            streamMuted: card._streamMuted,
+            retainedVideoMuted: record?.video?.muted,
+          };
+        }),
       )
-      .toBe("preview");
-    expect(
-      await page.evaluate(() => {
-        const { card } = window.startupAudioPageProbe;
-        const record = card._engine.haDirectSession.get("camera.one");
-        return {
-          streamMuted: card._streamMuted,
-          retainedVideoMuted: record.video.muted,
-        };
-      }),
-    ).toEqual({
-      streamMuted: true,
-      retainedVideoMuted: true,
-    });
+      .toEqual({
+        pageId: "preview",
+        recordRetained: true,
+        streamMuted: true,
+        retainedVideoMuted: true,
+      });
   });
 }
 
