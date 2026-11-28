@@ -2,7 +2,7 @@ import { CARD_NAME } from "./product-identity.mjs";
 
 export * from "./product-identity.mjs";
 
-export const VERSION = "1.1.12-dev.26";
+export const VERSION = "1.1.12-dev.27";
 
 export const RECOMMENDED_HOME_ASSISTANT_VERSION = "2026.9.0";
 export const HOME_ASSISTANT_STUN_SERVER =
@@ -88,7 +88,7 @@ export const THEME_DEFAULTS = Object.freeze({
   "--c-bg-main": "var(--card-background-color)",
   "--c-bg-primary": "var(--primary-background-color)",
   "--c-bg-panel": "var(--secondary-background-color)",
-  "--c-bg-tabs-holder": "var(--fvc-tabs-holder)",
+  "--c-bg-tabs-holder": "var(--secondary-background-color)",
   "--c-bg-deep": "#111111",
   "--c-bg-mobile": "var(--wa-color-neutral-fill-normal, var(--secondary-background-color))",
   "--c-bg-mobile-list": "#f0f0f0",

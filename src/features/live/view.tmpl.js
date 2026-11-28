@@ -10,11 +10,11 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                       <img id="stream-fallback-img" alt="Camera snapshot" data-fvc-i18n-alt="runtime.live.cameraSnapshot" loading="eager" decoding="async" fetchpriority="high">
                     </div>
                     <div class="stream-fallback-status" id="stream-fallback-status" data-fvc-i18n="runtime.live.snapshotUnavailable" hidden>Snapshot unavailable</div>
-                    <div class="camera-suspended-placeholder" id="camera-suspended-placeholder" hidden>
-                      <span class="camera-suspended-placeholder__icon">${icons.cameraOff || icons.power || ""}</span>
-                      <strong data-fvc-i18n="runtime.live.cameraSuspended">Camera suspended</strong>
-                      <span data-fvc-i18n="runtime.live.cameraSuspendedDetail">Resume this camera to restore live video.</span>
-                    </div>
+                    ${buildCameraSuspendedPlaceholderMarkup({
+                      icons,
+                      id: "camera-suspended-placeholder",
+                      hidden: true,
+                    })}
                     <div class="camera-group-pane-controls">
                       <button class="camera-group-pane-button camera-group-audio-select" type="button" data-media-overlay-ignore data-camera-group-audio="A" title="Use main camera audio" aria-label="Use main camera audio" data-fvc-i18n-title="runtime.cameraGroup.useMainAudio" data-fvc-i18n-aria-label="runtime.cameraGroup.useMainAudio" aria-pressed="true">${icons.volOn}<span>A</span></button>
                       <button class="camera-group-pane-button camera-group-focus-toggle" type="button" data-media-overlay-ignore data-camera-group-focus="A" title="Focus main camera" aria-label="Focus main camera" data-fvc-i18n-title="runtime.cameraGroup.focusMain" data-fvc-i18n-aria-label="runtime.cameraGroup.focusMain" aria-pressed="false">${icons.singleView}</button>
@@ -39,6 +39,28 @@ export function buildLiveEngineWrapMarkup({ icons }) {
                     ${icons.chevron}
                   </button>
               </div>`;
+}
+
+export function buildCameraSuspendedPlaceholderMarkup({
+  icons = {},
+  id = "",
+  hidden = false,
+  t = null,
+} = {}) {
+  const title =
+    typeof t === "function"
+      ? t("runtime.live.cameraSuspended")
+      : "Camera suspended";
+  const detail =
+    typeof t === "function"
+      ? t("runtime.live.cameraSuspendedDetail")
+      : "Resume this camera to restore live video.";
+  const idAttribute = id ? ` id="${escapeHtmlAttribute(id)}"` : "";
+  return `<div class="camera-suspended-placeholder"${idAttribute}${hidden ? " hidden" : ""}>
+                      <span class="camera-suspended-placeholder__icon">${icons.cameraOff || icons.power || ""}</span>
+                      <strong data-fvc-i18n="runtime.live.cameraSuspended">${escapeHtml(title)}</strong>
+                      <span data-fvc-i18n="runtime.live.cameraSuspendedDetail">${escapeHtml(detail)}</span>
+                    </div>`;
 }
 
 export function buildLiveCameraRuntimeConfirmationMarkup({ icons = {} } = {}) {
@@ -144,4 +166,4 @@ export function buildLivePlaybackControlsMarkup(regions = {}) {
             </div>`;
 }
 import { CARD_DISPLAY_NAME } from "../../constants.js";
-import { escapeHtmlAttribute } from "../../shared/html.js";
+import { escapeHtml, escapeHtmlAttribute } from "../../shared/html.js";

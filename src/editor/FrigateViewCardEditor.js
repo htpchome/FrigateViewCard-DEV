@@ -1896,16 +1896,6 @@ export class FrigateViewCardEditor extends HTMLElement {
     if (key === "--c-primary-d" && themeContext.deriveDarkPrimary) {
       return this._deriveDarkPrimaryHex();
     }
-    if (key === "--c-bg-tabs-holder") {
-      const usesPrimaryBackground =
-        themeContext.source === "custom" || normalizedMode === "dark";
-      return this._resolveColorToHex(
-        usesPrimaryBackground
-          ? "var(--primary-background-color)"
-          : "var(--secondary-background-color)",
-        normalizedMode === "dark" ? "#181818" : "#f0f0f0",
-      );
-    }
     if (
       key === "--c-bg-mobile-list" ||
       key === "--c-bg-list" ||

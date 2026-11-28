@@ -2,6 +2,7 @@ import {
   resolvePreviewLiveStreamHint,
   resolvePreviewStreamSourceLabel,
 } from "./utils.js";
+import { buildCameraSuspendedPlaceholderMarkup } from "../live/view.tmpl.js";
 import {
   buildPreviewCameraButtonMarkup,
   buildPreviewCellMarkup,
@@ -291,6 +292,9 @@ export class PreviewPageController {
     const nextSignature = cameras
       .map((camera, index) => {
         const entity = camera?.entity || "";
+        const suspended =
+          this._host._frigateCameraRuntimeController?.isSuspended?.(entity) ===
+          true;
         const useLive = this.previewShouldUseLive(entity);
         const liveStreamHint = this.previewCameraLiveStreamHint(entity);
         const light = this._host._linkedLightController?.config?.(camera);
@@ -299,7 +303,12 @@ export class PreviewPageController {
         const lightSignature = light?.entity
           ? `:light:${light.entity}:${light.icon || ""}:${lightPosition}`
           : "";
-        return `${index}:${entity}:${useLive ? `live:${liveStreamHint}` : "snap"}${lightSignature}`;
+        const mediaSignature = suspended
+          ? "suspended"
+          : useLive
+            ? `live:${liveStreamHint}`
+            : "snap";
+        return `${index}:${entity}:${mediaSignature}${lightSignature}`;
       })
       .concat([
         `titles:${showTitleBars ? "1" : "0"}`,
@@ -512,6 +521,16 @@ export class PreviewPageController {
       if (!entity) {
         const label = this._host._localization?.t?.("runtime.preview.unavailable") ?? "Unavailable";
         host.innerHTML = `<div class="ph">${ICONS.live}<span data-fvc-i18n="runtime.preview.unavailable">${escapeHtml(label)}</span></div>`;
+        return;
+      }
+      if (
+        this._host._frigateCameraRuntimeController?.isSuspended?.(entity) ===
+        true
+      ) {
+        host.innerHTML = buildCameraSuspendedPlaceholderMarkup({
+          icons: ICONS,
+          t: this._host._localization?.t,
+        });
         return;
       }
       this._host._gridMediaController.mountCameraCellMedia(host, {

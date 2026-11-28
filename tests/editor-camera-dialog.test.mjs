@@ -664,7 +664,7 @@ test("theme color pickers match the exact active mobile surface defaults", () =>
   assert.equal(editor._themeDefaultHex("--c-bg-cam-btn"), "#24384c");
 });
 
-test("Navigation Tabs Background picker matches its adaptive surface", () => {
+test("Navigation Tabs Background picker follows the HA secondary surface", () => {
   const editor = new FrigateViewCardEditor();
   editor._resolveColorToHex = (value, fallback) => {
     if (value === "var(--primary-background-color)") return "#222222";
@@ -679,7 +679,7 @@ test("Navigation Tabs Background picker matches its adaptive surface", () => {
   );
   assert.equal(
     editor._themeDefaultHex("--c-bg-tabs-holder", "dark"),
-    "#222222",
+    "#eeeeee",
   );
 
   editor._hass = {
@@ -691,7 +691,7 @@ test("Navigation Tabs Background picker matches its adaptive surface", () => {
   };
   assert.equal(
     editor._themeDefaultHex("--c-bg-tabs-holder", "light"),
-    "#222222",
+    "#eeeeee",
   );
 });
 

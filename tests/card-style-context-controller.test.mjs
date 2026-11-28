@@ -347,18 +347,11 @@ test("card mobile surfaces use default light and explicit dark list colors", () 
   assert.doesNotMatch(STYLES, /--fvc-(?:mobile-bg|mobile-list|list): color-mix/);
 });
 
-test("navigation tabs background uses the adaptive theme token", () => {
+test("navigation tabs background follows the HA secondary surface", () => {
+  assert.doesNotMatch(STYLES, /--fvc-tabs-holder/);
   assert.match(
     STYLES,
-    /\.card\s*\{[\s\S]*?--fvc-tabs-holder: var\(--secondary-background-color\);/,
-  );
-  assert.match(
-    STYLES,
-    /\.card\[data-theme-mode="dark"\]\s*\{[\s\S]*?--fvc-tabs-holder: var\(--primary-background-color\);/,
-  );
-  assert.match(
-    STYLES,
-    /--c-bg-tabs-holder:\s*var\(--fvc-tabs-holder\);/,
+    /--c-bg-tabs-holder:\s*var\(--secondary-background-color\);/,
   );
   assert.match(
     STYLES,
@@ -2263,6 +2256,7 @@ test("applyCardStyle applies one custom theme in every selected mode", () => {
           overrides: {
             "--c-bg-main": "#abcdef",
             "--c-bg-primary": "#123456",
+            "--c-bg-tabs-holder": "#fedcba",
             "--c-bg-mobile": "#654321",
           },
         },
@@ -2348,6 +2342,15 @@ test("applyCardStyle applies one custom theme in every selected mode", () => {
   assert.equal(
     cardCalls.some(
       ([action, name]) => action === "remove" && name === "--c-bg-panel",
+    ),
+    true,
+  );
+  assert.equal(
+    cardCalls.some(
+      ([action, name, value]) =>
+        action === "set" &&
+        name === "--c-bg-tabs-holder" &&
+        value === "#fedcba",
     ),
     true,
   );

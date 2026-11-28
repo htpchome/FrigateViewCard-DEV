@@ -669,7 +669,7 @@ test("custom theme background rows use the requested order and defaults", () => 
   );
   assert.equal(
     THEME_DEFAULTS["--c-bg-tabs-holder"],
-    "var(--fvc-tabs-holder)",
+    "var(--secondary-background-color)",
   );
   assert.match(
     THEME_DEFAULTS["--c-bg-mobile"],

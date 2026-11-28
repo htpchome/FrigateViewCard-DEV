@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { GridMediaController } from "../src/features/grid/media.ctrl.js";
+import { buildCameraSuspendedPlaceholderMarkup } from "../src/features/live/view.tmpl.js";
 import { PreviewPageController } from "../src/features/preview/page.ctrl.js";
 import { resolvePreviewStreamSourceLabel } from "../src/features/preview/utils.js";
 import { STYLES } from "../src/styles.js";
@@ -623,6 +624,112 @@ test("mountPreviewMedia delegates preview cells through grid media ownership", (
     false,
   );
   assert.equal(host._previewMediaState?.destroyed, false);
+});
+
+test("Preview renders the shared suspended message without a resume control", () => {
+  const hosts = [
+    {
+      dataset: {
+        previewMediaEntity: "camera.front_door",
+        previewUseLive: "0",
+      },
+      innerHTML: "",
+    },
+  ];
+  const { controller, host } = createHost({
+    previewEnabled: true,
+    pageId: "preview",
+  });
+  const mountCalls = [];
+  const translations = {
+    "runtime.live.cameraSuspended": "Caméra suspendue",
+    "runtime.live.cameraSuspendedDetail": "Reprenez cette caméra.",
+  };
+
+  host._hass = {
+    states: {
+      "camera.front_door": { state: "unavailable", attributes: {} },
+    },
+  };
+  host._frigateCameraRuntimeController = {
+    isSuspended: (entity) => entity === "camera.front_door",
+  };
+  host._localization = { t: (key) => translations[key] || key };
+  host._gridMediaController = {
+    mountCameraCellMedia: (...args) => mountCalls.push(args),
+  };
+  host.shadowRoot = {
+    querySelectorAll: (selector) =>
+      selector === ".preview-media-host" ? hosts : [],
+  };
+
+  controller.mountPreviewMedia();
+
+  assert.equal(mountCalls.length, 0);
+  assert.match(hosts[0].innerHTML, /camera-suspended-placeholder/);
+  assert.match(hosts[0].innerHTML, /Caméra suspendue/);
+  assert.match(hosts[0].innerHTML, /Reprenez cette caméra/);
+  assert.doesNotMatch(hosts[0].innerHTML, /<button/);
+});
+
+test("Preview rebuilds media when a rendered camera becomes suspended", () => {
+  const { controller, host } = createHost({
+    previewEnabled: true,
+    pageId: "preview",
+  });
+  const shell = {
+    firstElementChild: {
+      classList: { contains: (value) => value === "preview-grid" },
+    },
+    innerHTML: "",
+  };
+  let mountCalls = 0;
+
+  host._hass = {
+    states: {
+      "camera.front_door": { state: "unavailable", attributes: {} },
+      "camera.driveway": { state: "recording", attributes: {} },
+    },
+  };
+  host._frigateCameraRuntimeController = {
+    isSuspended: (entity) => entity === "camera.front_door",
+    isAvailable: (entity) => entity !== "camera.front_door",
+  };
+  host._previewLastRenderSignature =
+    "0:camera.front_door:snap|1:camera.driveway:snap|titles:1|hass:1";
+  controller.ensurePreviewLayoutShell = () => shell;
+  controller.teardownPreviewMedia = () => {};
+  controller.mountPreviewMedia = () => {
+    mountCalls += 1;
+  };
+  controller.applyPreviewShellVisibility = () => {};
+  host._syncSnapshotRefreshTimer = () => {};
+
+  controller.renderPreviewPage();
+
+  assert.equal(mountCalls, 1);
+  assert.equal(
+    host._previewLastRenderSignature,
+    "0:camera.front_door:suspended|1:camera.driveway:snap|titles:1|hass:1",
+  );
+});
+
+test("shared suspended presentation uses stable media-overlay text colors", () => {
+  const markup = buildCameraSuspendedPlaceholderMarkup({
+    icons: { cameraOff: "CAMERA-OFF" },
+  });
+
+  assert.match(markup, /camera-suspended-placeholder__icon">CAMERA-OFF/);
+  assert.match(markup, /Camera suspended/);
+  assert.doesNotMatch(markup, /<button/);
+  assert.match(
+    PREVIEW_STYLES,
+    /\.camera-suspended-placeholder\{[^}]*color:var\(--fvc-media-overlay-text\);/,
+  );
+  assert.match(
+    PREVIEW_STYLES,
+    /\.camera-suspended-placeholder > span:last-child\{[^}]*color:var\(--fvc-media-overlay-text-muted\);opacity:\.75;/,
+  );
 });
 
 const createPreviewMediaElement = (tagName) => {

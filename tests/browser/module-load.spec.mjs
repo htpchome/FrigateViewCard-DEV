@@ -3302,6 +3302,69 @@ test("Preview metadata relocalizes without replacing camera media", async ({ pag
   });
 });
 
+test("Preview shows the shared suspended message without a resume button", async ({
+  page,
+}) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({
+      cameras: [{ entity: "camera.front", name: "Front" }],
+      preview_page_enabled: true,
+    });
+    card._pageId = "preview";
+    card._hass = {
+      states: {
+        "camera.front": {
+          state: "idle",
+          attributes: {
+            client_id: "frigate-main",
+            camera_name: "front",
+            supported_features: 0,
+          },
+        },
+      },
+    };
+    let mediaMounts = 0;
+    card._gridMediaController.mountCameraCellMedia = () => {
+      mediaMounts += 1;
+    };
+
+    await card._previewPageController.prepare();
+    card._renderShell();
+    card._previewPageController.renderPreviewPage();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const host = card.shadowRoot.querySelector(".preview-media-host");
+    const placeholder = host.querySelector(".camera-suspended-placeholder");
+    const hostRect = host.getBoundingClientRect();
+    const placeholderRect = placeholder.getBoundingClientRect();
+    const result = {
+      mediaMounts,
+      title: placeholder.querySelector("strong")?.textContent,
+      detail: placeholder.querySelector("span:last-child")?.textContent,
+      hasButton: Boolean(placeholder.querySelector("button")),
+      display: getComputedStyle(placeholder).display,
+      color: getComputedStyle(placeholder).color,
+      widthDelta: Math.abs(placeholderRect.width - hostRect.width),
+      heightDelta: Math.abs(placeholderRect.height - hostRect.height),
+    };
+    card.remove();
+    return result;
+  });
+
+  expect(state.mediaMounts).toBe(0);
+  expect(state.title).toBe("Camera suspended");
+  expect(state.detail).toBe("Resume this camera to restore live video.");
+  expect(state.hasButton).toBe(false);
+  expect(state.display).toBe("flex");
+  expect(state.color).toBe("rgb(245, 245, 245)");
+  expect(state.widthDelta).toBeLessThan(1);
+  expect(state.heightDelta).toBeLessThan(1);
+});
+
 test("snapshot result feedback relocalizes in place", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {
