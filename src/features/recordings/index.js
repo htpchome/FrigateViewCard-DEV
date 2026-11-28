@@ -24,6 +24,7 @@ export {
 
 export {
   buildRecordingPlaybackPlan,
+  resolveRecordingPlaybackAlignment,
   shouldPreferRecordingHls,
 } from "./utils/playback.js";
 

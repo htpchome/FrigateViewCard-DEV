@@ -20,6 +20,7 @@ import {
   buildPopupRecordingSourceAttemptPlan,
   buildPopupSnapshotRenderPlan,
   isCardViewDrawerPopupPresentation,
+  POPUP_MEDIA_PLAYBACK_WINDOW,
   resolvePopupMediaPostRenderPlan,
   resolvePopupMediaRenderPlan,
   resolvePopupRecordingLoadOutcomePlan,
@@ -48,6 +49,7 @@ const RECORDING_HLS_JS_CTOR = Symbol.for(
   "frigate-view-card.recording-hls-1.6.15",
 );
 const MOBILE_POPUP_STAGE_HEIGHT_RATIO = 9 / 16;
+const RECORDING_ALIGNMENT_TIMEOUT_MS = 750;
 
 export const resolveRecordingHlsJsUrl = (moduleUrl = import.meta.url) =>
   new URL(`./${RECORDING_HLS_JS_ASSET_NAME}`, moduleUrl).href;
@@ -181,6 +183,7 @@ export class PopupMediaLoaderController {
       createPopupViewResizeController: (options) =>
         new PopupViewResizeController(options),
       resolveRecordingHlsJsUrl,
+      resolveRecordingPlaybackAlignment: null,
       ...loaderDeps,
     };
   }
@@ -648,6 +651,7 @@ export class PopupMediaLoaderController {
       timeoutMs = 9000,
       hlsCtorPromise = null,
       playbackToken = null,
+      startPosition = 0,
     } = {},
   ) {
     if (!video || !src) return false;
@@ -679,6 +683,15 @@ export class PopupMediaLoaderController {
         resolve(ok);
       };
       const onReady = async () => {
+        const desiredStart = Math.max(0, Number(startPosition) || 0);
+        if (
+          desiredStart > 0 &&
+          Math.abs(Number(video.currentTime || 0) - desiredStart) > 0.05
+        ) {
+          try {
+            video.currentTime = desiredStart;
+          } catch (_) {}
+        }
         if (!autoplay) {
           finish(true);
           return;
@@ -724,6 +737,9 @@ export class PopupMediaLoaderController {
           if (usesHlsJs) {
             const hls = new HlsCtor({
               enableWorker: true,
+              ...(Number(startPosition) > 0
+                ? { startPosition: Number(startPosition) }
+                : {}),
               maxBufferLength: 10,
               maxBufferSize: 20 * 1000 * 1000,
             });
@@ -771,6 +787,26 @@ export class PopupMediaLoaderController {
     });
   }
 
+  async _resolveRecordingPlaybackAlignment(options) {
+    const resolver = this._deps.resolveRecordingPlaybackAlignment;
+    if (typeof resolver !== "function") return null;
+
+    let timeout = null;
+    try {
+      return await Promise.race([
+        Promise.resolve(resolver(options)).catch(() => null),
+        new Promise((resolve) => {
+          timeout = setTimeout(
+            () => resolve(null),
+            RECORDING_ALIGNMENT_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout !== null) clearTimeout(timeout);
+    }
+  }
+
   async _showRecordingRange(
     start,
     end,
@@ -802,6 +838,9 @@ export class PopupMediaLoaderController {
     const { clientId, cam: activeCamera } =
       eventContext || providedContext || activeContext;
     const cam = event?.camera || fallbackOpts?.camera || activeCamera;
+    const alignmentPromise = event
+      ? this._resolveRecordingPlaybackAlignment({ clientId, cam, start, end })
+      : null;
     const playbackPlan = buildRecordingPlaybackPlan({
       clientId,
       camera: cam,
@@ -822,7 +861,7 @@ export class PopupMediaLoaderController {
           playbackPlan,
           opts: { compact },
         });
-    const sourceAttemptPlan = buildPopupRecordingSourceAttemptPlan({
+    let sourceAttemptPlan = buildPopupRecordingSourceAttemptPlan({
       sourceCandidates: renderPlan.sourceCandidates,
     });
     if (
@@ -910,6 +949,28 @@ export class PopupMediaLoaderController {
       isM3u8Url(firstSourcePath)
         ? this._getHlsJsCtor()
         : null;
+    const playbackAlignment = alignmentPromise
+      ? await alignmentPromise
+      : null;
+    if (alignmentPromise && this._host._playSeq !== token) return;
+    if (playbackAlignment?.transportStart < Number(start)) {
+      const alignedPlaybackPlan = buildRecordingPlaybackPlan({
+        clientId,
+        camera: cam,
+        start: playbackAlignment.transportStart,
+        end,
+        preferHls: true,
+      });
+      sourceAttemptPlan = buildPopupRecordingSourceAttemptPlan({
+        sourceCandidates: alignedPlaybackPlan.sourceCandidates,
+      });
+      video[POPUP_MEDIA_PLAYBACK_WINDOW] = {
+        start: playbackAlignment.startPosition,
+        end:
+          playbackAlignment.startPosition +
+          playbackAlignment.playbackDuration,
+      };
+    }
     const scrubInitPlan =
       video && !event
         ? buildPopupRecordingScrubInitPlan({
@@ -967,6 +1028,7 @@ export class PopupMediaLoaderController {
             ? hlsCtorPromise
             : null,
           playbackToken: token,
+          startPosition: video[POPUP_MEDIA_PLAYBACK_WINDOW]?.start || 0,
         });
         if (this._host._playSeq !== token) return;
         if (playable) {

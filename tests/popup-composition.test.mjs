@@ -193,18 +193,22 @@ test("popup composition creates the complete controller set and preserves cross-
     _popupLifecycleController: controllers.lifecycle,
     _popupMediaLoaderController: controllers.loader,
   });
-  assert.deepEqual(calls.shift(), [
-    "loader-host",
-    card,
-    {
-      infoController: controllers.info,
-      carouselController: controllers.carousel,
-      mediaControlsController: controllers.mediaControls,
-      mediaPresentationController: controllers.mediaPresentation,
-      recordingScrubController: controllers.recordingScrub,
-      lifecycleController: controllers.lifecycle,
-    },
-  ]);
+  const [loaderKind, loaderHost, loaderDeps] = calls.shift();
+  const {
+    resolveRecordingPlaybackAlignment: alignmentResolver,
+    ...stableLoaderDeps
+  } = loaderDeps;
+  assert.equal(loaderKind, "loader-host");
+  assert.equal(loaderHost, card);
+  assert.equal(typeof alignmentResolver, "function");
+  assert.deepEqual(stableLoaderDeps, {
+    infoController: controllers.info,
+    carouselController: controllers.carousel,
+    mediaControlsController: controllers.mediaControls,
+    mediaPresentationController: controllers.mediaPresentation,
+    recordingScrubController: controllers.recordingScrub,
+    lifecycleController: controllers.lifecycle,
+  });
 
   assert.equal(
     options.recordingScrub.fetchReviews("client", "cam", 10, 20),
@@ -323,25 +327,57 @@ test("popup composition keeps recording timeline expansion inside the popup feat
     end: 150,
   });
 
+  const [loaderKind, loaderHost, loaderDeps] = calls.shift();
+  assert.equal(loaderKind, "loader-host");
+  assert.equal(loaderHost, card);
+  assert.equal(
+    typeof loaderDeps.resolveRecordingPlaybackAlignment,
+    "function",
+  );
   assert.deepEqual(calls, [
-    [
-      "loader-host",
-      card,
-      {
-        infoController: controllers.info,
-        carouselController: controllers.carousel,
-        mediaControlsController: controllers.mediaControls,
-        mediaPresentationController: controllers.mediaPresentation,
-        recordingScrubController: controllers.recordingScrub,
-        lifecycleController: controllers.lifecycle,
-      },
-    ],
     [
       "fetch-recordings",
       { start: 0, end: 200 },
       "client",
       "doorbell",
       { forceRefresh: true },
+    ],
+  ]);
+});
+
+test("popup composition resolves event playback against its containing recording", async () => {
+  const { calls, card, factories } = createHarness();
+  card._recordingsBrowseNavController.fetchRecordingsInBounds = (
+    ...args
+  ) => {
+    calls.push(["fetch-recordings", ...args]);
+    return [{ start_time: 95, end_time: 105 }];
+  };
+  createPopupControllers(card, {
+    deviceProfile: { isIOS: false },
+    factories,
+  });
+  const loaderDeps = calls.shift()[2];
+
+  assert.deepEqual(
+    await loaderDeps.resolveRecordingPlaybackAlignment({
+      clientId: "client",
+      cam: "doorbell",
+      start: 100,
+      end: 104,
+    }),
+    {
+      transportStart: 95,
+      startPosition: 5,
+      playbackDuration: 4,
+    },
+  );
+  assert.deepEqual(calls, [
+    [
+      "fetch-recordings",
+      { start: 0, end: 101 },
+      "client",
+      "doorbell",
     ],
   ]);
 });

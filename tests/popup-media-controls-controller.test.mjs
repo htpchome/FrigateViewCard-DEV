@@ -5,6 +5,7 @@ import {
   PopupMediaControlsController,
   PopupMediaControlsSurfaceController,
 } from "../src/features/popup/media.ctrl.js";
+import { POPUP_MEDIA_PLAYBACK_WINDOW } from "../src/features/popup/media.js";
 import { resolvePopupMediaControlsListenerPlan } from "../src/shared/media/controls.js";
 
 const signalCleanupMap = new WeakMap();
@@ -107,6 +108,49 @@ test("PopupMediaControlsController previews seeks and syncs without updating but
   assert.equal(showTemporaryCalls, 2);
   assert.equal(video.currentTime, 25);
   assert.deepEqual(syncCalls, [false, true, false]);
+});
+
+test("popup media controls expose and seek only inside an aligned event range", () => {
+  const controls = createTarget();
+  const progress = createTarget();
+  const video = createTarget();
+  video.duration = 20;
+  video.currentTime = 8;
+  video.paused = false;
+  video.muted = true;
+  video.volume = 1;
+  video[POPUP_MEDIA_PLAYBACK_WINDOW] = { start: 5, end: 9 };
+  progress.value = "500";
+
+  const binding = new PopupMediaControlsController({
+    controls,
+    progress,
+    video,
+    listenerPlan: resolvePopupMediaControlsListenerPlan({
+      hasProgressControl: true,
+    }),
+    onShowNow: () => {},
+    onShowTemporarily: () => {},
+    onSync: () => {},
+  });
+  binding.bind();
+  progress.dispatch("input");
+  assert.equal(video.currentTime, 7);
+
+  video.currentTime = 8;
+  const time = { textContent: "" };
+  const elements = new Map([
+    ["#popup-media-progress", progress],
+    ["#popup-media-time", time],
+  ]);
+  const surface = new PopupMediaControlsSurfaceController({
+    query: (selector) => elements.get(selector) || null,
+    formatTime: (value) => `${value}s`,
+  });
+  surface.update(video);
+
+  assert.equal(progress.value, "750");
+  assert.equal(time.textContent, "3s/4s");
 });
 
 test("PopupMediaControlsController removes listeners and clears hidden class on dispose", () => {

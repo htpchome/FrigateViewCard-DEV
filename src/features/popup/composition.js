@@ -9,6 +9,7 @@ import {
   buildRecordingPlaybackPlan,
   formatRecordingScrubTime,
   RECORDING_SEGMENT_EXTENSION_SECONDS,
+  resolveRecordingPlaybackAlignment,
   resolveRecordingSegmentTimelineRange,
   shouldPreferRecordingHls,
 } from "../recordings/index.js";
@@ -316,6 +317,27 @@ export const createPopupControllers = (
       mediaPresentationController: popupMediaPresentationController,
       recordingScrubController: popupRecordingScrubController,
       lifecycleController: popupLifecycleController,
+      resolveRecordingPlaybackAlignment: async ({
+        clientId,
+        cam,
+        start,
+        end,
+      }) => {
+        const recordings =
+          await card._recordingsBrowseNavController?.fetchRecordingsInBounds?.(
+            {
+              start: Math.max(0, Math.floor(Number(start) || 0) - 10 * 60),
+              end: Math.ceil(Number(start) || 0) + 1,
+            },
+            clientId,
+            cam,
+          );
+        return resolveRecordingPlaybackAlignment({
+          recordings: recordings || [],
+          start,
+          end,
+        });
+      },
     },
   );
 

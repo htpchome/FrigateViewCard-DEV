@@ -7,6 +7,7 @@ import {
   bindPopupVideoReadiness,
   resolvePopupMediaSizing,
 } from "../src/features/popup/media-loader.ctrl.js";
+import { POPUP_MEDIA_PLAYBACK_WINDOW } from "../src/features/popup/media.js";
 
 test("popup media sizing caps ultra-tall initial viewports at 4:3", () => {
   assert.deepEqual(
@@ -308,6 +309,98 @@ test("Safari clips use the exact camera VOD range without configured padding", a
       eventRecordingEnd: 111,
     },
   );
+});
+
+test("event playback uses a containing recording boundary without changing its visible range", async () => {
+  const calls = [];
+  const viewer = { innerHTML: "", appended: null };
+  const video = {
+    paused: false,
+    seeking: false,
+    currentSrc: "",
+    src: "",
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    pause: () => {},
+    play: () => Promise.resolve(),
+    canPlayType: () => "probably",
+  };
+  const event = {
+    id: "event-1",
+    camera: "front_door",
+    start_time: 100,
+    end_time: 104,
+    has_clip: true,
+  };
+  const host = {
+    _playSeq: 0,
+    _cc: () => ({ clientId: "frigate", cam: "front_door" }),
+    _frigateContextForCameraName: () => ({
+      clientId: "frigate",
+      cam: "front_door",
+    }),
+    _popupInfoController: { render: () => {} },
+    _popupCarouselController: { render: () => {} },
+    _popupMediaControlsController: {
+      initialize: () => {},
+      ensurePlaybackButtons: () => {},
+      showTemporarily: () => {},
+      syncPlaybackButtons: () => {},
+      update: () => {},
+    },
+    _popupRecordingScrubController: {},
+    _popupLifecycleController: {
+      enter: () => {},
+      clearMediaCleanup: () => {},
+      setMediaState: () => {},
+      setMediaCleanup: () => {},
+      setMediaCamera: () => {},
+    },
+    shadowRoot: { querySelector: () => viewer },
+    _signed: async (path) => `signed:${path}`,
+    _popupMediaPresentationController: { attach: () => {} },
+    _scheduleRotateOverlayUpdate: () => {},
+    _preparePopupPlaybackTarget: () => {},
+  };
+  const controller = new PopupMediaLoaderController(host, {
+    buildVideoOptionsForView: (_view, options) => options,
+    createVideoElement: () => video,
+    mountNodeIntoSlot: (slot, node) => {
+      slot.appended = node;
+    },
+    resolveRecordingPlaybackAlignment: async (options) => {
+      calls.push(["alignment", options]);
+      return {
+        transportStart: 95,
+        startPosition: 5,
+        playbackDuration: 4,
+      };
+    },
+  });
+  controller.tryRecordingSource = async (_video, source, options) => {
+    calls.push(["source", source, options]);
+    return true;
+  };
+
+  await controller.showEventRecording(
+    event,
+    { mediaType: "clip" },
+    { start: 100, end: 104, durationSec: 4 },
+  );
+
+  assert.deepEqual(calls[0], [
+    "alignment",
+    { clientId: "frigate", cam: "front_door", start: 100, end: 104 },
+  ]);
+  assert.equal(
+    calls.find(([kind]) => kind === "source")?.[1],
+    "signed:/api/frigate/frigate/vod/front_door/start/95/end/104/index.m3u8",
+  );
+  assert.equal(calls.find(([kind]) => kind === "source")?.[2]?.startPosition, 5);
+  assert.deepEqual(video[POPUP_MEDIA_PLAYBACK_WINDOW], {
+    start: 5,
+    end: 9,
+  });
 });
 
 test("unavailable event clips fall back to snapshots and then clear messaging", () => {
@@ -1088,6 +1181,7 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   let hlsOptions = null;
   const video = {
     src: "",
+    currentTime: 0,
     canPlayType: (type) =>
       type === "application/vnd.apple.mpegurl" ? "probably" : "",
     addEventListener: (type, listener) => listeners.set(type, listener),
@@ -1139,7 +1233,7 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   const loaded = await controller.tryRecordingSource(
     video,
     "/api/recording/master.m3u8",
-    { autoplay: false, timeoutMs: 50 },
+    { autoplay: false, timeoutMs: 50, startPosition: 4.5 },
   );
 
   assert.equal(loaded, true);
@@ -1148,8 +1242,10 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   assert.equal(video.src, "");
   assert.equal(mediaLoads, 0);
   assert.equal(hlsJsLoads, 1);
+  assert.equal(video.currentTime, 4.5);
   assert.deepEqual(hlsOptions, {
     enableWorker: true,
+    startPosition: 4.5,
     maxBufferLength: 10,
     maxBufferSize: 20 * 1000 * 1000,
   });

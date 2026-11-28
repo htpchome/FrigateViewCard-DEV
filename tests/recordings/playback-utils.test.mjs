@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildRecordingPlaybackPlan,
+  resolveRecordingPlaybackAlignment,
   shouldPreferRecordingHls,
 } from "../../src/features/recordings/utils/playback.js";
 
@@ -50,5 +51,50 @@ test("buildRecordingPlaybackPlan prefers HLS sources when requested", () => {
       "/api/frigate/client-a/vod/front%20door/start/100/end/200/master.m3u8",
       "/api/frigate/client-a/recording/front%20door/start/100/end/200",
     ],
+  );
+});
+
+test("recording playback alignment starts at the containing raw segment", () => {
+  assert.deepEqual(
+    resolveRecordingPlaybackAlignment({
+      recordings: [
+        { start_time: 90, end_time: 100 },
+        { start_time: 95.25, end_time: 105.25 },
+      ],
+      start: 100,
+      end: 104,
+    }),
+    {
+      transportStart: 95.25,
+      startPosition: 4.75,
+      playbackDuration: 4,
+    },
+  );
+});
+
+test("recording playback alignment rejects unsafe or unnecessary offsets", () => {
+  assert.equal(
+    resolveRecordingPlaybackAlignment({
+      recordings: [{ start_time: 100, end_time: 110 }],
+      start: 100,
+      end: 104,
+    }),
+    null,
+  );
+  assert.equal(
+    resolveRecordingPlaybackAlignment({
+      recordings: [{ start_time: 0, end_time: 700 }],
+      start: 601,
+      end: 604,
+    }),
+    null,
+  );
+  assert.equal(
+    resolveRecordingPlaybackAlignment({
+      recordings: [{ start_time: 95, end_time: 99 }],
+      start: 100,
+      end: 104,
+    }),
+    null,
   );
 });

@@ -1,6 +1,9 @@
 import { resolvePopupMediaControlsInitPlan } from "../../shared/media/controls.js";
 
 export const POPUP_PRESENTATION_CARD_VIEW_DRAWER = "card-view-drawer";
+export const POPUP_MEDIA_PLAYBACK_WINDOW = Symbol.for(
+  "frigate-view-card.popup-media-playback-window",
+);
 
 export const isPopupVideoMediaType = (mediaType = "") =>
   ["alert", "clip", "recording", "kept"].includes(

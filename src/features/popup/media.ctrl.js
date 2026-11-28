@@ -8,9 +8,27 @@ import {
 } from "../../shared/media/controls.js";
 import { CleanupController } from "../../shared/cleanup.js";
 import { MediaOverlayControlsController } from "../../shared/media/overlay-controls.ctrl.js";
+import { POPUP_MEDIA_PLAYBACK_WINDOW } from "./media.js";
 
 const isSpaceKey = (event) =>
   event?.code === "Space" || event?.key === " " || event?.key === "Spacebar";
+
+const resolveVideoPlaybackWindow = (video) => {
+  const mediaDuration = Math.max(0, Number(video?.duration) || 0);
+  const configuredStart = Number(video?.[POPUP_MEDIA_PLAYBACK_WINDOW]?.start);
+  const configuredEnd = Number(video?.[POPUP_MEDIA_PLAYBACK_WINDOW]?.end);
+  const start = Number.isFinite(configuredStart)
+    ? Math.min(mediaDuration, Math.max(0, configuredStart))
+    : 0;
+  const end = Number.isFinite(configuredEnd)
+    ? Math.min(mediaDuration, Math.max(start, configuredEnd))
+    : mediaDuration;
+  return {
+    start,
+    duration: Math.max(0, end - start),
+    currentTime: Math.max(0, Number(video?.currentTime || 0) - start),
+  };
+};
 
 export class PopupMediaControlsController {
   constructor({
@@ -100,12 +118,13 @@ export class PopupMediaControlsController {
   _progressHandlers = {
     scrubPreview: () => {
       this._progressDragging = true;
+      const playbackWindow = resolveVideoPlaybackWindow(this._video);
       const next = resolvePopupMediaSeekTarget({
         progressValue: this._progress?.value,
-        duration: this._video?.duration,
+        duration: playbackWindow.duration,
       });
       if (next !== null && this._video) {
-        this._video.currentTime = next;
+        this._video.currentTime = playbackWindow.start + next;
       }
       this._onShowTemporarily?.();
       this._sync();
@@ -406,9 +425,10 @@ export class PopupMediaControlsSurfaceController {
 
   update(video = this.video(), { updateProgress = true } = {}) {
     if (!video) return null;
+    const playbackWindow = resolveVideoPlaybackWindow(video);
     const controlState = buildPopupMediaControlState({
-      duration: video.duration,
-      currentTime: video.currentTime,
+      duration: playbackWindow.duration,
+      currentTime: playbackWindow.currentTime,
       paused: video.paused,
       muted: video.muted,
       volume: video.volume,
