@@ -24,6 +24,7 @@ export {
 
 export {
   buildRecordingPlaybackPlan,
+  shouldAllowRecordingHls,
   shouldPreferRecordingHls,
 } from "./utils/playback.js";
 

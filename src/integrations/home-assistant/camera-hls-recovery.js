@@ -57,7 +57,8 @@ export function createHaCameraHlsRecovery(provider, {
       // startLoad cannot retry a manifest that never parsed. Reuse HA's URL
       // update lifecycle even if its backend retained the same stream URL.
       if (url !== (target.url || target._url)) target.url = url;
-      else if (hasClearedVideo(target) || target._hlsPolyfillInstance?.levels?.length === 0) {
+      else if (target._error || hasClearedVideo(target) ||
+          target._hlsPolyfillInstance?.levels?.length === 0) {
         if (target.url !== url) target.url = url;
         else target.requestUpdate("url", undefined);
       }

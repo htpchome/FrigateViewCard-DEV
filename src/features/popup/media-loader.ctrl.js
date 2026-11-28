@@ -168,6 +168,7 @@ export class PopupMediaLoaderController {
           isEdge: host._isEdge?.() === true,
           isSafari: host._isSafari?.() === true,
         }),
+      allowRecordingHls: () => true,
       isEventPrePostRollEnabled: () =>
         host._config?.event_pre_post_roll_enabled === true,
       isMobileTabletViewport: () =>
@@ -770,7 +771,8 @@ export class PopupMediaLoaderController {
       camera: cam,
       start,
       end,
-      preferHls: event ? true : this._deps.preferRecordingHls(),
+      preferHls: this._deps.preferRecordingHls(),
+      allowHls: this._deps.allowRecordingHls(),
     });
     const renderPlan = event
       ? buildPopupEventRecordingRenderPlan({

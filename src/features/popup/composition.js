@@ -10,6 +10,7 @@ import {
   formatRecordingScrubTime,
   RECORDING_SEGMENT_EXTENSION_SECONDS,
   resolveRecordingSegmentTimelineRange,
+  shouldAllowRecordingHls,
   shouldPreferRecordingHls,
 } from "../recordings/index.js";
 import { PopupCarouselController } from "./carousel.ctrl.js";
@@ -54,16 +55,21 @@ export const createPopupControllers = (
   let popupLifecycleController;
   let popupMediaLoaderController;
   let popupPlaybackTargetController;
+  const recordingPlaybackProfile = () => ({
+    isAndroidCompanion:
+      deviceProfile.isAndroid === true &&
+      deviceProfile.isCompanionApp === true,
+  });
   const preferRecordingHls = () =>
     shouldPreferRecordingHls({
       isIOS: deviceProfile.isIOS,
       isFirefox: card._isFirefox(),
       isEdge: card._isEdge(),
       isSafari: card._isSafari(),
-      isAndroidCompanion:
-        deviceProfile.isAndroid === true &&
-        deviceProfile.isCompanionApp === true,
+      ...recordingPlaybackProfile(),
     });
+  const allowRecordingHls = () =>
+    shouldAllowRecordingHls(recordingPlaybackProfile());
 
   const popupMediaPresentationController =
     resolvedFactories.createMediaPresentationController({
@@ -132,6 +138,7 @@ export const createPopupControllers = (
           start,
           end,
           preferHls: preferRecordingHls(),
+          allowHls: allowRecordingHls(),
           maxChunkSeconds: Math.max(1, Number(end) - Number(start)),
         });
         return await Promise.all(
@@ -322,6 +329,7 @@ export const createPopupControllers = (
       recordingScrubController: popupRecordingScrubController,
       lifecycleController: popupLifecycleController,
       preferRecordingHls,
+      allowRecordingHls,
     },
   );
 

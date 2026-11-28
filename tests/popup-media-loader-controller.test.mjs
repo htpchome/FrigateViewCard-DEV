@@ -867,7 +867,7 @@ test("Safari pre-roll and post-roll keep Alert popup AirPlay-capable", async () 
   };
   const controller = new PopupMediaLoaderController(host, {
     isEventPrePostRollEnabled: () => true,
-    preferRecordingHls: () => false,
+    preferRecordingHls: () => true,
     buildVideoOptionsForView: (_view, options) => options,
     createVideoElement: (options) => {
       calls.push(["video-options", options]);
@@ -988,13 +988,18 @@ test("padded Alert playback falls back to the Frigate event clip", async () => {
   const controller = new PopupMediaLoaderController(host, {
     isEventPrePostRollEnabled: () => true,
     preferRecordingHls: () => false,
+    allowRecordingHls: () => false,
     buildVideoOptionsForView: (_view, options) => options,
     createVideoElement,
     mountNodeIntoSlot: (slot, node) => {
       slot.appended = node;
     },
   });
-  controller.tryRecordingSource = async () => false;
+  const attemptedSources = [];
+  controller.tryRecordingSource = async (_video, source) => {
+    attemptedSources.push(source);
+    return false;
+  };
   let fallback = null;
   controller.renderPopupMedia = (payload) => {
     fallback = payload;
@@ -1013,6 +1018,9 @@ test("padded Alert playback falls back to the Frigate event clip", async () => {
 
   assert.equal(fallback.mediaType, "alert");
   assert.equal(fallback.playingId, "event-1");
+  assert.deepEqual(attemptedSources, [
+    "/api/frigate/frigate/recording/front_door/start/95/end/115",
+  ]);
   assert.equal(
     fallback.mediaElement.options.src.includes("/media/event-1/clip.mp4"),
     true,
