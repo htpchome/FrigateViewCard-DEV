@@ -8,7 +8,6 @@ import {
   isM3u8Url,
 } from "../../shared/media/url-utils.js";
 import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-geometry.js";
-import { waitForMediaStart } from "../../shared/media/first-frame.js";
 import { RECORDING_HLS_JS_ASSET_NAME } from "../../release-artifacts.mjs";
 import { isIOS } from "../../helpers.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
@@ -34,7 +33,6 @@ import {
   resolveFrigateEventPrePostRollRange,
   resolveFrigateEventRecordingRange,
 } from "../../integrations/frigate/event-media.js";
-import { openSignedFrigateRequest } from "../../integrations/frigate/bootstrap.js";
 import {
   POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
   POPUP_VIEW_MAX_HEIGHT_DVH,
@@ -135,17 +133,6 @@ export const bindPopupVideoReadiness = ({ viewer = null, video = null } = {}) =>
   };
 };
 
-const releasePopupVideo = (video) => {
-  if (!video) return;
-  try {
-    video.pause?.();
-    if ("srcObject" in video) video.srcObject = null;
-    video.removeAttribute?.("src");
-    video.querySelectorAll?.("source").forEach((source) => source.remove());
-    video.load?.();
-  } catch (_) {}
-};
-
 export class PopupMediaLoaderController {
   constructor(host, deps = {}) {
     const {
@@ -181,9 +168,6 @@ export class PopupMediaLoaderController {
           isEdge: host._isEdge?.() === true,
           isSafari: host._isSafari?.() === true,
         }),
-      useNativeRecordingHls: () =>
-        isIOS || host._isSafari?.() === true,
-      signRecordingHlsPath: (path) => host._signed?.(path) || path,
       isEventPrePostRollEnabled: () =>
         host._config?.event_pre_post_roll_enabled === true,
       isMobileTabletViewport: () =>
@@ -362,7 +346,6 @@ export class PopupMediaLoaderController {
       if (guardedMediaError) {
         displayedMedia?.removeEventListener?.("error", guardedMediaError);
       }
-      releasePopupVideo(video);
     });
     const postRenderPlan = resolvePopupMediaPostRenderPlan({
       popupMediaType: renderPlan.popupMediaType,
@@ -660,12 +643,9 @@ export class PopupMediaLoaderController {
 
     return await new Promise((resolve) => {
       let done = false;
-      let playRequested = false;
-      const readinessAbort = new AbortController();
       const finish = (ok) => {
         if (done) return;
         done = true;
-        readinessAbort.abort();
         cleanup();
         resolve(ok);
       };
@@ -674,12 +654,11 @@ export class PopupMediaLoaderController {
           finish(true);
           return;
         }
-        if (playRequested) return;
-        playRequested = true;
         try {
           await video.play?.();
+          finish(true);
         } catch (_) {
-          finish(false);
+          finish(true);
         }
       };
       const onErr = () => finish(false);
@@ -695,21 +674,6 @@ export class PopupMediaLoaderController {
       video.addEventListener("canplay", onReady, { once: true });
       video.addEventListener("error", onErr, { once: true });
 
-      if (autoplay) {
-        void waitForMediaStart(video, timeoutMs, {
-          minCurrentTime: 0.05,
-          minDecodedFrames: 1,
-          requireReadyState: 2,
-          strict: true,
-          requirePresentedFrame: true,
-          abortSignal: readinessAbort.signal,
-          resolveVideo: () => video,
-        }).then((started) => {
-          if (started) finish(true);
-          else if (!done && !readinessAbort.signal.aborted) finish(false);
-        });
-      }
-
       const boot = async () => {
         try {
           if (!isHlsSource) {
@@ -718,9 +682,9 @@ export class PopupMediaLoaderController {
             return;
           }
 
-          const canNativeHls =
-            this._deps.useNativeRecordingHls() &&
-            !!video.canPlayType("application/vnd.apple.mpegurl");
+          const canNativeHls = !!video.canPlayType(
+            "application/vnd.apple.mpegurl",
+          );
           if (canNativeHls) {
             video.src = src;
             video.load();
@@ -737,13 +701,6 @@ export class PopupMediaLoaderController {
             enableWorker: true,
             maxBufferLength: 60,
             backBufferLength: 90,
-            xhrSetup: async (xhr, url) => {
-              await openSignedFrigateRequest({
-                xhr,
-                url,
-                signPath: this._deps.signRecordingHlsPath,
-              });
-            },
           });
           this._recordingHls = hls;
           hls.on(HlsCtor.Events.ERROR, (_evt, data) => {
@@ -813,7 +770,7 @@ export class PopupMediaLoaderController {
       camera: cam,
       start,
       end,
-      preferHls: this._deps.preferRecordingHls(),
+      preferHls: event ? true : this._deps.preferRecordingHls(),
     });
     const renderPlan = event
       ? buildPopupEventRecordingRenderPlan({
@@ -896,7 +853,6 @@ export class PopupMediaLoaderController {
     let playable = false;
     let activeSource = "";
     const mediaCleanup = [
-      () => releasePopupVideo(video),
       () => viewResize?.controller?.dispose?.(),
       clearMediaSizing,
       clearVideoReadiness,

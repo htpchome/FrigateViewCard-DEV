@@ -52,19 +52,7 @@ const createNode = () => ({
 
 const createMseEngine = (entity) => {
   const video = createNode();
-  video.autoplay = true;
-  video.paused = false;
-  video.pauseCalls = 0;
-  video.playCalls = 0;
-  video.pause = () => {
-    video.pauseCalls += 1;
-    video.paused = true;
-  };
-  video.play = () => {
-    video.playCalls += 1;
-    video.paused = false;
-    return Promise.resolve();
-  };
+  video.play = () => Promise.resolve();
   video.setAttribute = () => {};
   video.removeAttribute = () => {};
   return {
@@ -117,7 +105,6 @@ test("MSE grace reuse preserves exact camera identity across three retained swit
   const controller = createLiveGraceController({
     graceMs: 20000,
     graceMax: 3,
-    pauseRetainedPlayback: true,
     getShadowRoot: () => root,
     getScopeKey: () => ({}),
     getPendingMountDestroyers: () => [],
@@ -139,8 +126,6 @@ test("MSE grace reuse preserves exact camera identity across three retained swit
   const first = activeEngine;
 
   controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
-  assert.equal(first.video.pauseCalls, 1);
-  assert.equal(first.video.autoplay, false);
   activeEngine = createMseEngine("camera.two");
   const second = activeEngine;
   controller.cleanupEngine({ preserveLiveEntity: "camera.two" });
@@ -156,7 +141,6 @@ test("MSE grace reuse preserves exact camera identity across three retained swit
   );
   assert.equal(activeEngine, first);
   assert.equal(first.resumeCalls, 1);
-  assert.equal(first.video.autoplay, true);
 
   controller.cleanupEngine({ preserveLiveEntity: "camera.one" });
   const secondEntry = controller.takeGraceMseEntry("camera.two");

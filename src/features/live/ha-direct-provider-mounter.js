@@ -17,7 +17,6 @@ export function createHaDirectProviderMounter({
   getContext = () => "dashboard",
   getIdentity,
   restartOnResume = false,
-  limitInactivePlayback = false,
   shouldPreload,
   isSelectedExternalReady = () => false,
   isMountAttemptCurrent = () => true,
@@ -48,12 +47,6 @@ export function createHaDirectProviderMounter({
   const tileFor = (entity) => [...tiles].find((tile) =>
     tile.entity === entity && tile.slot.isConnected &&
     !tile.slot.closest('[hidden],[aria-hidden="true"]'));
-  const requestedEntities = () => [
-    ...new Set([
-      ...(getPreloadEntities?.() || []),
-      ...[...tiles].map((tile) => tile.entity),
-    ]),
-  ].filter(Boolean);
   const stopLoading = () => {
     stopFallback();
     stopFallback = () => {};
@@ -62,7 +55,7 @@ export function createHaDirectProviderMounter({
   const client = {
     host: card,
     hass: getHass,
-    entities: requestedEntities,
+    entities: getPreloadEntities,
     selected: getSelectedEntity,
     context: getContext,
     identity: getIdentity,
@@ -132,14 +125,7 @@ export function createHaDirectProviderMounter({
       if (!(await prepare()) || disposed) return null;
       const anchor = findHaCameraContextHost(card);
       if (!anchor) return null;
-      session = acquireSession({
-        anchor,
-        client,
-        identity: getIdentity(),
-        connection: getHass()?.connection,
-        restartOnResume,
-        limitInactivePlayback,
-      });
+      session = acquireSession({ anchor, client, identity: getIdentity(), connection: getHass()?.connection, restartOnResume });
       target = client.target();
       observer = new MutationObserver(() => {
         const nextTarget = client.target();

@@ -14,13 +14,6 @@ test("recording playback prefers seekable HLS across supported browsers", () => 
   assert.equal(shouldPreferRecordingHls({}), true);
 });
 
-test("Android Companion keeps seekable HLS as its primary recording source", () => {
-  assert.equal(
-    shouldPreferRecordingHls({ isAndroidCompanion: true }),
-    true,
-  );
-});
-
 test("buildRecordingPlaybackPlan caps recording chunk length and formats camera name", () => {
   assert.deepEqual(
     buildRecordingPlaybackPlan({

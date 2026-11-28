@@ -310,28 +310,6 @@ test("resolveRecordingSeekOutcome suppresses fallback when one is already loadin
   );
 });
 
-test("resolveRecordingSeekOutcome keeps a retained HLS player on a delayed seek", () => {
-  assert.deepEqual(
-    resolveRecordingSeekOutcome({
-      seekOk: false,
-      currentTime: 0,
-      relTarget: 20,
-      absTarget: 120,
-      start: 100,
-      end: 160,
-      resumeAfterScrub: true,
-      allowSourceReload: false,
-    }),
-    {
-      shouldResumePlayback: true,
-      shouldFallback: false,
-      blockedByFallbackLoading: false,
-      fallbackStart: null,
-      fallbackEnd: null,
-    },
-  );
-});
-
 test("resolveRecordingSeekOutcome resumes playback when seek succeeds within tolerance", () => {
   assert.deepEqual(
     resolveRecordingSeekOutcome({

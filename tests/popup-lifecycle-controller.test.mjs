@@ -37,7 +37,6 @@ const createLifecycleFixture = ({ firefox = false, mediaType = "clip" } = {}) =>
   const video = {
     srcObject: {},
     pause: () => calls.push(["pauseVideo"]),
-    load: () => calls.push(["loadVideo"]),
     removeAttribute: (name) => calls.push(["removeAttribute", name]),
     querySelectorAll: (selector) => (selector === "source" ? [source] : []),
   };
@@ -307,7 +306,6 @@ test("popup lifecycle preserves Firefox source-drop delay and can cancel it", ()
   const delayedDrop = [...timers.values()][0];
   delayedDrop();
   assert.equal(viewer.innerHTML, "");
-  assert.equal(calls.some(([kind]) => kind === "loadVideo"), true);
 });
 
 test("media replacement preserves the carousel until the popup stops", () => {

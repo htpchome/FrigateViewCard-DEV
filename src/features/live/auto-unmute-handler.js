@@ -106,18 +106,7 @@ export class AutoUnmuteHandler {
       isCurrent,
       loaded: Number(video.readyState) >= 2,
       loadedActionApplied: false,
-      onMetadata: null,
       onLoaded: null,
-    };
-    target.onMetadata = () => {
-      target.onMetadata = null;
-      if (target !== this._target) return;
-      const engine = this._host._engine;
-      if (engine && video === this._resolveVideo(engine)) {
-        this._applySelected(engine, video);
-        return;
-      }
-      this._applyCandidate(video, target.entity, target.isCurrent);
     };
     target.onLoaded = () => {
       target.onLoaded = null;
@@ -134,9 +123,6 @@ export class AutoUnmuteHandler {
       if (applied) target.loadedActionApplied = true;
     };
     this._target = target;
-    video.addEventListener?.("loadedmetadata", target.onMetadata, {
-      once: true,
-    });
     video.addEventListener?.("loadeddata", target.onLoaded, { once: true });
     return target;
   }
@@ -261,9 +247,6 @@ export class AutoUnmuteHandler {
 
   _clearTarget() {
     const target = this._target;
-    if (target?.video && target.onMetadata) {
-      target.video.removeEventListener?.("loadedmetadata", target.onMetadata);
-    }
     if (target?.video && target.onLoaded) {
       target.video.removeEventListener?.("loadeddata", target.onLoaded);
     }

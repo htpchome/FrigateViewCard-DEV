@@ -59,8 +59,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   };
   const deviceProfile = {
     isMobile: true,
-    isAndroid: true,
-    isCompanionApp: true,
     isIOS: false,
     isCatalyst: false,
   };
@@ -69,13 +67,12 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     shadowRoot,
     _hass: {
       language: "en",
-      states: { "camera.front": {}, "camera.ha": {}, "camera.ha2": {} },
+      states: { "camera.front": {}, "camera.ha": {} },
     },
     _config: {
       cameras: [
         { entity: "camera.front" },
         { entity: "camera.ha" },
-        { entity: "camera.ha2" },
       ],
     },
     _activeCam: { entity: "camera.front" },
@@ -119,9 +116,9 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     _setLiveNativeControls: (enabled) =>
       calls.push(["native-controls", enabled]),
     _cameraConnectionType: (entity) =>
-      entity.startsWith("camera.ha") ? "ha_direct" : "frigate_go2rtc",
+      entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
     _shouldUseGo2RtcForEntity: (entity) =>
-      deviceProfile.isCatalyst !== true && !entity.startsWith("camera.ha"),
+      deviceProfile.isCatalyst !== true && entity !== "camera.ha",
   };
 
   const controllers = createLiveTransportControllers(card, {
@@ -180,13 +177,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   editorHandoffContext = "config";
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
   editorHandoffContext = "dashboard";
-  card._activeCam = { entity: "camera.ha" };
   assert.deepEqual(optionsByFactory.haDirectMounter.getPreloadEntities(), [
-    "camera.ha",
-  ]);
-  card._activeCam = { entity: "camera.ha2" };
-  assert.deepEqual(optionsByFactory.haDirectMounter.getPreloadEntities(), [
-    "camera.ha2",
     "camera.ha",
   ]);
   assert.equal(optionsByFactory.haDirectMounter.getPreloadHost, undefined);
@@ -200,7 +191,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.deepEqual(optionsByFactory.catalystHlsMounter.getPreloadEntities(), [
     "camera.front",
     "camera.ha",
-    "camera.ha2",
   ]);
   assert.strictEqual(
     optionsByFactory.catalystHlsMounter.getPreloadHost(),
@@ -218,8 +208,6 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     true,
   );
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMobile, true);
-  assert.equal(optionsByFactory.go2rtcRaceMounter.avoidOffscreenDecode, true);
-  assert.equal(optionsByFactory.haDirectMounter.limitInactivePlayback, true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(7), true);
   assert.equal(optionsByFactory.go2rtcRaceMounter.isMountTokenCurrent(6), false);
   assert.equal(

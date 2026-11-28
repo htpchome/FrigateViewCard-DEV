@@ -193,7 +193,6 @@ test("popup composition creates the complete controller set and preserves cross-
     _popupLifecycleController: controllers.lifecycle,
     _popupMediaLoaderController: controllers.loader,
   });
-  const loaderDeps = calls[0][2];
   assert.deepEqual(calls.shift(), [
     "loader-host",
     card,
@@ -204,12 +203,8 @@ test("popup composition creates the complete controller set and preserves cross-
       mediaPresentationController: controllers.mediaPresentation,
       recordingScrubController: controllers.recordingScrub,
       lifecycleController: controllers.lifecycle,
-      preferRecordingHls: loaderDeps.preferRecordingHls,
-      useNativeRecordingHls: loaderDeps.useNativeRecordingHls,
     },
   ]);
-  assert.equal(loaderDeps.preferRecordingHls(), true);
-  assert.equal(loaderDeps.useNativeRecordingHls(), false);
 
   assert.equal(
     options.recordingScrub.fetchReviews("client", "cam", 10, 20),
@@ -313,22 +308,6 @@ test("popup composition creates the complete controller set and preserves cross-
   ]);
 });
 
-test("popup composition keeps Android Companion on seekable recording HLS", () => {
-  const { calls, card, factories } = createHarness();
-
-  createPopupControllers(card, {
-    deviceProfile: {
-      isIOS: false,
-      isAndroid: true,
-      isCompanionApp: true,
-    },
-    factories,
-  });
-
-  assert.equal(calls[0][2].preferRecordingHls(), true);
-  assert.equal(calls[0][2].useNativeRecordingHls(), false);
-});
-
 test("popup composition keeps recording timeline expansion inside the popup feature", async () => {
   const { calls, card, controllers, factories, options } = createHarness();
   createPopupControllers(card, {
@@ -336,8 +315,6 @@ test("popup composition keeps recording timeline expansion inside the popup feat
     factories,
     now: () => 200_000,
   });
-  const preferRecordingHls = calls[0][2].preferRecordingHls;
-  const useNativeRecordingHls = calls[0][2].useNativeRecordingHls;
 
   await options.recordingScrub.resolveSegmentTimeline({
     clientId: "client",
@@ -357,8 +334,6 @@ test("popup composition keeps recording timeline expansion inside the popup feat
         mediaPresentationController: controllers.mediaPresentation,
         recordingScrubController: controllers.recordingScrub,
         lifecycleController: controllers.lifecycle,
-        preferRecordingHls,
-        useNativeRecordingHls,
       },
     ],
     [

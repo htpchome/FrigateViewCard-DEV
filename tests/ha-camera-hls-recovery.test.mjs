@@ -353,7 +353,7 @@ test("expired HLS URLs refresh through the public player input without request s
   assert.equal(f.player.url, "https://ha.example/api/hls/new/master_playlist.m3u8");
 });
 
-test("unchanged failed URLs reload while late responses cannot replace recovered HLS", async () => {
+test("unchanged and late-after-recovery URLs cannot reload working HLS", async () => {
   let respond;
   let time = 0;
   const f = fixture({ now: () => time,
@@ -363,15 +363,13 @@ test("unchanged failed URLs reload while late responses cannot replace recovered
   f.select(failed);
   respond({ url: f.player._url });
   await Promise.resolve();
-  assert.equal(f.player.url, f.player._url,
-    "same failed URL reloads through HA's public input");
+  assert.equal(f.player.url, undefined, "same URL stays under native HA retry");
   time = 5000;
   f.select({ ...failed });
   f.player._error = undefined;
   respond({ url: "/api/hls/late/master_playlist.m3u8" });
   await Promise.resolve();
-  assert.equal(f.player.url, f.player._url,
-    "native recovery finished before the URL request");
+  assert.equal(f.player.url, undefined, "native recovery finished before the URL request");
   f.recovery.dispose();
 });
 

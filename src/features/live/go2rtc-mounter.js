@@ -867,7 +867,6 @@ export function createGo2RtcMounter({
           // Assign once after connection. A later audio track joins the same
           // stream without resetting an in-flight audible playback request.
           video.srcObject = receiveStream;
-          if (!selectedPlayback) startVideoPlayback(video);
           watchFirstFrame();
         }
       } else {

@@ -222,7 +222,6 @@ export function resolveRecordingSeekOutcome({
   end = 0,
   resumeAfterScrub = false,
   isFallbackLoading = false,
-  allowSourceReload = true,
   toleranceSec = 2.0,
 }) {
   if (isFirefox || isEdge) {
@@ -239,16 +238,6 @@ export function resolveRecordingSeekOutcome({
   const shouldFallback = !seekOk || diff > toleranceSec;
 
   if (!shouldFallback) {
-    return {
-      shouldResumePlayback: Boolean(resumeAfterScrub),
-      shouldFallback: false,
-      blockedByFallbackLoading: false,
-      fallbackStart: null,
-      fallbackEnd: null,
-    };
-  }
-
-  if (!allowSourceReload) {
     return {
       shouldResumePlayback: Boolean(resumeAfterScrub),
       shouldFallback: false,

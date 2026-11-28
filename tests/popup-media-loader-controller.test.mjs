@@ -382,7 +382,6 @@ test("showRecording signs candidates and initializes popup recording playback on
   };
   const video = {
     tagName: "VIDEO",
-    srcObject: {},
     paused: false,
     seeking: false,
     currentSrc: "",
@@ -390,9 +389,6 @@ test("showRecording signs candidates and initializes popup recording playback on
     addEventListener: (type) => calls.push(["addEventListener", type]),
     removeEventListener: (type) => calls.push(["removeEventListener", type]),
     pause: () => calls.push(["pause"]),
-    removeAttribute: (name) => calls.push(["removeAttribute", name]),
-    querySelectorAll: () => [],
-    load: () => calls.push(["load"]),
     play: () => Promise.resolve(),
   };
   const host = {
@@ -512,16 +508,6 @@ test("showRecording signs candidates and initializes popup recording playback on
     calls.find(([kind]) => kind === "initScrub")?.[1],
     "",
   );
-  host.registeredMediaCleanup();
-  assert.equal(video.srcObject, null);
-  assert.equal(calls.some(([kind]) => kind === "pause"), true);
-  assert.equal(
-    calls.some(
-      ([kind, name]) => kind === "removeAttribute" && name === "src",
-    ),
-    true,
-  );
-  assert.equal(calls.some(([kind]) => kind === "load"), true);
   assert.ok(
     calls.findIndex(([kind]) => kind === "initScrub") <
       calls.findIndex(([kind]) => kind === "trySource"),
@@ -881,7 +867,7 @@ test("Safari pre-roll and post-roll keep Alert popup AirPlay-capable", async () 
   };
   const controller = new PopupMediaLoaderController(host, {
     isEventPrePostRollEnabled: () => true,
-    preferRecordingHls: () => true,
+    preferRecordingHls: () => false,
     buildVideoOptionsForView: (_view, options) => options,
     createVideoElement: (options) => {
       calls.push(["video-options", options]);
@@ -1001,18 +987,14 @@ test("padded Alert playback falls back to the Frigate event clip", async () => {
   };
   const controller = new PopupMediaLoaderController(host, {
     isEventPrePostRollEnabled: () => true,
-    preferRecordingHls: () => true,
+    preferRecordingHls: () => false,
     buildVideoOptionsForView: (_view, options) => options,
     createVideoElement,
     mountNodeIntoSlot: (slot, node) => {
       slot.appended = node;
     },
   });
-  const attemptedSources = [];
-  controller.tryRecordingSource = async (_video, source) => {
-    attemptedSources.push(source);
-    return false;
-  };
+  controller.tryRecordingSource = async () => false;
   let fallback = null;
   controller.renderPopupMedia = (payload) => {
     fallback = payload;
@@ -1031,11 +1013,6 @@ test("padded Alert playback falls back to the Frigate event clip", async () => {
 
   assert.equal(fallback.mediaType, "alert");
   assert.equal(fallback.playingId, "event-1");
-  assert.deepEqual(attemptedSources, [
-    "/api/frigate/frigate/vod/front_door/start/95/end/115/index.m3u8",
-    "/api/frigate/frigate/vod/front_door/start/95/end/115/master.m3u8",
-    "/api/frigate/frigate/recording/front_door/start/95/end/115",
-  ]);
   assert.equal(
     fallback.mediaElement.options.src.includes("/media/event-1/clip.mp4"),
     true,
@@ -1105,9 +1082,7 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
       listeners.get("loadedmetadata")?.();
     },
   };
-  const controller = new PopupMediaLoaderController({}, {
-    useNativeRecordingHls: () => true,
-  });
+  const controller = new PopupMediaLoaderController({});
   controller._getHlsJsCtor = async () => {
     hlsJsLoads += 1;
     return null;
@@ -1123,93 +1098,6 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
   assert.equal(video.src, "/api/recording/master.m3u8");
   assert.equal(mediaLoads, 1);
   assert.equal(hlsJsLoads, 0);
-});
-
-test("recording source rejects playback that never starts", async () => {
-  const listeners = new Map();
-  const video = {
-    src: "",
-    paused: true,
-    readyState: 1,
-    videoWidth: 1920,
-    currentTime: 0,
-    canPlayType: () => "",
-    addEventListener: (type, listener) => listeners.set(type, listener),
-    removeEventListener: (type, listener) => {
-      if (listeners.get(type) === listener) listeners.delete(type);
-    },
-    play: async () => {
-      throw new DOMException("Playback denied", "NotAllowedError");
-    },
-    load: () => listeners.get("loadedmetadata")?.(),
-  };
-  const controller = new PopupMediaLoaderController({});
-
-  const loaded = await controller.tryRecordingSource(video, "/clip.mp4", {
-    timeoutMs: 50,
-  });
-
-  assert.equal(loaded, false);
-});
-
-test("Android-style native HLS claims still use authenticated HLS.js", async () => {
-  const videoListeners = new Map();
-  let hlsConfig = null;
-  class HlsCtor {
-    static Events = { ERROR: "error", MEDIA_ATTACHED: "media-attached" };
-    static isSupported = () => true;
-
-    constructor(config) {
-      hlsConfig = config;
-      this.listeners = new Map();
-    }
-
-    on(type, listener) {
-      this.listeners.set(type, listener);
-    }
-
-    attachMedia(video) {
-      this.video = video;
-      queueMicrotask(() => this.listeners.get("media-attached")?.());
-    }
-
-    loadSource() {
-      videoListeners.get("loadedmetadata")?.();
-    }
-  }
-  const video = {
-    canPlayType: () => "probably",
-    addEventListener: (type, listener) => videoListeners.set(type, listener),
-    removeEventListener: (type, listener) => {
-      if (videoListeners.get(type) === listener) videoListeners.delete(type);
-    },
-  };
-  const controller = new PopupMediaLoaderController({}, {
-    useNativeRecordingHls: () => false,
-    signRecordingHlsPath: async (path) => `${path}?authSig=exact`,
-  });
-
-  const loaded = await controller.tryRecordingSource(
-    video,
-    "/api/frigate/frigate/vod/front/master.m3u8?authSig=master",
-    { autoplay: false, timeoutMs: 50, hlsCtorPromise: Promise.resolve(HlsCtor) },
-  );
-
-  assert.equal(loaded, true);
-  const requests = [];
-  await hlsConfig.xhrSetup(
-    {
-      open: (...args) => requests.push(args),
-    },
-    "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=master",
-  );
-  assert.deepEqual(requests, [
-    [
-      "GET",
-      "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=exact",
-      true,
-    ],
-  ]);
 });
 
 test("carousel selections preserve alert and snapshot popup media types", () => {

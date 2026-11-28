@@ -173,7 +173,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   const controllers = createLiveLifecycleControllers(card, {
     factories,
     windowTarget: { location: { pathname: "/lovelace/cameras" } },
-    pauseRetainedPlayback: true,
   });
 
   assert.deepEqual(controllers, {
@@ -185,7 +184,6 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
   assert.equal(optionsByFactory.liveGrace.graceMax, LIVE_SWITCH_GRACE_MAX);
   assert.equal(optionsByFactory.liveGrace.haDirectRetainedMax, undefined);
   assert.equal(optionsByFactory.liveGrace.catalystRetainedMax, MAX_CAMERAS);
-  assert.equal(optionsByFactory.liveGrace.pauseRetainedPlayback, true);
   assert.strictEqual(
     optionsByFactory.liveGrace.attachVideoFit,
     attachContainedVideoFit,
@@ -412,28 +410,4 @@ test("live lifecycle composition preserves grace, handoff, and mount wiring", ()
     ["adopt-catalyst", engineSlot, "catalyst-engine"],
     ["release-catalyst", "catalyst-engine"],
   ]);
-});
-
-test("Android Companion bounds retained go2rtc decoders to one warm camera", () => {
-  let graceOptions;
-  const factories = {
-    createLiveGraceController: (options) => {
-      graceOptions = options;
-      return {};
-    },
-    createEditorLiveHandoffController: () => ({}),
-    createLiveMountController: () => ({}),
-  };
-  createLiveLifecycleControllers({
-    shadowRoot: {},
-    _editorPreviewController: {},
-  }, {
-    factories,
-    windowTarget: { location: { pathname: "/dashboard" } },
-    pauseRetainedPlayback: true,
-    retainedLiveMax: 1,
-  });
-
-  assert.equal(graceOptions.graceMax, 1);
-  assert.equal(graceOptions.pauseRetainedPlayback, true);
 });

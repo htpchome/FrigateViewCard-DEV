@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  configureStandardHaHlsInsertionBoundary,
-  configureStandardHaHlsPlayer,
-  standardHaHlsPlaylist,
-} from "../src/integrations/home-assistant/camera-hls-policy.js";
+import { configureStandardHaHlsPlayer, standardHaHlsPlaylist } from "../src/integrations/home-assistant/camera-hls-policy.js";
 
 test("standard HLS keeps complete media, authentication and discontinuities, removing only LL instructions", () => {
   const ordinary = ["#EXTM3U", "#EXT-X-TARGETDURATION:6", "#EXT-X-MEDIA-SEQUENCE:31",
@@ -87,39 +83,4 @@ test("HA owns one configured engine; ordinary HLS policy is instance-local and s
   assert.equal(unrelated._renderHLSPolyfill({}, Hls, "/other.m3u8").config.lowLatencyMode, true);
   assert.equal(Hls.DefaultConfig.lowLatencyMode, true);
   assert.throws(() => configureStandardHaHlsPlayer({}), /Unsupported Home Assistant HLS/);
-});
-
-test("HA HLS policy is installed before an inserted cached player connects", () => {
-  class Hls {
-    static DefaultConfig = { loader: class {} };
-    constructor(config) {
-      this.config = config;
-    }
-  }
-  const root = {
-    children: [],
-    append(node) {
-      this.children.push(node);
-      node.connectedCallback?.();
-    },
-  };
-  const player = {
-    localName: "ha-hls-player",
-    querySelectorAll: () => [],
-    _renderHLSPolyfill(_video, Engine) {
-      this.engine = new Engine({ lowLatencyMode: true });
-    },
-    connectedCallback() {
-      this._renderHLSPolyfill({}, Hls, "/camera.m3u8");
-    },
-  };
-  const originalAppend = root.append;
-  const dispose = configureStandardHaHlsInsertionBoundary(root);
-
-  root.append(player);
-
-  assert.equal(player.engine.config.lowLatencyMode, false);
-  assert.equal(Hls.DefaultConfig.loader != null, true);
-  dispose();
-  assert.equal(root.append, originalAppend);
 });

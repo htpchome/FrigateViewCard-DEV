@@ -2,7 +2,6 @@ import {
   createGraceEngineEntry,
   createGracePendingEntry,
   normalizeGraceEntityKey,
-  prepareEngineVideoForDormantHost,
   prepareEngineVideoForGraceHost,
   prepareEngineVideoForLiveDeck,
 } from "./grace-pool.js";
@@ -45,7 +44,6 @@ export function createLiveGraceController({
   scheduleResumeLive,
   activateMseDiagnostics,
   clearMseDiagnostics,
-  pauseRetainedPlayback = false,
 }) {
   const mseGracePool = new Map();
   const webRtcGracePool = new Map();
@@ -86,9 +84,6 @@ export function createLiveGraceController({
   };
   let mseGraceHost = null;
   let catalystHlsDeckHost = null;
-  const prepareRetainedVideo = pauseRetainedPlayback
-    ? prepareEngineVideoForDormantHost
-    : prepareEngineVideoForGraceHost;
 
   const disposeGraceEngine = (engine) => {
     try {
@@ -210,7 +205,7 @@ export function createLiveGraceController({
     engine.deactivateRecovery?.();
     engine.setActivityHandler?.(null);
     ensureMseGraceHost().appendChild(engine.video);
-    prepareRetainedVideo(engine.video);
+    prepareEngineVideoForGraceHost(engine.video);
     const entry = createGraceEngineEntry({
       engine,
       graceMs,
@@ -230,7 +225,7 @@ export function createLiveGraceController({
     evictGraceWebRtcEntry(key);
     engine.deactivateRecovery?.();
     ensureMseGraceHost().appendChild(engine.video);
-    prepareRetainedVideo(engine.video);
+    prepareEngineVideoForGraceHost(engine.video);
     const entry = createGraceEngineEntry({
       engine,
       graceMs,
@@ -296,7 +291,7 @@ export function createLiveGraceController({
           return null;
         }
         ensureMseGraceHost().appendChild(result.engine.video);
-        prepareRetainedVideo(result.engine.video);
+        prepareEngineVideoForGraceHost(result.engine.video);
         entry.engine = result.engine;
         entry.promise = null;
         return result.engine;
