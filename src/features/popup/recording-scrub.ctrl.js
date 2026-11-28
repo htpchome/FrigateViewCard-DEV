@@ -1,5 +1,6 @@
 import { buildFrigateRecordingReviewMarkers } from "../../integrations/frigate/recording-review-markers.js";
 import { CleanupController } from "../../shared/cleanup.js";
+import { waitForMediaStart } from "../../shared/media/first-frame.js";
 import { setLocalizedText } from "../localization/localized-dom.js";
 import {
   buildRecordingScrubDecorations,
@@ -1216,17 +1217,23 @@ export class PopupRecordingScrubController {
 
     return await new Promise((resolve) => {
       let settled = false;
+      let playRequested = false;
+      const readinessAbort = new AbortController();
       const finish = (result) => {
         if (settled) return;
         settled = true;
+        readinessAbort.abort();
         cleanup();
         resolve(result);
       };
-      const onReady = () => {
+      const onReady = async () => {
+        if (playRequested) return;
+        playRequested = true;
         try {
-          video.play?.()?.catch?.(() => {});
-        } catch (_) {}
-        finish(true);
+          await video.play?.();
+        } catch (_) {
+          finish(false);
+        }
       };
       const onError = () => finish(false);
       const cleanup = () => {
@@ -1239,6 +1246,18 @@ export class PopupRecordingScrubController {
       video.addEventListener?.("loadedmetadata", onReady, { once: true });
       video.addEventListener?.("canplay", onReady, { once: true });
       video.addEventListener?.("error", onError, { once: true });
+      void waitForMediaStart(video, timeoutMs, {
+        minCurrentTime: 0.05,
+        minDecodedFrames: 1,
+        requireReadyState: 2,
+        strict: true,
+        requirePresentedFrame: true,
+        abortSignal: readinessAbort.signal,
+        resolveVideo: () => video,
+      }).then((started) => {
+        if (started) finish(true);
+        else if (!settled && !readinessAbort.signal.aborted) finish(false);
+      });
       try {
         video.src = src;
         video.load?.();
@@ -1403,6 +1422,10 @@ export class PopupRecordingScrubController {
       end: state.end,
       resumeAfterScrub: state.resumeAfterScrub,
       isFallbackLoading: state.isFallbackLoading,
+      // Reloading a complete HLS source to recover one delayed seek destroys
+      // the retained player and restarts the recording. Let HLS.js/native HLS
+      // settle the in-place seek instead.
+      allowSourceReload: !/\.m3u8(?:$|[?])/i.test(state.sourceUrlNoHash),
     });
 
     if (outcome.shouldFallback) {

@@ -84,7 +84,7 @@ test("prepareEngineVideoForLiveDeck keeps Catalyst media full-sized and playing"
   assert.equal(playCalls, 1);
 });
 
-test("prepareEngineVideoForDormantHost pauses offscreen media demand", () => {
+test("prepareEngineVideoForDormantHost pauses retained deck media without moving it offscreen", () => {
   let pauseCalls = 0;
   const video = {
     autoplay: true,
@@ -105,6 +105,7 @@ test("prepareEngineVideoForDormantHost pauses offscreen media demand", () => {
   assert.equal(video.muted, true);
   assert.equal(video.controls, false);
   assert.equal(video.preload, "metadata");
-  assert.equal(video.style.cssText.includes("left:-9999px"), true);
+  assert.equal(video.style.cssText.includes("position:absolute;inset:0"), true);
+  assert.equal(video.style.cssText.includes("left:-9999px"), false);
   assert.equal(pauseCalls, 1);
 });

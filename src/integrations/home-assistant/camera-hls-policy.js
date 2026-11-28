@@ -34,3 +34,63 @@ export function configureStandardHaHlsPlayer(player) {
   };
   configuredPlayers.add(player);
 }
+
+const configureInsertedHlsPlayers = (node) => {
+  if (!node || typeof node !== "object") return;
+  if (
+    node.localName === "ha-hls-player" &&
+    typeof node._renderHLSPolyfill === "function"
+  ) {
+    configureStandardHaHlsPlayer(node);
+  }
+  for (const player of node.querySelectorAll?.("ha-hls-player") || []) {
+    if (typeof player._renderHLSPolyfill === "function") {
+      configureStandardHaHlsPlayer(player);
+    }
+  }
+};
+
+// HA may construct its HLS engine synchronously when a cached player connects.
+// Configure only children inserted into this provider's own shadow root, before
+// native insertion runs connectedCallback. No global element is modified.
+export function configureStandardHaHlsInsertionBoundary(root) {
+  if (!root) return () => {};
+  const methods = [
+    "append",
+    "appendChild",
+    "insertBefore",
+    "prepend",
+    "replaceChild",
+    "replaceChildren",
+  ];
+  const originals = new Map();
+
+  for (const method of methods) {
+    const original = root[method];
+    if (typeof original !== "function") continue;
+    originals.set(method, original);
+    Object.defineProperty(root, method, {
+      configurable: true,
+      writable: true,
+      value(...args) {
+        for (const node of args) configureInsertedHlsPlayers(node);
+        return original.apply(this, args);
+      },
+    });
+  }
+
+  return () => {
+    for (const [method, original] of originals) {
+      if (Object.prototype.hasOwnProperty.call(root, method)) {
+        delete root[method];
+      }
+      if (root[method] !== original) {
+        Object.defineProperty(root, method, {
+          configurable: true,
+          writable: true,
+          value: original,
+        });
+      }
+    }
+  };
+}

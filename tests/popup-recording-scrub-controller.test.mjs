@@ -688,6 +688,11 @@ test("recording segment preview loads the selected range and cleans up its modal
     calls.push(["play"]);
     return Promise.resolve();
   };
+  previewVideo.requestVideoFrameCallback = (callback) => {
+    queueMicrotask(() => callback());
+    return 1;
+  };
+  previewVideo.cancelVideoFrameCallback = () => {};
   previewVideo.pause = () => {
     previewVideo.paused = true;
     calls.push(["pause"]);
@@ -792,6 +797,31 @@ test("recording scrub play button mirrors main recording playback", async () => 
   assert.equal(elements.get("#recording-scrub-play").innerHTML, "PLAY");
 });
 
+test("recording segment preview rejects playback that never starts", async () => {
+  const video = createElement();
+  video.paused = true;
+  video.readyState = 1;
+  video.videoWidth = 1920;
+  video.currentTime = 0;
+  video.canPlayType = () => "";
+  video.play = async () => {
+    throw new DOMException("Playback denied", "NotAllowedError");
+  };
+  video.load = () => video.dispatch("loadedmetadata");
+  const controller = new PopupRecordingScrubController({
+    setTimer: (callback) => setTimeout(callback, 50),
+    clearTimer: clearTimeout,
+  });
+
+  const loaded = await controller._trySegmentPreviewSource(
+    video,
+    "/segment.mp4",
+    50,
+  );
+
+  assert.equal(loaded, false);
+});
+
 test("popup recording scrub paints before markers load and ignores them after teardown", async () => {
   const elements = createScrubElements();
   let resolveReviews;
@@ -862,4 +892,37 @@ test("recording seek fallback preserves the physical camera context", async () =
       { clientId: "frigate-secondary", camera: "package" },
     ],
   ]);
+});
+
+test("recording seek keeps an HLS source mounted when verification is delayed", async () => {
+  const fallbackCalls = [];
+  let playCount = 0;
+  const video = {
+    currentTime: 0,
+    play: async () => {
+      playCount += 1;
+    },
+  };
+  const controller = new PopupRecordingScrubController({
+    query: () => null,
+    onFallbackRecording: async (...args) => fallbackCalls.push(args),
+  });
+  const state = {
+    clientId: "frigate",
+    cam: "front",
+    start: 100,
+    end: 200,
+    video,
+    seekNonce: 0,
+    resumeAfterScrub: true,
+    isFallbackLoading: false,
+    sourceUrlNoHash: "/recording/master.m3u8?authSig=exact",
+  };
+  controller._state = state;
+  controller._attemptSeek = async () => false;
+
+  await controller._commitSeek(state, 20, 120);
+
+  assert.deepEqual(fallbackCalls, []);
+  assert.equal(playCount, 1);
 });

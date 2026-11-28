@@ -69,12 +69,13 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     shadowRoot,
     _hass: {
       language: "en",
-      states: { "camera.front": {}, "camera.ha": {} },
+      states: { "camera.front": {}, "camera.ha": {}, "camera.ha2": {} },
     },
     _config: {
       cameras: [
         { entity: "camera.front" },
         { entity: "camera.ha" },
+        { entity: "camera.ha2" },
       ],
     },
     _activeCam: { entity: "camera.front" },
@@ -118,9 +119,9 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
     _setLiveNativeControls: (enabled) =>
       calls.push(["native-controls", enabled]),
     _cameraConnectionType: (entity) =>
-      entity === "camera.ha" ? "ha_direct" : "frigate_go2rtc",
+      entity.startsWith("camera.ha") ? "ha_direct" : "frigate_go2rtc",
     _shouldUseGo2RtcForEntity: (entity) =>
-      deviceProfile.isCatalyst !== true && entity !== "camera.ha",
+      deviceProfile.isCatalyst !== true && !entity.startsWith("camera.ha"),
   };
 
   const controllers = createLiveTransportControllers(card, {
@@ -179,7 +180,13 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   editorHandoffContext = "config";
   assert.equal(optionsByFactory.haDirectMounter.shouldPreload(), true);
   editorHandoffContext = "dashboard";
+  card._activeCam = { entity: "camera.ha" };
   assert.deepEqual(optionsByFactory.haDirectMounter.getPreloadEntities(), [
+    "camera.ha",
+  ]);
+  card._activeCam = { entity: "camera.ha2" };
+  assert.deepEqual(optionsByFactory.haDirectMounter.getPreloadEntities(), [
+    "camera.ha2",
     "camera.ha",
   ]);
   assert.equal(optionsByFactory.haDirectMounter.getPreloadHost, undefined);
@@ -193,6 +200,7 @@ test("live transport composition keeps go2rtc and HA Direct stacks explicit", as
   assert.deepEqual(optionsByFactory.catalystHlsMounter.getPreloadEntities(), [
     "camera.front",
     "camera.ha",
+    "camera.ha2",
   ]);
   assert.strictEqual(
     optionsByFactory.catalystHlsMounter.getPreloadHost(),

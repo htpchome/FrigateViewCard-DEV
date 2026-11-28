@@ -41,6 +41,37 @@ export const createLiveTransportControllers = (
   } = {},
 ) => {
   const resolvedFactories = { ...DEFAULT_FACTORIES, ...factories };
+  const isAndroidCompanion =
+    deviceProfile.isAndroid === true &&
+    deviceProfile.isCompanionApp === true;
+  const recentHaDirectEntities = [];
+  const resolveHaDirectPreloadEntities = () => {
+    const available = flattenCameraMembers(card._config?.cameras)
+      .map((camera) => String(camera?.entity || "").trim())
+      .filter(
+        (entity) =>
+          entity &&
+          card._hass?.states?.[entity] &&
+          !card._shouldUseGo2RtcForEntity(entity) &&
+          card._frigateCameraRuntimeController?.isSuspended?.(entity) !== true,
+      );
+    if (!isAndroidCompanion) return available;
+
+    const selected = String(
+      card._activeGroupMemberOverride || card._activeCam?.entity || "",
+    ).trim();
+    if (selected && available.includes(selected)) {
+      const previousIndex = recentHaDirectEntities.indexOf(selected);
+      if (previousIndex >= 0) recentHaDirectEntities.splice(previousIndex, 1);
+      recentHaDirectEntities.unshift(selected);
+    }
+    const availableSet = new Set(available);
+    const retained = recentHaDirectEntities
+      .filter((entity) => availableSet.has(entity))
+      .slice(0, 2);
+    recentHaDirectEntities.splice(0, recentHaDirectEntities.length, ...retained);
+    return retained;
+  };
   const waitForStreamStart = (
     streamEl,
     timeoutMs = 3500,
@@ -137,24 +168,13 @@ export const createLiveTransportControllers = (
     stopLoadingFallbackRefresh: () =>
       card._stopStreamFallbackLoadingRefresh(),
     setLiveNativeControls: (enabled) => card._setLiveNativeControls(enabled),
-    getPreloadEntities: () =>
-      flattenCameraMembers(card._config?.cameras)
-        .map((camera) => String(camera?.entity || "").trim())
-        .filter(
-          (entity) =>
-            entity &&
-            card._hass?.states?.[entity] &&
-            !card._shouldUseGo2RtcForEntity(entity) &&
-            card._frigateCameraRuntimeController?.isSuspended?.(entity) !== true,
-        ),
+    getPreloadEntities: resolveHaDirectPreloadEntities,
     getSelectedEntity: () =>
       card._activeGroupMemberOverride || card._activeCam?.entity || "",
     getContext: () => card._editorPreviewController?.liveHandoffContext?.() || "dashboard",
     getIdentity: () => getHaCameraPresentationIdentity(card, card._config, card._sourceConfig),
     restartOnResume: deviceProfile.isCompanionApp === true && deviceProfile.isCatalyst !== true,
-    limitInactivePlayback:
-      deviceProfile.isAndroid === true &&
-      deviceProfile.isCompanionApp === true,
+    limitInactivePlayback: isAndroidCompanion,
     isSelectedExternalReady: () =>
       card._shouldUseGo2RtcForEntity(card._activeGroupMemberOverride || card._activeCam?.entity) &&
       ["webrtc", "mse"].includes(card._activeStreamType),
@@ -260,9 +280,7 @@ export const createLiveTransportControllers = (
   const go2rtcRaceMounter = resolvedFactories.createGo2RtcRaceMounter({
     mounter: go2rtcMounter,
     isMobile: deviceProfile.isMobile,
-    avoidOffscreenDecode:
-      deviceProfile.isAndroid === true &&
-      deviceProfile.isCompanionApp === true,
+    avoidOffscreenDecode: isAndroidCompanion,
     resolveConnectionType: (entity) => card._cameraConnectionType(entity),
     getStartupMuted: (entity) =>
       getLiveAudioController(card).resolveStartupMuted(entity),

@@ -696,6 +696,58 @@ for (const webRtc of [false, true]) {
   });
 }
 
+for (const webRtc of [false, true]) {
+  test(`retained HA Direct ${webRtc ? "WebRTC" : "HLS"} resumes the same media element when reselected`, async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.evaluate(async (useWebRtc) => {
+      const { installHaCameraLifecycleFixture } = await import("/tests/fixtures/ha-camera-lifecycle.mjs");
+      const { createHaDirectCameraProvider } = await import("/src/integrations/home-assistant/camera-provider.js");
+      const audit = installHaCameraLifecycleFixture({ webRtc: useWebRtc });
+      const states = [];
+      const entry = createHaDirectCameraProvider({
+        hass: { callWS: audit.callWS },
+        stateObj: { entity_id: "camera.one", attributes: {} },
+        onState: (state) => states.push(state),
+      });
+      document.body.append(entry.provider);
+      window.retainedPlaybackProbe = { audit, entry, states };
+    }, webRtc);
+    await expect.poll(() => page.evaluate(() =>
+      window.retainedPlaybackProbe.states.at(-1)?.status)).toBe("ready");
+    const before = await page.evaluate(() => {
+      const probe = window.retainedPlaybackProbe;
+      probe.video = probe.states.at(-1).video;
+      probe.entry.provider.fvcSetPlaybackActive(false);
+      return {
+        video: probe.video,
+        paused: probe.video.paused,
+        time: probe.video.currentTime,
+      };
+    });
+    expect(before.paused).toBe(true);
+    await page.evaluate(() => {
+      const probe = window.retainedPlaybackProbe;
+      probe.entry.provider.fvcSetOutputMuted(true);
+      probe.entry.provider.fvcSetPlaybackActive(true);
+    });
+    await expect.poll(() => page.evaluate((time) => {
+      const probe = window.retainedPlaybackProbe;
+      return !probe.video.paused && probe.video.currentTime > time + 0.15;
+    }, before.time)).toBe(true);
+    expect(await page.evaluate(() => {
+      const probe = window.retainedPlaybackProbe;
+      return probe.states.at(-1).video === probe.video;
+    })).toBe(true);
+    expect(await page.evaluate(() =>
+      window.retainedPlaybackProbe.audit.providerDisconnects)).toBe(0);
+    await page.evaluate(() => {
+      const probe = window.retainedPlaybackProbe;
+      probe.entry.dispose();
+      probe.entry.provider.remove();
+    });
+  });
+}
+
 test.afterEach(async ({ page }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) {
     const configurations = await page.evaluate(() => (window.bundleProbe || window.sessionProbe ||

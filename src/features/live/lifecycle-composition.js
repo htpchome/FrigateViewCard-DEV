@@ -26,12 +26,17 @@ export const createLiveLifecycleControllers = (
     pauseRetainedPlayback =
       DEVICE_PROFILE.isAndroid === true &&
       DEVICE_PROFILE.isCompanionApp === true,
+    retainedLiveMax =
+      DEVICE_PROFILE.isAndroid === true &&
+      DEVICE_PROFILE.isCompanionApp === true
+        ? 1
+        : LIVE_SWITCH_GRACE_MAX,
   } = {},
 ) => {
   const resolvedFactories = { ...DEFAULT_FACTORIES, ...factories };
   const liveGraceController = resolvedFactories.createLiveGraceController({
     graceMs: LIVE_SWITCH_GRACE_MS,
-    graceMax: LIVE_SWITCH_GRACE_MAX,
+    graceMax: retainedLiveMax,
     catalystRetainedMax: MAX_CAMERAS,
     pauseRetainedPlayback,
     getShadowRoot: () => card.shadowRoot,

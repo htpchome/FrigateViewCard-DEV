@@ -1125,6 +1125,33 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
   assert.equal(hlsJsLoads, 0);
 });
 
+test("recording source rejects playback that never starts", async () => {
+  const listeners = new Map();
+  const video = {
+    src: "",
+    paused: true,
+    readyState: 1,
+    videoWidth: 1920,
+    currentTime: 0,
+    canPlayType: () => "",
+    addEventListener: (type, listener) => listeners.set(type, listener),
+    removeEventListener: (type, listener) => {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    },
+    play: async () => {
+      throw new DOMException("Playback denied", "NotAllowedError");
+    },
+    load: () => listeners.get("loadedmetadata")?.(),
+  };
+  const controller = new PopupMediaLoaderController({});
+
+  const loaded = await controller.tryRecordingSource(video, "/clip.mp4", {
+    timeoutMs: 50,
+  });
+
+  assert.equal(loaded, false);
+});
+
 test("Android-style native HLS claims still use authenticated HLS.js", async () => {
   const videoListeners = new Map();
   let hlsConfig = null;

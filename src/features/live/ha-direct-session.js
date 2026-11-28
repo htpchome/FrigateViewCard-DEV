@@ -72,10 +72,10 @@ export function createHaDirectSession({
         // inactive retained presentation dormant. HA's native players do not
         // finish startup while paused, but they can retain the established
         // session after readiness without continuing decoder playback.
+        record.provider.fvcSetOutputMuted?.(outputMuted);
         if (limitInactivePlayback) {
           record.provider.fvcSetPlaybackActive?.(visible || record.status !== "ready");
         }
-        record.provider.fvcSetOutputMuted?.(outputMuted);
       }
       active?.onState?.(record, true);
     }

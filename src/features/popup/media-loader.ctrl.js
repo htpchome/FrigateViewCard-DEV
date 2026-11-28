@@ -8,6 +8,7 @@ import {
   isM3u8Url,
 } from "../../shared/media/url-utils.js";
 import { resolveDisplayedFrameDimensions } from "../../shared/media/frame-geometry.js";
+import { waitForMediaStart } from "../../shared/media/first-frame.js";
 import { RECORDING_HLS_JS_ASSET_NAME } from "../../release-artifacts.mjs";
 import { isIOS } from "../../helpers.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
@@ -659,9 +660,12 @@ export class PopupMediaLoaderController {
 
     return await new Promise((resolve) => {
       let done = false;
+      let playRequested = false;
+      const readinessAbort = new AbortController();
       const finish = (ok) => {
         if (done) return;
         done = true;
+        readinessAbort.abort();
         cleanup();
         resolve(ok);
       };
@@ -670,11 +674,12 @@ export class PopupMediaLoaderController {
           finish(true);
           return;
         }
+        if (playRequested) return;
+        playRequested = true;
         try {
           await video.play?.();
-          finish(true);
         } catch (_) {
-          finish(true);
+          finish(false);
         }
       };
       const onErr = () => finish(false);
@@ -689,6 +694,21 @@ export class PopupMediaLoaderController {
       video.addEventListener("loadedmetadata", onReady, { once: true });
       video.addEventListener("canplay", onReady, { once: true });
       video.addEventListener("error", onErr, { once: true });
+
+      if (autoplay) {
+        void waitForMediaStart(video, timeoutMs, {
+          minCurrentTime: 0.05,
+          minDecodedFrames: 1,
+          requireReadyState: 2,
+          strict: true,
+          requirePresentedFrame: true,
+          abortSignal: readinessAbort.signal,
+          resolveVideo: () => video,
+        }).then((started) => {
+          if (started) finish(true);
+          else if (!done && !readinessAbort.signal.aborted) finish(false);
+        });
+      }
 
       const boot = async () => {
         try {

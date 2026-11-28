@@ -48,6 +48,12 @@ export function createHaDirectProviderMounter({
   const tileFor = (entity) => [...tiles].find((tile) =>
     tile.entity === entity && tile.slot.isConnected &&
     !tile.slot.closest('[hidden],[aria-hidden="true"]'));
+  const requestedEntities = () => [
+    ...new Set([
+      ...(getPreloadEntities?.() || []),
+      ...[...tiles].map((tile) => tile.entity),
+    ]),
+  ].filter(Boolean);
   const stopLoading = () => {
     stopFallback();
     stopFallback = () => {};
@@ -56,7 +62,7 @@ export function createHaDirectProviderMounter({
   const client = {
     host: card,
     hass: getHass,
-    entities: getPreloadEntities,
+    entities: requestedEntities,
     selected: getSelectedEntity,
     context: getContext,
     identity: getIdentity,

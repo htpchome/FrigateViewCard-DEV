@@ -6,7 +6,10 @@ import {
 import { preserveHaCameraHlsFallback } from "./camera-stream-compat.js";
 import { createHaCameraWebRtcRetry } from "./camera-webrtc-retry.js";
 import { createHaCameraHlsRecovery } from "./camera-hls-recovery.js";
-import { configureStandardHaHlsPlayer } from "./camera-hls-policy.js";
+import {
+  configureStandardHaHlsInsertionBoundary,
+  configureStandardHaHlsPlayer,
+} from "./camera-hls-policy.js";
 import { checkHaCameraResume } from "./camera-resume-health.js";
 import { watchMediaFirstFrame } from "../../shared/media/first-frame.js";
 
@@ -94,6 +97,9 @@ export function createHaDirectCameraProvider({
   let observedPlayerRoot;
   let intendedOutputMuted = Boolean(outputMuted);
   let intendedPlaybackActive = true;
+  const stopHlsInsertionPolicy = configureStandardHaHlsInsertionBoundary(
+    provider.shadowRoot,
+  );
   const applyOutputMute = () => {
     applyHaDirectPresentationSizing(provider);
     const activePlayer = findActiveHaCameraStreamPlayer(provider);
@@ -124,8 +130,7 @@ export function createHaDirectCameraProvider({
     const wasActive = intendedPlaybackActive;
     intendedPlaybackActive = active === true;
     const video = applyOutputMute();
-    if (!wasActive && intendedPlaybackActive &&
-        provider.fvcStartupPlaybackOwned !== true && video?.paused) {
+    if (!wasActive && intendedPlaybackActive && video?.paused) {
       try {
         void video.play?.().catch?.(() => {});
       } catch (_) {}
@@ -251,6 +256,7 @@ export function createHaDirectCameraProvider({
       hlsRecovery.dispose();
       stopFrameWatch();
       stopVideoEvents();
+      stopHlsInsertionPolicy();
       observer?.disconnect();
       provider.removeEventListener("streams", reconcile, true);
       provider.removeEventListener("load", reconcile, true);
