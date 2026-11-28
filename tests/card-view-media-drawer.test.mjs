@@ -111,6 +111,24 @@ test("Card View media drawer item markup escapes event content", () => {
   assert.doesNotMatch(markup, /Person <visitor>/);
 });
 
+test("Card View media drawer marks alert thumbnails that have AI descriptions", () => {
+  const withAi = buildCardViewMediaDrawerItemMarkup({
+    event: { id: "event-ai" },
+    mediaType: CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,
+    aiDescription: { title: "Resident walks to the door" },
+    aiIcon: "creation-icon",
+  });
+  const withoutAi = buildCardViewMediaDrawerItemMarkup({
+    event: { id: "event-plain" },
+    mediaType: CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,
+    aiIcon: "creation-icon",
+  });
+
+  assert.match(withAi, /class="card-view-media-drawer-ai"/);
+  assert.match(withAi, /creation-icon/);
+  assert.doesNotMatch(withoutAi, /card-view-media-drawer-ai/);
+});
+
 test("Card View media drawer uses vertical page navigation", () => {
   assert.deepEqual(
     resolveCardViewMediaDrawerNavigationState({

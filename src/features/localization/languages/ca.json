@@ -361,6 +361,16 @@
       "datedHeading": "{weekday} - {date} - {title}",
       "ptzReady": "PTZ de Frigate a punt",
       "ptzUnavailable": "PTZ no disponible",
+      "ai": {
+        "heading": "Anàlisi d'IA",
+        "title": "Títol",
+        "description": "Descripció",
+        "score": "Puntuació",
+        "concerns": "Preocupacions",
+        "none": "Cap",
+        "close": "Tanca l'anàlisi d'IA",
+        "viewAnalysis": "Mostra l'anàlisi d'IA: {title}"
+      },
       "row": {
         "snapshot": "Instantània",
         "clips": "Clips",

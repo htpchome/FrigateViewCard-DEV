@@ -2,6 +2,7 @@ import {
   wideTimelineConnectorGeometry,
   wideTimelineStackVisualDepth,
 } from "./timeline.model.js";
+import { buildBrowseAiTitleButtonMarkup } from "../browse/ai-description.tmpl.js";
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -110,15 +111,25 @@ export const buildWideTimelineCardMarkup = ({
   const stackTitle = count > 1
     ? ` title="${count} events stacked — use the mouse wheel or stack button to browse" data-fvc-i18n-title="runtime.wideView.timeline.stackedEvents" data-fvc-i18n-values="${escapeHtml(JSON.stringify({ count }))}"`
     : "";
+  const aiTitle = entry.aiDescription
+    ? buildBrowseAiTitleButtonMarkup({
+        analysis: entry.aiDescription,
+        icons,
+        className: "wide-timeline-card-label wide-timeline-ai-title",
+        textClassName: "wide-timeline-ai-title-text",
+        showIcon: false,
+      })
+    : "";
 
   return `<article class="wide-timeline-stack${stackClass}${alertClass}${slideClass}" style="--timeline-card-y:${rounded(group.cardTop)}px" data-wide-timeline-stack="${escapeHtml(group.id)}"${stackTitle}>
       ${underlays}
       <button class="wide-timeline-card-main et${entry.kind === "alert" ? " alert" : ""}${entry.thumbnailUrl ? " has-thumbnail" : " is-placeholder"}" type="button" data-wide-timeline-entry="${escapeHtml(entry.id)}" aria-label="${escapeHtml(clickLabel)}" data-fvc-i18n-aria-label="${clickLabelKey}" data-fvc-i18n-values="${clickLabelValues}" data-fvc-date-format="time" data-fvc-date-ts="${escapeHtml(entry.startTime)}" data-fvc-date-i18n-value="time">
         ${thumbnail}
-        <span class="wide-timeline-card-label">${escapeHtml(entry.label)}</span>
+        ${aiTitle ? "" : `<span class="wide-timeline-card-label">${escapeHtml(entry.label)}</span>`}
         <span class="wide-timeline-card-time" data-fvc-date-format="time" data-fvc-date-ts="${escapeHtml(entry.startTime)}">${escapeHtml(timeLabel)}</span>
         <span class="wide-timeline-card-duration ed">${escapeHtml(entry.duration)}s</span>
       </button>
+      ${aiTitle}
       ${cycle}
     </article>`;
 };

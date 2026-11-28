@@ -33,6 +33,14 @@ export const bindCardShadowEvents = (card) => {
       card._lastLiveOverlayPointerType =
         pointerType === "mouse" ? "mouse" : "touch";
     }
+    if (
+      card._browseAiDescriptionController?.handlePointerDown?.(
+        event,
+        event.target,
+      )
+    ) {
+      return;
+    }
     card._mobileCamSwitcherController?.handlePointerDown?.(
       event,
       event.target,

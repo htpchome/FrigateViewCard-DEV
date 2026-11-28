@@ -50,7 +50,15 @@ test("timeline deduplicates alert detections over regular events", () => {
         camera: "doorbell",
         severity: "alert",
         start_time: 995,
-        data: { detections: ["event-alert"], objects: ["person"] },
+        data: {
+          detections: ["event-alert"],
+          objects: ["person"],
+          metadata: {
+            title: "Resident walks to the door",
+            scene: "A resident approaches the door and stops on the porch.",
+            confidence: 0.91,
+          },
+        },
       },
     ],
     mediaUrl: (id, file) => `/media/${id}/${file}`,
@@ -66,7 +74,13 @@ test("timeline deduplicates alert detections over regular events", () => {
       ["event-regular", "event"],
     ],
   );
-  assert.equal(entries[0].label, "Person");
+  assert.equal(entries[0].label, "Resident walks to the door");
+  assert.deepEqual(entries[0].aiDescription, {
+    title: "Resident walks to the door",
+    description: "A resident approaches the door and stops on the porch.",
+    score: 91,
+    concerns: [],
+  });
   assert.equal(entries[0].thumbnailUrl, "/media/event-alert/thumbnail.jpg");
   assert.equal(entries[0].reviewStartTime, 995);
 });
@@ -139,6 +153,52 @@ test("dense timeline activity stacks newest first and preserves every marker", (
   assert.match(markup, /--timeline-card-left:112px/);
   assert.match(markup, /x1="16\.5"/);
   assert.match(markup, /x2="35"/);
+});
+
+test("timeline AI titles open the shared analysis dialog instead of nesting a media action", () => {
+  const markup = buildWideTimelineContentMarkup({
+    layout: {
+      groups: [{
+        id: "timeline-stack:event-ai",
+        cardTop: 8,
+        cardCenterY: 53,
+        activeIndex: 0,
+        entries: [{
+          id: "event-ai",
+          kind: "alert",
+          label: "Resident walks to the door",
+          startTime: 1_000,
+          markerY: 20,
+          duration: 8,
+          aiDescription: {
+            title: "Resident walks to the door",
+            description: "A resident approaches the door.",
+            score: 91,
+            concerns: [],
+          },
+        }],
+      }],
+      contentHeight: 120,
+      viewportWidth: 320,
+      axisX: 52.8,
+      cardLeft: 112,
+      cardWidth: 160,
+      cardHeight: 90,
+    },
+    ticks: [],
+    formatTime: () => "3:00 pm",
+    icons: {},
+  });
+
+  assert.match(markup, /class="wide-timeline-card-label wide-timeline-ai-title"/);
+  assert.match(markup, /data-ai-description-open/);
+  assert.match(markup, /data-ai-description="A resident approaches the door\."/);
+  const mediaButtonStart = markup.indexOf('data-wide-timeline-entry="event-ai"');
+  const mediaButtonEnd = markup.indexOf("</button>", mediaButtonStart);
+  const aiButtonStart = markup.indexOf("data-ai-description-open");
+  assert.ok(mediaButtonStart >= 0);
+  assert.ok(mediaButtonEnd > mediaButtonStart);
+  assert.ok(aiButtonStart > mediaButtonEnd);
 });
 
 test("mixed-camera timeline stacks place reviews above ordinary events", () => {

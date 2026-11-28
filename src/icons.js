@@ -43,6 +43,7 @@ export const volOff = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=
 export const volOn = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z\"/></svg>";
 export const grid = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z\"/></svg>";
 export const person = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z\"/></svg>";
+export const creation = "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 3 14.25 8.75 20 11l-5.75 2.25L12 19l-2.25-5.75L4 11l5.75-2.25L12 3M5 3l1.5 3.5L10 8 6.5 9.5 5 13 3.5 9.5 0 8l3.5-1.5L5 3m14 10 1.25 3.25 3.25 1.25-3.25 1.25L19 22l-1.25-3.25-3.25-1.25 3.25-1.25L19 13Z\"/></svg>";
 export const divider = "<svg fill=\"currentColor\" version=\"1.1\" viewBox=\"0 0 8 24\"><path d=\"m3.7826 3h0.43584c0.411 0 0.74108 0.33008 0.74108 0.74208v16.516c0 0.412-0.33008 0.74208-0.74108 0.74208h-0.43584c-0.411 0-0.74208-0.33008-0.74208-0.74208v-16.516c0-0.412 0.33108-0.74208 0.74208-0.74208z\"/></svg>";
 export const cameraGroupSplit = "<svg fill=\"currentColor\" viewBox=\"0 0 24 24\"><path d=\"M3,4A2,2 0 0,1 5,2H19A2,2 0 0,1 21,4V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V4M5,4V20H11V4H5M13,4V20H19V4H13Z\" /></svg>";
 export const preView = "<svg fill=\"currentColor\" viewBox=\"0 0 24 24\"><path d=\"m4 18c-0.554 0-1 0.446-1 1v1c0 0.554 0.446 1 1 1h16c0.554 0 1-0.446 1-1v-1c0-0.554-0.446-1-1-1zm0-5c-0.554 0-1 0.446-1 1v1c0 0.554 0.446 1 1 1h16c0.554 0 1-0.446 1-1v-1c0-0.554-0.446-1-1-1zm0-5c-0.554 0-1 0.446-1 1v1c0 0.554 0.446 1 1 1h16c0.554 0 1-0.446 1-1v-1c0-0.554-0.446-1-1-1zm0-5c-0.554 0-1 0.446-1 1v1c0 0.554 0.446 1 1 1h16c0.554 0 1-0.446 1-1v-1c0-0.554-0.446-1-1-1z\" stroke-width:0\"/></svg>";
@@ -105,6 +106,7 @@ export const ICONS = {
   volOn,
   grid,
   person,
+  creation,
   divider,
   cameraGroupSplit,
   preView,

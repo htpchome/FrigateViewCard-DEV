@@ -990,6 +990,12 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .list-item-meta-unit{display:inline-flex;align-items:center;gap:4px;min-width:0;max-width:100%;white-space:nowrap;}
   .list-item-meta-unit svg{width:11px;height:11px;flex:0 0 11px;}
   .list-item-meta-unit.zone-meta > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .list-ai-title{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;gap:5px;max-width:100%;min-width:0;height:22px;margin-top:5px;padding:2px 8px;border:1px solid color-mix(in srgb,var(--c-primary-d) 42%,var(--c-border2));border-radius:999px;background:color-mix(in srgb,var(--c-primary-d) 13%,var(--c-bg-list));color:var(--c-primary-d);font:inherit;font-size:.72rem;font-weight:700;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .list-ai-title-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 15px;width:15px;height:15px;pointer-events:none;}
+  .list-ai-title-icon svg{display:block;width:15px;height:15px;}
+  .list-ai-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;}
+  .list-ai-title:active{transform:scale(.98);}
+  @media (hover:hover) and (pointer:fine){.list-ai-title:hover{border-color:var(--c-primary-d);background:color-mix(in srgb,var(--c-primary-d) 20%,var(--c-bg-list));}}
   .review-severity-chip{font-weight:800;text-transform:capitalize;}
   .list-item .review-severity-chip--alert{--list-bubble-accent:var(--c-bg-alert);}
   .list-item .review-severity-chip--detection{--list-bubble-accent:var(--c-bg-detect);}
@@ -1015,6 +1021,28 @@ export const STYLES_BEFORE_CARD_VIEW = `
     text-shadow:0 1px 1px var(--c-bg-deep);
   }
   .desc{margin-top:4px;font-size:0.825rem;color:var(--c-text2);line-height:1.45;background:var(--c-bg-panel);border-radius:5px;padding:6px 8.4px;}
+
+  .browse-ai-modal{position:absolute;inset:0;z-index:2700;display:grid;place-items:center;padding:14px;box-sizing:border-box;isolation:isolate;}
+  .browse-ai-modal[hidden]{display:none;}
+  .browse-ai-backdrop{appearance:none;-webkit-appearance:none;position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;background:rgba(0,0,0,.46);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);cursor:pointer;}
+  .browse-ai-dialog{position:relative;z-index:1;display:flex;flex-direction:column;width:min(500px,calc(100% - 8px));max-height:min(70%,520px);box-sizing:border-box;overflow:hidden;border:1px solid var(--c-border2);border-radius:16px;background:var(--c-bg-main);color:var(--c-text);box-shadow:0 18px 54px rgba(0,0,0,.38);}
+  .browse-ai-dialog-head{display:flex;align-items:center;gap:10px;flex:0 0 auto;padding:12px 14px 8px;touch-action:none;}
+  .browse-ai-dialog-head strong{font-size:1rem;line-height:1.2;}
+  .browse-ai-dialog-close{appearance:none;-webkit-appearance:none;display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;margin:0;padding:5px;border:0;border-radius:50%;background:transparent;color:var(--c-text);cursor:pointer;}
+  .browse-ai-dialog-close svg{width:20px;height:20px;pointer-events:none;}
+  @media (hover:hover) and (pointer:fine){.browse-ai-dialog-close:hover{background:var(--c-bg-panel);color:var(--c-primary-d);}}
+  .browse-ai-drag-handle{display:none;align-self:center;width:42px;height:4px;margin-top:7px;border-radius:999px;background:var(--handle-color,var(--c-border2));touch-action:none;}
+  .browse-ai-dialog-body{display:flex;flex-direction:column;gap:13px;min-height:0;padding:8px 18px 18px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  .browse-ai-field{display:flex;flex-direction:column;gap:4px;}
+  .browse-ai-field[hidden]{display:none;}
+  .browse-ai-field > span{color:var(--c-text2);font-size:.72rem;font-weight:650;}
+  .browse-ai-field > p{margin:0;color:var(--c-text);font-size:.88rem;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;}
+  .card.phone-client .browse-ai-modal{place-items:end center;padding:0;}
+  .card.phone-client .browse-ai-backdrop{background:rgba(0,0,0,.4);}
+  .card.phone-client .browse-ai-dialog{width:100%;max-height:min(52%,440px);border-width:1px 0 0;border-radius:18px 18px 0 0;box-shadow:0 -12px 36px rgba(0,0,0,.28);transition:transform .18s ease-out;}
+  .card.phone-client .browse-ai-dialog.is-dragging{transition:none;}
+  .card.phone-client .browse-ai-drag-handle{display:block;}
+  .card.phone-client .browse-ai-dialog-head{padding-top:7px;}
 
 
   /* ── toast ── */
@@ -1308,6 +1336,24 @@ export const STYLES_AFTER_CARD_VIEW = `
     margin-left:0;
     padding-right:0;
   }
+  .card .list-item .list-item-middle--narrow .list-ai-title{
+    grid-area:ai;
+    align-self:center;
+    justify-self:end;
+    width:34px;
+    min-width:34px;
+    height:34px;
+    margin:0;
+    padding:7px;
+    border-radius:8px;
+  }
+  .card .list-item .list-item-middle--narrow .list-ai-title-icon,
+  .card .list-item .list-item-middle--narrow .list-ai-title-icon svg{width:18px;height:18px;flex-basis:18px;}
+  .card .list-item .list-item-middle--narrow .list-ai-title-text{display:none;}
+  .card .list-item.has-ai-description .list-item-middle--narrow{
+    grid-template-columns:minmax(0,1fr) auto auto;
+    grid-template-areas:"tags tags tags" "meta ai actions";
+  }
   .card .list-item .list-item-middle--narrow > .desc{
     grid-column:1 / -1;
   }
@@ -1356,6 +1402,10 @@ export const STYLES_AFTER_CARD_VIEW = `
     .card .list-item .list-item-middle--narrow{
       grid-template-areas:"tags tags" "meta actions";
     }
+    .card .list-item.has-ai-description .list-item-middle--narrow{
+      grid-template-columns:minmax(0,1fr) auto auto;
+      grid-template-areas:"tags tags tags" "meta ai actions";
+    }
   }
 
   @container browse-list (max-width:380px){
@@ -1379,6 +1429,13 @@ export const STYLES_AFTER_CARD_VIEW = `
     }
     .card .layout--wide-view .browse .list-item-middle--narrow > .desc{
       grid-area:description;
+    }
+    .card .layout--wide-view .browse .list-item.has-ai-description{
+      grid-template-areas:"thumb tags" "thumb meta" "ai actions" "description description";
+    }
+    .card .layout--wide-view .browse .list-item-middle--narrow .list-ai-title{
+      grid-area:ai;
+      justify-self:center;
     }
   }
 

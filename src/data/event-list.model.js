@@ -1,4 +1,6 @@
 import { buildBrowseThumbnailImageMarkup } from "../features/browse/thumbnail.tmpl.js";
+import { buildBrowseAiTitleButtonMarkup } from "../features/browse/ai-description.tmpl.js";
+import { resolveFrigateAiDescription } from "../integrations/frigate/ai-description.js";
 import { escapeHtml, escapeHtmlAttribute } from "../shared/html.js";
 
 const rowText = (t, key, fallback) =>
@@ -30,6 +32,7 @@ export function buildEventListItemModel(eventItem, deps) {
     showFavoriteButton = true,
     showDurationBadge = true,
     fallbackThumbSrc = "",
+    aiReview = null,
     t,
   } = deps || {};
 
@@ -96,6 +99,7 @@ export function buildEventListItemModel(eventItem, deps) {
       ? `<button class="tool ico fav on" data-fav="${escapeHtmlAttribute(eventItem.id)}" ${rowActionLabel(t, "unfavorite", "Unfavorite")}>${icons.star}</button>`
       : `<button class="tool ico fav" data-fav="${escapeHtmlAttribute(eventItem.id)}" ${rowActionLabel(t, "favorite", "Favorite")}>${icons.starO}</button>`
     : "";
+  const aiDescription = resolveFrigateAiDescription(aiReview);
   return {
     id: eventItem?.id,
     labelColorValue: labelColor(eventItem?.label),
@@ -109,6 +113,12 @@ export function buildEventListItemModel(eventItem, deps) {
     mediaActions,
     camLabel,
     favBtn,
+    aiDescription,
+    aiTitleButton: buildBrowseAiTitleButtonMarkup({
+      analysis: aiDescription,
+      icons,
+      t,
+    }),
     duration: showDurationBadge ? durationLabel(eventItem) : null,
     showDurationBadge,
     startTime: eventItem?.start_time,
@@ -142,6 +152,7 @@ export function buildEventListItemStandardPresentationHtml(
       <div class="ei list-item-middle list-item-middle--standard">
         ${buildEventListItemTagsHtml(model)}
         ${buildEventListItemMetaHtml(model, icons)}
+        ${model.aiTitleButton}
         ${descriptionHtml}
       </div>
       <div class="eact list-item-actions list-item-actions--standard${compact ? " h" : ""}">${model.favBtn}${model.mediaActions}</div>`;
@@ -156,6 +167,7 @@ export function buildEventListItemNarrowPresentationHtml(
         ${buildEventListItemTagsHtml(model)}
         <div class="list-item-narrow-lower">
           ${buildEventListItemMetaHtml(model, icons)}
+          ${model.aiTitleButton}
           <div class="eact list-item-actions list-item-actions--narrow${compact ? " h" : ""}">${model.favBtn}${model.mediaActions}</div>
         </div>
         ${descriptionHtml}
@@ -168,7 +180,7 @@ export function buildEventListItemHtml(model, { icons, expanded, compact }) {
       ? `<div class="desc">${escapeHtml(model.description)}</div>`
       : "";
   return `
-    <div class="list-item list-item--event${compact ? " compact" : ""} shadow-small" data-ev="${escapeHtmlAttribute(model.id)}">
+    <div class="list-item list-item--event${model.aiDescription ? " has-ai-description" : ""}${compact ? " compact" : ""} shadow-small" data-ev="${escapeHtmlAttribute(model.id)}">
       ${model.reviewBar}
       <div class="et">${model.thumb}${model.showDurationBadge ? `<div class="ed">${escapeHtml(model.duration)}s</div>` : ""}</div>
       ${buildEventListItemStandardPresentationHtml(model, {

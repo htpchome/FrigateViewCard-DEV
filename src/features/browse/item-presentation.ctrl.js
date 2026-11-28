@@ -51,6 +51,7 @@ export const renderBrowseEventListItem = (
     fallbackThumbSrc: fallbackReview
       ? host._reviewThumbnailForCamera(fallbackReview, event?.camera)
       : "",
+    aiReview: fallbackReview,
     showCameraLabel:
       (host._eventsMode === "all" ||
         host._isGridMixedListMode() ||

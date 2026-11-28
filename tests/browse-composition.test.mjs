@@ -16,6 +16,7 @@ test("browse composition preserves controller order and markup dependencies", ()
   const calls = [];
   const options = {};
   const controllers = {
+    aiDescription: { type: "ai-description" },
     calendarActivity: { type: "calendar-activity" },
     calendarPanel: { type: "calendar-panel" },
     collection: { type: "collection" },
@@ -28,6 +29,10 @@ test("browse composition preserves controller order and markup dependencies", ()
   };
   const card = {};
   const factories = {
+    createAiDescriptionController: (host) => {
+      calls.push(["ai-description", host]);
+      return controllers.aiDescription;
+    },
     createCalendarActivityController: (host) => {
       calls.push(["calendar-activity", host]);
       return controllers.calendarActivity;
@@ -71,6 +76,7 @@ test("browse composition preserves controller order and markup dependencies", ()
   const result = createBrowseControllers(card, { factories });
 
   assert.deepEqual(result, {
+    _browseAiDescriptionController: controllers.aiDescription,
     _browseCalendarActivityController: controllers.calendarActivity,
     _browseCalendarPanelController: controllers.calendarPanel,
     _browseCollectionController: controllers.collection,
@@ -82,6 +88,7 @@ test("browse composition preserves controller order and markup dependencies", ()
     _browseBackgroundWorkController: controllers.backgroundWork,
   });
   assert.deepEqual(calls, [
+    ["ai-description", card],
     ["calendar-activity", card],
     ["calendar-panel", card],
     ["collection", card],

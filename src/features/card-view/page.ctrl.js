@@ -41,6 +41,7 @@ import { CardViewMediaDrawerController } from "./media-drawer.ctrl.js";
 import { resolveLiveSourceIndicatorState } from "../../shared/media/source-indicator.js";
 import { applyLocalizedText } from "../localization/localized-dom.js";
 import { ensureCardViewPageStyles } from "./page-style.loader.js";
+import { resolveFrigateAiDescription } from "../../integrations/frigate/ai-description.js";
 
 const cameraName = (camera) => cap(camDisplayName(camera));
 const STANDALONE_GRID_INDICATOR_DURATION_MS = GRID_ALERT_HOLD_MS;
@@ -168,6 +169,12 @@ export class CardViewPageController {
       getEvents: (mediaType) =>
         this._mediaDrawerEvents(mediaType),
       getRecordings: () => this._recordingRows(),
+      getAiDescription: (event) => {
+        const review =
+          this._host._browseCollectionController?.findReviewForEvent?.(event) ||
+          event;
+        return resolveFrigateAiDescription(review);
+      },
       isEventsLoading: (drawerType) =>
         drawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.favorites &&
         this._favoritesLoading,

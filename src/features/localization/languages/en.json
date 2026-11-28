@@ -361,6 +361,16 @@
       "datedHeading": "{weekday} - {date} - {title}",
       "ptzReady": "Frigate PTZ ready",
       "ptzUnavailable": "PTZ unavailable",
+      "ai": {
+        "heading": "AI Analysis",
+        "title": "Title",
+        "description": "Description",
+        "score": "Score",
+        "concerns": "Concerns",
+        "none": "None",
+        "close": "Close AI analysis",
+        "viewAnalysis": "View AI analysis: {title}"
+      },
       "row": {
         "snapshot": "Snapshot",
         "clips": "Clips",

@@ -1,4 +1,6 @@
 import { buildBrowseThumbnailImageMarkup } from "../features/browse/thumbnail.tmpl.js";
+import { buildBrowseAiTitleButtonMarkup } from "../features/browse/ai-description.tmpl.js";
+import { resolveFrigateAiDescription } from "../integrations/frigate/ai-description.js";
 import { escapeHtml, escapeHtmlAttribute } from "../shared/html.js";
 
 const rowText = (t, key, fallback, values = {}) =>
@@ -50,9 +52,9 @@ export function buildReviewListItemModel(review, deps) {
   const metadataTitle = String(review?.data?.metadata?.title || "").trim();
   const rawObjects = (review?.data?.objects || []).filter(Boolean);
   const usesSeverityFallback =
-    !rawObjects.length && !metadataTitle && !mediaEvent?.label;
+    !rawObjects.length && !mediaEvent?.label;
   if (!rawObjects.length) {
-    rawObjects.push(metadataTitle || mediaEvent?.label || sev);
+    rawObjects.push(mediaEvent?.label || sev);
   }
   const seenObjects = new Set();
   const objects = rawObjects.filter((label) => {
@@ -104,6 +106,7 @@ export function buildReviewListItemModel(review, deps) {
     .find(Boolean);
   const subLabelValue =
     reviewSubLabelValue || String(mediaEvent?.sub_label || "").trim();
+  const aiDescription = resolveFrigateAiDescription(review);
 
   return {
     reviewId: review?.id || "",
@@ -123,6 +126,12 @@ export function buildReviewListItemModel(review, deps) {
     zone,
     favBtn,
     mediaActions: `${clipAction}${snapshotAction}`,
+    aiDescription,
+    aiTitleButton: buildBrowseAiTitleButtonMarkup({
+      analysis: aiDescription,
+      icons,
+      t,
+    }),
     thumbSrc: mediaEventId ? media(mediaEventId, "thumbnail.jpg") : "",
     fallbackThumbSrc,
     duration:
@@ -200,6 +209,7 @@ export function buildReviewListItemStandardPresentationHtml(model, deps) {
             ${buildReviewTagsHtml(model)}
           </div>
           ${buildReviewMetaHtml(model, { cap, icons })}
+          ${model.aiTitleButton}
         </div>
         <div class="eact list-item-actions list-item-actions--standard">${model.favBtn}${model.mediaActions}</div>`;
 }
@@ -217,6 +227,7 @@ export function buildReviewListItemNarrowPresentationHtml(model, deps) {
               icons,
               showSeverity: false,
             })}
+            ${model.aiTitleButton}
             <div class="eact list-item-actions list-item-actions--narrow">${model.favBtn}${model.mediaActions}</div>
           </div>
         </div>`;
@@ -237,7 +248,7 @@ export function buildReviewListItemHtml(model, deps) {
                 </div>`
     : "";
   return `
-      <div class="list-item list-item--review shadow-small" data-review-id="${escapeHtmlAttribute(model.reviewId)}" ${model.firstDet ? `data-review-open="${escapeHtmlAttribute(model.firstDet)}"` : ""}>
+      <div class="list-item list-item--review${model.aiDescription ? " has-ai-description" : ""} shadow-small" data-review-id="${escapeHtmlAttribute(model.reviewId)}" ${model.firstDet ? `data-review-open="${escapeHtmlAttribute(model.firstDet)}"` : ""}>
 
         ${thumb}
         ${buildReviewListItemStandardPresentationHtml(model, deps)}

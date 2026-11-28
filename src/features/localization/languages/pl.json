@@ -361,6 +361,16 @@
       "datedHeading": "{weekday} - {date} - {title}",
       "ptzReady": "Sterowanie Frigate PTZ gotowe",
       "ptzUnavailable": "PTZ niedostępne",
+      "ai": {
+        "heading": "Analiza AI",
+        "title": "Tytuł",
+        "description": "Opis",
+        "score": "Wynik",
+        "concerns": "Obawy",
+        "none": "Brak",
+        "close": "Zamknij analizę AI",
+        "viewAnalysis": "Wyświetl analizę AI: {title}"
+      },
       "row": {
         "snapshot": "Migawka",
         "clips": "Klipy",

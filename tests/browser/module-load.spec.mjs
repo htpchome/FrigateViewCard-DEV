@@ -4211,6 +4211,93 @@ test("initial alert refresh preserves a visible thumbnail placeholder", async ({
   });
 });
 
+test("AI review titles open the reusable analysis dialog without opening media", async ({ page }) => {
+  await page.goto(baseUrl);
+  const state = await page.evaluate(async () => {
+    await import("/frigate-view-card.js");
+    const card = document.createElement("frigate-view-card");
+    document.body.append(card);
+    card.setConfig({ cameras: [{ entity: "camera.front", name: "Front" }] });
+    card._renderShell();
+    const event = {
+      id: "event-ai",
+      camera: "front",
+      label: "person",
+      start_time: 1723000000,
+      end_time: 1723000004,
+      has_clip: true,
+      has_snapshot: true,
+    };
+    card._browseFilterController.reviewSourceEvent = () => event;
+    const review = {
+      id: "review-ai",
+      camera: "front",
+      severity: "alert",
+      start_time: 1723000000,
+      data: {
+        detections: ["event-ai"],
+        objects: ["person"],
+        metadata: {
+          title: "Person remains near the front door",
+          scene: "A person remains beside the front door for four seconds.",
+          confidence: 0.9,
+          other_concerns: [],
+        },
+      },
+    };
+    const list = card.shadowRoot.querySelector("#list");
+    list.innerHTML = card._reviewListItemHTML(review);
+    const row = list.querySelector('[data-review-id="review-ai"]');
+    row.querySelector(".list-item-middle--standard .list-ai-title").click();
+    const modal = card.shadowRoot.querySelector("[data-browse-ai-modal]");
+    const openState = {
+      rowHasAi: row.classList.contains("has-ai-description"),
+      modalOpen: !modal.hidden,
+      title: modal.querySelector('[data-ai-value="title"]').textContent,
+      description: modal.querySelector('[data-ai-value="description"]').textContent,
+      score: modal.querySelector('[data-ai-value="score"]').textContent,
+      concerns: modal.querySelector('[data-ai-value="concerns"]').textContent,
+      popupOpen: card.shadowRoot.querySelector("#myPopup").classList.contains("is-open"),
+    };
+    modal.querySelector(".browse-ai-dialog-close").click();
+    const modalClosed = modal.hidden;
+    row.querySelector(".list-item-middle--standard .list-ai-title").click();
+    card._isLikelyPhoneClient = () => true;
+    card.shadowRoot.querySelector("#card").classList.add("phone-client");
+    const dragHandle = modal.querySelector(".browse-ai-drag-handle");
+    dragHandle.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      composed: true,
+      pointerId: 7,
+      clientY: 100,
+      button: 0,
+    }));
+    document.dispatchEvent(new PointerEvent("pointermove", {
+      bubbles: true,
+      pointerId: 7,
+      clientY: 190,
+    }));
+    document.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 7,
+      clientY: 190,
+    }));
+    return { ...openState, modalClosed, swipeClosed: modal.hidden };
+  });
+
+  expect(state).toEqual({
+    rowHasAi: true,
+    modalOpen: true,
+    title: "Person remains near the front door",
+    description: "A person remains beside the front door for four seconds.",
+    score: "90%",
+    concerns: "None",
+    popupOpen: false,
+    modalClosed: true,
+    swipeClosed: true,
+  });
+});
+
 test("popup controls and segment guidance localize without remounting media", async ({ page }) => {
   await page.goto(baseUrl);
   const state = await page.evaluate(async () => {

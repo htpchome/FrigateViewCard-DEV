@@ -361,6 +361,16 @@
       "datedHeading": "{weekday} - {date} - {title}",
       "ptzReady": "Το PTZ του Frigate είναι έτοιμο",
       "ptzUnavailable": "Το PTZ δεν είναι διαθέσιμο",
+      "ai": {
+        "heading": "Ανάλυση AI",
+        "title": "Τίτλος",
+        "description": "Περιγραφή",
+        "score": "Βαθμολογία",
+        "concerns": "Ανησυχίες",
+        "none": "Καμία",
+        "close": "Κλείσιμο ανάλυσης AI",
+        "viewAnalysis": "Προβολή ανάλυσης AI: {title}"
+      },
       "row": {
         "snapshot": "Στιγμιότυπο",
         "clips": "Αποσπάσματα",

@@ -854,7 +854,7 @@ test("narrow alert rows cap object bubbles and disclose the hidden count", () =>
   assert.match(html, /class="list-item list-item--review /);
 });
 
-test("alert rows fall back to one metadata-title bubble without plain title text", () => {
+test("alert rows keep AI titles out of detected-object tags", () => {
   const model = buildReviewListItemModel(
     {
       id: "review-fallback",
@@ -880,9 +880,15 @@ test("alert rows fall back to one metadata-title bubble without plain title text
   });
 
   assert.deepEqual(model.objectTags, [
-    { text: "Delivery driver", color: "#f97316" },
+    {
+      text: "Alert",
+      translationKey: "runtime.browse.row.alert",
+      color: "#f97316",
+    },
   ]);
   assert.doesNotMatch(html, /class="rev-t"/);
+  assert.match(html, /data-ai-description-open/);
+  assert.match(html, /class="list-ai-title-text">Delivery driver</);
   assert.equal(
     html.match(/class="tb review-object-tag list-bubble"/g)?.length,
     2,

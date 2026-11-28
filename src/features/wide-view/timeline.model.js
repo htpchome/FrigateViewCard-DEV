@@ -3,6 +3,7 @@ import {
   WIDE_TIMELINE_DEFAULT_SCALE_HOURS,
   WIDE_TIMELINE_SCALE_OPTIONS_HOURS,
 } from "./config.js";
+import { resolveFrigateAiDescription } from "../../integrations/frigate/ai-description.js";
 
 export const WIDE_TIMELINE_SCALES = WIDE_TIMELINE_SCALE_OPTIONS_HOURS;
 export const WIDE_TIMELINE_DEFAULT_SCALE =
@@ -101,6 +102,7 @@ export const buildWideTimelineEntries = ({
     );
 
   for (const review of reviews) {
+    const aiDescription = resolveFrigateAiDescription(review);
     const detectionIds = uniqueStrings(review?.data?.detections);
     for (const eventId of detectionIds) {
       if (renderedIds.has(eventId)) continue;
@@ -124,6 +126,7 @@ export const buildWideTimelineEntries = ({
         reviewStartTime: finiteNumber(review?.start_time, startTime),
         camera: String(review?.camera || event?.camera || ""),
         label: displayLabel({ event, review, capitalize }),
+        aiDescription,
         duration: Math.max(1, Math.round(finiteNumber(duration, 1))),
         hasClip: event?.has_clip === true,
         hasSnapshot: event?.has_snapshot === true,

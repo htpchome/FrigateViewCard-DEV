@@ -42,9 +42,13 @@ export const buildCardViewMediaDrawerContentKey = ({
   mediaType = "",
   events = [],
   recordings = [],
+  aiDescriptionForEvent = () => null,
   limit = DRAWER_ITEM_LIMIT,
 } = {}) => {
   const popupMediaType = resolveCardViewMediaDrawerPopupType(mediaType);
+  const showsAiIndicator =
+    normalizeCardViewMediaDrawerType(mediaType) ===
+    CARD_VIEW_MEDIA_DRAWER_TYPES.alerts;
   const itemLimit = Math.max(0, Number(limit) || 0);
   const items = popupMediaType === "recording"
     ? (recordings || []).slice(0, itemLimit).map((recording) => [
@@ -53,12 +57,18 @@ export const buildCardViewMediaDrawerContentKey = ({
         String(recording?._fvc_camera_entity || ""),
         String(recording?._fvc_group_member || ""),
       ])
-    : (events || []).slice(0, itemLimit).map((event) => [
-        String(event?.id || ""),
-        String(event?.camera || ""),
-        Number(event?.start_time) || 0,
-        String(event?.label || ""),
-      ]);
+    : (events || []).slice(0, itemLimit).map((event) => {
+        const aiDescription = showsAiIndicator
+          ? aiDescriptionForEvent(event)
+          : null;
+        return [
+          String(event?.id || ""),
+          String(event?.camera || ""),
+          Number(event?.start_time) || 0,
+          String(event?.label || ""),
+          String(aiDescription?.title || ""),
+        ];
+      });
   return JSON.stringify([popupMediaType, ...items]);
 };
 
@@ -71,14 +81,20 @@ export const buildCardViewMediaDrawerItemMarkup = ({
   labelKey = "",
   time = "",
   placeholderIcon = "",
+  aiDescription = null,
+  aiIcon = "",
 } = {}) => {
   const eventId = String(event?.id || "");
   if (!eventId) return "";
   const popupMediaType = resolveCardViewMediaDrawerPopupType(mediaType);
+  const aiIndicator = aiDescription?.title
+    ? `<span class="card-view-media-drawer-ai" aria-hidden="true">${aiIcon}</span>`
+    : "";
   return `<button class="card-view-media-drawer-item" type="button" data-card-view-media-event="${escapeHtmlAttribute(eventId)}" data-card-view-media-type="${popupMediaType}" title="${escapeHtmlAttribute(title)}">
     <span class="card-view-media-drawer-thumbnail">
       <span class="card-view-media-drawer-placeholder" aria-hidden="true">${placeholderIcon}</span>
       <img src="${escapeHtmlAttribute(thumbnailUrl)}" alt="" loading="lazy" decoding="async" data-card-view-media-thumbnail>
+      ${aiIndicator}
     </span>
     <span class="card-view-media-drawer-meta"><span${labelKey ? ` data-fvc-i18n="${labelKey}"` : ""}>${escapeHtml(label)}</span><span>${escapeHtml(time)}</span></span>
   </button>`;
@@ -153,6 +169,7 @@ export class CardViewMediaDrawerController {
     getAvailableTypes = () => CARD_VIEW_MEDIA_DRAWER_ORDER,
     getEvents = () => [],
     getRecordings = () => [],
+    getAiDescription = () => null,
     isEventsLoading = () => false,
     isRecordingsLoading = () => false,
     mediaUrl = () => "",
@@ -178,6 +195,7 @@ export class CardViewMediaDrawerController {
     this._getAvailableTypes = getAvailableTypes;
     this._getEvents = getEvents;
     this._getRecordings = getRecordings;
+    this._getAiDescription = getAiDescription;
     this._isEventsLoading = isEventsLoading;
     this._isRecordingsLoading = isRecordingsLoading;
     this._mediaUrl = mediaUrl;
@@ -351,6 +369,7 @@ export class CardViewMediaDrawerController {
       mediaType: drawerType,
       events,
       recordings,
+      aiDescriptionForEvent: this._getAiDescription,
     });
     const typeChanged = this._popupMediaType !== popupMediaType;
     if (force || contentKey !== this._contentKey) {
@@ -488,6 +507,10 @@ export class CardViewMediaDrawerController {
   }
 
   _eventMarkup(event, drawerType) {
+    const aiDescription =
+      drawerType === CARD_VIEW_MEDIA_DRAWER_TYPES.alerts
+        ? this._getAiDescription(event)
+        : null;
     return buildCardViewMediaDrawerItemMarkup({
       event,
       mediaType: drawerType,
@@ -501,6 +524,8 @@ export class CardViewMediaDrawerController {
       labelKey: event.label ? "" : "runtime.cardView.event",
       time: this._formatTime(event.start_time || 0),
       placeholderIcon: this._icons.person || "",
+      aiDescription,
+      aiIcon: this._icons.creation || "",
     });
   }
 

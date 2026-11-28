@@ -258,6 +258,11 @@ export const CARD_VIEW_PAGE_STYLES = `
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-thumbnail img {
     position:absolute;z-index:1;inset:0;width:100%;height:100%;object-fit:cover;
   }
+  .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-ai {
+    position:absolute;z-index:2;top:3px;left:3px;display:grid;place-items:center;width:18px;height:18px;
+    border:1px solid rgba(255,255,255,.48);border-radius:50%;color:#fff;background:rgba(0,0,0,.72);pointer-events:none;
+  }
+  .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-ai svg {width:12px;height:12px;}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-thumbnail--recording .card-view-media-drawer-placeholder {opacity:.9;}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-thumbnail--recording .card-view-media-drawer-placeholder svg {width:34px;height:34px;}
   .card.card-view-active.card-view-overlay-presentation .card-view-media-drawer-placeholder {

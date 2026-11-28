@@ -361,6 +361,16 @@
       "datedHeading": "{weekday} - {date} - {title}",
       "ptzReady": "PTZ Frigate pronto",
       "ptzUnavailable": "PTZ non disponibile",
+      "ai": {
+        "heading": "Analisi IA",
+        "title": "Titolo",
+        "description": "Descrizione",
+        "score": "Punteggio",
+        "concerns": "Problemi",
+        "none": "Nessuno",
+        "close": "Chiudi l'analisi IA",
+        "viewAnalysis": "Visualizza l'analisi IA: {title}"
+      },
       "row": {
         "snapshot": "Istantanea",
         "clips": "Clip",

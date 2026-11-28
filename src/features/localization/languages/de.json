@@ -361,6 +361,16 @@
       "datedHeading": "{weekday} - {date} - {title}",
       "ptzReady": "Frigate PTZ bereit",
       "ptzUnavailable": "PTZ nicht verfügbar",
+      "ai": {
+        "heading": "KI-Analyse",
+        "title": "Titel",
+        "description": "Beschreibung",
+        "score": "Bewertung",
+        "concerns": "Bedenken",
+        "none": "Keine",
+        "close": "KI-Analyse schließen",
+        "viewAnalysis": "KI-Analyse anzeigen: {title}"
+      },
       "row": {
         "snapshot": "Schnappschuss",
         "clips": "Clips",

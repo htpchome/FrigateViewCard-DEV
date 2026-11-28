@@ -5,6 +5,7 @@ import {
 import { BrowseCalendarActivityController } from "./calendar-activity.ctrl.js";
 import { BrowseCalendarPanelController } from "./calendar-panel.ctrl.js";
 import { BrowseBackgroundWorkController } from "./background-work.ctrl.js";
+import { BrowseAiDescriptionController } from "./ai-description.ctrl.js";
 import { BrowseCollectionController } from "./collection.ctrl.js";
 import { BrowseFilterController } from "./filter-state.js";
 import { BrowseFavoriteMutationController } from "./favorite-mutation.ctrl.js";
@@ -19,6 +20,8 @@ import {
 export { renderBrowseEventListItem, renderBrowseReviewListItem };
 
 const DEFAULT_FACTORIES = Object.freeze({
+  createAiDescriptionController: (card) =>
+    new BrowseAiDescriptionController(card),
   createCalendarActivityController: (card) =>
     new BrowseCalendarActivityController(card),
   createCalendarPanelController: (card, options) =>
@@ -45,6 +48,8 @@ export const createBrowseControllers = (
   const resolvedFactories = { ...DEFAULT_FACTORIES, ...factories };
 
   return {
+    _browseAiDescriptionController:
+      resolvedFactories.createAiDescriptionController(card),
     _browseCalendarActivityController:
       resolvedFactories.createCalendarActivityController(card),
     _browseCalendarPanelController:

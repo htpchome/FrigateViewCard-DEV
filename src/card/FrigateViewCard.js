@@ -178,6 +178,7 @@ import {
   buildBrowseHeaderRegionMarkup,
   buildBrowseRegionMarkup,
 } from "../features/browse/shell.tmpl.js";
+import { buildBrowseAiDescriptionDialogMarkup } from "../features/browse/ai-description.tmpl.js";
 import { buildPopupShellMarkup } from "../features/popup/shell.tmpl.js";
 import {
   createBrowseControllers,
@@ -1042,6 +1043,7 @@ export class FrigateViewCard extends HTMLElement {
     if (this._warmOtherCamsDelayT) clearTimeout(this._warmOtherCamsDelayT);
     this._warmOtherCamsDelayT = null;
     this._browseBackgroundWorkController?.dispose?.();
+    this._browseAiDescriptionController?.dispose?.();
     getLiveRecoveryController(this).cancelScheduledResume();
     if (this._editorPreviewController) {
       try {
@@ -2966,6 +2968,7 @@ export class FrigateViewCard extends HTMLElement {
   }
 
   _preparePageLayoutReplacement({ preserveLive = false } = {}) {
+    this._browseAiDescriptionController?.close?.({ restoreFocus: false });
     this._wideViewPageController.teardownCompanionMedia();
     if (!preserveLive) {
       this._cameraGroupLiveController?.teardown?.();
@@ -3053,6 +3056,7 @@ export class FrigateViewCard extends HTMLElement {
         ${mainLayoutShell}
         ${buildLiveCameraRuntimeConfirmationMarkup({ icons: ICONS })}
         ${buildRotateOverlayDismissButtonMarkup({ icons: ICONS })}
+        ${buildBrowseAiDescriptionDialogMarkup({ icons: ICONS })}
         <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
           ${popupShell}
@@ -3594,6 +3598,7 @@ export class FrigateViewCard extends HTMLElement {
   _click(e) {
     const target = e.target;
     this._popupMediaControlsController?.hideForOutsideVideoClick?.(target);
+    if (this._browseAiDescriptionController?.handleClick?.(e, target)) return;
     if (target.closest("[data-rotate-overlay-dismiss]")) {
       this._dismissRotateOverlay();
       return;
