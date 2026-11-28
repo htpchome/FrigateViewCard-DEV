@@ -6,6 +6,22 @@ import {
   ensureWideViewTimelineModule,
   LazyWideViewTimelineController,
 } from "../src/features/wide-view/timeline.loader.js";
+import { WIDE_VIEW_TIMELINE_STYLES } from "../src/features/wide-view/timeline.styles.js";
+
+test("dark timeline overlays keep readable light text across themes", () => {
+  assert.match(
+    WIDE_VIEW_TIMELINE_STYLES,
+    /wide-timeline-card-time[^}]*color:rgba\(255,255,255,\.94\)/,
+  );
+  assert.match(
+    WIDE_VIEW_TIMELINE_STYLES,
+    /wide-timeline-ai-title[^}]*color:rgba\(255,255,255,\.94\)/,
+  );
+  assert.match(
+    WIDE_VIEW_TIMELINE_STYLES,
+    /wide-timeline-stack-cycle[\s\S]*?color:rgba\(255,255,255,\.94\)/,
+  );
+});
 
 test("Wide View timeline loader resolves the versioned companion asset", async () => {
   let requestedUrl = "";
