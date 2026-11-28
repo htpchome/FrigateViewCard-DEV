@@ -724,7 +724,6 @@ export class PopupMediaLoaderController {
           if (usesHlsJs) {
             const hls = new HlsCtor({
               enableWorker: true,
-              progressive: true,
               maxBufferLength: 10,
               maxBufferSize: 20 * 1000 * 1000,
             });

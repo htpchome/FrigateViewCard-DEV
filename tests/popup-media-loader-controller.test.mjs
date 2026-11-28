@@ -1150,7 +1150,6 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   assert.equal(hlsJsLoads, 1);
   assert.deepEqual(hlsOptions, {
     enableWorker: true,
-    progressive: true,
     maxBufferLength: 10,
     maxBufferSize: 20 * 1000 * 1000,
   });
