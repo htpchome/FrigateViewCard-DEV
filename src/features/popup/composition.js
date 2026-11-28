@@ -326,7 +326,7 @@ export const createPopupControllers = (
         const recordings =
           await card._recordingsBrowseNavController?.fetchRecordingsInBounds?.(
             {
-              start: Math.max(0, Math.floor(Number(start) || 0) - 10 * 60),
+              start: Math.max(0, Math.floor(Number(start) || 0) - 1),
               end: Math.ceil(Number(start) || 0) + 1,
             },
             clientId,

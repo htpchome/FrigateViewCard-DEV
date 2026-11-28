@@ -375,7 +375,7 @@ test("popup composition resolves event playback against its containing recording
   assert.deepEqual(calls, [
     [
       "fetch-recordings",
-      { start: 0, end: 101 },
+      { start: 99, end: 101 },
       "client",
       "doorbell",
     ],
