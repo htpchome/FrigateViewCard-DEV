@@ -87,17 +87,20 @@ export const buildCardViewMediaDrawerItemMarkup = ({
   const eventId = String(event?.id || "");
   if (!eventId) return "";
   const popupMediaType = resolveCardViewMediaDrawerPopupType(mediaType);
+  const aiTitle = String(aiDescription?.title || "").trim();
   const aiIndicator = aiDescription?.title
-    ? `<span class="card-view-media-drawer-ai" aria-hidden="true">${aiIcon}</span>`
+    ? `<button class="card-view-media-drawer-ai" type="button" data-ai-description-open data-ai-title="${escapeHtmlAttribute(aiTitle)}" data-ai-description="${escapeHtmlAttribute(aiDescription?.description || "")}" data-ai-score="${escapeHtmlAttribute(aiDescription?.score ?? "")}" data-ai-concerns="${escapeHtmlAttribute((aiDescription?.concerns || []).join("\n"))}" title="View AI analysis: ${escapeHtmlAttribute(aiTitle)}" aria-label="View AI analysis: ${escapeHtmlAttribute(aiTitle)}" data-fvc-i18n-title="runtime.browse.ai.viewAnalysis" data-fvc-i18n-aria-label="runtime.browse.ai.viewAnalysis" data-fvc-i18n-values="${escapeHtmlAttribute(JSON.stringify({ title: aiTitle }))}">${aiIcon}</button>`
     : "";
-  return `<button class="card-view-media-drawer-item" type="button" data-card-view-media-event="${escapeHtmlAttribute(eventId)}" data-card-view-media-type="${popupMediaType}" title="${escapeHtmlAttribute(title)}">
-    <span class="card-view-media-drawer-thumbnail">
-      <span class="card-view-media-drawer-placeholder" aria-hidden="true">${placeholderIcon}</span>
-      <img src="${escapeHtmlAttribute(thumbnailUrl)}" alt="" loading="lazy" decoding="async" data-card-view-media-thumbnail>
-      ${aiIndicator}
-    </span>
-    <span class="card-view-media-drawer-meta"><span${labelKey ? ` data-fvc-i18n="${labelKey}"` : ""}>${escapeHtml(label)}</span><span>${escapeHtml(time)}</span></span>
-  </button>`;
+  return `<span class="card-view-media-drawer-item-shell">
+    <button class="card-view-media-drawer-item" type="button" data-card-view-media-event="${escapeHtmlAttribute(eventId)}" data-card-view-media-type="${popupMediaType}" title="${escapeHtmlAttribute(title)}">
+      <span class="card-view-media-drawer-thumbnail">
+        <span class="card-view-media-drawer-placeholder" aria-hidden="true">${placeholderIcon}</span>
+        <img src="${escapeHtmlAttribute(thumbnailUrl)}" alt="" loading="lazy" decoding="async" data-card-view-media-thumbnail>
+      </span>
+      <span class="card-view-media-drawer-meta"><span${labelKey ? ` data-fvc-i18n="${labelKey}"` : ""}>${escapeHtml(label)}</span><span>${escapeHtml(time)}</span></span>
+    </button>
+    ${aiIndicator}
+  </span>`;
 };
 
 export const buildCardViewMediaDrawerRecordingMarkup = ({

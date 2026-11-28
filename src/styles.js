@@ -1039,10 +1039,11 @@ export const STYLES_BEFORE_CARD_VIEW = `
   .browse-ai-field > p{margin:0;color:var(--c-text);font-size:.88rem;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;}
   .card.phone-client .browse-ai-modal{place-items:end center;padding:0;}
   .card.phone-client .browse-ai-backdrop{background:rgba(0,0,0,.4);}
-  .card.phone-client .browse-ai-dialog{width:100%;max-height:min(52%,440px);border-width:1px 0 0;border-radius:18px 18px 0 0;box-shadow:0 -12px 36px rgba(0,0,0,.28);transition:transform .18s ease-out;}
+  .card.phone-client .browse-ai-dialog{width:100%;max-height:min(72%,620px);border-width:1px 0 0;border-radius:18px 18px 0 0;box-shadow:0 -12px 36px rgba(0,0,0,.28);transition:transform .18s ease-out;}
   .card.phone-client .browse-ai-dialog.is-dragging{transition:none;}
-  .card.phone-client .browse-ai-drag-handle{display:block;}
-  .card.phone-client .browse-ai-dialog-head{padding-top:7px;}
+  .card.phone-client .browse-ai-drag-handle{display:block;width:54px;height:8px;margin-top:10px;}
+  .card.phone-client .browse-ai-dialog-head{padding:8px 20px 10px;}
+  .card.phone-client .browse-ai-dialog-body{padding:10px 22px calc(24px + env(safe-area-inset-bottom,0px));}
 
 
   /* ── toast ── */
@@ -1337,23 +1338,21 @@ export const STYLES_AFTER_CARD_VIEW = `
     padding-right:0;
   }
   .card .list-item .list-item-middle--narrow .list-ai-title{
-    grid-area:ai;
-    align-self:center;
-    justify-self:end;
-    width:34px;
-    min-width:34px;
-    height:34px;
+    flex:0 0 30px;
+    width:30px;
+    min-width:30px;
+    height:30px;
+    min-height:30px;
     margin:0;
-    padding:7px;
-    border-radius:8px;
+    padding:2px;
+    border:1px solid var(--c-border2);
+    border-radius:calc(var(--fvc-border-radius,0px) / 2);
+    background:var(--c-bg-panel);
+    color:var(--c-text2);
   }
   .card .list-item .list-item-middle--narrow .list-ai-title-icon,
-  .card .list-item .list-item-middle--narrow .list-ai-title-icon svg{width:18px;height:18px;flex-basis:18px;}
+  .card .list-item .list-item-middle--narrow .list-ai-title-icon svg{width:24px;height:24px;flex-basis:24px;}
   .card .list-item .list-item-middle--narrow .list-ai-title-text{display:none;}
-  .card .list-item.has-ai-description .list-item-middle--narrow{
-    grid-template-columns:minmax(0,1fr) auto auto;
-    grid-template-areas:"tags tags tags" "meta ai actions";
-  }
   .card .list-item .list-item-middle--narrow > .desc{
     grid-column:1 / -1;
   }
@@ -1402,10 +1401,6 @@ export const STYLES_AFTER_CARD_VIEW = `
     .card .list-item .list-item-middle--narrow{
       grid-template-areas:"tags tags" "meta actions";
     }
-    .card .list-item.has-ai-description .list-item-middle--narrow{
-      grid-template-columns:minmax(0,1fr) auto auto;
-      grid-template-areas:"tags tags tags" "meta ai actions";
-    }
   }
 
   @container browse-list (max-width:380px){
@@ -1429,13 +1424,6 @@ export const STYLES_AFTER_CARD_VIEW = `
     }
     .card .layout--wide-view .browse .list-item-middle--narrow > .desc{
       grid-area:description;
-    }
-    .card .layout--wide-view .browse .list-item.has-ai-description{
-      grid-template-areas:"thumb tags" "thumb meta" "ai actions" "description description";
-    }
-    .card .layout--wide-view .browse .list-item-middle--narrow .list-ai-title{
-      grid-area:ai;
-      justify-self:center;
     }
   }
 

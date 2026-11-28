@@ -115,7 +115,12 @@ test("Card View media drawer marks alert thumbnails that have AI descriptions", 
   const withAi = buildCardViewMediaDrawerItemMarkup({
     event: { id: "event-ai" },
     mediaType: CARD_VIEW_MEDIA_DRAWER_TYPES.alerts,
-    aiDescription: { title: "Resident walks to the door" },
+    aiDescription: {
+      title: "Resident walks to the door",
+      description: "A resident approaches the door.",
+      score: 94,
+      concerns: ["Package remains outside"],
+    },
     aiIcon: "creation-icon",
   });
   const withoutAi = buildCardViewMediaDrawerItemMarkup({
@@ -125,7 +130,15 @@ test("Card View media drawer marks alert thumbnails that have AI descriptions", 
   });
 
   assert.match(withAi, /class="card-view-media-drawer-ai"/);
+  assert.match(withAi, /data-ai-description-open/);
+  assert.match(withAi, /data-ai-score="94"/);
+  assert.match(withAi, /Package remains outside/);
   assert.match(withAi, /creation-icon/);
+  assert.ok(
+    withAi.indexOf("</button>") <
+      withAi.indexOf('class="card-view-media-drawer-ai"'),
+    "the AI control must be a sibling of the media button, not nested in it",
+  );
   assert.doesNotMatch(withoutAi, /card-view-media-drawer-ai/);
 });
 

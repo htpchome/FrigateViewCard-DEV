@@ -227,8 +227,7 @@ export function buildReviewListItemNarrowPresentationHtml(model, deps) {
               icons,
               showSeverity: false,
             })}
-            ${model.aiTitleButton}
-            <div class="eact list-item-actions list-item-actions--narrow">${model.favBtn}${model.mediaActions}</div>
+            <div class="eact list-item-actions list-item-actions--narrow">${model.aiTitleButton}${model.favBtn}${model.mediaActions}</div>
           </div>
         </div>`;
 }

@@ -256,7 +256,7 @@ export const WIDE_VIEW_TIMELINE_STYLES = `
   .card .wide-timeline-card-label,
   .card .wide-timeline-card-time {position:absolute;z-index:2;padding:1.2px 3.6px;border-radius:3px;background:rgba(0,0,0,.65);font-size:.675rem;font-weight:700;line-height:1;pointer-events:none;}
   .card .wide-timeline-card-label {top:2px;left:3px;right:34px;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize;white-space:nowrap;}
-  .card .wide-timeline-ai-title {z-index:4;display:block;max-width:calc(100% - 40px);border:0;color:var(--c-text-rev);font:inherit;text-align:left;cursor:pointer;pointer-events:auto;}
+  .card .wide-timeline-ai-title {appearance:none;-webkit-appearance:none;z-index:4;display:block;width:auto;min-width:0;height:auto;margin:0;border:0;color:var(--c-text-rev);font:inherit;font-size:.675rem;font-weight:700;line-height:1;text-align:left;text-transform:capitalize;cursor:pointer;pointer-events:auto;}
   .card .wide-timeline-ai-title:focus-visible {outline:2px solid var(--c-primary-l);outline-offset:1px;}
   .card .wide-timeline-ai-title-text {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   @media (hover:hover) and (pointer:fine) {

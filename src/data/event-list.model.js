@@ -167,8 +167,7 @@ export function buildEventListItemNarrowPresentationHtml(
         ${buildEventListItemTagsHtml(model)}
         <div class="list-item-narrow-lower">
           ${buildEventListItemMetaHtml(model, icons)}
-          ${model.aiTitleButton}
-          <div class="eact list-item-actions list-item-actions--narrow${compact ? " h" : ""}">${model.favBtn}${model.mediaActions}</div>
+          <div class="eact list-item-actions list-item-actions--narrow${compact ? " h" : ""}">${model.aiTitleButton}${model.favBtn}${model.mediaActions}</div>
         </div>
         ${descriptionHtml}
       </div>`;

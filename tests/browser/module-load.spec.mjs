@@ -4263,8 +4263,19 @@ test("AI review titles open the reusable analysis dialog without opening media",
     const modalClosed = modal.hidden;
     row.querySelector(".list-item-middle--standard .list-ai-title").click();
     card._isLikelyPhoneClient = () => true;
+    card.style.display = "block";
+    card.style.width = "390px";
     card.shadowRoot.querySelector("#card").classList.add("phone-client");
+    const cardRoot = card.shadowRoot.querySelector("#card");
+    const narrow = row.querySelector(".list-item-middle--narrow");
+    const narrowAi = narrow.querySelector(".list-ai-title");
+    const narrowFavorite = narrow.querySelector("[data-fav]");
+    const aiBounds = narrowAi.getBoundingClientRect();
+    const favoriteBounds = narrowFavorite.getBoundingClientRect();
     const dragHandle = modal.querySelector(".browse-ai-drag-handle");
+    const dialogBody = modal.querySelector(".browse-ai-dialog-body");
+    const handleBounds = dragHandle.getBoundingClientRect();
+    const bodyStyle = getComputedStyle(dialogBody);
     dragHandle.dispatchEvent(new PointerEvent("pointerdown", {
       bubbles: true,
       composed: true,
@@ -4282,7 +4293,20 @@ test("AI review titles open the reusable analysis dialog without opening media",
       pointerId: 7,
       clientY: 190,
     }));
-    return { ...openState, modalClosed, swipeClosed: modal.hidden };
+    return {
+      ...openState,
+      modalClosed,
+      swipeClosed: modal.hidden,
+      narrowAiWidth: Math.round(aiBounds.width),
+      narrowAiHeight: Math.round(aiBounds.height),
+      favoriteWidth: Math.round(favoriteBounds.width),
+      favoriteHeight: Math.round(favoriteBounds.height),
+      cardFitsWidth: cardRoot.scrollWidth <= cardRoot.clientWidth,
+      rowFitsWidth: row.scrollWidth <= row.clientWidth,
+      dragHandleHeight: Math.round(handleBounds.height),
+      dialogBodyPaddingLeft: Math.round(parseFloat(bodyStyle.paddingLeft)),
+      dialogBodyPaddingBottom: Math.round(parseFloat(bodyStyle.paddingBottom)),
+    };
   });
 
   expect(state).toEqual({
@@ -4295,6 +4319,15 @@ test("AI review titles open the reusable analysis dialog without opening media",
     popupOpen: false,
     modalClosed: true,
     swipeClosed: true,
+    narrowAiWidth: 30,
+    narrowAiHeight: 30,
+    favoriteWidth: 30,
+    favoriteHeight: 30,
+    cardFitsWidth: true,
+    rowFitsWidth: true,
+    dragHandleHeight: 8,
+    dialogBodyPaddingLeft: 22,
+    dialogBodyPaddingBottom: 24,
   });
 });
 
