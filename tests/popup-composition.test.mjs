@@ -205,11 +205,9 @@ test("popup composition creates the complete controller set and preserves cross-
       recordingScrubController: controllers.recordingScrub,
       lifecycleController: controllers.lifecycle,
       preferRecordingHls: loaderDeps.preferRecordingHls,
-      allowRecordingHls: loaderDeps.allowRecordingHls,
     },
   ]);
   assert.equal(loaderDeps.preferRecordingHls(), true);
-  assert.equal(loaderDeps.allowRecordingHls(), true);
 
   assert.equal(
     options.recordingScrub.fetchReviews("client", "cam", 10, 20),
@@ -313,7 +311,7 @@ test("popup composition creates the complete controller set and preserves cross-
   ]);
 });
 
-test("popup composition gives Android Companion direct recording priority", () => {
+test("popup composition keeps Android Companion on seekable recording HLS", () => {
   const { calls, card, factories } = createHarness();
 
   createPopupControllers(card, {
@@ -325,8 +323,7 @@ test("popup composition gives Android Companion direct recording priority", () =
     factories,
   });
 
-  assert.equal(calls[0][2].preferRecordingHls(), false);
-  assert.equal(calls[0][2].allowRecordingHls(), false);
+  assert.equal(calls[0][2].preferRecordingHls(), true);
 });
 
 test("popup composition keeps recording timeline expansion inside the popup feature", async () => {
@@ -337,7 +334,6 @@ test("popup composition keeps recording timeline expansion inside the popup feat
     now: () => 200_000,
   });
   const preferRecordingHls = calls[0][2].preferRecordingHls;
-  const allowRecordingHls = calls[0][2].allowRecordingHls;
 
   await options.recordingScrub.resolveSegmentTimeline({
     clientId: "client",
@@ -358,7 +354,6 @@ test("popup composition keeps recording timeline expansion inside the popup feat
         recordingScrubController: controllers.recordingScrub,
         lifecycleController: controllers.lifecycle,
         preferRecordingHls,
-        allowRecordingHls,
       },
     ],
     [

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   buildRecordingPlaybackPlan,
-  shouldAllowRecordingHls,
   shouldPreferRecordingHls,
 } from "../../src/features/recordings/utils/playback.js";
 
@@ -15,27 +14,10 @@ test("recording playback prefers seekable HLS across supported browsers", () => 
   assert.equal(shouldPreferRecordingHls({}), true);
 });
 
-test("Android Companion prefers the directly signed recording source", () => {
+test("Android Companion keeps seekable HLS as its primary recording source", () => {
   assert.equal(
     shouldPreferRecordingHls({ isAndroidCompanion: true }),
-    false,
-  );
-  assert.equal(
-    shouldAllowRecordingHls({ isAndroidCompanion: true }),
-    false,
-  );
-});
-
-test("Android Companion excludes recording HLS candidates with invalid child signatures", () => {
-  assert.deepEqual(
-    buildRecordingPlaybackPlan({
-      clientId: "frigate",
-      camera: "front_door",
-      start: 100,
-      end: 160,
-      allowHls: false,
-    }).sourceCandidates,
-    ["/api/frigate/frigate/recording/front_door/start/100/end/160"],
+    true,
   );
 });
 

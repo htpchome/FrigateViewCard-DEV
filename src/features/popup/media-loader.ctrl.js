@@ -33,6 +33,7 @@ import {
   resolveFrigateEventPrePostRollRange,
   resolveFrigateEventRecordingRange,
 } from "../../integrations/frigate/event-media.js";
+import { createSignedFrigateHlsLoader } from "../../integrations/frigate/recording-hls-loader.js";
 import {
   POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
   POPUP_VIEW_MAX_HEIGHT_DVH,
@@ -133,6 +134,17 @@ export const bindPopupVideoReadiness = ({ viewer = null, video = null } = {}) =>
   };
 };
 
+const releasePopupVideo = (video) => {
+  if (!video) return;
+  try {
+    video.pause?.();
+    if ("srcObject" in video) video.srcObject = null;
+    video.removeAttribute?.("src");
+    video.querySelectorAll?.("source").forEach((source) => source.remove());
+    video.load?.();
+  } catch (_) {}
+};
+
 export class PopupMediaLoaderController {
   constructor(host, deps = {}) {
     const {
@@ -168,7 +180,7 @@ export class PopupMediaLoaderController {
           isEdge: host._isEdge?.() === true,
           isSafari: host._isSafari?.() === true,
         }),
-      allowRecordingHls: () => true,
+      signRecordingHlsPath: (path) => host._signed?.(path) || path,
       isEventPrePostRollEnabled: () =>
         host._config?.event_pre_post_roll_enabled === true,
       isMobileTabletViewport: () =>
@@ -347,6 +359,7 @@ export class PopupMediaLoaderController {
       if (guardedMediaError) {
         displayedMedia?.removeEventListener?.("error", guardedMediaError);
       }
+      releasePopupVideo(video);
     });
     const postRenderPlan = resolvePopupMediaPostRenderPlan({
       popupMediaType: renderPlan.popupMediaType,
@@ -698,10 +711,21 @@ export class PopupMediaLoaderController {
             return;
           }
 
+          const BaseLoader = HlsCtor.DefaultConfig?.loader;
+          const SignedLoader = createSignedFrigateHlsLoader(BaseLoader, {
+            signPath: this._deps.signRecordingHlsPath,
+          });
           const hls = new HlsCtor({
             enableWorker: true,
             maxBufferLength: 60,
             backBufferLength: 90,
+            ...(SignedLoader
+              ? {
+                  loader: SignedLoader,
+                  pLoader: SignedLoader,
+                  fLoader: SignedLoader,
+                }
+              : {}),
           });
           this._recordingHls = hls;
           hls.on(HlsCtor.Events.ERROR, (_evt, data) => {
@@ -772,7 +796,6 @@ export class PopupMediaLoaderController {
       start,
       end,
       preferHls: this._deps.preferRecordingHls(),
-      allowHls: this._deps.allowRecordingHls(),
     });
     const renderPlan = event
       ? buildPopupEventRecordingRenderPlan({
@@ -855,6 +878,7 @@ export class PopupMediaLoaderController {
     let playable = false;
     let activeSource = "";
     const mediaCleanup = [
+      () => releasePopupVideo(video),
       () => viewResize?.controller?.dispose?.(),
       clearMediaSizing,
       clearVideoReadiness,

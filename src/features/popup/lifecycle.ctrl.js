@@ -390,6 +390,7 @@ export class PopupLifecycleController {
           video
             .querySelectorAll?.("source")
             .forEach((source) => source.remove());
+          video.load?.();
         }
       } catch (_) {}
     });

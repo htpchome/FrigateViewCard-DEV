@@ -382,6 +382,7 @@ test("showRecording signs candidates and initializes popup recording playback on
   };
   const video = {
     tagName: "VIDEO",
+    srcObject: {},
     paused: false,
     seeking: false,
     currentSrc: "",
@@ -389,6 +390,9 @@ test("showRecording signs candidates and initializes popup recording playback on
     addEventListener: (type) => calls.push(["addEventListener", type]),
     removeEventListener: (type) => calls.push(["removeEventListener", type]),
     pause: () => calls.push(["pause"]),
+    removeAttribute: (name) => calls.push(["removeAttribute", name]),
+    querySelectorAll: () => [],
+    load: () => calls.push(["load"]),
     play: () => Promise.resolve(),
   };
   const host = {
@@ -508,6 +512,16 @@ test("showRecording signs candidates and initializes popup recording playback on
     calls.find(([kind]) => kind === "initScrub")?.[1],
     "",
   );
+  host.registeredMediaCleanup();
+  assert.equal(video.srcObject, null);
+  assert.equal(calls.some(([kind]) => kind === "pause"), true);
+  assert.equal(
+    calls.some(
+      ([kind, name]) => kind === "removeAttribute" && name === "src",
+    ),
+    true,
+  );
+  assert.equal(calls.some(([kind]) => kind === "load"), true);
   assert.ok(
     calls.findIndex(([kind]) => kind === "initScrub") <
       calls.findIndex(([kind]) => kind === "trySource"),
@@ -987,8 +1001,7 @@ test("padded Alert playback falls back to the Frigate event clip", async () => {
   };
   const controller = new PopupMediaLoaderController(host, {
     isEventPrePostRollEnabled: () => true,
-    preferRecordingHls: () => false,
-    allowRecordingHls: () => false,
+    preferRecordingHls: () => true,
     buildVideoOptionsForView: (_view, options) => options,
     createVideoElement,
     mountNodeIntoSlot: (slot, node) => {
@@ -1019,6 +1032,8 @@ test("padded Alert playback falls back to the Frigate event clip", async () => {
   assert.equal(fallback.mediaType, "alert");
   assert.equal(fallback.playingId, "event-1");
   assert.deepEqual(attemptedSources, [
+    "/api/frigate/frigate/vod/front_door/start/95/end/115/index.m3u8",
+    "/api/frigate/frigate/vod/front_door/start/95/end/115/master.m3u8",
     "/api/frigate/frigate/recording/front_door/start/95/end/115",
   ]);
   assert.equal(
@@ -1106,6 +1121,60 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
   assert.equal(video.src, "/api/recording/master.m3u8");
   assert.equal(mediaLoads, 1);
   assert.equal(hlsJsLoads, 0);
+});
+
+test("HLS.js recording playback authenticates playlists and fragments", async () => {
+  const videoListeners = new Map();
+  let hlsConfig = null;
+  class BaseLoader {
+    load() {}
+    abort() {}
+    destroy() {}
+  }
+  class HlsCtor {
+    static DefaultConfig = { loader: BaseLoader };
+    static Events = { ERROR: "error", MEDIA_ATTACHED: "media-attached" };
+    static isSupported = () => true;
+
+    constructor(config) {
+      hlsConfig = config;
+      this.listeners = new Map();
+    }
+
+    on(type, listener) {
+      this.listeners.set(type, listener);
+    }
+
+    attachMedia(video) {
+      this.video = video;
+      queueMicrotask(() => this.listeners.get("media-attached")?.());
+    }
+
+    loadSource() {
+      videoListeners.get("loadedmetadata")?.();
+    }
+  }
+  const video = {
+    canPlayType: () => "",
+    addEventListener: (type, listener) => videoListeners.set(type, listener),
+    removeEventListener: (type, listener) => {
+      if (videoListeners.get(type) === listener) videoListeners.delete(type);
+    },
+  };
+  const controller = new PopupMediaLoaderController({}, {
+    signRecordingHlsPath: async (path) => `${path}?authSig=exact`,
+  });
+
+  const loaded = await controller.tryRecordingSource(
+    video,
+    "/api/frigate/frigate/vod/front/master.m3u8?authSig=master",
+    { autoplay: false, timeoutMs: 50, hlsCtorPromise: Promise.resolve(HlsCtor) },
+  );
+
+  assert.equal(loaded, true);
+  assert.notEqual(hlsConfig.loader, BaseLoader);
+  assert.equal(hlsConfig.pLoader, hlsConfig.loader);
+  assert.equal(hlsConfig.fLoader, hlsConfig.loader);
 });
 
 test("carousel selections preserve alert and snapshot popup media types", () => {

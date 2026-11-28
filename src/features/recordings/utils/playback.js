@@ -1,13 +1,5 @@
-export function shouldPreferRecordingHls({
-  isAndroidCompanion = false,
-} = {}) {
-  return isAndroidCompanion !== true;
-}
-
-export function shouldAllowRecordingHls({
-  isAndroidCompanion = false,
-} = {}) {
-  return isAndroidCompanion !== true;
+export function shouldPreferRecordingHls() {
+  return true;
 }
 
 export function buildRecordingPlaybackPlan({
@@ -16,7 +8,6 @@ export function buildRecordingPlaybackPlan({
   start = 0,
   end = 0,
   preferHls = false,
-  allowHls = true,
   maxChunkSeconds = 3600,
 }) {
   const safeStart = Number(start) || 0;
@@ -30,10 +21,8 @@ export function buildRecordingPlaybackPlan({
     chunkEnd,
     clipDurationSec: chunkEnd - safeStart,
     displayCamera: String(camera || "").replace(/_/g, " "),
-    sourceCandidates: allowHls === false
-      ? [recPath]
-      : preferHls
-        ? [...hlsCandidates, recPath]
-        : [recPath, ...hlsCandidates],
+    sourceCandidates: preferHls
+      ? [...hlsCandidates, recPath]
+      : [recPath, ...hlsCandidates],
   };
 }
