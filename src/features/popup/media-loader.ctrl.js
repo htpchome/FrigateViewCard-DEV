@@ -33,6 +33,7 @@ import {
   resolveFrigateEventPrePostRollRange,
   resolveFrigateEventRecordingRange,
 } from "../../integrations/frigate/event-media.js";
+import { openSignedFrigateRequest } from "../../integrations/frigate/bootstrap.js";
 import {
   POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
   POPUP_VIEW_MAX_HEIGHT_DVH,
@@ -168,6 +169,7 @@ export class PopupMediaLoaderController {
           isEdge: host._isEdge?.() === true,
           isSafari: host._isSafari?.() === true,
         }),
+      signRecordingHlsPath: (path) => host._signed?.(path) || path,
       isEventPrePostRollEnabled: () =>
         host._config?.event_pre_post_roll_enabled === true,
       isMobileTabletViewport: () =>
@@ -650,6 +652,21 @@ export class PopupMediaLoaderController {
     const isHlsSource = isM3u8Url(src);
     this.clearRecordingTransport();
 
+    let HlsCtor = null;
+    if (isHlsSource) {
+      try {
+        HlsCtor = await (hlsCtorPromise || this._getHlsJsCtor());
+      } catch (_) {
+        HlsCtor = null;
+      }
+      if (
+        playbackToken !== null &&
+        !this._isPlaybackTokenCurrent(playbackToken)
+      ) {
+        return false;
+      }
+    }
+
     return await new Promise((resolve) => {
       let done = false;
       const finish = (ok) => {
@@ -691,20 +708,18 @@ export class PopupMediaLoaderController {
             return;
           }
 
-          const HlsCtor = await (hlsCtorPromise || this._getHlsJsCtor());
-          if (
-            playbackToken !== null &&
-            !this._isPlaybackTokenCurrent(playbackToken)
-          ) {
-            finish(false);
-            return;
-          }
-
           if (HlsCtor?.isSupported?.()) {
             const hls = new HlsCtor({
               enableWorker: true,
               maxBufferLength: 60,
               backBufferLength: 90,
+              xhrSetup: async (xhr, url) => {
+                await openSignedFrigateRequest({
+                  xhr,
+                  url,
+                  signPath: this._deps.signRecordingHlsPath,
+                });
+              },
             });
             this._recordingHls = hls;
             hls.on(HlsCtor.Events.ERROR, (_evt, data) => {

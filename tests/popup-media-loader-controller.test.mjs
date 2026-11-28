@@ -1085,6 +1085,7 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   let mediaLoads = 0;
   let attachedVideo = null;
   let loadedSource = "";
+  let hlsOptions = null;
   const video = {
     src: "",
     canPlayType: (type) =>
@@ -1108,7 +1109,8 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
       return true;
     }
 
-    constructor() {
+    constructor(options) {
+      hlsOptions = options;
       this.listeners = new Map();
     }
 
@@ -1128,7 +1130,13 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
 
     destroy() {}
   }
-  const controller = new PopupMediaLoaderController({});
+  const signedPaths = [];
+  const controller = new PopupMediaLoaderController({
+    _signed: async (path) => {
+      signedPaths.push(path);
+      return `${path}${path.includes("?") ? "&" : "?"}authSig=exact`;
+    },
+  });
   controller._getHlsJsCtor = async () => {
     hlsJsLoads += 1;
     return FakeHls;
@@ -1146,6 +1154,76 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   assert.equal(video.src, "");
   assert.equal(mediaLoads, 0);
   assert.equal(hlsJsLoads, 1);
+
+  const xhrCalls = [];
+  await hlsOptions.xhrSetup(
+    { open: (...args) => xhrCalls.push(args) },
+    "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=parent",
+  );
+  assert.deepEqual(signedPaths, [
+    "/api/frigate/frigate/vod/front/index.m3u8",
+  ]);
+  assert.deepEqual(xhrCalls, [
+    [
+      "GET",
+      "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=exact",
+      true,
+    ],
+  ]);
+});
+
+test("loading the HLS.js companion does not consume the media timeout", async () => {
+  const listeners = new Map();
+  const video = {
+    canPlayType: () => "",
+    addEventListener: (type, listener) => listeners.set(type, listener),
+    removeEventListener: (type, listener) => {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    },
+  };
+  let resolveCtor;
+  class FakeHls {
+    static Events = {
+      ERROR: "error",
+      MEDIA_ATTACHED: "media-attached",
+    };
+
+    static isSupported() {
+      return true;
+    }
+
+    constructor() {
+      this.listeners = new Map();
+    }
+
+    on(type, listener) {
+      this.listeners.set(type, listener);
+    }
+
+    attachMedia() {
+      this.listeners.get(FakeHls.Events.MEDIA_ATTACHED)?.();
+    }
+
+    loadSource() {
+      listeners.get("loadedmetadata")?.();
+    }
+
+    destroy() {}
+  }
+  const controller = new PopupMediaLoaderController({});
+  const hlsCtorPromise = new Promise((resolve) => {
+    resolveCtor = resolve;
+  });
+  const loadedPromise = controller.tryRecordingSource(
+    video,
+    "/api/frigate/frigate/vod/front/master.m3u8",
+    { autoplay: false, timeoutMs: 5, hlsCtorPromise },
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  resolveCtor(FakeHls);
+
+  assert.equal(await loadedPromise, true);
 });
 
 test("native HLS remains the fallback when HLS.js is unsupported", async () => {
