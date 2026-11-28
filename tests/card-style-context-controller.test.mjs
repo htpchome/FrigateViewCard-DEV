@@ -2248,7 +2248,8 @@ test("applyCardStyle applies one custom theme in every selected mode", () => {
   const cardCalls = [];
   const card = {
     style: {
-      setProperty: (name, value) => cardCalls.push(["set", name, value]),
+      setProperty: (name, value, priority = "") =>
+        cardCalls.push(["set", name, value, priority]),
       removeProperty: (name) => cardCalls.push(["remove", name]),
     },
   };
@@ -2317,6 +2318,18 @@ test("applyCardStyle applies one custom theme in every selected mode", () => {
       .map(([, , value]) => value),
     ["#abcdef", "#abcdef"],
   );
+  assert.deepEqual(
+    cardCalls
+      .filter(
+        ([action, name]) =>
+          action === "set" && name === "--ha-card-background",
+      )
+      .map(([, , value, priority]) => [value, priority]),
+    [
+      ["#abcdef", "important"],
+      ["#abcdef", "important"],
+    ],
+  );
   assert.equal(
     cardCalls.some(
       ([action, name, value]) =>
@@ -2370,5 +2383,28 @@ test("applyCardStyle applies one custom theme in every selected mode", () => {
       )
       .map(([, , value]) => value),
     ["#abcdef"],
+  );
+  assert.deepEqual(
+    cardCalls
+      .filter(
+        ([action, name]) =>
+          action === "set" && name === "--ha-card-background",
+      )
+      .map(([, , value, priority]) => [value, priority]),
+    [["#abcdef", "important"]],
+  );
+  assert.equal(
+    cardCalls.some(
+      ([action, name]) =>
+        action === "remove" && name === "--ha-card-background",
+    ),
+    true,
+  );
+});
+
+test("the outer card inherits the Home Assistant card surface by default", () => {
+  assert.doesNotMatch(
+    STYLES,
+    /ha-card\s*\{[^}]*--ha-card-background\s*:/,
   );
 });

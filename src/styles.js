@@ -140,7 +140,6 @@ export const STYLES_BEFORE_CARD_VIEW = `
     }
   /* ── responsive layout    ── */
   ha-card {
-    --ha-card-background: var(--c-bg-main) !important;
     height: 100%;
     padding: 0 !important;
     margin: 0 !important;

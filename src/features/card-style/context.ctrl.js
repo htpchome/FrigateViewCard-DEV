@@ -1072,8 +1072,14 @@ export class CardStyleContextController {
       const override = normalizeHexColor(customTheme[key]);
       if (customThemeDefaults[key] !== true && override) {
         card.style.setProperty(key, override);
+        if (key === "--c-bg-main") {
+          card.style.setProperty("--ha-card-background", override, "important");
+        }
       } else {
         card.style.removeProperty(key);
+        if (key === "--c-bg-main") {
+          card.style.removeProperty("--ha-card-background");
+        }
       }
     }
 
