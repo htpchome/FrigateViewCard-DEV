@@ -1085,6 +1085,7 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   let mediaLoads = 0;
   let attachedVideo = null;
   let loadedSource = "";
+  let hlsOptions = null;
   const video = {
     src: "",
     canPlayType: (type) =>
@@ -1108,7 +1109,8 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
       return true;
     }
 
-    constructor() {
+    constructor(options) {
+      hlsOptions = options;
       this.listeners = new Map();
     }
 
@@ -1146,9 +1148,14 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   assert.equal(video.src, "");
   assert.equal(mediaLoads, 0);
   assert.equal(hlsJsLoads, 1);
+  assert.deepEqual(hlsOptions, {
+    enableWorker: true,
+    maxBufferLength: 10,
+    maxBufferSize: 20 * 1000 * 1000,
+  });
 });
 
-test("loading the HLS.js companion does not consume the media timeout", async () => {
+test("HLS.js owns its remote request lifecycle without an outer media timeout", async () => {
   const listeners = new Map();
   const video = {
     canPlayType: () => "",
@@ -1181,7 +1188,7 @@ test("loading the HLS.js companion does not consume the media timeout", async ()
     }
 
     loadSource() {
-      listeners.get("loadedmetadata")?.();
+      setTimeout(() => listeners.get("loadedmetadata")?.(), 15);
     }
 
     destroy() {}

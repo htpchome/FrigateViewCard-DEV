@@ -144,7 +144,7 @@ test("recording HLS fallback is local, version-pinned, and integrity-checked", a
   const previousDocument = globalThis.document;
   const scripts = [];
   const localHlsUrl =
-    "https://home-assistant.test/local/frigate-view-card-hls-1.5.17.js";
+    "https://home-assistant.test/local/frigate-view-card-hls-1.6.15.js";
   class ExistingHls {}
   class LoadedHls {}
   globalThis.window = { Hls: ExistingHls };
@@ -179,7 +179,7 @@ test("recording HLS fallback is local, version-pinned, and integrity-checked", a
     assert.equal(globalThis.window.Hls, ExistingHls);
     assert.equal(
       globalThis.window[
-        Symbol.for("frigate-view-card.recording-hls-1.5.17")
+        Symbol.for("frigate-view-card.recording-hls-1.6.15")
       ],
       LoadedHls,
     );
@@ -187,7 +187,7 @@ test("recording HLS fallback is local, version-pinned, and integrity-checked", a
     assert.equal(scripts[0].src, localHlsUrl);
     assert.equal(
       scripts[0].integrity,
-      "sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni",
+      "sha384-iZBI1/lW9u8FcBjxuQ8nPTsU7TXhZNtzkV8H3gQHSTgz+VYQoKWqGlBHqhO84alJ",
     );
     assert.equal(scripts[0].crossOrigin, "anonymous");
     assert.equal(scripts[0].referrerPolicy, "no-referrer");

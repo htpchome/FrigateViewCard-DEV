@@ -43,9 +43,9 @@ import {
 } from "./view-resize.ctrl.js";
 
 const RECORDING_HLS_JS_INTEGRITY =
-  "sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni";
+  "sha384-iZBI1/lW9u8FcBjxuQ8nPTsU7TXhZNtzkV8H3gQHSTgz+VYQoKWqGlBHqhO84alJ";
 const RECORDING_HLS_JS_CTOR = Symbol.for(
-  "frigate-view-card.recording-hls-1.5.17",
+  "frigate-view-card.recording-hls-1.6.15",
 );
 const MOBILE_POPUP_STAGE_HEIGHT_RATIO = 9 / 16;
 
@@ -155,6 +155,7 @@ export class PopupMediaLoaderController {
     this._recordingScrubController = recordingScrubController;
     this._lifecycleController = lifecycleController;
     this._recordingHls = null;
+    this._recordingAttemptAbort = null;
     this._hlsJsCtorPromise = null;
     this._deps = {
       buildVideoOptionsForView,
@@ -667,6 +668,7 @@ export class PopupMediaLoaderController {
         return false;
       }
     }
+    const usesHlsJs = isHlsSource && HlsCtor?.isSupported?.() === true;
 
     return await new Promise((resolve) => {
       let done = false;
@@ -689,13 +691,23 @@ export class PopupMediaLoaderController {
         }
       };
       const onErr = () => finish(false);
+      let abortAttempt = null;
       const cleanup = () => {
-        clearTimeout(timer);
+        if (timer !== null) clearTimeout(timer);
+        if (this._recordingAttemptAbort === abortAttempt) {
+          this._recordingAttemptAbort = null;
+        }
         video.removeEventListener("loadedmetadata", onReady);
         video.removeEventListener("canplay", onReady);
         video.removeEventListener("error", onErr);
       };
-      const timer = setTimeout(() => finish(false), timeoutMs);
+      // Frigate lets HLS.js own its request retry lifecycle. A short outer
+      // timeout aborts healthy remote iOS requests before the proxy completes.
+      const timer = usesHlsJs
+        ? null
+        : setTimeout(() => finish(false), timeoutMs);
+      abortAttempt = () => finish(false);
+      this._recordingAttemptAbort = abortAttempt;
 
       video.addEventListener("loadedmetadata", onReady, { once: true });
       video.addEventListener("canplay", onReady, { once: true });
@@ -709,11 +721,11 @@ export class PopupMediaLoaderController {
             return;
           }
 
-          if (HlsCtor?.isSupported?.()) {
+          if (usesHlsJs) {
             const hls = new HlsCtor({
               enableWorker: true,
-              maxBufferLength: 60,
-              backBufferLength: 90,
+              maxBufferLength: 10,
+              maxBufferSize: 20 * 1000 * 1000,
             });
             this._recordingHls = hls;
             hls.on(HlsCtor.Events.ERROR, (_evt, data) => {
@@ -1030,6 +1042,9 @@ export class PopupMediaLoaderController {
   }
 
   clearRecordingTransport() {
+    const abortAttempt = this._recordingAttemptAbort;
+    this._recordingAttemptAbort = null;
+    abortAttempt?.();
     if (!this._recordingHls) return;
     try {
       this._recordingHls.destroy();

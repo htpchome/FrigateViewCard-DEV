@@ -33,11 +33,11 @@ export const WIDE_COMPANION_ASSET_NAME =
 export const WIDE_TIMELINE_ASSET_NAME =
   "frigate-view-card-wide-timeline.js";
 
-export const RECORDING_HLS_VERSION = "1.5.17";
+export const RECORDING_HLS_VERSION = "1.6.15";
 export const RECORDING_HLS_JS_ASSET_NAME =
-  "frigate-view-card-hls-1.5.17.js";
+  "frigate-view-card-hls-1.6.15.js";
 export const RECORDING_HLS_LICENSE_ASSET_NAME =
-  "frigate-view-card-hls-1.5.17.LICENSE.txt";
+  "frigate-view-card-hls-1.6.15.LICENSE.txt";
 export const CARD_LICENSE_ASSET_NAME = "frigate-view-card.LICENSE.txt";
 export const LANGUAGE_ASSET_PREFIX = "frigate-view-card-locale";
 

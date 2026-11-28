@@ -72,7 +72,7 @@ const bundlePaths = new Map([
     "/frigate-view-card-wide-companion.js",
     "dist/frigate-view-card-wide-companion.js",
   ],
-  ["/frigate-view-card-hls-1.5.17.js", "dist/frigate-view-card-hls-1.5.17.js"],
+  ["/frigate-view-card-hls-1.6.15.js", "dist/frigate-view-card-hls-1.6.15.js"],
   ...LANGUAGE_ASSET_NAMES.map((language) => [
     `/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
     `dist/${LANGUAGE_ASSET_PREFIX}-${language}.json`,
@@ -6240,7 +6240,7 @@ test("loads the generated HLS browser bundle", async ({ page }) => {
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await page.goto(baseUrl);
-  await page.addScriptTag({ url: `${baseUrl}/frigate-view-card-hls-1.5.17.js` });
+  await page.addScriptTag({ url: `${baseUrl}/frigate-view-card-hls-1.6.15.js` });
 
   expect(await page.evaluate(() => typeof window.Hls)).toBe("function");
   expect(pageErrors).toEqual([]);

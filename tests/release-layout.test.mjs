@@ -59,8 +59,8 @@ test("release filenames remain on the permanent compatibility prefix", () => {
     "frigate-view-card-wide-view.js",
     "frigate-view-card-wide-companion.js",
     "frigate-view-card-wide-timeline.js",
-    "frigate-view-card-hls-1.5.17.js",
-    "frigate-view-card-hls-1.5.17.LICENSE.txt",
+    "frigate-view-card-hls-1.6.15.js",
+    "frigate-view-card-hls-1.6.15.LICENSE.txt",
     "frigate-view-card.LICENSE.txt",
   ]);
   assert.equal(new Set(RELEASE_ASSET_NAMES).size, RELEASE_ASSET_NAMES.length);
@@ -180,7 +180,7 @@ test("HACS release artifact is production-minified", () => {
   );
   assert.match(banner, /MIT license: frigate-view-card\.LICENSE\.txt/);
   assert.ok(Buffer.byteLength(bundle) < 1_900_000);
-  assert.match(bundle, /frigate-view-card-hls-1\.5\.17\.js/);
+  assert.match(bundle, /frigate-view-card-hls-1\.6\.15\.js/);
   assert.match(bundle, /frigate-view-card-editor\.js/);
   assert.doesNotMatch(bundle, /frigate-view-card-circle-pad\.js/);
   assert.match(
@@ -324,6 +324,6 @@ test("lazy HLS release asset matches the pinned integrity hash", () => {
 
   assert.equal(
     integrity,
-    "9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni",
+    "iZBI1/lW9u8FcBjxuQ8nPTsU7TXhZNtzkV8H3gQHSTgz+VYQoKWqGlBHqhO84alJ",
   );
 });
