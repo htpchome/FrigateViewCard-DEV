@@ -1085,7 +1085,6 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   let mediaLoads = 0;
   let attachedVideo = null;
   let loadedSource = "";
-  let hlsOptions = null;
   const video = {
     src: "",
     canPlayType: (type) =>
@@ -1109,8 +1108,7 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
       return true;
     }
 
-    constructor(options) {
-      hlsOptions = options;
+    constructor() {
       this.listeners = new Map();
     }
 
@@ -1130,13 +1128,7 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
 
     destroy() {}
   }
-  const signedPaths = [];
-  const controller = new PopupMediaLoaderController({
-    _signed: async (path) => {
-      signedPaths.push(path);
-      return `${path}${path.includes("?") ? "&" : "?"}authSig=exact`;
-    },
-  });
+  const controller = new PopupMediaLoaderController({});
   controller._getHlsJsCtor = async () => {
     hlsJsLoads += 1;
     return FakeHls;
@@ -1154,22 +1146,6 @@ test("HLS.js recording playback is preferred when native HLS is available", asyn
   assert.equal(video.src, "");
   assert.equal(mediaLoads, 0);
   assert.equal(hlsJsLoads, 1);
-
-  const xhrCalls = [];
-  await hlsOptions.xhrSetup(
-    { open: (...args) => xhrCalls.push(args) },
-    "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=parent",
-  );
-  assert.deepEqual(signedPaths, [
-    "/api/frigate/frigate/vod/front/index.m3u8",
-  ]);
-  assert.deepEqual(xhrCalls, [
-    [
-      "GET",
-      "http://localhost/api/frigate/frigate/vod/front/index.m3u8?authSig=exact",
-      true,
-    ],
-  ]);
 });
 
 test("loading the HLS.js companion does not consume the media timeout", async () => {

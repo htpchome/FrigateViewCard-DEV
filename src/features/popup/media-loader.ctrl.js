@@ -33,7 +33,6 @@ import {
   resolveFrigateEventPrePostRollRange,
   resolveFrigateEventRecordingRange,
 } from "../../integrations/frigate/event-media.js";
-import { openSignedFrigateRequest } from "../../integrations/frigate/bootstrap.js";
 import {
   POPUP_VIEW_INITIAL_MAX_HEIGHT_RATIO,
   POPUP_VIEW_MAX_HEIGHT_DVH,
@@ -45,6 +44,9 @@ import {
 
 const RECORDING_HLS_JS_INTEGRITY =
   "sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni";
+const RECORDING_HLS_JS_CTOR = Symbol.for(
+  "frigate-view-card.recording-hls-1.5.17",
+);
 const MOBILE_POPUP_STAGE_HEIGHT_RATIO = 9 / 16;
 
 export const resolveRecordingHlsJsUrl = (moduleUrl = import.meta.url) =>
@@ -169,7 +171,6 @@ export class PopupMediaLoaderController {
           isEdge: host._isEdge?.() === true,
           isSafari: host._isSafari?.() === true,
         }),
-      signRecordingHlsPath: (path) => host._signed?.(path) || path,
       isEventPrePostRollEnabled: () =>
         host._config?.event_pre_post_roll_enabled === true,
       isMobileTabletViewport: () =>
@@ -713,13 +714,6 @@ export class PopupMediaLoaderController {
               enableWorker: true,
               maxBufferLength: 60,
               backBufferLength: 90,
-              xhrSetup: async (xhr, url) => {
-                await openSignedFrigateRequest({
-                  xhr,
-                  url,
-                  signPath: this._deps.signRecordingHlsPath,
-                });
-              },
             });
             this._recordingHls = hls;
             hls.on(HlsCtor.Events.ERROR, (_evt, data) => {
@@ -1054,8 +1048,9 @@ export class PopupMediaLoaderController {
   }
 
   async _getHlsJsCtor() {
-    const existing = globalThis.window?.Hls;
-    if (existing) return existing;
+    const hlsWindow = globalThis.window;
+    const ownedCtor = hlsWindow?.[RECORDING_HLS_JS_CTOR];
+    if (ownedCtor) return ownedCtor;
     if (!this._hlsJsCtorPromise) {
       this._hlsJsCtorPromise = new Promise((resolve) => {
         let scriptSrc = "";
@@ -1071,10 +1066,19 @@ export class PopupMediaLoaderController {
           resolve(null);
           return;
         }
+        const previousCtor = hlsWindow?.Hls;
         const finish = (ctor) => {
           script.onload = null;
           script.onerror = null;
           script.remove?.();
+          if (hlsWindow) {
+            if (ctor) hlsWindow[RECORDING_HLS_JS_CTOR] = ctor;
+            if (previousCtor === undefined) {
+              delete hlsWindow.Hls;
+            } else {
+              hlsWindow.Hls = previousCtor;
+            }
+          }
           resolve(ctor || null);
         };
         script.src = scriptSrc;
@@ -1082,7 +1086,7 @@ export class PopupMediaLoaderController {
         script.integrity = RECORDING_HLS_JS_INTEGRITY;
         script.crossOrigin = "anonymous";
         script.referrerPolicy = "no-referrer";
-        script.onload = () => finish(globalThis.window?.Hls);
+        script.onload = () => finish(hlsWindow?.Hls);
         script.onerror = () => finish(null);
         head.appendChild(script);
       });

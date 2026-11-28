@@ -145,8 +145,9 @@ test("recording HLS fallback is local, version-pinned, and integrity-checked", a
   const scripts = [];
   const localHlsUrl =
     "https://home-assistant.test/local/frigate-view-card-hls-1.5.17.js";
+  class ExistingHls {}
   class LoadedHls {}
-  globalThis.window = {};
+  globalThis.window = { Hls: ExistingHls };
   globalThis.document = {
     createElement: (tagName) => {
       assert.equal(tagName, "script");
@@ -175,6 +176,13 @@ test("recording HLS fallback is local, version-pinned, and integrity-checked", a
     });
     assert.equal(await controller._getHlsJsCtor(), LoadedHls);
     assert.equal(await controller._getHlsJsCtor(), LoadedHls);
+    assert.equal(globalThis.window.Hls, ExistingHls);
+    assert.equal(
+      globalThis.window[
+        Symbol.for("frigate-view-card.recording-hls-1.5.17")
+      ],
+      LoadedHls,
+    );
     assert.equal(scripts.length, 1);
     assert.equal(scripts[0].src, localHlsUrl);
     assert.equal(
