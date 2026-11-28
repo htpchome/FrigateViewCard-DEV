@@ -112,7 +112,7 @@ test("popup video remains in one loading state until playable", () => {
   assert.equal(listeners.size, 0);
 });
 
-test("showClipById routes clip loading through popup media rendering", () => {
+test("showClipById routes iOS HLS clips through the shared source loader", async () => {
   const host = {
     _findEventById: (id) => ({ id, has_clip: true, start_time: 10 }),
     _media: (id, file) => `/media/${id}/${file}`,
@@ -126,24 +126,33 @@ test("showClipById routes clip loading through popup media rendering", () => {
   controller.renderPopupMedia = (payload) => {
     rendered = payload;
   };
+  let sourceAttempt = null;
+  controller._getHlsJsCtor = async () => ({ isSupported: () => true });
+  controller.tryRecordingSource = async (video, src, options) => {
+    sourceAttempt = { video, src, options };
+    return true;
+  };
 
-  controller.showClipById("event-1", { mediaType: "alert" });
+  await controller.showClipById("event-1", { mediaType: "alert" });
 
   assert.equal(rendered.playingId, "event-1");
   assert.equal(rendered.mediaType, "alert");
   assert.equal(rendered.infoEvent.id, "event-1");
   assert.equal(
-    rendered.mediaElement.options.src.includes("/media/event-1/master.m3u8"),
+    sourceAttempt.src.includes("/media/event-1/master.m3u8"),
     true,
   );
+  assert.equal(rendered.mediaElement.options.src, undefined);
+  assert.equal(sourceAttempt.video, rendered.mediaElement);
+  assert.equal(sourceAttempt.options.hlsCtorPromise instanceof Promise, true);
   assert.equal(rendered.mediaElement.options.controls, false);
   assert.equal(rendered.mediaElement.options.preload, "auto");
   assert.equal(rendered.mediaElement.options.allowRemotePlayback, true);
-  assert.equal(typeof rendered.onMediaError, "function");
+  assert.equal(rendered.onMediaError, null);
 });
 
 for (const method of ["showClip", "showClipById"]) {
-  test(`${method} uses native HLS for direct clips in desktop Safari`, () => {
+  test(`${method} routes desktop Safari HLS clips through the shared source loader`, async () => {
     const event = {
       id: "safari-event",
       camera: "front_door",
@@ -164,20 +173,25 @@ for (const method of ["showClip", "showClipById"]) {
     controller.renderPopupMedia = (payload) => {
       rendered = payload;
     };
+    let sourceAttempt = null;
+    controller._getHlsJsCtor = async () => ({ isSupported: () => true });
+    controller.tryRecordingSource = async (_video, src) => {
+      sourceAttempt = src;
+      return true;
+    };
 
-    controller[method](method === "showClip" ? event : event.id);
+    await controller[method](method === "showClip" ? event : event.id);
 
     assert.equal(
-      rendered.mediaElement.options.src.includes(
-        "/safari-event/master.m3u8",
-      ),
+      sourceAttempt.includes("/safari-event/master.m3u8"),
       true,
     );
+    assert.equal(rendered.mediaElement.options.src, undefined);
     assert.equal(rendered.mediaElement.options.allowRemotePlayback, true);
   });
 }
 
-test("Chromium keeps MP4 when native HLS is available", () => {
+test("Chromium keeps MP4 when native HLS is available", async () => {
   const event = { id: "chromium-event", has_clip: true };
   const host = {
     _findEventById: () => event,
@@ -195,7 +209,7 @@ test("Chromium keeps MP4 when native HLS is available", () => {
     rendered = payload;
   };
 
-  controller.showClip(event);
+  await controller.showClip(event);
 
   assert.equal(
     rendered.mediaElement.options.src.includes(
@@ -830,7 +844,7 @@ test("Safari pre-roll and post-roll keep Alert popup AirPlay-capable", async () 
     removeEventListener: () => {},
     pause: () => {},
     play: () => Promise.resolve(),
-    canPlayType: () => "",
+    canPlayType: () => "probably",
   };
   const host = {
     _playSeq: 0,
@@ -1065,9 +1079,77 @@ test("Chrome recording playback prefers HLS for timeline seeking", () => {
   assert.equal(controller._deps.preferRecordingHls(), true);
 });
 
-test("native HLS recording playback never loads the HLS.js companion", async () => {
+test("HLS.js recording playback is preferred when native HLS is available", async () => {
   const listeners = new Map();
   let hlsJsLoads = 0;
+  let mediaLoads = 0;
+  let attachedVideo = null;
+  let loadedSource = "";
+  const video = {
+    src: "",
+    canPlayType: (type) =>
+      type === "application/vnd.apple.mpegurl" ? "probably" : "",
+    addEventListener: (type, listener) => listeners.set(type, listener),
+    removeEventListener: (type, listener) => {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    },
+    load: () => {
+      mediaLoads += 1;
+      listeners.get("loadedmetadata")?.();
+    },
+  };
+  class FakeHls {
+    static Events = {
+      ERROR: "error",
+      MEDIA_ATTACHED: "media-attached",
+    };
+
+    static isSupported() {
+      return true;
+    }
+
+    constructor() {
+      this.listeners = new Map();
+    }
+
+    on(type, listener) {
+      this.listeners.set(type, listener);
+    }
+
+    attachMedia(media) {
+      attachedVideo = media;
+      this.listeners.get(FakeHls.Events.MEDIA_ATTACHED)?.();
+    }
+
+    loadSource(src) {
+      loadedSource = src;
+      listeners.get("loadedmetadata")?.();
+    }
+
+    destroy() {}
+  }
+  const controller = new PopupMediaLoaderController({});
+  controller._getHlsJsCtor = async () => {
+    hlsJsLoads += 1;
+    return FakeHls;
+  };
+
+  const loaded = await controller.tryRecordingSource(
+    video,
+    "/api/recording/master.m3u8",
+    { autoplay: false, timeoutMs: 50 },
+  );
+
+  assert.equal(loaded, true);
+  assert.equal(attachedVideo, video);
+  assert.equal(loadedSource, "/api/recording/master.m3u8");
+  assert.equal(video.src, "");
+  assert.equal(mediaLoads, 0);
+  assert.equal(hlsJsLoads, 1);
+});
+
+test("native HLS remains the fallback when HLS.js is unsupported", async () => {
+  const listeners = new Map();
   let mediaLoads = 0;
   const video = {
     src: "",
@@ -1083,10 +1165,7 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
     },
   };
   const controller = new PopupMediaLoaderController({});
-  controller._getHlsJsCtor = async () => {
-    hlsJsLoads += 1;
-    return null;
-  };
+  controller._getHlsJsCtor = async () => ({ isSupported: () => false });
 
   const loaded = await controller.tryRecordingSource(
     video,
@@ -1097,7 +1176,6 @@ test("native HLS recording playback never loads the HLS.js companion", async () 
   assert.equal(loaded, true);
   assert.equal(video.src, "/api/recording/master.m3u8");
   assert.equal(mediaLoads, 1);
-  assert.equal(hlsJsLoads, 0);
 });
 
 test("carousel selections preserve alert and snapshot popup media types", () => {

@@ -391,6 +391,7 @@ export class PopupMediaLoaderController {
   }
 
   buildPopupVideo(src, { autoplay = true, muted = true } = {}) {
+    const sourceOptions = typeof src === "string" ? { src } : {};
     return this._deps.createVideoElement(
       this._deps.buildVideoOptionsForView(
         "popup",
@@ -401,7 +402,7 @@ export class PopupMediaLoaderController {
           preload: "auto",
           allowRemotePlayback:
             this._deps.isIOS || this._deps.isSafari(),
-          src,
+          ...sourceOptions,
         },
         { scopeKey: this._host },
       ),
@@ -436,10 +437,10 @@ export class PopupMediaLoaderController {
     });
     if (configuredRange) return configuredRange;
 
-    const shouldUseNativeHlsRange =
+    const shouldUseEventRecordingRange =
       this._deps.isIOS ||
       (this._deps.isSafari() && this._deps.supportsNativeHls());
-    return shouldUseNativeHlsRange
+    return shouldUseEventRecordingRange
       ? resolveFrigateEventRecordingRange({ event })
       : null;
   }
@@ -452,37 +453,18 @@ export class PopupMediaLoaderController {
     return this._showDirectClip(event, opts);
   }
 
-  _showDirectClip(event, opts = {}) {
-    const renderPlan = buildPopupClipRenderPlan({
-      id: event.id,
-      opts,
-      infoEvent: event,
-      isIos: this._deps.isIOS,
-      isSafari: this._deps.isSafari(),
-      supportsNativeHls: this._deps.supportsNativeHls(),
-    });
-    const src = this.buildPopupClipSrc(
-      event.id,
-      renderPlan.mediaFile,
-      event?.camera,
-    );
-    this.renderPopupMedia({
-      playingId: renderPlan.playingId,
-      mediaElement: this.buildPopupVideo(src),
-      mediaType: renderPlan.mediaType,
-      infoEvent: renderPlan.infoEvent,
-      infoOpts: renderPlan.infoOpts,
-      onMediaError: () => this.showUnavailableClipFallback(event, opts),
-    });
-  }
-
-  showClipById(id, opts = {}) {
-    if (!id) return;
-    const event = this._host._findEventById(id);
-    const range = this._resolveEventRecordingRange(event, opts);
-    if (range) {
-      return this.showEventRecording(event, opts, range);
-    }
+  async _showDirectClip(
+    event,
+    opts = {},
+    { id = event?.id || "", includeLookupInfo = false } = {},
+  ) {
+    const fallbackEvent =
+      event || {
+        id,
+        camera: opts.camera || "",
+        start_time: opts.startTime,
+        has_clip: true,
+      };
     const renderPlan = buildPopupClipRenderPlan({
       id,
       opts,
@@ -490,29 +472,51 @@ export class PopupMediaLoaderController {
       isIos: this._deps.isIOS,
       isSafari: this._deps.isSafari(),
       supportsNativeHls: this._deps.supportsNativeHls(),
-      includeLookupInfo: true,
+      includeLookupInfo,
     });
     const src = this.buildPopupClipSrc(
       id,
       renderPlan.mediaFile,
       event?.camera || opts.camera,
     );
+    const video = this.buildPopupVideo(
+      isM3u8Url(src) ? undefined : src,
+    );
     this.renderPopupMedia({
       playingId: renderPlan.playingId,
-      mediaElement: this.buildPopupVideo(src),
+      mediaElement: video,
       mediaType: renderPlan.mediaType,
       infoEvent: renderPlan.infoEvent,
       infoOpts: renderPlan.infoOpts,
-      onMediaError: () =>
-        this.showUnavailableClipFallback(
-          event || {
-            id,
-            camera: opts.camera || "",
-            start_time: opts.startTime,
-            has_clip: true,
-          },
-          opts,
-        ),
+      onMediaError: isM3u8Url(src)
+        ? null
+        : () => this.showUnavailableClipFallback(fallbackEvent, opts),
+    });
+    if (!isM3u8Url(src)) return true;
+
+    const token = Number(this._host?._playSeq);
+    const playable = await this.tryRecordingSource(video, src, {
+      hlsCtorPromise: this._getHlsJsCtor(),
+      playbackToken: token,
+    });
+    if (!this._isPlaybackTokenCurrent(token)) return false;
+    if (playable) return true;
+
+    this.clearRecordingTransport();
+    this.showUnavailableClipFallback(fallbackEvent, opts);
+    return false;
+  }
+
+  async showClipById(id, opts = {}) {
+    if (!id) return;
+    const event = this._host._findEventById(id);
+    const range = this._resolveEventRecordingRange(event, opts);
+    if (range) {
+      return await this.showEventRecording(event, opts, range);
+    }
+    return await this._showDirectClip(event, opts, {
+      id,
+      includeLookupInfo: true,
     });
   }
 
@@ -635,7 +639,12 @@ export class PopupMediaLoaderController {
   async tryRecordingSource(
     video,
     src,
-    { autoplay = true, timeoutMs = 9000, hlsCtorPromise = null } = {},
+    {
+      autoplay = true,
+      timeoutMs = 9000,
+      hlsCtorPromise = null,
+      playbackToken = null,
+    } = {},
   ) {
     if (!video || !src) return false;
     const isHlsSource = isM3u8Url(src);
@@ -682,34 +691,41 @@ export class PopupMediaLoaderController {
             return;
           }
 
-          const canNativeHls = !!video.canPlayType(
-            "application/vnd.apple.mpegurl",
-          );
-          if (canNativeHls) {
-            video.src = src;
-            video.load();
-            return;
-          }
-
           const HlsCtor = await (hlsCtorPromise || this._getHlsJsCtor());
-          if (!HlsCtor || !HlsCtor.isSupported?.()) {
+          if (
+            playbackToken !== null &&
+            !this._isPlaybackTokenCurrent(playbackToken)
+          ) {
             finish(false);
             return;
           }
 
-          const hls = new HlsCtor({
-            enableWorker: true,
-            maxBufferLength: 60,
-            backBufferLength: 90,
-          });
-          this._recordingHls = hls;
-          hls.on(HlsCtor.Events.ERROR, (_evt, data) => {
-            if (data?.fatal) finish(false);
-          });
-          hls.attachMedia(video);
-          hls.on(HlsCtor.Events.MEDIA_ATTACHED, () => {
-            hls.loadSource(src);
-          });
+          if (HlsCtor?.isSupported?.()) {
+            const hls = new HlsCtor({
+              enableWorker: true,
+              maxBufferLength: 60,
+              backBufferLength: 90,
+            });
+            this._recordingHls = hls;
+            hls.on(HlsCtor.Events.ERROR, (_evt, data) => {
+              if (data?.fatal) finish(false);
+            });
+            hls.on(HlsCtor.Events.MEDIA_ATTACHED, () => {
+              hls.loadSource(src);
+            });
+            hls.attachMedia(video);
+            return;
+          }
+
+          const canNativeHls = !!video.canPlayType(
+            "application/vnd.apple.mpegurl",
+          );
+          if (!canNativeHls) {
+            finish(false);
+            return;
+          }
+          video.src = src;
+          video.load();
         } catch (_) {
           finish(false);
         }
@@ -869,11 +885,8 @@ export class PopupMediaLoaderController {
     };
     this._lifecycleController?.setMediaCleanup?.(runMediaCleanup);
     const firstSourcePath = sourceAttemptPlan.attempts[0]?.path || "";
-    const hasNativeHls = !!video?.canPlayType?.(
-      "application/vnd.apple.mpegurl",
-    );
     const hlsCtorPromise =
-      isM3u8Url(firstSourcePath) && !hasNativeHls
+      isM3u8Url(firstSourcePath)
         ? this._getHlsJsCtor()
         : null;
     const scrubInitPlan =
@@ -932,6 +945,7 @@ export class PopupMediaLoaderController {
           hlsCtorPromise: isM3u8Url(attempt.path)
             ? hlsCtorPromise
             : null,
+          playbackToken: token,
         });
         if (this._host._playSeq !== token) return;
         if (playable) {
